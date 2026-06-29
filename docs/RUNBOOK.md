@@ -1,3 +1,8 @@
+---
+title: Runbook
+description: End-to-end walkthrough from a fresh checkout to visible synthetic telemetry in Grafana Cloud, including credentials, verification, and the control plane.
+---
+
 # synthkit runbook — credentials → telemetry in Grafana
 
 This is the end-to-end path from a fresh checkout to **visible synthetic telemetry in Grafana
@@ -17,7 +22,7 @@ When the run is healthy you will see, in the **customer stack**:
 - Mimir series for every declared construct (e.g. `aws_rds_cpuutilization_average`,
   `kube_node_info`, `pg_stat_statements_calls_total`), each carrying a `blueprint=<name>` selector
   on blueprint-scoped constructs.
-- Tempo traces with a golden thread (`service.name=<workload>` → child DB span).
+- Tempo traces with end-to-end request correlation (`service.name=<workload>` → child DB span).
 - Loki streams for the app log stream (`blueprint=<name>`, `source=app`).
 - (optional) Faro/RUM beacons, Synthetic Monitoring check series, and Fleet Management collectors.
 
@@ -146,7 +151,7 @@ gcx --context <customer-stack> metrics query 'pg_stat_statements_calls_total'
 Expect one series group per blueprint that declares the construct. (Use the `gcx:explore-datasources`
 skill to browse what landed.)
 
-### 5.3 Traces (Tempo) — the golden thread
+### 5.3 Traces (Tempo) — end-to-end request correlation
 
 In Explore → Tempo (customer stack), search `service.name="<your-service>"` (or your workload) and
 confirm a trace whose root request span has a **child DB span** to the declared database. The
@@ -205,7 +210,7 @@ State persists across restarts via the snapshot file.
 non-loopback (the startup log warns if it is not set and the bind is not `127.0.0.1`). The UI
 only ever stores or displays the *env-var name* for git blueprint source tokens (e.g.
 `MY_GIT_TOKEN`) — it never transmits the value over the wire — but the *resolved token value*
-is written into the control-state snapshot (`control-state.json` at `BLUEPRINT_DATA_DIR`). Treat
+is written into the control-state snapshot (`control-state.json` at `CONFIG_SNAPSHOT_PATH`). Treat
 that file as a secret: restrict filesystem permissions on the host, and do not include it in
 backups that land in less-trusted storage.
 

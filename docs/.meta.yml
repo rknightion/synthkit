@@ -1,0 +1,15 @@
+title: synthkit Documentation
+description: Composable synthetic-telemetry generator for Grafana Cloud — declare infrastructure and applications in one YAML blueprint and emit structurally-correct synthetic metrics, traces, logs, and RUM.
+tags:
+  - synthetic-telemetry
+  - observability
+  - grafana-cloud
+  - prometheus
+  - opentelemetry
+image: assets/social-card.png
+twitter:
+  creator: "@rknightion"
+  site: "@rknightion"
+robots: index,follow
+language: en
+canonical_base: https://m7kni.io/synthkit/

@@ -1,0 +1,55 @@
+User-agent: *
+Allow: /
+
+# Encourage indexing of documentation
+Allow: /getting-started/
+Allow: /installation/
+Allow: /credentials/
+Allow: /quickstart/
+Allow: /blueprints/
+Allow: /blueprint-reference/
+Allow: /infrastructure/
+Allow: /workloads/
+Allow: /signals/
+Allow: /signal-areas/
+Allow: /configuration/
+Allow: /deployment/
+Allow: /control-plane/
+Allow: /architecture/
+Allow: /cli/
+Allow: /constructs/
+Allow: /troubleshooting/
+Allow: /changelog/
+
+# Static assets
+Allow: /assets/
+Allow: /stylesheets/
+Allow: /javascripts/
+
+# Explicitly allow AI crawlers for both training and retrieval
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Amazonbot
+Allow: /

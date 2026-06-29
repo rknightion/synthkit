@@ -1,3 +1,8 @@
+---
+title: Native Histograms Setup
+description: How to enable native exponential histogram ingestion in Mimir and query span-metric histogram families emitted by synthkit.
+---
+
 # Native histogram setup
 
 synthkit emits three span-metric histogram families as **dual** (native exponential + classic
