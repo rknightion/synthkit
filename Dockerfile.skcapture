@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 #
 # Pinned kubectl version: update KUBECTL_VERSION when your cluster API server
 # requires a newer minor version (keep within ±1 of your cluster version).
-FROM alpine:3.21
+FROM alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
 
 ARG KUBECTL_VERSION=1.32.5
 ARG KUBECTL_CHECKSUM=aaa7e6ff3bd28c262f2d95c8c967597e097b092e9b79bcb37de699e7488e3e7b
