@@ -206,3 +206,8 @@ func hexN(n int) string {
 // NewSpanID mints a fresh W3C 64-bit span id (16 hex chars). Per-hop span ids are minted
 // here so nothing outside the ledger package mints request-scoped ids (I9).
 func NewSpanID() string { return hexN(8) }
+
+// NewTraceID mints a fresh W3C 128-bit trace id (32 hex chars). Used by multi-turn workloads
+// (e.g. the aiagent sigil workload) that own one trace per conversation-turn — minted here so
+// nothing outside the ledger package mints request-scoped ids (I9).
+func NewTraceID() string { return hexN(16) }

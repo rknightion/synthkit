@@ -15,6 +15,7 @@ func fullConfig() *Config {
 		PromRWURL: "https://prom", PromUser: "111", OTLPEndpoint: "https://otlp", OTLPUser: "222",
 		LokiURL: "https://loki", LokiUser: "333", Token: "SEC-GC", FaroCollector: "https://faro",
 		FaroAppKey: "SEC-FARO", FMURL: "https://fm", FMStackID: "444", FMToken: "SEC-FM",
+		SigilEndpoint: "https://sigil", SigilTenantID: "888", SigilToken: "SEC-SIGIL",
 		DryRun: false, MasterTick: 5_000_000_000, TickTimeout: 0, SeriesCap: 0,
 		BlueprintsDir: "./blueprints", BlueprintDataDir: "./data/blueprints", HTTPAddr: "127.0.0.1:8088",
 		SnapshotPath: "./control-state.json", ControlToken: "SEC-CTL",

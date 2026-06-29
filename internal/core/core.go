@@ -21,6 +21,7 @@ import (
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/scale"
 	"github.com/rknightion/synthkit/internal/shape"
+	"github.com/rknightion/synthkit/internal/sigil"
 	"github.com/rknightion/synthkit/internal/sink/faro"
 	"github.com/rknightion/synthkit/internal/sink/loki"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
@@ -39,6 +40,7 @@ const (
 	RUM
 	PyroscopeProfiles
 	OTLPMetrics
+	Sigil
 )
 
 func (c SignalClass) String() string {
@@ -55,6 +57,8 @@ func (c SignalClass) String() string {
 		return "pyroscope_profiles"
 	case OTLPMetrics:
 		return "otlp_metrics"
+	case Sigil:
+		return "sigil"
 	default:
 		return "unknown"
 	}
@@ -110,6 +114,14 @@ type PyroscopeWriter interface {
 	Write(ctx context.Context, series []pyrosink.Series) error
 }
 
+// SigilWriter ships native sigil AI-Observability ingest batches (generations/workflow-steps/
+// scores) to the sigil HTTP ingest. UNLIKE the other writers it is NOT blueprint-scoped: sigil
+// data is substrate-like (the ingest proto has no blueprint-label field, and real sigil data
+// carries none) — disambiguation is by agent_name/service.name/conversation_id (review M3).
+type SigilWriter interface {
+	Write(ctx context.Context, batches []sigil.Export) error
+}
+
 // World is the per-blueprint execution context handed to every Tick/ProjectBatch.
 // Writers are nil for signal classes the instance did not declare — the runner only
 // wires what Signals() promises. Ledger is non-nil for workloads only; constructs
@@ -130,6 +142,8 @@ type World struct {
 	// EmitSpanMetrics gates synthkit's OWN backend spanmetrics + service-graph emission.
 	// false ⇒ defer to Grafana Cloud metrics-generator / beyla (which also emit the exemplars).
 	EmitSpanMetrics bool
+	// Sigil is the native sigil AI-Observability ingest lane (nil unless the instance declared Sigil).
+	Sigil SigilWriter
 }
 
 // Construct is an infra/topology module instance: render the config + fixtures it was

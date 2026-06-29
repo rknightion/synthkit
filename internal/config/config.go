@@ -33,6 +33,14 @@ type Config struct {
 	FMStackID string // GC_FM_STACK_ID
 	FMToken   string // GC_FM_TOKEN
 
+	// Sigil AI-Observability ingest (optional). SigilEndpoint empty ⇒ the aiagent sigil
+	// generation lane no-ops (traces/metrics still emit via the OTLP/prom endpoints). Auth is
+	// HTTP Basic base64(SigilTenantID:SigilToken) — SigilTenantID is the stack/tenant id (NOT
+	// GC_PROM_USER); SigilToken is a CAP with the sigil ingest scope (NOT GC_TOKEN).
+	SigilEndpoint string // GC_SIGIL_ENDPOINT (base, e.g. https://sigil-prod-gb-south-1.grafana.net)
+	SigilTenantID string // GC_SIGIL_TENANT_ID
+	SigilToken    string // GC_SIGIL_TOKEN
+
 	DryRun           bool          // DRY_RUN (default true)
 	MasterTick       time.Duration // TICK_DEFAULT (default 5s)
 	TickTimeout      time.Duration // TICK_TIMEOUT seconds (0/unset = disabled) — optional per-blueprint per-tick backstop
@@ -129,6 +137,9 @@ func Load(envPath string) (*Config, error) {
 		FMURL:            get("GC_FM_URL", ""),
 		FMStackID:        get("GC_FM_STACK_ID", ""),
 		FMToken:          get("GC_FM_TOKEN", ""),
+		SigilEndpoint:    get("GC_SIGIL_ENDPOINT", ""),
+		SigilTenantID:    get("GC_SIGIL_TENANT_ID", ""),
+		SigilToken:       get("GC_SIGIL_TOKEN", ""),
 		BlueprintsDir:    get("BLUEPRINTS", "./blueprints"),
 		BlueprintDataDir: get("BLUEPRINT_DATA_DIR", "./data/blueprints"),
 		HTTPAddr:         get("JSON_HTTP_ADDR", "127.0.0.1:8088"),
@@ -254,6 +265,13 @@ func (c *Config) ValidateLive() error {
 
 // RUMEnabled reports whether the optional Faro credential pair is present.
 func (c *Config) RUMEnabled() bool { return c.FaroCollector != "" && c.FaroAppKey != "" }
+
+// SigilEnabled reports whether the sigil AI-Observability generation-ingest lane is configured.
+// Like every synthetic sink there is no on/off flag — the lane is wired whenever its credential
+// triplet is present; blueprints decide which aiagent workloads actually emit.
+func (c *Config) SigilEnabled() bool {
+	return c.SigilEndpoint != "" && c.SigilTenantID != "" && c.SigilToken != ""
+}
 
 // SynthProfilesEnabled reports whether the synthetic Pyroscope-profiles sink is configured. Like
 // every other synthetic sink there is NO global on/off flag — the lane is wired whenever its
