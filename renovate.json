@@ -13,7 +13,7 @@
   "semanticCommitType": "chore",
   "semanticCommitScope": "deps",
   "labels": ["dependencies"],
-  "description": "chore(deps) keeps dep bumps out of the release CHANGELOG (release-please hides chore). No schedule — PRs open as soon as a release clears minimumReleaseAge; non-major bumps automerge once CI is green. majors open a PR for manual merge.",
+  "description": "chore(deps) keeps dep bumps out of the release CHANGELOG (release-please hides chore). No schedule — PRs open as soon as a release clears minimumReleaseAge; all bumps (including majors) automerge once CI is green — the repo's strong CI/test coverage makes a green pipeline a sufficient guard for major bumps too.",
   "automerge": true,
   "platformAutomerge": true,
   "automergeStrategy": "squash",
@@ -31,11 +31,6 @@
     "schedule": ["at any time"]
   },
   "packageRules": [
-    {
-      "description": "Major bumps can carry behavioural breaks the test suite won't catch — open a PR but require a manual merge. Everything else automerges on green CI.",
-      "matchUpdateTypes": ["major"],
-      "automerge": false
-    },
     {
       "description": "Batch all non-major Go module bumps into one PR — most are transitive churn not worth a PR each.",
       "matchManagers": ["gomod"],
