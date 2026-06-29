@@ -57,12 +57,12 @@ type Activity struct {
 
 // EvalDecl declares an online evaluator that scores matching generations.
 type EvalDecl struct {
-	Name         string  `yaml:"name"`
-	Kind         string  `yaml:"kind"`       // llm_judge | heuristic
-	ScoreKey     string  `yaml:"score_key"`
-	ValueType    string  `yaml:"value_type"` // number | bool | string
-	Threshold    float64 `yaml:"threshold,omitempty"`
-	JudgeModel   string  `yaml:"judge_model,omitempty"`
+	Name          string  `yaml:"name"`
+	Kind          string  `yaml:"kind"` // llm_judge | heuristic
+	ScoreKey      string  `yaml:"score_key"`
+	ValueType     string  `yaml:"value_type"` // number | bool | string
+	Threshold     float64 `yaml:"threshold,omitempty"`
+	JudgeModel    string  `yaml:"judge_model,omitempty"`
 	JudgeProvider string  `yaml:"judge_provider,omitempty"`
 }
 
