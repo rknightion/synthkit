@@ -68,3 +68,20 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: make e2e
+
+  # Single aggregator the branch ruleset gates on (`ci-success` required status check). Keeping the
+  # ruleset pinned to one check means the job list above can change without touching branch
+  # protection. GitHub-only — not mirrored to .forgejo (no fleet ruleset there; documented divergence).
+  ci-success:
+    name: ci-success
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [go, hygiene, secret-scan, ui, docker, e2e]
+    steps:
+      - name: Fail if any required job did not pass
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "A required job failed or was cancelled: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+      - name: All required jobs passed
+        run: echo "ci-success — ${{ join(needs.*.result, ', ') }}"
