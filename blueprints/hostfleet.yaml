@@ -1,0 +1,94 @@
+# hostfleet — showcase fleet for the `host` construct: traditional non-k8s machines running
+# Grafana Alloy's node/windows/macos exporter (+ optional Docker cadvisor). Models a
+# representative mixed-OS fleet (linux/windows/macos mix; integration and full metric profiles;
+# docker lanes).
+#
+# Substrate-scoped: every node_*/windows_*/container_* series is disambiguated by (job, instance)
+# — no blueprint label. Each hostname MUST be unique across all loaded blueprints.
+#
+# Host-only blueprint: no environments: required. The hosts: list is a top-level flat fleet
+# resolved by the Pass 3b hosts resolver (internal/blueprint/resolve.go:737). Signal contract:
+# signals/host.md (captured from live node/windows/macos exporters).
+name: hostfleet
+label: hostfleet
+shape: business_hours_plateau
+timezone: Europe/London
+metadata:
+  description: "Showcase host fleet: a representative mix of Linux/Windows/macOS machines exercising integration + full metric profiles, the Docker cadvisor lane, and per-OS log streams."
+  owner: platform-observability
+  category: reference
+  tags: [host, linux, windows, macos, docker, node-exporter, alloy]
+  links:
+    signals: ./signals/host.md
+
+hosts:
+  # hfleet-linux01 — primary Linux server (Fedora 44, Intel x86_64).
+  # integration profile (cost-controlled allowlist); docker lane on (47 containers — a typical
+  # media/automation stack). os_version is the Fedora release ID; kernel is a representative
+  # fc44 kernel from a live capture.
+  - name: hfleet-linux01
+    os: linux
+    cpus: 8
+    memory_gb: 128
+    metrics_profile: integration
+    os_version: "44"
+    kernel: "7.0.10-201.fc44.x86_64"
+    observability:
+      docker: true
+
+  # hfleet-linux02 — secondary Linux server (Fedora 44, Intel x86_64).
+  # integration profile (default); docker lane on (27 containers — a typical edge/telemetry
+  # stack). Kernel matches a live capture.
+  - name: hfleet-linux02
+    os: linux
+    cpus: 4
+    memory_gb: 64
+    os_version: "44"
+    kernel: "7.0.12-201.fc44.x86_64"
+    observability:
+      docker: true
+
+  # hfleet-pve01 — Proxmox VE hypervisor (Debian GNU/Linux 13, x86_64).
+  # full profile: captures the broader Alloy surface beyond the integration allowlist,
+  # including ZFS arc/zpool metrics and KSM (ksmd) stats characteristic of a Proxmox host.
+  # Proxmox kernel version from a live capture.
+  - name: hfleet-pve01
+    os: linux
+    cpus: 8
+    memory_gb: 64
+    metrics_profile: full
+    os_version: "13"
+    kernel: "7.0.6-2-pve"
+
+  # hfleet-ci01 — CI runner host (Ubuntu 26.04, x86_64).
+  # full profile: broad metric surface for CI observability; DRM/GPU metrics present on this host.
+  # Memory is modest (~7.5 GB actual per capture) so memory_gb: 8 uses the system default.
+  - name: hfleet-ci01
+    os: linux
+    cpus: 4
+    memory_gb: 8
+    metrics_profile: full
+    os_version: "26.04"
+    kernel: "7.0.0-22-generic"
+
+  # hfleet-mac01 — developer workstation, Apple Silicon M1-class (macOS 27.0, arm64).
+  # full profile (macOS build of node_exporter: cpu/disk/network/filesystem + macOS memory subset
+  # + power_supply/battery family). Docker is unsupported on macOS (no cadvisor lane in v1).
+  - name: hfleet-mac01
+    os: macos
+    cpus: 8
+    memory_gb: 32
+    metrics_profile: full
+    os_version: "27.0"
+    kernel: "Darwin Kernel 27.0.0"
+
+  # hfleet-win01 — Windows Server 2025 VM (Proxmox/QEMU, x86_64).
+  # integration profile; 2 vCPU cores matching a live Windows Server capture (core="0,0" + "0,1").
+  # memory_gb: 6 reflects a typical ~6 GB VM allocation.
+  # os_version is the Windows version string; kernel is left to the resolver default (build number).
+  - name: hfleet-win01
+    os: windows
+    cpus: 2
+    memory_gb: 6
+    metrics_profile: integration
+    os_version: "10.0.26100"

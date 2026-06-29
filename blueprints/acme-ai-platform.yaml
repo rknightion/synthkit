@@ -1,0 +1,622 @@
+# acme-ai-platform — the API-poll reality of an AI assistant estate across 7 environments.
+#
+# Realigned 2026-06-18 to the LOCKED architecture, validated against a representative enterprise
+# AI-assistant estate. Customer identity (env names, accounts,
+# workspace, use_cases, agents, projects, deployment names) lives ONLY here — the catalogue is generic.
+#
+# Load-bearing correction (design note): Acme AI's OWN AWS accounts run Bedrock AgentCore (agent
+# compute) + Bedrock Data Automation ONLY — there is NO Bedrock model inference in-account (no
+# bedrock:InvokeModel, no aws_bedrock_* model resources, no invocation-logging, no WORM bucket). Every
+# LLM call routes through the Portkey gateway to the AI evaluation platform's account. So this blueprint
+# emits NO bedrock CloudWatch lane; the AWS-native AI surface is AgentCore-vended metrics (7 runtimes)
+# only. The LLM model layer is observed via the Portkey ANALYTICS poller (portkey_api_* gauges) + a
+# LangSmith eval bridge — NOT a connected gateway trace (the gen_ai trace is modelled in-process on
+# each backend).
+#
+# Estate (design note): EKS clusters acme-eks-<env> in us-west-2; 8 standing deployments across
+# 5 namespaces; 7 AgentCore runtimes; DocumentDB + OpenSearch Serverless + Aurora PostgreSQL + Neptune
+# + Redis. Modelled as FOUR request-journey app workloads (authoring / live-assist / data-analysis /
+# document-extraction), each fanned per-env. Shared backends are a real pod in their owning journey +
+# `external: true` (trace hop, no pod) elsewhere; managed data stores are `external: true` everywhere
+# (never pods).
+name: acme-ai-platform
+label: acme-ai-platform
+metadata:                          # optional, UI-only annotation — never affects emission
+  description: "The API-poll reality of an AI assistant estate across 7 us-west-2 environments: AgentCore-vended AWS metrics (7 runtimes, NO Bedrock model inference), the LLM gateway observed via the Portkey analytics poller (portkey_api_*) + a LangSmith eval bridge (no connected gateway trace). Full traced estate: 8 EKS deployments across 5 namespaces over 4 request journeys."
+  owner: ai-platform
+  category: scenario
+  tags: [ai, llm, portkey, langsmith, agentcore, multi-env, follow-the-sun]
+  links:
+    architecture: ./ARCHITECTURE.md
+    genai-signals: ./signals/genai.md
+    portkey-signals: ./signals/portkey.md
+
+# Follow-the-sun TRAFFIC origins (timezone-blended diurnal curve) — independent of the infra region
+# (every env runs in us-west-2). Weights normalised across the three.
+regions:
+  - { name: eu-central-1,    timezone: Europe/Zurich,       weight: 0.6 }
+  - { name: us-east-1,       timezone: America/New_York,    weight: 0.3 }
+  - { name: ap-southeast-1,  timezone: Asia/Singapore,      weight: 0.1 }
+
+# Shared per-env config is defined as YAML anchors on DEV1's real fields (the Decl struct strict-decodes,
+# so anchors must live on actual keys, not a synthetic container): the 7 AgentCore runtimes — the
+# dimension_Name values on aws_bedrock_agentcore_* resource-usage; there is NO `bedrock:` block, Acme AI
+# runs no Bedrock model inference in-account; &k8sm, &addons, &ngdev, &obs_dbo11y, &obs_cw_only.
+#
+# Per-env databases (design note): Aurora PostgreSQL 17.7 (collaborative editor collab + comments store);
+# DocumentDB cluster (the app document/template/session store, dbs: knowledge_layer/acme_live_assistant/
+# acme_data_analysis/acme_document_extraction_db); Neptune graph (provisioned, not in the request path).
+# OpenSearch Serverless is declared via `cloud.aoss`. Redis (ElastiCache) via `caches:` — collaborative editor
+# session/pubsub.
+environments:
+  - name: DEV1
+    weight: 0.2
+    cloud: { provider: aws, account_id: "111122223331", region: us-west-2, vpc_id: vpc-0acme00001, nat_gateways: 1, aoss: {},
+             agentcore: { agents: [contentgen, datagen, doc_annotate, doc_generate, doc_classify, doc_tools, assistant], sub_signals: [runtime, resource_usage, usage_logs] } }   # usage_logs = source=agentcore_usage Loki lane; the 7 AgentCore runtimes (inlined per-env — construct-config nodes can't carry cross-subtree YAML aliases)
+    cluster:
+      type: eks
+      name: acme-eks-dev1
+      node_groups: &ngdev [{ name: general, instance_type: m7g.2xlarge, desired: 3 }]   # dev tier: Graviton, pinned 3 nodes
+      k8s_monitoring: &k8sm { enabled: true, chart_version: "4.1.4", alloy: true, features: { cluster_metrics: true, cluster_events: true, pod_logs: true, node_logs: true, application_observability: true } }   # full Alloy collector set (cost/power deliberately OFF)
+      addons: &addons [core_dns, vpc_cni, ebs_csi, cert_manager, alloy_health, karpenter, argocd, envoy_gateway, external_dns, load_balancer_controller]
+    databases:
+      - { engine: postgres, version: "17.7", name: acme-aurora-dev1, instance_class: db.r6g.large, observability: &obs_dbo11y { cloudwatch: true, dbo11y: true, digests: 30 } }   # Aurora PG: aws_rds_* CW + dbo11y pg_stat_statements
+      - { engine: docdb,    name: acme-docdb-dev1, observability: &obs_cw_only { cloudwatch: true, dbo11y: false } }   # docdb/neptune: CloudWatch lane only
+      - { engine: neptune,  name: acme-neptune-dev1,       observability: *obs_cw_only }
+    caches:
+      - { engine: redis, version: "7.1", name: acme-redis-dev1 }
+
+  - name: BVE
+    weight: 0.2
+    cloud: { provider: aws, account_id: "111122223332", region: us-west-2, vpc_id: vpc-0acme00002, nat_gateways: 1, aoss: {}, agentcore: { agents: [contentgen, datagen, doc_annotate, doc_generate, doc_classify, doc_tools, assistant], sub_signals: [runtime, resource_usage, usage_logs] } }
+    cluster: { type: eks, name: acme-eks-bve, node_groups: *ngdev, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "17.7", name: acme-aurora-bve, instance_class: db.r6g.large, observability: *obs_dbo11y }
+      - { engine: docdb,    name: acme-docdb-bve, observability: *obs_cw_only }
+      - { engine: neptune,  name: acme-neptune-bve,       observability: *obs_cw_only }
+    caches:
+      - { engine: redis, version: "7.1", name: acme-redis-bve }
+
+  - name: DEV2
+    weight: 0.2
+    cloud: { provider: aws, account_id: "111122223333", region: us-west-2, vpc_id: vpc-0acme00003, nat_gateways: 1, aoss: {}, agentcore: { agents: [contentgen, datagen, doc_annotate, doc_generate, doc_classify, doc_tools, assistant], sub_signals: [runtime, resource_usage, usage_logs] } }
+    cluster: { type: eks, name: acme-eks-dev2, node_groups: *ngdev, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "17.7", name: acme-aurora-dev2, instance_class: db.r6g.large, observability: *obs_dbo11y }
+      - { engine: docdb,    name: acme-docdb-dev2, observability: *obs_cw_only }
+      - { engine: neptune,  name: acme-neptune-dev2,       observability: *obs_cw_only }
+    caches:
+      - { engine: redis, version: "7.1", name: acme-redis-dev2 }
+
+  - name: TST1
+    weight: 0.5
+    cloud: { provider: aws, account_id: "111122223334", region: us-west-2, vpc_id: vpc-0acme00004, nat_gateways: 1, aoss: {}, agentcore: { agents: [contentgen, datagen, doc_annotate, doc_generate, doc_classify, doc_tools, assistant], sub_signals: [runtime, resource_usage, usage_logs] } }
+    cluster: { type: eks, name: acme-eks-tst1, node_groups: &ngtest [{ name: general, instance_type: m7g.2xlarge, desired: 4 }], k8s_monitoring: *k8sm, addons: *addons }   # test/train tier: 4 Graviton nodes
+    databases:
+      - { engine: postgres, version: "17.7", name: acme-aurora-tst1, instance_class: db.r6g.large, observability: *obs_dbo11y }
+      - { engine: docdb,    name: acme-docdb-tst1, observability: *obs_cw_only }
+      - { engine: neptune,  name: acme-neptune-tst1,       observability: *obs_cw_only }
+    caches:
+      - { engine: redis, version: "7.1", name: acme-redis-tst1 }
+
+  - name: TRN
+    weight: 0.5
+    cloud: { provider: aws, account_id: "111122223335", region: us-west-2, vpc_id: vpc-0acme00005, nat_gateways: 1, aoss: {}, agentcore: { agents: [contentgen, datagen, doc_annotate, doc_generate, doc_classify, doc_tools, assistant], sub_signals: [runtime, resource_usage, usage_logs] } }
+    cluster: { type: eks, name: acme-eks-trn, node_groups: *ngtest, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "17.7", name: acme-aurora-trn, instance_class: db.r6g.large, observability: *obs_dbo11y }
+      - { engine: docdb,    name: acme-docdb-trn, observability: *obs_cw_only }
+      - { engine: neptune,  name: acme-neptune-trn,       observability: *obs_cw_only }
+    caches:
+      - { engine: redis, version: "7.1", name: acme-redis-trn }
+
+  - name: PRD
+    weight: 1.0
+    production: true                       # "PRD" != "prod" → declare production explicitly (full weekend traffic)
+    cloud: { provider: aws, account_id: "111122223340", region: us-west-2, vpc_id: vpc-0acme00006, nat_gateways: 2, aoss: {}, agentcore: { agents: [contentgen, datagen, doc_annotate, doc_generate, doc_classify, doc_tools, assistant], sub_signals: [runtime, resource_usage, usage_logs] } }
+    cluster: { type: eks, name: acme-eks-prd, node_groups: [{ name: general, instance_type: m7g.2xlarge, desired: 8 }], k8s_monitoring: *k8sm, addons: *addons }   # prod tier: 8 Graviton nodes
+    databases:
+      - { engine: postgres, version: "17.7", name: acme-aurora-prd, instance_class: db.r6g.large, observability: *obs_dbo11y }
+      - { engine: docdb,    name: acme-docdb-prd, observability: *obs_cw_only }
+      - { engine: neptune,  name: acme-neptune-prd,       observability: *obs_cw_only }
+    caches:
+      - { engine: redis, version: "7.1", name: acme-redis-prd }
+
+  - name: TST2
+    weight: 0.5
+    cloud: { provider: aws, account_id: "111122223336", region: us-west-2, vpc_id: vpc-0acme00007, nat_gateways: 1, aoss: {}, agentcore: { agents: [contentgen, datagen, doc_annotate, doc_generate, doc_classify, doc_tools, assistant], sub_signals: [runtime, resource_usage, usage_logs] } }
+    cluster: { type: eks, name: acme-eks-tst2, node_groups: *ngtest, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "17.7", name: acme-aurora-tst2, instance_class: db.r6g.large, observability: *obs_dbo11y }
+      - { engine: docdb,    name: acme-docdb-tst2, observability: *obs_cw_only }
+      - { engine: neptune,  name: acme-neptune-tst2,       observability: *obs_cw_only }
+    caches:
+      - { engine: redis, version: "7.1", name: acme-redis-tst2 }
+
+# The estate as FOUR real request journeys (one app workload each, all fanned per-env). Each journey
+# is one trace graph with one entry. The LLM gateway is NOT a connected span (API-poll): each
+# gen_ai backend carries an in-process gen_ai-semconv subtree (agentic_flow) representing the agent
+# work its AgentCore runtime performs, plus the Portkey export-log + (where applicable) the LangSmith
+# run-index. Shared/managed dependencies use `external: true` — they appear as connected trace hops but
+# are NOT placed as pods on the cluster (so each deployment is counted exactly once → 8 standing pods).
+#
+# Standing EKS deployments (replicaCount=1 except collab editor=2; HPAs disabled):
+#   ui:              acme-frontend-ui, acme-frontend-ui-plugin, collab-editor-cs(×2)
+#   common-services: acme-backend-api-auth, acme-backend-api-content-gen
+#   live-assistance: acme-live-assistant
+#   datagen:         acme-datagen-analysis, acme-datagen-extraction-api
+# (contentgen namespace = on-demand Fargate Jobs, no standing pod → not modelled.)
+#
+# Valid (model, provider) routings shared by every gen_ai journey — Portkey's multi-cloud catalog
+# (Azure-OpenAI-dominant + Bedrock + Vertex in the eval platform's account, reached via the gateway).
+# `provider: bedrock` here = the gateway's downstream provider in the eval platform's account, NOT
+# Acme AI-account Bedrock. Inlined per-journey (workload-config nodes can't carry cross-subtree YAML
+# aliases).
+workloads:
+  # ── Journey 1: document authoring (the high-volume interactive flow) ──────────────────
+  # Browser SPA → auth (OIDC/RBAC) + content-gen (invokes the `contentgen` AgentCore runtime) + the
+  # collaborative editor collab server. content-gen's gen_ai subtree mirrors the ContentGen "Dynamic
+  # Plan-and-Execute" agent system. OWNS pods: frontend-ui, auth, content-gen, collab-editor-cs.
+  - type: app
+    name: acme-authoring
+    for_each_env: true
+    traffic: { shape: diurnal, off_peak_rps: 1, peak_rps: 8, request_latency_p95_ms: 9000 }   # LLM-assistant latency: /generate waits on the in-runtime LangGraph + LLM
+    models:                                  # inlined per-journey (workload-config nodes can't carry cross-subtree YAML aliases)
+      - { model: gpt-4o,            provider: azure-openai }
+      - { model: gpt-4.1,           provider: azure-openai }
+      - { model: gpt-4.1-mini,      provider: azure-openai }
+      - { model: o4-mini,           provider: azure-openai }
+      - { model: claude-sonnet-4-6, provider: bedrock }
+      - { model: gemini-2.5-pro,    provider: vertex-ai }
+    services:
+      - name: acme-frontend-ui
+        type: frontend
+        runtime: node
+        namespace: ui
+        replicas: 1
+        entry: true
+        context: Platform
+        use_case: content_generation
+        team: Acme AI
+        version: "2.4.1"
+        routes: [POST /api/template-manager/documents/generate]
+        profiles: [rum_faro]
+        calls: [acme-backend-api-auth, acme-backend-api-content-gen, collab-editor-cs]
+        pages:   # RUM navigation inventory — the Acme AI document-authoring web app
+          - { path: /dashboard,           name: "Dashboard",             actions: ["view pending tasks", "search documents", "create document"] }
+          - { path: /document-library,    name: "Document Library",      actions: ["search documents", "open document", "upload source"] }
+          - { path: /template-manager,    name: "Template Manager",      actions: ["open template", "publish template", "configure mapping"] }
+          - { path: /report-editor,       name: "Report Authoring",      actions: ["generate draft", "accept draft", "insert citation"] }
+          - { path: /brief-editor,        name: "Brief Authoring",       actions: ["generate draft", "simplify language", "validate formatting"] }
+          - { path: /summary-editor,      name: "Summary Authoring",     actions: ["extract table values", "insert citation", "save version"] }
+          - { path: /extraction-status,   name: "Extraction Status",     actions: ["monitor progress", "view output", "flag remediation"] }
+          - { path: /review,              name: "Review & Collaboration", actions: ["leave comment", "accept change", "compare versions"] }
+          - { path: /quality-review,      name: "Quality Review",        actions: ["run quality check", "view highlights", "download report"] }
+          - { path: /settings,            name: "Settings",              actions: ["assign role", "set access", "view audit log"] }
+      - name: acme-backend-api-auth
+        type: web
+        runtime: python
+        namespace: common-services
+        replicas: 1
+        context: Platform
+        use_case: content_generation
+        team: Acme AI
+        version: "3.1.0"
+        routes: [POST /api/auth/verify-token]   # OIDC token verification, RBAC, collaborative editor JWT
+        profiles: [scraped_http_server, runtime_python]
+        calls: [documentdb-store]
+      - name: acme-backend-api-content-gen
+        type: web
+        runtime: python
+        namespace: common-services
+        replicas: 1
+        context: ContentGen
+        use_case: content_generation
+        team: Acme AI
+        version: "2.8.3"
+        routes: [POST /api/template-manager/documents/generate]   # names this node's SERVER span
+        profiles: [scraped_http_server, runtime_python, gen_ai_client, gateway_export_log, eval_log]
+        # In-process gen_ai-semconv subtree (S3) representing the `contentgen` AgentCore runtime's
+        # LangGraph DAG: invoke_workflow → invoke_agent → execute_tool* → chat <model>.
+        # API-poll: the LLM call is observed in-process here (no connected gateway hop) — the chat
+        # leaf stays. Mirrors the ContentGen plan-and-execute roster (planner dispatches
+        # to retriever + the summarization/passthrough/inference authoring agents).
+        agentic_flow:
+          workflow: contentgen-graph
+          agents:
+            - { name: planner,       tools: [plan_generate, plan_lint, replan] }
+            - { name: retriever,     tools: [section_retrieval, section_mapping, context_retrieval] }
+            - { name: summarization, tools: [table_summarizer, extraction_summarizer] }
+            - { name: passthrough,   tools: [html_data_copy, template_modifier, context_modifier] }
+            - { name: inference,     tools: [llm_reasoning] }
+        calls: [documentdb-store]
+        logs:
+          - source: app
+            body:
+              msg: { const_str: "document generation served" }
+              route: { ref: route }
+              http_status: { ref: status }
+              trace_id: { ref: trace_id }
+              correlation_id: { ref: correlation_id }
+      - name: collab-editor-cs
+        type: web
+        runtime: node
+        namespace: ui
+        replicas: 2                          # vendor collaborative editor collab server — the only ≠1 deployment
+        context: Platform
+        team: Acme AI
+        version: "1.9.2"
+        routes: [GET /ws]                    # real-time collaboration WebSocket
+        profiles: [scraped_http_server, runtime_node]
+        calls: [aurora-pg]                   # collaborative editor stores documents/comments in Aurora PostgreSQL
+      # ── managed dependencies (external: true → trace hops, never pods) ──
+      - name: documentdb-store             # Amazon DocumentDB (knowledge_layer: templates/sections/docs)
+        type: db
+        runtime: node
+        external: true
+      - name: aurora-pg                    # Aurora PostgreSQL (collaborative editor collab + comments store)
+        type: db
+        runtime: node
+        external: true
+        db_instance: acme-aurora          # resolves per-env to acme-aurora-<env> → links to the RDSInstance
+
+  # ── Journey 2: Live Assistant (browser plugin → assistant runtime; Portkey ONLY, no LangSmith) ──
+  # The browser plugin client → auth + the live-assistant API (invokes the `assistant` AgentCore
+  # runtime). assistant does RAG over OpenSearch + DocumentDB. Representative: live-assistant traces to
+  # Portkey ONLY — NO LangSmith (so no eval_log profile, and live_assistant is dropped from the
+  # langsmith_eval bridge below). OWNS pods: frontend-ui-plugin, live-assistant. auth = external here
+  # (its pod is owned by Journey 1).
+  - type: app
+    name: acme-live-assist
+    for_each_env: true
+    traffic: { shape: diurnal, off_peak_rps: 1, peak_rps: 5, request_latency_p95_ms: 7000 }
+    models:
+      - { model: gpt-4o,            provider: azure-openai }
+      - { model: gpt-4.1,           provider: azure-openai }
+      - { model: gpt-4.1-mini,      provider: azure-openai }
+      - { model: o4-mini,           provider: azure-openai }
+      - { model: claude-sonnet-4-6, provider: bedrock }
+      - { model: gemini-2.5-pro,    provider: vertex-ai }
+    services:
+      - name: acme-frontend-ui-plugin
+        type: frontend
+        runtime: node
+        namespace: ui
+        replicas: 1
+        entry: true
+        context: Platform
+        use_case: live_assistant
+        team: Acme AI
+        version: "2.3.0"
+        routes: [POST /live-assistant/api/v1/chat]
+        profiles: [rum_faro]
+        calls: [acme-live-assistant]        # plugin → live-assistant directly; auth is out-of-band (not in this trace graph: it would cause duplicate spanmetrics with Journey 1 which owns the auth pod)
+        pages:   # the browser plugin surfaces (RUM-only)
+          - { path: /live-assistant,  name: "Live Assistant",  actions: ["submit query", "request citation", "provide feedback"] }
+          - { path: /document-upload, name: "Document Upload",  actions: ["upload source", "monitor extraction", "view output"] }
+          - { path: /bookmarks,       name: "Bookmarks",        actions: ["open bookmark", "remove bookmark"] }
+      - name: acme-live-assistant
+        type: web
+        runtime: python
+        namespace: live-assistance
+        replicas: 1
+        context: Platform
+        use_case: live_assistant
+        team: Acme AI
+        version: "3.0.1"
+        routes: [POST /live-assistant/api/v1/chat]
+        profiles: [scraped_http_server, runtime_python, gen_ai_client, gateway_export_log]   # NO eval_log: Portkey-only, no LangSmith
+        # gen_ai subtree representing the `assistant` runtime's RAG pipeline (DECODE→PLAN→ENHANCE→RETRIEVE→
+        # CRITIQUE→RESPOND), Portkey-only.
+        agentic_flow:
+          workflow: live-assistant-graph
+          agents:
+            - { name: decode,   tools: [parse_query, classify_intent] }
+            - { name: plan,     tools: [build_plan] }
+            - { name: enhance,  tools: [rewrite_query, expand_terms] }
+            - { name: retrieve, tools: [vector_search, rerank] }
+            - { name: critique, tools: [grounding_check, citation_check] }
+            - { name: respond,  tools: [compose_answer] }
+        calls: [opensearch-vectors, documentdb-store]
+      - name: opensearch-vectors           # Amazon OpenSearch Serverless (vector RAG); type:db (leaf, no server span) avoids duplicate spanmetrics across journeys
+        type: db
+        runtime: java
+        external: true
+      - name: documentdb-store             # DocumentDB (acme_live_assistant: sessions/chats/feedback)
+        type: db
+        runtime: node
+        external: true
+
+  # ── Journey 3: Data analysis (datagen runtime; Portkey + LangSmith) ─────────────────────
+  # The data analysis API → the `datagen` AgentCore runtime: RAG over OpenSearch → analysis plan.
+  # A lower-volume / batch-ish API surface. OWNS pod: datagen-analysis.
+  - type: app
+    name: acme-data-analysis                  # workload name ≠ its entry service node (acme-datagen-analysis) — avoids workload/service axis ambiguity
+    for_each_env: true
+    traffic: { shape: diurnal, off_peak_rps: 0.2, peak_rps: 2, request_latency_p95_ms: 12000 }
+    models:
+      - { model: gpt-4o,            provider: azure-openai }
+      - { model: gpt-4.1,           provider: azure-openai }
+      - { model: gpt-4.1-mini,      provider: azure-openai }
+      - { model: o4-mini,           provider: azure-openai }
+      - { model: claude-sonnet-4-6, provider: bedrock }
+      - { model: gemini-2.5-pro,    provider: vertex-ai }
+    services:
+      - name: acme-datagen-analysis
+        type: web
+        runtime: python
+        namespace: datagen
+        replicas: 1
+        entry: true
+        context: DataGen
+        use_case: data_analysis
+        team: Acme AI
+        version: "1.7.4"
+        routes: [POST /data-analysis/analyze]
+        profiles: [scraped_http_server, runtime_python, gen_ai_client, gateway_export_log, eval_log]
+        agentic_flow:
+          workflow: data-analysis-graph
+          agents:
+            - { name: triage,      tools: [parse_input, classify_request] }
+            - { name: retriever,   tools: [vector_search, keyword_search] }
+            - { name: analysis,    tools: [generate_insight, validate_insight] }
+        calls: [opensearch-vectors, documentdb-store]
+      - name: opensearch-vectors           # type:db (leaf, no server span) — prevents dup spanmetrics across journeys
+        type: db
+        runtime: java
+        external: true
+      - name: documentdb-store             # DocumentDB (acme_data_analysis)
+        type: db
+        runtime: node
+        external: true
+
+  # ── Journey 4: Document extraction (doc runtimes + classifier MCP; Portkey + LangSmith) ────────
+  # The document extraction API → the doc_annotate/doc_generate AgentCore runtimes (annotation/algorithm gen),
+  # with the doc_tools → doc_classify MCP hop for triage. OWNS pod: datagen-extraction-api.
+  - type: app
+    name: acme-document-extraction
+    for_each_env: true
+    traffic: { shape: diurnal, off_peak_rps: 0.2, peak_rps: 2, request_latency_p95_ms: 15000 }
+    models:
+      - { model: gpt-4o,            provider: azure-openai }
+      - { model: gpt-4.1,           provider: azure-openai }
+      - { model: gpt-4.1-mini,      provider: azure-openai }
+      - { model: o4-mini,           provider: azure-openai }
+      - { model: claude-sonnet-4-6, provider: bedrock }
+      - { model: gemini-2.5-pro,    provider: vertex-ai }
+    services:
+      - name: acme-datagen-extraction-api
+        type: web
+        runtime: python
+        namespace: datagen
+        replicas: 1
+        entry: true
+        context: DataGen
+        use_case: document_extraction
+        team: Acme AI
+        version: "2.1.5"
+        routes: [POST /extraction_api/extract]
+        profiles: [scraped_http_server, runtime_python, gen_ai_client, gateway_export_log, eval_log]
+        agentic_flow:
+          workflow: extraction-graph
+          agents:
+            - { name: annotation, tools: [grammar_validate, mapping_validate] }
+            - { name: algorithm,  tools: [generate_algorithm, lint_algorithm] }
+            - { name: classifier, tools: [classify_retrieve, classify_triage] }   # via the doc_tools → doc_classify MCP hop
+        calls: [documentdb-store, opensearch-vectors]
+      - name: documentdb-store             # DocumentDB (acme_document_extraction_db: extraction results + audit)
+        type: db
+        runtime: node
+        external: true
+      - name: opensearch-vectors           # OpenSearch (rulebook index); type:db (leaf) — prevents dup spanmetrics across journeys
+        type: db
+        runtime: java
+        external: true
+
+integrations:
+  # Per-env fan-out: each env gets its own portkey_api_* + langsmith_eval_* series (env=<NAME>).
+  # The Portkey poller is the AUTHORITATIVE LLM telemetry source (the only per-call model
+  # latency/cost/token signal under API-only access).
+  portkey_poller:
+    for_each_env: true
+    workspace: ws-acme-000001
+    use_cases: [content_generation, live_assistant, document_extraction, data_analysis, research_summarization]
+    models: [gpt-4o, gpt-4.1, gpt-4.1-mini, o4-mini, claude-sonnet-4-6, gemini-2.5-pro]
+    # content_generation = the high-frequency interactive authoring channel; research_summarization is batch/low-volume
+    use_case_weights: { content_generation: 5.0, live_assistant: 4.0, document_extraction: 2.0, data_analysis: 1.5, research_summarization: 0.4 }
+  langsmith_eval:
+    for_each_env: true
+    # NOTE: live_assistant is intentionally ABSENT — the `assistant` runtime traces to
+    # Portkey ONLY, never LangSmith. Projects mirror the real <domain>-<capability> tracing projects
+    # that DO use LangSmith (contentgen / datagen-analysis / datagen-extraction).
+    projects: [contentgen-agents, datagen-analysis, datagen-extraction]
+    use_cases: [content_generation, document_extraction, data_analysis, research_summarization]
+    evaluators: [faithfulness, completeness, relevance]
+    use_case_weights: { content_generation: 5.0, document_extraction: 2.0, data_analysis: 1.5, research_summarization: 0.4 }
+
+# All faults are ON-DEMAND scenarios — named, correlated incident bundles fired live via
+# POST /control/scenarios with the id "acme-ai-platform/<name>". There is NO scheduled `incidents:`
+# block among these: a demo driver activates the story they want, holds it, then clears it, so PRD
+# stays green by default and the blast radius is operator-controlled. Each scenario composes only
+# failure modes the targeted construct honors (AxisService nodes, AxisCluster, AxisDatabase, AxisCloud
+# agentcore) and tells an end-to-end story across the Acme AI request journeys.
+scenarios:
+  # Localized per-service brown-out: the content-gen backend slows under load. Its correlated traces +
+  # logs + RED brown out while the frontend (sibling node) stays healthy — the localized blast radius
+  # the per-service (AxisService) model enables.
+  - name: backend_latency_storm
+    title: Content-gen backend latency storm
+    summary: The acme-backend-api-content-gen service slows under load; its traces/logs/RED brown out while the frontend stays healthy.
+    effects:
+      - { mode: latency_storm, target: acme-backend-api-content-gen, intensity: 0.8 }
+
+  # AI gateway brownout: an AgentCore capacity constraint (region-scoped throttle) cascades into
+  # backend retries + fallbacks + tail latency. (No Bedrock model inference in-account, so this is an
+  # AgentCore-side + Portkey-side event — NOT a Bedrock CloudWatch throttle.) Lights up AgentCore CW
+  # system_errors/throttles, the gateway retry/fallback surface, backend RED, gen_ai span durations.
+  - name: ai_gateway_brownout
+    title: AI gateway brownout (AgentCore throttle → retry/fallback storm)
+    summary: An AgentCore capacity constraint throttles invocations; the backend retries and falls back while latency climbs.
+    effects:
+      # agentcore_throttle is scoped per construct by cloud region (shared eu-… N/A — all envs are
+      # us-west-2), so it fires estate-wide (unscoped) — a regional AgentCore capacity event.
+      - { mode: agentcore_throttle,                                    intensity: 0.7 }
+      - { mode: retry_storm,    target: acme-backend-api-content-gen, intensity: 0.6 }
+      - { mode: fallback_storm, target: acme-backend-api-content-gen, intensity: 0.5 }
+      - { mode: latency_storm,  target: acme-backend-api-content-gen, intensity: 0.4 }
+
+  # Knowledge-layer retrieval meltdown: vector search degrades and the DocumentDB store slows/saturates;
+  # retrieval errors bubble up to the live-assistant backend. Lights up the service map, RED on the
+  # live-assistant + opensearch nodes, DocumentDB CW, and trace errors.
+  - name: knowledge_retrieval_meltdown
+    title: Knowledge-layer retrieval meltdown
+    summary: DocumentDB saturates and retrieval slows; errors bubble up to the live-assistant backend while its RAG hops brown out.
+    effects:
+      # opensearch-vectors is a managed (external) node — not a failure target; the retrieval slowdown
+      # is driven through the live-assistant backend (which performs the RAG) + the DocumentDB store.
+      - { mode: slow_query_storm,      target: acme-docdb-prd,          intensity: 0.8 }
+      - { mode: connection_saturation, target: acme-docdb-prd,          intensity: 0.6 }
+      - { mode: latency_storm,         target: acme-live-assistant,     intensity: 0.7 }
+      - { mode: error_spike,           target: acme-live-assistant,     intensity: 0.5 }
+
+  # Aurora collab-store saturation: the collaborative editor Aurora PostgreSQL saturates connections, locks climb,
+  # and the slow-query right-tail spikes; the collab-editor-cs node browns out. Lights up dbo11y (active
+  # connections, lock waits, slow-query digests), collab editor node RED, and collab latency.
+  - name: db_collab_saturation
+    title: Aurora collab-store connection saturation
+    summary: The Aurora PostgreSQL collab store saturates connections and locks; the collab-editor-cs node browns out.
+    effects:
+      - { mode: connection_saturation, target: acme-aurora-prd, intensity: 0.8 }
+      - { mode: lock_contention,       target: acme-aurora-prd, intensity: 0.6 }
+      - { mode: slow_query_storm,      target: acme-aurora-prd, intensity: 0.6 }
+      - { mode: latency_storm,         target: collab-editor-cs,     intensity: 0.5 }
+
+  # Assist outage (user-facing): the content-gen backend errors and slows on the generate path. Lights
+  # up RUM Faro exceptions/server-errors, the frontend→backend trace, backend 5xx RED, and error logs.
+  - name: assist_outage
+    title: Document-generation outage (user-facing errors)
+    summary: The content-gen backend errors and slows on /documents/generate; users see failed generations and RUM exceptions fire.
+    effects:
+      - { mode: error_spike,   target: acme-backend-api-content-gen, intensity: 0.7 }
+      - { mode: latency_storm, target: acme-backend-api-content-gen, intensity: 0.5 }
+
+  # EKS node-failure cascade on PRD: a node flips NotReady, pods crash-loop, and containers OOM-kill.
+  # Lights up k8s-monitoring (node ready, pod phase, restarts, OOMKilled reason) and addon health.
+  - name: eks_node_cascade
+    title: EKS node-failure cascade (PRD)
+    summary: A PRD node flips NotReady while pods crash-loop and containers OOM-kill; k8s health dashboards light up.
+    effects:
+      - { mode: node_not_ready, target: acme-eks-prd, intensity: 0.6 }
+      - { mode: pod_crashloop,  target: acme-eks-prd, intensity: 0.5 }
+      - { mode: oom_kill,       target: acme-eks-prd, intensity: 0.5 }
+
+  # AgentCore capacity constraint: a region-scoped AgentCore throttle (system_errors + throttles) drives
+  # backend retries and AI-hop latency. Lights up AgentCore CW system_errors/throttles and backend retries.
+  - name: agentcore_capacity_constraint
+    title: AgentCore capacity constraint
+    summary: A region-scoped AgentCore throttle spikes system_errors; the backend retries and AI-hop latency climbs.
+    effects:
+      - { mode: agentcore_throttle,                                   intensity: 0.7 }
+      - { mode: retry_storm,   target: acme-backend-api-content-gen, intensity: 0.5 }
+      - { mode: latency_storm, target: acme-backend-api-content-gen, intensity: 0.4 }
+
+  # Flagship multi-layer "bad deploy" major incident on PRD: the content-gen backend regresses on CPU +
+  # heap + latency + errors all at once and its pods crash-loop. Drives profiling, k8s, RED, traces,
+  # logs, and RUM simultaneously — the exec-demo "everything on fire" story.
+  - name: bad_deploy_major
+    title: Bad deploy — multi-layer major incident (PRD)
+    summary: A bad content-gen deploy regresses CPU/heap/latency/errors and crash-loops its pods; every signal lane lights up.
+    effects:
+      - { mode: cpu_hotspot,   target: acme-backend-api-content-gen, intensity: 0.8 }
+      - { mode: memory_leak,   target: acme-backend-api-content-gen, intensity: 0.7 }
+      - { mode: latency_storm, target: acme-backend-api-content-gen, intensity: 0.6 }
+      - { mode: error_spike,   target: acme-backend-api-content-gen, intensity: 0.6 }
+      - { mode: pod_crashloop, target: acme-eks-prd,                 intensity: 0.5 }
+
+  # AI quality regression: LangSmith eval scores (faithfulness/completeness/relevance + retrieval
+  # quality) drop on PRD while retry/fallback/HITL rates and error/pending run-outcomes climb — and the
+  # backend retries degraded responses. Lights up the eval scorecard/gauges + backend retries.
+  - name: ai_quality_regression
+    title: AI quality regression (eval scores drop)
+    summary: PRD LangSmith eval quality regresses (scores down, retry/HITL up) and the backend retries degraded responses.
+    effects:
+      - { mode: eval_quality_degraded, target: PRD,                            intensity: 0.8 }
+      - { mode: retry_storm,           target: acme-backend-api-content-gen,  intensity: 0.4 }
+
+  # Portkey gateway/scrape degradation: the Portkey Analytics surface degrades on PRD (error_rate +
+  # 4xx/5xx share + latency climb, poller falls behind), and the backend retries/falls back. Lights up
+  # the portkey_api_* KPIs + poller freshness/lag + backend retry/fallback.
+  - name: portkey_gateway_degraded
+    title: Portkey gateway/scrape degradation
+    summary: PRD Portkey Analytics degrades (errors/latency up, poller lags) while the backend retries and falls back.
+    effects:
+      - { mode: portkey_scrape_degraded, target: PRD,                            intensity: 0.8 }
+      - { mode: retry_storm,             target: acme-backend-api-content-gen,  intensity: 0.5 }
+      - { mode: fallback_storm,          target: acme-backend-api-content-gen,  intensity: 0.4 }
+
+  # Frontend web-vitals degradation: the browser experience regresses (LCP/INP/TTFB/FCP + CLS spike)
+  # on the SPA while the backend stays healthy — a client-side perf incident. Lights up the RUM/Faro
+  # web-vitals panels without backend RED moving.
+  - name: frontend_vitals_degraded
+    title: Frontend web-vitals degradation
+    summary: Browser web-vitals (LCP/INP/TTFB/CLS) spike on the frontend while the backend stays healthy.
+    effects:
+      - { mode: web_vitals_degraded, target: acme-frontend-ui, intensity: 0.8 }
+
+  # Per-cluster single-fault scenarios scoped to one non-prod cluster each (kept granular for
+  # per-cluster / per-fault k8s dashboard demos).
+  - name: eks_pod_crashloop_dev2
+    title: Pod crash-loop (DEV2)
+    summary: Pods crash-loop on acme-eks-dev2; restarts climb and phase flips Running→Pending.
+    effects:
+      - { mode: pod_crashloop, target: acme-eks-dev2, intensity: 0.5 }
+  - name: eks_node_not_ready_tst1
+    title: Node NotReady (TST1)
+    summary: A node flips NotReady on acme-eks-tst1 and its pods go Pending.
+    effects:
+      - { mode: node_not_ready, target: acme-eks-tst1, intensity: 0.6 }
+  - name: eks_oom_kill_dev1
+    title: OOM kill (DEV1)
+    summary: Containers OOM-kill on acme-eks-dev1; restart count climbs with OOMKilled status reason.
+    effects:
+      - { mode: oom_kill, target: acme-eks-dev1, intensity: 0.5 }
+
+# Ambient prod realism (separate from the on-demand scenarios above): frequent, BRIEF, LOW-intensity,
+# PARTIAL-blast incidents so every env's health dashboards show occasional transient faults — the
+# texture of a live estate. `every: <dur>` is interval-recurring (fires for `for` out of every
+# `every`, 24/7). Low intensity = a small FRACTION of pods affected. Non-prod churns heavier; PRD is
+# subtler but still present. node_not_ready blips a single node.
+incidents:
+  # --- Non-prod clusters (heavier ambient churn) ---
+  - { kind: oom_kill,              target: acme-eks-dev1, every: 10m, for: 5m, intensity: 0.15 }
+  - { kind: node_not_ready,        target: acme-eks-dev1, every: 15m, for: 2m, intensity: 0.5 }
+  - { kind: pod_crashloop,         target: acme-eks-dev1, every: 30m, for: 8m, intensity: 0.15 }
+  - { kind: slow_query_storm,      target: acme-aurora-dev1, every: 45m, for: 5m, intensity: 0.2 }
+  - { kind: oom_kill,              target: acme-eks-bve,  every: 10m, for: 5m, intensity: 0.15 }
+  - { kind: node_not_ready,        target: acme-eks-bve,  every: 15m, for: 2m, intensity: 0.5 }
+  - { kind: pod_crashloop,         target: acme-eks-bve,  every: 30m, for: 8m, intensity: 0.15 }
+  - { kind: slow_query_storm,      target: acme-aurora-bve, every: 45m, for: 5m, intensity: 0.2 }
+  - { kind: oom_kill,              target: acme-eks-dev2, every: 10m, for: 5m, intensity: 0.15 }
+  - { kind: node_not_ready,        target: acme-eks-dev2, every: 15m, for: 2m, intensity: 0.5 }
+  - { kind: pod_crashloop,         target: acme-eks-dev2, every: 30m, for: 8m, intensity: 0.15 }
+  - { kind: connection_saturation, target: acme-aurora-dev2, every: 20m, for: 3m, intensity: 0.2 }
+  - { kind: oom_kill,              target: acme-eks-tst1, every: 10m, for: 5m, intensity: 0.15 }
+  - { kind: node_not_ready,        target: acme-eks-tst1, every: 15m, for: 2m, intensity: 0.5 }
+  - { kind: pod_crashloop,         target: acme-eks-tst1, every: 30m, for: 8m, intensity: 0.15 }
+  - { kind: connection_saturation, target: acme-aurora-tst1, every: 20m, for: 3m, intensity: 0.2 }
+  - { kind: oom_kill,              target: acme-eks-trn,  every: 10m, for: 5m, intensity: 0.15 }
+  - { kind: node_not_ready,        target: acme-eks-trn,  every: 15m, for: 2m, intensity: 0.5 }
+  - { kind: pod_crashloop,         target: acme-eks-trn,  every: 30m, for: 8m, intensity: 0.15 }
+  - { kind: connection_saturation, target: acme-aurora-trn, every: 20m, for: 3m, intensity: 0.2 }
+  - { kind: oom_kill,              target: acme-eks-tst2, every: 10m, for: 5m, intensity: 0.15 }
+  - { kind: node_not_ready,        target: acme-eks-tst2, every: 15m, for: 2m, intensity: 0.5 }
+  - { kind: pod_crashloop,         target: acme-eks-tst2, every: 30m, for: 8m, intensity: 0.15 }
+  - { kind: slow_query_storm,      target: acme-aurora-tst2, every: 45m, for: 5m, intensity: 0.2 }
+
+  # --- PRD (subtle but present: rarer, briefer, lower intensity; no crash-loop) ---
+  - { kind: oom_kill,              target: acme-eks-prd,   every: 20m, for: 3m, intensity: 0.1 }
+  - { kind: node_not_ready,        target: acme-eks-prd,   every: 45m, for: 2m, intensity: 0.4 }
+  - { kind: connection_saturation, target: acme-aurora-prd, every: 30m, for: 3m, intensity: 0.12 }
+
+  # --- Estate-wide app texture (base-name service target → all envs; deliberately mild) ---
+  - { kind: latency_storm,         target: acme-backend-api-content-gen, every: 20m, for: 2m, intensity: 0.12 }

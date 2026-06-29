@@ -1,0 +1,39 @@
+# k8s-logs-events — logs-centric k8s monitoring: pod logs + node logs + cluster events to Loki.
+# Demonstrates the full Alloy log-collection pipeline: alloy-logs DaemonSet (pod+node logs) +
+# alloy-singleton Deployment (cluster events). No profiling, no opencost/kepler.
+# Schema: ARCHITECTURE.md §3. Deleting this file removes k8slogs's telemetry and nothing else.
+name: k8s-logs-events
+label: k8s-logs-events
+shape: business_hours_plateau
+timezone: America/Los_Angeles
+metadata:
+  description: "Logs-centric k8s monitoring: pod logs, node logs, and cluster events shipped to Loki via Alloy DaemonSet and singleton collectors."
+  owner: platform-observability
+  category: reference
+  tags: [kubernetes, logs, events, loki, pod-logs, node-logs]
+  links:
+    signals: ./signals/k8s.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "410000000003"
+      region: us-west-2
+      vpc_id: vpc-0k8slogs01
+    cluster:
+      type: eks
+      name: k8slogs-prod-usw2
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 3 }
+      observability:
+        cloudwatch: false             # k8s-only — no per-node EC2 CloudWatch lane
+      k8s_monitoring:
+        enabled: true
+        alloy: true                   # alloy-metrics StatefulSet + alloy-logs DaemonSet + alloy-singleton
+        features:
+          cluster_metrics: true       # KSM + cAdvisor + kubelet + node-exporter (metrics baseline)
+          cluster_events: true        # cluster events → Loki (alloy-singleton Deployment)
+          pod_logs: true              # pod log streams → Loki (alloy-logs DaemonSet, one per node)
+          node_logs: true             # node/journal log streams → Loki (same DaemonSet)

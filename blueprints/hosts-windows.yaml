@@ -1,0 +1,48 @@
+# hosts-windows — Windows Server estate: windows_exporter metrics + event log streams.
+#
+# USE CASE: Demonstrate the windows exporter lane across a realistic Windows Server
+# estate (Domain Controller, application server, SQL Server). Mix of integration and
+# full metric profiles. Realistic os_version strings matching Windows Server 2022/2025.
+# No Docker (no cadvisor support on Windows in v1).
+#
+# Substrate-scoped: (job=integrations/windows_exporter, instance) identity; no blueprint
+# label. Host names must be globally unique across all loaded blueprints — prefix hwin-.
+name: hosts-windows
+label: hosts-windows
+shape: business_hours_plateau
+timezone: America/Chicago
+metadata:
+  description: "Windows Server estate: windows_exporter metrics + Application/System event logs. Domain Controller, app server, and SQL Server roles across Server 2022 and 2025."
+  owner: platform-observability
+  category: reference
+  tags: [hosts, windows, windows-exporter, server, event-logs]
+  links:
+    signals: ./signals/host.md
+
+hosts:
+  # hwin-dc01 — Windows Server 2025 Domain Controller; integration profile; 4 vCPU / 16 GB.
+  # Core AD/DNS workload. Full security + system event logs.
+  - name: hwin-dc01
+    os: windows
+    cpus: 4
+    memory_gb: 16
+    metrics_profile: integration
+    os_version: "Server 2025"
+
+  # hwin-app01 — Windows Server 2022 application server; full profile; 8 vCPU / 32 GB.
+  # IIS + .NET workload. Full metrics + Application/System event log streams.
+  - name: hwin-app01
+    os: windows
+    cpus: 8
+    memory_gb: 32
+    metrics_profile: full
+    os_version: "Server 2022"
+
+  # hwin-sql01 — Windows Server 2022 SQL Server host; integration profile; 16 vCPU / 64 GB.
+  # SQL Server 2022; high-memory, heavy-disk workload. Event logs on (default).
+  - name: hwin-sql01
+    os: windows
+    cpus: 16
+    memory_gb: 64
+    metrics_profile: integration
+    os_version: "Server 2022"

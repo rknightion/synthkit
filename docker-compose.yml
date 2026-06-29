@@ -1,0 +1,42 @@
+services:
+  synthkit:
+    build:
+      context: .
+      args:
+        # Stamped as service.version on self-obs + profiling data. Override:
+        #   docker compose build --build-arg VERSION=$(git rev-parse --short HEAD)
+        VERSION: dev
+    restart: unless-stopped
+    # ALL configuration + credentials come from .env (gitignored — never commit secrets here):
+    #   - synthetic sinks  (GC_TOKEN, GC_PROM_RW/OTLP/LOKI …)         → the synthetic-data stack
+    #   - self-obs OTLP    (SELFOBS_ENABLED, GC_SELF_OTLP_* )         → a SEPARATE self-obs stack
+    #   - self-profiling   (SELFOBS_ENABLED, GC_PYROSCOPE_* )         → a SEPARATE self-obs stack
+    #   - SM/FM provision  (GC_SM_*, GC_FM_* )                        → control-plane tools
+    # The self-obs paths (OTLP + profiles) use their OWN tokens (never GC_TOKEN). Both share the
+    # SELFOBS_ENABLED master switch, are suppressed under DRY_RUN, and ship only when their creds are set.
+    env_file: .env
+    environment:
+      BLUEPRINTS: /app/blueprints
+      # State must live on the mounted /data volume (the distroless rootfs is read-only and
+      # nonroot). The ./control-state.json default would silently fail to persist every tick.
+      # compose `environment` overrides `env_file`, so a local relative default never leaks in.
+      # See the ./control-state-data:/data bind mount below.
+      CONFIG_SNAPSHOT_PATH: /data/control-state.json
+      # Custom + git blueprints are persisted on the same /data volume so they survive restarts.
+      # Subdirectory layout: custom/ (uploads), git/<id>/ (fetched git sources), .boot-manifest.json.
+      BLUEPRINT_DATA_DIR: /data/blueprints
+    ports:
+      # JSON_HTTP_ADDR (:8088) serves the operator control plane (/control/ui) + the Infinity JSON
+      # datasource host (/) over plain HTTP. SAFE BY DEFAULT: binds loopback only — the control plane
+      # is UNAUTHENTICATED and accepts POSTs. To reach it from Grafana/another host, set
+      # SYNTHKIT_BIND=0.0.0.0 (or a tailscale/LAN IP) in .env, ONLY on a trusted network, and front it
+      # with `tailscale serve` for a browser-trusted endpoint; otherwise SSH-tunnel. (If you change the
+      # port in .env, update this too.)
+      - "${SYNTHKIT_BIND:-127.0.0.1}:8088:8088"
+    volumes:
+      # DIRECTORY bind mount, owned by uid 65532 (distroless nonroot) — a single-file
+      # mount breaks the control plane's atomic save → state wipe (I25). First run:
+      #   mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data
+      - ./control-state-data:/data
+    # Container restart = counter reset = a clean rate() window (I29) — intentional;
+    # no counter state volume exists or should.

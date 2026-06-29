@@ -1,0 +1,10 @@
+# Per-stack vendor dashboard deep-link targets for the thin scoped index.
+# Copy to integrations.yaml (gitignored, per-deploy) and fill in the real UIDs from the
+# target stack's deployed integrations. Unlisted kinds are simply not linked.
+targets:
+  k8s:
+    dashboard_uid: <k8s-monitoring-app-dashboard-uid>
+    title: Kubernetes
+  aws:
+    dashboard_uid: <aws-cloudwatch-integration-uid>
+    title: AWS CloudWatch

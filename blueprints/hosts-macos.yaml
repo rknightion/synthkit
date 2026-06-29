@@ -1,0 +1,53 @@
+# hosts-macos — macOS endpoint and developer fleet: macos-node exporter metrics.
+#
+# USE CASE: Demonstrate the macOS exporter lane (node_exporter macOS build) across a
+# mixed endpoint fleet — developer laptops and a CI runner. Mix of integration and full
+# metric profiles. Realistic os_version strings (macOS 14 Sonoma / 15 Sequoia) and
+# arm64 kernel detail. Docker is INTENTIONALLY absent on all hosts — the loader rejects
+# observability.docker:true on darwin (no cadvisor support in v1).
+#
+# Substrate-scoped: (job=integrations/macos-node, instance) identity; no blueprint
+# label. Host names must be globally unique across all loaded blueprints — prefix hmac-.
+name: hosts-macos
+label: hosts-macos
+shape: business_hours_plateau
+timezone: America/Los_Angeles
+metadata:
+  description: "macOS endpoint/dev fleet: macos-node exporter (cpu/disk/net/fs + battery/power). Developer laptops and CI runner on macOS 14/15. No Docker (unsupported on macOS in v1)."
+  owner: platform-observability
+  category: reference
+  tags: [hosts, macos, darwin, endpoints, node-exporter, laptops]
+  links:
+    signals: ./signals/host.md
+
+hosts:
+  # hmac-laptop01 — MacBook Pro 16" M3 Pro (macOS 14.7 Sonoma, arm64).
+  # Developer workstation; integration profile; 12 vCPU / 36 GB.
+  - name: hmac-laptop01
+    os: macos
+    cpus: 12
+    memory_gb: 36
+    metrics_profile: integration
+    os_version: "14.7.1"
+    kernel: "Darwin Kernel 23.6.0"
+
+  # hmac-laptop02 — MacBook Air M2 (macOS 15.0 Sequoia, arm64).
+  # Developer endpoint; full profile; 8 vCPU / 16 GB. Exercises the modest full-profile
+  # surface (same macosIntegrationNames for now — full adds process_*/go_* where present).
+  - name: hmac-laptop02
+    os: macos
+    cpus: 8
+    memory_gb: 16
+    metrics_profile: full
+    os_version: "15.0"
+    kernel: "Darwin Kernel 24.0.0"
+
+  # hmac-ci01 — Mac mini M2 CI runner (macOS 15.1 Sequoia, arm64).
+  # Headless CI host for Xcode/iOS builds; integration profile; 8 vCPU / 24 GB.
+  - name: hmac-ci01
+    os: macos
+    cpus: 8
+    memory_gb: 24
+    metrics_profile: integration
+    os_version: "15.1"
+    kernel: "Darwin Kernel 24.1.0"

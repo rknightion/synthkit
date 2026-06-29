@@ -1,0 +1,24 @@
+# dbo11y-mysql — demonstrates the Database Observability MySQL lane (`dbo11y_mysql`): an RDS MySQL
+# instance emitting the database_observability_* + mysql_* families (metrics + log ops), including
+# replication (mysql_slave_status_* source/replica naming with seed-derived master_host/master_uuid)
+# and the query_data_locks op (emitted ONLY while a lock_contention incident is active).
+# Pair with an incident firing `lock_contention` (scoped to the db name) to see the locks op flow.
+name: dbo11y-mysql
+metadata:                          # optional, UI-only annotation — never affects emission
+  description: "Demonstrates the Database Observability MySQL lane: an RDS MySQL instance emitting database_observability_* + mysql_* (metrics + log ops), including replication and the lock-contention query_data_locks op."
+  owner: database-observability
+  category: integration
+  tags: [mysql, rds, database, dbo11y, replication]
+  links:
+    signals: ./signals/dbo11y.md
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "210987654322"
+      region: eu-west-1
+      vpc_id: vpc-0dbo11ymysql01
+      nat_gateways: 1
+    databases:
+      - { engine: mysql, version: "8.4", name: dbo11y-mysql-app, instance_class: db.r6g.large,
+          observability: { dbo11y: true, digests: 20 } }   # cloudwatch defaults true → RDS + dbo11y MySQL

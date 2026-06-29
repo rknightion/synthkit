@@ -1,0 +1,12 @@
+# Snyk (https://snyk.io) policy file.
+#
+# Records the disposition of every Snyk finding triaged for this repo. Triage entries are added
+# here as findings are reviewed — an empty ignore section means no findings have been assessed yet.
+# See the triage commit message for the full per-finding assessment when entries are added.
+version: v1.25.0
+
+exclude: {}
+
+ignore: {}
+
+patch: {}

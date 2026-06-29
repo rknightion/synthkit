@@ -1,0 +1,708 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "synthkit-customer-control"
+  },
+  "spec": {
+    "annotations": [],
+    "cursorSync": "Off",
+    "editable": true,
+    "elements": {
+      "current-state": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Current state",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "Query",
+                      "group": "yesoreyeram-infinity-datasource",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "synthkit (Infinity)"
+                      },
+                      "spec": {
+                        "columns": [
+                          {
+                            "selector": "volume_multiplier",
+                            "text": "Volume ×",
+                            "type": "number"
+                          },
+                          {
+                            "selector": "peak_rps_per_env",
+                            "text": "Peak RPS/env",
+                            "type": "number"
+                          },
+                          {
+                            "selector": "platform_call_fraction",
+                            "text": "Platform fraction",
+                            "type": "number"
+                          },
+                          {
+                            "selector": "rum_multiplier",
+                            "text": "RUM ×",
+                            "type": "number"
+                          },
+                          {
+                            "selector": "series_cap",
+                            "text": "Series cap",
+                            "type": "number"
+                          }
+                        ],
+                        "format": "table",
+                        "parser": "backend",
+                        "refId": "A",
+                        "source": "url",
+                        "type": "json",
+                        "url": "/control/state",
+                        "url_options": {
+                          "method": "GET"
+                        }
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "",
+            "spec": {
+              "options": {
+                "frameIndex": 0,
+                "showHeader": true,
+                "showTypeIcons": false,
+                "footer": {
+                  "show": false,
+                  "reducer": null,
+                  "countRows": false
+                },
+                "cellHeight": "sm"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "header": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "",
+            "spec": {
+              "options": {
+                "mode": "markdown",
+                "content": "## synthkit — self-serve controls\n\n- **Load presets** scale the whole synthetic estate's volume coherently.\n- **Activate incident** fires a curated failure scenario (replaces any active incident); **Clear all incidents** returns to steady state.\n- **Current state** / **Incidents** show the live picture. Changes apply within a few seconds."
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "scenario-activate": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Activate incident",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "Query",
+                      "group": "yesoreyeram-infinity-datasource",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "synthkit (Infinity)"
+                      },
+                      "spec": {
+                        "columns": [],
+                        "data": "[{\"_\":\" \"}]",
+                        "format": "table",
+                        "parser": "backend",
+                        "refId": "A",
+                        "source": "inline",
+                        "type": "json"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "",
+            "spec": {
+              "options": {
+                "frameIndex": 0,
+                "showHeader": false,
+                "showTypeIcons": false,
+                "footer": {
+                  "show": false,
+                  "reducer": null,
+                  "countRows": false
+                },
+                "cellHeight": "sm"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "actions": [
+                    {
+                      "type": "fetch",
+                      "title": "AgentCore capacity constraint",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/agentcore_capacity_constraint\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "AI gateway brownout (Bedrock throttle → retry/fallback storm)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/ai_gateway_brownout\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "AI quality regression (eval scores drop)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/ai_quality_regression\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Assist outage (user-facing errors)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/assist_outage\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Assistant backend latency storm",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/backend_latency_storm\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Bad deploy — multi-layer major incident (PRD)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/bad_deploy_major\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Postgres ACL connection saturation",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/db_acl_saturation\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "EKS node-failure cascade (PRD)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/eks_node_cascade\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Node NotReady (TST1)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/eks_node_not_ready_tst1\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "OOM kill (DEV1)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/eks_oom_kill_dev1\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Pod crash-loop (DEV2)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/eks_pod_crashloop_dev2\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Frontend web-vitals degradation",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/frontend_vitals_degraded\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Knowledge-layer retrieval meltdown",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/knowledge_retrieval_meltdown\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Portkey gateway/scrape degradation",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/portkey_gateway_degraded\"]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Clear all incidents",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/scenarios",
+                        "body": "{\"active_scenarios\":[]}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    }
+                  ],
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "actions"
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "scenarios": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Incidents",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "Query",
+                      "group": "yesoreyeram-infinity-datasource",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "synthkit (Infinity)"
+                      },
+                      "spec": {
+                        "columns": [
+                          {
+                            "selector": "blueprint",
+                            "text": "Blueprint",
+                            "type": "string"
+                          },
+                          {
+                            "selector": "name",
+                            "text": "Name",
+                            "type": "string"
+                          },
+                          {
+                            "selector": "title",
+                            "text": "Title",
+                            "type": "string"
+                          },
+                          {
+                            "selector": "active",
+                            "text": "Active",
+                            "type": "string"
+                          }
+                        ],
+                        "format": "table",
+                        "parser": "backend",
+                        "refId": "A",
+                        "root_selector": "scenarios",
+                        "source": "url",
+                        "type": "json",
+                        "url": "/control/schema?audience=customer",
+                        "url_options": {
+                          "method": "GET"
+                        }
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "",
+            "spec": {
+              "options": {
+                "frameIndex": 0,
+                "showHeader": true,
+                "showTypeIcons": false,
+                "footer": {
+                  "show": false,
+                  "reducer": null,
+                  "countRows": false
+                },
+                "cellHeight": "sm"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "volume-presets": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "Load presets",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "Query",
+                      "group": "yesoreyeram-infinity-datasource",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "synthkit (Infinity)"
+                      },
+                      "spec": {
+                        "columns": [],
+                        "data": "[{\"_\":\" \"}]",
+                        "format": "table",
+                        "parser": "backend",
+                        "refId": "A",
+                        "source": "inline",
+                        "type": "json"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "",
+            "spec": {
+              "options": {
+                "frameIndex": 0,
+                "showHeader": false,
+                "showTypeIcons": false,
+                "footer": {
+                  "show": false,
+                  "reducer": null,
+                  "countRows": false
+                },
+                "cellHeight": "sm"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "actions": [
+                    {
+                      "type": "fetch",
+                      "title": "Idle (0.2×)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/load",
+                        "body": "{\"volume_multiplier\":0.2}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Normal (1×)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/load",
+                        "body": "{\"volume_multiplier\":1}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Peak (3×)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/load",
+                        "body": "{\"volume_multiplier\":3}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    },
+                    {
+                      "type": "fetch",
+                      "title": "Stress (10×)",
+                      "fetch": {
+                        "method": "POST",
+                        "url": "https://your-host.example.com/control/load",
+                        "body": "{\"volume_multiplier\":10}"
+                      },
+                      "confirmation": "",
+                      "oneClick": false
+                    }
+                  ],
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "actions"
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "element": {
+                "kind": "ElementReference",
+                "name": "header"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "element": {
+                "kind": "ElementReference",
+                "name": "volume-presets"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "element": {
+                "kind": "ElementReference",
+                "name": "current-state"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 12,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "element": {
+                "kind": "ElementReference",
+                "name": "scenarios"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 16,
+              "width": 12,
+              "height": 8,
+              "element": {
+                "kind": "ElementReference",
+                "name": "scenario-activate"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "links": [
+      {
+        "title": "Related dashboards",
+        "type": "dashboards",
+        "icon": "",
+        "tooltip": "",
+        "tags": [
+          "synthkit"
+        ],
+        "asDropdown": true,
+        "targetBlank": false,
+        "includeVars": false,
+        "keepTime": true
+      }
+    ],
+    "preload": false,
+    "tags": [
+      "synthkit"
+    ],
+    "timeSettings": {
+      "timezone": "browser",
+      "from": "now-6h",
+      "to": "now",
+      "autoRefresh": "",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "hideTimepicker": false,
+      "fiscalYearStartMonth": 0
+    },
+    "title": "synthkit — Customer Control",
+    "variables": []
+  }
+}

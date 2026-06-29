@@ -1,0 +1,42 @@
+# k8s-windows-mixed — mixed Linux + Windows EKS node groups: exercises the windows-exporter
+# signal path alongside the standard Linux node-exporter path.
+# Schema: ARCHITECTURE.md §3. Deleting this file removes k8swin's telemetry and nothing else.
+name: k8s-windows-mixed
+label: k8swin
+shape: business_hours_plateau
+timezone: America/Los_Angeles
+metadata:
+  description: "Mixed Linux + Windows EKS node groups: exercises both the windows-exporter signal path (windows-pool) and the standard Linux node-exporter path (linux-general) with node-level log collection. Reference for teams running .NET or legacy workloads on Windows nodes."
+  owner: platform-observability
+  category: reference
+  tags: [kubernetes, windows, mixed-os, eks, windows-exporter, node-exporter]
+  links:
+    signals: ./signals/k8s.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "411000000003"
+      region: us-west-2
+      vpc_id: vpc-0k8swin01
+    cluster:
+      type: eks
+      name: k8swin-prod-usw2
+      platform: { os: al2023, kubernetes_version: "1.31" }
+      node_groups:
+        - { name: linux-general,  instance_type: m6i.large, desired: 2, os: linux   }
+        - { name: windows-pool,   instance_type: m6i.large, desired: 2, os: windows }
+      observability:
+        cloudwatch: false             # k8s-only — no per-node EC2 CloudWatch lane
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+        features:
+          cluster_metrics: true       # KSM + cAdvisor + kubelet + node-exporter / windows-exporter
+          node_logs: true             # node-level journal (linux) + winevent (windows) log streams
+      addons:
+        - core_dns
+        - vpc_cni
+        - ebs_csi

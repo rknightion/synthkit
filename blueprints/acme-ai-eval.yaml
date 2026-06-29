@@ -1,0 +1,140 @@
+# acme-ai-eval — the AI-gateway PLATFORM OPERATOR's view across an 8-cell estate
+# (4 AWS account roles × 2 regions). This is what the platform team itself would observe: gateway
+# health, LangSmith platform health, the per-cell AWS estate, the multi-cloud LLM endpoints, edge,
+# and the qualification pipeline — NOT any single tenant's app traces (those go to the tenant).
+#
+# Predecessor scenario port (Spec 3). All identity is blueprint-only; the catalogue is generic.
+#
+# TENANT-STRIPPED (synthkit-native): no Acme AI identity is declared at all — no workspace, no
+# use_cases, no correlation/session metadata. synthkit only emits labels you wire, so simply
+# not declaring them IS the strip. The gateway-traffic workload carries no business attributes.
+#
+# Per-cell fan-out (for_each_env): every signal class is keyed to the AI evaluation cell (env=<cell>).
+# NO bedrock/agentcore (those are the tenant's app classes, suppressed for the platform view).
+# Multi-cloud GCP/Azure are LLM-access footprints only — csp_* scoped to ai/vertex + networking,
+# NOT a full estate (canonical: GCP/Azure are model-access paths).
+name: acme-ai-eval
+label: acme-ai-eval
+metadata:                          # optional, UI-only annotation — never affects emission
+  description: "The AI-gateway platform operator's view across an 8-cell estate (4 AWS account roles × 2 regions): gateway health, LangSmith platform health, per-cell AWS estate, multi-cloud LLM endpoints, edge, and the qualification pipeline (no single tenant's app traces)."
+  owner: ai-gateway-platform
+  category: scenario
+  tags: [ai, gateway, langsmith, multi-cloud, multi-cell, platform-operator, qualification]
+  links:
+    architecture: ./ARCHITECTURE.md
+    langsmith-signals: ./signals/langsmith.md
+    qualification-signals: ./signals/qualification.md
+
+environments:
+  - name: eval-develop-usw2
+    weight: 0.2
+    cloud: { provider: aws, account_id: "200000000001", region: us-west-2, vpc_id: vpc-0eval01, nat_gateways: 1 }
+    cluster:
+      type: eks
+      name: aigw-eks-develop-usw2
+      node_groups: &ng [{ name: general, instance_type: m6i.large }]
+      k8s_monitoring: &k8sm { enabled: true, chart_version: "4.1.4", alloy: true }
+      addons: &addons [core_dns, vpc_cni, ebs_csi, cert_manager, cluster_autoscaler, external_dns, load_balancer_controller, ksm_ingress, alloy_health]
+
+  - name: eval-develop-euw3
+    weight: 0.2
+    cloud: { provider: aws, account_id: "200000000001", region: eu-west-3, vpc_id: vpc-0eval02, nat_gateways: 1 }
+    cluster: { type: eks, name: aigw-eks-develop-euw3, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+
+  - name: eval-devint-usw2
+    weight: 0.2
+    cloud: { provider: aws, account_id: "200000000002", region: us-west-2, vpc_id: vpc-0eval03, nat_gateways: 1 }
+    cluster: { type: eks, name: aigw-eks-devint-usw2, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+
+  - name: eval-devint-euw3
+    weight: 0.2
+    cloud: { provider: aws, account_id: "200000000002", region: eu-west-3, vpc_id: vpc-0eval04, nat_gateways: 1 }
+    cluster: { type: eks, name: aigw-eks-devint-euw3, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+
+  - name: eval-test-usw2
+    weight: 0.5
+    cloud: { provider: aws, account_id: "200000000003", region: us-west-2, vpc_id: vpc-0eval05, nat_gateways: 1 }
+    cluster: { type: eks, name: aigw-eks-test-usw2, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+
+  - name: eval-test-euw3
+    weight: 0.5
+    cloud: { provider: aws, account_id: "200000000003", region: eu-west-3, vpc_id: vpc-0eval06, nat_gateways: 1 }
+    cluster: { type: eks, name: aigw-eks-test-euw3, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+
+  - name: eval-prod-usw2
+    weight: 1.0
+    production: true
+    cloud: { provider: aws, account_id: "200000000004", region: us-west-2, vpc_id: vpc-0eval07, nat_gateways: 2 }
+    cluster: { type: eks, name: aigw-eks-prod-usw2, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+
+  - name: eval-prod-euw3
+    weight: 1.0
+    production: true
+    cloud: { provider: aws, account_id: "200000000004", region: eu-west-3, vpc_id: vpc-0eval08, nat_gateways: 2 }
+    cluster: { type: eks, name: aigw-eks-prod-euw3, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+
+workloads:
+  # The platform's gateway-traffic driver as a single-node app (Spec 5 migration). Platform-owner
+  # view: the entry IS the Portkey gateway (no browser, no tenant app) — it emits the connected
+  # gateway SERVER span + the Portkey export log + gen_ai metrics, carrying the real model (workload
+  # `models:`). TENANT-STRIPPED: no source=app business log, no frontend/RUM, no use_case/workspace/
+  # correlation. The native gateway scrape stays the portkey_gateway integration. Fanned per-cell.
+  - type: app
+    name: eval-gateway-traffic
+    for_each_env: true
+    traffic: { shape: diurnal, off_peak_rps: 1, peak_rps: 5, request_latency_p95_ms: 9000 }   # LLM-gateway traffic latency (p95 ~9s): gateway→provider LLM wait dominates, not HTTP-fast
+    models:                                  # valid (model, provider) routings — paired, real cross-cloud mix
+      - { model: gpt-4o,            provider: azure-openai }
+      - { model: gpt-4.1,           provider: azure-openai }
+      - { model: gpt-4.1-mini,      provider: azure-openai }
+      - { model: o3,                provider: azure-openai }
+      - { model: o4-mini,           provider: azure-openai }
+      - { model: gemini-2.5-pro,    provider: gcp-vertex }
+      - { model: claude-sonnet-4-6, provider: bedrock }
+      - { model: claude-3.5-sonnet, provider: bedrock }
+    services:
+      - name: portkey
+        type: gateway
+        runtime: node
+        entry: true
+        context: Platform
+        team: Acme AI
+        version: "4.1.2"
+        routes: [POST /v1/chat/completions]  # the request's logical API route (→ r.Route + the gateway span)
+        profiles: [gen_ai_client, gateway_export_log]
+
+integrations:
+  # Per-cell fan-out (env=<cell>): gateway scrape + LangSmith platform health + multi-cloud LLM
+  # endpoints + qualification pipeline. Provider labels show cross-cloud routing.
+  portkey_gateway:
+    for_each_env: true
+    app: eval-aigw
+    models: [gpt-4o, gpt-4.1, gpt-4.1-mini, gpt-4o-mini, o3, o4-mini, gemini-2.5-pro, claude-sonnet-4-6, claude-3.5-sonnet]
+    providers: [azure-openai, gcp-vertex, bedrock]
+  langsmith_platform:
+    for_each_env: true
+  csp_azure:
+    for_each_env: true
+    ingestion_path: serverless
+    subscriptions: 2
+    company: eval
+    sub_signals: [ai, networking, messaging, logs]      # Azure OpenAI + APIM/ExpressRoute + EventHubs (no full estate)
+  csp_gcp:
+    for_each_env: true
+    projects: 2
+    company: eval
+    sub_signals: [vertex, networking, logs]             # Vertex AI + PSC (no full estate)
+  qualification_pipeline:
+    for_each_env: true                                  # fans all 8 cells (canon excludes dev-int from quals — platform-view latitude)
+    stages: [verification, build, test, test-tokens-usage, autovalidate, pdf]
+    clouds: [aws, azure, gcp, common]
+  cloudflare:                                           # platform-wide edge (aggregate, not per-cell)
+    zone: aigw.eval.example.com
+    colocations: [IAD, FRA]                             # US + EU edge, matching the 2-region estate
+
+# Recurring background incidents (daily, brief, non-prod, modest intensity) so the platform k8s
+# dashboards show realistic occasional fault events over time. `at: "HH:MM"` = daily-recurring
+# (blueprint tz). Scoped to non-prod cells each; the prod cells (aigw-eks-prod-*) stay clean.
+incidents:
+  - { kind: pod_crashloop,  target: aigw-eks-devint-usw2, at: "11:20", for: 12m, intensity: 0.5 }
+  - { kind: node_not_ready, target: aigw-eks-test-euw3,   at: "15:10", for: 8m,  intensity: 0.6 }

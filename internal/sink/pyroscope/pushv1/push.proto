@@ -1,0 +1,50 @@
+// Vendored from github.com/grafana/pyroscope api/push/v1/push.proto.
+// Transformations applied:
+//   - gnostic/openapi import and all (gnostic.openapi.v3.*) field options stripped
+//   - LabelPair message co-located from api/types/v1/types.proto (field numbers unchanged)
+//   - types.v1.LabelPair references resolved to local LabelPair
+//   - annotations field (field 3) on RawProfileSeries dropped; field number 3 is reserved
+//   - service PusherService dropped (we hand-POST; no generated client needed)
+//   - option go_package set to the module path
+// Field numbers and wire contract for retained fields are identical to upstream.
+
+syntax = "proto3";
+
+package push.v1;
+
+option go_package = "github.com/rknightion/synthkit/internal/sink/pyroscope/pushv1;pushv1";
+
+// LabelPair is a key/value label that identifies a Pyroscope series.
+// Co-located from api/types/v1/types.proto — field numbers unchanged.
+message LabelPair {
+  // Label name
+  string name = 1;
+  // Label value
+  string value = 2;
+}
+
+// WriteRawRequest writes a pprof profile
+message PushRequest {
+  // series is a set of raw pprof profiles and accompanying labels
+  repeated RawProfileSeries series = 1;
+}
+
+// RawProfileSeries represents the pprof profile and its associated labels
+message RawProfileSeries {
+  // labels are the key/value pairs to identify the corresponding profile
+  repeated LabelPair labels = 1;
+
+  // samples are the set of profile bytes
+  repeated RawSample samples = 2;
+
+  // field 3 was annotations (dropped — passed via distributors, not the push API); reserved for wire compat
+  reserved 3;
+}
+
+// RawSample is the set of bytes that correspond to a pprof profile
+message RawSample {
+  // raw_profile is the set of bytes of the pprof profile
+  bytes raw_profile = 1;
+  // UUID of the profile
+  string ID = 2;
+}

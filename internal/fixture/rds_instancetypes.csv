@@ -1,0 +1,288 @@
+# AWS RDS DB instance-class catalogue — instance capacity source for synthkit RDS construct.
+# Enumerated: aws rds describe-orderable-db-instance-options --engine postgres --region eu-west-1
+#             aws rds describe-orderable-db-instance-options --engine mysql --region eu-west-1
+#             (both engines return the same class list; deduplicated union used here)
+# Date: 2026-06-14   Account: 515966537543 (eu-west-1)
+# Spec source: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.Summary.html
+#              vCPU/memoryGiB confirmed against EC2 family specs (same underlying hardware).
+#              NVMe-d/-id/-idn/-in variants share CPU+RAM with their base class; same figures used.
+# burstableBaselinePct: per-vCPU baseline CPU % for t-family burstable instances.
+#   Source: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-credits-baseline-concepts.html
+#   Formula: credits_per_hour / (vCPU * 60). Confirmed anchors: t3.nano=5%, t3.large=30%.
+#   t3 and t4g share the same baseline schedule.
+# class,vCPU,memoryGiB,burstableBaselinePct
+#
+# --- Burstable: db.t3 ---
+db.t3.micro,2,1,5
+db.t3.small,2,2,10
+db.t3.medium,2,4,20
+db.t3.large,2,8,30
+db.t3.xlarge,4,16,40
+db.t3.2xlarge,8,32,40
+#
+# --- Burstable: db.t4g (Graviton2) ---
+db.t4g.micro,2,1,5
+db.t4g.small,2,2,10
+db.t4g.medium,2,4,20
+db.t4g.large,2,8,30
+db.t4g.xlarge,4,16,40
+db.t4g.2xlarge,8,32,40
+#
+# --- General Purpose: db.m5 (Intel Xeon Platinum 8175 / 8259CL) ---
+db.m5.large,2,8,0
+db.m5.xlarge,4,16,0
+db.m5.2xlarge,8,32,0
+db.m5.4xlarge,16,64,0
+db.m5.8xlarge,32,128,0
+db.m5.12xlarge,48,192,0
+db.m5.16xlarge,64,256,0
+db.m5.24xlarge,96,384,0
+#
+# --- General Purpose: db.m5d (NVMe-SSD local storage; same CPU/RAM as m5) ---
+db.m5d.large,2,8,0
+db.m5d.xlarge,4,16,0
+db.m5d.2xlarge,8,32,0
+db.m5d.4xlarge,16,64,0
+db.m5d.8xlarge,32,128,0
+db.m5d.12xlarge,48,192,0
+db.m5d.16xlarge,64,256,0
+db.m5d.24xlarge,96,384,0
+#
+# --- General Purpose: db.m6g (Graviton2) ---
+db.m6g.large,2,8,0
+db.m6g.xlarge,4,16,0
+db.m6g.2xlarge,8,32,0
+db.m6g.4xlarge,16,64,0
+db.m6g.8xlarge,32,128,0
+db.m6g.12xlarge,48,192,0
+db.m6g.16xlarge,64,256,0
+#
+# --- General Purpose: db.m6gd (NVMe-SSD; same CPU/RAM as m6g) ---
+db.m6gd.large,2,8,0
+db.m6gd.xlarge,4,16,0
+db.m6gd.2xlarge,8,32,0
+db.m6gd.4xlarge,16,64,0
+db.m6gd.8xlarge,32,128,0
+db.m6gd.12xlarge,48,192,0
+db.m6gd.16xlarge,64,256,0
+#
+# --- General Purpose: db.m6i (3rd Gen Intel Xeon Scalable, Ice Lake) ---
+db.m6i.large,2,8,0
+db.m6i.xlarge,4,16,0
+db.m6i.2xlarge,8,32,0
+db.m6i.4xlarge,16,64,0
+db.m6i.8xlarge,32,128,0
+db.m6i.12xlarge,48,192,0
+db.m6i.16xlarge,64,256,0
+db.m6i.24xlarge,96,384,0
+db.m6i.32xlarge,128,512,0
+#
+# --- General Purpose: db.m6id (NVMe-SSD; same CPU/RAM as m6i) ---
+db.m6id.large,2,8,0
+db.m6id.xlarge,4,16,0
+db.m6id.2xlarge,8,32,0
+db.m6id.4xlarge,16,64,0
+db.m6id.8xlarge,32,128,0
+db.m6id.12xlarge,48,192,0
+db.m6id.16xlarge,64,256,0
+db.m6id.24xlarge,96,384,0
+db.m6id.32xlarge,128,512,0
+#
+# --- General Purpose: db.m6idn (NVMe-SSD + enhanced networking; same CPU/RAM as m6i) ---
+db.m6idn.large,2,8,0
+db.m6idn.xlarge,4,16,0
+db.m6idn.2xlarge,8,32,0
+db.m6idn.4xlarge,16,64,0
+db.m6idn.8xlarge,32,128,0
+db.m6idn.12xlarge,48,192,0
+db.m6idn.16xlarge,64,256,0
+db.m6idn.24xlarge,96,384,0
+db.m6idn.32xlarge,128,512,0
+#
+# --- General Purpose: db.m6in (enhanced networking; same CPU/RAM as m6i) ---
+db.m6in.large,2,8,0
+db.m6in.xlarge,4,16,0
+db.m6in.2xlarge,8,32,0
+db.m6in.4xlarge,16,64,0
+db.m6in.8xlarge,32,128,0
+db.m6in.12xlarge,48,192,0
+db.m6in.16xlarge,64,256,0
+db.m6in.24xlarge,96,384,0
+db.m6in.32xlarge,128,512,0
+#
+# --- General Purpose: db.m7g (Graviton3) ---
+db.m7g.large,2,8,0
+db.m7g.xlarge,4,16,0
+db.m7g.2xlarge,8,32,0
+db.m7g.4xlarge,16,64,0
+db.m7g.8xlarge,32,128,0
+db.m7g.12xlarge,48,192,0
+db.m7g.16xlarge,64,256,0
+#
+# --- General Purpose: db.m7i (4th Gen Intel Xeon Scalable, Sapphire Rapids) ---
+db.m7i.large,2,8,0
+db.m7i.xlarge,4,16,0
+db.m7i.2xlarge,8,32,0
+db.m7i.4xlarge,16,64,0
+db.m7i.8xlarge,32,128,0
+db.m7i.12xlarge,48,192,0
+db.m7i.16xlarge,64,256,0
+db.m7i.24xlarge,96,384,0
+db.m7i.48xlarge,192,768,0
+#
+# --- General Purpose: db.m8g (Graviton4) ---
+db.m8g.large,2,8,0
+db.m8g.xlarge,4,16,0
+db.m8g.2xlarge,8,32,0
+db.m8g.4xlarge,16,64,0
+db.m8g.8xlarge,32,128,0
+db.m8g.12xlarge,48,192,0
+db.m8g.16xlarge,64,256,0
+db.m8g.24xlarge,96,384,0
+db.m8g.48xlarge,192,768,0
+#
+# --- Compute Optimized: db.c6gd (Graviton2 NVMe-SSD) ---
+db.c6gd.medium,2,4,0
+db.c6gd.large,2,4,0
+db.c6gd.xlarge,4,8,0
+db.c6gd.2xlarge,8,16,0
+db.c6gd.4xlarge,16,32,0
+db.c6gd.8xlarge,32,64,0
+db.c6gd.12xlarge,48,96,0
+db.c6gd.16xlarge,64,128,0
+#
+# --- Memory Optimized: db.r5 (Intel Xeon Platinum 8175 / 8259CL) ---
+db.r5.large,2,16,0
+db.r5.xlarge,4,32,0
+db.r5.2xlarge,8,64,0
+db.r5.4xlarge,16,128,0
+db.r5.8xlarge,32,256,0
+db.r5.12xlarge,48,384,0
+db.r5.16xlarge,64,512,0
+db.r5.24xlarge,96,768,0
+#
+# --- Memory Optimized: db.r5d (NVMe-SSD; same CPU/RAM as r5) ---
+db.r5d.large,2,16,0
+db.r5d.xlarge,4,32,0
+db.r5d.2xlarge,8,64,0
+db.r5d.4xlarge,16,128,0
+db.r5d.8xlarge,32,256,0
+db.r5d.12xlarge,48,384,0
+db.r5d.16xlarge,64,512,0
+db.r5d.24xlarge,96,768,0
+#
+# --- Memory Optimized: db.r6g (Graviton2) ---
+db.r6g.large,2,16,0
+db.r6g.xlarge,4,32,0
+db.r6g.2xlarge,8,64,0
+db.r6g.4xlarge,16,128,0
+db.r6g.8xlarge,32,256,0
+db.r6g.12xlarge,48,384,0
+db.r6g.16xlarge,64,512,0
+#
+# --- Memory Optimized: db.r6gd (NVMe-SSD; same CPU/RAM as r6g) ---
+db.r6gd.large,2,16,0
+db.r6gd.xlarge,4,32,0
+db.r6gd.2xlarge,8,64,0
+db.r6gd.4xlarge,16,128,0
+db.r6gd.8xlarge,32,256,0
+db.r6gd.12xlarge,48,384,0
+db.r6gd.16xlarge,64,512,0
+#
+# --- Memory Optimized: db.r6i (3rd Gen Intel Xeon Scalable, Ice Lake) ---
+db.r6i.large,2,16,0
+db.r6i.xlarge,4,32,0
+db.r6i.2xlarge,8,64,0
+db.r6i.4xlarge,16,128,0
+db.r6i.8xlarge,32,256,0
+db.r6i.12xlarge,48,384,0
+db.r6i.16xlarge,64,512,0
+db.r6i.24xlarge,96,768,0
+db.r6i.32xlarge,128,1024,0
+#
+# --- Memory Optimized: db.r6id (NVMe-SSD; same CPU/RAM as r6i) ---
+db.r6id.large,2,16,0
+db.r6id.xlarge,4,32,0
+db.r6id.2xlarge,8,64,0
+db.r6id.4xlarge,16,128,0
+db.r6id.8xlarge,32,256,0
+db.r6id.12xlarge,48,384,0
+db.r6id.16xlarge,64,512,0
+db.r6id.24xlarge,96,768,0
+db.r6id.32xlarge,128,1024,0
+#
+# --- Memory Optimized: db.r6idn (NVMe-SSD + enhanced networking; same CPU/RAM as r6i) ---
+db.r6idn.large,2,16,0
+db.r6idn.xlarge,4,32,0
+db.r6idn.2xlarge,8,64,0
+db.r6idn.4xlarge,16,128,0
+db.r6idn.8xlarge,32,256,0
+db.r6idn.12xlarge,48,384,0
+db.r6idn.16xlarge,64,512,0
+db.r6idn.24xlarge,96,768,0
+db.r6idn.32xlarge,128,1024,0
+#
+# --- Memory Optimized: db.r6in (enhanced networking; same CPU/RAM as r6i) ---
+db.r6in.large,2,16,0
+db.r6in.xlarge,4,32,0
+db.r6in.2xlarge,8,64,0
+db.r6in.4xlarge,16,128,0
+db.r6in.8xlarge,32,256,0
+db.r6in.12xlarge,48,384,0
+db.r6in.16xlarge,64,512,0
+db.r6in.24xlarge,96,768,0
+db.r6in.32xlarge,128,1024,0
+#
+# --- Memory Optimized: db.r7g (Graviton3) ---
+db.r7g.large,2,16,0
+db.r7g.xlarge,4,32,0
+db.r7g.2xlarge,8,64,0
+db.r7g.4xlarge,16,128,0
+db.r7g.8xlarge,32,256,0
+db.r7g.12xlarge,48,384,0
+db.r7g.16xlarge,64,512,0
+#
+# --- Memory Optimized: db.r7i (4th Gen Intel Xeon Scalable, Sapphire Rapids) ---
+db.r7i.large,2,16,0
+db.r7i.xlarge,4,32,0
+db.r7i.2xlarge,8,64,0
+db.r7i.4xlarge,16,128,0
+db.r7i.8xlarge,32,256,0
+db.r7i.12xlarge,48,384,0
+db.r7i.16xlarge,64,512,0
+db.r7i.24xlarge,96,768,0
+db.r7i.48xlarge,192,1536,0
+#
+# --- Memory Optimized: db.r8g (Graviton4) ---
+db.r8g.large,2,16,0
+db.r8g.xlarge,4,32,0
+db.r8g.2xlarge,8,64,0
+db.r8g.4xlarge,16,128,0
+db.r8g.8xlarge,32,256,0
+db.r8g.12xlarge,48,384,0
+db.r8g.16xlarge,64,512,0
+db.r8g.24xlarge,96,768,0
+db.r8g.48xlarge,192,1536,0
+#
+# --- Extra Memory: db.x2g (Graviton2, 16 GiB/vCPU) ---
+db.x2g.large,2,32,0
+db.x2g.xlarge,4,64,0
+db.x2g.2xlarge,8,128,0
+db.x2g.4xlarge,16,256,0
+db.x2g.8xlarge,32,512,0
+db.x2g.12xlarge,48,768,0
+db.x2g.16xlarge,64,1024,0
+#
+# --- Extra Memory: db.x2idn (Intel Ice Lake NVMe; 32 GiB/vCPU) ---
+db.x2idn.16xlarge,64,2048,0
+db.x2idn.24xlarge,96,3072,0
+db.x2idn.32xlarge,128,4096,0
+#
+# --- Extra Memory: db.x2iedn (Intel Ice Lake NVMe enhanced; 32 GiB/vCPU) ---
+db.x2iedn.xlarge,4,128,0
+db.x2iedn.2xlarge,8,256,0
+db.x2iedn.4xlarge,16,512,0
+db.x2iedn.8xlarge,32,1024,0
+db.x2iedn.16xlarge,64,2048,0
+db.x2iedn.24xlarge,96,3072,0
+db.x2iedn.32xlarge,128,4096,0

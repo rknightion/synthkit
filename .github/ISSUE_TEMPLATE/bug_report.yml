@@ -1,0 +1,49 @@
+name: Bug report
+description: Report a defect in synthkit
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please do **not** include secrets, tokens, or real infrastructure
+        identifiers in this report.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps, blueprint config (with secrets redacted), and the construct/workload involved.
+      placeholder: |
+        1. Blueprint used (redact credential env vars) ...
+        2. Run `DRY_RUN=true go run ./cmd/synthkit -blueprint <name> -once -dump` ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `synthkit --version` (or the image tag / git SHA if built from source).
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: How it runs (binary / Docker / k8s), Go version if built from source, OS/arch.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / self-obs metrics
+      description: Redacted logs or `synthkit_*` self-observability metrics. No credentials or real infra identifiers.
+      render: shell
+    validations:
+      required: false

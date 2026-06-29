@@ -1,0 +1,77 @@
+# synthetic-monitoring — Grafana Synthetic Monitoring estate: HTTP probe checks
+# (probe_success / probe_duration families) + Fleet Management collector roster.
+# No cloud infrastructure: one minimal environment anchors the blueprint (required
+# by validateDecl), but all emitted telemetry flows from the features: block.
+# Signal contracts: signals/sm.md, signals/fleet.md.
+name: synthetic-checks
+label: synmon
+shape: business_hours_plateau
+timezone: Europe/London
+metadata:
+  description: "Grafana Synthetic Monitoring estate: HTTP probe checks (probe_success/probe_duration) + Fleet Management collector roster across linux/windows/darwin."
+  owner: platform-observability
+  category: reference
+  tags: [synthetic-monitoring, blackbox, probes, uptime, sm, fleet-management, grafana-cloud]
+  links:
+    signals-sm: ./signals/sm.md
+    signals-fleet: ./signals/fleet.md
+
+environments:
+  - name: prod
+    weight: 1.0
+
+features:
+  synthetic_monitoring:
+    enabled: true
+    checks:
+      - name: synmon-api-health
+        target: "https://api.synmon.example.com/health"
+        frequency: 60000
+        probe: synthkit-private
+        region: EMEA
+        labels:
+          team: platform
+          tier: api
+
+      - name: synmon-login
+        target: "https://app.synmon.example.com/login"
+        frequency: 60000
+        probe: synthkit-private
+        region: EMEA
+        labels:
+          team: frontend
+          tier: web
+
+      - name: synmon-checkout
+        target: "https://app.synmon.example.com/checkout"
+        frequency: 120000
+        probe: synthkit-private
+        region: US
+        labels:
+          team: commerce
+          tier: web
+
+      - name: synmon-docs
+        target: "https://docs.synmon.example.com/health"
+        frequency: 300000
+        probe: synthkit-private
+        region: EMEA
+        labels:
+          team: platform
+          tier: docs
+
+      - name: synmon-status-page
+        target: "https://status.synmon.example.com"
+        frequency: 60000
+        probe: synthkit-private
+        region: APAC
+        labels:
+          team: platform
+          tier: infra
+
+  fleet_management:
+    enabled: true
+    collectors_per_os:
+      linux: 3
+      windows: 1
+      darwin: 1

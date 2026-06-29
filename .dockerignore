@@ -1,0 +1,48 @@
+# Docker build context excludes. The image needs only Go source + go.mod/sum +
+# blueprints/ (see Dockerfile); everything below would leak secrets, bloat the
+# context, or land stale state in the image.
+
+# Secrets — NEVER in the build context.
+.env
+.env.*
+!.env.example
+
+# Git + VCS metadata.
+.git
+.gitignore
+.dockerignore
+
+# CI / OSS apparatus — not needed in the runtime image.
+.github
+.forgejo
+scripts/forbidden-words.local
+.gitleaks.toml
+.snyk
+.codacy.yaml
+.golangci.yml
+renovate.json
+release-please-config.json
+.release-please-manifest.json
+
+# Control-plane state (runtime, host-mounted at /data — never baked in).
+control-state.json
+control-state*.json
+control-state-data/
+
+# Scratch specs/plans (gitignored) and durable docs — not needed at runtime.
+docs/
+
+# Built binaries / test artifacts.
+synthkit
+*.test
+*.out
+/out/
+dist/
+
+# Editor / OS cruft.
+.DS_Store
+.idea/
+.vscode/
+
+# Node build artifacts — ui stage builds its own clean install.
+internal/control/ui/node_modules

@@ -1,0 +1,45 @@
+# k8s-control-plane — EKS control-plane deep monitoring: all five control-plane component families
+# without OpenCost/Kepler/profiling overhead. Reference for teams focused on k8s internals.
+# Schema: ARCHITECTURE.md §3. Deleting this file removes k8scp's telemetry and nothing else.
+name: k8s-control-plane
+label: k8scp
+shape: business_hours_plateau
+timezone: America/Los_Angeles
+metadata:
+  description: "EKS control-plane deep monitoring: all five control-plane component metric families (API server, kube-proxy, scheduler, controller-manager, kubelet probes) with cluster metrics. Reference for teams focused on k8s internals without cost/power/profiling overhead."
+  owner: platform-observability
+  category: reference
+  tags: [kubernetes, control-plane, eks, apiserver, scheduler, controller-manager, kube-proxy, kubelet]
+  links:
+    signals: ./signals/k8s.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "411000000002"
+      region: us-west-2
+      vpc_id: vpc-0k8scp01
+    cluster:
+      type: eks
+      name: k8scp-prod-usw2
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 3, provisioner: managed }
+      observability:
+        cloudwatch: false             # k8s-only — no per-node EC2 CloudWatch lane
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+        features:
+          cluster_metrics: true       # KSM + cAdvisor + kubelet + node-exporter (required baseline)
+        control_plane:
+          api_server: true
+          kube_proxy: true
+          kube_scheduler: true
+          kube_controller_manager: true
+          kubelet_probes: true
+      addons:
+        - core_dns
+        - vpc_cni
+        - ebs_csi

@@ -1,0 +1,40 @@
+# netobs-spoke — a remote-site SPOKE network-topology-exporter that pushes its local graph to a
+# federation hub (the netobs-global deployment). Completes the federation picture: this exercises
+# the spoke-side liveness families (federation_spoke_push_failures_total / _push_last_success_unix /
+# _push_drops_total / _push_queue_depth) that a hub or standalone deployment never emits.
+# (github.com/colinedwardwood/network-topology-exporter). Signal contract: signals/nettopo.md.
+#
+# Substrate-scoped: series disambiguated by (job, instance) — no blueprint label. `instance` is
+# unique across blueprints. `spoke_id` is the stable identity the hub keys spoke liveness on
+# (matches one of netobs-global's federation.spokes) and is also emitted as service.instance.id.
+#
+# Shape: a small single-rack EMEA edge site (one leaf + a few hosts off a single spine), Arista +
+# Juniper, the common protocol set, pushing OTLP upstream. Sub-families activate by PRESENCE.
+name: netobs-spoke
+metadata:                          # optional, UI-only annotation — never affects emission
+  description: "A remote-site SPOKE network-topology-exporter that pushes its local graph to a federation hub (netobs-global), exercising the spoke-side liveness families a hub/standalone deployment never emits."
+  owner: network-observability
+  category: integration
+  tags: [network, snmp, topology, federation, spoke, otlp]
+  links:
+    signals: ./signals/nettopo.md
+environments:
+  - name: prod   # required by the loader; network_topology is substrate-scoped (no env binding)
+integrations:
+  network_topology:
+    enabled: true
+    instance: netobs-spoke-emea:9100
+    job: integrations/network-topology-exporter
+    role: spoke
+    spoke_id: dc-emea
+    protocols: [lldp, cdp, bgp]
+    fabric:
+      kind: spine_leaf
+      spines: 1
+      leaves: 2
+      hosts_per_leaf: 3
+      vendor_mix: [arista, juniper]
+      site: emea-edge1
+    session_pool: true
+    out_of_scope_neighbours: 1
+    otlp_output: true

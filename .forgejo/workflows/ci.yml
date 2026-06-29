@@ -1,0 +1,68 @@
+# Forgejo Actions CI — the merge guardrail.
+#
+# Why this exists: Renovate automerges dependency updates, and with `ignoreTests:false`
+# (config:recommended default) it WAITS for these checks to pass before merging. So a bump
+# that breaks the build — a stale lockfile, a type break from a major, a Dockerfile slip —
+# fails here and is never merged. Before this existed, a Renovate @solidjs/router bump shipped
+# a package.json/lockfile out of sync and broke the `docker build`.
+#
+# Assumptions (adjust for your runner): a Forgejo Actions runner labelled `ubuntu-latest`
+# with the standard actions (checkout/setup-go/setup-node) reachable. The `docker` job needs
+# a docker-capable runner (DinD or a mounted socket) — drop it if your runner can't build images.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make ci-go
+
+  # OSS hygiene: SPDX header coverage + the forbidden-words content guard. Mirrors
+  # .github/workflows/ci.yml. The deployment-term layer reads FORBIDDEN_WORDS_PATTERN (a repo
+  # secret) when set; otherwise only the always-on credential-shape layer runs. (GitHub additionally
+  # runs a gitleaks `secret-scan` job — omitted here to keep bare-action parity.)
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make hygiene
+        env:
+          FORBIDDEN_WORDS_PATTERN: ${{ secrets.FORBIDDEN_WORDS_PATTERN }}
+
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: internal/control/ui/package-lock.json
+      - run: make ci-ui
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make ci-docker
+
+  e2e:
+    runs-on: ubuntu-latest   # must be docker-capable (automount socket or DinD on Forgejo)
+    needs: [go]              # warm the module cache + fail fast on a broken build first
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make e2e

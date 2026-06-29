@@ -1,0 +1,81 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    "docker:pinDigests",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Europe/London",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 0,
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "labels": ["dependencies"],
+  "description": "chore(deps) keeps dep bumps out of the release CHANGELOG (release-please hides chore). No schedule — PRs open as soon as a release clears minimumReleaseAge; non-major bumps automerge once CI is green. majors open a PR for manual merge.",
+  "automerge": true,
+  "platformAutomerge": true,
+  "automergeStrategy": "squash",
+  "internalChecksAsSuccess": true,
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodUpdateImportPaths"
+  ],
+  "minimumReleaseAge": "2 days",
+  "internalChecksFilter": "strict",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "minimumReleaseAge": null,
+    "schedule": ["at any time"]
+  },
+  "packageRules": [
+    {
+      "description": "Major bumps can carry behavioural breaks the test suite won't catch — open a PR but require a manual merge. Everything else automerges on green CI.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "Batch all non-major Go module bumps into one PR — most are transitive churn not worth a PR each.",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "go modules (non-major)"
+    },
+    {
+      "description": "OpenTelemetry packages release in lockstep — group across all update types so a bump is coherent.",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["go.opentelemetry.io/**"],
+      "groupName": "opentelemetry"
+    },
+    {
+      "description": "Grafana libraries move together.",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/grafana/**"],
+      "groupName": "grafana"
+    },
+    {
+      "description": "Kubernetes client/apimachinery libs are co-versioned — bumping one without the others breaks the build.",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["k8s.io/**", "sigs.k8s.io/**"],
+      "groupName": "kubernetes libraries"
+    },
+    {
+      "description": "gRPC + protobuf are tightly coupled.",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["google.golang.org/grpc", "google.golang.org/protobuf"],
+      "groupName": "grpc + protobuf"
+    },
+    {
+      "description": "The golang builder image must track go.mod's Go version — bump it with the toolchain, separately from the distroless runtime base.",
+      "matchManagers": ["dockerfile"],
+      "matchPackageNames": ["golang", "mirror.gcr.io/library/golang"],
+      "groupName": "go toolchain (docker base)"
+    },
+    {
+      "description": "CI actions grouped — they're all pinned to full SHA digests.",
+      "matchManagers": ["github-actions"],
+      "groupName": "ci actions"
+    }
+  ]
+}

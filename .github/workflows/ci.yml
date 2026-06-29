@@ -1,0 +1,70 @@
+# GitHub Actions CI — mirrors .forgejo/workflows/ci.yml. Both call identical `make` targets;
+# only the four standard actions (checkout/setup-go/setup-node/cache) are used so the bare
+# `uses:` names resolve on both GitHub and Forgejo (data.forgejo.org mirror). Keep the two
+# files in sync; they diverge only if a third-party action is added (Forgejo needs a full URL).
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make ci-go
+
+  # OSS hygiene: SPDX header coverage + the forbidden-words content guard (real terms injected from
+  # the FORBIDDEN_WORDS_PATTERN repo secret; the credential-shape layer always runs). Mirrored in
+  # .forgejo/workflows/ci.yml (bare checkout → parity).
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make hygiene
+        env:
+          FORBIDDEN_WORDS_PATTERN: ${{ secrets.FORBIDDEN_WORDS_PATTERN }}
+
+  # Full-history secret scan (gitleaks, pinned docker image). GitHub-only — needs a full-depth
+  # checkout; not mirrored to .forgejo (documented divergence).
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: make secret-scan
+
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: internal/control/ui/package-lock.json
+      - run: make ci-ui
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make ci-docker
+
+  e2e:
+    runs-on: ubuntu-latest   # must be docker-capable (automount socket or DinD on Forgejo)
+    needs: [go]              # warm the module cache + fail fast on a broken build first
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make e2e

@@ -1,0 +1,33 @@
+# csp-azure — demonstrates the CSP Azure integration (`csp_azure`): synthetic azure_microsoft_*
+# window-gauge metrics (compute/databases/storage/networking/messaging) + Event Hubs logs.
+#
+# `ingestion_path` selects how the estate reaches Mimir (SK-16, both live-validated 2026-06-14):
+#   serverless       — the GC cloud/azure managed scraper (PREFERRED): job=cloud/azure/microsoft-<…>,
+#                      `credential` label, PascalCase resourceID, dimension_<Name>, lowercase 2xx.
+#   azure_exporter   — prometheus.exporter.azure: job=integrations/azure, lowercased resourceID,
+#                      interval/timespan=PT1M, dimension<Name>/bare dimension, uppercase 2XX.
+# `credential` is the managed-scraper credential name (serverless only; defaults to "azure").
+# `tags` are OPT-IN resource tags surfaced as tag_<key> on every series (omit ⇒ none, matching a
+# default scraper).
+name: csp-azure
+metadata:                          # optional, UI-only annotation — never affects emission
+  description: "Demonstrates the CSP Azure integration: synthetic azure_microsoft_* window-gauge metrics (compute/databases/storage/networking/messaging) + Event Hubs logs, via the serverless managed scraper or the azure_exporter path."
+  owner: cloud-integrations
+  category: integration
+  tags: [azure, csp, cloud, managed-scraper]
+  links:
+    signals: ./signals/cspazure.md
+environments:
+  - name: prod   # required by the loader; the Azure integration is substrate-scoped (no env binding)
+integrations:
+  csp_azure:
+    enabled: true
+    ingestion_path: serverless
+    credential: ps_azure
+    subscriptions: 2
+    company: contoso
+    sub_signals: [compute, databases, storage, networking, messaging, logs]
+    tags:
+      app: synthkit-demo
+      env: prod
+      owner: platform-team

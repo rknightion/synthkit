@@ -1,0 +1,35 @@
+# k8s-minimal — cheapest k8s-monitoring footprint: metrics only, no logs/events/profiling/opencost/kepler.
+# Demonstrates the minimum viable k8s-monitoring configuration: cluster_metrics only via alloy-metrics StatefulSet.
+# Schema: ARCHITECTURE.md §3. Deleting this file removes k8smin's telemetry and nothing else.
+name: k8s-minimal
+label: k8s-minimal
+shape: business_hours_plateau
+timezone: America/Los_Angeles
+metadata:
+  description: "Cheapest k8s-monitoring footprint: metrics only (KSM/cAdvisor/kubelet/node-exporter), no logs, events, profiling, OpenCost, or Kepler."
+  owner: platform-observability
+  category: reference
+  tags: [kubernetes, k8s-monitoring, minimal, metrics-only, cost-controlled, ksm, node-exporter, cadvisor]
+  links:
+    signals: ./signals/k8s.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "410000000001"
+      region: us-west-2
+      vpc_id: vpc-0k8smin01
+    cluster:
+      type: eks
+      name: k8smin-prod-usw2
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 3 }
+      observability:
+        cloudwatch: false             # k8s-only — no per-node EC2 CloudWatch lane
+      k8s_monitoring:
+        enabled: true
+        alloy: true                   # alloy-metrics StatefulSet (cluster_metrics)
+        features:
+          cluster_metrics: true       # KSM + cAdvisor + kubelet + node-exporter

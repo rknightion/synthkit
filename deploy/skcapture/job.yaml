@@ -1,0 +1,107 @@
+# deploy/skcapture/job.yaml — Kubernetes Job that runs skcapture in-cluster.
+#
+# Prerequisites:
+#   1. kubectl apply -f deploy/skcapture/rbac.yaml
+#   2. Create the passphrase Secret (see below) — keep the passphrase for decryption.
+#   3. kubectl apply -f deploy/skcapture/job.yaml
+#   4. kubectl -n skcapture wait --for=condition=complete job/skcapture --timeout=120s
+#   5. Retrieve the output file (see "Retrieving the output" below).
+#
+# ─── Creating the passphrase Secret ──────────────────────────────────────────
+#   Generate a random passphrase and store it in both your password manager and
+#   the cluster Secret. Share the passphrase with the Grafana SE out-of-band
+#   (never include it in the capture file or commit it to any repo):
+#
+#   PASSPHRASE=$(openssl rand -base64 32)
+#   echo "Passphrase (keep this): $PASSPHRASE"
+#   kubectl -n skcapture create secret generic skcapture-pass \
+#     --from-literal=passphrase="$PASSPHRASE"
+#
+# ─── Retrieving the output ───────────────────────────────────────────────────
+#   The Job writes the encrypted capture file to /out/capture.age inside the pod.
+#   Retrieve it with kubectl cp before the pod is garbage-collected (TTL 600s):
+#
+#   POD=$(kubectl -n skcapture get pods -l job-name=skcapture -o jsonpath='{.items[0].metadata.name}')
+#   kubectl -n skcapture cp $POD:/out/capture.age ./capture.age
+#
+#   Then send capture.age + passphrase to your Grafana SE (use separate channels).
+#
+# ─── Customise before applying ───────────────────────────────────────────────
+#   - Replace the image tag with your organisation's registry/tag.
+#   - Adjust --exclude-namespaces if you want to include kube-system workloads.
+#   - To capture Secret/ConfigMap data: apply rbac-secrets.yaml AND add
+#     --include-secret-data / --include-configmap-data to the args below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: skcapture
+  namespace: skcapture
+  labels:
+    app.kubernetes.io/name: skcapture
+    app.kubernetes.io/component: capture
+spec:
+  # Keep the completed pod around long enough to kubectl cp the output, then clean up.
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        job-name: skcapture
+        app.kubernetes.io/name: skcapture
+    spec:
+      serviceAccountName: skcapture
+      restartPolicy: Never
+
+      # The output emptyDir is ephemeral — retrieve capture.age before the pod is cleaned up.
+      # For long-term storage, replace emptyDir with a PersistentVolumeClaim.
+      volumes:
+        - name: output
+          emptyDir: {}
+        - name: passphrase
+          secret:
+            # Created by the operator before running this Job; see instructions above.
+            secretName: skcapture-pass
+            items:
+              - key: passphrase
+                path: pass
+
+      containers:
+        - name: skcapture
+          # Replace with your registry, e.g. ghcr.io/grafana/skcapture:0.1.0
+          image: skcapture:dev
+          imagePullPolicy: IfNotPresent
+
+          args:
+            - --out=/out/capture.age
+            - --passphrase-file=/secrets/pass
+            # Exclude standard system namespaces (default). Adjust as needed.
+            - --exclude-namespaces=kube-system,kube-node-lease,kube-public
+
+          volumeMounts:
+            - name: output
+              mountPath: /out
+            - name: passphrase
+              mountPath: /secrets
+              readOnly: true
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault

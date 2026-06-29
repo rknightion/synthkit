@@ -1,0 +1,75 @@
+# hosts-bare — Bare hosts with NO container runtime; mixed OS, logs on/off.
+#
+# USE CASE: Demonstrate the docker-off (absent or explicit false) and logs-on/off
+# dimensions across Linux, Windows, and macOS. Two hosts set observability.logs: false
+# (metrics-only; no journal/winevent/file log streams); the remaining hosts keep the
+# default logs: true. Mix of integration and full profiles.
+#
+# Substrate-scoped: (job, instance) identity; no blueprint label. Host names must be
+# globally unique across all loaded blueprints — prefix hbare- enforces that.
+name: hosts-bare
+label: hosts-bare
+shape: business_hours_plateau
+timezone: America/New_York
+metadata:
+  description: "Bare hosts (no Docker): linux/windows/macos mix with docker omitted/false. Shows logs on/off across OSes and integration/full profiles."
+  owner: platform-observability
+  category: reference
+  tags: [hosts, bare-metal, no-docker, metrics-only, logs-optional, linux, windows, macos]
+  links:
+    signals: ./signals/host.md
+
+hosts:
+  # hbare-vm01 — Ubuntu 22.04 bare VM; integration profile; 4 vCPU / 8 GB.
+  # No Docker (omitted). Logs default true — journal log stream included.
+  - name: hbare-vm01
+    os: linux
+    cpus: 4
+    memory_gb: 8
+    metrics_profile: integration
+    os_version: "22.04"
+    kernel: "5.15.0-119-generic"
+
+  # hbare-vm02 — Debian 12 bare VM; full profile; 8 vCPU / 16 GB.
+  # Docker explicitly false. Logs set false (metrics-only node).
+  - name: hbare-vm02
+    os: linux
+    cpus: 8
+    memory_gb: 16
+    metrics_profile: full
+    os_version: "12"
+    kernel: "6.1.0-28-amd64"
+    observability:
+      docker: false
+      logs: false
+
+  # hbare-win01 — Windows Server 2022 VM; integration profile; 4 vCPU / 16 GB.
+  # No Docker. Logs default true — Windows Event Log streams included.
+  - name: hbare-win01
+    os: windows
+    cpus: 4
+    memory_gb: 16
+    metrics_profile: integration
+    os_version: "Server 2022"
+
+  # hbare-mac01 — macOS 14 (Sonoma) laptop; integration profile; 8 vCPU / 16 GB.
+  # Docker MUST be omitted on macOS (loader rejects docker:true on darwin). Logs false.
+  - name: hbare-mac01
+    os: macos
+    cpus: 8
+    memory_gb: 16
+    metrics_profile: integration
+    os_version: "14.6.1"
+    kernel: "Darwin Kernel 23.6.0"
+    observability:
+      logs: false
+
+  # hbare-edge01 — Ubuntu 20.04 edge/IoT node; integration profile; 2 vCPU / 4 GB.
+  # No Docker. Logs default true — suitable for edge log pipeline demos.
+  - name: hbare-edge01
+    os: linux
+    cpus: 2
+    memory_gb: 4
+    metrics_profile: integration
+    os_version: "20.04"
+    kernel: "5.4.0-196-generic"

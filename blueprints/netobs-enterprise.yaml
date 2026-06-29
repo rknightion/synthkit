@@ -1,0 +1,46 @@
+# netobs-enterprise — "average enterprise customer" archetype for the `network_topology`
+# integration: ONE network-topology-exporter watching a single data-centre fabric.
+# (github.com/colinedwardwood/network-topology-exporter). Signal contract: signals/nettopo.md.
+#
+# Substrate-scoped: every `network_topology_*` series is disambiguated by (job, instance) —
+# no blueprint label. `instance` (the exporter scrape endpoint) MUST be unique across blueprints.
+#
+# Shape: a modest 2-spine / 6-leaf access fabric (mixed Arista + Cisco) with a handful of
+# hosts per leaf, plus an edge firewall peering BGP into the spine. Standalone (no federation),
+# the common L2+routing protocol set, SNMP session pooling on, a couple of out-of-scope
+# neighbours. Sub-families activate by PRESENCE (declared = on, like cwinfra).
+#
+# Churn is prod-realistic: the exporter "discovers" the whole graph in its first cycle (a big
+# network_topology_change_total{change_kind="added"} burst + a flurry of topology-change logs),
+# then settles to a near-silent steady state (graph_stale flips 1→0 after cycle one).
+name: netobs-enterprise
+metadata:                          # optional, UI-only annotation — never affects emission
+  description: "'Average enterprise' archetype for the network_topology integration: one exporter watching a single 2-spine/6-leaf access fabric (mixed Arista + Cisco), standalone, with prod-realistic cold-start discovery churn."
+  owner: network-observability
+  category: integration
+  tags: [network, snmp, topology, spine-leaf, standalone]
+  links:
+    signals: ./signals/nettopo.md
+environments:
+  - name: prod   # required by the loader; network_topology is substrate-scoped (no env binding)
+integrations:
+  network_topology:
+    enabled: true
+    instance: netobs-ent-dc1:9100
+    job: integrations/network-topology-exporter
+    role: standalone
+    protocols: [lldp, cdp, bgp]
+    fabric:
+      kind: spine_leaf
+      spines: 2
+      leaves: 6
+      hosts_per_leaf: 4
+      vendor_mix: [arista, cisco]
+      site: hq-dc1
+    devices:
+      - {id: edge-fw-01, vendor: cisco, os_version: 17.12.1, site: hq-dc1, uptime: 4300h}
+    links:
+      - {src_device: edge-fw-01, src_port: GigabitEthernet0/0, dst_device: spine-01, dst_port: Ethernet47, proto: bgp}
+      - {src_device: edge-fw-01, src_port: GigabitEthernet0/1, dst_device: spine-02, dst_port: Ethernet47, proto: bgp}
+    session_pool: true
+    out_of_scope_neighbours: 2

@@ -1,0 +1,43 @@
+# aws-cloud-services — AWS managed data/ETL services showcase:
+# OpenSearch Serverless (AOSS), Managed Workflows for Apache Airflow (MWAA),
+# Glue ETL jobs, DocumentDB, and Neptune. Focuses on the cloud-service constructs
+# that emit aws_aoss_* / aws_mwaa_* / aws_amazonmwaa_* / aws_glue_* /
+# aws_docdb_* / aws_neptune_* CloudWatch families.
+# Signal contracts: signals/cw.md, signals/cspaws.md.
+name: aws-cloud-services
+label: awscloud
+shape: business_hours_plateau
+timezone: America/New_York
+metadata:
+  description: "AWS managed data/ETL services: OpenSearch Serverless (AOSS), MWAA (Airflow), Glue ETL, DocumentDB, and Neptune — CloudWatch metric families."
+  owner: platform-observability
+  category: reference
+  tags: [aws, opensearch, aoss, mwaa, airflow, glue, etl, documentdb, neptune, cloudwatch, managed-services]
+  links:
+    signals-cw: ./signals/cw.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "413000000001"
+      region: us-east-1
+      vpc_id: vpc-awscloud01
+      aoss:
+        collections: [awscloud-search, awscloud-logs]
+      mwaa:
+        environments: [awscloud-airflow-prod]
+      glue:
+        jobs: [awscloud-etl-daily, awscloud-ingest]
+    databases:
+      - engine: docdb
+        version: "5.0"
+        name: awscloud-docs-db
+        observability:
+          cloudwatch: true
+      - engine: neptune
+        version: "1.3"
+        name: awscloud-graph-db
+        observability:
+          cloudwatch: true

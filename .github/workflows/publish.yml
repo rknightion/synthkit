@@ -1,0 +1,72 @@
+# Reusable publish: build the multi-arch image for a given release tag and push to GHCR.
+#   image: ghcr.io/rknightion/synthkit:<vX.Y.Z> + :latest
+# Called by release-please.yml when a release is created (the tag-push event can't drive this — tags
+# created with GITHUB_TOKEN do not trigger workflows). Also dispatchable by hand for a re-publish.
+# Auth uses the workflow's GITHUB_TOKEN (packages: write). Packages inherit the repo's visibility.
+name: publish
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Release tag to publish, e.g. v1.2.3"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to publish, e.g. v1.2.3"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # `gh release upload` attaches the SBOMs + third-party notices to the release
+      packages: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.release_tag }}   # build exactly the tagged commit
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+      - name: Build and push multi-arch image
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          IMAGE: ghcr.io/rknightion/synthkit
+        run: |
+          # Strip leading 'v' for the VERSION build-arg (stamped into service.version)
+          VERSION="${RELEASE_TAG#v}"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg VERSION="${VERSION}" \
+            --tag "${IMAGE}:${RELEASE_TAG}" \
+            --tag "${IMAGE}:latest" \
+            --push \
+            .
+      # Attach the third-party notices + SBOMs (SPDX 2.3 + CycloneDX 1.6, both JSON) to the
+      # GitHub Release. These are release artifacts (regenerated per build), not committed files.
+      - name: Attach SBOMs + third-party notices to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          make notices sbom
+          gh release upload "${RELEASE_TAG}" \
+            THIRD_PARTY_NOTICES.md \
+            dist/sbom/synthkit.spdx.json \
+            dist/sbom/synthkit.cdx.json \
+            --clobber

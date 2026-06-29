@@ -1,0 +1,70 @@
+# hosts-linux-docker — Linux container hosts running node_exporter + Docker cAdvisor.
+#
+# USE CASE: Showcase Docker cadvisor metric lane (container CPU/mem/net/fs metrics +
+# container log streams) alongside standard node_exporter host metrics. All four hosts
+# set observability.docker: true; two run the integration profile (cost-controlled
+# allowlist) and two run the full profile (broader Alloy surface). Realistic OS versions
+# and kernels across Ubuntu, Debian, and Fedora.
+#
+# Substrate-scoped: (job, instance) identity; no blueprint label. Host names must be
+# globally unique across all loaded blueprints — prefix hldock- enforces that.
+name: hosts-linux-docker
+label: hosts-linux-docker
+shape: business_hours_plateau
+timezone: Europe/London
+metadata:
+  description: "Linux container hosts: node_exporter + Docker cAdvisor (container metrics + logs). Demonstrates docker:true lane across integration and full metric profiles on Ubuntu/Debian/Fedora."
+  owner: platform-observability
+  category: reference
+  tags: [hosts, linux, docker, cadvisor, containers, node-exporter, container-logs]
+  links:
+    signals: ./signals/host.md
+
+hosts:
+  # hldock-app01 — Ubuntu 24.04 application server; integration profile; 4 vCPU / 16 GB.
+  # Runs a typical app container stack (nginx, api, worker). Docker lane on.
+  - name: hldock-app01
+    os: linux
+    cpus: 4
+    memory_gb: 16
+    metrics_profile: integration
+    os_version: "24.04"
+    kernel: "6.8.0-51-generic"
+    observability:
+      docker: true
+
+  # hldock-app02 — Debian 12 (bookworm) application server; integration profile; 8 vCPU / 32 GB.
+  # Runs a larger container fleet (webapp, cache sidecar, exporter). Docker lane on.
+  - name: hldock-app02
+    os: linux
+    cpus: 8
+    memory_gb: 32
+    metrics_profile: integration
+    os_version: "12"
+    kernel: "6.1.0-28-amd64"
+    observability:
+      docker: true
+
+  # hldock-db01 — Ubuntu 22.04 database host; full profile (broader Alloy surface); 8 vCPU / 64 GB.
+  # Hosts database containers (postgres, redis, backup agent). Docker lane on.
+  - name: hldock-db01
+    os: linux
+    cpus: 8
+    memory_gb: 64
+    metrics_profile: full
+    os_version: "22.04"
+    kernel: "5.15.0-122-generic"
+    observability:
+      docker: true
+
+  # hldock-ci01 — Fedora 41 CI runner host; full profile; 16 vCPU / 32 GB.
+  # Runs build containers and test harnesses via Docker. Docker lane on.
+  - name: hldock-ci01
+    os: linux
+    cpus: 16
+    memory_gb: 32
+    metrics_profile: full
+    os_version: "41"
+    kernel: "6.11.4-301.fc41.x86_64"
+    observability:
+      docker: true

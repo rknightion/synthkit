@@ -1,0 +1,408 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   synthkit control plane — design tokens
+
+   Identity: "Polished synthkit" (brainstorm option C). Its own look, NOT a
+   Grafana reskin: indigo accent, depth, subtle gradients, accent glow.
+   Dark-first (default data-theme="dark"); a light theme is retained.
+
+   Base colour tokens are ported verbatim from the legacy internal/control/ui.html
+   (:root / [data-theme] custom properties), then extended with the polished
+   surface/gradient/glow tokens the shell renders against.
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="light"] {
+  /* — ported from ui.html — */
+  --bg: #f7f8fb;
+  --panel: #ffffff;
+  --panel2: #fbfbfd;
+  --bd: #e7e9f0;
+  --bd2: #d8dce6;
+  --tx: #1a1c2e;
+  --dim: #6b7088;
+  --acc: #5b54e6;
+  --acc2: #efeefe;
+  --accbd: #d9d7fb;
+  --ok: #0e9f6e;
+  --okbg: #ecfdf5;
+  --okbd: #bbf7d0;
+  --err: #e02424;
+  --crit: #fef2f2;
+  --critbd: #f87171;
+  --warn: #b45309;
+  --warnbg: #fffbeb;
+  --warnbd: #fcd34d;
+  --shadow: rgba(20, 20, 50, 0.06);
+  --shadow2: rgba(91, 84, 230, 0.16);
+  --mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* — polished-identity extensions (light) — */
+  --acc-2: #8b85ff;                                   /* gradient terminus */
+  --rail-grad: linear-gradient(180deg, #ffffff, #f4f5fb);
+  --rail-bd: var(--bd);
+  --card-grad: linear-gradient(180deg, #ffffff, #fbfbfe);
+  --card-shadow: 0 4px 18px rgba(20, 20, 50, 0.06);
+  --nav-active-grad: linear-gradient(90deg, rgba(91, 84, 230, 0.14), rgba(91, 84, 230, 0.02));
+  --accent-glow: 0 0 0 3px rgba(91, 84, 230, 0.18);
+  --live-glow: 0 0 6px var(--err);
+  --overlay-bg: rgba(20, 22, 40, 0.42);
+  --accent-text: linear-gradient(90deg, #5b54e6, #8b85ff);
+}
+
+[data-theme="dark"] {
+  /* — ported from ui.html — */
+  --bg: #0b0c14;
+  --panel: #171826;
+  --panel2: #1e2033;
+  --bd: #262838;
+  --bd2: #363854;
+  --tx: #e8e9f2;
+  --dim: #8b90ad;
+  --acc: #8b85ff;
+  --acc2: #22243a;
+  --accbd: #3a3768;
+  --ok: #34d399;
+  --okbg: #0c2a20;
+  --okbd: #1f6b4f;
+  --err: #fb7185;
+  --crit: #2a1518;
+  --critbd: #7f2d2d;
+  --warn: #fbbf24;
+  --warnbg: #2a2310;
+  --warnbd: #5c4a17;
+  --shadow: rgba(0, 0, 0, 0.4);
+  --shadow2: rgba(124, 116, 255, 0.22);
+
+  /* — polished-identity extensions (dark, from option C) — */
+  --acc-2: #a78bfa;
+  --rail-grad: linear-gradient(180deg, #15161f, #101019);
+  --rail-bd: var(--bd);
+  --card-grad: linear-gradient(180deg, rgba(22, 23, 33, 0.6), #15161f);
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --nav-active-grad: linear-gradient(90deg, rgba(124, 116, 255, 0.22), rgba(124, 116, 255, 0.05));
+  --accent-glow: 0 0 0 3px rgba(124, 116, 255, 0.25);
+  --live-glow: 0 0 6px var(--err);
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --accent-text: linear-gradient(90deg, #7c74ff, #a78bfa);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+:root { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--tx);
+  font: 14px/1.55 "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── app frame ──────────────────────────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  min-height: 100vh;
+}
+.pane {
+  padding: 26px 30px;
+  max-width: 1100px;
+}
+@media (max-width: 720px) {
+  .app { grid-template-columns: 1fr; }
+  .pane { padding: 18px; }
+}
+
+/* ── rail ───────────────────────────────────────────────────────────────── */
+.rail {
+  background: var(--rail-grad);
+  border-right: 1px solid var(--rail-bd);
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+@media (max-width: 720px) {
+  .rail { position: static; height: auto; }
+}
+
+.rail-brand {
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+  margin: 0 4px 1px;
+  cursor: pointer;
+  color: var(--tx);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  font-family: inherit;
+}
+.rail-brand span {
+  background: var(--accent-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.rail-brand:hover { opacity: 0.85; }
+.rail-tagline {
+  color: var(--dim);
+  font-size: 11px;
+  margin: 0 4px 12px;
+}
+
+.rail-btns {
+  display: flex;
+  gap: 6px;
+  margin: 0 2px 14px;
+}
+.rail-btns button {
+  flex: 1;
+  font: 600 12px system-ui;
+  border: 1px solid var(--bd);
+  background: var(--panel2);
+  color: var(--tx);
+  border-radius: 8px;
+  padding: 6px 4px;
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.rail-btns button:hover { border-color: var(--acc); }
+.rail-reset-err {
+  margin: -8px 2px 14px;
+  font: 500 11px system-ui;
+  color: var(--err);
+  background: var(--crit);
+  border: 1px solid var(--critbd);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+/* ── posture ────────────────────────────────────────────────────────────── */
+.posture {
+  background: var(--panel2);
+  border: 1px solid var(--bd);
+  border-radius: 11px;
+  padding: 10px 11px;
+  margin: 0 2px 14px;
+}
+.posture.clean {
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.12), transparent);
+  border-color: var(--okbd);
+}
+.posture .ph {
+  font: 700 10px system-ui;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 0 0 7px;
+}
+.ptag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  margin: 4px 0;
+  line-height: 1.3;
+}
+.ptag.live { color: var(--err); }
+.ptag.mod { color: var(--acc); }
+.ptag.muted { color: var(--dim); font-weight: 500; }
+.blip {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--err);
+  box-shadow: var(--live-glow);
+  flex: none;
+  animation: pulse 1.3s infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+/* ── nav ────────────────────────────────────────────────────────────────── */
+.nav { display: flex; flex-direction: column; gap: 3px; }
+.navlbl {
+  font: 700 10px system-ui;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 10px 6px 4px;
+}
+.navi {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+  color: var(--tx);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.navi:hover { background: var(--panel2); }
+.navi.active {
+  background: var(--nav-active-grad);
+  border-color: var(--accbd);
+  color: var(--acc);
+  font-weight: 700;
+  box-shadow: inset 2px 0 0 var(--acc);
+}
+.navi .nm {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.navi.disabled .nm { text-decoration: line-through; opacity: 0.55; }
+.navi .c {
+  font: 11px var(--mono);
+  color: var(--dim);
+  flex: none;
+}
+.navi.active .c { color: var(--acc); }
+.navdot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.navdot.on { background: var(--err); box-shadow: var(--live-glow); animation: pulse 1.3s infinite; }
+.navdot.dim { background: var(--bd2); }
+
+/* ── content pane headings ──────────────────────────────────────────────── */
+.pane-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 4px; }
+.pane-head h1 { font-size: 22px; margin: 0; letter-spacing: -0.4px; }
+.pane-head .sub { color: var(--dim); font-size: 13px; }
+.pane-lead { color: var(--dim); font-size: 13px; margin: 0 0 22px; }
+
+/* ── confirm dialog (plain Solid; Kobalte upgrade is Phase 3) ───────────── */
+.cfm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.cfm-box {
+  background: var(--card-grad);
+  border: 1px solid var(--bd);
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  width: min(420px, 92vw);
+  padding: 20px 22px;
+}
+.cfm-msg { font-size: 14px; color: var(--tx); margin: 0 0 18px; line-height: 1.45; }
+.cfm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.cfm-btn {
+  font: 600 13px system-ui;
+  padding: 8px 18px;
+  border-radius: 9px;
+  cursor: pointer;
+  border: 1px solid var(--bd);
+  background: var(--panel2);
+  color: var(--tx);
+  transition: border-color 0.12s, filter 0.12s;
+}
+.cfm-btn:hover { border-color: var(--acc); }
+.cfm-btn.danger {
+  background: var(--acc);
+  color: #fff;
+  border-color: var(--acc);
+}
+.cfm-btn.danger:hover { filter: brightness(1.08); }
+
+/* ── shared dismissible action-error banner (ActionError.tsx) ───────────── */
+/* Verbatim look from the per-view inline banners (ov-/bp-/i-/g-/b-action-err),
+   plus a dismiss × that the old inline banners lacked. */
+.action-err {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--err);
+  background: var(--crit);
+  border: 1px solid var(--critbd);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-bottom: 16px;
+}
+.action-err-msg { flex: 1; min-width: 0; }
+.action-err-x {
+  flex: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--err);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+/* ── Cmd-K search overlay (plain Solid; Kobalte focus-trap is Phase 3) ──── */
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 100px;
+}
+.search-box {
+  background: var(--card-grad);
+  border: 1px solid var(--bd);
+  border-radius: 14px;
+  width: min(560px, 90vw);
+  box-shadow: 0 8px 36px var(--shadow2);
+  overflow: hidden;
+}
+.search-input {
+  width: 100%;
+  font: 15px system-ui;
+  padding: 14px 16px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--tx);
+  border-bottom: 1px solid var(--bd);
+}
+.search-results { max-height: 360px; overflow-y: auto; }
+.search-result {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--panel2);
+  font-size: 13px;
+  color: var(--tx);
+  text-decoration: none;
+}
+.search-result:last-child { border-bottom: none; }
+.search-result:hover,
+.search-result.sel { background: var(--acc2); }
+.search-result .sr-icon { font-size: 14px; flex: none; }
+.search-result .sr-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-result .sr-type { font: 11px var(--mono); color: var(--dim); flex: none; }
+.search-empty { padding: 20px; text-align: center; color: var(--dim); font-size: 13px; }
+.search-hint {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 16px;
+  font: 11px var(--mono);
+  color: var(--dim);
+  border-top: 1px solid var(--panel2);
+}

@@ -1,0 +1,83 @@
+# k8s-full-stack — maximal k8s observability: every collector + cost + power + profiling +
+# control-plane + full addons + fleet management + Karpenter + Bottlerocket.
+# Schema: ARCHITECTURE.md §3. Deleting this file removes k8sfull's telemetry and nothing else.
+name: k8s-full-stack
+label: k8sfull
+shape: business_hours_plateau
+timezone: America/Los_Angeles
+metadata:
+  description: "Maximal k8s observability showcase: every k8s-monitoring collector enabled — cluster metrics, events, pod logs, node logs, profiling, application observability — plus OpenCost cost allocation, Kepler energy monitoring, Fleet Management, control-plane deep monitoring, full addon set, Karpenter autoscaler, and Bottlerocket nodes."
+  owner: platform-observability
+  category: reference
+  tags: [kubernetes, k8s-monitoring, maximal, full-stack, opencost, kepler, profiling, control-plane, addons, fleet-management, karpenter, bottlerocket]
+  links:
+    signals: ./signals/k8s.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "411000000001"
+      region: us-west-2
+      vpc_id: vpc-0k8sfull01
+      nat_gateways: 2
+    cluster:
+      type: eks
+      name: k8sfull-prod-usw2
+      platform: { os: bottlerocket, kubernetes_version: "1.31" }
+      node_groups:
+        - { name: general,   instance_type: m6i.xlarge, desired: 4, provisioner: managed }
+        - { name: karpenter, instance_type: c6i.large,  desired: 2, provisioner: karpenter }
+      observability:
+        cloudwatch: true              # per-node EC2 CloudWatch lane (aws_ec2_* + aws_rds_*)
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+        alloy_version: "1.16.3"
+        opencost: true
+        kepler: true
+        fleet_management: true        # register Alloy collectors with FM API
+        metrics_replicas: 2           # alloy-metrics StatefulSet HA (2 replicas)
+        receiver_as_daemonset: true   # alloy-receiver per-node DaemonSet (app observability at scale)
+        features:
+          cluster_metrics: true           # alloy-metrics: KSM + cAdvisor + kubelet + node-exporter
+          cluster_events: true            # alloy-singleton: k8s event stream
+          pod_logs: true                  # alloy-logs: pod log collection
+          node_logs: true                 # alloy-logs: node-level journal logs
+          profiling: true                 # alloy-profiles: eBPF continuous profiling per pod
+          application_observability: true # alloy-receiver: OTLP ingest from instrumented apps
+        control_plane:
+          api_server: true
+          kube_proxy: true
+          kube_scheduler: true
+          kube_controller_manager: true
+          kubelet_probes: true
+      addons:
+        - core_dns
+        - vpc_cni
+        - ebs_csi
+        - cert_manager
+        - { name: cluster_autoscaler, min_nodes: 3, max_nodes: 12 }
+        - karpenter
+        - argocd
+        - envoy_gateway
+        - external_dns
+        - load_balancer_controller
+        - alloy_health
+
+workloads:
+  - type: web_service
+    name: k8sfull-api
+    runs_on: k8sfull-prod-usw2
+    replicas: 3
+    tracing: true
+    traffic: { shape: diurnal, off_peak_rps: 10, peak_rps: 60 }
+    endpoints:
+      - { route: "GET /api/v1/status",  error_rate: 0.01, p95_ms: 80  }
+      - { route: "POST /api/v1/submit", error_rate: 0.02, p95_ms: 200 }
+
+features:
+  fleet_management:
+    enabled: true
+    collectors_per_os: { linux: 8, windows: 0 }

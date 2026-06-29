@@ -1,0 +1,109 @@
+# AWS ElastiCache node-type catalogue — capacity source for synthkit ElastiCache construct.
+# Enumerated: aws elasticache describe-reserved-cache-nodes-offerings --region eu-west-1
+# Date: 2026-06-14   Account: 515966537543 (eu-west-1)
+# Spec source: https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/CacheNodes.SupportedTypes.html
+#   memoryGiB = USABLE cache memory (AWS "Memory" column = maxmemory for Redis; engine overhead
+#   already removed). This is NOT total instance RAM. E.g. cache.r6g.large = 13.07 GiB usable
+#   on 16 GiB total RAM. Values taken from the "Supported node types" table on that page.
+# burstableBaselinePct: per-vCPU baseline CPU % for t-family burstable nodes.
+#   Same credit schedule as EC2 t3/t4g. Source:
+#   https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-credits-baseline-concepts.html
+#   t3.micro/t4g.micro baseline=5%, small=10%, medium=20% (all 2 vCPU).
+# Note: m4/r4 families included as they remain orderable in eu-west-1 (legacy; prefer m5+/r5+).
+#       c7gn (network-optimized Graviton3) enumerated but excluded — not a typical cache node type
+#       for standard Redis workloads. r6gd (NVMe-SSD) enumerated but same CPU/RAM as r6g.
+# class,vCPU,memoryGiB,burstableBaselinePct
+#
+# --- Burstable: cache.t3 (Intel) ---
+cache.t3.micro,2,0.555,5
+cache.t3.small,2,1.387,10
+cache.t3.medium,2,3.22,20
+#
+# --- Burstable: cache.t4g (Graviton2) ---
+cache.t4g.micro,2,0.555,5
+cache.t4g.small,2,1.387,10
+cache.t4g.medium,2,3.22,20
+#
+# --- General Purpose: cache.m4 (Intel Xeon E5-2666 v3; legacy) ---
+cache.m4.large,2,6.42,0
+cache.m4.xlarge,4,14.28,0
+cache.m4.2xlarge,8,29.7,0
+cache.m4.4xlarge,16,60.78,0
+cache.m4.10xlarge,40,154.64,0
+#
+# --- General Purpose: cache.m5 (Intel Xeon Platinum 8175) ---
+cache.m5.large,2,6.374,0
+cache.m5.xlarge,4,13.248,0
+cache.m5.2xlarge,8,26.042,0
+cache.m5.4xlarge,16,52.824,0
+cache.m5.12xlarge,48,158.355,0
+cache.m5.24xlarge,96,317.77,0
+#
+# --- General Purpose: cache.m6g (Graviton2) ---
+cache.m6g.large,2,6.374,0
+cache.m6g.xlarge,4,13.248,0
+cache.m6g.2xlarge,8,26.042,0
+cache.m6g.4xlarge,16,52.824,0
+cache.m6g.8xlarge,32,105.586,0
+cache.m6g.12xlarge,48,158.355,0
+cache.m6g.16xlarge,64,211.55,0
+#
+# --- General Purpose: cache.m7g (Graviton3) ---
+cache.m7g.large,2,6.374,0
+cache.m7g.xlarge,4,13.248,0
+cache.m7g.2xlarge,8,26.042,0
+cache.m7g.4xlarge,16,52.824,0
+cache.m7g.8xlarge,32,105.586,0
+cache.m7g.12xlarge,48,158.355,0
+cache.m7g.16xlarge,64,211.55,0
+#
+# --- Memory Optimized: cache.r4 (Intel Xeon E5-2686 v4; legacy) ---
+cache.r4.large,2,12.3,0
+cache.r4.xlarge,4,25.05,0
+cache.r4.2xlarge,8,50.47,0
+cache.r4.4xlarge,16,101.38,0
+cache.r4.8xlarge,32,203.26,0
+cache.r4.16xlarge,64,407.0,0
+#
+# --- Memory Optimized: cache.r5 (Intel Xeon Platinum 8259CL) ---
+cache.r5.large,2,13.193,0
+cache.r5.xlarge,4,26.855,0
+cache.r5.2xlarge,8,54.268,0
+cache.r5.4xlarge,16,109.217,0
+cache.r5.12xlarge,48,328.326,0
+cache.r5.24xlarge,96,657.61,0
+#
+# --- Memory Optimized: cache.r6g (Graviton2) ---
+cache.r6g.large,2,13.193,0
+cache.r6g.xlarge,4,26.855,0
+cache.r6g.2xlarge,8,54.268,0
+cache.r6g.4xlarge,16,109.217,0
+cache.r6g.8xlarge,32,218.75,0
+cache.r6g.12xlarge,48,328.326,0
+cache.r6g.16xlarge,64,438.228,0
+#
+# --- Memory Optimized: cache.r6gd (NVMe-SSD; same CPU/RAM as r6g) ---
+cache.r6gd.xlarge,4,26.855,0
+cache.r6gd.2xlarge,8,54.268,0
+cache.r6gd.4xlarge,16,109.217,0
+cache.r6gd.8xlarge,32,218.75,0
+cache.r6gd.12xlarge,48,328.326,0
+cache.r6gd.16xlarge,64,438.228,0
+#
+# --- Memory Optimized: cache.r7g (Graviton3) ---
+cache.r7g.large,2,13.193,0
+cache.r7g.xlarge,4,26.855,0
+cache.r7g.2xlarge,8,54.268,0
+cache.r7g.4xlarge,16,109.217,0
+cache.r7g.8xlarge,32,218.75,0
+cache.r7g.12xlarge,48,328.326,0
+cache.r7g.16xlarge,64,438.228,0
+#
+# --- Network Optimized: cache.c7gn (Graviton3; high-bandwidth; listed for completeness) ---
+cache.c7gn.large,2,6.374,0
+cache.c7gn.xlarge,4,13.248,0
+cache.c7gn.2xlarge,8,26.042,0
+cache.c7gn.4xlarge,16,52.824,0
+cache.c7gn.8xlarge,32,105.586,0
+cache.c7gn.12xlarge,48,158.355,0
+cache.c7gn.16xlarge,64,211.55,0

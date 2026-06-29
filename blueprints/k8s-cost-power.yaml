@@ -1,0 +1,37 @@
+# k8s-cost-power — FinOps cost allocation + energy/carbon monitoring.
+# Demonstrates OpenCost (workload cost allocation) + Kepler (energy consumption per pod) on a standard EKS cluster.
+# Schema: ARCHITECTURE.md §3. Deleting this file removes k8scost's telemetry and nothing else.
+name: k8s-cost-power
+label: k8s-cost-power
+shape: business_hours_plateau
+timezone: America/Los_Angeles
+metadata:
+  description: "FinOps cost allocation and energy/carbon monitoring: OpenCost workload cost allocation + Kepler per-pod energy consumption on EKS."
+  owner: platform-observability
+  category: reference
+  tags: [kubernetes, finops, opencost, kepler, cost, sustainability, energy, carbon]
+  links:
+    signals: ./signals/k8s.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "410000000002"
+      region: us-west-2
+      vpc_id: vpc-0k8scost01
+    cluster:
+      type: eks
+      name: k8scost-prod-usw2
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 3 }
+      observability:
+        cloudwatch: false             # k8s-only — no per-node EC2 CloudWatch lane
+      k8s_monitoring:
+        enabled: true
+        alloy: true                   # alloy-metrics StatefulSet
+        opencost: true                # OpenCost workload cost allocation (opencost_* metrics)
+        kepler: true                  # Kepler energy/carbon per pod (kepler_container_* metrics)
+        features:
+          cluster_metrics: true       # KSM + cAdvisor + kubelet + node-exporter (required baseline)

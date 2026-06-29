@@ -1,0 +1,1040 @@
+# AWS EC2 instance-type catalogue — node capacity source for synthkit.
+# captured: ec2-instance-selector -o table-wide --max-results 5000 (tool v3.1.3) on 2026-06-14
+# columns: instance_type,vcpu,mem_gib,arch,network,enis,ipv4_per_eni
+a1.2xlarge,8,16,arm64,Up to 10 Gigabit,4,15
+a1.4xlarge,16,32,arm64,Up to 10 Gigabit,8,30
+a1.large,2,4,arm64,Up to 10 Gigabit,3,10
+a1.medium,1,2,arm64,Up to 10 Gigabit,2,4
+a1.metal,16,32,arm64,Up to 10 Gigabit,8,30
+a1.xlarge,4,8,arm64,Up to 10 Gigabit,4,15
+c1.medium,2,1.69922,"i386, x86_64",Moderate,2,6
+c1.xlarge,8,7,x86_64,High,4,15
+c3.2xlarge,8,15,x86_64,High,4,15
+c3.4xlarge,16,30,x86_64,High,8,30
+c3.8xlarge,32,60,x86_64,10 Gigabit,8,30
+c3.large,2,3.75,"i386, x86_64",Moderate,3,10
+c3.xlarge,4,7.5,x86_64,Moderate,4,15
+c4.2xlarge,8,15,x86_64,High,4,15
+c4.4xlarge,16,30,x86_64,High,8,30
+c4.8xlarge,36,60,x86_64,10 Gigabit,8,30
+c4.large,2,3.75,x86_64,Moderate,3,10
+c4.xlarge,4,7.5,x86_64,High,4,15
+c5.12xlarge,48,96,x86_64,12 Gigabit,8,30
+c5.18xlarge,72,144,x86_64,25 Gigabit,15,50
+c5.24xlarge,96,192,x86_64,25 Gigabit,15,50
+c5.2xlarge,8,16,x86_64,Up to 10 Gigabit,4,15
+c5.4xlarge,16,32,x86_64,Up to 10 Gigabit,8,30
+c5.9xlarge,36,72,x86_64,12 Gigabit,8,30
+c5.large,2,4,x86_64,Up to 10 Gigabit,3,10
+c5.metal,96,192,x86_64,25 Gigabit,15,50
+c5.xlarge,4,8,x86_64,Up to 10 Gigabit,4,15
+c5a.12xlarge,48,96,x86_64,12 Gigabit,8,30
+c5a.16xlarge,64,128,x86_64,20 Gigabit,15,50
+c5a.24xlarge,96,192,x86_64,20 Gigabit,15,50
+c5a.2xlarge,8,16,x86_64,Up to 10 Gigabit,4,15
+c5a.4xlarge,16,32,x86_64,Up to 10 Gigabit,8,30
+c5a.8xlarge,32,64,x86_64,10 Gigabit,8,30
+c5a.large,2,4,x86_64,Up to 10 Gigabit,3,10
+c5a.xlarge,4,8,x86_64,Up to 10 Gigabit,4,15
+c5ad.12xlarge,48,96,x86_64,12 Gigabit,8,30
+c5ad.16xlarge,64,128,x86_64,20 Gigabit,15,50
+c5ad.24xlarge,96,192,x86_64,20 Gigabit,15,50
+c5ad.2xlarge,8,16,x86_64,Up to 10 Gigabit,4,15
+c5ad.4xlarge,16,32,x86_64,Up to 10 Gigabit,8,30
+c5ad.8xlarge,32,64,x86_64,10 Gigabit,8,30
+c5ad.large,2,4,x86_64,Up to 10 Gigabit,3,10
+c5ad.xlarge,4,8,x86_64,Up to 10 Gigabit,4,15
+c5d.12xlarge,48,96,x86_64,12 Gigabit,8,30
+c5d.18xlarge,72,144,x86_64,25 Gigabit,15,50
+c5d.24xlarge,96,192,x86_64,25 Gigabit,15,50
+c5d.2xlarge,8,16,x86_64,Up to 10 Gigabit,4,15
+c5d.4xlarge,16,32,x86_64,Up to 10 Gigabit,8,30
+c5d.9xlarge,36,72,x86_64,12 Gigabit,8,30
+c5d.large,2,4,x86_64,Up to 10 Gigabit,3,10
+c5d.metal,96,192,x86_64,25 Gigabit,15,50
+c5d.xlarge,4,8,x86_64,Up to 10 Gigabit,4,15
+c5n.18xlarge,72,192,x86_64,100 Gigabit,15,50
+c5n.2xlarge,8,21,x86_64,Up to 25 Gigabit,4,15
+c5n.4xlarge,16,42,x86_64,Up to 25 Gigabit,8,30
+c5n.9xlarge,36,96,x86_64,50 Gigabit,8,30
+c5n.large,2,5.25,x86_64,Up to 25 Gigabit,3,10
+c5n.metal,72,192,x86_64,100 Gigabit,15,50
+c5n.xlarge,4,10.5,x86_64,Up to 25 Gigabit,4,15
+c6a.12xlarge,48,96,x86_64,18.75 Gigabit,8,30
+c6a.16xlarge,64,128,x86_64,25 Gigabit,15,50
+c6a.24xlarge,96,192,x86_64,37.5 Gigabit,15,50
+c6a.2xlarge,8,16,x86_64,Up to 12.5 Gigabit,4,15
+c6a.32xlarge,128,256,x86_64,50 Gigabit,15,50
+c6a.48xlarge,192,384,x86_64,50 Gigabit,15,50
+c6a.4xlarge,16,32,x86_64,Up to 12.5 Gigabit,8,30
+c6a.8xlarge,32,64,x86_64,12.5 Gigabit,8,30
+c6a.large,2,4,x86_64,Up to 12.5 Gigabit,3,10
+c6a.metal,192,384,x86_64,50 Gigabit,15,50
+c6a.xlarge,4,8,x86_64,Up to 12.5 Gigabit,4,15
+c6g.12xlarge,48,96,arm64,20 Gigabit,8,30
+c6g.16xlarge,64,128,arm64,25 Gigabit,15,50
+c6g.2xlarge,8,16,arm64,Up to 10 Gigabit,4,15
+c6g.4xlarge,16,32,arm64,Up to 10 Gigabit,8,30
+c6g.8xlarge,32,64,arm64,12 Gigabit,8,30
+c6g.large,2,4,arm64,Up to 10 Gigabit,3,10
+c6g.medium,1,2,arm64,Up to 10 Gigabit,2,4
+c6g.metal,64,128,arm64,25 Gigabit,15,50
+c6g.xlarge,4,8,arm64,Up to 10 Gigabit,4,15
+c6gd.12xlarge,48,96,arm64,20 Gigabit,8,30
+c6gd.16xlarge,64,128,arm64,25 Gigabit,15,50
+c6gd.2xlarge,8,16,arm64,Up to 10 Gigabit,4,15
+c6gd.4xlarge,16,32,arm64,Up to 10 Gigabit,8,30
+c6gd.8xlarge,32,64,arm64,12 Gigabit,8,30
+c6gd.large,2,4,arm64,Up to 10 Gigabit,3,10
+c6gd.medium,1,2,arm64,Up to 10 Gigabit,2,4
+c6gd.metal,64,128,arm64,25 Gigabit,15,50
+c6gd.xlarge,4,8,arm64,Up to 10 Gigabit,4,15
+c6gn.12xlarge,48,96,arm64,75 Gigabit,8,30
+c6gn.16xlarge,64,128,arm64,100 Gigabit,15,50
+c6gn.2xlarge,8,16,arm64,Up to 25 Gigabit,4,15
+c6gn.4xlarge,16,32,arm64,25 Gigabit,8,30
+c6gn.8xlarge,32,64,arm64,50 Gigabit,8,30
+c6gn.large,2,4,arm64,Up to 25 Gigabit,3,10
+c6gn.medium,1,2,arm64,Up to 16 Gigabit,2,4
+c6gn.xlarge,4,8,arm64,Up to 25 Gigabit,4,15
+c6i.12xlarge,48,96,x86_64,18.75 Gigabit,8,30
+c6i.16xlarge,64,128,x86_64,25 Gigabit,15,50
+c6i.24xlarge,96,192,x86_64,37.5 Gigabit,15,50
+c6i.2xlarge,8,16,x86_64,Up to 12.5 Gigabit,4,15
+c6i.32xlarge,128,256,x86_64,50 Gigabit,15,50
+c6i.4xlarge,16,32,x86_64,Up to 12.5 Gigabit,8,30
+c6i.8xlarge,32,64,x86_64,12.5 Gigabit,8,30
+c6i.large,2,4,x86_64,Up to 12.5 Gigabit,3,10
+c6i.metal,128,256,x86_64,50 Gigabit,15,50
+c6i.xlarge,4,8,x86_64,Up to 12.5 Gigabit,4,15
+c6id.12xlarge,48,96,x86_64,18.75 Gigabit,8,30
+c6id.16xlarge,64,128,x86_64,25 Gigabit,15,50
+c6id.24xlarge,96,192,x86_64,37.5 Gigabit,15,50
+c6id.2xlarge,8,16,x86_64,Up to 12.5 Gigabit,4,15
+c6id.32xlarge,128,256,x86_64,50 Gigabit,15,50
+c6id.4xlarge,16,32,x86_64,Up to 12.5 Gigabit,8,30
+c6id.8xlarge,32,64,x86_64,12.5 Gigabit,8,30
+c6id.large,2,4,x86_64,Up to 12.5 Gigabit,3,10
+c6id.metal,128,256,x86_64,50 Gigabit,15,50
+c6id.xlarge,4,8,x86_64,Up to 12.5 Gigabit,4,15
+c6in.12xlarge,48,96,x86_64,75 Gigabit,8,30
+c6in.16xlarge,64,128,x86_64,100 Gigabit,15,50
+c6in.24xlarge,96,192,x86_64,150 Gigabit,15,50
+c6in.2xlarge,8,16,x86_64,Up to 40 Gigabit,4,15
+c6in.32xlarge,128,256,x86_64,200 Gigabit,16,50
+c6in.4xlarge,16,32,x86_64,Up to 50 Gigabit,8,30
+c6in.8xlarge,32,64,x86_64,50 Gigabit,8,30
+c6in.large,2,4,x86_64,Up to 25 Gigabit,3,10
+c6in.metal,128,256,x86_64,200 Gigabit,16,50
+c6in.xlarge,4,8,x86_64,Up to 30 Gigabit,4,15
+c7a.12xlarge,48,96,x86_64,18.75 Gigabit,8,30
+c7a.16xlarge,64,128,x86_64,25 Gigabit,15,50
+c7a.24xlarge,96,192,x86_64,37.5 Gigabit,15,50
+c7a.2xlarge,8,16,x86_64,Up to 12.5 Gigabit,4,15
+c7a.32xlarge,128,256,x86_64,50 Gigabit,15,50
+c7a.48xlarge,192,384,x86_64,50 Gigabit,15,50
+c7a.4xlarge,16,32,x86_64,Up to 12.5 Gigabit,8,30
+c7a.8xlarge,32,64,x86_64,12.5 Gigabit,8,30
+c7a.large,2,4,x86_64,Up to 12.5 Gigabit,3,10
+c7a.medium,1,2,x86_64,Up to 12.5 Gigabit,2,4
+c7a.metal-48xl,192,384,x86_64,50 Gigabit,15,50
+c7a.xlarge,4,8,x86_64,Up to 12.5 Gigabit,4,15
+c7g.12xlarge,48,96,arm64,22.5 Gigabit,8,30
+c7g.16xlarge,64,128,arm64,30 Gigabit,15,50
+c7g.2xlarge,8,16,arm64,Up to 15 Gigabit,4,15
+c7g.4xlarge,16,32,arm64,Up to 15 Gigabit,8,30
+c7g.8xlarge,32,64,arm64,15 Gigabit,8,30
+c7g.large,2,4,arm64,Up to 12.5 Gigabit,3,10
+c7g.medium,1,2,arm64,Up to 12.5 Gigabit,2,4
+c7g.metal,64,128,arm64,30 Gigabit,15,50
+c7g.xlarge,4,8,arm64,Up to 12.5 Gigabit,4,15
+c7gd.12xlarge,48,96,arm64,22.5 Gigabit,8,30
+c7gd.16xlarge,64,128,arm64,30 Gigabit,15,50
+c7gd.2xlarge,8,16,arm64,Up to 15 Gigabit,4,15
+c7gd.4xlarge,16,32,arm64,Up to 15 Gigabit,8,30
+c7gd.8xlarge,32,64,arm64,15 Gigabit,8,30
+c7gd.large,2,4,arm64,Up to 12.5 Gigabit,3,10
+c7gd.medium,1,2,arm64,Up to 12.5 Gigabit,2,4
+c7gd.metal,64,128,arm64,30 Gigabit,15,50
+c7gd.xlarge,4,8,arm64,Up to 12.5 Gigabit,4,15
+c7gn.12xlarge,48,96,arm64,150 Gigabit,8,30
+c7gn.16xlarge,64,128,arm64,200 Gigabit,15,50
+c7gn.2xlarge,8,16,arm64,Up to 50 Gigabit,4,15
+c7gn.4xlarge,16,32,arm64,50 Gigabit,8,30
+c7gn.8xlarge,32,64,arm64,100 Gigabit,8,30
+c7gn.large,2,4,arm64,Up to 30 Gigabit,3,10
+c7gn.medium,1,2,arm64,Up to 25 Gigabit,2,4
+c7gn.metal,64,128,arm64,200 Gigabit,15,50
+c7gn.xlarge,4,8,arm64,Up to 40 Gigabit,4,15
+c7i-flex.12xlarge,48,96,x86_64,Up to 18.75 Gigabit,8,30
+c7i-flex.16xlarge,64,128,x86_64,Up to 25 Gigabit,15,50
+c7i-flex.2xlarge,8,16,x86_64,Up to 12.5 Gigabit,4,15
+c7i-flex.4xlarge,16,32,x86_64,Up to 12.5 Gigabit,8,30
+c7i-flex.8xlarge,32,64,x86_64,Up to 12.5 Gigabit,8,30
+c7i-flex.large,2,4,x86_64,Up to 12.5 Gigabit,3,10
+c7i-flex.xlarge,4,8,x86_64,Up to 12.5 Gigabit,4,15
+c7i.12xlarge,48,96,x86_64,18.75 Gigabit,8,30
+c7i.16xlarge,64,128,x86_64,25 Gigabit,15,50
+c7i.24xlarge,96,192,x86_64,37.5 Gigabit,15,50
+c7i.2xlarge,8,16,x86_64,Up to 12.5 Gigabit,4,15
+c7i.48xlarge,192,384,x86_64,50 Gigabit,15,50
+c7i.4xlarge,16,32,x86_64,Up to 12.5 Gigabit,8,30
+c7i.8xlarge,32,64,x86_64,12.5 Gigabit,8,30
+c7i.large,2,4,x86_64,Up to 12.5 Gigabit,3,10
+c7i.metal-24xl,96,192,x86_64,37.5 Gigabit,15,50
+c7i.metal-48xl,192,384,x86_64,50 Gigabit,15,50
+c7i.xlarge,4,8,x86_64,Up to 12.5 Gigabit,4,15
+c8a.12xlarge,48,96,x86_64,22.5 Gigabit,12,64
+c8a.16xlarge,64,128,x86_64,30 Gigabit,16,64
+c8a.24xlarge,96,192,x86_64,40 Gigabit,16,64
+c8a.2xlarge,8,16,x86_64,Up to 15 Gigabit,4,40
+c8a.48xlarge,192,384,x86_64,75 Gigabit,24,64
+c8a.4xlarge,16,32,x86_64,Up to 15 Gigabit,8,40
+c8a.8xlarge,32,64,x86_64,15 Gigabit,10,40
+c8a.large,2,4,x86_64,Up to 12.5 Gigabit,3,20
+c8a.medium,1,2,x86_64,Up to 12.5 Gigabit,2,4
+c8a.metal-24xl,96,192,x86_64,40 Gigabit,16,64
+c8a.metal-48xl,192,384,x86_64,75 Gigabit,24,64
+c8a.xlarge,4,8,x86_64,Up to 12.5 Gigabit,4,20
+c8g.12xlarge,48,96,arm64,22.5 Gigabit,8,30
+c8g.16xlarge,64,128,arm64,30 Gigabit,15,50
+c8g.24xlarge,96,192,arm64,40 Gigabit,15,50
+c8g.2xlarge,8,16,arm64,Up to 15 Gigabit,4,15
+c8g.48xlarge,192,384,arm64,50 Gigabit,15,50
+c8g.4xlarge,16,32,arm64,Up to 15 Gigabit,8,30
+c8g.8xlarge,32,64,arm64,15 Gigabit,8,30
+c8g.large,2,4,arm64,Up to 12.5 Gigabit,3,10
+c8g.medium,1,2,arm64,Up to 12.5 Gigabit,2,4
+c8g.metal-24xl,96,192,arm64,40 Gigabit,15,50
+c8g.metal-48xl,192,384,arm64,50 Gigabit,15,50
+c8g.xlarge,4,8,arm64,Up to 12.5 Gigabit,4,15
+c8gd.12xlarge,48,96,arm64,22.5 Gigabit,8,30
+c8gd.16xlarge,64,128,arm64,30 Gigabit,15,50
+c8gd.24xlarge,96,192,arm64,40 Gigabit,15,50
+c8gd.2xlarge,8,16,arm64,Up to 15 Gigabit,4,15
+c8gd.48xlarge,192,384,arm64,50 Gigabit,15,50
+c8gd.4xlarge,16,32,arm64,Up to 15 Gigabit,8,30
+c8gd.8xlarge,32,64,arm64,15 Gigabit,8,30
+c8gd.large,2,4,arm64,Up to 12.5 Gigabit,3,10
+c8gd.medium,1,2,arm64,Up to 12.5 Gigabit,2,4
+c8gd.metal-24xl,96,192,arm64,40 Gigabit,15,50
+c8gd.metal-48xl,192,384,arm64,50 Gigabit,15,50
+c8gd.xlarge,4,8,arm64,Up to 12.5 Gigabit,4,15
+c8gn.12xlarge,48,96,arm64,150 Gigabit,12,30
+c8gn.16xlarge,64,128,arm64,200 Gigabit,16,50
+c8gn.24xlarge,96,192,arm64,300 Gigabit,24,50
+c8gn.2xlarge,8,16,arm64,Up to 50 Gigabit,4,15
+c8gn.48xlarge,192,384,arm64,600 Gigabit,24,50
+c8gn.4xlarge,16,32,arm64,50 Gigabit,8,30
+c8gn.8xlarge,32,64,arm64,100 Gigabit,10,30
+c8gn.large,2,4,arm64,Up to 30 Gigabit,3,10
+c8gn.medium,1,2,arm64,Up to 25 Gigabit,2,4
+c8gn.xlarge,4,8,arm64,Up to 40 Gigabit,4,15
+c8i-flex.12xlarge,48,96,x86_64,Up to 22.5 Gigabit,12,50
+c8i-flex.16xlarge,64,128,x86_64,Up to 30 Gigabit,16,64
+c8i-flex.2xlarge,8,16,x86_64,Up to 15 Gigabit,4,30
+c8i-flex.4xlarge,16,32,x86_64,Up to 15 Gigabit,8,50
+c8i-flex.8xlarge,32,64,x86_64,Up to 15 Gigabit,10,50
+c8i-flex.large,2,4,x86_64,Up to 12.5 Gigabit,3,20
+c8i-flex.xlarge,4,8,x86_64,Up to 12.5 Gigabit,4,30
+c8i.12xlarge,48,96,x86_64,22.5 Gigabit,12,50
+c8i.16xlarge,64,128,x86_64,30 Gigabit,16,64
+c8i.24xlarge,96,192,x86_64,40 Gigabit,16,64
+c8i.2xlarge,8,16,x86_64,Up to 15 Gigabit,4,30
+c8i.32xlarge,128,256,x86_64,50 Gigabit,24,64
+c8i.48xlarge,192,384,x86_64,75 Gigabit,24,64
+c8i.4xlarge,16,32,x86_64,Up to 15 Gigabit,8,50
+c8i.8xlarge,32,64,x86_64,15 Gigabit,10,50
+c8i.96xlarge,384,768,x86_64,100 Gigabit,24,64
+c8i.large,2,4,x86_64,Up to 12.5 Gigabit,3,20
+c8i.metal-48xl,192,384,x86_64,75 Gigabit,24,64
+c8i.metal-96xl,384,768,x86_64,100 Gigabit,24,64
+c8i.xlarge,4,8,x86_64,Up to 12.5 Gigabit,4,30
+d2.2xlarge,8,61,x86_64,High,4,15
+d2.4xlarge,16,122,x86_64,High,8,30
+d2.8xlarge,36,244,x86_64,10 Gigabit,8,30
+d2.xlarge,4,30.5,x86_64,Moderate,4,15
+d3.2xlarge,8,64,x86_64,Up to 15 Gigabit,4,5
+d3.4xlarge,16,128,x86_64,Up to 15 Gigabit,4,10
+d3.8xlarge,32,256,x86_64,25 Gigabit,3,20
+d3.xlarge,4,32,x86_64,Up to 15 Gigabit,4,3
+d3en.12xlarge,48,192,x86_64,75 Gigabit,3,30
+d3en.2xlarge,8,32,x86_64,Up to 25 Gigabit,4,5
+d3en.4xlarge,16,64,x86_64,25 Gigabit,4,10
+d3en.6xlarge,24,96,x86_64,40 Gigabit,4,15
+d3en.8xlarge,32,128,x86_64,50 Gigabit,4,20
+d3en.xlarge,4,16,x86_64,Up to 25 Gigabit,4,3
+g4ad.16xlarge,64,256,x86_64,25 Gigabit,8,30
+g4ad.2xlarge,8,32,x86_64,Up to 10 Gigabit,2,4
+g4ad.4xlarge,16,64,x86_64,Up to 10 Gigabit,3,10
+g4ad.8xlarge,32,128,x86_64,15 Gigabit,4,15
+g4ad.xlarge,4,16,x86_64,Up to 10 Gigabit,2,4
+g4dn.12xlarge,48,192,x86_64,50 Gigabit,8,30
+g4dn.16xlarge,64,256,x86_64,50 Gigabit,4,15
+g4dn.2xlarge,8,32,x86_64,Up to 25 Gigabit,3,10
+g4dn.4xlarge,16,64,x86_64,Up to 25 Gigabit,3,10
+g4dn.8xlarge,32,128,x86_64,50 Gigabit,4,15
+g4dn.metal,96,384,x86_64,100 Gigabit,15,50
+g4dn.xlarge,4,16,x86_64,Up to 25 Gigabit,3,10
+g5.12xlarge,48,192,x86_64,40 Gigabit,15,50
+g5.16xlarge,64,256,x86_64,25 Gigabit,8,30
+g5.24xlarge,96,384,x86_64,50 Gigabit,15,50
+g5.2xlarge,8,32,x86_64,Up to 10 Gigabit,4,15
+g5.48xlarge,192,768,x86_64,100 Gigabit,7,50
+g5.4xlarge,16,64,x86_64,Up to 25 Gigabit,8,30
+g5.8xlarge,32,128,x86_64,25 Gigabit,8,30
+g5.xlarge,4,16,x86_64,Up to 10 Gigabit,4,15
+h1.16xlarge,64,256,x86_64,25 Gigabit,8,50
+h1.2xlarge,8,32,x86_64,Up to 10 Gigabit,4,15
+h1.4xlarge,16,64,x86_64,Up to 10 Gigabit,8,30
+h1.8xlarge,32,128,x86_64,10 Gigabit,8,30
+hpc7a.12xlarge,24,768,x86_64,300 Gigabit,4,50
+hpc7a.24xlarge,48,768,x86_64,300 Gigabit,4,50
+hpc7a.48xlarge,96,768,x86_64,300 Gigabit,4,50
+hpc7a.96xlarge,192,768,x86_64,300 Gigabit,4,50
+hpc7g.16xlarge,64,128,arm64,200 Gigabit,4,50
+hpc7g.4xlarge,16,128,arm64,200 Gigabit,4,50
+hpc7g.8xlarge,32,128,arm64,200 Gigabit,4,50
+i2.2xlarge,8,61,x86_64,High,4,15
+i2.4xlarge,16,122,x86_64,High,8,30
+i2.8xlarge,32,244,x86_64,10 Gigabit,8,30
+i2.xlarge,4,30.5,x86_64,Moderate,4,15
+i3.16xlarge,64,488,x86_64,25 Gigabit,15,50
+i3.2xlarge,8,61,x86_64,Up to 10 Gigabit,4,15
+i3.4xlarge,16,122,x86_64,Up to 10 Gigabit,8,30
+i3.8xlarge,32,244,x86_64,10 Gigabit,8,30
+i3.large,2,15.25,x86_64,Up to 10 Gigabit,3,10
+i3.xlarge,4,30.5,x86_64,Up to 10 Gigabit,4,15
+i3en.12xlarge,48,384,x86_64,50 Gigabit,8,30
+i3en.24xlarge,96,768,x86_64,100 Gigabit,15,50
+i3en.2xlarge,8,64,x86_64,Up to 25 Gigabit,4,15
+i3en.3xlarge,12,96,x86_64,Up to 25 Gigabit,4,15
+i3en.6xlarge,24,192,x86_64,25 Gigabit,8,30
+i3en.large,2,16,x86_64,Up to 25 Gigabit,3,10
+i3en.metal,96,768,x86_64,100 Gigabit,15,50
+i3en.xlarge,4,32,x86_64,Up to 25 Gigabit,4,15
+i4g.16xlarge,64,512,arm64,37.5 Gigabit,15,50
+i4g.2xlarge,8,64,arm64,Up to 12 Gigabit,4,15
+i4g.4xlarge,16,128,arm64,Up to 25 Gigabit,8,30
+i4g.8xlarge,32,256,arm64,18.75 Gigabit,8,30
+i4g.large,2,16,arm64,Up to 10 Gigabit,3,10
+i4g.xlarge,4,32,arm64,Up to 10 Gigabit,4,15
+i4i.12xlarge,48,384,x86_64,28.12 Gigabit,8,30
+i4i.16xlarge,64,512,x86_64,37.5 Gigabit,15,50
+i4i.24xlarge,96,768,x86_64,56.25 Gigabit,15,30
+i4i.2xlarge,8,64,x86_64,Up to 12 Gigabit,4,15
+i4i.32xlarge,128,"1,024",x86_64,75 Gigabit,15,50
+i4i.4xlarge,16,128,x86_64,Up to 25 Gigabit,8,30
+i4i.8xlarge,32,256,x86_64,18.75 Gigabit,8,30
+i4i.large,2,16,x86_64,Up to 10 Gigabit,3,10
+i4i.metal,128,"1,024",x86_64,75 Gigabit,15,50
+i4i.xlarge,4,32,x86_64,Up to 10 Gigabit,4,15
+i7i.12xlarge,48,384,x86_64,Up to 28 Gigabit,8,30
+i7i.16xlarge,64,512,x86_64,Up to 37.5 Gigabit,15,50
+i7i.24xlarge,96,768,x86_64,Up to 56.25 Gigabit,15,50
+i7i.2xlarge,8,64,x86_64,Up to 12 Gigabit,4,15
+i7i.48xlarge,192,"1,536",x86_64,Up to 100 Gigabit,15,50
+i7i.4xlarge,16,128,x86_64,Up to 25 Gigabit,8,30
+i7i.8xlarge,32,256,x86_64,Up to 25 Gigabit,8,30
+i7i.large,2,16,x86_64,Up to 10 Gigabit,3,10
+i7i.metal-24xl,96,768,x86_64,Up to 56.25 Gigabit,15,50
+i7i.metal-48xl,192,"1,536",x86_64,Up to 100 Gigabit,15,50
+i7i.xlarge,4,32,x86_64,Up to 10 Gigabit,4,15
+i7ie.12xlarge,48,384,x86_64,Up to 50 Gigabit,8,50
+i7ie.18xlarge,72,576,x86_64,Up to 75 Gigabit,15,50
+i7ie.24xlarge,96,768,x86_64,Up to 100 Gigabit,15,50
+i7ie.2xlarge,8,64,x86_64,Up to 25 Gigabit,4,15
+i7ie.3xlarge,12,96,x86_64,Up to 25 Gigabit,4,15
+i7ie.48xlarge,192,"1,536",x86_64,100 Gigabit,15,50
+i7ie.6xlarge,24,192,x86_64,Up to 25 Gigabit,8,30
+i7ie.large,2,16,x86_64,Up to 25 Gigabit,3,10
+i7ie.metal-24xl,96,768,x86_64,Up to 100 Gigabit,15,50
+i7ie.metal-48xl,192,"1,536",x86_64,100 Gigabit,15,50
+i7ie.xlarge,4,32,x86_64,Up to 25 Gigabit,4,15
+i8g.12xlarge,48,384,arm64,Up to 28.12 Gigabit,8,30
+i8g.16xlarge,64,512,arm64,Up to 37.5 Gigabit,15,50
+i8g.24xlarge,96,768,arm64,Up to 56.25 Gigabit,15,50
+i8g.2xlarge,8,64,arm64,Up to 12 Gigabit,4,15
+i8g.48xlarge,192,"1,536",arm64,Up to 100 Gigabit,15,50
+i8g.4xlarge,16,128,arm64,Up to 25 Gigabit,8,30
+i8g.8xlarge,32,256,arm64,Up to 25 Gigabit,8,30
+i8g.large,2,16,arm64,Up to 10 Gigabit,3,10
+i8g.metal-24xl,96,768,arm64,Up to 56.25 Gigabit,15,50
+i8g.metal-48xl,192,"1,536",arm64,Up to 100 Gigabit,15,50
+i8g.xlarge,4,32,arm64,Up to 10 Gigabit,4,15
+i8ge.12xlarge,48,384,arm64,75 Gigabit,12,30
+i8ge.18xlarge,72,576,arm64,112.5 Gigabit,16,50
+i8ge.24xlarge,96,768,arm64,150 Gigabit,16,50
+i8ge.2xlarge,8,64,arm64,Up to 25 Gigabit,4,15
+i8ge.3xlarge,12,96,arm64,Up to 25 Gigabit,6,30
+i8ge.48xlarge,192,"1,536",arm64,300 Gigabit,24,50
+i8ge.6xlarge,24,192,arm64,37.5 Gigabit,10,30
+i8ge.large,2,16,arm64,Up to 25 Gigabit,3,10
+i8ge.metal-24xl,96,768,arm64,150 Gigabit,16,50
+i8ge.metal-48xl,192,"1,536",arm64,300 Gigabit,24,50
+i8ge.xlarge,4,32,arm64,Up to 25 Gigabit,4,15
+im4gn.16xlarge,64,256,arm64,100 Gigabit,15,50
+im4gn.2xlarge,8,32,arm64,Up to 25 Gigabit,4,15
+im4gn.4xlarge,16,64,arm64,25 Gigabit,8,30
+im4gn.8xlarge,32,128,arm64,50 Gigabit,8,30
+im4gn.large,2,8,arm64,Up to 25 Gigabit,3,10
+im4gn.xlarge,4,16,arm64,Up to 25 Gigabit,4,15
+inf1.24xlarge,96,192,x86_64,100 Gigabit,11,30
+inf1.2xlarge,8,16,x86_64,Up to 25 Gigabit,4,10
+inf1.6xlarge,24,48,x86_64,25 Gigabit,8,30
+inf1.xlarge,4,8,x86_64,Up to 25 Gigabit,4,10
+inf2.24xlarge,96,384,x86_64,50 Gigabit,15,50
+inf2.48xlarge,192,768,x86_64,100 Gigabit,15,50
+inf2.8xlarge,32,128,x86_64,Up to 25 Gigabit,8,30
+inf2.xlarge,4,16,x86_64,Up to 15 Gigabit,4,15
+is4gen.2xlarge,8,48,arm64,Up to 25 Gigabit,4,15
+is4gen.4xlarge,16,96,arm64,25 Gigabit,8,30
+is4gen.8xlarge,32,192,arm64,50 Gigabit,8,30
+is4gen.large,2,12,arm64,Up to 25 Gigabit,3,10
+is4gen.medium,1,6,arm64,Up to 25 Gigabit,2,4
+is4gen.xlarge,4,24,arm64,Up to 25 Gigabit,4,15
+m1.large,2,7.5,x86_64,Moderate,3,10
+m1.medium,1,3.69922,"i386, x86_64",Moderate,2,6
+m1.small,1,1.69922,"i386, x86_64",Low,2,4
+m1.xlarge,4,15,x86_64,High,4,15
+m2.2xlarge,4,34.19922,x86_64,Moderate,4,30
+m2.4xlarge,8,68.39941,x86_64,High,8,30
+m2.xlarge,2,17.09961,x86_64,Moderate,4,15
+m3.2xlarge,8,30,x86_64,High,4,30
+m3.large,2,7.5,x86_64,Moderate,3,10
+m3.medium,1,3.75,x86_64,Moderate,2,6
+m3.xlarge,4,15,x86_64,High,4,15
+m4.10xlarge,40,160,x86_64,10 Gigabit,8,30
+m4.16xlarge,64,256,x86_64,25 Gigabit,8,30
+m4.2xlarge,8,32,x86_64,High,4,15
+m4.4xlarge,16,64,x86_64,High,8,30
+m4.large,2,8,x86_64,Moderate,2,10
+m4.xlarge,4,16,x86_64,High,4,15
+m5.12xlarge,48,192,x86_64,12 Gigabit,8,30
+m5.16xlarge,64,256,x86_64,20 Gigabit,15,50
+m5.24xlarge,96,384,x86_64,25 Gigabit,15,50
+m5.2xlarge,8,32,x86_64,Up to 10 Gigabit,4,15
+m5.4xlarge,16,64,x86_64,Up to 10 Gigabit,8,30
+m5.8xlarge,32,128,x86_64,10 Gigabit,8,30
+m5.large,2,8,x86_64,Up to 10 Gigabit,3,10
+m5.metal,96,384,x86_64,25 Gigabit,15,50
+m5.xlarge,4,16,x86_64,Up to 10 Gigabit,4,15
+m5a.12xlarge,48,192,x86_64,10 Gigabit,8,30
+m5a.16xlarge,64,256,x86_64,12 Gigabit,15,50
+m5a.24xlarge,96,384,x86_64,20 Gigabit,15,50
+m5a.2xlarge,8,32,x86_64,Up to 10 Gigabit,4,15
+m5a.4xlarge,16,64,x86_64,Up to 10 Gigabit,8,30
+m5a.8xlarge,32,128,x86_64,Up to 10 Gigabit,8,30
+m5a.large,2,8,x86_64,Up to 10 Gigabit,3,10
+m5a.xlarge,4,16,x86_64,Up to 10 Gigabit,4,15
+m5ad.12xlarge,48,192,x86_64,10 Gigabit,8,30
+m5ad.16xlarge,64,256,x86_64,12 Gigabit,15,50
+m5ad.24xlarge,96,384,x86_64,20 Gigabit,15,50
+m5ad.2xlarge,8,32,x86_64,Up to 10 Gigabit,4,15
+m5ad.4xlarge,16,64,x86_64,Up to 10 Gigabit,8,30
+m5ad.8xlarge,32,128,x86_64,Up to 10 Gigabit,8,30
+m5ad.large,2,8,x86_64,Up to 10 Gigabit,3,10
+m5ad.xlarge,4,16,x86_64,Up to 10 Gigabit,4,15
+m5d.12xlarge,48,192,x86_64,12 Gigabit,8,30
+m5d.16xlarge,64,256,x86_64,20 Gigabit,15,50
+m5d.24xlarge,96,384,x86_64,25 Gigabit,15,50
+m5d.2xlarge,8,32,x86_64,Up to 10 Gigabit,4,15
+m5d.4xlarge,16,64,x86_64,Up to 10 Gigabit,8,30
+m5d.8xlarge,32,128,x86_64,10 Gigabit,8,30
+m5d.large,2,8,x86_64,Up to 10 Gigabit,3,10
+m5d.metal,96,384,x86_64,25 Gigabit,15,50
+m5d.xlarge,4,16,x86_64,Up to 10 Gigabit,4,15
+m5dn.12xlarge,48,192,x86_64,50 Gigabit,8,30
+m5dn.16xlarge,64,256,x86_64,75 Gigabit,15,50
+m5dn.24xlarge,96,384,x86_64,100 Gigabit,15,50
+m5dn.2xlarge,8,32,x86_64,Up to 25 Gigabit,4,15
+m5dn.4xlarge,16,64,x86_64,Up to 25 Gigabit,8,30
+m5dn.8xlarge,32,128,x86_64,25 Gigabit,8,30
+m5dn.large,2,8,x86_64,Up to 25 Gigabit,3,10
+m5dn.metal,96,384,x86_64,100 Gigabit,15,50
+m5dn.xlarge,4,16,x86_64,Up to 25 Gigabit,4,15
+m5n.12xlarge,48,192,x86_64,50 Gigabit,8,30
+m5n.16xlarge,64,256,x86_64,75 Gigabit,15,50
+m5n.24xlarge,96,384,x86_64,100 Gigabit,15,50
+m5n.2xlarge,8,32,x86_64,Up to 25 Gigabit,4,15
+m5n.4xlarge,16,64,x86_64,Up to 25 Gigabit,8,30
+m5n.8xlarge,32,128,x86_64,25 Gigabit,8,30
+m5n.large,2,8,x86_64,Up to 25 Gigabit,3,10
+m5n.xlarge,4,16,x86_64,Up to 25 Gigabit,4,15
+m5zn.12xlarge,48,192,x86_64,100 Gigabit,15,50
+m5zn.2xlarge,8,32,x86_64,Up to 25 Gigabit,4,15
+m5zn.3xlarge,12,48,x86_64,Up to 25 Gigabit,8,30
+m5zn.6xlarge,24,96,x86_64,50 Gigabit,8,30
+m5zn.large,2,8,x86_64,Up to 25 Gigabit,3,10
+m5zn.metal,48,192,x86_64,100 Gigabit,15,50
+m5zn.xlarge,4,16,x86_64,Up to 25 Gigabit,4,15
+m6a.12xlarge,48,192,x86_64,18.75 Gigabit,8,30
+m6a.16xlarge,64,256,x86_64,25 Gigabit,15,50
+m6a.24xlarge,96,384,x86_64,37.5 Gigabit,15,50
+m6a.2xlarge,8,32,x86_64,Up to 12.5 Gigabit,4,15
+m6a.32xlarge,128,512,x86_64,50 Gigabit,15,50
+m6a.48xlarge,192,768,x86_64,50 Gigabit,15,50
+m6a.4xlarge,16,64,x86_64,Up to 12.5 Gigabit,8,30
+m6a.8xlarge,32,128,x86_64,12.5 Gigabit,8,30
+m6a.large,2,8,x86_64,Up to 12.5 Gigabit,3,10
+m6a.metal,192,768,x86_64,50 Gigabit,15,50
+m6a.xlarge,4,16,x86_64,Up to 12.5 Gigabit,4,15
+m6g.12xlarge,48,192,arm64,20 Gigabit,8,30
+m6g.16xlarge,64,256,arm64,25 Gigabit,15,50
+m6g.2xlarge,8,32,arm64,Up to 10 Gigabit,4,15
+m6g.4xlarge,16,64,arm64,Up to 10 Gigabit,8,30
+m6g.8xlarge,32,128,arm64,12 Gigabit,8,30
+m6g.large,2,8,arm64,Up to 10 Gigabit,3,10
+m6g.medium,1,4,arm64,Up to 10 Gigabit,2,4
+m6g.metal,64,256,arm64,25 Gigabit,15,50
+m6g.xlarge,4,16,arm64,Up to 10 Gigabit,4,15
+m6gd.12xlarge,48,192,arm64,20 Gigabit,8,30
+m6gd.16xlarge,64,256,arm64,25 Gigabit,15,50
+m6gd.2xlarge,8,32,arm64,Up to 10 Gigabit,4,15
+m6gd.4xlarge,16,64,arm64,Up to 10 Gigabit,8,30
+m6gd.8xlarge,32,128,arm64,12 Gigabit,8,30
+m6gd.large,2,8,arm64,Up to 10 Gigabit,3,10
+m6gd.medium,1,4,arm64,Up to 10 Gigabit,2,4
+m6gd.metal,64,256,arm64,25 Gigabit,15,50
+m6gd.xlarge,4,16,arm64,Up to 10 Gigabit,4,15
+m6i.12xlarge,48,192,x86_64,18.75 Gigabit,8,30
+m6i.16xlarge,64,256,x86_64,25 Gigabit,15,50
+m6i.24xlarge,96,384,x86_64,37.5 Gigabit,15,50
+m6i.2xlarge,8,32,x86_64,Up to 12.5 Gigabit,4,15
+m6i.32xlarge,128,512,x86_64,50 Gigabit,15,50
+m6i.4xlarge,16,64,x86_64,Up to 12.5 Gigabit,8,30
+m6i.8xlarge,32,128,x86_64,12.5 Gigabit,8,30
+m6i.large,2,8,x86_64,Up to 12.5 Gigabit,3,10
+m6i.metal,128,512,x86_64,50 Gigabit,15,50
+m6i.xlarge,4,16,x86_64,Up to 12.5 Gigabit,4,15
+m6id.12xlarge,48,192,x86_64,18.75 Gigabit,8,30
+m6id.16xlarge,64,256,x86_64,25 Gigabit,15,50
+m6id.24xlarge,96,384,x86_64,37.5 Gigabit,15,50
+m6id.2xlarge,8,32,x86_64,Up to 12.5 Gigabit,4,15
+m6id.32xlarge,128,512,x86_64,50 Gigabit,15,50
+m6id.4xlarge,16,64,x86_64,Up to 12.5 Gigabit,8,30
+m6id.8xlarge,32,128,x86_64,12.5 Gigabit,8,30
+m6id.large,2,8,x86_64,Up to 12.5 Gigabit,3,10
+m6id.metal,128,512,x86_64,50 Gigabit,15,50
+m6id.xlarge,4,16,x86_64,Up to 12.5 Gigabit,4,15
+m6idn.12xlarge,48,192,x86_64,75 Gigabit,8,30
+m6idn.16xlarge,64,256,x86_64,100 Gigabit,15,50
+m6idn.24xlarge,96,384,x86_64,150 Gigabit,15,50
+m6idn.2xlarge,8,32,x86_64,Up to 40 Gigabit,4,15
+m6idn.32xlarge,128,512,x86_64,200 Gigabit,16,50
+m6idn.4xlarge,16,64,x86_64,Up to 50 Gigabit,8,30
+m6idn.8xlarge,32,128,x86_64,50 Gigabit,8,30
+m6idn.large,2,8,x86_64,Up to 25 Gigabit,3,10
+m6idn.metal,128,512,x86_64,200 Gigabit,16,50
+m6idn.xlarge,4,16,x86_64,Up to 30 Gigabit,4,15
+m6in.12xlarge,48,192,x86_64,75 Gigabit,8,30
+m6in.16xlarge,64,256,x86_64,100 Gigabit,15,50
+m6in.24xlarge,96,384,x86_64,150 Gigabit,15,50
+m6in.2xlarge,8,32,x86_64,Up to 40 Gigabit,4,15
+m6in.32xlarge,128,512,x86_64,200 Gigabit,16,50
+m6in.4xlarge,16,64,x86_64,Up to 50 Gigabit,8,30
+m6in.8xlarge,32,128,x86_64,50 Gigabit,8,30
+m6in.large,2,8,x86_64,Up to 25 Gigabit,3,10
+m6in.metal,128,512,x86_64,200 Gigabit,16,50
+m6in.xlarge,4,16,x86_64,Up to 30 Gigabit,4,15
+m7a.12xlarge,48,192,x86_64,18.75 Gigabit,8,30
+m7a.16xlarge,64,256,x86_64,25 Gigabit,15,50
+m7a.24xlarge,96,384,x86_64,37.5 Gigabit,15,50
+m7a.2xlarge,8,32,x86_64,Up to 12.5 Gigabit,4,15
+m7a.32xlarge,128,512,x86_64,50 Gigabit,15,50
+m7a.48xlarge,192,768,x86_64,50 Gigabit,15,50
+m7a.4xlarge,16,64,x86_64,Up to 12.5 Gigabit,8,30
+m7a.8xlarge,32,128,x86_64,12.5 Gigabit,8,30
+m7a.large,2,8,x86_64,Up to 12.5 Gigabit,3,10
+m7a.medium,1,4,x86_64,Up to 12.5 Gigabit,2,4
+m7a.metal-48xl,192,768,x86_64,50 Gigabit,15,50
+m7a.xlarge,4,16,x86_64,Up to 12.5 Gigabit,4,15
+m7g.12xlarge,48,192,arm64,22.5 Gigabit,8,30
+m7g.16xlarge,64,256,arm64,30 Gigabit,15,50
+m7g.2xlarge,8,32,arm64,Up to 15 Gigabit,4,15
+m7g.4xlarge,16,64,arm64,Up to 15 Gigabit,8,30
+m7g.8xlarge,32,128,arm64,15 Gigabit,8,30
+m7g.large,2,8,arm64,Up to 12.5 Gigabit,3,10
+m7g.medium,1,4,arm64,Up to 12.5 Gigabit,2,4
+m7g.metal,64,256,arm64,30 Gigabit,15,50
+m7g.xlarge,4,16,arm64,Up to 12.5 Gigabit,4,15
+m7gd.12xlarge,48,192,arm64,22.5 Gigabit,8,30
+m7gd.16xlarge,64,256,arm64,30 Gigabit,15,50
+m7gd.2xlarge,8,32,arm64,Up to 15 Gigabit,4,15
+m7gd.4xlarge,16,64,arm64,Up to 15 Gigabit,8,30
+m7gd.8xlarge,32,128,arm64,15 Gigabit,8,30
+m7gd.large,2,8,arm64,Up to 12.5 Gigabit,3,10
+m7gd.medium,1,4,arm64,Up to 12.5 Gigabit,2,4
+m7gd.metal,64,256,arm64,30 Gigabit,15,50
+m7gd.xlarge,4,16,arm64,Up to 12.5 Gigabit,4,15
+m7i-flex.12xlarge,48,192,x86_64,Up to 18.75 Gigabit,8,30
+m7i-flex.16xlarge,64,256,x86_64,Up to 25 Gigabit,15,50
+m7i-flex.2xlarge,8,32,x86_64,Up to 12.5 Gigabit,4,15
+m7i-flex.4xlarge,16,64,x86_64,Up to 12.5 Gigabit,8,30
+m7i-flex.8xlarge,32,128,x86_64,Up to 12.5 Gigabit,8,30
+m7i-flex.large,2,8,x86_64,Up to 12.5 Gigabit,3,10
+m7i-flex.xlarge,4,16,x86_64,Up to 12.5 Gigabit,4,15
+m7i.12xlarge,48,192,x86_64,18.75 Gigabit,8,30
+m7i.16xlarge,64,256,x86_64,25 Gigabit,15,50
+m7i.24xlarge,96,384,x86_64,37.5 Gigabit,15,50
+m7i.2xlarge,8,32,x86_64,Up to 12.5 Gigabit,4,15
+m7i.48xlarge,192,768,x86_64,50 Gigabit,15,50
+m7i.4xlarge,16,64,x86_64,Up to 12.5 Gigabit,8,30
+m7i.8xlarge,32,128,x86_64,12.5 Gigabit,8,30
+m7i.large,2,8,x86_64,Up to 12.5 Gigabit,3,10
+m7i.metal-24xl,96,384,x86_64,37.5 Gigabit,15,50
+m7i.metal-48xl,192,768,x86_64,50 Gigabit,15,50
+m7i.xlarge,4,16,x86_64,Up to 12.5 Gigabit,4,15
+m8a.12xlarge,48,192,x86_64,22.5 Gigabit,12,64
+m8a.16xlarge,64,256,x86_64,30 Gigabit,16,64
+m8a.24xlarge,96,384,x86_64,40 Gigabit,16,64
+m8a.2xlarge,8,32,x86_64,Up to 15 Gigabit,4,40
+m8a.48xlarge,192,768,x86_64,75 Gigabit,24,64
+m8a.4xlarge,16,64,x86_64,Up to 15 Gigabit,8,40
+m8a.8xlarge,32,128,x86_64,15 Gigabit,10,40
+m8a.large,2,8,x86_64,Up to 12.5 Gigabit,3,20
+m8a.medium,1,4,x86_64,Up to 12.5 Gigabit,2,4
+m8a.metal-24xl,96,384,x86_64,40 Gigabit,16,64
+m8a.metal-48xl,192,768,x86_64,75 Gigabit,24,64
+m8a.xlarge,4,16,x86_64,Up to 12.5 Gigabit,4,20
+m8azn.12xlarge,48,192,x86_64,100 Gigabit,16,64
+m8azn.24xlarge,96,384,x86_64,200 Gigabit,16,64
+m8azn.3xlarge,12,48,x86_64,Up to 50 Gigabit,8,40
+m8azn.6xlarge,24,96,x86_64,50 Gigabit,8,40
+m8azn.large,2,8,x86_64,Up to 30 Gigabit,4,20
+m8azn.medium,1,4,x86_64,Up to 25 Gigabit,3,4
+m8azn.metal-12xl,48,192,x86_64,100 Gigabit,16,64
+m8azn.metal-24xl,96,384,x86_64,200 Gigabit,16,64
+m8azn.xlarge,4,16,x86_64,Up to 40 Gigabit,4,20
+m8g.12xlarge,48,192,arm64,22.5 Gigabit,8,30
+m8g.16xlarge,64,256,arm64,30 Gigabit,15,50
+m8g.24xlarge,96,384,arm64,40 Gigabit,15,50
+m8g.2xlarge,8,32,arm64,Up to 15 Gigabit,4,15
+m8g.48xlarge,192,768,arm64,50 Gigabit,15,50
+m8g.4xlarge,16,64,arm64,Up to 15 Gigabit,8,30
+m8g.8xlarge,32,128,arm64,15 Gigabit,8,30
+m8g.large,2,8,arm64,Up to 12.5 Gigabit,3,10
+m8g.medium,1,4,arm64,Up to 12.5 Gigabit,2,4
+m8g.metal-24xl,96,384,arm64,40 Gigabit,15,50
+m8g.metal-48xl,192,768,arm64,50 Gigabit,15,50
+m8g.xlarge,4,16,arm64,Up to 12.5 Gigabit,4,15
+m8gb.12xlarge,48,192,arm64,100 Gigabit,12,30
+m8gb.16xlarge,64,256,arm64,133.33 Gigabit,16,50
+m8gb.24xlarge,96,384,arm64,200 Gigabit,24,50
+m8gb.2xlarge,8,32,arm64,Up to 33.33 Gigabit,4,15
+m8gb.48xlarge,192,768,arm64,400 Gigabit,24,50
+m8gb.4xlarge,16,64,arm64,33.33 Gigabit,8,30
+m8gb.8xlarge,32,128,arm64,66.66 Gigabit,10,30
+m8gb.large,2,8,arm64,Up to 20 Gigabit,3,10
+m8gb.medium,1,4,arm64,Up to 16.66 Gigabit,2,4
+m8gb.xlarge,4,16,arm64,Up to 26.66 Gigabit,4,15
+m8gd.12xlarge,48,192,arm64,22.5 Gigabit,8,30
+m8gd.16xlarge,64,256,arm64,30 Gigabit,15,50
+m8gd.24xlarge,96,384,arm64,40 Gigabit,15,50
+m8gd.2xlarge,8,32,arm64,Up to 15 Gigabit,4,15
+m8gd.48xlarge,192,768,arm64,50 Gigabit,15,50
+m8gd.4xlarge,16,64,arm64,Up to 15 Gigabit,8,30
+m8gd.8xlarge,32,128,arm64,15 Gigabit,8,30
+m8gd.large,2,8,arm64,Up to 12.5 Gigabit,3,10
+m8gd.medium,1,4,arm64,Up to 12.5 Gigabit,2,4
+m8gd.metal-24xl,96,384,arm64,40 Gigabit,15,50
+m8gd.metal-48xl,192,768,arm64,50 Gigabit,15,50
+m8gd.xlarge,4,16,arm64,Up to 12.5 Gigabit,4,15
+m8gn.12xlarge,48,192,arm64,150 Gigabit,12,30
+m8gn.16xlarge,64,256,arm64,200 Gigabit,16,50
+m8gn.24xlarge,96,384,arm64,300 Gigabit,24,50
+m8gn.2xlarge,8,32,arm64,Up to 50 Gigabit,4,15
+m8gn.48xlarge,192,768,arm64,600 Gigabit,24,50
+m8gn.4xlarge,16,64,arm64,50 Gigabit,8,30
+m8gn.8xlarge,32,128,arm64,100 Gigabit,10,30
+m8gn.large,2,8,arm64,Up to 30 Gigabit,3,10
+m8gn.medium,1,4,arm64,Up to 25 Gigabit,2,4
+m8gn.xlarge,4,16,arm64,Up to 40 Gigabit,4,15
+m8i-flex.12xlarge,48,192,x86_64,Up to 22.5 Gigabit,12,50
+m8i-flex.16xlarge,64,256,x86_64,Up to 30 Gigabit,16,64
+m8i-flex.2xlarge,8,32,x86_64,Up to 15 Gigabit,4,30
+m8i-flex.4xlarge,16,64,x86_64,Up to 15 Gigabit,8,50
+m8i-flex.8xlarge,32,128,x86_64,Up to 15 Gigabit,10,50
+m8i-flex.large,2,8,x86_64,Up to 12.5 Gigabit,3,20
+m8i-flex.xlarge,4,16,x86_64,Up to 12.5 Gigabit,4,30
+m8i.12xlarge,48,192,x86_64,22.5 Gigabit,12,50
+m8i.16xlarge,64,256,x86_64,30 Gigabit,16,64
+m8i.24xlarge,96,384,x86_64,40 Gigabit,16,64
+m8i.2xlarge,8,32,x86_64,Up to 15 Gigabit,4,30
+m8i.32xlarge,128,512,x86_64,50 Gigabit,24,64
+m8i.48xlarge,192,768,x86_64,75 Gigabit,24,64
+m8i.4xlarge,16,64,x86_64,Up to 15 Gigabit,8,50
+m8i.8xlarge,32,128,x86_64,15 Gigabit,10,50
+m8i.96xlarge,384,"1,536",x86_64,100 Gigabit,24,64
+m8i.large,2,8,x86_64,Up to 12.5 Gigabit,3,20
+m8i.metal-48xl,192,768,x86_64,75 Gigabit,24,64
+m8i.metal-96xl,384,"1,536",x86_64,100 Gigabit,24,64
+m8i.xlarge,4,16,x86_64,Up to 12.5 Gigabit,4,30
+mac-m4.metal,10,24,arm64_mac,10 Gigabit,8,30
+mac1.metal,12,32,x86_64_mac,25 Gigabit,8,30
+mac2.metal,8,16,arm64_mac,10 Gigabit,8,30
+p3dn.24xlarge,96,768,x86_64,100 Gigabit,15,50
+p4d.24xlarge,96,"1,152",x86_64,4x 100 Gigabit,60,50
+r3.2xlarge,8,61,x86_64,High,4,15
+r3.4xlarge,16,122,x86_64,High,8,30
+r3.8xlarge,32,244,x86_64,10 Gigabit,8,30
+r3.large,2,15,x86_64,Moderate,3,10
+r3.xlarge,4,30.5,x86_64,Moderate,4,15
+r4.16xlarge,64,488,x86_64,25 Gigabit,15,50
+r4.2xlarge,8,61,x86_64,Up to 10 Gigabit,4,15
+r4.4xlarge,16,122,x86_64,Up to 10 Gigabit,8,30
+r4.8xlarge,32,244,x86_64,10 Gigabit,8,30
+r4.large,2,15.25,x86_64,Up to 10 Gigabit,3,10
+r4.xlarge,4,30.5,x86_64,Up to 10 Gigabit,4,15
+r5.12xlarge,48,384,x86_64,12 Gigabit,8,30
+r5.16xlarge,64,512,x86_64,20 Gigabit,15,50
+r5.24xlarge,96,768,x86_64,25 Gigabit,15,50
+r5.2xlarge,8,64,x86_64,Up to 10 Gigabit,4,15
+r5.4xlarge,16,128,x86_64,Up to 10 Gigabit,8,30
+r5.8xlarge,32,256,x86_64,10 Gigabit,8,30
+r5.large,2,16,x86_64,Up to 10 Gigabit,3,10
+r5.metal,96,768,x86_64,25 Gigabit,15,50
+r5.xlarge,4,32,x86_64,Up to 10 Gigabit,4,15
+r5a.12xlarge,48,384,x86_64,10 Gigabit,8,30
+r5a.16xlarge,64,512,x86_64,12 Gigabit,15,50
+r5a.24xlarge,96,768,x86_64,20 Gigabit,15,50
+r5a.2xlarge,8,64,x86_64,Up to 10 Gigabit,4,15
+r5a.4xlarge,16,128,x86_64,Up to 10 Gigabit,8,30
+r5a.8xlarge,32,256,x86_64,Up to 10 Gigabit,8,30
+r5a.large,2,16,x86_64,Up to 10 Gigabit,3,10
+r5a.xlarge,4,32,x86_64,Up to 10 Gigabit,4,15
+r5ad.12xlarge,48,384,x86_64,10 Gigabit,8,30
+r5ad.16xlarge,64,512,x86_64,12 Gigabit,15,50
+r5ad.24xlarge,96,768,x86_64,20 Gigabit,15,50
+r5ad.2xlarge,8,64,x86_64,Up to 10 Gigabit,4,15
+r5ad.4xlarge,16,128,x86_64,Up to 10 Gigabit,8,30
+r5ad.8xlarge,32,256,x86_64,Up to 10 Gigabit,8,30
+r5ad.large,2,16,x86_64,Up to 10 Gigabit,3,10
+r5ad.xlarge,4,32,x86_64,Up to 10 Gigabit,4,15
+r5b.12xlarge,48,384,x86_64,12 Gigabit,8,30
+r5b.16xlarge,64,512,x86_64,20 Gigabit,15,50
+r5b.24xlarge,96,768,x86_64,25 Gigabit,15,50
+r5b.2xlarge,8,64,x86_64,Up to 10 Gigabit,4,15
+r5b.4xlarge,16,128,x86_64,Up to 10 Gigabit,8,30
+r5b.8xlarge,32,256,x86_64,10 Gigabit,8,30
+r5b.large,2,16,x86_64,Up to 10 Gigabit,3,10
+r5b.metal,96,768,x86_64,25 Gigabit,15,50
+r5b.xlarge,4,32,x86_64,Up to 10 Gigabit,4,15
+r5d.12xlarge,48,384,x86_64,12 Gigabit,8,30
+r5d.16xlarge,64,512,x86_64,20 Gigabit,15,50
+r5d.24xlarge,96,768,x86_64,25 Gigabit,15,50
+r5d.2xlarge,8,64,x86_64,Up to 10 Gigabit,4,15
+r5d.4xlarge,16,128,x86_64,Up to 10 Gigabit,8,30
+r5d.8xlarge,32,256,x86_64,10 Gigabit,8,30
+r5d.large,2,16,x86_64,Up to 10 Gigabit,3,10
+r5d.metal,96,768,x86_64,25 Gigabit,15,50
+r5d.xlarge,4,32,x86_64,Up to 10 Gigabit,4,15
+r5dn.12xlarge,48,384,x86_64,50 Gigabit,8,30
+r5dn.16xlarge,64,512,x86_64,75 Gigabit,15,50
+r5dn.24xlarge,96,768,x86_64,100 Gigabit,15,50
+r5dn.2xlarge,8,64,x86_64,Up to 25 Gigabit,4,15
+r5dn.4xlarge,16,128,x86_64,Up to 25 Gigabit,8,30
+r5dn.8xlarge,32,256,x86_64,25 Gigabit,8,30
+r5dn.large,2,16,x86_64,Up to 25 Gigabit,3,10
+r5dn.metal,96,768,x86_64,100 Gigabit,15,50
+r5dn.xlarge,4,32,x86_64,Up to 25 Gigabit,4,15
+r5n.12xlarge,48,384,x86_64,50 Gigabit,8,30
+r5n.16xlarge,64,512,x86_64,75 Gigabit,15,50
+r5n.24xlarge,96,768,x86_64,100 Gigabit,15,50
+r5n.2xlarge,8,64,x86_64,Up to 25 Gigabit,4,15
+r5n.4xlarge,16,128,x86_64,Up to 25 Gigabit,8,30
+r5n.8xlarge,32,256,x86_64,25 Gigabit,8,30
+r5n.large,2,16,x86_64,Up to 25 Gigabit,3,10
+r5n.metal,96,768,x86_64,100 Gigabit,15,50
+r5n.xlarge,4,32,x86_64,Up to 25 Gigabit,4,15
+r6a.12xlarge,48,384,x86_64,18.75 Gigabit,8,30
+r6a.16xlarge,64,512,x86_64,25 Gigabit,15,50
+r6a.24xlarge,96,768,x86_64,37.5 Gigabit,15,50
+r6a.2xlarge,8,64,x86_64,Up to 12.5 Gigabit,4,15
+r6a.32xlarge,128,"1,024",x86_64,50 Gigabit,15,50
+r6a.48xlarge,192,"1,536",x86_64,50 Gigabit,15,50
+r6a.4xlarge,16,128,x86_64,Up to 12.5 Gigabit,8,30
+r6a.8xlarge,32,256,x86_64,12.5 Gigabit,8,30
+r6a.large,2,16,x86_64,Up to 12.5 Gigabit,3,10
+r6a.metal,192,"1,536",x86_64,50 Gigabit,15,50
+r6a.xlarge,4,32,x86_64,Up to 12.5 Gigabit,4,15
+r6g.12xlarge,48,384,arm64,20 Gigabit,8,30
+r6g.16xlarge,64,512,arm64,25 Gigabit,15,50
+r6g.2xlarge,8,64,arm64,Up to 10 Gigabit,4,15
+r6g.4xlarge,16,128,arm64,Up to 10 Gigabit,8,30
+r6g.8xlarge,32,256,arm64,12 Gigabit,8,30
+r6g.large,2,16,arm64,Up to 10 Gigabit,3,10
+r6g.medium,1,8,arm64,Up to 10 Gigabit,2,4
+r6g.metal,64,512,arm64,25 Gigabit,15,50
+r6g.xlarge,4,32,arm64,Up to 10 Gigabit,4,15
+r6gd.12xlarge,48,384,arm64,20 Gigabit,8,30
+r6gd.16xlarge,64,512,arm64,25 Gigabit,15,50
+r6gd.2xlarge,8,64,arm64,Up to 10 Gigabit,4,15
+r6gd.4xlarge,16,128,arm64,Up to 10 Gigabit,8,30
+r6gd.8xlarge,32,256,arm64,12 Gigabit,8,30
+r6gd.large,2,16,arm64,Up to 10 Gigabit,3,10
+r6gd.medium,1,8,arm64,Up to 10 Gigabit,2,4
+r6gd.metal,64,512,arm64,25 Gigabit,15,50
+r6gd.xlarge,4,32,arm64,Up to 10 Gigabit,4,15
+r6i.12xlarge,48,384,x86_64,18.75 Gigabit,8,30
+r6i.16xlarge,64,512,x86_64,25 Gigabit,15,50
+r6i.24xlarge,96,768,x86_64,37.5 Gigabit,15,50
+r6i.2xlarge,8,64,x86_64,Up to 12.5 Gigabit,4,15
+r6i.32xlarge,128,"1,024",x86_64,50 Gigabit,15,50
+r6i.4xlarge,16,128,x86_64,Up to 12.5 Gigabit,8,30
+r6i.8xlarge,32,256,x86_64,12.5 Gigabit,8,30
+r6i.large,2,16,x86_64,Up to 12.5 Gigabit,3,10
+r6i.metal,128,"1,024",x86_64,50 Gigabit,15,50
+r6i.xlarge,4,32,x86_64,Up to 12.5 Gigabit,4,15
+r6id.12xlarge,48,384,x86_64,18.75 Gigabit,8,30
+r6id.16xlarge,64,512,x86_64,25 Gigabit,15,50
+r6id.24xlarge,96,768,x86_64,37.5 Gigabit,15,50
+r6id.2xlarge,8,64,x86_64,Up to 12.5 Gigabit,4,15
+r6id.32xlarge,128,"1,024",x86_64,50 Gigabit,15,50
+r6id.4xlarge,16,128,x86_64,Up to 12.5 Gigabit,8,30
+r6id.8xlarge,32,256,x86_64,12.5 Gigabit,8,30
+r6id.large,2,16,x86_64,Up to 12.5 Gigabit,3,10
+r6id.metal,128,"1,024",x86_64,50 Gigabit,15,50
+r6id.xlarge,4,32,x86_64,Up to 12.5 Gigabit,4,15
+r6idn.12xlarge,48,384,x86_64,75 Gigabit,8,30
+r6idn.16xlarge,64,512,x86_64,100 Gigabit,15,50
+r6idn.24xlarge,96,768,x86_64,150 Gigabit,15,50
+r6idn.2xlarge,8,64,x86_64,Up to 40 Gigabit,4,15
+r6idn.32xlarge,128,"1,024",x86_64,200 Gigabit,16,50
+r6idn.4xlarge,16,128,x86_64,Up to 50 Gigabit,8,30
+r6idn.8xlarge,32,256,x86_64,50 Gigabit,8,30
+r6idn.large,2,16,x86_64,Up to 25 Gigabit,3,10
+r6idn.metal,128,"1,024",x86_64,200 Gigabit,16,50
+r6idn.xlarge,4,32,x86_64,Up to 30 Gigabit,4,15
+r6in.12xlarge,48,384,x86_64,75 Gigabit,8,30
+r6in.16xlarge,64,512,x86_64,100 Gigabit,15,50
+r6in.24xlarge,96,768,x86_64,150 Gigabit,15,50
+r6in.2xlarge,8,64,x86_64,Up to 40 Gigabit,4,15
+r6in.32xlarge,128,"1,024",x86_64,200 Gigabit,16,50
+r6in.4xlarge,16,128,x86_64,Up to 50 Gigabit,8,30
+r6in.8xlarge,32,256,x86_64,50 Gigabit,8,30
+r6in.large,2,16,x86_64,Up to 25 Gigabit,3,10
+r6in.metal,128,"1,024",x86_64,200 Gigabit,16,50
+r6in.xlarge,4,32,x86_64,Up to 30 Gigabit,4,15
+r7a.12xlarge,48,384,x86_64,18.75 Gigabit,8,30
+r7a.16xlarge,64,512,x86_64,25 Gigabit,15,50
+r7a.24xlarge,96,768,x86_64,37.5 Gigabit,15,50
+r7a.2xlarge,8,64,x86_64,Up to 12.5 Gigabit,4,15
+r7a.32xlarge,128,"1,024",x86_64,50 Gigabit,15,50
+r7a.48xlarge,192,"1,536",x86_64,50 Gigabit,15,50
+r7a.4xlarge,16,128,x86_64,Up to 12.5 Gigabit,8,30
+r7a.8xlarge,32,256,x86_64,12.5 Gigabit,8,30
+r7a.large,2,16,x86_64,Up to 12.5 Gigabit,3,10
+r7a.medium,1,8,x86_64,Up to 12.5 Gigabit,2,4
+r7a.metal-48xl,192,"1,536",x86_64,50 Gigabit,15,50
+r7a.xlarge,4,32,x86_64,Up to 12.5 Gigabit,4,15
+r7g.12xlarge,48,384,arm64,22.5 Gigabit,8,30
+r7g.16xlarge,64,512,arm64,30 Gigabit,15,50
+r7g.2xlarge,8,64,arm64,Up to 15 Gigabit,4,15
+r7g.4xlarge,16,128,arm64,Up to 15 Gigabit,8,30
+r7g.8xlarge,32,256,arm64,15 Gigabit,8,30
+r7g.large,2,16,arm64,Up to 12.5 Gigabit,3,10
+r7g.medium,1,8,arm64,Up to 12.5 Gigabit,2,4
+r7g.metal,64,512,arm64,30 Gigabit,15,50
+r7g.xlarge,4,32,arm64,Up to 12.5 Gigabit,4,15
+r7gd.12xlarge,48,384,arm64,22.5 Gigabit,8,30
+r7gd.16xlarge,64,512,arm64,30 Gigabit,15,50
+r7gd.2xlarge,8,64,arm64,Up to 15 Gigabit,4,15
+r7gd.4xlarge,16,128,arm64,Up to 15 Gigabit,8,30
+r7gd.8xlarge,32,256,arm64,15 Gigabit,8,30
+r7gd.large,2,16,arm64,Up to 12.5 Gigabit,3,10
+r7gd.medium,1,8,arm64,Up to 12.5 Gigabit,2,4
+r7gd.metal,64,512,arm64,30 Gigabit,15,50
+r7gd.xlarge,4,32,arm64,Up to 12.5 Gigabit,4,15
+r7i.12xlarge,48,384,x86_64,18.75 Gigabit,8,30
+r7i.16xlarge,64,512,x86_64,25 Gigabit,15,50
+r7i.24xlarge,96,768,x86_64,37.5 Gigabit,15,50
+r7i.2xlarge,8,64,x86_64,Up to 12.5 Gigabit,4,15
+r7i.48xlarge,192,"1,536",x86_64,50 Gigabit,15,50
+r7i.4xlarge,16,128,x86_64,Up to 12.5 Gigabit,8,30
+r7i.8xlarge,32,256,x86_64,12.5 Gigabit,8,30
+r7i.large,2,16,x86_64,Up to 12.5 Gigabit,3,10
+r7i.metal-24xl,96,768,x86_64,37.5 Gigabit,15,50
+r7i.metal-48xl,192,"1,536",x86_64,50 Gigabit,15,50
+r7i.xlarge,4,32,x86_64,Up to 12.5 Gigabit,4,15
+r7iz.12xlarge,48,384,x86_64,25 Gigabit,8,30
+r7iz.16xlarge,64,512,x86_64,25 Gigabit,15,50
+r7iz.2xlarge,8,64,x86_64,Up to 12.5 Gigabit,4,15
+r7iz.32xlarge,128,"1,024",x86_64,50 Gigabit,15,50
+r7iz.4xlarge,16,128,x86_64,Up to 12.5 Gigabit,8,30
+r7iz.8xlarge,32,256,x86_64,12.5 Gigabit,8,30
+r7iz.large,2,16,x86_64,Up to 12.5 Gigabit,3,10
+r7iz.metal-16xl,64,512,x86_64,25 Gigabit,15,50
+r7iz.metal-32xl,128,"1,024",x86_64,50 Gigabit,15,50
+r7iz.xlarge,4,32,x86_64,Up to 12.5 Gigabit,4,15
+r8a.12xlarge,48,384,x86_64,22.5 Gigabit,12,64
+r8a.16xlarge,64,512,x86_64,30 Gigabit,16,64
+r8a.24xlarge,96,768,x86_64,40 Gigabit,16,64
+r8a.2xlarge,8,64,x86_64,Up to 15 Gigabit,4,40
+r8a.48xlarge,192,"1,536",x86_64,75 Gigabit,24,64
+r8a.4xlarge,16,128,x86_64,Up to 15 Gigabit,8,40
+r8a.8xlarge,32,256,x86_64,15 Gigabit,10,40
+r8a.large,2,16,x86_64,Up to 12.5 Gigabit,3,20
+r8a.medium,1,8,x86_64,Up to 12.5 Gigabit,2,4
+r8a.metal-24xl,96,768,x86_64,40 Gigabit,16,64
+r8a.metal-48xl,192,"1,536",x86_64,75 Gigabit,24,64
+r8a.xlarge,4,32,x86_64,Up to 12.5 Gigabit,4,20
+r8g.12xlarge,48,384,arm64,22.5 Gigabit,8,30
+r8g.16xlarge,64,512,arm64,30 Gigabit,15,50
+r8g.24xlarge,96,768,arm64,40 Gigabit,15,50
+r8g.2xlarge,8,64,arm64,Up to 15 Gigabit,4,15
+r8g.48xlarge,192,"1,536",arm64,50 Gigabit,15,50
+r8g.4xlarge,16,128,arm64,Up to 15 Gigabit,8,30
+r8g.8xlarge,32,256,arm64,15 Gigabit,8,30
+r8g.large,2,16,arm64,Up to 12.5 Gigabit,3,10
+r8g.medium,1,8,arm64,Up to 12.5 Gigabit,2,4
+r8g.metal-24xl,96,768,arm64,40 Gigabit,15,50
+r8g.metal-48xl,192,"1,536",arm64,50 Gigabit,15,50
+r8g.xlarge,4,32,arm64,Up to 12.5 Gigabit,4,15
+r8gd.12xlarge,48,384,arm64,22.5 Gigabit,8,30
+r8gd.16xlarge,64,512,arm64,30 Gigabit,15,50
+r8gd.24xlarge,96,768,arm64,40 Gigabit,15,50
+r8gd.2xlarge,8,64,arm64,Up to 15 Gigabit,4,15
+r8gd.48xlarge,192,"1,536",arm64,50 Gigabit,15,50
+r8gd.4xlarge,16,128,arm64,Up to 15 Gigabit,8,30
+r8gd.8xlarge,32,256,arm64,15 Gigabit,8,30
+r8gd.large,2,16,arm64,Up to 12.5 Gigabit,3,10
+r8gd.medium,1,8,arm64,Up to 12.5 Gigabit,2,4
+r8gd.metal-24xl,96,768,arm64,40 Gigabit,15,50
+r8gd.metal-48xl,192,"1,536",arm64,50 Gigabit,15,50
+r8gd.xlarge,4,32,arm64,Up to 12.5 Gigabit,4,15
+r8i-flex.12xlarge,48,384,x86_64,Up to 22.5 Gigabit,12,50
+r8i-flex.16xlarge,64,512,x86_64,Up to 30 Gigabit,16,64
+r8i-flex.2xlarge,8,64,x86_64,Up to 15 Gigabit,4,30
+r8i-flex.4xlarge,16,128,x86_64,Up to 15 Gigabit,8,50
+r8i-flex.8xlarge,32,256,x86_64,Up to 15 Gigabit,10,50
+r8i-flex.large,2,16,x86_64,Up to 12.5 Gigabit,3,20
+r8i-flex.xlarge,4,32,x86_64,Up to 12.5 Gigabit,4,30
+r8i.12xlarge,48,384,x86_64,22.5 Gigabit,12,50
+r8i.16xlarge,64,512,x86_64,30 Gigabit,16,64
+r8i.24xlarge,96,768,x86_64,40 Gigabit,16,64
+r8i.2xlarge,8,64,x86_64,Up to 15 Gigabit,4,30
+r8i.32xlarge,128,"1,024",x86_64,50 Gigabit,24,64
+r8i.48xlarge,192,"1,536",x86_64,75 Gigabit,24,64
+r8i.4xlarge,16,128,x86_64,Up to 15 Gigabit,8,50
+r8i.8xlarge,32,256,x86_64,15 Gigabit,10,50
+r8i.96xlarge,384,"3,072",x86_64,100 Gigabit,24,64
+r8i.large,2,16,x86_64,Up to 12.5 Gigabit,3,20
+r8i.metal-48xl,192,"1,536",x86_64,75 Gigabit,24,64
+r8i.metal-96xl,384,"3,072",x86_64,100 Gigabit,24,64
+r8i.xlarge,4,32,x86_64,Up to 12.5 Gigabit,4,30
+t1.micro,1,0.6123,"i386, x86_64",Very Low,2,2
+t2.2xlarge,8,32,x86_64,Moderate,3,15
+t2.large,2,8,x86_64,Low to Moderate,3,12
+t2.medium,2,4,"i386, x86_64",Low to Moderate,3,6
+t2.micro,1,1,"i386, x86_64",Low to Moderate,2,2
+t2.nano,1,0.5,"i386, x86_64",Low to Moderate,2,2
+t2.small,1,2,"i386, x86_64",Low to Moderate,3,4
+t2.xlarge,4,16,x86_64,Moderate,3,15
+t3.2xlarge,8,32,x86_64,Up to 5 Gigabit,4,15
+t3.large,2,8,x86_64,Up to 5 Gigabit,3,12
+t3.medium,2,4,x86_64,Up to 5 Gigabit,3,6
+t3.micro,2,1,x86_64,Up to 5 Gigabit,2,2
+t3.nano,2,0.5,x86_64,Up to 5 Gigabit,2,2
+t3.small,2,2,x86_64,Up to 5 Gigabit,3,4
+t3.xlarge,4,16,x86_64,Up to 5 Gigabit,4,15
+t3a.2xlarge,8,32,x86_64,Up to 5 Gigabit,4,15
+t3a.large,2,8,x86_64,Up to 5 Gigabit,3,12
+t3a.medium,2,4,x86_64,Up to 5 Gigabit,3,6
+t3a.micro,2,1,x86_64,Up to 5 Gigabit,2,2
+t3a.nano,2,0.5,x86_64,Up to 5 Gigabit,2,2
+t3a.small,2,2,x86_64,Up to 5 Gigabit,2,4
+t3a.xlarge,4,16,x86_64,Up to 5 Gigabit,4,15
+t4g.2xlarge,8,32,arm64,Up to 5 Gigabit,4,15
+t4g.large,2,8,arm64,Up to 5 Gigabit,3,12
+t4g.medium,2,4,arm64,Up to 5 Gigabit,3,6
+t4g.micro,2,1,arm64,Up to 5 Gigabit,2,2
+t4g.nano,2,0.5,arm64,Up to 5 Gigabit,2,2
+t4g.small,2,2,arm64,Up to 5 Gigabit,3,4
+t4g.xlarge,4,16,arm64,Up to 5 Gigabit,4,15
+u-3tb1.56xlarge,224,"3,072",x86_64,50 Gigabit,8,30
+u-6tb1.112xlarge,448,"6,144",x86_64,100 Gigabit,15,50
+u-6tb1.56xlarge,224,"6,144",x86_64,100 Gigabit,15,50
+u7i-12tb.224xlarge,896,"12,288",x86_64,100 Gigabit,15,50
+u7i-6tb.112xlarge,448,"6,144",x86_64,100 Gigabit,15,50
+u7i-8tb.112xlarge,448,"8,192",x86_64,100 Gigabit,15,50
+u7in-16tb.224xlarge,896,"16,384",x86_64,200 Gigabit,16,50
+vt1.24xlarge,96,192,x86_64,25 Gigabit,15,50
+vt1.3xlarge,12,24,x86_64,3.12 Gigabit,4,15
+vt1.6xlarge,24,48,x86_64,6.25 Gigabit,8,30
+x1.16xlarge,64,976,x86_64,10 Gigabit,8,30
+x1.32xlarge,128,"1,952",x86_64,25 Gigabit,8,30
+x1e.16xlarge,64,"1,952",x86_64,10 Gigabit,8,30
+x1e.2xlarge,8,244,x86_64,Up to 10 Gigabit,4,15
+x1e.32xlarge,128,"3,904",x86_64,25 Gigabit,8,30
+x1e.4xlarge,16,488,x86_64,Up to 10 Gigabit,4,15
+x1e.8xlarge,32,976,x86_64,Up to 10 Gigabit,4,15
+x1e.xlarge,4,122,x86_64,Up to 10 Gigabit,3,10
+x2gd.12xlarge,48,768,arm64,20 Gigabit,8,30
+x2gd.16xlarge,64,"1,024",arm64,25 Gigabit,15,50
+x2gd.2xlarge,8,128,arm64,Up to 10 Gigabit,4,15
+x2gd.4xlarge,16,256,arm64,Up to 10 Gigabit,8,30
+x2gd.8xlarge,32,512,arm64,12 Gigabit,8,30
+x2gd.large,2,32,arm64,Up to 10 Gigabit,3,10
+x2gd.medium,1,16,arm64,Up to 10 Gigabit,2,4
+x2gd.metal,64,"1,024",arm64,25 Gigabit,15,50
+x2gd.xlarge,4,64,arm64,Up to 10 Gigabit,4,15
+x2idn.16xlarge,64,"1,024",x86_64,50 Gigabit,15,50
+x2idn.24xlarge,96,"1,536",x86_64,75 Gigabit,15,50
+x2idn.32xlarge,128,"2,048",x86_64,100 Gigabit,15,50
+x2idn.metal,128,"2,048",x86_64,100 Gigabit,15,50
+x2iedn.16xlarge,64,"2,048",x86_64,50 Gigabit,15,50
+x2iedn.24xlarge,96,"3,072",x86_64,75 Gigabit,15,50
+x2iedn.2xlarge,8,256,x86_64,Up to 25 Gigabit,4,15
+x2iedn.32xlarge,128,"4,096",x86_64,100 Gigabit,15,50
+x2iedn.4xlarge,16,512,x86_64,Up to 25 Gigabit,8,30
+x2iedn.8xlarge,32,"1,024",x86_64,25 Gigabit,8,30
+x2iedn.metal,128,"4,096",x86_64,100 Gigabit,15,50
+x2iedn.xlarge,4,128,x86_64,Up to 25 Gigabit,4,15
+x2iezn.12xlarge,48,"1,536",x86_64,100 Gigabit,15,50
+x2iezn.2xlarge,8,256,x86_64,Up to 25 Gigabit,4,15
+x2iezn.4xlarge,16,512,x86_64,Up to 25 Gigabit,8,30
+x2iezn.6xlarge,24,768,x86_64,50 Gigabit,8,30
+x2iezn.8xlarge,32,"1,024",x86_64,75 Gigabit,8,30
+x2iezn.metal,48,"1,536",x86_64,100 Gigabit,15,50
+x8aedz.12xlarge,48,"1,536",x86_64,37.5 Gigabit,16,64
+x8aedz.24xlarge,96,"3,072",x86_64,75 Gigabit,16,64
+x8aedz.3xlarge,12,384,x86_64,Up to 18.75 Gigabit,8,40
+x8aedz.6xlarge,24,768,x86_64,18.75 Gigabit,8,40
+x8aedz.large,2,64,x86_64,Up to 18.75 Gigabit,4,20
+x8aedz.metal-12xl,48,"1,536",x86_64,37.5 Gigabit,16,64
+x8aedz.metal-24xl,96,"3,072",x86_64,75 Gigabit,16,64
+x8aedz.xlarge,4,128,x86_64,Up to 18.75 Gigabit,4,20
+x8g.12xlarge,48,768,arm64,22.5 Gigabit,8,30
+x8g.16xlarge,64,"1,024",arm64,30 Gigabit,15,50
+x8g.24xlarge,96,"1,536",arm64,40 Gigabit,15,50
+x8g.2xlarge,8,128,arm64,Up to 15 Gigabit,4,15
+x8g.48xlarge,192,"3,072",arm64,50 Gigabit,15,50
+x8g.4xlarge,16,256,arm64,Up to 15 Gigabit,8,30
+x8g.8xlarge,32,512,arm64,15 Gigabit,8,30
+x8g.large,2,32,arm64,Up to 12.5 Gigabit,3,10
+x8g.medium,1,16,arm64,Up to 12.5 Gigabit,2,4
+x8g.metal-24xl,96,"1,536",arm64,40 Gigabit,15,50
+x8g.metal-48xl,192,"3,072",arm64,50 Gigabit,15,50
+x8g.xlarge,4,64,arm64,Up to 12.5 Gigabit,4,15
+x8i.12xlarge,48,768,x86_64,22.5 Gigabit,12,50
+x8i.16xlarge,64,"1,024",x86_64,30 Gigabit,16,64
+x8i.24xlarge,96,"1,536",x86_64,40 Gigabit,16,64
+x8i.2xlarge,8,128,x86_64,Up to 15 Gigabit,4,30
+x8i.32xlarge,128,"2,048",x86_64,50 Gigabit,24,64
+x8i.48xlarge,192,"3,072",x86_64,75 Gigabit,24,64
+x8i.4xlarge,16,256,x86_64,Up to 15 Gigabit,8,50
+x8i.64xlarge,256,"4,096",x86_64,80 Gigabit,24,64
+x8i.8xlarge,32,512,x86_64,15 Gigabit,10,50
+x8i.96xlarge,384,"6,144",x86_64,100 Gigabit,24,64
+x8i.large,2,32,x86_64,Up to 12.5 Gigabit,3,20
+x8i.metal-48xl,192,"3,072",x86_64,75 Gigabit,24,64
+x8i.metal-96xl,384,"6,144",x86_64,100 Gigabit,24,64
+x8i.xlarge,4,64,x86_64,Up to 12.5 Gigabit,4,30
+z1d.12xlarge,48,384,x86_64,25 Gigabit,15,50
+z1d.2xlarge,8,64,x86_64,Up to 10 Gigabit,4,15
+z1d.3xlarge,12,96,x86_64,Up to 10 Gigabit,8,30
+z1d.6xlarge,24,192,x86_64,12 Gigabit,8,30
+z1d.large,2,16,x86_64,Up to 10 Gigabit,3,10
+z1d.metal,48,384,x86_64,25 Gigabit,15,50
+z1d.xlarge,4,32,x86_64,Up to 10 Gigabit,4,15

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "synthkit",
+  "displayName": "synthkit",
+  "version": "0.1.0",
+  "description": "Skills for deploying and operating synthkit, a synthetic-telemetry generator for Grafana Cloud.",
+  "author": { "name": "synthkit" },
+  "repository": "https://github.com/rknightion/synthkit",
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,293 @@
+# acme-ai-platform-eval — the gateway-native reality: the SAME assistant estate as
+# acme-ai-platform, but with the AI evaluation gateway exposed, so the LLM call is observed as a
+# CONNECTED trace.
+#
+# Predecessor scenario port (Spec 3). Customer identity is blueprint-only; the catalogue is generic.
+#
+# AI EVALUATION-MANAGED GATEWAY: the Portkey gateway runs in the AI
+# evaluation platform's estate (acme-ai-eval), NOT in Acme AI's accounts — Acme AI owns no gateway clusters.
+# Acme AI's clusters (acme-v2-eks-*) run only the assistant app (frontend/backend/agent-runtime).
+# The "unlock" is that the AI evaluation platform GRANTS Acme AI a per-tenant slice of the
+# gateway telemetry: the connected Path-B server span (so the LLM hop is one trace) + the gateway's
+# app-level /metrics slice. Acme AI does NOT receive the gateway's node/runtime/k8s infra
+# (eval-platform-internal).
+#
+# DISJOINT IDENTITY (so acme-ai-platform + acme-ai-platform-eval can run LIVE CONCURRENTLY):
+# the two blueprints model the same logical customer as distinct synthetic estates.
+# acme-ai-platform-eval disambiguates substrate-scoped identity that would collide with
+# acme-ai-platform — clusters (acme-v2-eks-*), accounts (2222333344**), VPCs, the gateway app label
+# (acme-gw), the workload (acme-gw-app), and the LangSmith projects (…-gw, since langsmith_eval is
+# substrate-scoped). bedrock/agentcore are blueprint-scoped so need no token. portkey differs by
+# family (acme-ai-platform poller portkey_api_* vs acme-ai-platform-eval the eval-platform-shared
+# gateway /metrics request_count/llm_*).
+#
+# Observability shape vs acme-ai-platform: the service graph's `gateway` hop (service.name=portkey) is marked
+# external (remote/managed) → it emits a connected Path-B server span + the export log INTO Acme AI's
+# trace but is NOT a k8s deployment on Acme AI's cluster. The shared gateway /metrics arrive via the
+# portkey_gateway integration with sub_signals=[gateway] (node_* OFF) + the LangSmith platform-health
+# scrape, both fanned per-env.
+name: acme-ai-platform-eval
+label: acme-ai-platform-eval
+metadata:                          # optional, UI-only annotation — never affects emission
+  description: "The gateway-native reality: the same assistant estate as acme-ai-platform but with the AI evaluation gateway exposed, so the LLM call is observed as a CONNECTED (Path-B) trace plus the gateway's shared /metrics slice."
+  owner: ai-platform
+  category: scenario
+  tags: [ai, llm, gateway, portkey, langsmith, bedrock, connected-trace, multi-env]
+  links:
+    architecture: ./ARCHITECTURE.md
+    genai-signals: ./signals/genai.md
+    portkey-signals: ./signals/portkey.md
+
+environments:
+  - name: DEV1
+    weight: 0.2
+    cloud:
+      provider: aws
+      account_id: "222233334431"
+      region: eu-central-1
+      vpc_id: vpc-0acmegw01
+      nat_gateways: 1
+      bedrock: { models: [anthropic.claude-sonnet-4-6, anthropic.claude-haiku-4-5-20251001-v1:0, amazon.nova-lite-v1:0, anthropic.claude-3-5-sonnet-20241022-v2:0] }
+    cluster:
+      type: eks
+      name: acme-v2-eks-dev1
+      node_groups: &ng [{ name: general, instance_type: m6i.large }]
+      k8s_monitoring: &k8sm { enabled: true, chart_version: "4.1.4", alloy: true }
+      addons: &addons [core_dns, vpc_cni, ebs_csi, cert_manager]
+    # RDS: source-system ACLs (Layer-1 auth) + hub metadata; DocumentDB: templates/sections/instantiated docs
+    databases:
+      - { engine: postgres, version: "16.4", name: acme-gw-pg-dev1, instance_class: db.r6g.large,
+          observability: { dbo11y: true, digests: 30 } }   # RDS: source-system ACLs + hub metadata → aws_rds_* + dbo11y pg_stat_statements
+      - { engine: docdb, name: acme-gw-docdb-dev1,
+          observability: { cloudwatch: true, dbo11y: false } }   # DocumentDB: templates/sections/instantiated docs (dbo11y unsupported for docdb)
+
+  - name: BVE
+    weight: 0.2
+    cloud:
+      provider: aws
+      account_id: "222233334432"
+      region: eu-central-1
+      vpc_id: vpc-0acmegw02
+      nat_gateways: 1
+      bedrock: { models: [anthropic.claude-sonnet-4-6, anthropic.claude-haiku-4-5-20251001-v1:0, amazon.nova-lite-v1:0, anthropic.claude-3-5-sonnet-20241022-v2:0] }
+    cluster: { type: eks, name: acme-v2-eks-bve, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "16.4", name: acme-gw-pg-bve, instance_class: db.r6g.large,
+          observability: { dbo11y: true, digests: 30 } }
+      - { engine: docdb, name: acme-gw-docdb-bve,
+          observability: { cloudwatch: true, dbo11y: false } }
+
+  - name: DEV2
+    weight: 0.2
+    cloud:
+      provider: aws
+      account_id: "222233334433"
+      region: eu-central-1
+      vpc_id: vpc-0acmegw03
+      nat_gateways: 1
+      bedrock: { models: [anthropic.claude-sonnet-4-6, anthropic.claude-haiku-4-5-20251001-v1:0, amazon.nova-lite-v1:0, anthropic.claude-3-5-sonnet-20241022-v2:0] }
+    cluster: { type: eks, name: acme-v2-eks-dev2, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "16.4", name: acme-gw-pg-dev2, instance_class: db.r6g.large,
+          observability: { dbo11y: true, digests: 30 } }
+      - { engine: docdb, name: acme-gw-docdb-dev2,
+          observability: { cloudwatch: true, dbo11y: false } }
+
+  - name: TST1
+    weight: 0.5
+    cloud:
+      provider: aws
+      account_id: "222233334434"
+      region: eu-central-1
+      vpc_id: vpc-0acmegw04
+      nat_gateways: 1
+      bedrock: { models: [anthropic.claude-sonnet-4-6, anthropic.claude-haiku-4-5-20251001-v1:0, amazon.nova-lite-v1:0, amazon.nova-pro-v1:0, anthropic.claude-3-5-sonnet-20241022-v2:0] }
+      agentcore: { agents: [planner, retriever] }
+    cluster: { type: eks, name: acme-v2-eks-tst1, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "16.4", name: acme-gw-pg-tst1, instance_class: db.r6g.large,
+          observability: { dbo11y: true, digests: 30 } }
+      - { engine: docdb, name: acme-gw-docdb-tst1,
+          observability: { cloudwatch: true, dbo11y: false } }
+
+  - name: TRN
+    weight: 0.5
+    cloud:
+      provider: aws
+      account_id: "222233334435"
+      region: eu-central-1
+      vpc_id: vpc-0acmegw05
+      nat_gateways: 1
+      bedrock: { models: [anthropic.claude-sonnet-4-6, anthropic.claude-haiku-4-5-20251001-v1:0, amazon.nova-lite-v1:0, anthropic.claude-3-5-sonnet-20241022-v2:0] }
+    cluster: { type: eks, name: acme-v2-eks-trn, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "16.4", name: acme-gw-pg-trn, instance_class: db.r6g.large,
+          observability: { dbo11y: true, digests: 30 } }
+      - { engine: docdb, name: acme-gw-docdb-trn,
+          observability: { cloudwatch: true, dbo11y: false } }
+
+  - name: PRD
+    weight: 1.0
+    production: true
+    cloud:
+      provider: aws
+      account_id: "222233334440"
+      region: eu-central-1
+      vpc_id: vpc-0acmegw06
+      nat_gateways: 2
+      bedrock: { models: [anthropic.claude-sonnet-4-6, anthropic.claude-opus-4-6-v1, anthropic.claude-haiku-4-5-20251001-v1:0, amazon.nova-pro-v1:0, amazon.nova-lite-v1:0, amazon.titan-embed-text-v2:0, anthropic.claude-3-5-sonnet-20241022-v2:0] }
+      agentcore: { agents: [planner, retriever] }
+    cluster: { type: eks, name: acme-v2-eks-1, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "16.4", name: acme-gw-pg-prd, instance_class: db.r6g.large,
+          observability: { dbo11y: true, digests: 30 } }
+      - { engine: docdb, name: acme-gw-docdb-prd,
+          observability: { cloudwatch: true, dbo11y: false } }
+
+  - name: TST2
+    weight: 0.5
+    cloud:
+      provider: aws
+      account_id: "222233334436"
+      region: eu-central-1
+      vpc_id: vpc-0acmegw07
+      nat_gateways: 1
+      bedrock: { models: [anthropic.claude-sonnet-4-6, anthropic.claude-haiku-4-5-20251001-v1:0, amazon.nova-pro-v1:0, amazon.nova-lite-v1:0, anthropic.claude-3-5-sonnet-20241022-v2:0] }
+      agentcore: { agents: [planner, retriever] }
+    cluster: { type: eks, name: acme-v2-eks-tst2, node_groups: *ng, k8s_monitoring: *k8sm, addons: *addons }
+    databases:
+      - { engine: postgres, version: "16.4", name: acme-gw-pg-tst2, instance_class: db.r6g.large,
+          observability: { dbo11y: true, digests: 30 } }
+      - { engine: docdb, name: acme-gw-docdb-tst2,
+          observability: { cloudwatch: true, dbo11y: false } }
+
+workloads:
+  # The assistant app as a service GRAPH (Spec 5 migration). Gateway-native: the AI evaluation gateway
+  # is exposed, so the LLM call IS a connected span — a `gateway` node (service.name=portkey) in the
+  # trace. The backend also drives an AgentCore agent-runtime (the bedrock-invoked workflow path).
+  # gen_ai metrics/spans + the LangSmith run-index ride on the backend + agent; the Portkey export
+  # log rides on the gateway node; the model carries the real value (workload `models:`). The native
+  # gateway scrape stays the portkey_gateway integration (NOT a node). Fanned per-env.
+  - type: app
+    name: acme-gw-app
+    for_each_env: true
+    traffic: { shape: diurnal, off_peak_rps: 1, peak_rps: 8, request_latency_p95_ms: 9000 }   # LLM-assistant latency (p95 ~9s): the request waits on the gateway→LLM hop, not HTTP-fast
+    models:                                  # valid (model, provider) routings — paired, no impossible combos
+      - { model: gpt-4o,        provider: azure-openai }
+      - { model: gpt-4.1,       provider: azure-openai }
+      - { model: gpt-4.1-mini,  provider: azure-openai }
+      - { model: o4-mini,       provider: azure-openai }
+      - { model: claude-sonnet-4-6, provider: bedrock }
+    services:
+      - name: acme-frontend
+        type: frontend
+        runtime: node
+        entry: true
+        context: Platform
+        use_case: live_assistant
+        team: Acme AI
+        version: "2.6.0"
+        routes: [POST /v1/assist]            # the request's logical API route (→ r.Route)
+        profiles: [rum_faro]
+        calls: [acme-backend]
+        pages:   # RUM navigation inventory — browser-side page-views (no backend trace); the Acme AI document-authoring web app
+          - { path: /dashboard,           name: "Dashboard",             actions: ["view pending tasks", "search documents", "create document"] }
+          - { path: /document-library,    name: "Document Library",      actions: ["search documents", "open document", "upload source"] }
+          - { path: /template-manager,    name: "Template Manager",      actions: ["open template", "publish template", "configure mapping"] }
+          - { path: /report-editor,       name: "Report Authoring",      actions: ["generate draft", "accept draft", "insert citation"] }
+          - { path: /brief-editor,        name: "Brief Authoring",       actions: ["generate draft", "simplify language", "validate formatting"] }
+          - { path: /summary-editor,      name: "Summary Authoring",     actions: ["extract table values", "insert citation", "save version"] }
+          - { path: /live-assistant,      name: "Live Assistant",        actions: ["submit query", "request citation", "provide feedback"] }
+          - { path: /extraction-status,   name: "Extraction Status",     actions: ["monitor progress", "view output", "flag remediation"] }
+          - { path: /review,              name: "Review & Collaboration", actions: ["leave comment", "accept change", "compare versions"] }
+          - { path: /quality-review,      name: "Quality Review",        actions: ["run quality check", "view highlights", "download report"] }
+          - { path: /publishing,          name: "Publishing",            actions: ["route for approval", "view approval status", "publish document"] }
+          - { path: /settings,            name: "Settings",              actions: ["assign role", "set access", "view audit log"] }
+      - name: acme-backend
+        type: web
+        runtime: python
+        context: ContentGen
+        use_case: document_extraction
+        team: Acme AI
+        version: "3.2.1"
+        routes: [POST /v1/assist]            # the route the frontend calls → names this node's SERVER span
+        profiles: [scraped_http_server, runtime_python, gen_ai_client, eval_log]
+        logs:
+          - source: app
+            body:
+              msg: { const_str: "assist request served" }
+              route: { ref: route }
+              http_status: { ref: status }
+              trace_id: { ref: trace_id }
+              correlation_id: { ref: correlation_id }
+        calls: [portkey, acme-agent-runtime]
+      - name: acme-agent-runtime
+        type: agent
+        runtime: python
+        context: ContentGen
+        use_case: content_generation
+        team: Acme AI
+        version: "1.8.7"
+        profiles: [gen_ai_client, bedrock_invocation_log]
+        calls: [knowledge-layer-api]
+      - name: portkey
+        type: gateway
+        runtime: node
+        external: true                       # eval-platform-MANAGED gateway: runs in the AI evaluation platform's estate (acme-ai-eval), NOT on an Acme AI cluster. It still emits the connected Path-B SERVER span + the export log INTO Acme AI's trace (the gateway-native unlock), but it is not a k8s deployment here — Acme AI owns no gateway infra.
+        routes: [POST /v1/chat/completions]  # the gateway's own inference route → names its SERVER span
+        profiles: [gateway_export_log]
+      - name: knowledge-layer-api
+        type: web
+        runtime: python
+        context: Platform
+        use_case: live_assistant
+        team: Acme AI
+        version: "2.5.3"
+        routes: [POST /v1/retrieve, GET /v1/documents, POST /v1/search]   # knowledge-service REST endpoints abstracting the stores
+        profiles: [scraped_http_server, runtime_python]
+        calls: [opensearch-vectors, documentdb-store, rds-acl]
+      - name: opensearch-vectors
+        type: retrieval
+        runtime: java
+        context: Platform
+        team: Acme AI
+        version: "2.0.8"
+        routes: [POST /_search]   # vector/keyword RAG retrieval (Amazon OpenSearch)
+      - name: documentdb-store
+        type: db
+        runtime: node
+      - name: rds-acl
+        type: db
+        runtime: node
+        db_instance: acme-gw-pg   # rds-acl IS the env's RDS Postgres → resolves per-env to acme-gw-pg-<env>; the db-client span carries db.system.name/db.namespace/server.address (links to the env's RDSInstance)
+
+integrations:
+  # Eval "unlock": the AI evaluation platform SHARES the gateway's per-tenant Prometheus telemetry with
+  # Acme AI — the app-level /metrics slice ONLY (request_count/llm_*/http_request_duration_*/
+  # processing histograms/cost/token). The gateway's node/runtime infra (node_*) is eval-platform-
+  # internal and NOT part of the per-tenant fan-out, so sub_signals gates it OFF.
+  # + LangSmith platform-health scrape + eval bridge — all fanned per-env (env=<NAME>).
+  portkey_gateway:
+    for_each_env: true
+    app: acme-gw
+    sub_signals: [gateway]                  # gateway /metrics only — node_* runtime is eval-platform-internal, excluded from the shared per-tenant slice
+    models: [gpt-4o, gpt-4.1, gpt-4.1-mini, gpt-4o-mini, o4-mini, claude-sonnet-4-6, claude-3.5-sonnet]
+    providers: [azure-openai, gcp-vertex, bedrock]
+  langsmith_platform:
+    for_each_env: true
+  langsmith_eval:
+    for_each_env: true
+    # -gw projects: distinct from acme-ai-platform's (langsmith_eval is substrate-scoped — no blueprint label —
+    # so its project/use_case/env identity must differ to coexist live with acme-ai-platform).
+    projects: [contentgen-agents-gw, datagen-extraction-gw, platform-assistant-gw, research-summarization-gw]
+    use_cases: [live_assistant, customer_support, code_assistant, research_summarization]
+    evaluators: [faithfulness, completeness, relevance]
+    # Mirrors portkey_gateway weights so token spend curves align with gateway volume
+    use_case_weights: { live_assistant: 5.0, code_assistant: 2.0, customer_support: 1.5, research_summarization: 0.4 }
+
+# Recurring background incidents (daily, brief, non-prod, modest intensity) so the k8s health
+# dashboards show realistic occasional fault events over time. `at: "HH:MM"` = daily-recurring
+# (blueprint tz). Scoped to a single non-prod cluster each; prod (acme-v2-eks-1) stays clean.
+incidents:
+  - { kind: pod_crashloop,  target: acme-v2-eks-dev2, at: "10:05", for: 12m, intensity: 0.5 }
+  - { kind: node_not_ready, target: acme-v2-eks-tst1, at: "14:30", for: 8m,  intensity: 0.6 }

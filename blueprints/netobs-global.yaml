@@ -1,0 +1,69 @@
+# netobs-global — "maxi" archetype for the `network_topology` integration: a federation HUB
+# network-topology-exporter aggregating a large multi-vendor Clos fabric plus several remote
+# spokes (github.com/colinedwardwood/network-topology-exporter). Signal contract: signals/nettopo.md.
+#
+# Substrate-scoped: series disambiguated by (job, instance) — no blueprint label. `instance`
+# (the exporter scrape endpoint) MUST be unique across blueprints (distinct from netobs-enterprise).
+#
+# Shape: a 6-spine / 24-leaf Clos with 4 hosts per leaf across all four vendors (Arista, Cisco,
+# Juniper, Nokia) — ~126 devices / ~240 edges. The exporter runs in HUB mode aggregating five
+# spokes (so federation_spoke_* + boundary_observation_info + graph_updates_rejected_total light
+# up), pushes via OTLP (otlp_push_total), pools SNMP sessions, and reports a dozen out-of-scope
+# neighbours at the domain boundary. Explicit Juniper/Nokia WAN core routers carry the inter-DC
+# MPLS-TE tunnels and eBGP. ALL seven discovery protocols are active. Sub-families activate by
+# PRESENCE (declared = on, like cwinfra).
+#
+# Churn is prod-realistic: cycle one "discovers" the entire fabric in one big
+# network_topology_change_total{change_kind="added"} burst (logs capped to a sample per tick),
+# then decays to a quiet steady state. Good stress/showcase of edge_info scale + the full
+# discovery-health / walker-outcome / federation surface.
+name: netobs-global
+metadata:                          # optional, UI-only annotation — never affects emission
+  description: "'Maxi' archetype for the network_topology integration: a federation HUB exporter aggregating a large multi-vendor 6-spine/24-leaf Clos (~126 devices) plus several spokes, all seven discovery protocols, OTLP push."
+  owner: network-observability
+  category: integration
+  tags: [network, snmp, topology, clos, federation, hub, multi-vendor]
+  links:
+    signals: ./signals/nettopo.md
+environments:
+  - name: prod   # required by the loader; network_topology is substrate-scoped (no env binding)
+integrations:
+  network_topology:
+    enabled: true
+    instance: netobs-glb-hub:9100
+    job: integrations/network-topology-exporter
+    role: hub
+    protocols: [lldp, cdp, fdb, isis, ospf, bgp, mpls_te]
+    fabric:
+      kind: clos
+      spines: 6
+      leaves: 24
+      hosts_per_leaf: 4
+      vendor_mix: [arista, cisco, juniper, nokia]
+      site: global
+    devices:
+      - {id: wan-core-01, vendor: juniper, os_version: 25.4R1, site: emea-dc1, uptime: 8800h}
+      - {id: wan-core-02, vendor: nokia, os_version: 25.7.R2, site: amer-dc1, uptime: 8800h}
+    links:
+      - {src_device: wan-core-01, src_port: ge-0/0/0, dst_device: wan-core-02, dst_port: 1/1/1, proto: mpls_te, link_kind: mpls-te}
+      - {src_device: wan-core-01, src_port: ge-0/0/1, dst_device: spine-01, dst_port: Ethernet46, proto: bgp}
+      - {src_device: wan-core-02, src_port: 1/1/2, dst_device: spine-02, dst_port: Ethernet46, proto: bgp}
+    session_pool: true
+    out_of_scope_neighbours: 12
+    otlp_output: true
+    federation:
+      spokes: [dc-emea, dc-amer, dc-apac, dc-edge-1, dc-edge-2]
+
+# Ambient fault showcase: low-intensity recurring incidents that light up nettopo fault
+# families in the hub exporter. Integration constructs are absent from the scenario
+# buildTargets index — per-instance or "network:*" targeting would silently no-op or error.
+# These are therefore UNSCOPED (no target:) so the fault applies to the hub exporter.
+incidents:
+  # A spoke goes offline for a few minutes every hour — hub federation_spoke_up flips to 0,
+  # stale_generation rejects climb, last_push goes stale. Mild intensity so only one spoke
+  # (the first in the sorted list) is affected at any time.
+  - { kind: nettopo_spoke_down, every: 60m, for: 5m, intensity: 0.3 }
+  # Discovery slows briefly every two hours — cycle_duration inflates, graph_stale=1,
+  # cycle_budget_skips_total increments. Models a transient SNMP rate-limit or
+  # routing-table churn event on the fabric.
+  - { kind: nettopo_discovery_slow, every: 120m, for: 8m, intensity: 0.4 }

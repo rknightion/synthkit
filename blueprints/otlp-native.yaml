@@ -1,0 +1,77 @@
+# otlp-native — live-validation showcase for the native OTLP metrics lane (web_service otel:).
+#
+# Two web_services emit http.server.* application metrics directly as OTLP/HTTP to /v1/metrics,
+# letting the Grafana Cloud OTLP gateway own the Prometheus translation (target_info, resource-
+# attribute promotion, _seconds suffix, otel_scope_*). The two differ ONLY in otel.mode so a live
+# capture can compare the two distinct gateway shapes side by side:
+#   - otlp-api-enriched (mode: k8s_monitoring) — resource attrs are k8sattributes + resourcedetection
+#     enriched (k8s.namespace/pod/deployment/node/cluster.name, host.name, host.arch, os.type),
+#     modelling app → in-cluster Alloy receiver (applicationObservability) → OTLP gateway.
+#   - otlp-api-naked (mode: naked) — SDK-default resource attrs only (service.* + telemetry.sdk.*),
+#     modelling an app pushing OTLP straight to the gateway with no k8s enrichment.
+#
+# Live validation: see the "LIVE VALIDATION" checklist in signals/otlp-metrics.md — capture both
+# services' gateway-translated series via gcx and reconcile the PENDING-LIVE entries.
+# Schema: ARCHITECTURE.md §3 + signals/otlp-metrics.md. Deleting this removes its telemetry only.
+name: otlp-native
+label: otlp-native
+shape: business_hours_plateau
+timezone: Europe/London
+metadata:
+  description: "Native OTLP application-metrics showcase: two web_services (k8s_monitoring-enriched + naked) emit http.server.request.duration (histogram) + http.server.active_requests (UpDownCounter) as OTLP/HTTP to /v1/metrics, so a live capture can compare the two gateway-translated shapes."
+  owner: platform-observability
+  category: reference
+  tags: [otlp, otel, application-observability, web-service, k8s-monitoring]
+  links:
+    signals: ./signals/otlp-metrics.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "411000000099"
+      region: eu-west-1
+      vpc_id: vpc-0otlpnative01
+    cluster:
+      type: eks
+      name: otlp-native-prod-euw1
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 2 }
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+        alloy_version: "1.16.3"
+        features:
+          cluster_metrics: true            # realistic context: the cluster's own k8s-monitoring suite
+          application_observability: true  # alloy-receiver: OTLP ingest from instrumented apps
+
+workloads:
+  # Enriched: app → in-cluster Alloy (k8sattributes + resourcedetection) → OTLP gateway.
+  - type: web_service
+    name: otlp-api-enriched
+    runs_on: otlp-native-prod-euw1
+    replicas: 2
+    tracing: true
+    traffic: { shape: diurnal, off_peak_rps: 8, peak_rps: 30 }
+    otel:
+      metrics: true
+      mode: k8s_monitoring
+    endpoints:
+      - { route: "GET /api/v1/health",    error_rate: 0.002, p95_ms: 30  }
+      - { route: "GET /api/v1/items",     error_rate: 0.01,  p95_ms: 90  }
+      - { route: "POST /api/v1/process",  error_rate: 0.03,  p95_ms: 220 }
+
+  # Naked: app → OTLP gateway directly (SDK-default resource attrs only, no k8s enrichment).
+  - type: web_service
+    name: otlp-api-naked
+    runs_on: otlp-native-prod-euw1
+    replicas: 2
+    tracing: true
+    traffic: { shape: diurnal, off_peak_rps: 8, peak_rps: 30 }
+    otel:
+      metrics: true
+      mode: naked
+    endpoints:
+      - { route: "GET /v2/status",        error_rate: 0.002, p95_ms: 25  }
+      - { route: "POST /v2/orders",       error_rate: 0.04,  p95_ms: 260 }

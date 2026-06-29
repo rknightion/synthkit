@@ -1,0 +1,81 @@
+# deploy/skcapture/rbac.yaml — default (read-only, zero-secret) RBAC for skcapture.
+#
+# This file grants the minimum permissions skcapture needs to inspect a cluster.
+# HARD STOP: this role grants NO access to secrets, configmaps, or pods.
+# The default install CANNOT read any Secret — not even its own namespace's Secrets —
+# regardless of what flags are passed to the binary.
+#
+# To capture Secret or ConfigMap data values you must ALSO apply rbac-secrets.yaml
+# AND pass --include-secret-data / --include-configmap-data to the binary.
+# See deploy/skcapture/README.md for the full secrets posture.
+#
+# Resources actually read by skcapture (cmd/skcapture + internal/capture/k8s.go):
+#   core/v1:               nodes, namespaces, services
+#   apps/v1:               deployments, statefulsets, daemonsets
+#   networking.k8s.io/v1:  ingresses
+#
+# Apply:
+#   kubectl apply -f deploy/skcapture/rbac.yaml
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: skcapture
+  labels:
+    app.kubernetes.io/name: skcapture
+    app.kubernetes.io/component: capture
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: skcapture
+  namespace: skcapture
+  labels:
+    app.kubernetes.io/name: skcapture
+    app.kubernetes.io/component: capture
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: skcapture-reader
+  labels:
+    app.kubernetes.io/name: skcapture
+    app.kubernetes.io/component: capture
+  annotations:
+    # Document the intent: any reviewer can see this is intentionally minimal.
+    synthkit.io/purpose: "Read-only cluster inspection for environment capture. No secrets, no configmaps, no pods."
+rules:
+  # core/v1 resources — cluster-wide topology
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "services"]
+    verbs: ["get", "list"]
+
+  # apps/v1 resources — workload inventory
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get", "list"]
+
+  # networking.k8s.io/v1 resources — north-south edges
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: skcapture-reader
+  labels:
+    app.kubernetes.io/name: skcapture
+    app.kubernetes.io/component: capture
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: skcapture-reader
+subjects:
+  - kind: ServiceAccount
+    name: skcapture
+    namespace: skcapture

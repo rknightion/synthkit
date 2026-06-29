@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an enhancement or a new construct/workload/blueprint capability
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / use case
+      description: What are you trying to achieve? What observability signal or construct is missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        What you'd like to see. Note that constructs and workloads must stay isolated (three-tier rule) —
+        proposals must keep blueprint-specific config in blueprints only, and must source all metric/label
+        names from the signals catalogue or vendor docs (no invented names).
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

@@ -1,0 +1,48 @@
+# fleet-management — showcase blueprint for the Grafana Cloud Fleet Management lane.
+#
+# Emits a roster of synthetic Alloy collectors (the `fleet_management` construct) across
+# linux/windows/darwin and ships their Alloy self-metric set — the series that populate the
+# Alloy integration "Collector" dashboard (running-component counts, evaluation histogram,
+# resource gauges, build_info, config_hash). When the GC_FM_* credentials are set the runner
+# also registers each fake collector with the FM API and heartbeats it, so the roster shows up
+# on the Fleet Management page; with the creds unset the collectors emit metrics only.
+#
+# This is the STANDALONE collector lane (collectors_per_os) — traditional machines running
+# Alloy, with no Kubernetes. The second FM lane, the k8s-monitoring collector MIRROR
+# (k8s_monitoring.fleet_management: true, which reproduces a real chart's alloy-metrics /
+# -singleton / -logs / -profiles / -receiver roster), is showcased in k8s-full-stack.yaml.
+#
+# No cloud infrastructure: one minimal environment anchors the blueprint (required by
+# validateDecl), but all emitted telemetry flows from the features: block. Substrate-scoped —
+# the FM families carry NO blueprint label (disambiguated by collector_id; I21/§5).
+#
+# Signal contract: signals/fm.md [slug: fm-fleet]. Credentials + verify: skill
+# setup-fleet-management (GC_FM_URL / GC_FM_STACK_ID / GC_FM_TOKEN). Deleting this file removes
+# the fleetmgmt telemetry and nothing else.
+name: fleet-management
+label: fleetmgmt
+shape: business_hours_plateau
+timezone: Europe/London
+metadata:
+  description: "Grafana Cloud Fleet Management showcase: a roster of synthetic standalone Alloy collectors across linux/windows/darwin, emitting the Alloy self-metric set and registering with the FM API when GC_FM_* creds are present."
+  owner: platform-observability
+  category: reference
+  tags: [fleet-management, fm, alloy, collectors, grafana-cloud, standalone]
+  links:
+    signals-fleet: ./signals/fm.md
+
+environments:
+  - name: prod
+    weight: 1.0
+
+features:
+  # Standalone Alloy collector fleet. Each OS count produces that many fake collectors with
+  # deterministic identities (fleet-<os>-<NN>-<hexsuffix>); absent OS types emit nothing
+  # (I13 — absent ⇒ omitted). Sized as a realistic mixed estate: a large Linux server fleet,
+  # a smaller Windows footprint, and a handful of macOS developer/build machines.
+  fleet_management:
+    enabled: true
+    collectors_per_os:
+      linux: 12
+      windows: 4
+      darwin: 3

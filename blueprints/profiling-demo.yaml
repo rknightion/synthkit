@@ -1,0 +1,96 @@
+# profiling-demo — exercises the Pyroscope continuous-profiling signal type end-to-end:
+#   - k8s_monitoring.features.profiling → the k8s_profiling construct (Alloy eBPF process_cpu per pod)
+#   - a web_service with a pyroscope: block → SDK-push profiles + span profiles
+#   - an app service-graph with per-node pyroscope: blocks → per-node profiles + per-node span profiles
+# Deleting this file removes only its telemetry. Schema: ARCHITECTURE.md §3 + signals/profiles.md.
+name: profiling-demo
+label: profiling-demo
+shape: business_hours_plateau
+timezone: Europe/Zurich
+metadata:                          # optional, UI-only annotation — never affects emission
+  description: "Exercises the Pyroscope continuous-profiling signal type end-to-end: k8s eBPF process_cpu per pod, a web_service SDK-push (+ span) profiles, and an app service-graph with per-node profiles."
+  owner: continuous-profiling
+  category: demo
+  tags: [profiling, pyroscope, ebpf, span-profiles]
+  links:
+    architecture: ./ARCHITECTURE.md
+    signals: ./signals/profiles.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "999900001111"
+      region: eu-west-1
+      vpc_id: vpc-0prof01
+    cluster:
+      type: eks
+      name: profiling-demo-prod-euw1
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 3 }
+      k8s_monitoring:
+        enabled: true
+        chart_version: "4.1.4"
+        alloy: true
+        features:
+          profiling: true        # k8s_profiling eBPF lane: process_cpu per cluster pod (any runtime)
+          profiling_java: true    # k8s_profiling java lane: JVM async-profiler types for jvm-runtime pods
+          # profiling_pprof: true # (optional) Go pprof-scrape lane; off here so go services self-push via SDK only
+
+workloads:
+  # Simple kind: a single web service that SDK-pushes its own Go profiles (+ span profiles).
+  - type: web_service
+    name: profiling-api
+    runs_on: profiling-demo-prod-euw1
+    replicas: 3
+    tracing: true
+    traffic: { shape: diurnal, off_peak_rps: 5, peak_rps: 40 }
+    pyroscope: { enabled: true, runtime: go, span_profiles: true }
+    calls:
+      - { service: profiling-worker }
+    endpoints:
+      - { route: "GET /v1/items",  error_rate: 0.01, p95_ms: 110 }
+
+  # Simple peripheral service, also self-profiling.
+  - type: web_service
+    name: profiling-worker
+    runs_on: profiling-demo-prod-euw1
+    replicas: 2
+    tracing: true
+    traffic: { shape: diurnal, off_peak_rps: 2, peak_rps: 12 }
+    pyroscope: { enabled: true, runtime: go, span_profiles: true }
+    endpoints:
+      - { route: "POST /v1/work", error_rate: 0.02, p95_ms: 90 }
+
+  # Rich kind: an app service graph where each node self-profiles (per-node span profiles).
+  - type: app
+    name: profiling-app
+    runs_on: profiling-demo-prod-euw1
+    traffic: { shape: diurnal, off_peak_rps: 2, peak_rps: 20 }
+    services:
+      - name: checkout
+        type: web
+        runtime: go
+        entry: true
+        replicas: 3
+        pyroscope: { enabled: true, span_profiles: true }   # runtime defaults from the node (go)
+        calls: [catalog, cart-store]
+      - name: catalog
+        type: web
+        runtime: jvm
+        replicas: 2
+        # mode: scraped → catalog does NOT self-push; the cluster's k8s_profiling java lane collects it
+        # (real JVM async-profiler shape: source=alloy/pyroscope.java, alloc_in_new_tlab, mutex:mutex:count).
+        pyroscope: { enabled: true, mode: scraped }
+      # Self-hosted cart store on k8s as a StatefulSet (like otel-demo's valkey-cart / a self-managed
+      # Redis): ordinal pods cart-store-0/1 each with a PVC — this lights the genuine k8s storage/cost
+      # lane (kube_persistentvolumeclaim_*, kubelet_volume_stats_*, pv_hourly_cost). StatefulSet is
+      # allowed on a traced node (spec Q4). Contrast the estate's managed RDS/ElastiCache stores, which
+      # carry NO k8s PVC.
+      - name: cart-store
+        type: web
+        runtime: go
+        controller: statefulset
+        replicas: 2
+        volume_claims: [data]
