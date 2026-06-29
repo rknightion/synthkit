@@ -389,7 +389,7 @@ func TestProjectRUM_BeaconHasEvents(t *testing.T) {
 }
 
 // TestProjectRUM_FetchEventCarriesTraceID: the faro.tracing.fetch event carries the
-// ledger TraceID (golden thread join to backend spans).
+// ledger TraceID (request correlation join to backend spans).
 func TestProjectRUM_FetchEventCarriesTraceID(t *testing.T) {
 	rum := &coretest.RUMCapture{}
 	w := buildRUMApp(t, rum)

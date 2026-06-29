@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package webservice implements the v1 "web_service" workload (ARCHITECTURE §2 Workload
-// seam, kind="web_service"). It is the correlation-critical golden-thread lane: a
+// seam, kind="web_service"). It is the correlation-critical request-correlation lane: a
 // browser→backend→DB request tree threaded by one ledger-minted correlation key-set
 // across span-metrics, traces, logs, and (optionally) Faro/RUM beacons.
 //
@@ -252,7 +252,7 @@ func NewConfig() any {
 func Registration() core.WorkloadReg {
 	return core.WorkloadReg{
 		Kind:         kind,
-		Doc:          "web_service — browser→backend→DB golden-thread workload (APM span-metrics, traces, app logs, optional Faro/RUM)",
+		Doc:          "web_service — browser→backend→DB request-correlation workload (APM span-metrics, traces, app logs, optional Faro/RUM)",
 		NewConfig:    NewConfig,
 		Build:        build,
 		FailureModes: FailureModes,

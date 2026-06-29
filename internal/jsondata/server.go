@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package jsondata builds the Infinity-over-hosted-JSON payloads that back the
-// tabular Grafana Infinity datasource surfaces: golden_thread_sample, blueprints,
+// tabular Grafana Infinity datasource surfaces: request_correlation_sample, blueprints,
 // recent requests, and the full acme-ai-platform dashboard suite.
 //
 // Routes (all GET, strictly side-effect-free — invariant I26):
 //
 //	GET /                                     route index
 //	GET /healthz                              liveness
-//	GET /golden_thread_sample                 most-recent request per blueprint with full correlation key-set
+//	GET /request_correlation_sample                 most-recent request per blueprint with full correlation key-set
 //	GET /requests?blueprint=X&window=15m      recent request narrative (capped at 500 rows)
 //	GET /blueprints                           loaded blueprint names + workload counts
 //
-//	GET /acme/golden_thread                   request/correlation_keys/hops for acme-ai-platform dashboards
+//	GET /acme/request_correlation                   request/correlation_keys/hops for acme-ai-platform dashboards
 //	GET /v1/analytics/groups/metadata         per-use_case analytics aggregates (Portkey)
 //	GET /v1/analytics/groups/ai-models        per-model analytics aggregates (Portkey)
 //	GET /v1/configs                           Portkey provider/virtual-key catalog
@@ -60,11 +60,11 @@ func NewServer(src Source) http.Handler {
 
 	mux.HandleFunc("/healthz", healthz)
 	mux.HandleFunc("/blueprints", withMiddleware(blueprintsHandler(src)))
-	mux.HandleFunc("/golden_thread_sample", withMiddleware(goldenThreadHandler(src)))
+	mux.HandleFunc("/request_correlation_sample", withMiddleware(requestCorrelationHandler(src)))
 	mux.HandleFunc("/requests", withMiddleware(requestsHandler(src)))
 
 	// ── acme-ai-platform dashboard suite ────────────────────────────────────────────────────────
-	mux.HandleFunc("/acme/golden_thread", withMiddleware(acmeGoldenThreadHandler(src)))
+	mux.HandleFunc("/acme/request_correlation", withMiddleware(acmeRequestCorrelationHandler(src)))
 	mux.HandleFunc("/v1/analytics/groups/metadata", withMiddleware(analyticsMetadataHandler(src)))
 	mux.HandleFunc("/v1/analytics/groups/ai-models", withMiddleware(analyticsModelsHandler(src)))
 	mux.HandleFunc("/v1/configs", withMiddleware(configsHandler()))
@@ -103,9 +103,9 @@ func indexHandler() http.HandlerFunc {
 				"GET /",
 				"GET /healthz",
 				"GET /blueprints",
-				"GET /golden_thread_sample",
+				"GET /request_correlation_sample",
 				"GET /requests?blueprint=<name>&window=<duration>",
-				"GET /acme/golden_thread",
+				"GET /acme/request_correlation",
 				"GET /v1/analytics/groups/metadata",
 				"GET /v1/analytics/groups/ai-models",
 				"GET /v1/configs",
@@ -204,9 +204,9 @@ func requestsHandler(src Source) http.HandlerFunc {
 	}
 }
 
-// goldenThreadHandler returns the most recent request per blueprint with full correlation
+// requestCorrelationHandler returns the most recent request per blueprint with full correlation
 // key-set + identity dims + per-signal "where to find it" hints.
-func goldenThreadHandler(src Source) http.HandlerFunc {
+func requestCorrelationHandler(src Source) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

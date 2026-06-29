@@ -106,7 +106,7 @@ type serviceNodePeek struct {
 	resources *fixture.WorkloadResources
 	// controller is the k8s controller kind this app service node runs as: "" (⇒ deployment) or
 	// "statefulset". "daemonset" is REJECTED at resolve time on an app service node — app nodes are
-	// the traced golden-thread lane and DaemonSets do not emit app traces IRL (spec Q4). The blueprint
+	// the traced request-correlation lane and DaemonSets do not emit app traces IRL (spec Q4). The blueprint
 	// maps this onto fixture.Workload.Controller.
 	controller string
 	// hpa requests a kube_horizontalpodautoscaler_* family for this node's workload (Deployment/

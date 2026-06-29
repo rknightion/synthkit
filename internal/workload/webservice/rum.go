@@ -13,7 +13,7 @@ import (
 // X-Faro-Session-Id header is handled by the sink (set from Meta.Session.ID). Each
 // browser-origin request produces ONE beacon carrying:
 //   - session_start (drives the FEO Sessions view),
-//   - the faro.user.action parent event (action_id == r.RequestID — the golden-thread top),
+//   - the faro.user.action parent event (action_id == r.RequestID — the request-correlation top),
 //   - a child faro.tracing.fetch with traceID/spanID == ledger IDs (join to backend spans),
 //   - one web-vitals measurement (the value_* twins + context_rating),
 //   - an exception on 5xx (drives the action JS-error rate).

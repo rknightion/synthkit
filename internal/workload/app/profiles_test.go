@@ -116,7 +116,7 @@ func buildPyroApp(t *testing.T) (*Workload, *ledger.Ledger) {
 	led := ledger.New(eng, 0, 0)
 	led.AddMinter(w.Minter())
 
-	// Seed at least one request so span-profile golden-thread checks are non-vacuous.
+	// Seed at least one request so span-profile request-correlation checks are non-vacuous.
 	_ = eng // eng used for shape only (ledger.New holds its own reference)
 	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
 	for range 5 {
@@ -269,9 +269,9 @@ func TestAppPyroscope_GoSpyLabel(t *testing.T) {
 	}
 }
 
-// TestAppPyroscope_SpanProfileGoldenThread (d): span_id sample-label values in emitted profiles
+// TestAppPyroscope_SpanProfileCorrelation (d): span_id sample-label values in emitted profiles
 // must be drawn from the seeded ledger requests — never invented.
-func TestAppPyroscope_SpanProfileGoldenThread(t *testing.T) {
+func TestAppPyroscope_SpanProfileCorrelation(t *testing.T) {
 	w, led := buildPyroApp(t)
 	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
 

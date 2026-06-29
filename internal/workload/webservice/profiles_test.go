@@ -293,10 +293,10 @@ func TestPyroscopeSpanProfilesOnlyCPU(t *testing.T) {
 	}
 }
 
-// TestPyroscopeSpanProfileGoldenThread (d): GOLDEN THREAD — every span_id sample-label
+// TestPyroscopeSpanProfileCorrelation (d): REQUEST CORRELATION — every span_id sample-label
 // value found inside emitted profiles must be one of the SpanIDs from the seeded ledger
 // requests. This validates that span correlation never invents IDs.
-func TestPyroscopeSpanProfileGoldenThread(t *testing.T) {
+func TestPyroscopeSpanProfileCorrelation(t *testing.T) {
 	w, led := buildPyroWS(t)
 	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
 	// Mint until we have at least one request.
@@ -305,7 +305,7 @@ func TestPyroscopeSpanProfileGoldenThread(t *testing.T) {
 	// Collect the SpanIDs that were actually minted into the ledger.
 	reqs := led.ActiveFor(w.name, now, interval)
 	if len(reqs) == 0 {
-		t.Skip("no active requests in ledger window — skip golden-thread check")
+		t.Skip("no active requests in ledger window — skip request-correlation check")
 	}
 	minted := map[string]bool{}
 	for _, r := range reqs {

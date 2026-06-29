@@ -273,7 +273,7 @@ func TestTwoBlueprintsSeparateCleanly(t *testing.T) {
 	}
 }
 
-func TestGoldenThreadCorrelation(t *testing.T) {
+func TestRequestCorrelation(t *testing.T) {
 	mc, lc, tc := runAll(t)
 	_ = mc
 	// Collect trace IDs from emitted spans.
@@ -299,14 +299,14 @@ func TestGoldenThreadCorrelation(t *testing.T) {
 		}
 	}
 	if !matched {
-		t.Fatal("no app log line's trace_id matches an emitted span trace ID (golden thread broken)")
+		t.Fatal("no app log line's trace_id matches an emitted span trace ID (request correlation broken)")
 	}
 }
 
 // TestAppServiceGraphEmitted is the `app`-workload end-to-end gate (Spec 5 migration): the three
 // scenario blueprints now declare their core flow as an `app` service graph, so the full estate must
 // emit per-service families keyed by the app node identity, synthesize the service graph between app
-// nodes (EmitSpanMetrics is opted in for every blueprint by runAll), and keep the golden thread
+// nodes (EmitSpanMetrics is opted in for every blueprint by runAll), and keep the request correlation
 // across app nodes. Before the migration NO blueprint exercised `app` e2e (the review's flagged gap).
 func TestAppServiceGraphEmitted(t *testing.T) {
 	mc, lc, tc := runAll(t)
@@ -357,7 +357,7 @@ func TestAppServiceGraphEmitted(t *testing.T) {
 		t.Error("no traces_service_graph edge acme-frontend→acme-backend (app graph not synthesized)")
 	}
 
-	// 5. App golden thread: a source=app log from an app node carries a trace_id that matches a span
+	// 5. App request correlation: a source=app log from an app node carries a trace_id that matches a span
 	//    emitted by that same app service resource (continuous correlation through the app graph).
 	appTraceIDs := map[string]bool{}
 	for _, res := range tc.Resources {
@@ -379,7 +379,7 @@ func TestAppServiceGraphEmitted(t *testing.T) {
 		}
 	}
 	if !matched {
-		t.Error("no acme-backend app log trace_id matches an acme-backend span (app golden thread broken)")
+		t.Error("no acme-backend app log trace_id matches an acme-backend span (app request correlation broken)")
 	}
 }
 

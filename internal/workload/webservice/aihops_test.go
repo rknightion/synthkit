@@ -198,7 +198,7 @@ func TestAIServiceGraphNesting(t *testing.T) {
 }
 
 // TestAICorrelatedLogs (Task 13): the three AI log streams are emitted, each carrying the
-// golden-thread keys in structured metadata; no high-card key is ever a stream label.
+// request-correlation keys in structured metadata; no high-card key is ever a stream label.
 func TestAICorrelatedLogs(t *testing.T) {
 	w, led := buildAIWS(t)
 	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
@@ -230,7 +230,7 @@ func TestAICorrelatedLogs(t *testing.T) {
 		for _, ln := range st.Lines {
 			bySource[src]++
 			if ln.Meta["portkey_trace_id"] == "" || ln.Meta["trace_id"] == "" || ln.Meta["correlation_id"] == "" {
-				t.Errorf("source=%s line missing golden-thread meta: %v", src, ln.Meta)
+				t.Errorf("source=%s line missing request-correlation meta: %v", src, ln.Meta)
 			}
 			if src == "langsmith-runs" && ln.Meta["run_id"] != "" {
 				sawRunID = true

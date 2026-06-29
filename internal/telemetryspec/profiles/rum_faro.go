@@ -5,7 +5,7 @@ package profiles
 // rum_faro: Grafana Faro / Frontend Observability (RUM) profile.
 //
 // Models the browser CLIENT span emitted by the Faro Web SDK via the OTLP sink (the
-// "golden-thread root" — the browser fetch span that parents the backend SERVER span in
+// "request-correlation root" — the browser fetch span that parents the backend SERVER span in
 // Tempo). There is exactly ONE SpanSpec in this profile.
 //
 // REMOVED (SK-56/57/58 RESOLVED — 2026-06-16):
@@ -47,7 +47,7 @@ func init() {
 		Logs: nil,
 		Spans: []telemetryspec.SpanSpec{
 			{
-				// Browser CLIENT span — the golden-thread root / trace origin.
+				// Browser CLIENT span — the request-correlation root / trace origin.
 				//
 				// signals/logs.md [slug: logs-browser-spans]:
 				//   SPAN_KIND_CLIENT; parent_span_id="" (trace root);

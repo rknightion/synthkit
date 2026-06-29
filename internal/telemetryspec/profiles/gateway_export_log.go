@@ -38,7 +38,7 @@ func init() {
 					// signals/portkey.md [slug: portkey-logs]: "trace_id" body field.
 					"trace_id": {Ref: "trace_id"},
 
-					// portkey_trace_id: Portkey golden-thread join key — high-card ref → structured metadata.
+					// portkey_trace_id: Portkey request-correlation join key — high-card ref → structured metadata.
 					// signals/portkey.md [slug: portkey-logs] + internal/highcard.
 					"portkey_trace_id": {Ref: "portkey_trace_id"},
 

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// GoldenPath is the Acme AI Golden Path dashboard (acme-ai-platform-eval blueprint,
-// predecessor A3-golden-path.json). It shows the signals that are EXCLUSIVE to the
-// connected-gateway scenario — the "unlock delta" vs the analytics-poller deployment —
-// structured as a guided walkthrough of the happy-path (reference user journey).
+// ConnectedGateway is the Acme AI Connected Gateway dashboard (acme-ai-platform-eval blueprint).
+// It shows the signals that are EXCLUSIVE to the connected-gateway deployment — the "unlock
+// delta" vs the analytics-poller deployment — structured as a guided walkthrough.
 //
 // Architecture: the Portkey gateway runs in the eval service's accounts/VPC (multi-tenant, NOT Acme AI's).
 // In the connected-gateway scenario, the eval service SHARES the gateway's per-tenant telemetry with
@@ -25,7 +24,7 @@
 //   - llm_* gauge families (llm_token_sum, llm_cost_sum) and the classic
 //     histogram llm_request_duration_milliseconds_bucket are present.
 //
-// Tabs (matching the predecessor A3-golden-path.json tab order):
+// Tabs (matching the predecessor A3 tab order):
 //
 //	Why this matters         — intro text describing the unlock delta
 //	Gateway native scrape    — KPI tiles + native request/latency/cache/cost panels
@@ -51,10 +50,6 @@
 //     llm_last_byte_diff_duration_milliseconds are also classic histograms (_bucket).
 //
 // No Infinity endpoints are used in this dashboard (A3 is purely metric/trace/log).
-//
-// "golden thread" / "Golden Thread" strings are BANNED in dashboard copy
-// (use "Request Correlation" / "End-to-End Trace" instead).
-// "Golden Path" (A3) is a different, kept term meaning the happy-path reference journey.
 package acme_ai_platform_eval
 
 import (
@@ -86,10 +81,10 @@ func gwSelEnvProv(extra string) string {
 	return "{" + base + "}"
 }
 
-// GoldenPath builds the Acme AI Golden Path dashboard for the acme-ai-platform-eval blueprint.
-// uid: acme-ws2-golden-path. Four tabs reproducing the predecessor A3-golden-path layout.
-func GoldenPath(m *dashboard.Manifest) (dashboard.Dashboard, error) {
-	d, err := dashboard.NewDashboard("acme-ws2-golden-path", "Acme AI — Golden Path (connected-gateway)")
+// ConnectedGateway builds the Acme AI Connected Gateway dashboard for the acme-ai-platform-eval
+// blueprint. uid: acme-ws2-connected-gateway. Four tabs reproducing the predecessor A3 layout.
+func ConnectedGateway(m *dashboard.Manifest) (dashboard.Dashboard, error) {
+	d, err := dashboard.NewDashboard("acme-ws2-connected-gateway", "Acme AI — Connected Gateway")
 	if err != nil {
 		return dashboard.Dashboard{}, err
 	}
@@ -116,7 +111,7 @@ func GoldenPath(m *dashboard.Manifest) (dashboard.Dashboard, error) {
 	bt := "`"
 	dashboard.AddPanel(&d, "gp-intro",
 		dashboard.TextPanel("",
-			"## The Golden Path — the *unlock delta* vs the analytics-poller deployment\n\n"+
+			"## Connected Gateway — the *unlock delta* vs the analytics-poller deployment\n\n"+
 				"Every panel here shows a signal that **does not exist under the analytics-poller deployment**. "+
 				"These are what you gain when **AI Evaluation shares the gateway's per-tenant Prometheus/OTel telemetry** with Acme AI "+
 				"(the connected-gateway world — acme_ai_platform_eval blueprint):\n\n"+

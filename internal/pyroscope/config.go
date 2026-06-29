@@ -15,7 +15,7 @@ type ProfilingCfg struct {
 	Mode         string   `yaml:"mode"`          // "sdk" (self-push, default) | "scraped" (Alloy collects)
 	Runtime      string   `yaml:"runtime"`       // go|jvm|node|python; on an app node defaults from node.Runtime
 	Types        []string `yaml:"types"`         // optional profile-type subset; empty => the runtime's full set
-	SpanProfiles bool     `yaml:"span_profiles"` // tag a sample subset with real span_ids (golden thread)
+	SpanProfiles bool     `yaml:"span_profiles"` // tag a sample subset with real span_ids (request correlation)
 }
 
 // Validate checks the mode enum (loud load error). Empty mode is allowed (defaults to sdk).

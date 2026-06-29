@@ -52,7 +52,7 @@ func init() {
 					// signals/langsmith.md [slug: langsmith-runs]: "run_id" structured-metadata key.
 					"run_id": {Ref: "run_id"},
 
-					// portkey_trace_id: Portkey golden-thread join key (log→gateway-span join).
+					// portkey_trace_id: Portkey request-correlation join key (log→gateway-span join).
 					// signals/langsmith.md [slug: langsmith-runs]: "portkey_trace_id" structured-metadata key.
 					"portkey_trace_id": {Ref: "portkey_trace_id"},
 

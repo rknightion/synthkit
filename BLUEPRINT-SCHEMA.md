@@ -706,7 +706,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 
 **Location:** `workloads[].config (type: web_service)`  ·  **group:** workload
 
-web_service — browser→backend→DB golden-thread workload (APM span-metrics, traces, app logs, optional Faro/RUM)
+web_service — browser→backend→DB request-correlation workload (APM span-metrics, traces, app logs, optional Faro/RUM)
 
 | key | type | optional | description |
 |---|---|---|---|

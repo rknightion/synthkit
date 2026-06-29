@@ -285,7 +285,7 @@ func (w *Workload) dbSpanAttrs(r *ledger.Request, call ledger.Call) map[string]a
 // aiSpanAttrs builds the gen_ai.* CLIENT-span attributes for an AI hop (vocabulary from
 // internal/genai). Content is NEVER emitted (no strip-listed key); only operation/provider/
 // model + the kind-specific subject attr + synthetic token counts (inference hops) + the
-// golden-thread keys (conversation/portkey_trace_id/correlation).
+// request-correlation keys (conversation/portkey_trace_id/correlation).
 func (w *Workload) aiSpanAttrs(r *ledger.Request, c ledger.Call) map[string]any {
 	a := map[string]any{}
 	if c.AI != nil {

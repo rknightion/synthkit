@@ -150,7 +150,7 @@ func calleeResourceAttrs(w *Workload, name string) map[string]any {
 // aiStamper shapes a gen_ai AI hop's CLIENT span, delegating vocabulary to internal/genai.
 // The llm_gateway kind additionally emits a connected SERVER span (Path-B): the gateway
 // appears as its own Tempo node reusing the hop's PeerSpanID, carrying the gen_ai
-// server-side attrs + portkey_trace_id (the golden-thread join to the Portkey export log).
+// server-side attrs + portkey_trace_id (the request-correlation join to the Portkey export log).
 type aiStamper struct{ kind string }
 
 func (aiStamper) spanName(c ledger.Call) string {

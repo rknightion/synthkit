@@ -46,7 +46,7 @@ func TestNoContentFieldsAnywhere(t *testing.T) {
 	}
 	var bodies []endpointBody
 
-	for _, path := range []string{"/", "/blueprints", "/golden_thread_sample", "/requests"} {
+	for _, path := range []string{"/", "/blueprints", "/request_correlation_sample", "/requests"} {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", path, nil)
 		h.ServeHTTP(rec, req)
@@ -89,7 +89,7 @@ func TestJSONRoundTrip(t *testing.T) {
 	src := &fakeSource{blueprints: []string{"acme"}, reqs: []*ledger.Request{rq}}
 	h := NewServer(src)
 
-	paths := []string{"/", "/blueprints", "/golden_thread_sample", "/requests", "/healthz"}
+	paths := []string{"/", "/blueprints", "/request_correlation_sample", "/requests", "/healthz"}
 	for _, p := range paths {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", p, nil)

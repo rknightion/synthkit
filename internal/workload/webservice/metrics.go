@@ -390,7 +390,7 @@ func (w *Workload) tickServiceGraph(now time.Time, totalReqs int, calls []callSp
 	if totalReqs <= 0 {
 		return
 	}
-	// browser→service edge when RUM is enabled (the front door of the golden thread).
+	// browser→service edge when RUM is enabled (the front door of the request correlation).
 	if w.rumEnabled() {
 		w.emitServiceGraphEdge(now, w.browserServiceName(), frontendNamespace, w.name, w.namespace, "", float64(totalReqs), shp, samples)
 	}

@@ -14,7 +14,7 @@
 // labels. Only truly request/session/correlation-scoped keys belong.
 package highcard
 
-// fields is the canonical ordered set. portkey_trace_id is the AI golden-thread join key (the
+// fields is the canonical ordered set. portkey_trace_id is the AI request-correlation join key (the
 // Portkey export log ↔ gateway span join, Spec 2b/I9) — high-card, never a label.
 var fields = []string{
 	"trace_id", "span_id", "request_id", "session_id", "correlation_id",

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// RequestCorrelation is the Acme AI Request Correlation dashboard (acme_ai_platform blueprint,
-// predecessor 09-golden-thread). It follows ONE request across every telemetry tier — metrics,
+// RequestCorrelation is the Acme AI Request Correlation dashboard (acme_ai_platform blueprint).
+// It follows ONE request across every telemetry tier — metrics,
 // distributed traces, structured logs, and eval evidence — joined on correlation_id +
-// portkey_trace_id + trace_id. Ported from predecessor 09-golden-thread.json (2026-06-16).
+// portkey_trace_id + trace_id. Ported from the predecessor request-correlation dashboard (2026-06-16).
 //
 // The predecessor dashboard is a single flat scroll organised by section-header text panels.
 // We reproduce the same content grouped into six tabs that match the section boundaries:
@@ -35,13 +35,12 @@
 //     This is a known builder gap — noted in the report.
 //
 // Infinity panels:
-//   - /acme/golden_thread root_selector=request       (panel-2: request context)
-//   - /acme/golden_thread root_selector=correlation_keys (panel-3: key-set — empty cols in predecessor)
-//   - /acme/golden_thread root_selector=hops          (panel-4: 10-hop journey)
+//   - /acme/request_correlation root_selector=request       (panel-2: request context)
+//   - /acme/request_correlation root_selector=correlation_keys (panel-3: key-set — empty cols in predecessor)
+//   - /acme/request_correlation root_selector=hops          (panel-4: 10-hop journey)
 //   - /api/v1/runs/query                               (panel-7: eval runs — POST with JSON select-list body)
 //
-// "golden thread" / "Golden Thread" strings are BANNED. All references renamed to
-// "Request Correlation" or "End-to-End Trace".
+// Naming: this dashboard uses "Request Correlation" / "End-to-End Trace" throughout.
 package acme_ai_platform
 
 import (
@@ -110,11 +109,11 @@ func RequestCorrelation(m *dashboard.Manifest) (dashboard.Dashboard, error) {
 	dashboard.AddPanel(&d, "ov-entry-hdr",
 		dashboard.TextPanel("", "## Entry Point — Latest Correlated Request"))
 
-	// Latest correlated request context — /acme/golden_thread root=request (predecessor panel-2).
+	// Latest correlated request context — /acme/request_correlation root=request (predecessor panel-2).
 	dashboard.AddPanel(&d, "ov-request",
 		dashboard.TablePanel(
 			"Latest correlated request — context + universal key-set",
-			dashboard.InfinityTarget("A", "/acme/golden_thread",
+			dashboard.InfinityTarget("A", "/acme/request_correlation",
 				"synthkit (Infinity)", "request",
 				dashboard.Col("use_case", "Use Case", "string"),
 				dashboard.Col("context", "Context", "string"),
@@ -124,13 +123,13 @@ func RequestCorrelation(m *dashboard.Manifest) (dashboard.Dashboard, error) {
 				dashboard.Col("started_at", "Started At", "string"),
 			)))
 
-	// Universal key-set — /acme/golden_thread root=correlation_keys (predecessor panel-3).
+	// Universal key-set — /acme/request_correlation root=correlation_keys (predecessor panel-3).
 	// The predecessor passes columns:[] (auto-infer from JSON). InfinityTarget requires explicit columns;
 	// we list the known key fields from the predecessor description. GAP: auto-infer not supported.
 	dashboard.AddPanel(&d, "ov-corrkeys",
 		dashboard.TablePanel(
 			"Universal key-set — Correlation IDs (copy any id to filter panels below)",
-			dashboard.InfinityTarget("A", "/acme/golden_thread",
+			dashboard.InfinityTarget("A", "/acme/request_correlation",
 				"synthkit (Infinity)", "correlation_keys",
 				dashboard.Col("correlation_id", "correlation_id", "string"),
 				dashboard.Col("trace_id", "trace_id", "string"),
@@ -144,11 +143,11 @@ func RequestCorrelation(m *dashboard.Manifest) (dashboard.Dashboard, error) {
 	dashboard.AddPanel(&d, "path-hops-hdr",
 		dashboard.TextPanel("", "## The End-to-End Path — browser → backend → workflow → agent → gateway → Bedrock → logs → eval"))
 
-	// 10-hop journey table — /acme/golden_thread root=hops (predecessor panel-4).
+	// 10-hop journey table — /acme/request_correlation root=hops (predecessor panel-4).
 	dashboard.AddPanel(&d, "path-hops",
 		dashboard.TablePanel(
 			"End-to-end path — service hop table for the latest sampled request",
-			dashboard.InfinityTarget("A", "/acme/golden_thread",
+			dashboard.InfinityTarget("A", "/acme/request_correlation",
 				"synthkit (Infinity)", "hops",
 				dashboard.Col("hop", "Hop #", "number"),
 				dashboard.Col("service", "Service", "string"),

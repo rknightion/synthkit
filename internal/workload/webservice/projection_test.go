@@ -81,7 +81,7 @@ func mintNonEmpty(t *testing.T, led *ledger.Ledger, now time.Time, wantBrowser b
 	return nil
 }
 
-// TestCorrelationPropagation is the golden-thread invariant: across the ProjectBatch
+// TestCorrelationPropagation is the request-correlation invariant: across the ProjectBatch
 // output, every span of a request shares r.TraceID; the log structured metadata trace_id
 // == r.TraceID; the RUM fetch event traceID == r.TraceID; the browser span id ==
 // r.BrowserSpanID and the backend SERVER span's ParentID == r.BrowserSpanID for browser-

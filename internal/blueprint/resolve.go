@@ -411,7 +411,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				if n.external {
 					continue // remote/managed service (e.g. a SaaS gateway in another team's estate): emits its connected trace hop but is NOT a k8s deployment on this cluster
 				}
-				// Q4: an app service node is the traced golden-thread lane — DaemonSets don't emit
+				// Q4: an app service node is the traced request-correlation lane — DaemonSets don't emit
 				// app traces IRL, so a daemonset controller on an app node is a resolve-time error.
 				if n.controller == "daemonset" {
 					return nil, fmt.Errorf("blueprint %q: app workload %q service node %q: controller: daemonset is not allowed on a traced app service node (DaemonSets do not emit app traces); declare it as a runs_in_cluster integration instead",

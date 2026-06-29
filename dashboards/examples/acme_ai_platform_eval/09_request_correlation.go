@@ -3,7 +3,7 @@
 // RequestCorrelation is the Acme AI Request Correlation dashboard for the acme_ai_platform_eval
 // blueprint. It follows ONE request across every telemetry tier — the CONNECTED-SPAN version
 // where the Portkey gateway span is in the SAME Tempo trace as the app spans (Path-B trace
-// reuse). Ported from predecessor acme-golden-thread-eval.json (2026-06-16).
+// reuse). Ported from the predecessor connected-trace request-correlation dashboard (2026-06-16).
 //
 // acme_ai_platform_eval (connected-gateway) vs acme_ai_platform (analytics-poller) distinction:
 //   - In acme_ai_platform_eval the AI Evaluation gateway is CONNECTED: Path-B reuses the caller's
@@ -44,8 +44,7 @@
 // Infinity panels:
 //   - /api/v1/runs/query  (predecessor uses POST with JSON body; wired as GET — note in report)
 //
-// "golden thread" / "Golden Thread" strings are BANNED. All references renamed to
-// "Request Correlation" or "End-to-End Trace" or "connected trace".
+// Naming: this dashboard uses "Request Correlation" / "End-to-End Trace" / "connected trace" throughout.
 package acme_ai_platform_eval
 
 import (

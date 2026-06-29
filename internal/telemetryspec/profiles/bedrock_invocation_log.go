@@ -39,7 +39,7 @@ func init() {
 					// signals/bedrock.md [slug: bedrock-logs]: "high-card (requestId,correlation_id) → structured metadata".
 					"trace_id": {Ref: "trace_id"},
 
-					// portkey_trace_id: Portkey golden-thread join key — high-card ref → structured metadata.
+					// portkey_trace_id: Portkey request-correlation join key — high-card ref → structured metadata.
 					// internal/highcard.go: portkey_trace_id is in the canonical high-card set.
 					"portkey_trace_id": {Ref: "portkey_trace_id"},
 

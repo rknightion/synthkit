@@ -126,7 +126,7 @@ func TestBuildThenBuildWithSpansKeepsSampleType(t *testing.T) {
 		if got := p.StringTable[p.PeriodType.Unit]; got != pt.PeriodUnit {
 			t.Errorf("pt=%s: PeriodType.Unit resolved to %q, want %q", pt.Name, got, pt.PeriodUnit)
 		}
-		// The golden thread must survive: span_id still rides as a Sample.Label.
+		// The request correlation must survive: span_id still rides as a Sample.Label.
 		if !someSampleHasStrLabel(p, "span_id", "59767e7c8d1dfa39") {
 			t.Errorf("pt=%s: span_id sample label missing after fix", pt.Name)
 		}

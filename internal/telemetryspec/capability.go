@@ -59,7 +59,7 @@ func checkValue(vm ValueModel, pos position, where string) error {
 
 // IsHighCardRef reports whether this model is a ref to a canonical high-card correlation field.
 // The log interpreter uses it to route such fields into Loki STRUCTURED METADATA rather than the
-// JSON body line (matching logMeta/aiHopMeta today — the golden-thread join keys ride as metadata).
+// JSON body line (matching logMeta/aiHopMeta today — the request-correlation join keys ride as metadata).
 func (v ValueModel) IsHighCardRef() bool {
 	return v.Kind() == KindRef && highcard.Contains(v.Ref)
 }

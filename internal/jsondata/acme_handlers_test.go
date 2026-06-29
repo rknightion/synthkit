@@ -9,7 +9,7 @@ package jsondata
 //   - At least one row in the root array
 //   - The required column keys present in the first row
 //
-// For /acme/golden_thread the three root keys are each verified separately.
+// For /acme/request_correlation the three root keys are each verified separately.
 
 import (
 	"encoding/json"
@@ -21,7 +21,7 @@ import (
 )
 
 // makeAcmeSource builds a fakeSource with a handful of requests carrying the AI correlation
-// fields (Model, Provider, PortkeyTraceID) that /acme/golden_thread uses.
+// fields (Model, Provider, PortkeyTraceID) that /acme/request_correlation uses.
 //
 // Workload is prefixed with the blueprint name so fakeSource.Recent("acme-ai-platform", ...) returns
 // this request (fakeSource filters by strings.HasPrefix(workload, blueprint)).
@@ -111,17 +111,17 @@ func payloadKeys(m map[string]any) []string {
 
 func mapKeys(m map[string]any) []string { return payloadKeys(m) }
 
-// ── /acme/golden_thread ──────────────────────────────────────────────────────────────────────────
+// ── /acme/request_correlation ──────────────────────────────────────────────────────────────────────────
 
-func TestAcmeGoldenThread_Request(t *testing.T) {
-	path := "/acme/golden_thread"
+func TestAcmeRequestCorrelation_Request(t *testing.T) {
+	path := "/acme/request_correlation"
 	payload := getJSON(t, path)
 	row := assertRootArray(t, payload, path, "request")
 	assertCols(t, path, "request", row, []string{"use_case", "context", "env", "model", "provider", "started_at"})
 }
 
-func TestAcmeGoldenThread_CorrelationKeys(t *testing.T) {
-	path := "/acme/golden_thread"
+func TestAcmeRequestCorrelation_CorrelationKeys(t *testing.T) {
+	path := "/acme/request_correlation"
 	payload := getJSON(t, path)
 	row := assertRootArray(t, payload, path, "correlation_keys")
 	assertCols(t, path, "correlation_keys", row,
@@ -141,8 +141,8 @@ func TestAcmeGoldenThread_CorrelationKeys(t *testing.T) {
 	}
 }
 
-func TestAcmeGoldenThread_Hops(t *testing.T) {
-	path := "/acme/golden_thread"
+func TestAcmeRequestCorrelation_Hops(t *testing.T) {
+	path := "/acme/request_correlation"
 	payload := getJSON(t, path)
 	row := assertRootArray(t, payload, path, "hops")
 	assertCols(t, path, "hops", row,
@@ -151,22 +151,22 @@ func TestAcmeGoldenThread_Hops(t *testing.T) {
 	// Verify the hops array has 10 elements (the full journey).
 	arr := payload["hops"].([]any)
 	if len(arr) != 10 {
-		t.Errorf("/acme/golden_thread: want 10 hops, got %d", len(arr))
+		t.Errorf("/acme/request_correlation: want 10 hops, got %d", len(arr))
 	}
 }
 
-// Verify correlation IDs from the Source appear in the golden_thread payload.
-func TestAcmeGoldenThread_CorrelationIDFromSource(t *testing.T) {
+// Verify correlation IDs from the Source appear in the request_correlation payload.
+func TestAcmeRequestCorrelation_CorrelationIDFromSource(t *testing.T) {
 	// Use the SAME source instance for both the server and the expected-ID lookup.
 	src := makeAcmeSource().(*fakeSource)
 	h := newTestServer(src)
-	rec := get(h, "/acme/golden_thread")
+	rec := get(h, "/acme/request_correlation")
 	if rec.Code != 200 {
 		t.Fatalf("want 200, got %d", rec.Code)
 	}
 	corrID := src.reqs[0].CorrelationID
 	if !strings.Contains(rec.Body.String(), corrID) {
-		t.Errorf("/acme/golden_thread: correlation_id %q not found in body", corrID)
+		t.Errorf("/acme/request_correlation: correlation_id %q not found in body", corrID)
 	}
 }
 
@@ -376,7 +376,7 @@ func TestEvalScorecard(t *testing.T) {
 func TestNewRoutesGETOnly(t *testing.T) {
 	h := newTestServer(makeAcmeSource())
 	paths := []string{
-		"/acme/golden_thread",
+		"/acme/request_correlation",
 		"/v1/analytics/groups/metadata",
 		"/v1/analytics/groups/ai-models",
 		"/v1/configs",
@@ -406,7 +406,7 @@ func TestNewRoutesNoContentFields(t *testing.T) {
 		`"body"`, `"request_body"`, `"response_body"`,
 	}
 	paths := []string{
-		"/acme/golden_thread",
+		"/acme/request_correlation",
 		"/v1/analytics/groups/metadata",
 		"/v1/analytics/groups/ai-models",
 		"/v1/configs",

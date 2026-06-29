@@ -27,11 +27,10 @@
 //     substrate-scoped → use IntSel, scope by env (no blueprint label).
 //
 // Predecessor tab list (9 tabs): Overview · Gateway · Models · Agents · Evals · Traces · Frontend ·
-// GenAI · Request Correlation (predecessor: "Golden Thread") · Pipeline.
+// GenAI · Request Correlation · Pipeline.
 //
-// "Golden Thread" terminology is avoided; this dashboard uses "Request Correlation" instead. The predecessor's "Golden Thread"
-// tab here only shows stat headline panels linking to the dedicated golden-thread dashboard.
-// It is renamed to "Request Correlation" in this port.
+// The Request Correlation tab here shows only stat headline panels that link to the dedicated
+// Request Correlation dashboard (09_request_correlation.go).
 package acme_ai_platform
 
 import (
@@ -354,7 +353,7 @@ func ObservabilityHub(m *dashboard.Manifest) (dashboard.Dashboard, error) {
 	dashboard.AddPanel(&d, "ga-open", dashboard.TextPanel("GenAI Semconv (Sigil)",
 		"### GenAI Semconv (Sigil)\n\n**[Open the full GenAI Semconv (Sigil) dashboard →](/d/acme-ws1-sigil)**\n\nHeadline signals only on this tab — drill in for repeat-rows, conditional alerts, traces and tables."))
 
-	// ── Tab 9: Request Correlation (predecessor: "Golden Thread" — BANNED term) ─────────────────────
+	// ── Tab 9: Request Correlation ───────────────────────────────────────────────────────────────────
 	// Headline: content-seal stat + correlated-requests stat + text link.
 	// gt-clean: acme_content_leak_test → acme.MetricContentLeakTest (RENAME).
 	// Substrate-scoped: the poller emits no blueprint label; scope by env only via IntSel.

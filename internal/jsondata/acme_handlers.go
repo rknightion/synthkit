@@ -4,7 +4,7 @@
 //
 // Routes (all GET, side-effect-free — invariant I26):
 //
-//	GET /acme/golden_thread              — request/correlation_keys/hops for one sampled request
+//	GET /acme/request_correlation              — request/correlation_keys/hops for one sampled request
 //	GET /v1/analytics/groups/metadata     — per-use_case analytics rows
 //	GET /v1/analytics/groups/ai-models    — per-model analytics rows
 //	GET /v1/configs                       — Portkey provider/model catalog
@@ -15,8 +15,8 @@
 //	GET /acme/eval_scorecard              — per-gate eval scorecard
 //
 // Data sourcing: use_cases/models/providers/envs are the FIXED vocabulary from acme-ai-platform.yaml.
-// Correlation keys for /acme/golden_thread are drawn from the most-recent Source request, exactly
-// as goldenThreadHandler does for /golden_thread_sample.
+// Correlation keys for /acme/request_correlation are drawn from the most-recent Source request, exactly
+// as requestCorrelationHandler does for /request_correlation_sample.
 //
 // CONTENT STRIP (I23): no prompt/completion/message body fields anywhere.
 package jsondata
@@ -80,13 +80,13 @@ var (
 	}
 )
 
-// ── /acme/golden_thread ──────────────────────────────────────────────────────────────────────────
+// ── /acme/request_correlation ──────────────────────────────────────────────────────────────────────────
 
-// acmeGoldenThreadHandler returns ONE response object with three root keys consumed by three
+// acmeRequestCorrelationHandler returns ONE response object with three root keys consumed by three
 // separate Infinity table panels (root_selector=request, root_selector=correlation_keys,
-// root_selector=hops). Data sourced from the most-recent ledger request (same as goldenThreadHandler),
+// root_selector=hops). Data sourced from the most-recent ledger request (same as requestCorrelationHandler),
 // or synthesised from vocabulary when no requests are available yet.
-func acmeGoldenThreadHandler(src Source) http.HandlerFunc {
+func acmeRequestCorrelationHandler(src Source) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

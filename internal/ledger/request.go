@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package ledger is the Golden-Thread spine: a per-blueprint master clock mints
+// Package ledger is the request-correlation spine: a per-blueprint master clock mints
 // correlated synthetic Requests; workloads PROJECT them into metrics/traces/logs/RUM.
 // Nothing outside this package mints request-scoped IDs (HARD RULE — ARCHITECTURE I9):
 // that is the only way one correlation_id threads across every signal class despite
@@ -31,7 +31,7 @@ type Correlation struct {
 	SessionID string
 	RequestID string
 
-	// AI golden-thread join keys (Spec 2b) — span/log FIELDS, never labels (I14). Minted for
+	// AI request-correlation join keys (Spec 2b) — span/log FIELDS, never labels (I14). Minted for
 	// every request (cheap; only the AI hop/log lanes read them). PortkeyTraceID is Portkey's
 	// own parallel trace id (the gateway span + Portkey export log + LangSmith run all carry
 	// it — the cross-system join the W3C trace_id can't provide because Portkey doesn't

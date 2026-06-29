@@ -5,7 +5,7 @@ package highcard
 import "testing"
 
 func TestCanonicalSet(t *testing.T) {
-	// The canonical high-card correlation fields — must include the AI golden-thread join key.
+	// The canonical high-card correlation fields — must include the AI request-correlation join key.
 	want := []string{
 		"trace_id", "span_id", "request_id", "session_id", "correlation_id",
 		"run_id", "plan_id", "user_id", "portkey_trace_id",

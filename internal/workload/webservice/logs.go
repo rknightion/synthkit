@@ -95,7 +95,7 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 }
 
 // projectAILogs emits the three correlated AI log streams (Spec 2b §4.3), reusing the
-// per-hop golden-thread keys. Stream labels stay low-card ({env,service_name,level,source,
+// per-hop request-correlation keys. Stream labels stay low-card ({env,service_name,level,source,
 // cluster,job}); all high-card join keys (trace_id/span_id/correlation_id/portkey_trace_id/
 // run_id) ride in structured metadata (I14 — the sink asserts). Bodies are content-free.
 //   - source=portkey            one line per gateway/inference hop (the export schema).
@@ -188,7 +188,7 @@ func (w *Workload) aiLogStreamLabels(source, level string) map[string]string {
 }
 
 // aiHopMeta is the structured metadata for a per-hop AI log line: the hop's CLIENT span_id
-// + the golden-thread join keys (incl portkey_trace_id + traceparent W3C context). High-card
+// + the request-correlation join keys (incl portkey_trace_id + traceparent W3C context). High-card
 // only — never labels (I14).
 func (w *Workload) aiHopMeta(r *ledger.Request, call ledger.Call) map[string]string {
 	return map[string]string{

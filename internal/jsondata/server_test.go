@@ -106,7 +106,7 @@ func TestRouteIndex(t *testing.T) {
 		t.Fatalf("/ want 200, got %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"routes", "/healthz", "/blueprints", "/golden_thread_sample", "/requests"} {
+	for _, want := range []string{"routes", "/healthz", "/blueprints", "/request_correlation_sample", "/requests"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("/ index missing %q in body:\n%s", want, body)
 		}
@@ -147,7 +147,7 @@ func TestHealthz(t *testing.T) {
 
 func TestGETOnlyRoutes(t *testing.T) {
 	h := newTestServer(&fakeSource{blueprints: []string{"acme"}})
-	paths := []string{"/", "/blueprints", "/golden_thread_sample", "/requests"}
+	paths := []string{"/", "/blueprints", "/request_correlation_sample", "/requests"}
 	for _, p := range paths {
 		rec := post(h, p)
 		if rec.Code != http.StatusMethodNotAllowed {
@@ -180,18 +180,18 @@ func TestBlueprintsRoute(t *testing.T) {
 	}
 }
 
-// ── /golden_thread_sample ─────────────────────────────────────────────────────────────
+// ── /request_correlation_sample ─────────────────────────────────────────────────────────────
 
-func TestGoldenThreadShape(t *testing.T) {
+func TestRequestCorrelationSampleShape(t *testing.T) {
 	rq := makeRequest("acme", "acme-api", "prod", "acme-prod", "GET /v1/items", ledger.OutcomeSuccess)
 	src := &fakeSource{
 		blueprints: []string{"acme"},
 		reqs:       []*ledger.Request{rq},
 	}
 	h := newTestServer(src)
-	rec := get(h, "/golden_thread_sample")
+	rec := get(h, "/request_correlation_sample")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("/golden_thread_sample want 200, got %d", rec.Code)
+		t.Fatalf("/request_correlation_sample want 200, got %d", rec.Code)
 	}
 
 	var payload map[string]any
@@ -228,18 +228,18 @@ func TestGoldenThreadShape(t *testing.T) {
 	}
 }
 
-func TestGoldenThreadAllCorrelationKeys(t *testing.T) {
+func TestRequestCorrelationAllKeys(t *testing.T) {
 	// Verify all six Correlation fields propagate to the JSON.
 	rq := makeRequest("acme", "acme-api", "prod", "acme-prod", "GET /v1/items", ledger.OutcomeSuccess)
 	src := &fakeSource{blueprints: []string{"acme"}, reqs: []*ledger.Request{rq}}
 	h := newTestServer(src)
-	rec := get(h, "/golden_thread_sample")
+	rec := get(h, "/request_correlation_sample")
 
 	body := rec.Body.String()
 	// The IDs minted by NewCorrelation must appear somewhere in the payload.
 	for _, id := range []string{rq.CorrelationID, rq.TraceID, rq.SpanID} {
 		if !strings.Contains(body, id) {
-			t.Errorf("golden_thread_sample missing correlation id %q", id)
+			t.Errorf("request_correlation_sample missing correlation id %q", id)
 		}
 	}
 }

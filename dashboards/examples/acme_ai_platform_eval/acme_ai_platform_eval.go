@@ -41,7 +41,7 @@ func Templates() []dashboard.Template {
 		LangSmithPlatform,
 		PipelineHealth,
 		RequestCorrelation,
-		GoldenPath,
+		ConnectedGateway,
 	}
 }
 
