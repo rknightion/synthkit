@@ -2,7 +2,7 @@
 
 The `web_service` workload emits ONE connected trace per request modelling the real browser→backend→DB
 path. Hand-encoded multi-Resource `ResourceSpans` (I2); Tempo assembles by `trace_id`+`parent_span_id`
-across exports. See [`00-canon.md`](00-canon.md) for scoping `[slug: golden-thread]`, envelope keys
+across exports. See [`00-canon.md`](00-canon.md) for scoping `[slug: request-correlation]`, envelope keys
 `[slug: env-label-keys]`, and high-cardinality strip rules `[slug: content-strip]`.
 
 The tree below is the db/cache/service core. It ALSO admits typed AI hops (Spec 2b) —

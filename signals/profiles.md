@@ -331,8 +331,8 @@ span-profiles doc states *"Only CPU profiling is supported."* So `span_id` sampl
 supports `wall`; other languages are CPU-only. synthkit's SDK-push lane models the Go SDK, so it
 restricts span labels to `process_cpu`.)
 
-synthkit fidelity: the web_service + app SDK-push lanes attach `span_id` Sample.Labels (golden
-thread: every value is a real emitted trace span id from the per-blueprint ledger) to `process_cpu`
+synthkit fidelity: the web_service + app SDK-push lanes attach `span_id` Sample.Labels (end-to-end request correlation:
+every value is a real emitted trace span id from the per-blueprint ledger) to `process_cpu`
 profiles only. The pprof `SampleType`/`PeriodType` ValueTypes are unaffected — no per-span
 profile-types are minted.
 

@@ -3,7 +3,7 @@
 Substrate-scoped; never carries a `blueprint` label. Disambiguated by dbo11y instance identity
 (`instance` InstanceKey, `server_id`, `db_instance_identifier`). Two independently-gated lanes:
 `dbo11y_mysql` and `dbo11y_postgres`. Global scoping and cardinality rules: [`00-canon.md`](00-canon.md)
-`[slug: cardinality]`, `[slug: golden-thread]`.
+`[slug: cardinality]`, `[slug: request-correlation]`.
 
 *Provenance: predecessor SIGNALS §13 Lanes A/B + `emit/dbo11y_{mysql,postgres,shared}.go`, `estate/estate.go`+`cloud.go`.
 **Live-validated** against the Grafana Cloud Database Observability product stack (Rob) — `v: ok`, not assumed.*

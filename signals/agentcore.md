@@ -135,4 +135,4 @@ body_json:
 `aws.resource.arn`, `aws.request_id`, `aws.agent.id`, `session.id`, `latency_ms`, `error_type` +
 trace/span IDs in structured metadata). These spans are CloudWatch-only and **never reach Tempo**
 (real constraint preserved). Record-envelope JSON unverified. Deferred to a scenario-driven pass —
-NOT part of the v1 golden-thread set.
+NOT part of the v1 request-correlation set.

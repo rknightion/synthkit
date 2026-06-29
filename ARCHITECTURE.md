@@ -93,7 +93,7 @@ the hand-encoded OTLP seam):
 - `telemetryspec.{MetricSpec,LogSpec,SpanSpec}` built from `ValueModel` one-of value generators
   (`const`/`const_str`/`enum`/`int_range`/`float_range`/`normal`/`bool`/`shape`/`ref`). `shape` is
   driven by the incident engine (incident-responsive values); `ref` pulls a correlation field (the
-  golden-thread glue). A load-time CAPABILITY MATRIX enforces: a high-card `ref` is legal ONLY in a
+  request-correlation glue). A load-time CAPABILITY MATRIX enforces: a high-card `ref` is legal ONLY in a
   log body / span attribute (never a label/stream-label); a label source must be
   `const`/`const_str`/`enum` with a stable, total domain (I32 determinism, I40). The canonical
   high-card key set lives in `internal/highcard`, shared by the loki + promrw sinks AND the DSL — so
@@ -119,7 +119,7 @@ type World struct {
 
 Writers are nil for classes the instance did not declare in `Signals()`.
 
-### Ledger (golden thread; `internal/ledger`)
+### Ledger (request-correlation spine; `internal/ledger`)
 
 ```go
 type Minter interface {
@@ -625,7 +625,7 @@ Ops
 
 Shape & verification
 - **I31** Diurnal is a flat-topped business-hours PLATEAU; weekends down; non-prod →~0 weekends;
-  incidents schedulable/staggered/time-boxed with the golden thread intact.
+  incidents schedulable/staggered/time-boxed with end-to-end request correlation intact.
 - **I32** `DRY_RUN` + `-once -dump` prints the FULL inventory of distinct series names + label keys
   for offline diff against signals/.
 - **I33** the signals/ catalogue (indexed by SIGNALS.md) is the authoritative contract; per-construct adversarial review of emitted
@@ -697,7 +697,7 @@ synthkit/
     ├── core/                frozen seams: SignalClass, Scope, World, Construct, Workload, registry
     ├── config/              .env + process-env loader (DRY_RUN default true, inline-# strip; self-obs/profiling triplets)
     ├── fixture/             shared-identity vocabulary + deterministic seed helpers
-    ├── ledger/              golden-thread master clock (Minter, Request, ring)
+    ├── ledger/              request-correlation master clock (Minter, Request, ring)
     ├── shape/               diurnal plateau + weekly + noise + schedulable incidents
     ├── state/               sink-correctness layer (cumulative counters, histogram expansion, le styles)
     ├── cw/                  shared CloudWatch stat-expansion mechanic (StatSet/EmitStats; peer of state)

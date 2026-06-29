@@ -1,9 +1,9 @@
 # Logs (→ Loki)
 
 Log emission from synthkit covers blueprint-scoped app logs, Faro/RUM frontend beacons (via the
-Faro collector), user-actions golden-thread events, and browser spans (via OTLP to Tempo). Substrate
+Faro collector), user-actions correlation events, and browser spans (via OTLP to Tempo). Substrate
 log sources (SM, dbo11y, CSP) are pointer stubs to their own signal files. Global cardinality and
-content-strip rules: see [`00-canon.md`](00-canon.md) `[slug: cardinality]`, `[slug: golden-thread]`,
+content-strip rules: see [`00-canon.md`](00-canon.md) `[slug: cardinality]`, `[slug: request-correlation]`,
 `[slug: content-strip]`.
 
 > `session_id` is ALWAYS a body/metadata field — never a stream label or structured-metadata key (T12).
@@ -135,7 +135,7 @@ live capture, `{service_name="frontend"} |= "type=web-vitals"`; SK-56/57/58 RESO
   `context_navigation_type` ∈ {navigate,reload,back-forward,prerender}. ⚠ **No FID** — deprecated; Faro 2.x
   emits INP instead. (Live capture 2026-06-16 confirmed this envelope on the `frontend` service stream.)
 - **kind=event** (`event_name` enum): `session_start` (drives FEO Sessions), `faro.user.action`
-  (parent — see [User-actions golden-thread lane](#user-actions-golden-thread-lane-slug-logs-user-actions)),
+  (parent — see [User-actions correlation lane](#user-actions-correlation-lane-slug-logs-user-actions)),
   `faro.tracing.fetch` (traced; +`event_data_http.*`, `traceID`/`spanID` body fields),
   `faro.performance.resource`, `navigation`, `view_changed` (+`event_data_fromView`,`_toView`).
   `event_domain` ∈ {session,browser}.
@@ -187,15 +187,15 @@ body_fields:
 
 ---
 
-## User-actions golden-thread lane `[slug: logs-user-actions]`
+## User-actions correlation lane `[slug: logs-user-actions]`
 
-Every browser-origin request is wrapped in a user action — the TOP of the golden thread. Parent
+Every browser-origin request is wrapped in a user action — the TOP of the request-correlation spine. Parent
 `faro.user.action` event: `action_id={request_id}` (the real cross-system join key), `action_name`
 (low-card, e.g. submit/generate), `event_data_userActionDuration`, `_userActionStartTime`,
 `_userActionEndTime`, `_userActionEventType` ∈ {click,submit}, `_userActionImportance` ∈
 {normal,critical}. Seeing `faro.user.action` flips the app's `action_received_at` flag. Children in the
 same beacon carry `action_name` + `action_parent_id`(=parent `action_id`): `faro.tracing.fetch`
-(carries ledger `trace_id`/`span_id` — golden-thread join to backend spans; `event_data_http.status_code
+(carries ledger `trace_id`/`span_id` — request-correlation join to backend spans; `event_data_http.status_code
 ≥400` drives action HTTP-error rate); on 5xx a `kind=exception` with `action_parent_id`.
 
 ```yaml signals
@@ -226,7 +226,7 @@ body_fields:
   - event_data_userActionEndTime
   - event_data_userActionEventType   # click|submit
   - event_data_userActionImportance  # normal|critical
-  - trace_id          # faro.tracing.fetch (golden-thread join to backend spans)
+  - trace_id          # faro.tracing.fetch (request-correlation join to backend spans)
   - span_id
   - event_data_http.status_code
 ```
@@ -256,14 +256,14 @@ same navigation path.
      from the page's declared `actions:` list (e.g. "search documents", "generate draft",
      "submit query", "run quality check", "route for approval"); `event_data_userActionEventType=click`,
      `event_data_userActionImportance=normal`. A fresh `action_id` is minted per nav step
-     (NOT the request_id — nav actions are not the golden-thread join key).
+     (NOT the request_id — nav actions are not the request-correlation join key).
    - **5 web-vitals measurements** (LCP/CLS/INP/TTFB/FCP) — same shapes as the assist beacon;
      `Trace` context stripped (nav beacons have no backend fetch, so no `trace_id`/`span_id` on
      the measurements). Action join via `action_id` only.
    - **Meta:** `page_id`/`page_url`/`view_name` set to the NAV page (not the request route).
    - **No `faro.tracing.fetch`, no trace context, no exception** — nav is pure browser-side.
 
-2. **Assist beacon** (last in the session) — the existing golden-thread beacon (see
+2. **Assist beacon** (last in the session) — the existing request-correlation beacon (see
    `[slug: logs-user-actions]`): `faro.user.action` with `action_id=request_id` + `faro.tracing.fetch`
    carrying `trace_id`/`span_id` + 5 web-vitals with trace context + optional exception on error.
    `session_start` is **suppressed** when nav beacons already opened the session.
@@ -338,7 +338,7 @@ span_attrs:
   - http.user_agent
   - http.response_content_length
   - original_span_name     # = "HTTP <METHOD>"
-  # synthkit ADDS the golden-thread join keys below (NOT native to real Faro browser spans —
+  # synthkit ADDS the request-correlation join keys below (NOT native to real Faro browser spans —
   # synthkit's cross-signal correlation convention): app.correlation_id, request_id, app.user_action_id
 status: STATUS_CODE_ERROR on http.status_code 0/5xx, else unset
 note: "web vitals do NOT appear as span attrs — Loki measurement path only"

@@ -90,7 +90,7 @@ family. Emit the right key per family — this is a hard correctness rule, not c
 | `env` | Cloudflare tunnel metrics, dbo11y (where the cell/env identity is carried), FM/Alloy collector identity, Faro/RUM Loki stream label |
 | (Beyla) | Beyla span-metric / service-graph labels use `deployment_environment_name` (confirmed v:ok; see `signals/beyla.md`) |
 
-### Correlation key-set (the golden thread) [slug: golden-thread]
+### Correlation key-set (end-to-end request correlation) [slug: request-correlation]
 
 `{correlation_id, trace_id, span_id, session_id, request_id}` are span attributes / log structured
 metadata — **span/log FIELDS, NEVER labels** (I9, I14). They are minted ONLY by the per-blueprint
@@ -142,7 +142,7 @@ payloads. The strip is proven by **two** sentinel signals (§6 of the Alloy meta
   histograms (no `_bucket`/`le`) — honor whichever form the real source emits (I4).
 - **Scripted incidents** (schedulable, staggered, time-boxed): latency_spike, throttle/error spike,
   pod crashloop (k8s restarts + APM errors), SM probe failure, dbo11y replication-lag /
-  lock-contention / slow-query-storm / connection-saturation. Each keeps the golden thread intact
+  lock-contention / slow-query-storm / connection-saturation. Each keeps end-to-end request correlation intact
   (shared request ledger) so cross-signal correlation stays demonstrable.
 
 ---

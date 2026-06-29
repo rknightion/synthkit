@@ -13,7 +13,7 @@ authoritative contracts live in the repo.
   data contract). NEVER invent a metric/label/field name — source it from `signals/<area>.md`.
 - Read `BLUEPRINT-SCHEMA.md` (generated from the Go types) for valid fields per construct/workload.
 - Copy an existing blueprint as a starting point: `blueprints/acme-ai-platform.yaml` (multi-service
-  golden thread) or `blueprints/k8s-minimal.yaml` (minimal).
+  request correlation) or `blueprints/k8s-minimal.yaml` (minimal).
 
 ## Authoring loop
 1. Declare resources; gate which constructs each builds via its emission switch

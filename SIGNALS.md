@@ -50,7 +50,7 @@ exact emitted contract.
 
 Cross-cutting rules that span ALL families (area files reference these by slug, never restate them):
 `[slug: push-topology]` · `[slug: blueprint-label]` · `[slug: scoping]` · `[slug: env-label-keys]`
-· `[slug: golden-thread]` · `[slug: cardinality]` · `[slug: content-strip]` · `[slug: shape-rules]`
+· `[slug: request-correlation]` · `[slug: cardinality]` · `[slug: content-strip]` · `[slug: shape-rules]`
 · `[slug: cardinality-budget]`.
 
 ## Area index
