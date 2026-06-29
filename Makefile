@@ -23,8 +23,14 @@ gate: build vet test race rw-proto-check spdx-check forbidden-words
 
 # Race detector over the whole module. Slower (and CGO-dependent), so it is kept out of the
 # fast `test` target but is mandatory in `gate`.
+#
+# internal/integration is EXCLUDED from the race leg: it builds the full estate (every blueprint, one
+# full cycle) and, with the race detector's shadow-memory overhead, peaks well past the 16 GB CI
+# runner and OOM-reaps the job (SIGTERM/143). It still runs under the plain `test` target, and its
+# only race-relevant code — the runner's concurrent per-blueprint tick fan-out — is race-tested
+# directly by internal/runner (runner_parallel_test.go) under this same leg, so coverage is retained.
 race:
-	go test -race ./...
+	go test -race $$(go list ./... | grep -v '/internal/integration$$')
 
 # --- OSS hygiene gate legs (in `gate`; CI runs them as a separate `hygiene` job) ---
 # spdx-check: every tracked .go (except vendored *.pb.go) carries the AGPL-3.0-only SPDX header.
