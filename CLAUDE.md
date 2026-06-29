@@ -87,8 +87,10 @@ See ARCHITECTURE §3 (construct boundaries + emission switch) for the full ratio
   judgment (extraction, table-driven tests, fixtures, proto/codegen, doc regen) for cost + speed;
   keep design, cross-cutting integration, and the final adversarial review on the main (Opus) thread.
   Rob will always pick subagent-driven over inline — do not ask which.
-- Work direct to `main`; no feature branches/PRs. Green (build + vet + test) is mandatory before
-  every commit — evidence, not assertion.
+- **Branching policy:** SIGNIFICANT features/developments (new signal types, new workloads/constructs,
+  new sinks, cross-cutting architecture) → build on a **feature branch** and submit via **PR** to the
+  repo. Smaller things — fixes, CI/chore, doc tweaks, single-construct touch-ups — still go **straight
+  to `main`**. Green (build + vet + test) is mandatory before every commit — evidence, not assertion.
 - Plans/specs are SCRATCH → `docs/superpowers/` (gitignored). Only code + the durable docs
   (SIGNALS.md + `signals/`, ARCHITECTURE.md, CLAUDE.md, README.md) are committed.
 - Parallel lanes touch DISJOINT files; one file = one owner. Wiring files (registry/catalog,
