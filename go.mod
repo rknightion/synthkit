@@ -12,7 +12,7 @@ go 1.26.4
 
 require (
 	filippo.io/age v1.3.1
-	github.com/golang/snappy v0.0.4
+	github.com/golang/snappy v1.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.18
 	github.com/grafana/nanogit v1.4.0
 	github.com/grafana/pyroscope-go v1.3.1
