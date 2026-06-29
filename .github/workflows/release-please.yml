@@ -31,6 +31,13 @@ jobs:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
+          # Open the release PR under a fine-grained PAT, NOT the default GITHUB_TOKEN. PRs attributed
+          # to github-actions[bot] have their workflow runs parked at "action_required" (pending
+          # maintainer approval) whenever a workflow pulls in code from another repo — which our
+          # codeql/zizmor/actionlint/dependency-review workflows do (uses: rknightion/.github/...).
+          # A PAT identity is treated as a trusted author, so CI runs automatically (same as Renovate,
+          # which posts as its own App). Scope the PAT to this repo: contents:write + pull-requests:write.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
