@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 
-const KEY = "synthkit-control-theme";
+const THEME_STORAGE_NAME = "synthkit-control-theme";
 
 // Toggles the document-level data-theme attribute and mirrors the choice into
 // localStorage under the legacy key, so a reload restores the operator's theme.
@@ -14,7 +14,7 @@ export function ThemeToggle() {
     // Persist best-effort: localStorage can be absent (SSR/jsdom) or throw
     // (private mode, blocked storage) — the theme flip must still happen.
     try {
-      globalThis.localStorage?.setItem(KEY, next);
+      globalThis.localStorage?.setItem(THEME_STORAGE_NAME, next);
     } catch {
       /* ignore */
     }
