@@ -38,9 +38,9 @@ function sparkTooltip(values: number[] | undefined): string {
   return `latest: ${latest} · min: ${min} · max: ${max}`;
 }
 
-// sparkline(values) → an inline <svg> string (currentColor stroke, inherits row colour).
+// sparkline(values) → an inline <svg> element (currentColor stroke, inherits row colour).
 // A 5s tick makes any single reading noise; the trend is the signal. Flat/empty ⇒ null.
-function sparkline(values: number[] | undefined, w = 52, h = 14): string | null {
+function sparkline(values: number[] | undefined, w = 52, h = 14): JSX.Element | null {
   const v = (values ?? []).filter((x) => typeof x === "number");
   if (v.length < 2) return null;
   const max = Math.max(...v),
@@ -55,9 +55,19 @@ function sparkline(values: number[] | undefined, w = 52, h = 14): string | null 
     })
     .join(" ");
   return (
-    `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="none" ` +
-    `stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85">` +
-    `<polyline points="${pts}"/></svg>`
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.2"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+      opacity="0.85"
+    >
+      <polyline points={pts} />
+    </svg>
   );
 }
 
@@ -347,8 +357,7 @@ export function Overview(): JSX.Element {
                         </div>
                       </div>
                       <Show when={spark()}>
-                        {/* eslint-disable-next-line solid/no-innerhtml */}
-                        <div class="bpc-spark" title={sparkTooltip(em()?.spark)} innerHTML={spark()!} />
+                        <div class="bpc-spark" title={sparkTooltip(em()?.spark)}>{spark()}</div>
                       </Show>
                     </div>
                   );

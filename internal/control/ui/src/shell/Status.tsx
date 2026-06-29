@@ -36,9 +36,9 @@ function agoMs(ms: number): string {
   return Math.round(m / 60) + "h ago";
 }
 
-// sparkline(values) → an inline <svg> string (currentColor stroke, inherits row colour).
+// sparkline(values) → an inline <svg> element (currentColor stroke, inherits row colour).
 // Flat/empty/<2 points ⇒ null (same shape as Overview's sparkline).
-function sparkline(values: number[] | undefined, w = 52, h = 14): string | null {
+function sparkline(values: number[] | undefined, w = 52, h = 14): JSX.Element | null {
   const v = (values ?? []).filter((x) => typeof x === "number");
   if (v.length < 2) return null;
   const max = Math.max(...v),
@@ -53,9 +53,19 @@ function sparkline(values: number[] | undefined, w = 52, h = 14): string | null 
     })
     .join(" ");
   return (
-    `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="none" ` +
-    `stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85">` +
-    `<polyline points="${pts}"/></svg>`
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.2"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+      opacity="0.85"
+    >
+      <polyline points={pts} />
+    </svg>
   );
 }
 
@@ -96,8 +106,7 @@ function EmitterRow(props: {
           <span class="efail">{props.failText}</span>
         </Show>
         <Show when={sv()}>
-          {/* eslint-disable-next-line solid/no-innerhtml */}
-          <span class="spark" title={sparkTooltip(props.spark)} innerHTML={sv()!} />
+          <span class="spark" title={sparkTooltip(props.spark)}>{sv()}</span>
         </Show>
       </div>
     </div>

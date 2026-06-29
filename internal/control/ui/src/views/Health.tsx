@@ -9,8 +9,8 @@ import type { ConstructHealth, BlueprintHealth } from "../api/types";
 // per-construct tick table (with p95 NUMERIC sort fix + in-page filter).
 // READ-ONLY — no mutations. States: loading → error → empty (no constructs yet) → data.
 
-// Inline SVG sparkline — currentColor stroke, inherits row colour. Flat/empty ⇒ null.
-function sparkline(values: number[] | undefined, w = 52, h = 14): string | null {
+// Inline SVG sparkline element — currentColor stroke, inherits row colour. Flat/empty ⇒ null.
+function sparkline(values: number[] | undefined, w = 52, h = 14): JSX.Element | null {
   const v = (values ?? []).filter((x) => typeof x === "number");
   if (v.length < 2) return null;
   const max = Math.max(...v),
@@ -25,9 +25,19 @@ function sparkline(values: number[] | undefined, w = 52, h = 14): string | null 
     })
     .join(" ");
   return (
-    `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="none" ` +
-    `stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85">` +
-    `<polyline points="${pts}"/></svg>`
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.2"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+      opacity="0.85"
+    >
+      <polyline points={pts} />
+    </svg>
   );
 }
 
@@ -199,8 +209,7 @@ export function Health(): JSX.Element {
                             <td class="h-mono">{fmtMs(b.last_cycle_ms)}</td>
                             <td class="spark-cell">
                               <Show when={spark()}>
-                                {/* eslint-disable-next-line solid/no-innerhtml */}
-                                <span class="h-spark" title={sparkTooltip(b.cycle_spark)} innerHTML={spark()!} />
+                                <span class="h-spark" title={sparkTooltip(b.cycle_spark)}>{spark()}</span>
                               </Show>
                             </td>
                           </tr>
@@ -336,8 +345,7 @@ export function Health(): JSX.Element {
                             </td>
                             <td class="spark-cell">
                               <Show when={spark()}>
-                                {/* eslint-disable-next-line solid/no-innerhtml */}
-                                <span class="h-spark" title={sparkTooltip(c.spark)} innerHTML={spark()!} />
+                                <span class="h-spark" title={sparkTooltip(c.spark)}>{spark()}</span>
                               </Show>
                             </td>
                           </tr>
