@@ -606,6 +606,55 @@ AWS VPC CNI (awscni_*) metrics
 
 _(no configurable fields)_
 
+## ai_agent workload config
+
+**Location:** `workloads[].config (type: ai_agent)`  ·  **group:** workload
+
+ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sigil generation/workflow-step/score ingest + gen_ai OTLP spans + gen_ai_client_*/sigil_eval_* metrics
+
+| key | type | optional | description |
+|---|---|---|---|
+| `resource` | object |  |  |
+| `resource.service_name` | string |  |  |
+| `resource.service_namespace` | string |  |  |
+| `resource.service_version` | string |  |  |
+| `resource.deployment_environment` | string |  |  |
+| `resource.k8s_cluster` | string |  |  |
+| `resource.k8s_namespace` | string |  |  |
+| `resource.k8s_deployment` | string |  |  |
+| `resource.cloud_region` | string |  |  |
+| `resource.job` | string |  |  |
+| `agents[]` | object |  |  |
+| `agents[].name` | string |  |  |
+| `agents[].archetype` | string |  |  |
+| `agents[].sdk` | string |  | sdk-go \| sdk-python |
+| `agents[].provider` | string |  | anthropic \| openai \| bedrock \| gemini |
+| `agents[].models[]` | string |  |  |
+| `agents[].tools[]` | string |  |  |
+| `agents[].capture_mode` | string |  | full \| no_tool_content \| metadata_only \| full_with_metadata_spans |
+| `agents[].version` | string |  | declared agent version (empty ⇒ omitted, e.g. codex) |
+| `agents[].streaming` | bool |  | streamText + time_to_first_token |
+| `agents[].subagents[]` | string |  | coding: spawns claude-code/<type> child conversations |
+| `agents[].tags` | map[string]string |  | sigil.tag.<k> + generation tags (cwd/git.branch/region/team…) |
+| `agents[].activity` | object |  |  |
+| `agents[].activity.sessions_per_min` | float |  |  |
+| `agents[].activity.turns_p50` | int |  |  |
+| `agents[].activity.turns_p95` | int |  |  |
+| `evaluators[]` | object |  |  |
+| `evaluators[].name` | string |  |  |
+| `evaluators[].kind` | string |  | llm_judge \| heuristic |
+| `evaluators[].score_key` | string |  |  |
+| `evaluators[].value_type` | string |  | number \| bool \| string |
+| `evaluators[].threshold` | float |  |  |
+| `evaluators[].judge_model` | string |  |  |
+| `evaluators[].judge_provider` | string |  |  |
+| `rules[]` | object |  |  |
+| `rules[].name` | string |  |  |
+| `rules[].selector` | string |  | e.g. all_assistant_generations \| user_visible_turn |
+| `rules[].sample_rate` | float |  |  |
+| `rules[].match_agent[]` | string |  |  |
+| `rules[].evaluators[]` | string |  |  |
+
 ## app workload config
 
 **Location:** `workloads[].config (type: app)`  ·  **group:** workload

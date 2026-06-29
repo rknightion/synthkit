@@ -248,4 +248,9 @@ type WorkloadReg struct {
 	Build     func(cfg any, b Binding) (Workload, error)
 	// FailureModes — see ConstructReg.FailureModes (workload axis).
 	FailureModes []failuremode.Mode
+	// Scope decides blueprint-label stamping for this workload's lanes (default ScopeBlueprint).
+	// ScopeSubstrate ⇒ no blueprint selector label (e.g. the ai_agent/sigil workload, whose
+	// real-world data carries none and whose ingest proto has no field for it — disambiguation
+	// is by service.name/agent_name/conversation_id, like substrate constructs).
+	Scope Scope
 }
