@@ -40,7 +40,9 @@ var jsonMarshal = protojson.MarshalOptions{UseProtoNames: true}
 // HTTP Basic auth using tenantID:token. dryRun=true short-circuits the POST
 // and bumps Inventory counters instead.
 func New(endpoint, tenantID, token string, dryRun bool) (*Sink, error) {
-	if endpoint == "" {
+	// In DRY_RUN the sink never POSTs, so empty creds are fine (mirrors promrw/otlp): this lets
+	// `-once -dump` surface the sigil inventory with no GC_SIGIL_* configured. Live mode requires it.
+	if endpoint == "" && !dryRun {
 		return nil, fmt.Errorf("sigil: endpoint must not be empty")
 	}
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(tenantID+":"+token))
