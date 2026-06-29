@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,43 +22,64 @@ import (
 	"github.com/rknightion/synthkit/internal/runner"
 )
 
-// loadRepoBlueprints loads every committed blueprint with the real catalog.
-func loadRepoBlueprints(t *testing.T) []*blueprint.Resolved {
-	t.Helper()
-	reg := runner.Catalog()
-	paths, err := filepath.Glob(filepath.Join("..", "..", "blueprints", "*.yaml"))
-	if err != nil || len(paths) == 0 {
-		t.Fatalf("blueprints: %v (%d)", err, len(paths))
-	}
-	var out []*blueprint.Resolved
-	for _, p := range paths {
-		data, err := os.ReadFile(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		res, err := blueprint.Load(data, reg)
-		if err != nil {
-			t.Fatalf("%s: %v", p, err)
-		}
-		out = append(out, res)
-	}
-	if err := blueprint.ValidateSet(out); err != nil {
-		t.Fatalf("ValidateSet: %v", err)
-	}
-	return out
-}
+// The full estate is built EXACTLY ONCE and the resulting read-only captures are shared by every
+// test in this package. The estate is deterministic (fixed clock + seeded RNG, I12), so a single
+// build is byte-equivalent to rebuilding it per-test — and one build already costs ~2.8 GB, so the
+// old per-test rebuild (8 tests) stacked to a ~15 GB peak under GC lag and OOM-killed the CI runner
+// (SIGTERM/143 in `go test ./...`). The capture readers (All/Names/Find) never mutate the recorded
+// batches, so sharing them across sequential tests is safe.
+var (
+	estateOnce sync.Once
+	estateMC   *coretest.MetricCapture
+	estateLC   *coretest.LogCapture
+	estateTC   *coretest.TraceCapture
+	estateErr  error
+)
 
 func runAll(t *testing.T) (*coretest.MetricCapture, *coretest.LogCapture, *coretest.TraceCapture) {
 	t.Helper()
+	estateOnce.Do(func() {
+		estateMC, estateLC, estateTC, estateErr = buildEstate()
+	})
+	if estateErr != nil {
+		t.Fatalf("build estate: %v", estateErr)
+	}
+	return estateMC, estateLC, estateTC
+}
+
+// buildEstate loads every committed blueprint against the real catalog, opts each into span-metrics
+// emission, and runs a few master ticks plus one full cycle. Returns an error (rather than failing a
+// *testing.T) so it can run inside sync.Once and surface the failure to whichever test triggered it.
+func buildEstate() (*coretest.MetricCapture, *coretest.LogCapture, *coretest.TraceCapture, error) {
 	mc, lc, tc := &coretest.MetricCapture{}, &coretest.LogCapture{}, &coretest.TraceCapture{}
+	reg := runner.Catalog()
+	paths, err := filepath.Glob(filepath.Join("..", "..", "blueprints", "*.yaml"))
+	if err != nil || len(paths) == 0 {
+		return nil, nil, nil, fmt.Errorf("blueprints: %v (%d)", err, len(paths))
+	}
+	var resolved []*blueprint.Resolved
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		res, err := blueprint.Load(data, reg)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("%s: %v", p, err)
+		}
+		resolved = append(resolved, res)
+	}
+	if err := blueprint.ValidateSet(resolved); err != nil {
+		return nil, nil, nil, fmt.Errorf("ValidateSet: %v", err)
+	}
 	r := runner.New(runner.Sinks{Metrics: mc, Logs: lc, Traces: tc}, runner.Catalog(), runner.Options{})
 	// Span-metrics emission is now a per-blueprint opt-in (default OFF, deferring to
 	// metrics-generator/beyla). The full-estate inventory gate asserts the synthkit-emitted
 	// spanmetrics/service-graph families, so opt every loaded blueprint in.
 	cs := control.DefaultState()
-	for _, res := range loadRepoBlueprints(t) {
+	for _, res := range resolved {
 		if err := r.AddBlueprint(res); err != nil {
-			t.Fatalf("AddBlueprint %q: %v", res.Name, err)
+			return nil, nil, nil, fmt.Errorf("AddBlueprint %q: %v", res.Name, err)
 		}
 		cs.SpanMetricsBlueprints = append(cs.SpanMetricsBlueprints, res.Name)
 	}
@@ -68,13 +90,13 @@ func runAll(t *testing.T) (*coretest.MetricCapture, *coretest.LogCapture, *coret
 	ctx := context.Background()
 	for i := range 6 {
 		if err := r.MasterTick(ctx, now.Add(time.Duration(i*5)*time.Second)); err != nil {
-			t.Fatalf("MasterTick: %v", err)
+			return nil, nil, nil, fmt.Errorf("MasterTick: %v", err)
 		}
 	}
 	if err := r.RunOnce(ctx, now.Add(30*time.Second)); err != nil {
-		t.Fatalf("RunOnce: %v", err)
+		return nil, nil, nil, fmt.Errorf("RunOnce: %v", err)
 	}
-	return mc, lc, tc
+	return mc, lc, tc, nil
 }
 
 func TestEstateEmitsAllDeclaredFamilies(t *testing.T) {
