@@ -115,7 +115,7 @@ Each sink shows `last_success_ms` advancing and `failures: 0`. `dry_run: true` m
 
 ## Next steps
 
-- [RUNBOOK.md](RUNBOOK.md) — deep verification walkthrough (sink readiness, gcx queries, trace golden-thread check, log correlation, SM/FM verification)
+- [RUNBOOK.md](RUNBOOK.md) — deep verification walkthrough (sink readiness, gcx queries, end-to-end trace correlation check, log correlation, SM/FM verification)
 - [Deployment](deployment.md) — standing production deploy with docker-compose, the persistent state volume, and the host bind setup
 - [Blueprints overview](blueprints.md) — write your own blueprint
 - [Incidents & Scenarios](incidents.md) — declare and activate failure scenarios

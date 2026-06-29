@@ -20,8 +20,10 @@ logs / RUM plus the control plane, Synthetic Monitoring, and Fleet Management re
 
 When the run is healthy you will see, in the **customer stack**:
 - Mimir series for every declared construct (e.g. `aws_rds_cpuutilization_average`,
-  `kube_node_info`, `pg_stat_statements_calls_total`), each carrying a `blueprint=<name>` selector
-  on blueprint-scoped constructs.
+  `kube_node_info`, `pg_stat_statements_calls_total`). Blueprint-scoped constructs carry a
+  `blueprint=<name>` selector; substrate-scoped ones (Kubernetes, dbo11y, CSP — including
+  `kube_node_info` and `pg_stat_statements_calls_total` here) instead disambiguate by declared
+  identity such as `cluster` or `account_id` and carry no `blueprint` label.
 - Tempo traces with end-to-end request correlation (`service.name=<workload>` → child DB span).
 - Loki streams for the app log stream (`blueprint=<name>`, `source=app`).
 - (optional) Faro/RUM beacons, Synthetic Monitoring check series, and Fleet Management collectors.
@@ -154,8 +156,10 @@ skill to browse what landed.)
 ### 5.3 Traces (Tempo) — end-to-end request correlation
 
 In Explore → Tempo (customer stack), search `service.name="<your-service>"` (or your workload) and
-confirm a trace whose root request span has a **child DB span** to the declared database. The
-RED metrics derived from spans appear as `traces_spanmetrics_*{blueprint=<name>}` in Mimir.
+confirm a trace whose root request span has a **child DB span** to the declared database. By default
+the span-derived RED metrics come from Tempo's metrics-generator; if you opt a blueprint into
+synthkit-native span metrics (the `span_metrics_blueprints` control toggle, **off** by default), they
+also appear as `traces_spanmetrics_*{blueprint=<name>}` in Mimir.
 
 ### 5.4 Logs (Loki)
 
@@ -190,7 +194,7 @@ customer stack and confirm the fake collectors (linux/windows/darwin per the blu
 
 The generator's *own* telemetry ships to the **staff stack**: `service.name=synthkit`, metrics
 `synthkit.*` (push/tick/ledger.size/volume.multiplier/blueprint.count), per-tick traces, the
-operational log stream, and continuous profiles (`app=synthkit`). This is a separate data path from
+operational log stream, and continuous profiles (`service_name=synthkit`). This is a separate data path from
 the synthetic telemetry above and never uses `GC_TOKEN`.
 
 ---
@@ -230,6 +234,6 @@ backups that land in less-trusted storage.
 - [ ] `.env` filled; `DRY_RUN=true … -once -dump` inventory matches `signals/`.
 - [ ] `DRY_RUN=false` run; `/control/status` shows every sink `last_success` advancing, `failures: 0`.
 - [ ] Mimir: per-blueprint series present.
-- [ ] Tempo: golden-thread trace (service → DB) present.
+- [ ] Tempo: end-to-end correlated trace (service → DB) present.
 - [ ] Loki: app log stream present.
 - [ ] (optional) SM checks, FM collectors, RUM beacons, self-obs on the staff stack.
