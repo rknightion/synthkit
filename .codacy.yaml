@@ -7,7 +7,13 @@
 # test/** + *_test.go — Go test/e2e harness: deliberately exercises internal HTTP,
 #                  exec.Command and cleartext URLs, so SAST flags there are false positives.
 #                  Production Go retains full security-pattern coverage.
+# vendor/**      — vendored third-party Go (none today under Go modules; kept for
+#                  convention parity across repos and to cover future `go mod vendor`).
+# **/*.pb.go     — protoc-generated Go (profile/types/push .pb.go); machine-generated,
+#                  not hand-maintained, so linter findings there are pure noise.
 exclude_paths:
   - "docs/**"
   - "test/**"
   - "**/*_test.go"
+  - "vendor/**"
+  - "**/*.pb.go"

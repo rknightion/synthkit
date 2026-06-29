@@ -1,4 +1,4 @@
-.PHONY: build test vet gate race dump run docker skills-sync skills-check proto rw-proto-check pyroscope-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker e2e ci spdx-check forbidden-words hygiene secret-scan notices sbom
+.PHONY: build test cover vet gate race dump run docker skills-sync skills-check proto rw-proto-check pyroscope-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker e2e ci spdx-check forbidden-words hygiene secret-scan notices sbom
 
 GCX_CONTEXT ?= default
 
@@ -12,6 +12,12 @@ build:
 
 test:
 	go test ./...
+
+# Coverage profile for Codacy upload. Superset of `test` (same packages, plus
+# instrumentation), so CI runs it in place of the plain `test` leg — no extra full
+# run. Emits coverage.out (gitignored via *.out). atomic mode keeps counts accurate.
+cover:
+	go test -covermode=atomic -coverprofile=coverage.out ./...
 
 vet:
 	go vet ./...
@@ -147,7 +153,9 @@ gate-ui: ui-install ## control-UI test + typecheck + build (separate from the No
 
 # --- CI abstraction (called identically by .forgejo/workflows + .github/workflows) ---
 # ci-go is `gate` minus rw-proto-check (network → fails offline CI) and minus schema-gen.
-ci-go: build vet test race
+# Uses `cover` (not `test`) so the same run also emits coverage.out for the Codacy upload
+# step in .github/workflows/ci.yml; cover is a superset of test, so no extra run is added.
+ci-go: build vet cover race
 	@echo "ci-go: go gate passed"
 
 ci-ui:

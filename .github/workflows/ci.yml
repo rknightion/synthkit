@@ -19,6 +19,16 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: make ci-go
+      # Go coverage upload to Codacy. GitHub-only (third-party action → not mirrored to
+      # .forgejo, per the header note); make ci-go already emitted coverage.out via `cover`.
+      # Skipped on forks where the secret is unavailable.
+      - name: Upload coverage to Codacy
+        if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699 # v1
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: coverage.out
+          force-coverage-parser: go
 
   # OSS hygiene: SPDX header coverage + the forbidden-words content guard (real terms injected from
   # the FORBIDDEN_WORDS_PATTERN repo secret; the credential-shape layer always runs). Mirrored in
