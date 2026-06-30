@@ -45,6 +45,7 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 	pyroscope "github.com/rknightion/synthkit/internal/sink/pyroscope"
+	sigilsink "github.com/rknightion/synthkit/internal/sink/sigil"
 )
 
 // version is stamped onto self-profiling + self-observability data as service.version. Override at
@@ -103,6 +104,15 @@ func run(once, dump bool, envPath string) error {
 	if cfg.SynthProfilesEnabled() || cfg.DryRun {
 		profSink = pyroscope.New(cfg.ProfilesURL, cfg.ProfilesUser, cfg.Token, cfg.DryRun)
 		sinks.Profiles = profSink
+	}
+	var sigilSink *sigilsink.Sink
+	if cfg.SigilEnabled() || cfg.DryRun {
+		s, serr := sigilsink.New(cfg.SigilEndpoint, cfg.SigilTenantID, cfg.SigilToken, cfg.DryRun)
+		if serr != nil {
+			log.Fatalf("sigil sink: %v", serr)
+		}
+		sigilSink = s
+		sinks.Sigil = s
 	}
 
 	reg := runner.Catalog()
@@ -327,7 +337,7 @@ func run(once, dump bool, envPath string) error {
 			return err
 		}
 		if dump {
-			printInventory(prom, lokiSink, otlpSink, profSink)
+			printInventory(prom, lokiSink, otlpSink, profSink, sigilSink)
 		}
 		return nil
 	}
@@ -492,7 +502,7 @@ func healthReport(rep healthstatus.Report) healthPayload {
 // printInventory prints the FULL distinct series-name + label-key inventory (I32 —
 // never just batch[0]) for offline diff against signals/. Explicit stdout writes;
 // never redirect generator output into an artifact (I28).
-func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink, profSink *pyroscope.Sink) {
+func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink, profSink *pyroscope.Sink, sigilSink *sigilsink.Sink) {
 	fmt.Println("== metrics: series name → label keys ==")
 	inv := prom.Inventory()
 	names := make([]string, 0, len(inv))
@@ -526,6 +536,22 @@ func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink,
 	sort.Strings(services)
 	for _, s := range services {
 		fmt.Printf("%s\n  resource=%v\n  spans=%v\n  attrs=%v\n", s, resAttrs[s], spanNames[s], spanAttrs[s])
+	}
+
+	if sigilSink != nil {
+		si := sigilSink.Inventory()
+		fmt.Println()
+		fmt.Println("== sigil: ingest kind → operation names ==")
+		if si.Generations > 0 {
+			fmt.Printf("generations  ops=%v\n", si.OperationNames)
+		}
+		if si.WorkflowSteps > 0 {
+			fmt.Printf("workflow_steps  ops=[]\n")
+		}
+		if si.Scores > 0 {
+			fmt.Printf("scores  ops=[]\n")
+		}
+		fmt.Printf("== sigil: generations=%d workflow_steps=%d scores=%d ==\n", si.Generations, si.WorkflowSteps, si.Scores)
 	}
 
 	if profSink == nil {

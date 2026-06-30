@@ -137,6 +137,7 @@ func TestCatalogImportIsolation(t *testing.T) {
 		"github.com/rknightion/synthkit/internal/pyroscope/", // shared Pyroscope profiling mechanic (peer lib, like cw/genai); constructs build pprof profiles + flamegraph vocab from it
 		"github.com/rknightion/synthkit/internal/cw/",        // shared CloudWatch emission mechanic (peer lib, like state); trailing slash + the exact-match branch covers the bare import without matching internal/cwXxx
 		"github.com/rknightion/synthkit/internal/genai/",     // shared gen_ai semconv vocabulary mechanic (peer lib, like cw); workload-AI lane builds gen_ai spans/metrics from it
+		"github.com/rknightion/synthkit/internal/sigil/",     // shared sigil AI-Observability vocabulary + content-corpus mechanic (peer lib, like genai/cw); the aiagent workload builds generations/spans/metrics from it
 		"github.com/rknightion/synthkit/internal/semconv/",   // shared OTEL semconv resource-attr + correlation key names (peer lib, like genai/cw); emit lanes build identity labels/attrs from it
 		"github.com/rknightion/synthkit/internal/nodeexp/",   // shared node/windows/macos/cadvisor emission mechanic (peer lib, like cw/genai); host construct + k8scluster adapters delegate here
 		"github.com/rknightion/synthkit/internal/k8saddon/",  // shared k8s-addon pod↔metric correlation mechanic (peer lib, like cw/genai); addon constructs stamp per-pod join labels from it

@@ -46,6 +46,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/snowflake"
 	"github.com/rknightion/synthkit/internal/construct/vpccni"
 	"github.com/rknightion/synthkit/internal/core"
+	"github.com/rknightion/synthkit/internal/workload/aiagent"
 	"github.com/rknightion/synthkit/internal/workload/app"
 	"github.com/rknightion/synthkit/internal/workload/webservice"
 )
@@ -109,6 +110,7 @@ func Catalog() *core.Registry {
 	// Workloads.
 	reg.RegisterWorkload(webservice.Registration())
 	reg.RegisterWorkload(app.Registration())
+	reg.RegisterWorkload(aiagent.Registration())
 
 	return reg
 }

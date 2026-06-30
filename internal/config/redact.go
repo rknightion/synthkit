@@ -54,6 +54,10 @@ func (c *Config) Redacted() RedactedConfig {
 		{Title: "Fleet Management", Fields: []RedactedField{
 			safe("GC_FM_URL", c.FMURL), safe("GC_FM_STACK_ID", c.FMStackID), secret("GC_FM_TOKEN", c.FMToken),
 		}},
+		{Title: "Sigil AI Observability", Fields: []RedactedField{
+			safe("GC_SIGIL_ENDPOINT", c.SigilEndpoint), safe("GC_SIGIL_TENANT_ID", c.SigilTenantID),
+			secret("GC_SIGIL_TOKEN", c.SigilToken),
+		}},
 		{Title: "Mode & cadence", Fields: []RedactedField{
 			safe("DRY_RUN", boolStr(c.DryRun)), safe("TICK_DEFAULT", c.MasterTick.String()),
 			safe("TICK_TIMEOUT", c.TickTimeout.String()), safe("SERIES_CAP", itoa(c.SeriesCap)),

@@ -1,0 +1,150 @@
+# grafana-ai-o11y — the full Grafana AI Observability (sigil) experience.
+#
+# Models a fleet of AI agents emitting the three concurrent sigil lanes, keyed by conversation_id:
+#   A) native generation/workflow-step/score ingest (the AI-Observability conversations + content)
+#   B) OTel gen_ai-semconv traces (Tempo)            C) gen_ai_client_*/sigil_eval_* metrics (Mimir)
+# Two fleets reproduce the two faces of the product (validated against real captures, 2026-06-30):
+#   - CODING agents (sdk-go): claude-code (+subagents) + codex — service.name=sigil, huge cache-read /
+#     tiny fresh-input, tool_use-dominant turns, fs/shell tools. No evals.
+#   - GENERAL agents (sdk-python) running in an ecommerce-style EKS estate: a multi-agent orchestrator,
+#     an autonomous SOC triage loop, a multi-turn travel assistant, and a single-shot title utility —
+#     service.name=chatservice, with online evaluators/rules producing scores.
+# Sigil is SUBSTRATE-scoped (no blueprint selector label — the ingest proto has no field for it;
+# agents disambiguate by service.name/agent_name/conversation_id). Contract: signals/sigil.md.
+#
+# The EKS cluster is the real hosting context for the general fleet (the emea ecommerce demo runs the
+# chatservice in-cluster); the coding fleet's emitted resource is the bare sigil form regardless.
+# Customer identity is generic/fictional. Requires the GC_SIGIL_* triplet (see .env.example) for the
+# generation lane; gen_ai traces+metrics flow via GC_OTLP_ENDPOINT/GC_PROM_* (point them at the SAME
+# stack as GC_SIGIL_ENDPOINT so conversations, traces, and metrics correlate).
+name: grafana-ai-o11y
+label: grafana-ai-o11y
+shape: business_hours_plateau
+timezone: Europe/London
+metadata:
+  description: "The full Grafana AI Observability (sigil) experience: coding agents (claude-code+subagents, codex) and general agents (multi-agent orchestration, autonomous SOC triage, multi-turn travel, single-shot title) emitting native sigil generations + gen_ai OTLP traces + gen_ai_client_*/sigil_eval_* metrics, with online evaluators."
+  owner: ai-observability
+  category: showcase
+  tags: [ai, sigil, ai-observability, gen_ai, coding-agents, llm, evals]
+  links:
+    signals: ./signals/sigil.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    production: true
+    cloud:
+      provider: aws
+      account_id: "418000000077"
+      region: us-east-2
+      vpc_id: vpc-0aio11y0001
+    cluster:
+      type: eks
+      name: appenv-eks-emea-prod-cluster
+      node_groups:
+        - { name: general, instance_type: m6i.xlarge, desired: 3 }
+
+workloads:
+  # ── Coding fleet (sdk-go) — service.name=sigil, job=sigil; full content capture, no evals. ──
+  - type: ai_agent
+    name: sigil-coding-agents
+    runs_on: appenv-eks-emea-prod-cluster
+    resource:
+      service_name: sigil
+      job: sigil
+    agents:
+      - name: claude-code
+        archetype: coding_claude_code
+        sdk: sdk-go
+        provider: anthropic
+        models: [claude-opus-4-8, claude-sonnet-4-6]
+        tools: [Read, Edit, Write, Bash, Grep, Glob, Skill, Agent, TodoWrite]
+        capture_mode: full
+        version: "2.1.195"
+        subagents: [general-purpose, explore, subagent]
+        tags: { entrypoint: cli, context: work }
+        activity: { sessions_per_min: 0.5, turns_p50: 41, turns_p95: 282 }
+      - name: codex
+        archetype: coding_codex
+        sdk: sdk-go
+        provider: openai
+        models: [gpt-5.5]
+        tools: [Bash, apply_patch, spawn_agent]
+        capture_mode: full
+        tags: { entrypoint: codex }
+        activity: { sessions_per_min: 0.1, turns_p50: 20, turns_p95: 90 }
+
+  # ── General fleet (sdk-python) — service.name=chatservice in the ecommerce EKS estate; evals on. ──
+  - type: ai_agent
+    name: sigil-general-agents
+    runs_on: appenv-eks-emea-prod-cluster
+    resource:
+      service_name: chatservice
+      service_namespace: ecommerce-prod
+      service_version: v3.89.1
+      deployment_environment: production
+      k8s_cluster: appenv-eks-emea-prod-cluster
+      k8s_namespace: ecommerce-prod
+      k8s_deployment: chatservice
+      cloud_region: us-east-2
+    agents:
+      - name: general_agent
+        archetype: general_orchestration
+        sdk: sdk-python
+        provider: openai
+        models: [gpt-4.1-nano, gpt-4o-mini]
+        streaming: true
+        tools: [call_product_agent, call_cart_agent]
+        # Peer sub-agents the orchestrator delegates to. Each delegation spawns a sub-agent
+        # generation under its OWN agent_name, parented to the orchestrator generation (the true
+        # fan-out call tree, not a linear turn chain) — and advertised on the agents.base envelope
+        # span as agent.peer_agents. The aio11y catalog shows product_agent/cart_agent as distinct
+        # agents with the orchestrator as their parent.
+        subagents: [product_agent, cart_agent]
+        capture_mode: no_tool_content
+        activity: { sessions_per_min: 6, turns_p50: 6, turns_p95: 25 }
+      - name: soc-analyst
+        archetype: general_autonomous_loop
+        sdk: sdk-python
+        provider: anthropic
+        models: [claude-sonnet-4-6]
+        tools: [get_message, check_sender_auth, analyze_links, inspect_attachments, submit_verdict]
+        capture_mode: full
+        tags: { team: secops }
+        activity: { sessions_per_min: 0.5, turns_p50: 4, turns_p95: 6 }
+      - name: db-travel-agent
+        archetype: general_multiturn
+        sdk: sdk-python
+        provider: anthropic
+        models: [claude-sonnet-4-6]
+        tools: [find_train_connections]
+        capture_mode: full
+        tags: { region: eu, team: travel }
+        activity: { sessions_per_min: 1, turns_p50: 3, turns_p95: 6 }
+      - name: title_generator
+        archetype: general_single_shot
+        sdk: sdk-python
+        provider: openai
+        models: [gpt-4o-mini]
+        capture_mode: no_tool_content
+        activity: { sessions_per_min: 8, turns_p50: 1, turns_p95: 1 }
+    evaluators:
+      - { name: ecommerce.helpfulness, kind: llm_judge, score_key: ecommerce_helpfulness_score, value_type: number, threshold: 4, judge_model: claude-haiku-4-5, judge_provider: bedrock }
+      - { name: prompt_injection_attempt, kind: llm_judge, score_key: prompt_injection_detected, value_type: bool, judge_model: claude-haiku-4-5, judge_provider: bedrock }
+      - { name: toxicity_detection, kind: heuristic, score_key: toxicity, value_type: bool }
+      - { name: triage_evidence_grounded, kind: llm_judge, score_key: triage_evidence, value_type: number, threshold: 7, judge_model: claude-sonnet-4-6, judge_provider: bedrock }
+    rules:
+      - { name: chatservice.sampling, selector: user_visible_turn, sample_rate: 0.5, match_agent: ["general_agent"], evaluators: [ecommerce.helpfulness, prompt_injection_attempt, toxicity_detection] }
+      - { name: soc.triage_grounded, selector: all_assistant_generations, sample_rate: 1.0, match_agent: ["soc-analyst"], evaluators: [triage_evidence_grounded] }
+
+# Failure scenarios — the ai_agent workload's two AxisWorkload failure modes, targeted by the
+# workload INSTANCE name. One-shot daily windows so PRD stays green outside them (a demo driver can
+# also fire them on demand via POST /control/scenarios). signals/sigil.md [slug: sigil-failure-modes].
+#   - provider_call_error: a fraction of generations error → call_error generations + ERROR spans +
+#     error_type/error_category on gen_ai_client_operation_duration_seconds.
+#   - eval_quality_regression: online-eval scores regress → sigil_eval_score_values_total{passed=false}
+#     rate rises on the general fleet's evaluators.
+incidents:
+  - { kind: provider_call_error,     target: sigil-general-agents, at: "14:20", for: 25m, intensity: 0.30 }
+  - { kind: provider_call_error,     target: sigil-coding-agents,  at: "09:50", for: 15m, intensity: 0.20 }
+  - { kind: eval_quality_regression, target: sigil-general-agents, at: "16:40", for: 40m, intensity: 0.50 }

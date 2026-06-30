@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/sigil"
 	"github.com/rknightion/synthkit/internal/sink/faro"
 	"github.com/rknightion/synthkit/internal/sink/loki"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
@@ -28,6 +29,7 @@ type queueSet struct {
 	Profiles    *queue.Queue[pyroscope.Series]
 	RUM         *queue.Queue[faro.Payload]
 	OTLPMetrics *queue.Queue[otlp.MetricResource]
+	Sigil       *queue.Queue[sigil.Export]
 }
 
 // drainable is the lifecycle view of a queue, independent of its payload type.
@@ -89,6 +91,14 @@ func shardProfile(s pyroscope.Series) uint64 {
 func shardFaro(p faro.Payload) uint64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(p.Meta.Session.ID))
+	return h.Sum64()
+}
+
+// shardSigil routes by conversation_id so a conversation's generations reach the same ordered
+// sender (a conversation's generations should ingest in order; cross-conversation order is free).
+func shardSigil(e sigil.Export) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(e.ConvKey))
 	return h.Sum64()
 }
 
@@ -161,6 +171,11 @@ func (r *Runner) buildQueues() {
 		omo.Deadline = 2 * time.Second // Alloy applicationObservability batch cadence
 		r.queues.OTLPMetrics = queue.New[otlp.MetricResource](omo, r.sinks.OTLPMetrics.Write, shardMetricResource, nil)
 	}
+	if r.sinks.Sigil != nil {
+		so := o
+		so.Sink = "sigil"
+		r.queues.Sigil = queue.New[sigil.Export](so, r.sinks.Sigil.Write, shardSigil, nil)
+	}
 }
 
 // SetQueueObserver injects the delivery-queue backpressure observer (self-obs) into every
@@ -192,6 +207,9 @@ func (r *Runner) eachQueue() []drainable {
 	}
 	if r.queues.OTLPMetrics != nil {
 		ds = append(ds, r.queues.OTLPMetrics)
+	}
+	if r.queues.Sigil != nil {
+		ds = append(ds, r.queues.Sigil)
 	}
 	return ds
 }

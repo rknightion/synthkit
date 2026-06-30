@@ -45,6 +45,9 @@ type Sinks struct {
 	Profiles core.PyroscopeWriter
 	// OTLPMetrics is the optional native-OTLP metrics lane (nil = inert). Reuses the OTLP gateway.
 	OTLPMetrics core.OTLPMetricWriter
+	// Sigil is the optional sigil AI-Observability generation-ingest lane (nil = inert; the
+	// aiagent workload's generation lane no-ops while traces/metrics still flow).
+	Sigil core.SigilWriter
 }
 
 // Options tunes the scheduler.
@@ -426,7 +429,11 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 			return fmt.Errorf("runner: blueprint %q workload %q (%s): %w", res.Name, wi.Name, wi.Kind, err)
 		}
 		led.AddMinter(w.Minter())
-		wworld, winv := r.buildWorld(bp, wi.Kind, wi.Name, w.Signals(), res.Label, led) // workload signals are blueprint-scoped
+		wlabel := res.Label // workload signals are blueprint-scoped by default…
+		if wreg.Scope == core.ScopeSubstrate {
+			wlabel = "" // …except substrate-scoped workloads (ai_agent/sigil): no blueprint label
+		}
+		wworld, winv := r.buildWorld(bp, wi.Kind, wi.Name, w.Signals(), wlabel, led)
 		bp.workloads = append(bp.workloads, &boundWorkload{
 			workload: w,
 			kind:     wi.Kind,
@@ -463,6 +470,11 @@ func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.Sig
 	}
 	if slices.Contains(signals, core.OTLPMetrics) && r.sinks.OTLPMetrics != nil {
 		w.OTLPMetrics = &stampedOTLPMetrics{sink: r.queues.OTLPMetrics, label: label}
+	}
+	if slices.Contains(signals, core.Sigil) && r.sinks.Sigil != nil {
+		// Substrate-scoped: no blueprint stamping (the ingest proto has no label field). The queue
+		// itself satisfies core.SigilWriter; ship batches straight through.
+		w.Sigil = r.queues.Sigil
 	}
 	return w, inv
 }

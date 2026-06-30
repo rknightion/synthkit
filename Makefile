@@ -1,4 +1,4 @@
-.PHONY: build test cover vet gate race dump run docker skills-sync skills-check proto rw-proto-check pyroscope-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker e2e ci spdx-check forbidden-words hygiene secret-scan notices sbom
+.PHONY: build test cover vet gate race dump run docker skills-sync skills-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker e2e ci spdx-check forbidden-words hygiene secret-scan notices sbom
 
 GCX_CONTEXT ?= default
 
@@ -125,6 +125,11 @@ pyroscope-proto: ## regenerate vendored Pyroscope pprof + push protobuf Go types
 	protoc --go_out=. --go_opt=module=github.com/rknightion/synthkit \
 	  --proto_path=internal/sink/pyroscope/pushv1 \
 	  internal/sink/pyroscope/pushv1/push.proto
+
+sigil-proto: ## regenerate vendored sigil.v1 ingest MESSAGE types (requires protoc + protoc-gen-go; NO grpc — message-only)
+	protoc --go_out=. --go_opt=module=github.com/rknightion/synthkit \
+	  --proto_path=internal/sink/sigil/v1 \
+	  internal/sink/sigil/v1/generation_ingest.proto internal/sink/sigil/v1/evaluation_ingest.proto
 
 # (network) fail if the LATEST upstream Prometheus release changed the RW2 proto vs our pinned copy.
 # Compares original-file sha256 at the latest release against the pinned-tag original sha in PROVENANCE.md.
