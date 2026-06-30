@@ -164,7 +164,8 @@ GET routes are open; POST routes use HTTP Basic auth so the browser handles the 
 | `make blueprint-schema` | Regenerate schema artifacts from live Go types. See [blueprint-reference.md](blueprint-reference.md). |
 | `make dump` | `DRY_RUN=true go run ./cmd/synthkit -once -dump` — full series/label inventory. |
 | `make run` | `go run ./cmd/synthkit` |
-| `make docker` | `docker compose up -d --build` |
+| `make docker` | `docker compose up -d` — pulls `ghcr.io/rknightion/synthkit` and starts the stack. |
+| `make docker-build` | `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build` — build from source instead of pulling the published image. |
 | `make skills-sync` | Regenerate the cross-harness skill symlink farm (`.claude/skills`, `.agents/skills`, `AGENTS.md`) from `plugins/synthkit/skills/`. |
 | `make skills-check` | Verify the symlink farm matches the canonical source. Safe for CI. |
 | `make proto` | Regenerate vendored RW2 protobuf Go types (requires `protoc` + `protoc-gen-go`). |

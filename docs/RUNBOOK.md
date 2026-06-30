@@ -110,11 +110,11 @@ every save fails (silently except for the surfaced error — see below):
 mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data
 ```
 
-Deploy = push the change, pull on the host, rebuild, and copy the (gitignored) `.env` across:
+Deploy = push the change, pull on the host, and copy the (gitignored) `.env` across if it changed. The image is pulled from GHCR automatically (`pull_policy: always`):
 
 ```bash
 # on the host clone (e.g. /opt/synthkit):
-git pull --ff-only && docker compose up -d --build
+git pull --ff-only && docker compose up -d
 ```
 
 The host `.env` runs live (`DRY_RUN=false`) and binds `0.0.0.0:8088` **inside** the container so

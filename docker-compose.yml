@@ -1,11 +1,16 @@
 services:
   synthkit:
-    build:
-      context: .
-      args:
-        # Stamped as service.version on self-obs + profiling data. Override:
-        #   docker compose build --build-arg VERSION=$(git rev-parse --short HEAD)
-        VERSION: dev
+    # Pulls the published multi-arch image from GHCR (built + signed by CI). The default tag
+    # `latest` tracks the last tagged RELEASE; the published image already has its VERSION stamped.
+    # Override the tag in .env via SYNTHKIT_IMAGE_TAG — e.g. `main` to ride the bleeding-edge
+    # default-branch build, or `vX.Y.Z` to pin a specific release. (`latest` only exists once the
+    # first release is cut; before that, set SYNTHKIT_IMAGE_TAG=main.)
+    # To BUILD from local source instead of pulling, layer the build override:
+    #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+    image: ghcr.io/rknightion/synthkit:${SYNTHKIT_IMAGE_TAG:-latest}
+    # `latest`/`main` are mutable tags — always re-check the registry on `up` so a plain
+    # `docker compose up -d` (after `git pull`) actually picks up the newest published digest.
+    pull_policy: always
     restart: unless-stopped
     # ALL configuration + credentials come from .env (gitignored — never commit secrets here):
     #   - synthetic sinks  (GC_TOKEN, GC_PROM_RW/OTLP/LOKI …)         → the synthetic-data stack

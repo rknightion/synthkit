@@ -89,8 +89,13 @@ dump:
 run:
 	go run ./cmd/synthkit
 
+# Pull the published GHCR image (tag from SYNTHKIT_IMAGE_TAG in .env, default :latest) and run.
 docker:
-	docker compose up -d --build
+	docker compose up -d
+
+# Build the image from local source instead of pulling (layers the opt-in build override).
+docker-build:
+	docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 
 # Regenerate the cross-harness skill symlink farm (.claude/skills, .agents/skills, AGENTS.md)
 # from the canonical source under plugins/synthkit/skills/.

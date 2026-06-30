@@ -21,7 +21,7 @@ authoritative contracts live in the repo.
 2. Wire workloads → clusters and shared identity in the blueprint (the explicit wiring layer).
 3. Validate offline: `make dump` (= `DRY_RUN=true go run ./cmd/synthkit -once -dump`; needs a local
    Go toolchain) or the dockerized form
-   `docker compose build synthkit && DRY_RUN=true docker compose run --rm synthkit -once -dump`;
+   `DRY_RUN=true docker compose run --rm synthkit -once -dump`;
    diff the series inventory against `signals/`.
 4. Keep the gate green: `make gate` (build + vet + test + race; includes schema + env drift guards).
 
