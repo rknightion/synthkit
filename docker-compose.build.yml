@@ -1,0 +1,22 @@
+# Local build override — builds synthkit from source instead of pulling the published GHCR
+# image declared in docker-compose.yml. Layer it explicitly on top of the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml build synthkit
+#
+# It is deliberately NOT named docker-compose.override.yml: Compose auto-loads that file, which
+# would silently force every deploy host (which only `git pull`s, then `docker compose up -d`)
+# to rebuild from source instead of pulling the published image. Builds must be opt-in via `-f`.
+services:
+  synthkit:
+    build:
+      context: .
+      args:
+        # Stamped as service.version on self-obs + profiling data. Override:
+        #   docker compose -f docker-compose.yml -f docker-compose.build.yml build \
+        #     --build-arg VERSION=$(git rev-parse --short HEAD) synthkit
+        VERSION: dev
+    # Retag the locally-built image so it can't be confused with (or pushed as) a published
+    # GHCR artifact, and override pull_policy so `up` uses the local build rather than pulling.
+    image: synthkit:local
+    pull_policy: build

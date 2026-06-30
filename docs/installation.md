@@ -79,8 +79,11 @@ cp .env.example .env
 #    (uid 65532 = distroless nonroot; a single-file mount breaks atomic save)
 mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data
 
-# 4. Build and start
-docker compose up -d --build
+# 4. Pull the image and start
+#    The image is pulled from ghcr.io/rknightion/synthkit (SYNTHKIT_IMAGE_TAG in .env,
+#    defaults to "latest"). Set SYNTHKIT_IMAGE_TAG=main for the bleeding-edge build.
+#    Note: "latest" only exists once the first release has been cut.
+docker compose up -d
 ```
 
 The container binds the control plane on port **8088** inside the container. Host exposure is controlled by `SYNTHKIT_BIND` in `.env` (defaults to `127.0.0.1` — loopback only, safe by default). The operator UI is available at:
@@ -91,6 +94,12 @@ http://localhost:8088/control/ui
 
 !!! warning "Control plane is unauthenticated by default"
     POST routes (`/control/scenarios`, `/control/scaling`, `/control/failures`, `/control/load`) require no authentication unless `CONTROL_TOKEN` is set in `.env`. Keep the default `SYNTHKIT_BIND=127.0.0.1` unless you are on a trusted network; use an SSH tunnel or `tailscale serve` to reach it remotely.
+
+To build from source instead of pulling the published image (e.g. to test local changes):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
 
 For the full production deployment guide — including the persistent volume setup, live credential rotation, and upgrade path — see [Deployment](deployment.md).
 

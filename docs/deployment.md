@@ -28,8 +28,8 @@ The canonical deployment is Docker Compose on a persistent host. The committed `
     # Edit .env: set DRY_RUN=false and fill GC_TOKEN, GC_PROM_RW/USER,
     # GC_OTLP_ENDPOINT/USER, GC_LOKI/USER at minimum.
 
-    # 4. Start
-    docker compose up -d --build
+    # 4. Start (pulls ghcr.io/rknightion/synthkit:latest from GHCR)
+    docker compose up -d
 
     # 5. Verify
     open http://127.0.0.1:8088/control/ui
@@ -99,11 +99,26 @@ The published multi-arch image (amd64 + arm64) is at:
 ```
 ghcr.io/rknightion/synthkit:<vX.Y.Z>
 ghcr.io/rknightion/synthkit:latest
+ghcr.io/rknightion/synthkit:main
 ```
 
-Built by the [`publish.yml`](https://github.com/rknightion/synthkit/blob/main/.github/workflows/publish.yml) workflow on each release. The `VERSION` build-arg is stamped as `service.version` in self-observability and profiling data.
+Built by CI on each push to `main` and each tagged release. The image is signed with cosign and ships with SBOM and provenance attestations.
 
-To pull a specific release rather than building locally, update `docker-compose.yml` to use the image reference instead of the `build:` block.
+The `docker-compose.yml` pulls this image by default — no local build step is required. The tag is controlled by `SYNTHKIT_IMAGE_TAG` in `.env`:
+
+| Value | Image | Notes |
+|---|---|---|
+| `latest` (default) | last tagged release | Only exists once the first release has been cut. Until then, set `SYNTHKIT_IMAGE_TAG=main`. |
+| `main` | bleeding-edge default-branch build | Always available; rebuilt on every push to `main`. |
+| `vX.Y.Z` | pinned release | Use to lock a specific version. |
+
+**Building from source (opt-in).** If you need to test local changes, override the compose file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+The `VERSION` build-arg is stamped as `service.version` in self-observability and profiling data; the published image already has this stamped by CI.
 
 ---
 
@@ -112,10 +127,10 @@ To pull a specific release rather than building locally, update `docker-compose.
 ```bash
 # On the host:
 git pull --ff-only
-docker compose up -d --build
+docker compose up -d
 ```
 
-The `.env` file is gitignored and survives the pull. State in `control-state-data/` survives the restart (the compose `restart: unless-stopped` policy keeps the container running through host reboots).
+`git pull` picks up any changes to `docker-compose.yml` itself; `docker compose up -d` re-checks the registry and pulls the newest digest for the configured tag (`pull_policy: always` is set in the compose file). The `.env` file is gitignored and survives the pull. State in `control-state-data/` survives the restart (the compose `restart: unless-stopped` policy keeps the container running through host reboots).
 
 ---
 

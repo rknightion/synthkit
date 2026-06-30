@@ -64,4 +64,5 @@ Empty `GC_FM_URL` ⇒ collectors emit metrics only (no registration).
 | `DRY_RUN` | `true` (default) = no live push; flip to `false` to emit |
 | `CONTROL_TOKEN` | **secret** — HTTP Basic password (user `control`) for POST /control/*; generate `openssl rand -hex 24` |
 | `SYNTHKIT_BIND` | host port exposure; `127.0.0.1` (default, safe) or `0.0.0.0` |
+| `SYNTHKIT_IMAGE_TAG` | published GHCR image tag; default `latest` (last release); `main` for edge, `vX.Y.Z` to pin — compose-only, app ignores it |
 | `TICK_DEFAULT` | master tick cadence (default `5s`) |

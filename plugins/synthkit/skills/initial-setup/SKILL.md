@@ -72,20 +72,23 @@ existing line, so re-runs don't duplicate).
 (the container runs as uid 65532 and must own the persisted control-state volume).
 
 ## Step 6 — Dry-run gate (before any live push)
-`docker compose build synthkit && DRY_RUN=true docker compose run --rm synthkit -once -dump`
-(the explicit `build` avoids validating a stale image; `run` honours `env_file: .env` and appends
-`-once -dump` to the entrypoint). Confirm the config parses and the series inventory looks right.
-`make dump` is an equivalent **only if Go is installed locally** — the docker form is the no-toolchain
-path. Only then set `DRY_RUN false` via `set-env.sh`.
+`DRY_RUN=true docker compose run --rm synthkit -once -dump`
+(`pull_policy: always` pulls the latest image automatically; `run` honours `env_file: .env` and
+appends `-once -dump` to the entrypoint). Confirm the config parses and the series inventory looks
+right. `make dump` is an equivalent **only if Go is installed locally** — the docker form is the
+no-toolchain path. Only then set `DRY_RUN false` via `set-env.sh`.
 
 ## Step 7 — Deploy
-- **Local:** `docker compose up -d --build`.
-  (Once `ghcr.io/rknightion/synthkit` is published this becomes an `image:` pull — no build, no Go
-  toolchain. It is NOT published yet, so `--build` is required today.)
+The image is pulled from `ghcr.io/rknightion/synthkit`. Set `SYNTHKIT_IMAGE_TAG` in `.env` to
+control which tag is used: `latest` (default, last tagged release), `main` (bleeding-edge
+default-branch build), or `vX.Y.Z` to pin a release. To build from local source instead, use
+`docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
+
+- **Local:** `docker compose up -d`.
 - **Remote (aware/handoff):** synthkit deploys to a standing host via:
   `ssh <host>` → `cd <repo> && git pull --ff-only` →
   `mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data` →
-  scp the host's `.env` across → `docker compose up -d --build`.
+  scp the host's `.env` across → `docker compose up -d`.
   Set `SYNTHKIT_BIND` deliberately (loopback + SSH tunnel, or PDC, rather than `0.0.0.0` on an
   untrusted network). Full SSH automation is out of scope for v1 — guide the user through these steps.
 
