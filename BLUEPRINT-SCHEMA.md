@@ -805,6 +805,7 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `error_burst` | axis: workload |  | elevated 5xx error rate |
 | `error_spike` | axis: service |  | elevated 5xx error rate on the targeted service node |
 | `eval_quality_degraded` | axis: cloud |  | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb |
+| `eval_quality_regression` | axis: workload |  | online-eval quality regresses on the targeted ai_agent fleet — sigil_eval_score_values_total{passed=false} rate rises |
 | `fallback_storm` | axis: service |  | elevated gateway fallback rate on the targeted service node |
 | `goroutine_leak` | axis: service |  | goroutine accumulation on the targeted service node |
 | `goroutine_leak` | axis: workload |  | goroutine accumulation — raises goroutines/goroutine profile sample values |
@@ -824,6 +825,7 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `oom_kill` | axis: cluster |  | containers OOM-killed; intensity selects fraction of pods affected (low intensity ⇒ a few pods); restart count climbs, status reason OOMKilled |
 | `pod_crashloop` | axis: cluster |  | pods crash-looping; intensity selects fraction of pods affected (low intensity ⇒ a few pods); restarts climb, phase Pending not Running |
 | `portkey_scrape_degraded` | axis: cloud |  | Portkey Analytics scrape degrades — API error_rate and 4xx/5xx share climb, latency rises, and the poller falls behind (poller errors + window lag grow) |
+| `provider_call_error` | axis: workload |  | elevated provider/LLM call-error rate on the targeted ai_agent fleet — call_error generations, ERROR spans, error_type/error_category on operation_duration |
 | `replication_lag` | axis: database |  | replica falls behind primary |
 | `retry_storm` | axis: service |  | elevated gateway retry rate on the targeted service node |
 | `slow_query_storm` | axis: database |  | query latency right-tail spikes |

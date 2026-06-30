@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -32,6 +34,10 @@ type Sink struct {
 	invGenerations   atomic.Int64
 	invWorkflowSteps atomic.Int64
 	invScores        atomic.Int64
+
+	// invOpMu guards invOpNames; only written in dry-run.
+	invOpMu    sync.Mutex
+	invOpNames map[string]bool // distinct generation operation_name values
 }
 
 var jsonMarshal = protojson.MarshalOptions{UseProtoNames: true}
@@ -47,11 +53,12 @@ func New(endpoint, tenantID, token string, dryRun bool) (*Sink, error) {
 	}
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(tenantID+":"+token))
 	return &Sink{
-		endpoint: endpoint,
-		auth:     auth,
-		hc:       &http.Client{Timeout: 15 * time.Second},
-		policy:   httpretry.EmitOncePolicy(),
-		dryRun:   dryRun,
+		endpoint:   endpoint,
+		auth:       auth,
+		hc:         &http.Client{Timeout: 15 * time.Second},
+		policy:     httpretry.EmitOncePolicy(),
+		dryRun:     dryRun,
+		invOpNames: map[string]bool{},
 	}, nil
 }
 
@@ -75,6 +82,15 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 		s.invGenerations.Add(int64(len(allGens)))
 		s.invWorkflowSteps.Add(int64(len(allSteps)))
 		s.invScores.Add(int64(len(allScores)))
+		if len(allGens) > 0 {
+			s.invOpMu.Lock()
+			for _, g := range allGens {
+				if op := g.GetOperationName(); op != "" {
+					s.invOpNames[op] = true
+				}
+			}
+			s.invOpMu.Unlock()
+		}
 		return nil
 	}
 
@@ -100,12 +116,20 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 	return nil
 }
 
-// Inventory returns the dry-run counters. Only meaningful when dryRun=true.
+// Inventory returns the dry-run counters and operation names. Only meaningful when dryRun=true.
 func (s *Sink) Inventory() Inventory {
+	s.invOpMu.Lock()
+	ops := make([]string, 0, len(s.invOpNames))
+	for op := range s.invOpNames {
+		ops = append(ops, op)
+	}
+	s.invOpMu.Unlock()
+	sort.Strings(ops)
 	return Inventory{
-		Generations:   s.invGenerations.Load(),
-		WorkflowSteps: s.invWorkflowSteps.Load(),
-		Scores:        s.invScores.Load(),
+		Generations:    s.invGenerations.Load(),
+		WorkflowSteps:  s.invWorkflowSteps.Load(),
+		Scores:         s.invScores.Load(),
+		OperationNames: ops,
 	}
 }
 

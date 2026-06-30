@@ -75,3 +75,36 @@ workloads:
     endpoints:
       - { route: "GET /v2/status",        error_rate: 0.002, p95_ms: 25  }
       - { route: "POST /v2/orders",       error_rate: 0.04,  p95_ms: 260 }
+
+  # Minimal AI agent fleet — exercises all three sigil lanes (generations + workflow steps + scores).
+  # Coding agent: generates generations with tool_use turns. No evals → no scores.
+  # General agent with evaluator: generates workflow steps + scores via the online eval rule.
+  - type: ai_agent
+    name: e2e-ai-agents
+    runs_on: otlp-native-prod-euw1
+    resource:
+      service_name: e2e-agent
+      job: e2e-agent
+    agents:
+      - name: e2e-coder
+        archetype: coding_claude_code
+        sdk: sdk-go
+        provider: anthropic
+        models: [claude-sonnet-4-6]
+        tools: [Read, Bash]
+        capture_mode: full
+        # sessions_per_min=600 → expected ~50 conv/tick (5s tick) — reliably emits generations in -once.
+        activity: { sessions_per_min: 600, turns_p50: 2, turns_p95: 4 }
+      - name: e2e-orchestrator
+        archetype: general_orchestration
+        sdk: sdk-python
+        provider: openai
+        models: [gpt-4o-mini]
+        tools: [call_tool_a]
+        capture_mode: no_tool_content
+        # sessions_per_min=600 → reliably emits workflow_steps in -once; eval rule produces scores.
+        activity: { sessions_per_min: 600, turns_p50: 2, turns_p95: 3 }
+    evaluators:
+      - { name: e2e.helpfulness, kind: heuristic, score_key: e2e_helpfulness, value_type: number }
+    rules:
+      - { name: e2e.eval_rule, selector: user_visible_turn, sample_rate: 1.0, match_agent: [e2e-orchestrator], evaluators: [e2e.helpfulness] }

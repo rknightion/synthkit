@@ -541,8 +541,17 @@ func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink,
 	if sigilSink != nil {
 		si := sigilSink.Inventory()
 		fmt.Println()
-		fmt.Println("== sigil (AI Observability): native ingest batch counts ==")
-		fmt.Printf("generations=%d workflow_steps=%d scores=%d\n", si.Generations, si.WorkflowSteps, si.Scores)
+		fmt.Println("== sigil: ingest kind → operation names ==")
+		if si.Generations > 0 {
+			fmt.Printf("generations  ops=%v\n", si.OperationNames)
+		}
+		if si.WorkflowSteps > 0 {
+			fmt.Printf("workflow_steps  ops=[]\n")
+		}
+		if si.Scores > 0 {
+			fmt.Printf("scores  ops=[]\n")
+		}
+		fmt.Printf("== sigil: generations=%d workflow_steps=%d scores=%d ==\n", si.Generations, si.WorkflowSteps, si.Scores)
 	}
 
 	if profSink == nil {

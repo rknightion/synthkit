@@ -95,6 +95,12 @@ workloads:
         models: [gpt-4.1-nano, gpt-4o-mini]
         streaming: true
         tools: [call_product_agent, call_cart_agent]
+        # Peer sub-agents the orchestrator delegates to. Each delegation spawns a sub-agent
+        # generation under its OWN agent_name, parented to the orchestrator generation (the true
+        # fan-out call tree, not a linear turn chain) — and advertised on the agents.base envelope
+        # span as agent.peer_agents. The aio11y catalog shows product_agent/cart_agent as distinct
+        # agents with the orchestrator as their parent.
+        subagents: [product_agent, cart_agent]
         capture_mode: no_tool_content
         activity: { sessions_per_min: 6, turns_p50: 6, turns_p95: 25 }
       - name: soc-analyst
@@ -130,3 +136,15 @@ workloads:
     rules:
       - { name: chatservice.sampling, selector: user_visible_turn, sample_rate: 0.5, match_agent: ["general_agent"], evaluators: [ecommerce.helpfulness, prompt_injection_attempt, toxicity_detection] }
       - { name: soc.triage_grounded, selector: all_assistant_generations, sample_rate: 1.0, match_agent: ["soc-analyst"], evaluators: [triage_evidence_grounded] }
+
+# Failure scenarios — the ai_agent workload's two AxisWorkload failure modes, targeted by the
+# workload INSTANCE name. One-shot daily windows so PRD stays green outside them (a demo driver can
+# also fire them on demand via POST /control/scenarios). signals/sigil.md [slug: sigil-failure-modes].
+#   - provider_call_error: a fraction of generations error → call_error generations + ERROR spans +
+#     error_type/error_category on gen_ai_client_operation_duration_seconds.
+#   - eval_quality_regression: online-eval scores regress → sigil_eval_score_values_total{passed=false}
+#     rate rises on the general fleet's evaluators.
+incidents:
+  - { kind: provider_call_error,     target: sigil-general-agents, at: "14:20", for: 25m, intensity: 0.30 }
+  - { kind: provider_call_error,     target: sigil-coding-agents,  at: "09:50", for: 15m, intensity: 0.20 }
+  - { kind: eval_quality_regression, target: sigil-general-agents, at: "16:40", for: 40m, intensity: 0.50 }

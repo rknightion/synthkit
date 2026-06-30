@@ -6,10 +6,12 @@
 // NO gRPC; NO OTel SDK.
 package sigil
 
-// Inventory records dry-run counts for the three export resource types.
+// Inventory records dry-run counts and operation names for the three export resource types.
 // It is returned by Sink.Inventory() and surfaced by printInventory in cmd/synthkit.
+// OperationNames is the distinct set of operation_name values seen across all generations.
 type Inventory struct {
-	Generations   int64
-	WorkflowSteps int64
-	Scores        int64
+	Generations    int64
+	WorkflowSteps  int64
+	Scores         int64
+	OperationNames []string // sorted distinct operation_name values from generations
 }

@@ -109,15 +109,18 @@ func TestDockerE2E(t *testing.T) {
 			},
 			Networks: []string{net.Name},
 			Env: map[string]string{
-				"DRY_RUN":          "false",
-				"GC_TOKEN":         "e2e",
-				"GC_PROM_RW":       "http://receiver:9099/api/v1/write",
-				"GC_PROM_USER":     "e2e",
-				"GC_OTLP_ENDPOINT": "http://receiver:9099",
-				"GC_OTLP_USER":     "e2e",
-				"GC_LOKI":          "http://receiver:9099/loki/api/v1/push",
-				"GC_LOKI_USER":     "e2e",
-				"BLUEPRINTS":       "/app/blueprints-e2e",
+				"DRY_RUN":              "false",
+				"GC_TOKEN":             "e2e",
+				"GC_PROM_RW":           "http://receiver:9099/api/v1/write",
+				"GC_PROM_USER":         "e2e",
+				"GC_OTLP_ENDPOINT":     "http://receiver:9099",
+				"GC_OTLP_USER":         "e2e",
+				"GC_LOKI":              "http://receiver:9099/loki/api/v1/push",
+				"GC_LOKI_USER":         "e2e",
+				"GC_SIGIL_ENDPOINT":    "http://receiver:9099",
+				"GC_SIGIL_TENANT_ID":   "e2e",
+				"GC_SIGIL_TOKEN":       "e2e",
+				"BLUEPRINTS":           "/app/blueprints-e2e",
 			},
 			Files: []testcontainers.ContainerFile{
 				{
@@ -169,13 +172,13 @@ func TestDockerE2E(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&received); err != nil {
 		t.Fatalf("decode inventory JSON: %v", err)
 	}
-	t.Logf("received: %d metrics, %d log sources, %d trace services",
-		len(received.Metrics), len(received.LogSources), len(received.Traces))
+	t.Logf("received: %d metrics, %d log sources, %d trace services, %d sigil kinds",
+		len(received.Metrics), len(received.LogSources), len(received.Traces), len(received.Sigil))
 
 	// ── 4. Build the expected schema from -dump on the host ───────────────────
 	expected := dumpSchema(t)
-	t.Logf("expected (from -dump): %d metrics, %d log sources, %d trace services",
-		len(expected.Metrics), len(expected.LogSources), len(expected.Traces))
+	t.Logf("expected (from -dump): %d metrics, %d log sources, %d trace services, %d sigil kinds",
+		len(expected.Metrics), len(expected.LogSources), len(expected.Traces), len(expected.Sigil))
 
 	// ── 5. Correlation: every -dump-declared name must be present in received ──
 	// received is a SUPERSET (it also captures native OTLP metric names not in
@@ -185,8 +188,8 @@ func TestDockerE2E(t *testing.T) {
 		t.Fatalf("telemetry declared by -dump but NOT received (%d entries):\n  %s",
 			len(missing), strings.Join(missing, "\n  "))
 	}
-	t.Logf("PASS: all %d declared metrics + %d log sources + %d trace services received",
-		len(expected.Metrics), len(expected.LogSources), len(expected.Traces))
+	t.Logf("PASS: all %d declared metrics + %d log sources + %d trace services + %d sigil kinds received",
+		len(expected.Metrics), len(expected.LogSources), len(expected.Traces), len(expected.Sigil))
 }
 
 // dumpSchema runs `go run ../cmd/synthkit -once -dump` with DRY_RUN=true and a

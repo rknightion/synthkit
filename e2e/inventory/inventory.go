@@ -19,6 +19,11 @@ type Schema struct {
 	// format cannot faithfully encode space-containing span names, so Subset compares trace
 	// SERVICES, not spans).
 	Traces map[string][]string
+	// Sigil: ingest kind → sorted operation_name list (generations, workflow_steps, scores).
+	// Floor correlation is key presence only (non-empty kind was seen). Operation names are
+	// recorded under the "generations" key and are informational only — Subset correlates at
+	// the kind level, not the operation-name level.
+	Sigil map[string][]string
 }
 
 func newSchema() Schema {
@@ -26,6 +31,7 @@ func newSchema() Schema {
 		Metrics:    map[string][]string{},
 		LogSources: map[string][]string{},
 		Traces:     map[string][]string{},
+		Sigil:      map[string][]string{},
 	}
 }
 
@@ -59,6 +65,9 @@ func ParseDump(r io.Reader) (Schema, error) {
 			continue
 		case strings.HasPrefix(line, "== traces:"):
 			section = "traces"
+			continue
+		case strings.HasPrefix(line, "== sigil:"):
+			section = "sigil"
 			continue
 		case strings.HasPrefix(line, "== metrics:") || strings.HasPrefix(line, "=== PYROSCOPE"):
 			section = "" // count/footer lines
@@ -102,6 +111,17 @@ func ParseDump(r io.Reader) (Schema, error) {
 			if spans, ok := strings.CutPrefix(t, "spans="); ok {
 				out.Traces[curService] = bracketList(spans)
 			}
+		case "sigil":
+			// "kind  ops=[op1 op2]" — kind is one of generations|workflow_steps|scores.
+			// The ops list may be empty ("ops=[]") for kinds that carry no operation name.
+			i := strings.Index(line, "  ops=")
+			if i < 0 {
+				continue
+			}
+			kind := strings.TrimSpace(line[:i])
+			rest := line[i+len("  ops="):]
+			ops := bracketList(rest)
+			out.Sigil[kind] = ops
 		}
 	}
 	if err := sc.Err(); err != nil {
@@ -129,6 +149,13 @@ func (s Schema) Subset(of Schema) []string {
 		// OTLP protos (not via ParseDump), so span sets are not comparable across sides.
 		if _, ok := of.Traces[svc]; !ok {
 			missing = append(missing, "trace service: "+svc)
+		}
+	}
+	for kind := range s.Sigil {
+		// Kind-level correlation: if -dump declared a sigil kind, the receiver must have
+		// seen at least one request for it. Operation-name contents are not compared.
+		if _, ok := of.Sigil[kind]; !ok {
+			missing = append(missing, "sigil: "+kind)
 		}
 	}
 	sort.Strings(missing)

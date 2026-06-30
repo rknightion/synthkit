@@ -88,8 +88,9 @@ func TestCodexArchetype(t *testing.T) {
 	}
 }
 
-// TestOrchestrationArchetype: sub-agent generations carry ParentGenerationIDs + a WorkflowStep is
-// emitted.
+// TestOrchestrationArchetype: TRUE fan-out — orchestrator turns carry NO parent_generation_ids;
+// sub-agent generations exist under DISTINCT agent_names drawn from the declared peers, each
+// parented to an orchestrator generation; and a WorkflowStep is emitted (R-orch1).
 func TestOrchestrationArchetype(t *testing.T) {
 	agent := generalOrchAgent()
 	agent.Activity.TurnsP50 = 4 // ensure >1 turn
@@ -99,16 +100,53 @@ func TestOrchestrationArchetype(t *testing.T) {
 	r.Model = agent.Models[0]
 	gens, steps, _, _ := buildConversation(ResourceID{ServiceName: "chatservice"}, agent, r)
 	if len(gens) < 2 {
-		t.Skipf("only %d turns; need ≥2 to assert parent ids", len(gens))
+		t.Fatalf("only %d generations; expected orchestrator turns + sub-agent fan-out", len(gens))
 	}
-	for i := 1; i < len(gens); i++ {
-		if len(gens[i].ParentGenerationIDs) == 0 {
-			t.Fatalf("turn %d: expected ParentGenerationIDs set", i)
-		}
-		if gens[i].ParentGenerationIDs[0] != gens[i-1].ID {
-			t.Fatalf("turn %d: parent=%v, want %s", i, gens[i].ParentGenerationIDs, gens[i-1].ID)
+
+	// Partition into orchestrator gens (agent_name == the declared orchestrator) and sub-agent gens.
+	peers := map[string]bool{}
+	for _, p := range agent.Subagents {
+		peers[p] = true
+	}
+	orchByID := map[string]bool{}
+	var subAgentCount int
+	for i := range gens {
+		switch {
+		case gens[i].AgentName == agent.Name:
+			orchByID[gens[i].ID] = true
+			// Orchestrator turns are tree ROOTS: no parent ids (no linear chain).
+			if len(gens[i].ParentGenerationIDs) != 0 {
+				t.Fatalf("orchestrator gen %s: unexpected ParentGenerationIDs %v (should be a tree root)",
+					gens[i].ID, gens[i].ParentGenerationIDs)
+			}
+		case peers[gens[i].AgentName]:
+			subAgentCount++
+			if gens[i].AgentVersion != "" {
+				t.Fatalf("sub-agent %s: AgentVersion=%q, want empty", gens[i].AgentName, gens[i].AgentVersion)
+			}
+			if len(gens[i].ParentGenerationIDs) != 1 {
+				t.Fatalf("sub-agent %s: ParentGenerationIDs=%v, want exactly one parent",
+					gens[i].AgentName, gens[i].ParentGenerationIDs)
+			}
+		default:
+			t.Fatalf("gen %s has unexpected agent_name %q (not orchestrator nor a declared peer)",
+				gens[i].ID, gens[i].AgentName)
 		}
 	}
+	if subAgentCount < len(agent.Subagents) {
+		t.Fatalf("got %d sub-agent generations, want ≥%d (turn-0 fan-out to every peer)",
+			subAgentCount, len(agent.Subagents))
+	}
+	// Every sub-agent parent must reference a real orchestrator generation.
+	for i := range gens {
+		if peers[gens[i].AgentName] {
+			if !orchByID[gens[i].ParentGenerationIDs[0]] {
+				t.Fatalf("sub-agent %s parent %s is not an orchestrator generation",
+					gens[i].AgentName, gens[i].ParentGenerationIDs[0])
+			}
+		}
+	}
+
 	if len(steps) == 0 {
 		t.Fatal("orchestration: expected a WorkflowStep")
 	}

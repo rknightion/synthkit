@@ -28,6 +28,8 @@ const (
 	labelAgentName     = "agent_name"
 	labelAgentVersion  = "agent_version"
 	labelGenAIToolName = "gen_ai_tool_name"
+	labelErrorType     = "error_type"     // operation_duration on failure only (signals/sigil.md)
+	labelErrorCategory = "error_category" // operation_duration on failure only (sigil-extended)
 )
 
 // toolCallsBuckets / ttfbBuckets are advisory (v: assumed) buckets for the sigil-lane histograms.
@@ -60,8 +62,15 @@ func accumulate(st *state.State, o metricObs) {
 	observeToken(st, idLabels, sigil.TokenCacheWrite, o.cacheWriteTok)
 	observeToken(st, idLabels, sigil.TokenReasoning, o.reasoningTokens)
 
-	// operation duration (identity labels).
-	st.Observe(metricOpDuration, idLabels, genai.OpDurationBuckets, state.LEDotZero, o.opDurationSec)
+	// operation duration. On a provider call error the series carries error_type/error_category
+	// (a DISTINCT series from the success path); absent on success (I13 — never empty-valued labels).
+	opLabels := idLabels
+	if o.errorType != "" {
+		opLabels = cloneLabels(idLabels)
+		opLabels[labelErrorType] = o.errorType
+		opLabels[labelErrorCategory] = o.errorCategory
+	}
+	st.Observe(metricOpDuration, opLabels, genai.OpDurationBuckets, state.LEDotZero, o.opDurationSec)
 
 	// tool-calls-per-operation count.
 	st.Observe(metricToolCalls, idLabels, toolCallsBuckets, state.LEDotZero, float64(o.toolCalls))

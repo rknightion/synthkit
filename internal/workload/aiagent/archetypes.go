@@ -63,13 +63,11 @@ func applyCodex(gens []sigil.Generation) {
 	}
 }
 
-// applyOrchestration sets ParentGenerationIDs on sub-agent (non-first) generations so the multi-turn
-// fan-out forms a call tree (turn N parents to turn N-1), and emits one WorkflowStep modelling the
-// framework orchestration node.
+// applyOrchestration emits one WorkflowStep modelling the framework orchestration node. The TRUE
+// fan-out call tree (sub-agent generations parented to the orchestrator turn that delegates to them)
+// is built separately by buildOrchestrationFanout — orchestrator turns themselves carry NO
+// parent_generation_ids (they are the roots of the tree, not a linear chain; R-orch1).
 func applyOrchestration(agent AgentDecl, r *ledger.Request, gens []sigil.Generation, arts []turnArtifacts) []sigil.WorkflowStep {
-	for i := 1; i < len(gens); i++ {
-		gens[i].ParentGenerationIDs = []string{gens[i-1].ID}
-	}
 	if len(gens) == 0 {
 		return nil
 	}

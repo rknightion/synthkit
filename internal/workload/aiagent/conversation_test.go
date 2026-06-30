@@ -95,8 +95,10 @@ func TestBuildConversationShapeDeterministic(t *testing.T) {
 	}
 }
 
-// TestGenTraceSpanEqualsRootSpan: gen.TraceID == its root span TraceID and gen.SpanID == root span
-// SpanID for every turn (R-B2 load-bearing invariant).
+// TestGenTraceSpanEqualsRootSpan: every generation's (TraceID, SpanID) identifies the root LLM
+// CLIENT span carrying its sigil.generation.id (R-B2 load-bearing invariant). Keyed by generation
+// id — NOT one-per-trace — because orchestration fan-out places sub-agent generations in the same
+// trace as their orchestrator turn (each still owns a distinct root span).
 func TestGenTraceSpanEqualsRootSpan(t *testing.T) {
 	for _, agent := range []AgentDecl{codingAgent(), generalOrchAgent()} {
 		r := fixedReq("conv-ids-1", 90*time.Second)
@@ -104,25 +106,25 @@ func TestGenTraceSpanEqualsRootSpan(t *testing.T) {
 		if len(gens) == 0 {
 			t.Fatalf("agent %s: no generations", agent.Name)
 		}
-		// Index root spans by (traceID -> spanID) for the generateText/streamText CLIENT spans.
-		rootBy := map[string]string{} // traceID -> rootSpanID (the LLM-call CLIENT span)
+		// Index the LLM-call CLIENT spans (the only spans carrying sigil.generation.id) by that id.
+		type span struct{ trace, id string }
+		rootByGen := map[string]span{}
 		for _, res := range resources {
 			for _, sp := range res.Spans {
-				if sp.Name == spanName(gens[0].OperationName, gens[0].Model) {
-					// The LLM-call CLIENT span carries the sigil.generation.id attr.
-					if _, ok := sp.Attrs["sigil.generation.id"]; ok {
-						rootBy[sp.TraceID] = sp.SpanID
-					}
+				if gid, ok := sp.Attrs["sigil.generation.id"].(string); ok {
+					rootByGen[gid] = span{sp.TraceID, sp.SpanID}
 				}
 			}
 		}
 		for i, g := range gens {
-			rootSpan, ok := rootBy[g.TraceID]
+			root, ok := rootByGen[g.ID]
 			if !ok {
-				t.Fatalf("agent %s turn %d: no root span with gen.TraceID=%s", agent.Name, i, g.TraceID)
+				t.Fatalf("agent %s gen %d (%s/%s): no root span carrying its sigil.generation.id",
+					agent.Name, i, g.AgentName, g.ID)
 			}
-			if rootSpan != g.SpanID {
-				t.Fatalf("agent %s turn %d: gen.SpanID=%s != root span id=%s", agent.Name, i, g.SpanID, rootSpan)
+			if root.trace != g.TraceID || root.id != g.SpanID {
+				t.Fatalf("agent %s gen %d (%s): root span (%s,%s) != gen (%s,%s)",
+					agent.Name, i, g.AgentName, root.trace, root.id, g.TraceID, g.SpanID)
 			}
 		}
 	}

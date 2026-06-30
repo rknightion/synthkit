@@ -43,7 +43,8 @@ func Registration() core.WorkloadReg {
 		// Substrate-scoped: sigil data carries no blueprint selector label (real sigil data has
 		// none; the ingest proto has no field for it). Disambiguation is by service.name/agent_name/
 		// conversation_id — like other substrate constructs. The runner stamps no blueprint label.
-		Scope: core.ScopeSubstrate,
+		Scope:        core.ScopeSubstrate,
+		FailureModes: FailureModes,
 	}
 }
 
@@ -118,6 +119,12 @@ func (w *Workload) ProjectBatch(ctx context.Context, now time.Time, world *core.
 	var exports []sigil.Export
 	var resources []otlp.Resource
 
+	// Resolve the active failure intensities once for this batch instant + scope (UNION of scheduled
+	// incidents + live control-plane state); 0 ⇒ inactive. Drives provider_call_error (per-generation
+	// call errors → ERROR spans + error_type/error_category metric labels) and eval_quality_regression
+	// (biases eval scores downward).
+	fc := w.resolveFailures(now, world.Shape)
+
 	for _, r := range batch {
 		agent, ok := w.agentByName(r.Route)
 		if !ok {
@@ -127,12 +134,16 @@ func (w *Workload) ProjectBatch(ctx context.Context, now time.Time, world *core.
 		if len(gens) == 0 {
 			continue
 		}
+		// Failure mode: mark a deterministic fraction of generations as provider call errors (mutates
+		// gens/spans/obs in place) before the lanes are accumulated/exported.
+		applyProviderErrors(fc, gens, spans, obs)
 		// Lane C: accumulate per-turn observations into the workload state (flushed by Tick).
 		for _, o := range obs {
 			accumulate(w.st, o)
 		}
-		// Evals: score sampled generations → Lane A scores + sigil_eval_* observations.
-		scores := w.evals.scoreConversation(agent, gens, w.st)
+		// Evals: score sampled generations → Lane A scores + sigil_eval_* observations. Under an
+		// eval_quality_regression the scores are biased toward failing (passed=false rate rises).
+		scores := w.evals.scoreConversation(agent, gens, w.st, fc.evalRegress)
 
 		exports = append(exports, sigil.Export{
 			Generations:   gens,

@@ -97,7 +97,7 @@ func codingTurnSpans(agent AgentDecl, r *ledger.Request, gen sigil.Generation, a
 //	sigil.<agent>     execute_tool <tool>     INTERNAL (children of the LLM call)
 //	openai_v2         chat <model>            CLIENT   (openai only; child of the LLM call)
 func generalTurnSpans(agent AgentDecl, r *ledger.Request, gen sigil.Generation, art turnArtifacts, _ sigil.AssembledTurn) (envelope, llm, openai []otlp.Span) {
-	envSpanID := ledger.NewSpanID()
+	envSpanID := art.envSpanID // pre-minted in slotTurns so fan-out sub-agent spans parent here (R-orch1)
 	envStart, envEnd := art.start, art.end
 
 	envAttrs := map[string]any{

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package receiver is the e2e sidecar: it decodes every synthkit egress lane (RW2 metrics,
-// OTLP traces, OTLP metrics, Loki logs) into an inventory.Schema for -dump correlation. It is
-// a TEST harness — not on the synthetic-data path — so it may import the sinks + otlp proto.
+// OTLP traces, OTLP metrics, Loki logs, sigil native ingest) into an inventory.Schema for
+// -dump correlation. It is a TEST harness — not on the synthetic-data path — so it may import
+// the sinks + otlp proto + sigilv1.
 package receiver
 
 import (
@@ -17,20 +18,24 @@ import (
 	"github.com/golang/snappy"
 	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/rknightion/synthkit/e2e/inventory"
 	writev2 "github.com/rknightion/synthkit/internal/sink/promrw/writev2"
+	sigilv1 "github.com/rknightion/synthkit/internal/sink/sigil/v1"
 )
 
 // Receiver accepts each synthkit egress lane over HTTP and accumulates the schema
-// (metric names + label keys, log sources + stream-label keys, trace services + span names).
+// (metric names + label keys, log sources + stream-label keys, trace services + span names,
+// sigil ingest kinds + operation names).
 type Receiver struct {
 	mu      sync.Mutex
 	metrics map[string]map[string]bool // name → label-key set
 	logs    map[string]map[string]bool // source → stream-key set
 	traces  map[string]map[string]bool // service → span-name set
+	sigil   map[string]map[string]bool // ingest kind → operation-name set
 }
 
 // New returns a zero-state Receiver ready to use.
@@ -39,6 +44,7 @@ func New() *Receiver {
 		metrics: map[string]map[string]bool{},
 		logs:    map[string]map[string]bool{},
 		traces:  map[string]map[string]bool{},
+		sigil:   map[string]map[string]bool{},
 	}
 }
 
@@ -61,6 +67,10 @@ func (r *Receiver) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/traces", r.handleTraces)
 	mux.HandleFunc("POST /v1/metrics", r.handleOTLPMetrics)
 	mux.HandleFunc("POST /loki/api/v1/push", r.handleLoki)
+	// Sigil native-ingest lanes (plain protojson, no gzip).
+	mux.HandleFunc("POST /api/v1/generations:export", r.handleSigilGenerations)
+	mux.HandleFunc("POST /api/v1/workflow-steps:export", r.handleSigilWorkflowSteps)
+	mux.HandleFunc("POST /api/v1/scores:export", r.handleSigilScores)
 	mux.HandleFunc("GET /__inventory", r.handleInventory)
 	return mux
 }
@@ -258,6 +268,69 @@ func (r *Receiver) handleLoki(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleSigilGenerations decodes a plain protojson ExportGenerationsRequest.
+func (r *Receiver) handleSigilGenerations(w http.ResponseWriter, req *http.Request) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	var pb sigilv1.ExportGenerationsRequest
+	if err := protojson.Unmarshal(body, &pb); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, g := range pb.GetGenerations() {
+		op := g.GetOperationName()
+		add(r.sigil, "generations", op)
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleSigilWorkflowSteps decodes a plain protojson ExportWorkflowStepsRequest.
+func (r *Receiver) handleSigilWorkflowSteps(w http.ResponseWriter, req *http.Request) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	var pb sigilv1.ExportWorkflowStepsRequest
+	if err := protojson.Unmarshal(body, &pb); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// Record presence; workflow steps have no operation_name equivalent.
+	if len(pb.GetWorkflowSteps()) > 0 {
+		add(r.sigil, "workflow_steps")
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleSigilScores decodes a plain protojson ExportScoresRequest.
+func (r *Receiver) handleSigilScores(w http.ResponseWriter, req *http.Request) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	var pb sigilv1.ExportScoresRequest
+	if err := protojson.Unmarshal(body, &pb); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// Record presence; scores have no operation_name equivalent.
+	if len(pb.GetScores()) > 0 {
+		add(r.sigil, "scores")
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 // Snapshot returns a point-in-time copy of the accumulated Schema.
 func (r *Receiver) Snapshot() inventory.Schema {
 	r.mu.Lock()
@@ -266,6 +339,7 @@ func (r *Receiver) Snapshot() inventory.Schema {
 		Metrics:    map[string][]string{},
 		LogSources: map[string][]string{},
 		Traces:     map[string][]string{},
+		Sigil:      map[string][]string{},
 	}
 	flatten := func(src map[string]map[string]bool, dst map[string][]string) {
 		for k, set := range src {
@@ -280,6 +354,7 @@ func (r *Receiver) Snapshot() inventory.Schema {
 	flatten(r.metrics, out.Metrics)
 	flatten(r.logs, out.LogSources)
 	flatten(r.traces, out.Traces)
+	flatten(r.sigil, out.Sigil)
 	return out
 }
 

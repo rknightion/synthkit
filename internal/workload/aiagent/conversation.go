@@ -33,6 +33,11 @@ type metricObs struct {
 	toolCalls     int
 	ttfbSec       float64 // time-to-first-token (streaming only; 0 ⇒ not observed)
 
+	// error_type / error_category for a failed generation (provider_call_error failure mode). Both
+	// empty ⇒ success: the operation_duration observation carries NO error labels (I13).
+	errorType     string
+	errorCategory string
+
 	// per-tool execute_tool durations, keyed by tool name.
 	toolDurations []toolDur
 }
@@ -43,10 +48,14 @@ type toolDur struct {
 }
 
 // turnArtifacts is the per-turn root id triple shared by Lane A (Generation.TraceID/SpanID) and
-// Lane B (the root generateText/streamText span). One source per turn.
+// Lane B (the root generateText/streamText span). One source per turn. envSpanID is the general
+// archetype's `agents.base` envelope span id for the turn — minted here (not inside traces.go) so
+// the orchestration fan-out can parent sub-agent spans under the SAME envelope (R-orch1). Coding
+// turns ignore it.
 type turnArtifacts struct {
 	traceID    string
 	rootSpanID string
+	envSpanID  string
 	start, end time.Time
 }
 
@@ -87,13 +96,24 @@ func buildConversation(res ResourceID, agent AgentDecl, r *ledger.Request) (gens
 		allObs = append(allObs, observeForTurn(agent, gen, art, op))
 	}
 
-	// Per-archetype layer: stamp metadata, wire parent_generation_ids / workflow steps, enforce
-	// single-shot / terminal-verdict invariants (in place on gens; may append steps).
+	// Per-archetype layer: stamp metadata, wire workflow steps, enforce single-shot / terminal-verdict
+	// invariants (in place on gens; may append steps).
 	steps = applyArchetype(agent, r, gens, arts)
 
-	// Lane B span tree (per-turn) — built from the same per-turn artifacts + generations (after the
-	// archetype layer so parent_generation_ids land on the spans too).
+	// Lane B span tree for the orchestrator / normal turns — built from the same per-turn artifacts +
+	// generations (after the archetype layer so parent_generation_ids land on the spans too).
 	spans = buildTraceResources(res, agent, r, gens, arts, assembled)
+
+	// True orchestration fan-out (general_orchestration): spawn sub-agent generations under distinct
+	// agent_names, parented to the orchestrator turn that delegates to them, with their own Lane B
+	// spans (sigil.<peer> scope) + Lane C observations. No-op for every other archetype (R-orch1).
+	if subs := buildOrchestrationFanout(agent, r, gens, arts); len(subs) > 0 {
+		spans = append(spans, subAgentResources(res, agent, r, subs)...)
+		for i := range subs {
+			gens = append(gens, subs[i].gen)
+			allObs = append(allObs, subs[i].obs)
+		}
+	}
 
 	return gens, steps, spans, allObs
 }
@@ -125,6 +145,7 @@ func slotTurns(r *ledger.Request, n int) []turnArtifacts {
 		out[i] = turnArtifacts{
 			traceID:    ledger.NewTraceID(),
 			rootSpanID: ledger.NewSpanID(),
+			envSpanID:  ledger.NewSpanID(),
 			start:      ts,
 			end:        te,
 		}
