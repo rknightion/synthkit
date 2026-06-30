@@ -14,5 +14,10 @@ export default defineConfig(({ command }) => ({
     environment: "jsdom",
     globals: true,
     setupFiles: ["src/test/setup.ts"],
+    // Restore spies (vi.spyOn) to their originals before each test. vitest v4 no
+    // longer resets spy call history between tests, so without this a spy's
+    // mock.calls leaks across tests in the same file (e.g. store.test.ts's
+    // polling assertion saw 44 leaked getJSON calls from earlier tests).
+    restoreMocks: true,
   },
 }));
