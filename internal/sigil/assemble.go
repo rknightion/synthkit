@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	randv2 "math/rand/v2"
 )
 
 // AssembledTurn is one fully-assembled conversation turn, ready for the aiagent workload to
@@ -33,11 +33,11 @@ type AssembledTurn struct {
 // (corrected per review B1 — the SHAPE is deterministic, not individual conversation content).
 //
 // Constraints:
-//   - Uses a seeded *rand.Rand (never global math/rand; I12).
+//   - Uses a seeded math/rand/v2 generator (never the global RNG; I12), matching internal/shape.
 //   - stdlib only (no OTel SDK, no grpc).
 //   - NO "scenario" literal anywhere (TestCatalogIsDeCustomerized).
 func AssembleConversation(seed uint64, archetype string, turns int) []AssembledTurn {
-	rng := rand.New(rand.NewSource(int64(seed))) //nolint:gosec // seeded, not crypto
+	rng := randv2.New(randv2.NewPCG(seed, seed^0x9e3779b97f4a7c15))
 	recs, err := LoadCorpus(archetype)
 	if err != nil || len(recs) == 0 {
 		// Corpus load failure → return minimal assembled turns so callers never get nil.
@@ -60,7 +60,7 @@ func AssembleConversation(seed uint64, archetype string, turns int) []AssembledT
 
 	systemPrompt := ""
 	if len(systemPromptRecs) > 0 {
-		systemPrompt = systemPromptRecs[rng.Intn(len(systemPromptRecs))].Text
+		systemPrompt = systemPromptRecs[rng.IntN(len(systemPromptRecs))].Text
 	}
 
 	isSingleShot := archetype == ArchetypeGeneralSingleShot
@@ -74,7 +74,7 @@ func AssembleConversation(seed uint64, archetype string, turns int) []AssembledT
 }
 
 // assembleTurn builds one AssembledTurn by sampling corpus turn records and wiring tool ids.
-func assembleTurn(rng *rand.Rand, archetype string, turnRecs []CorpusRecord, systemPrompt string, singleShot bool) AssembledTurn {
+func assembleTurn(rng *randv2.Rand, archetype string, turnRecs []CorpusRecord, systemPrompt string, singleShot bool) AssembledTurn {
 	if len(turnRecs) == 0 {
 		return AssembledTurn{
 			SystemPrompt: systemPrompt,
@@ -96,7 +96,7 @@ func assembleTurn(rng *rand.Rand, archetype string, turnRecs []CorpusRecord, sys
 
 	var inputMsgs []Message
 	if len(userRecs) > 0 {
-		rec := userRecs[rng.Intn(len(userRecs))]
+		rec := userRecs[rng.IntN(len(userRecs))]
 		inputMsgs = append(inputMsgs, corpusRecordToMessage(rec, RoleUser))
 	}
 
@@ -105,7 +105,7 @@ func assembleTurn(rng *rand.Rand, archetype string, turnRecs []CorpusRecord, sys
 		var outputMsgs []Message
 		stopReason := "end_turn"
 		if len(assistantRecs) > 0 {
-			rec := assistantRecs[rng.Intn(len(assistantRecs))]
+			rec := assistantRecs[rng.IntN(len(assistantRecs))]
 			// Force no tool calls for single-shot.
 			msg := Message{Role: RoleAssistant}
 			for _, p := range rec.Parts {
@@ -142,7 +142,7 @@ func assembleTurn(rng *rand.Rand, archetype string, turnRecs []CorpusRecord, sys
 	toolCallCount := 0
 
 	if len(assistantRecs) > 0 {
-		rec := assistantRecs[rng.Intn(len(assistantRecs))]
+		rec := assistantRecs[rng.IntN(len(assistantRecs))]
 		if rec.StopReason != "" {
 			stopReason = rec.StopReason
 		}
@@ -173,7 +173,7 @@ func assembleTurn(rng *rand.Rand, archetype string, turnRecs []CorpusRecord, sys
 // buildAssistantMessage builds a Message from an assistant corpus record, minting fresh
 // tool_call ids (toolu_<12hex> for coding, call_<24alnum> for general/codex) from the seeded rng.
 // Returns the message and a slice of tool call IDs that were minted.
-func buildAssistantMessage(rng *rand.Rand, rec CorpusRecord, archetype string) (Message, []string) {
+func buildAssistantMessage(rng *randv2.Rand, rec CorpusRecord, archetype string) (Message, []string) {
 	msg := Message{Role: RoleAssistant}
 	var toolIDs []string
 
@@ -208,7 +208,7 @@ func buildAssistantMessage(rng *rand.Rand, rec CorpusRecord, archetype string) (
 
 // buildToolResultMessage builds a MESSAGE_ROLE_TOOL message containing ToolResult parts for each
 // minted tool call ID, reusing tool names from the corpus record where available.
-func buildToolResultMessage(rng *rand.Rand, toolIDs []string, assistantRec CorpusRecord) Message {
+func buildToolResultMessage(rng *randv2.Rand, toolIDs []string, assistantRec CorpusRecord) Message {
 	msg := Message{Role: RoleTool}
 
 	// Collect tool call names from the record.
@@ -225,7 +225,7 @@ func buildToolResultMessage(rng *rand.Rand, toolIDs []string, assistantRec Corpu
 			name = toolNames[i]
 		}
 		// Generate deterministic but varied content.
-		content := fmt.Sprintf("result_%d", rng.Int63n(1000))
+		content := fmt.Sprintf("result_%d", rng.Int64N(1000))
 		msg.Parts = append(msg.Parts, Part{
 			ProviderType: "tool_result",
 			ToolResult: &ToolResult{
@@ -240,7 +240,7 @@ func buildToolResultMessage(rng *rand.Rand, toolIDs []string, assistantRec Corpu
 
 // mintToolCallID generates a fresh tool call id using the seeded rng.
 // Coding (sdk-go) uses "toolu_<12 hex chars>"; general/codex uses "call_<24 alnum chars>".
-func mintToolCallID(rng *rand.Rand, archetype string) string {
+func mintToolCallID(rng *randv2.Rand, archetype string) string {
 	if IsCoding(archetype) {
 		return "toolu_" + randomHex(rng, 12)
 	}
@@ -248,20 +248,20 @@ func mintToolCallID(rng *rand.Rand, archetype string) string {
 }
 
 // randomHex returns n random hex characters using the seeded rng.
-func randomHex(rng *rand.Rand, n int) string {
+func randomHex(rng *randv2.Rand, n int) string {
 	b := make([]byte, (n+1)/2)
 	for i := range b {
-		b[i] = byte(rng.Intn(256))
+		b[i] = byte(rng.IntN(256))
 	}
 	return hex.EncodeToString(b)[:n]
 }
 
 // randomAlnum returns n random alphanumeric characters using the seeded rng.
-func randomAlnum(rng *rand.Rand, n int) string {
+func randomAlnum(rng *randv2.Rand, n int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = charset[rng.Intn(len(charset))]
+		b[i] = charset[rng.IntN(len(charset))]
 	}
 	return string(b)
 }
