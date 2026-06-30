@@ -2,6 +2,47 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.1.0](https://github.com/rknightion/synthkit/compare/v1.0.0...v1.1.0) (2026-06-30)
+
+
+### Features
+
+* initial public release ([58765c4](https://github.com/rknightion/synthkit/commit/58765c41ecdd840c690c40027ba3ed635e176619))
+* sigil (Grafana AI Observability) signal + grafana-ai-o11y blueprint ([#21](https://github.com/rknightion/synthkit/issues/21)) ([379bce7](https://github.com/rknightion/synthkit/commit/379bce74b17fe75ea86433df9f719e860f4e0ffa))
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/golang/snappy to v1 ([#17](https://github.com/rknightion/synthkit/issues/17)) ([1fa866f](https://github.com/rknightion/synthkit/commit/1fa866f61c39e59b868f3d03986cfa44d6a9e538))
+* **deps:** update module github.com/grafana/nanogit to v1.4.0 ([#12](https://github.com/rknightion/synthkit/issues/12)) ([180ec23](https://github.com/rknightion/synthkit/commit/180ec23e8df473b71b324bdd00e26c9bc7439f45))
+* **deps:** update module github.com/testcontainers/testcontainers-go to v0.43.0 ([#13](https://github.com/rknightion/synthkit/issues/13)) ([069c74d](https://github.com/rknightion/synthkit/commit/069c74d1ca2d2ebbc0df110d81027697cb6f17c3))
+* **security:** rename theme localStorage key constant to clear Snyk secret heuristic ([389f658](https://github.com/rknightion/synthkit/commit/389f65896ba988c85f1a297707dac09da2d42e40))
+* **security:** render sparklines as JSX &lt;svg&gt; instead of innerHTML ([7932d3f](https://github.com/rknightion/synthkit/commit/7932d3f652d437b7a35ab46331b7e76aa8d0dcd4))
+
+
+### Refactor
+
+* complete golden-thread scrub (routes/identifiers) + rename "Golden Path" → "Connected Gateway" ([f5e7d88](https://github.com/rknightion/synthkit/commit/f5e7d883896f0ebbd3de7111d4d3ca342a060b4a))
+
+
+### Documentation
+
+* add zensical documentation site + m7kni-net-site sync trigger ([c05c5b3](https://github.com/rknightion/synthkit/commit/c05c5b3d99c2a74aeaf606d7a01174a157877e50))
+* fix runbook accuracy against source ([ea0726f](https://github.com/rknightion/synthkit/commit/ea0726fa5cd8d5000c6bab87b5636a002c41d10d))
+* scrub "golden thread" jargon from the signal catalogue and docs ([3493bd7](https://github.com/rknightion/synthkit/commit/3493bd73ff3ca4e20a1700bcbd43986dab2081c5))
+
+
+### Build & CI
+
+* add aggregator job for branch rules ([08c24ee](https://github.com/rknightion/synthkit/commit/08c24ee012e0f264d8c5fdb404de2083c69128fe))
+* add Snyk -&gt; Snyk Cloud monitor (SCA/SAST/IaC/container) ([1c8f09f](https://github.com/rknightion/synthkit/commit/1c8f09f12a54da529da2cd865ed25af9cf47d8c0))
+* build + publish edge :main image on push to main ([712a0cc](https://github.com/rknightion/synthkit/commit/712a0ccbefdaab54848e07458407ef8f31a15e55))
+* **codacy:** add Go coverage upload + tune repo-local exclusions ([fa67535](https://github.com/rknightion/synthkit/commit/fa675353a5de6f260d476bf1bfc0169fad75cd8e))
+* drop internal/integration from the -race leg (OOM) ([6b9a4b0](https://github.com/rknightion/synthkit/commit/6b9a4b04f77b85300448b51e243c0f523d80f4c1))
+* open the release-please PR under a PAT so CI runs without manual approval ([342f2e9](https://github.com/rknightion/synthkit/commit/342f2e9089b06849baa64645c06f02d9346fded9))
+* pin shared rknightion reusables to v1.0.0 ([f370981](https://github.com/rknightion/synthkit/commit/f370981169f1bd7de477b3b9ce986fd69599c2c8))
+* publish via shared container-publish reusable (guinea-pig) ([6510d91](https://github.com/rknightion/synthkit/commit/6510d91f631f31d97b15e8c48f7480d82221df74))
+
 ## [1.0.0] - 2026-06-29
 
 ### Features
