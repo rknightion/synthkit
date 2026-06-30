@@ -315,7 +315,7 @@ Purely conventional — no schema field distinguishes coding from general; the d
 |---|---|---|
 | `coding_claude_code` | Multi-turn; subagents as child conversations w/ shared content facets | Long sessions; `tool_use` stop ~81%; cache snowball |
 | `coding_codex` | Multi-turn; numeric `codex.*` metadata in tags; no `agent_version` | `gpt-5.5`; openai tool_call ids (`call_*`) |
-| `general_orchestration` | Orchestrator `streamText` + `parent_generation_ids` fan-out to sub-agent `generateText` turns | `agents.base` envelope; peer agents present |
+| `general_orchestration` | Orchestrator `streamText` + `parent_generation_ids` (⚠ currently a linear turn chain, NOT true sub-agent fan-out — see Implementation status) | `agents.base` envelope; peer agents present |
 | `general_autonomous_loop` | Soc-analyst evidence loop; terminal `submit_verdict` tool w/ enum taxonomy | Loop until terminal tool call |
 | `general_multiturn` | db-travel / sales; full conversation history growth | `SYNC` + `STREAM` variants; TTFT on STREAM |
 | `general_single_shot` | Title-generator / judge; 0 tools; tiny `max_tokens` | Single turn; no tool calls; fast; `end_turn` stop |
@@ -348,3 +348,39 @@ incidents/scenarios. The shapes below are the INTENDED contract for when these m
 - The `sigil.tag.<k>` span attributes are per-key (one attr per tag key, not one attr with a
   map value) → cardinality of tag keys is bounded by the archetype definition (not open-ended at
   runtime).
+
+---
+
+## Implementation status & next steps [slug: sigil-status]
+
+What the `ai_agent` workload + `grafana-ai-o11y` blueprint emit **today** (v1, live-verified against a
+real sigil stack 2026-06-30), versus what is **PENDING** (the resume list — pick up here).
+
+**Emitted + verified:** Lane A generations (coding + general), Lane B span trees (coding 2-level;
+general `agents.base` → `generateText`/`streamText` → `execute_tool` → openai `chat`), Lane C
+`gen_ai_client_*` metrics, the 6 archetypes, `sigil_eval_*` + `latest_scores` for the bound
+evaluators/rules, `WorkflowStep` ingest for orchestration, `effective_version`, the full vocabulary.
+
+**PENDING — next steps (in rough priority):**
+
+1. **True orchestration fan-out (`general_orchestration`).** Today `applyOrchestration`
+   (`internal/workload/aiagent/archetypes.go`) sets `parent_generation_ids` to the *previous turn*
+   in the same conversation — a linear CHAIN under one `agent_name`. Real orchestration is a TREE: an
+   orchestrator generation invokes sub-agents (`product_agent`/`cart_agent`) that each emit their own
+   generation(s) under their OWN `agent_name`, with `parent_generation_ids` pointing back to the
+   orchestrator gen. Implement: emit per-delegation sub-agent generations (distinct `agent_name`, set
+   `agent.peer_agents`/`agent.available_tools` on the `agents.base` envelope) parented to the
+   orchestrator gen, so the aio11y agent catalog shows the sub-agents and the call tree renders.
+   Update `TestOrchestrationArchetype` (it currently asserts the chain shape).
+2. **Failure modes** (`provider_call_error`, `eval_quality_regression`) — see the Failure modes
+   section. Register them on the workload (`FailureModes` in `Registration()`, like `app`), drive
+   `Generation.CallError` + Lane-B `status=ERROR` + `error_type`/`error_category` metric labels +
+   eval-score degradation from the shape/incident engine, and add an `incidents:`/scenarios block to
+   `blueprints/grafana-ai-o11y.yaml`. The proto + span plumbing is already in place.
+3. **e2e receiver** — extend the in-repo `make e2e` receiver to decode the sigil ingest lane and
+   assert `expected.Subset(received)` (schema-only), matching the other lanes.
+4. **Live-capture the eval stack** to promote the `sigil_eval_*` families from `v: assumed` to `v: ok`
+   (they're derived from sigil backend code, not yet captured from a live eval run).
+5. **Modeling nits:** carry a turn's tool-results in the *next* turn's input (today they sit in the
+   same `AssembledTurn.Input`); per-subagent `agent_name` for `claude-code/<subagent>` child
+   conversations.
