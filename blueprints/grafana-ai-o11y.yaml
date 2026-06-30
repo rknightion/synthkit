@@ -24,7 +24,7 @@ timezone: Europe/London
 metadata:
   description: "The full Grafana AI Observability (sigil) experience: coding agents (claude-code+subagents, codex) and general agents (multi-agent orchestration, autonomous SOC triage, multi-turn travel, single-shot title) emitting native sigil generations + gen_ai OTLP traces + gen_ai_client_*/sigil_eval_* metrics, with online evaluators."
   owner: ai-observability
-  category: scenario
+  category: showcase
   tags: [ai, sigil, ai-observability, gen_ai, coding-agents, llm, evals]
   links:
     signals: ./signals/sigil.md

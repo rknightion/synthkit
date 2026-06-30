@@ -3,6 +3,8 @@
 package aiagent
 
 import (
+	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -10,6 +12,34 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 	"github.com/rknightion/synthkit/internal/state"
 )
+
+// TestNumberScoreUsesRubricScale locks the M1 fix: number evaluators must score on the rubric scale
+// (1..5 for threshold≤5, 1..10 otherwise) — NOT [0,1) — so `passed` is not trivially always-false
+// against a threshold like 4 or 7, and the distribution spans the threshold.
+func TestNumberScoreUsesRubricScale(t *testing.T) {
+	for _, tc := range []struct{ thr, max float64 }{{4, 5}, {7, 10}} {
+		ev := EvalDecl{Name: fmt.Sprintf("judge-%v", tc.thr), ValueType: "number", Threshold: tc.thr}
+		pass, total := 0, 300
+		for i := 0; i < total; i++ {
+			v, passed := scoreValue(fmt.Sprintf("gen-%d", i), ev)
+			if v < 1 || v > tc.max {
+				t.Fatalf("thr=%v value %v outside rubric [1,%v]", tc.thr, v, tc.max)
+			}
+			if v != math.Trunc(v) {
+				t.Fatalf("thr=%v value %v not an integer rubric point", tc.thr, v)
+			}
+			if passed != (v >= tc.thr) {
+				t.Fatalf("thr=%v passed=%v but value=%v", tc.thr, passed, v)
+			}
+			if passed {
+				pass++
+			}
+		}
+		if pass == 0 || pass == total {
+			t.Fatalf("thr=%v degenerate pass rate %d/%d — number scores must span the threshold", tc.thr, pass, total)
+		}
+	}
+}
 
 // TestEvalRuleSampleRateOne: a rule matching an agent at sample_rate=1 produces one Score per
 // matched generation, with a deterministic value.

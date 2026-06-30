@@ -198,7 +198,9 @@ func toolSpans(agent AgentDecl, gen sigil.Generation, art turnArtifacts) []otlp.
 			if len(tc.InputJSON) > 0 {
 				attrs["gen_ai.tool.call.arguments"] = string(tc.InputJSON)
 			}
-			attrs["gen_ai.tool.call.result"] = toolResultFor(gen, tc.ID)
+			if res := toolResultFor(gen, tc.ID); res != "" { // I13: omit an absent result, never ""
+				attrs["gen_ai.tool.call.result"] = res
+			}
 		}
 		out = append(out, otlp.Span{
 			Name:     genai.SpanName(genai.OpExecuteTool, tc.Name),

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //go:build ignore
 
 // sigil-livecheck — throwaway live-verify harness (NOT part of any build; run with go run).

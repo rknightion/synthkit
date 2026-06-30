@@ -138,7 +138,7 @@ span_attributes:
   gen_ai.usage.output_tokens: <int>                      # completion tokens
   gen_ai.usage.cache_read_input_tokens: <int>            # ⚠ UNDERSCORE form — sigil-sdk-go spelling differs from semconv dotted form
   gen_ai.usage.cache_write_input_tokens: <int>           # ⚠ UNDERSCORE form — sigil-sdk-go spelling differs from semconv dotted form
-  gen_ai.usage.reasoning_output_tokens: <int>            # reasoning tokens (thinking models)
+  gen_ai.usage.reasoning_tokens: <int>                  # reasoning tokens (thinking models); ⚠ UNDERSCORE form — sigil-sdk spelling, not semconv reasoning.output_tokens
   gen_ai.conversation.id: <uuid>
   sigil.generation.id: <uuid>
   sigil.sdk.name: sdk-go|sdk-python
@@ -324,12 +324,14 @@ Purely conventional — no schema field distinguishes coding from general; the d
 
 ## Failure modes [slug: sigil-failure-modes]
 
-Failure modes relevant to the sigil lanes. Registered in the `ai_agent` workload; reuse the
-standard failuremode plumbing.
+⚠ **PLANNED — not yet emitted (follow-up).** The `ai_agent` workload does not yet register these
+failure modes; the `Generation.CallError` → proto + Lane-B `status=ERROR` plumbing is in place and
+ready, but no incident axis drives it today, and the `grafana-ai-o11y` blueprint declares no
+incidents/scenarios. The shapes below are the INTENDED contract for when these modes land.
 
-| Mode | Effect |
+| Mode (planned) | Intended effect |
 |---|---|
-| `provider_call_error` | Spike in `error_type`/`error_category` labels on `gen_ai_client_operation_duration_seconds`; `call_error` on Lane A generation `stop_reason`; `status=ERROR` on Lane B spans |
+| `provider_call_error` | Spike in `error_type`/`error_category` labels on `gen_ai_client_operation_duration_seconds`; `call_error` on Lane A generations; `status=ERROR` on Lane B spans |
 | `eval_quality_regression` | `sigil_eval_score_values_total{passed=false}` rate rises; `sigil_eval_scores_total` maintained; `sigil_eval_rule_action_fires_total` may rise on threshold-breach rules |
 
 ---

@@ -3,6 +3,7 @@
 package aiagent
 
 import (
+	"math"
 	"path"
 
 	"github.com/rknightion/synthkit/internal/genai"
@@ -85,15 +86,24 @@ func sampled(genID, evName string, sampleRate float64) bool {
 	return seedUnit(genID, "sample-"+evName) < sampleRate
 }
 
-// scoreValue returns a deterministic score value + passed flag for a (generation, evaluator). For a
-// number/bool evaluator the value is in [0,1]; passed compares against the threshold (default 0.5).
+// scoreValue returns a deterministic (value, passed) for a (generation, evaluator).
+//   - number: scaled to a realistic rubric range (1..5 for threshold≤5, else 1..10), skewed toward
+//     the upper range so MOST generations clear the threshold — matching observed online-eval
+//     distributions. `value` is on the rubric scale (not [0,1)), so it compares to the threshold.
+//   - bool/string: a [0,1) draw skewed to pass ~90% (detection-style safety evals rarely flag);
+//     buildScore turns a non-pass into the flagged value (Bool=detected=!passed).
 func scoreValue(genID string, ev EvalDecl) (float64, bool) {
-	v := seedUnit(genID, "score-"+ev.Name)
-	thr := ev.Threshold
-	if thr <= 0 {
-		thr = 0.5
+	u := seedUnit(genID, "score-"+ev.Name)
+	if ev.ValueType == "number" {
+		maxScale := 5.0
+		if ev.Threshold > 5 {
+			maxScale = 10.0
+		}
+		v := math.Round(maxScale * (0.55 + 0.42*u)) // ~0.55..0.97 of the scale, rounded to a rubric point
+		v = math.Max(1, math.Min(maxScale, v))
+		return v, v >= ev.Threshold
 	}
-	return v, v >= thr
+	return u, u >= 0.1 // bool/string: ~90% pass (rarely flagged)
 }
 
 // buildScore assembles a sigil.Score for a sampled generation.
@@ -115,8 +125,10 @@ func buildScore(agent AgentDecl, ev EvalDecl, rule RuleDecl, gen sigil.Generatio
 	}
 	switch ev.ValueType {
 	case "bool":
-		b := passed
-		score.Bool = &b
+		// Detection-style safety evals: the bool is the DETECTION (true = flagged), so a passing
+		// check means NOT detected. Bool = !passed (most generations: false/safe, passed=true).
+		detected := !passed
+		score.Bool = &detected
 	case "string":
 		if passed {
 			score.String = "pass"
