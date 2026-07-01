@@ -17,7 +17,6 @@
 .forgejo
 scripts/forbidden-words.local
 .gitleaks.toml
-.snyk
 .codacy.yaml
 .golangci.yml
 renovate.json
