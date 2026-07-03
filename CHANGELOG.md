@@ -2,6 +2,30 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.2.0](https://github.com/rknightion/synthkit/compare/v1.1.0...v1.2.0) (2026-07-03)
+
+
+### Features
+
+* **docs:** align docs site with m7kni.io brand + server-side SEO/LLM metadata ([67e2144](https://github.com/rknightion/synthkit/commit/67e21448e5c163f224a66d081742f6dd119bfca0)), closes [#26](https://github.com/rknightion/synthkit/issues/26)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/grafana/pyroscope-go to v1.4.0 ([#29](https://github.com/rknightion/synthkit/issues/29)) ([cfd6851](https://github.com/rknightion/synthkit/commit/cfd6851996cd8638b0fc4d2c90328c0c90aeb052))
+
+
+### Documentation
+
+* **geo:** content-shape pass for LLM/search retrievability ([da03919](https://github.com/rknightion/synthkit/commit/da03919070de710eabf96f5fbb54297edd0098a8))
+
+
+### Build & CI
+
+* add OpenSSF Scorecard via shared reusable workflow ([0ca0911](https://github.com/rknightion/synthkit/commit/0ca0911dcbfdb81e22737f8f7d038e3a17ba5272))
+* drop CodeQL pull_request trigger to trim Actions fan-out ([f2ab6dc](https://github.com/rknightion/synthkit/commit/f2ab6dcc00349074efeb5582f50462ff2dd1547d))
+* **renovate:** remove local pr limits + minimumReleaseAge pin ([9d740af](https://github.com/rknightion/synthkit/commit/9d740afe984f174f5df63ea4cc33edd6450292c0))
+
 ## [1.1.0](https://github.com/rknightion/synthkit/compare/v1.0.0...v1.1.0) (2026-06-30)
 
 
