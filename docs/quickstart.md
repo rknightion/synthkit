@@ -46,7 +46,7 @@ cp .env.example .env
 
 Open `.env` in your editor. The minimum set for a live push:
 
-```
+```dotenv
 GC_TOKEN=<your-CAP-token>
 GC_PROM_RW=https://prometheus-prod-XX-<region>.grafana.net/api/prom/push
 GC_PROM_USER=<mimir-instance-id>

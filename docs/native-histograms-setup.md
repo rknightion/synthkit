@@ -29,7 +29,7 @@ required.
 
 **Self-managed Mimir** requires the ingester flag:
 
-```
+```text
 -ingester.native-histograms-ingestion-enabled=true
 ```
 

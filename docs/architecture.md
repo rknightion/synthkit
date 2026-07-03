@@ -9,7 +9,7 @@ synthkit is built around a strict three-tier design: isolated construct/workload
 
 ## The three tiers
 
-```
+```text
 BLUEPRINT (YAML)            recipe + wiring: a bill-of-materials of construct + workload
    │                        instances with config. The ONLY place blueprint-specific config lives.
    │ load → validate →

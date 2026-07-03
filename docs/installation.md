@@ -42,7 +42,7 @@ This produces a `synthkit` binary in the current directory.
 
 The multi-arch image (linux/amd64 + linux/arm64) is published to GHCR on each release:
 
-```
+```text
 ghcr.io/rknightion/synthkit:latest
 ghcr.io/rknightion/synthkit:<vX.Y.Z>
 ```
@@ -88,7 +88,7 @@ docker compose up -d
 
 The container binds the control plane on port **8088** inside the container. Host exposure is controlled by `SYNTHKIT_BIND` in `.env` (defaults to `127.0.0.1` — loopback only, safe by default). The operator UI is available at:
 
-```
+```text
 http://localhost:8088/control/ui
 ```
 

@@ -71,7 +71,7 @@ A default fallback PAT for all sources can be set via `GIT_TOKEN`; individual so
 
 All custom blueprints are staged under `BLUEPRINT_DATA_DIR` (default `./data/blueprints`):
 
-```
+```text
 data/blueprints/
 ├── custom/                  # uploaded blueprints
 │   └── mine__my-blueprint.yaml

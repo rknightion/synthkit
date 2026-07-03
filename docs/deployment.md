@@ -96,7 +96,7 @@ The compose file publishes `${SYNTHKIT_BIND:-127.0.0.1}:8088:8088` — the binar
 
 The published multi-arch image (amd64 + arm64) is at:
 
-```
+```text
 ghcr.io/rknightion/synthkit:<vX.Y.Z>
 ghcr.io/rknightion/synthkit:latest
 ghcr.io/rknightion/synthkit:main

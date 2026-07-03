@@ -71,7 +71,7 @@ skforge validate my-blueprint.yaml
 
 **`validate`** — load a blueprint file through the real registry and cardinality projection. Prints `OK`, `Name`, `Cardinality`, `Estimated`, and any `Diagnostics`. Exits non-zero if the blueprint is invalid. Useful for confirming an LLM-generated draft is structurally correct before running synthkit.
 
-```
+```text
 OK:          true
 Name:        my-service
 Cardinality: 847
@@ -151,7 +151,7 @@ synthkit ships agent skills for Claude Code, Codex, and OpenCode. Skills are aut
 
 Open the synthkit repository in Claude Code and run a skill directly:
 
-```
+```text
 /initial-setup
 /create-blueprint
 /verify-deployment
@@ -161,7 +161,7 @@ Open the synthkit repository in Claude Code and run a skill directly:
 
 Install synthkit as a Claude Code plugin from any directory:
 
-```
+```text
 /plugin marketplace add rknightion/synthkit
 /plugin install synthkit@synthkit
 ```
