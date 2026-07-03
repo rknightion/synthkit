@@ -1,5 +1,7 @@
 # synthkit
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/rknightion/synthkit/badge)](https://scorecard.dev/viewer/?uri=github.com/rknightion/synthkit)
+
 Composable synthetic-telemetry generator for Grafana Cloud. Declare the infrastructure and
 applications you want — in one YAML **blueprint** — and synthkit emits structurally-correct
 synthetic metrics, traces, and logs (plus optional Faro/RUM) with the REAL metric/label/field
