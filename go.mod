@@ -15,7 +15,7 @@ require (
 	github.com/golang/snappy v1.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.18
 	github.com/grafana/nanogit v1.4.0
-	github.com/grafana/pyroscope-go v1.4.0
+	github.com/grafana/pyroscope-go v1.4.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.69.0
 	go.opentelemetry.io/otel v1.44.0
