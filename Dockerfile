@@ -18,7 +18,7 @@ COPY --from=ui /ui/dist /src/internal/control/ui/dist
 ARG VERSION=dev
 RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /out/synthkit ./cmd/synthkit
 
-FROM gcr.io/distroless/static-debian12:nonroot@sha256:b7bb25d9f7c31d2bdd1982feb4dafcaf137703c7075dbe2febb41c24212b946f
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:aef9602f8710ec12bde19d593fed1f76c708531bb7aba205110f1029786ead7b
 WORKDIR /app
 COPY --from=build /out/synthkit /app/synthkit
 COPY blueprints/ /app/blueprints/
