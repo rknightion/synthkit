@@ -1,6 +1,6 @@
 module github.com/rknightion/synthkit
 
-go 1.26.4
+go 1.26.5
 
 // Dependencies are added by the build. Expected direct deps:
 //   google.golang.org/protobuf + github.com/golang/snappy — metrics remote_write v2 (vendored proto in internal/sink/promrw/writev2)
@@ -14,7 +14,7 @@ require (
 	filippo.io/age v1.3.1
 	github.com/golang/snappy v1.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.18
-	github.com/grafana/nanogit v1.4.0
+	github.com/grafana/nanogit v1.4.1
 	github.com/grafana/pyroscope-go v1.4.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.69.0
@@ -42,7 +42,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cloudflare/circl v1.6.3 // indirect
+	github.com/cloudflare/circl v1.6.4 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
