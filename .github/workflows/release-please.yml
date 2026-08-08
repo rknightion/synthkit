@@ -24,20 +24,32 @@ jobs:
     permissions:
       contents: write          # create the release commit, tag, and GitHub Release
       pull-requests: write      # open/update the release PR
+      id-token: write # exchanged for a tailnet identity and an OpenBao token
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
+      # Mints a short-lived GitHub App installation token scoped to THIS repo,
+      # replacing RELEASE_PLEASE_TOKEN -- a PAT scoped across every rknightion repo.
+      # Nothing durable is stored here to leak. The release PR's author becomes the
+      # App rather than rknightion; CI still runs unattended on it, because the
+      # action_required gate applies to github-actions[bot], not to bot identities
+      # generally -- Renovate, a GitHub App, already runs fine.
+      #
+      # Releases now depend on camden being up, unsealed and on the tailnet; a
+      # failure here is infrastructure, not the commit.
+      - name: Mint a scoped release token
+        id: bao
+        uses: rknightion/.github/.github/actions/broker-token@b9ab5f80961f2c29c47a8d7d5dff112b6551169c
+        with:
+          permission-set: release-please-synthkit
+          tailscale-client-id: ${{ secrets.TS_WIF_CLIENT_ID }}
+          tailscale-audience: ${{ secrets.TS_WIF_AUDIENCE }}
+
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
-          # Open the release PR under a fine-grained PAT, NOT the default GITHUB_TOKEN. PRs attributed
-          # to github-actions[bot] have their workflow runs parked at "action_required" (pending
-          # maintainer approval) whenever a workflow pulls in code from another repo — which our
-          # codeql/zizmor/actionlint/dependency-review workflows do (uses: rknightion/.github/...).
-          # A PAT identity is treated as a trusted author, so CI runs automatically (same as Renovate,
-          # which posts as its own App). Scope the PAT to this repo: contents:write + pull-requests:write.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ steps.bao.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
