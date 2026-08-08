@@ -2,6 +2,29 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.3.0](https://github.com/rknightion/synthkit/compare/v1.2.0...v1.3.0) (2026-08-08)
+
+
+### Features
+
+* mint release-please token from the OpenBao broker ([7316c0a](https://github.com/rknightion/synthkit/commit/7316c0a86c3d4c8c5bdfda9ecc0600030bbc0b97))
+* mint the docs-sync token from the OpenBao broker ([68a661f](https://github.com/rknightion/synthkit/commit/68a661fe5092b98f55064d10213cbf35f0f9f170))
+
+
+### Bug Fixes
+
+* **deps:** update dependency @solidjs/router to v1 ([#66](https://github.com/rknightion/synthkit/issues/66)) ([1e776e7](https://github.com/rknightion/synthkit/commit/1e776e76c7603a2208e2022fb1e9ae562732fe94))
+* **deps:** update module github.com/grafana/nanogit to v1.4.1 ([#60](https://github.com/rknightion/synthkit/issues/60)) ([465fa17](https://github.com/rknightion/synthkit/commit/465fa17ec2d068357206bc191f650eede9c2671d))
+* **deps:** update module github.com/grafana/pyroscope-go to v1.4.1 ([#38](https://github.com/rknightion/synthkit/issues/38)) ([c0eb070](https://github.com/rknightion/synthkit/commit/c0eb070419567fe9bd3cad16ecda51c9ea4008d4))
+* **deps:** update module github.com/testcontainers/testcontainers-go to v0.44.0 ([#77](https://github.com/rknightion/synthkit/issues/77)) ([1a60e59](https://github.com/rknightion/synthkit/commit/1a60e59f923185d3e2b4f9136c7b2e3cc19ad69b))
+* **deps:** update module go.opentelemetry.io/proto/otlp to v1.11.0 ([#59](https://github.com/rknightion/synthkit/issues/59)) ([ce1d4b3](https://github.com/rknightion/synthkit/commit/ce1d4b31187d5dd6d55018810aab9711b8a76ea6))
+* pass the JWT role explicitly for docs-sync ([6c20935](https://github.com/rknightion/synthkit/commit/6c209359f99fdf0b63f1c319f8464fe9c4bc2f8a))
+
+
+### Documentation
+
+* adopt the m7kni.io inverted docs model ([3a8bb1e](https://github.com/rknightion/synthkit/commit/3a8bb1e272753e4d383eb509454b0860a793c14f))
+
 ## [1.2.0](https://github.com/rknightion/synthkit/compare/v1.1.0...v1.2.0) (2026-07-03)
 
 
