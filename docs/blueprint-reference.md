@@ -63,7 +63,7 @@ This reference is generated from the live Go types via `make blueprint-schema` a
 | `cloud.region` | string | yes | AWS region (e.g. `us-east-1`). |
 | `cloud.vpc_id` | string | yes | VPC identifier. |
 | `cloud.nat_gateways` | int | no | Number of NAT Gateway instances to emit `aws_natgateway_*` for. |
-| `cloud.cloudwatch` | object | no | `cw_infra` sub-family toggles. See [cw_infra config](#cw_infra-config) below. |
+| `cloud.cloudwatch` | object | no | `cw_infra` sub-family toggles. See [cw_infra config](#cw_infra-config-cloudcloudwatch) below. |
 | `cloud.aoss` | object | no | Amazon OpenSearch Serverless config. Absent ⇒ not emitted. See [aoss config](#aoss-config). |
 | `cloud.mwaa` | object | no | Amazon Managed Workflows for Apache Airflow config. Absent ⇒ not emitted. See [mwaa config](#mwaa-config). |
 | `cloud.glue` | object | no | AWS Glue ETL config. Absent ⇒ not emitted. See [glue config](#glue-config). |
