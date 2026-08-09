@@ -5,6 +5,7 @@
 [site]
 name = "synthkit"
 description = "Composable synthetic-telemetry generator for Grafana Cloud — declare infrastructure and applications in one YAML blueprint and emit structurally-correct synthetic metrics, traces, logs, and RUM with real technology-native signal names."
+license_note = "synthkit is licensed AGPL-3.0-only"
 author = "Rob Knighton"
 keywords = [
     "synthetic telemetry",
@@ -112,5 +113,3 @@ Kubernetes = "kubernetes"
 AWS = "aws"
 "AI/LLM" = "ai"
 
-[overrides]
-copyright = "<a href=\"https://m7kni.io\" target=\"_blank\" rel=\"noopener\">m7kni.io</a> — synthkit is licensed AGPL-3.0-only"
