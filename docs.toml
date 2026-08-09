@@ -69,6 +69,7 @@ Home = "index.md"
 [[site.nav]]
 "How It Works" = [
     { Architecture = "architecture.md" },
+    { "Why This Generator" = "comparison.md" },
 ]
 
 [[site.nav]]
