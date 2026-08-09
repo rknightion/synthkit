@@ -65,6 +65,7 @@ Home = "index.md"
     { Self-Observability = "self-observability.md" },
     { "Native Histograms" = "native-histograms-setup.md" },
     { Troubleshooting = "troubleshooting.md" },
+    { Security = "security.md" },
 ]
 
 [[site.nav]]
@@ -79,6 +80,9 @@ Reference = [
     { "Constructs & Workloads" = "constructs.md" },
     { "Capture & Tooling" = "tools.md" },
 ]
+
+[[site.nav]]
+FAQ = "faq.md"
 
 [[site.nav]]
 Changelog = "changelog.md"
