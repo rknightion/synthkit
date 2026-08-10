@@ -17,7 +17,7 @@ cd synthkit
 go build ./cmd/synthkit
 ```
 
-Requires Go 1.26.4 or later. See [Installation](installation.md) for the Docker path.
+Requires Go 1.26.5 or later. See [Installation](installation.md) for the Docker path.
 
 ---
 

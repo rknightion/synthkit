@@ -11,7 +11,7 @@ synthkit ships as a single self-contained binary. Build from source with Go, or 
 
 === "Source build"
 
-    - **Go 1.26.4 or later** — synthkit's `go.mod` specifies `go 1.26.4`. Earlier toolchain versions will be rejected.
+    - **Go 1.26.5 or later** — synthkit's `go.mod` specifies `go 1.26.5`. Earlier toolchain versions will be rejected.
     - Git (to clone the repo).
 
     No CGO. The binary is fully static and cross-compiles cleanly.
