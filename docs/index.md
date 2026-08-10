@@ -45,6 +45,25 @@ Use synthkit to build and validate dashboards and alerts against realistic data,
 
 </div>
 
+## Quickstart
+
+The dry run needs no credentials at all — it prints the full series and label
+inventory it would emit, and pushes nothing:
+
+```bash
+go build ./cmd/synthkit
+
+DRY_RUN=true ./synthkit -once -dump
+```
+
+To push for real, copy the example environment file, fill in `GC_TOKEN` and the
+endpoints, then run it with no flags:
+
+```bash
+cp .env.example .env
+./synthkit
+```
+
 ## What synthkit emits
 
 | Signal type | Protocol | Destination |
