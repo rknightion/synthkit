@@ -2,6 +2,8 @@
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/rknightion/synthkit/badge)](https://scorecard.dev/viewer/?uri=github.com/rknightion/synthkit)
 
+**Synthetic metrics, traces, logs and RUM for Prometheus, Loki and Grafana Cloud — from one YAML file.**
+
 **[Documentation](https://m7kni.io/synthkit/)** — installation, blueprint reference and the signal catalog.
 
 Composable synthetic-telemetry generator for Grafana Cloud. Declare the infrastructure and
