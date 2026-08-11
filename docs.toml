@@ -6,7 +6,7 @@
 name = "synthkit"
 description = "Composable synthetic-telemetry generator for Grafana Cloud — declare infrastructure and applications in one YAML blueprint and emit structurally-correct synthetic metrics, traces, logs, and RUM with real technology-native signal names."
 license_note = "synthkit is licensed AGPL-3.0-only"
-author = "Rob Knighton"
+author = "Rob Knight"
 keywords = [
     "synthetic telemetry",
     "grafana cloud",
