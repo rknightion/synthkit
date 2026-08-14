@@ -1,6 +1,15 @@
 # Scratch — plans, specs, design notes. NEVER committed (working style: scratch is disposable).
 docs/superpowers/
 docs/scratch/
+
+# .claude/ is per-machine state (worktrees, scheduler locks, settings.local.json) EXCEPT three
+# things that are repo policy and must reach anyone working here: the Backlog.md guard hook and
+# its test (bare --notes/--plan silently replaces a section; hand-edited task markdown loses one
+# at exit 0), the settings.json that wires the hook, and the skills symlinks.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/skills/
 # Host-local runtime state (seed from control-state.example.json)
 control-state.json
 control-state-data/
