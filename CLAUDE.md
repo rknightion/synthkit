@@ -142,11 +142,13 @@ DRY_RUN=true go run ./cmd/synthkit -once -dump   # series inventory → diff vs 
 Open work lives in `backlog/`, driven **only** through the `backlog` CLI. `backlog task list --plain`
 is the queue; `backlog doc list --plain` lists the durable docs. New work is `SKT-NNNN`.
 
-GitHub Issues was retired for this repo on **2026-08-14**, but **nothing was deleted** — synthkit had
-only two issues ever, so `gh issue view <N>` still works and the *Closed GitHub issues* doc is a
-pointer, not a replacement. The GitHub tracker also stays **open on purpose**: external contributors
-can file there, and Renovate's dependency dashboard (`#9`) lives there and is recreated on every run.
-Anything arriving that way becomes an `SKT-NNNN` task; the board, not the issue, is where it is worked.
+GitHub Issues was retired for this repo on **2026-08-14**, and the one issue synthkit had ever closed
+(`#26`, the docs site) was **deleted from GitHub with no archive**. `gh issue view 26` 404s and the
+body is not recoverable, so the *Closed GitHub issues* doc **is the record**, not a pointer — treat it
+as the only surviving account of that work. The GitHub tracker itself stays **open on purpose**:
+external contributors can file there, and Renovate's dependency dashboard (`#9`) lives there and is
+recreated on every run. Anything arriving that way becomes an `SKT-NNNN` task; the board, not the
+issue, is where it is worked.
 
 Read the **Agent fan-out protocol (canonical)** doc before designing a wave, and the **Wave operating
 model** doc for this project's own rules — lane conventions, the single-owner wiring files, the
