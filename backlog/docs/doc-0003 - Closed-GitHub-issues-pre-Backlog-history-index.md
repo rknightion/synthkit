@@ -1,9 +1,9 @@
 ---
 id: doc-0003
-title: Closed GitHub issues (pre-migration record)
+title: Closed GitHub issues (pre-Backlog history index)
 type: other
 created_date: '2026-08-14 16:08'
-updated_date: '2026-08-14 16:52'
+updated_date: '2026-08-17 09:03'
 ---
 # Closed GitHub issues — the record
 
