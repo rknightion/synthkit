@@ -392,15 +392,35 @@ evaluators/rules, `WorkflowStep` ingest for orchestration, `effective_version`, 
 `internal/workload/aiagent/orchestration.go`). **Failure modes** (`provider_call_error`,
 `eval_quality_regression` — AxisWorkload, see the Failure modes section + `failures.go`).
 
+**Coding sub-agent fan-out** (`coding_claude_code` — agents declaring `subagents:` fan out
+per-subagent generations under `<agent_name>/<subagent>` (so the showcase blueprint's `claude-code`
+agent yields the captured `claude-code/<subagent>` form), parented to the coding turn that delegates
+to them and nested under that turn's OWN root span, since coding's 2-level tree has no `agents.base`
+envelope; same mechanism as the general fan-out above — `orchestration.go`). **Turn-accurate
+tool-result carry-forward** (a turn's tool results land in the NEXT turn's `AssembledTurn.Input`,
+never the turn that issued the call, because that is when the model actually sees them; turn 0
+inherits nothing and the final turn's results stay on its own `Input` rather than being dropped —
+`internal/sigil/assemble.go`).
+
 Plus the **e2e sigil receiver** (the `make e2e` Docker harness decodes the three sigil ingest
 endpoints + correlates ingest kinds; see `e2e/receiver`) and the **live-captured eval families**
 (`sigil_eval_*` promoted to `v: ok` with corrected label shapes from `emea-cloud-demokit`).
 
 **PENDING — next steps (in rough priority):**
 
-1. **Modeling nits:** carry a turn's tool-results in the *next* turn's input (today they sit in the
-   same `AssembledTurn.Input`); per-subagent `agent_name` for `claude-code/<subagent>` child
-   conversations.
-2. **Heuristic evaluators live:** only `llm_judge` produced eval series in the 2026-06-30 capture
-   (`evaluator_kind=heuristic` exists in config but wasn't observed) — re-capture once a heuristic
-   evaluator is active to confirm its (judge-label-free) series shape.
+1. **Heuristic evaluators live — BLOCKED, not merely deferred (assessed 2026-08-19).** Only
+   `llm_judge` produced eval series in the 2026-06-30 capture (`evaluator_kind=heuristic` exists in
+   the config surface but was never observed emitting), so the heuristic series shape is INFERRED,
+   not captured. The open question is narrow: a heuristic evaluator has no judge model, so per the
+   absent-dimension-is-omitted rule its series should carry NO `eval_ai_request_model` / `model` /
+   `provider` labels — but whether they are omitted or carry a placeholder is unverified, and
+   synthkit's emit currently assumes omission.
+   What blocks it: no stack reachable from this project's configured Grafana Cloud contexts has an
+   active heuristic evaluator, and the stack that produced the 2026-06-30 `llm_judge` capture is not
+   among them. Unblocking needs a heuristic evaluator CONFIGURED and running on a live sigil stack —
+   a tenant write, so a decision for the stack owner, not something a capture lane can arrange.
+   Resume boundary: name the stack, confirm a heuristic evaluator is active, then query
+   `sigil_eval_scores_total{evaluator_kind="heuristic"}` and the `sigil_eval_judge_*` families for
+   that evaluator, and record which labels are present with provenance + date exactly as the
+   2026-06-30 capture above is recorded. If the capture contradicts the omission assumption, the
+   SYNTH is corrected, never the capture.

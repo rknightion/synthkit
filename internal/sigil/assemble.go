@@ -12,13 +12,18 @@ import (
 // AssembledTurn is one fully-assembled conversation turn, ready for the aiagent workload to
 // populate Generation / span / metric fields. It is the output of AssembleConversation.
 //
-// Input holds the user (and tool-result) messages that precede this generation.
+// Input holds the user message plus any tool-result message CARRIED FORWARD from the PREVIOUS
+// turn's tool_call(s) — never a tool-result produced by this SAME turn's own Output, because a
+// real transcript only shows the model a tool's result on the following generation (SKT-0001
+// AC#1). The first turn of a conversation never has a carried-forward tool-result. The last
+// turn's own tool-results, having no following turn to carry into, are appended to that same
+// (final) turn's Input by AssembleConversation rather than dropped.
 // Output holds the assistant messages this generation produced.
 // ToolCalls is the count of tool_call parts across all Output messages (used for the
 // gen_ai_client_tool_calls_per_operation_count metric).
 // Role is always RoleAssistant (the generating role).
 type AssembledTurn struct {
-	Input        []Message // user + tool-result messages feeding this generation
+	Input        []Message // carried-forward tool-result (if any) + this turn's own user message
 	Output       []Message // assistant messages this generation produced
 	Tools        []ToolDef // declared tool surface for this turn
 	SystemPrompt string    // effective system prompt (from the corpus system_prompt record)
@@ -66,21 +71,38 @@ func AssembleConversation(seed uint64, archetype string, turns int) []AssembledT
 	isSingleShot := archetype == ArchetypeGeneralSingleShot
 
 	result := make([]AssembledTurn, 0, turns)
+	var carry []Message // tool-result message(s) produced by the PREVIOUS turn's Output, fed
+	// forward into the NEXT turn's Input — real agent transcripts only show a tool result once the
+	// model is given it back, which is the following generation, not the one that made the call
+	// (SKT-0001 AC#1). nil for turn 0 (nothing precedes it).
 	for i := 0; i < turns; i++ {
-		turn := assembleTurn(rng, archetype, turnRecs, systemPrompt, isSingleShot)
+		turn, produced := assembleTurn(rng, archetype, turnRecs, systemPrompt, isSingleShot, carry)
 		result = append(result, turn)
+		carry = produced
+	}
+	// The LAST turn's tool results have no following turn to carry into. Rather than silently
+	// dropping them, attach them to that same (final) turn's own Input — the only place left to
+	// record that the call happened and what it returned (SKT-0001 AC#1: "not silently dropped").
+	if len(carry) > 0 && len(result) > 0 {
+		last := len(result) - 1
+		result[last].Input = append(result[last].Input, carry...)
 	}
 	return result
 }
 
 // assembleTurn builds one AssembledTurn by sampling corpus turn records and wiring tool ids.
-func assembleTurn(rng *randv2.Rand, archetype string, turnRecs []CorpusRecord, systemPrompt string, singleShot bool) AssembledTurn {
+// carryIn is the tool-result message produced by the PREVIOUS turn's tool_call(s), if any (nil for
+// turn 0); it is prepended to this turn's own Input. The returned []Message is this turn's OWN
+// tool-result message (if its Output makes tool calls), to be carried into the NEXT turn's Input
+// by the caller — never placed into this turn's own Input (SKT-0001 AC#1).
+func assembleTurn(rng *randv2.Rand, archetype string, turnRecs []CorpusRecord, systemPrompt string, singleShot bool, carryIn []Message) (AssembledTurn, []Message) {
 	if len(turnRecs) == 0 {
 		return AssembledTurn{
+			Input:        carryIn,
 			SystemPrompt: systemPrompt,
 			StopReason:   "end_turn",
 			Role:         RoleAssistant,
-		}
+		}, nil
 	}
 
 	// Pick a user-role turn record for the input.
@@ -94,7 +116,7 @@ func assembleTurn(rng *randv2.Rand, archetype string, turnRecs []CorpusRecord, s
 		}
 	}
 
-	var inputMsgs []Message
+	inputMsgs := append([]Message{}, carryIn...)
 	if len(userRecs) > 0 {
 		rec := userRecs[rng.IntN(len(userRecs))]
 		inputMsgs = append(inputMsgs, corpusRecordToMessage(rec, RoleUser))
@@ -133,13 +155,14 @@ func assembleTurn(rng *randv2.Rand, archetype string, turnRecs []CorpusRecord, s
 			StopReason:   stopReason,
 			ToolCalls:    0,
 			Role:         RoleAssistant,
-		}
+		}, nil
 	}
 
 	// For non-single-shot: pick an assistant record, wire tool_call → tool_result ids.
 	var outputMsgs []Message
 	stopReason := "end_turn"
 	toolCallCount := 0
+	var carryOut []Message
 
 	if len(assistantRecs) > 0 {
 		rec := assistantRecs[rng.IntN(len(assistantRecs))]
@@ -150,13 +173,14 @@ func assembleTurn(rng *randv2.Rand, archetype string, turnRecs []CorpusRecord, s
 		outputMsgs = append(outputMsgs, msg)
 		toolCallCount = countToolCalls(msg)
 
-		// If there are tool calls, add a tool-result message to the next input.
+		// If there are tool calls, the resulting tool-result message is carried into the NEXT
+		// turn's Input by the caller — NOT this turn's own Input (SKT-0001 AC#1: the model only
+		// sees a tool's result on the following generation, never the one that issued the call).
 		if len(toolIDs) > 0 {
 			// Build tool-result messages using the seeded rng (may use corpus tool_result records
 			// but we build them inline to keep id wiring simple and deterministic).
 			toolResultMsg := buildToolResultMessage(rng, toolIDs, rec)
-			// Tool result goes into input (the follow-on user+tool_results messages).
-			inputMsgs = append(inputMsgs, toolResultMsg)
+			carryOut = []Message{toolResultMsg}
 		}
 	}
 
@@ -167,7 +191,7 @@ func assembleTurn(rng *randv2.Rand, archetype string, turnRecs []CorpusRecord, s
 		StopReason:   stopReason,
 		ToolCalls:    toolCallCount,
 		Role:         RoleAssistant,
-	}
+	}, carryOut
 }
 
 // buildAssistantMessage builds a Message from an assistant corpus record, minting fresh

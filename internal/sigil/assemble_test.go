@@ -152,6 +152,119 @@ func TestAssembleConversationToolCallsCount(t *testing.T) {
 	}
 }
 
+// TestAssembleConversationToolResultCarriesToNextTurn verifies a turn's tool_call output produces
+// a tool_result that lands in the NEXT turn's Input, never in the SAME turn's own Input, and that
+// turn 0 never inherits a tool_result (nothing precedes it) — SKT-0001 AC#1.
+func TestAssembleConversationToolResultCarriesToNextTurn(t *testing.T) {
+	// Turn 0 must never carry an inherited tool_result.
+	for seed := uint64(0); seed < 30; seed++ {
+		conv := AssembleConversation(seed, ArchetypeCodingClaudeCode, 5)
+		if len(conv) == 0 {
+			continue
+		}
+		for _, msg := range conv[0].Input {
+			for _, p := range msg.Parts {
+				if p.ToolResult != nil {
+					t.Fatalf("seed=%d: turn 0 Input carries an inherited tool_result %+v", seed, p.ToolResult)
+				}
+			}
+		}
+	}
+
+	// Find seeds where an interior turn (not the last) produces tool calls, and verify the
+	// resulting tool_result appears in the NEXT turn's Input — and NOT in the producing turn's own
+	// Input.
+	found := false
+	for seed := uint64(0); seed < 50; seed++ {
+		conv := AssembleConversation(seed, ArchetypeCodingClaudeCode, 5)
+		for i := 0; i < len(conv)-1; i++ {
+			var producedIDs []string
+			for _, msg := range conv[i].Output {
+				for _, p := range msg.Parts {
+					if p.ToolCall != nil {
+						producedIDs = append(producedIDs, p.ToolCall.ID)
+					}
+				}
+			}
+			if len(producedIDs) == 0 {
+				continue
+			}
+			found = true
+
+			sameTurnIDs := map[string]bool{}
+			for _, msg := range conv[i].Input {
+				for _, p := range msg.Parts {
+					if p.ToolResult != nil {
+						sameTurnIDs[p.ToolResult.ToolCallID] = true
+					}
+				}
+			}
+			nextTurnIDs := map[string]bool{}
+			for _, msg := range conv[i+1].Input {
+				for _, p := range msg.Parts {
+					if p.ToolResult != nil {
+						nextTurnIDs[p.ToolResult.ToolCallID] = true
+					}
+				}
+			}
+			for _, id := range producedIDs {
+				if sameTurnIDs[id] {
+					t.Errorf("seed=%d turn=%d: tool_result for tool_call %q landed in the SAME turn's Input, want the NEXT turn's", seed, i, id)
+				}
+				if !nextTurnIDs[id] {
+					t.Errorf("seed=%d turn=%d: tool_call %q not carried into turn %d's Input", seed, i, id, i+1)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no seed produced an interior turn with tool calls across seeds 0..49 — cannot verify carry-forward")
+	}
+}
+
+// TestAssembleConversationLastTurnToolResultNotDropped verifies that when the LAST turn's Output
+// produces tool calls (with no next turn to carry the result into), the resulting tool_result is
+// not silently dropped — SKT-0001 AC#1. The decided handling: with nowhere later to carry it,
+// the tool_result stays on the last turn's own Input rather than vanishing.
+func TestAssembleConversationLastTurnToolResultNotDropped(t *testing.T) {
+	found := false
+	for seed := uint64(0); seed < 100; seed++ {
+		conv := AssembleConversation(seed, ArchetypeCodingClaudeCode, 3)
+		if len(conv) == 0 {
+			continue
+		}
+		last := conv[len(conv)-1]
+		var producedIDs []string
+		for _, msg := range last.Output {
+			for _, p := range msg.Parts {
+				if p.ToolCall != nil {
+					producedIDs = append(producedIDs, p.ToolCall.ID)
+				}
+			}
+		}
+		if len(producedIDs) == 0 {
+			continue
+		}
+		found = true
+		seenIDs := map[string]bool{}
+		for _, msg := range last.Input {
+			for _, p := range msg.Parts {
+				if p.ToolResult != nil {
+					seenIDs[p.ToolResult.ToolCallID] = true
+				}
+			}
+		}
+		for _, id := range producedIDs {
+			if !seenIDs[id] {
+				t.Errorf("seed=%d: last turn's tool_call %q has no corresponding tool_result anywhere (dropped)", seed, id)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no seed produced a last-turn tool_call across seeds 0..99 — cannot verify no-drop handling")
+	}
+}
+
 // TestAssembleConversationRoleAssistant verifies that each turn's Role field is "assistant".
 func TestAssembleConversationRoleAssistant(t *testing.T) {
 	for _, arch := range AllArchetypes {

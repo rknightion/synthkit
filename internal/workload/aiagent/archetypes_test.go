@@ -155,6 +155,82 @@ func TestOrchestrationArchetype(t *testing.T) {
 	}
 }
 
+// TestCodingClaudeCodeSubagentFanout verifies the coding_claude_code archetype attributes its
+// declared Subagents' activity under distinct `claude-code/<subagent>` agent_names, parented to the
+// coding turn that delegates to them — the same fan-out shape general_orchestration already uses
+// (SKT-0001 AC#2).
+func TestCodingClaudeCodeSubagentFanout(t *testing.T) {
+	agent := codingAgent()
+	agent.Subagents = []string{"general-purpose", "code-reviewer"}
+	agent.Activity.TurnsP50 = 4 // ensure >1 turn
+	r := fixedReq("conv-coding-subagent-1", 90*time.Second)
+	r.Route = agent.Name
+	r.Provider = agent.Provider
+	r.Model = agent.Models[0]
+	gens, _, spans, _ := buildConversation(ResourceID{}, agent, r)
+	if len(gens) < 2 {
+		t.Fatalf("only %d generations; expected coding turns + subagent fan-out", len(gens))
+	}
+
+	wantSubName := map[string]bool{}
+	for _, p := range agent.Subagents {
+		wantSubName[agent.Name+"/"+p] = true
+	}
+	mainByID := map[string]bool{}
+	var subAgentCount int
+	for i := range gens {
+		switch {
+		case gens[i].AgentName == agent.Name:
+			mainByID[gens[i].ID] = true
+			if len(gens[i].ParentGenerationIDs) != 0 {
+				t.Fatalf("coding turn gen %s: unexpected ParentGenerationIDs %v", gens[i].ID, gens[i].ParentGenerationIDs)
+			}
+		case wantSubName[gens[i].AgentName]:
+			subAgentCount++
+			if gens[i].AgentVersion != "" {
+				t.Fatalf("subagent %s: AgentVersion=%q, want empty", gens[i].AgentName, gens[i].AgentVersion)
+			}
+			if len(gens[i].ParentGenerationIDs) != 1 {
+				t.Fatalf("subagent %s: ParentGenerationIDs=%v, want exactly one parent",
+					gens[i].AgentName, gens[i].ParentGenerationIDs)
+			}
+			if !mainByID[gens[i].ParentGenerationIDs[0]] {
+				// Parent must resolve to a real coding-turn generation. Deferred check below once
+				// all main-turn ids are collected (order of iteration is not guaranteed).
+				continue
+			}
+		default:
+			t.Fatalf("gen %s has unexpected agent_name %q (not the coding agent nor a declared subagent)",
+				gens[i].ID, gens[i].AgentName)
+		}
+	}
+	if subAgentCount < len(agent.Subagents) {
+		t.Fatalf("got %d subagent generations, want ≥%d (turn-0 fan-out to every declared subagent)",
+			subAgentCount, len(agent.Subagents))
+	}
+	// Every subagent parent must reference a real coding-turn generation (checked here, now that
+	// every main-turn id has been collected).
+	for i := range gens {
+		if wantSubName[gens[i].AgentName] {
+			if !mainByID[gens[i].ParentGenerationIDs[0]] {
+				t.Fatalf("subagent %s parent %s is not a coding-turn generation",
+					gens[i].AgentName, gens[i].ParentGenerationIDs[0])
+			}
+		}
+	}
+
+	// The subagent scope must carry the sigil.<agent_name> convention too.
+	found := false
+	for _, res := range spans {
+		if res.Scope.Name == "sigil."+agent.Name+"/general-purpose" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no Lane B resource scoped sigil.%s/general-purpose found", agent.Name)
+	}
+}
+
 // TestAutonomousLoopArchetype: exactly one terminal verdict tool call with an enum-taxonomy arg.
 func TestAutonomousLoopArchetype(t *testing.T) {
 	agent := autonomousAgent()

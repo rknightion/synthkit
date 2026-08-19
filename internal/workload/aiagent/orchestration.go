@@ -18,12 +18,14 @@ import (
 const delegationProb = 0.5
 
 // subAgentGen is one fanned-out sub-agent contribution: the sub-agent's own sigil.Generation
-// (distinct agent_name, parented to the orchestrator gen), the orchestrator turn's envelope span id
-// it nests under (parentEnv), and the Lane-C metric observation it produces. The fan-out is the
-// difference between a linear turn CHAIN and a true orchestration TREE (R-orch1).
+// (distinct agent_name, parented to the parent turn's gen), the Lane B parent span id it nests
+// under (parentEnv — the agents.base envelope for general_orchestration; the turn's own root
+// generateText/streamText span for coding_claude_code, which has no envelope), and the Lane-C
+// metric observation it produces. The fan-out is the difference between a linear turn CHAIN and a
+// true call TREE (R-orch1; extended to coding sub-agents by SKT-0001 AC#2).
 type subAgentGen struct {
 	gen       sigil.Generation
-	parentEnv string // the orchestrator turn's agents.base envelope span id (Lane B parent)
+	parentEnv string // Lane B parent span id to nest the sub-agent span under
 	obs       metricObs
 }
 
@@ -45,23 +47,58 @@ func buildOrchestrationFanout(agent AgentDecl, r *ledger.Request, orchGens []sig
 		case ti == 0:
 			// Opening fan-out: the orchestrator dispatches to EVERY declared peer.
 			for pi, peer := range agent.Subagents {
-				out = append(out, makeSubAgent(agent, r, og, art, peer, fmt.Sprintf("sub-%d-%d", ti, pi)))
+				out = append(out, makeSubAgent(agent, r, og, art, peer, art.envSpanID, fmt.Sprintf("sub-%d-%d", ti, pi)))
 			}
 		case seedUnit(og.ID, "delegate") < delegationProb:
 			// Subsequent delegation: one seeded peer.
 			peer := agent.Subagents[seedHash(og.ID, "subpick")%uint64(len(agent.Subagents))]
-			out = append(out, makeSubAgent(agent, r, og, art, peer, fmt.Sprintf("sub-%d", ti)))
+			out = append(out, makeSubAgent(agent, r, og, art, peer, art.envSpanID, fmt.Sprintf("sub-%d", ti)))
+		}
+	}
+	return out
+}
+
+// buildCodingSubagentFanout produces per-subagent generations for a coding_claude_code
+// conversation whose agent declares Subagents. It mirrors buildOrchestrationFanout's fan-out shape
+// exactly (turn 0 dispatches to every declared peer; later turns delegate to one seeded peer with
+// delegationProb) so claude-code's sub-agent activity becomes attributable by agent_name the same
+// way general_orchestration's already is (SKT-0001 AC#2). The two differences from the general
+// case, both structural: the agent_name carries the documented `claude-code/<subagent>` form
+// (signals/sigil.md), and the sub-agent's Lane B span nests under the coding turn's OWN root span
+// (art.rootSpanID) rather than an agents.base envelope, because coding's 2-level span tree has no
+// envelope to nest under. Returns nil for any archetype other than coding_claude_code, or when no
+// peers are declared.
+func buildCodingSubagentFanout(agent AgentDecl, r *ledger.Request, gens []sigil.Generation, arts []turnArtifacts) []subAgentGen {
+	if agent.Archetype != archCodingClaudeCode || len(agent.Subagents) == 0 || len(gens) == 0 {
+		return nil
+	}
+	var out []subAgentGen
+	for ti := range gens {
+		og := gens[ti]
+		art := arts[ti]
+		switch {
+		case ti == 0:
+			// Opening fan-out: the coding agent dispatches to EVERY declared subagent type.
+			for pi, peer := range agent.Subagents {
+				out = append(out, makeSubAgent(agent, r, og, art, agent.Name+"/"+peer, art.rootSpanID, fmt.Sprintf("csub-%d-%d", ti, pi)))
+			}
+		case seedUnit(og.ID, "codingDelegate") < delegationProb:
+			// Subsequent delegation: one seeded subagent type.
+			peer := agent.Subagents[seedHash(og.ID, "codingSubpick")%uint64(len(agent.Subagents))]
+			out = append(out, makeSubAgent(agent, r, og, art, agent.Name+"/"+peer, art.rootSpanID, fmt.Sprintf("csub-%d", ti)))
 		}
 	}
 	return out
 }
 
 // makeSubAgent builds one sub-agent generation + its metric observation for a delegation by the
-// orchestrator turn `og`. The sub-agent shares the conversation + the orchestrator turn's trace_id
-// (the delegation is a child call within that turn's trace) but gets its OWN root span id; its
-// agent_name is the peer name, it carries NO agent_version, and parent_generation_ids points back to
-// the orchestrator generation. Token shape is the modest general form.
-func makeSubAgent(agent AgentDecl, r *ledger.Request, og sigil.Generation, art turnArtifacts, peer, salt string) subAgentGen {
+// parent turn `og`. The sub-agent shares the conversation + the parent turn's trace_id (the
+// delegation is a child call within that turn's trace) but gets its OWN root span id; its
+// agent_name is `agentName` (the peer name verbatim for general_orchestration; `<agent.Name>/<peer>`
+// for coding_claude_code — SKT-0001 AC#2), it carries NO agent_version, and parent_generation_ids
+// points back to the parent generation. parentSpanID is the Lane B span this sub-agent's own span
+// nests under (see subAgentGen). Token shape is the modest general form.
+func makeSubAgent(agent AgentDecl, r *ledger.Request, og sigil.Generation, art turnArtifacts, agentName, parentSpanID, salt string) subAgentGen {
 	sgID := uuidLike(og.ID, "subgen-"+salt)
 	spanID := ledger.NewSpanID()
 
@@ -90,7 +127,7 @@ func makeSubAgent(agent AgentDecl, r *ledger.Request, og sigil.Generation, art t
 		ResponseModel:  og.Model,
 		SystemPrompt:   og.SystemPrompt, // shares the framework system prompt
 		Input: []sigil.Message{{Role: sigil.RoleUser, Parts: []sigil.Part{
-			{Text: "Delegated subtask for " + peer, ProviderType: "text"},
+			{Text: "Delegated subtask for " + agentName, ProviderType: "text"},
 		}}},
 		Output: []sigil.Message{{Role: sigil.RoleAssistant, Parts: []sigil.Part{
 			{Text: "Completed delegated subtask.", ProviderType: "text"},
@@ -100,7 +137,7 @@ func makeSubAgent(agent AgentDecl, r *ledger.Request, og sigil.Generation, art t
 		StartedAt:           start,
 		EndedAt:             end,
 		Tags:                agent.Tags,
-		AgentName:           peer,
+		AgentName:           agentName,
 		AgentVersion:        "", // sub-agents are framework-internal: no declared version
 		ParentGenerationIDs: []string{og.ID},
 		EffectiveVersion:    sigil.EffectiveVersion(og.SystemPrompt),
@@ -108,7 +145,7 @@ func makeSubAgent(agent AgentDecl, r *ledger.Request, og sigil.Generation, art t
 	}
 
 	obs := metricObs{
-		agentName:    peer,
+		agentName:    agentName,
 		operation:    sigil.OpGenerateText,
 		provider:     og.Provider,
 		model:        og.Model,
@@ -123,13 +160,16 @@ func makeSubAgent(agent AgentDecl, r *ledger.Request, og sigil.Generation, art t
 		}(),
 	}
 
-	return subAgentGen{gen: gen, parentEnv: art.envSpanID, obs: obs}
+	return subAgentGen{gen: gen, parentEnv: parentSpanID, obs: obs}
 }
 
 // subAgentResources builds the Lane B spans for the fanned-out sub-agent generations, grouped by the
-// sub-agent's scope (sigil.<peer>). Each is a generateText CLIENT span on the SAME chatservice/k8s
-// resource as the orchestrator, nested under the orchestrator turn's agents.base envelope span, and
-// carries the parent_generation_ids attr so Tempo + the aio11y catalog render the call tree.
+// sub-agent's scope (sigil.<peer>, e.g. sigil.claude-code/<subagent> for coding). Each is a
+// generateText CLIENT span on the SAME resource as the parent (chatservice/k8s for
+// general_orchestration; sigil/sigil for coding_claude_code), nested under each sub-agent's own
+// subAgentGen.parentEnv (the parent's agents.base envelope span for general, its turn's own root
+// span for coding), and carries the parent_generation_ids attr so Tempo + the aio11y catalog render
+// the call tree.
 func subAgentResources(res ResourceID, agent AgentDecl, r *ledger.Request, subs []subAgentGen) []otlp.Resource {
 	if len(subs) == 0 {
 		return nil

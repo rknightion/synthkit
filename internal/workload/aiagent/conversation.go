@@ -115,6 +115,18 @@ func buildConversation(res ResourceID, agent AgentDecl, r *ledger.Request) (gens
 		}
 	}
 
+	// Coding sub-agent fan-out (coding_claude_code): the same mechanism as orchestration fan-out
+	// above, attributing claude-code's declared Subagents under distinct `claude-code/<subagent>`
+	// agent_names so their activity is attributable (SKT-0001 AC#2). No-op for every other
+	// archetype, or when the agent declares no Subagents.
+	if subs := buildCodingSubagentFanout(agent, r, gens, arts); len(subs) > 0 {
+		spans = append(spans, subAgentResources(res, agent, r, subs)...)
+		for i := range subs {
+			gens = append(gens, subs[i].gen)
+			allObs = append(allObs, subs[i].obs)
+		}
+	}
+
 	return gens, steps, spans, allObs
 }
 
