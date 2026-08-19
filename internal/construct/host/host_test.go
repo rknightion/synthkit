@@ -163,7 +163,8 @@ func TestDockerLane(t *testing.T) {
 // carry the NATIVE cadvisor labels {name, image, id} — NOT a `container` label. Per the
 // a live homelab reference capture, cadvisor metrics expose `name` (container name),
 // `image` (image:tag), and `id` (cgroup path), while the `container` label is a LOGS-only
-// relabel applied by Alloy's docker discovery. (host-capture.md "Docker label schema".)
+// relabel applied by Alloy's docker discovery. (See `signals/host.md`
+// `[slug: host-docker]` for the captured label schema.)
 func TestDockerMetricsCarryCadvisorLabels(t *testing.T) {
 	h := &fixture.Host{Hostname: "camden", OS: "linux", Profile: "integration", Docker: true}
 	series := tickHost(t, h)

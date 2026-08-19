@@ -309,7 +309,8 @@ func TestEmitWindowsDiskFreeIsDirectValue(t *testing.T) {
 
 // TestEmitWindowsServiceStateNotPhantom asserts the capture-driven fix: the integration
 // keepset no longer references the PHANTOM windows_service_status, and EmitWindows emits the
-// REAL windows_service_state{name,state} metric instead (host-capture.md WINSRV section).
+// REAL windows_service_state{name,state} metric instead (2026-06-17 WINSRV capture;
+// provenance recorded in signals/host.md).
 func TestEmitWindowsServiceStateNotPhantom(t *testing.T) {
 	ks := keepSetWindows(ProfileIntegration)
 	if ks["windows_service_status"] {

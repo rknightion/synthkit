@@ -62,8 +62,8 @@ func TestEmitMacOSMemorySubset(t *testing.T) {
 }
 
 // TestEmitMacOSMemoryMagnitudes asserts the macOS memory gauge magnitudes are in plausible
-// ratio bands vs the a homelab reference host (host-capture.md "macOS memory
-// metrics"): 32 GiB total → wired≈3.8 GiB (~12%), compressed≈4.2 GiB (~13%),
+// ratio bands vs a homelab reference host (provenance recorded in signals/host.md "macOS
+// memory metrics"): 32 GiB total → wired≈3.8 GiB (~12%), compressed≈4.2 GiB (~13%),
 // internal≈7.7 GiB (~24%), purgeable≈89 MB (~0.3%), swap_used≈near-zero.
 func TestEmitMacOSMemoryMagnitudes(t *testing.T) {
 	const total = 32 * 1024 * 1024 * 1024 // match captured alex

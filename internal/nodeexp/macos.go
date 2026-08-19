@@ -118,8 +118,8 @@ func EmitMacOS(st *state.State, base map[string]string, top HostTopology, prof P
 	set("node_load15", base, load1*(0.7+sh.Noise(0.05)*0.1))
 
 	// ── macOS memory family (replaces Linux MemInfo entirely) ─────────────────────
-	// Ratios RECONCILED against the captured a homelab reference host (host-capture.md
-	// "macOS memory metrics", 32 GiB total):
+	// Ratios RECONCILED against a captured homelab reference host (2026-06-17, 32 GiB
+	// total; provenance recorded in signals/host.md "macOS memory metrics"):
 	//   total      = top.MemTotal (declared)
 	//   wired      ≈ 12% (4.08 GiB / 32 GiB) — kernel + wired processes
 	//   compressed ≈ 13% (4.48 GiB / 32 GiB) — compressed VM pages (the REAL pressure on macOS)

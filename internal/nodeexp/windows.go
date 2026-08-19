@@ -19,7 +19,8 @@
 //
 // LIVE-CONFIRMED names: the names emitted here are those confirmed by the
 // 2026-06-15 k8s-monitoring live capture (see windowsexporter.go header) OR by the
-// 2026-06-17 homelab reference WINSRV capture (host-capture.md). The integration-only
+// 2026-06-17 homelab reference WINSRV capture (provenance recorded in signals/host.md;
+// per-name corrections in cantfind.md SK-79..SK-83). The integration-only
 // extras (windows_service_state, windows_diskdrive_status, windows_system_*,
 // windows_pagefile_*, windows_time_*) were ADDED from that WINSRV capture with the exact
 // label keys it shows. Names the capture did NOT confirm — windows_cs_*,
@@ -199,10 +200,11 @@ func EmitWindows(st *state.State, base map[string]string, top HostTopology, prof
 		add("windows_net_packets_received_total", nicLbls, netBase/1500)
 	}
 
-	// ── Capture-confirmed integration extras (host-capture.md WINSRV section) ───────────
+	// ── Capture-confirmed integration extras (2026-06-17 WINSRV capture) ───────────
 	// Every name + label key below is sourced VERBATIM from a homelab reference host
-	// WINSRV capture (Windows Server 2025). Names the capture does NOT confirm are NOT
-	// emitted (see profiles.go windowsIntegrationNames comment + the task cantfind list).
+	// WINSRV capture (Windows Server 2025; provenance recorded in signals/host.md). Names
+	// the capture does NOT confirm are NOT emitted (see profiles.go windowsIntegrationNames
+	// comment + cantfind.md SK-79..SK-83).
 
 	// windows_service_state{name,state} — the REAL metric (windows_service_status is a phantom).
 	// Emit a small representative set of services; the per-service `state` reflects the host's

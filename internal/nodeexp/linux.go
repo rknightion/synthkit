@@ -535,9 +535,10 @@ func EmitLinux(st *state.State, base map[string]string, top HostTopology, prof P
 	set("process_max_fds", cloneBase(base), 1048576)
 	set("process_open_fds", cloneBase(base), float64(8+int(hostHash(hostname, "pfd")*12)))
 
-	// Universal node_exporter self-metrics — the ProfileFull delta (host-capture.md confirms
-	// promhttp_*/go_* present on every real node_exporter). keepSet filters them out under
-	// ProfileIntegration; emitting them unconditionally keeps `full` a real superset.
+	// Universal node_exporter self-metrics — the ProfileFull delta (fullLinuxExtraNames in
+	// profiles.go; confirmed present on every real node_exporter by the 2026-06-17 homelab
+	// reference capture, provenance recorded in signals/host.md). keepSet filters them out
+	// under ProfileIntegration; emitting them unconditionally keeps `full` a real superset.
 	set("go_goroutines", cloneBase(base), float64(20+int(hostHash(hostname, "goroutines")*40)))
 	set("go_memstats_alloc_bytes", cloneBase(base), 4*1024*1024*sh.Noise(0.15))
 	add("promhttp_metric_handler_requests_total", mergeBase(base, map[string]string{"code": "200"}),

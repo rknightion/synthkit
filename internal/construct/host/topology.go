@@ -183,7 +183,8 @@ func osInfoFor(h *fixture.Host) nodeexp.OSInfo {
 // dockerContainers returns a deterministic 3–6 container set for the Docker lane, derived
 // entirely from the seed (names + resource shape).
 //
-// Per a live homelab reference capture (host-capture.md "Docker label schema"), the
+// Per a live homelab reference capture (provenance + the Docker label schema are
+// recorded in `signals/host.md` `[slug: host-docker]`), the
 // cadvisor METRIC series carry the NATIVE cadvisor labels: `name` (the Docker container
 // name), `image` (image:tag), and `id` (the cgroup path, e.g.
 // "/system.slice/docker-<hash>.scope"). The `container` label is NOT a cadvisor metric

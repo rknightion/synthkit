@@ -26,8 +26,8 @@ gated by the host's `docker` switch). The Docker lane is emitted alongside the O
 host's `observability.docker` switch is set.
 
 *Provenance: real host telemetry live-captured 2026-06-17 from a reference Grafana Cloud stack
-(`docs/superpowers/host-capture.md` — 9 real hosts spanning Linux/FreeBSD, Windows Server 2025,
-macOS, + Docker cAdvisor on several Linux hosts) plus the Grafana Cloud integration Alloy
+(9 real hosts spanning Linux/FreeBSD, Windows Server 2025, macOS, + Docker cAdvisor on several
+Linux hosts) plus the Grafana Cloud integration Alloy
 `prometheus.relabel` keep allowlists; synthesized by `internal/construct/host` + `internal/nodeexp`.
 Keep-sets: `internal/nodeexp/profiles.go` (`linuxIntegrationNames` / `windowsIntegrationNames` /
 `macosIntegrationNames` / `fullLinuxExtraNames`).*

@@ -183,10 +183,11 @@ var linuxIntegrationNames = []string{
 }
 
 // windowsIntegrationNames is the windows_exporter integration keepset, RECONCILED against
-// the real a homelab reference WINSRV capture (host-capture.md, 2026-06-17). Only names the
-// capture CONFIRMS present on the real Windows Server 2025 host are kept.
+// a real homelab reference WINSRV capture (2026-06-17; provenance recorded in
+// signals/host.md). Only names the capture CONFIRMS present on the real Windows Server 2025
+// host are kept.
 //
-// Capture-driven corrections (host-capture.md "What is NOT present (WINSRV)"):
+// Capture-driven corrections (per-name detail in cantfind.md SK-79..SK-83):
 //   - windows_service_status REMOVED → it is a PHANTOM. The real metric is
 //     windows_service_state{name,state}. Added windows_service_state.
 //   - windows_cs_logical_processors / windows_cs_physical_memory_bytes REMOVED — the `cs`
@@ -538,16 +539,18 @@ var k8sCadvisorNames = []string{
 // fullLinuxExtraNames is the delta above the linux integration set for ProfileFull.
 // These are the standard node_exporter self-metrics present under include_exporter_metrics
 // (the universal exporter-internal surface). They are CONFIRMED present on every real
-// node_exporter instance in a homelab reference host capture (host-capture.md: "promhttp_*,
-// scrape_*, go_*" + node_exporter_build_info).
+// node_exporter instance by a 2026-06-17 homelab reference host capture (provenance
+// recorded in signals/host.md: "promhttp_*, scrape_*, go_*" + node_exporter_build_info).
 //
-// INTENTIONALLY MODEST: the real full delta on a homelab reference host is huge and host-hardware-specific
-// (ZFS node_zfs_* ~250 series, ~600 node_ethtool_* series, node_mountstats_nfs_*, RAPL,
-// hwmon sensors, NUMA/THP vmstat, etc. — see host-capture.md "node_exporter FULL DELTA").
-// synthkit does NOT synthesize those hardware/driver families: they are non-portable across
-// the declared fleet and would invent device topology we have no fixture for. The synthetic
-// `full` profile therefore = integration ∪ this small universal self-metric set. The
-// hardware-specific families are deliberately OUT OF SCOPE for synthetic full.
+// SETTLED, NOT PENDING: this is the permanent scope of ProfileFull, not a placeholder
+// awaiting a future capture. The real full delta on a homelab reference host is huge and
+// host-hardware-specific (ZFS node_zfs_* ~250 series, ~600 node_ethtool_* series,
+// node_mountstats_nfs_*, RAPL, hwmon sensors, NUMA/THP vmstat, etc.). synthkit does NOT
+// synthesize those hardware/driver families: they are non-portable across the declared
+// fleet and would invent device topology we have no fixture for. The synthetic `full`
+// profile therefore = integration ∪ this small universal self-metric set. The
+// hardware-specific families are deliberately and permanently OUT OF SCOPE for
+// synthetic full.
 var fullLinuxExtraNames = []string{
 	"process_cpu_seconds_total",
 	"process_resident_memory_bytes",
@@ -583,8 +586,10 @@ func mergeSet(a, b []string) map[string]bool {
 // memory subset (e.g. node_memory_total_bytes rather than node_memory_MemTotal_bytes).
 //
 // ProfileFull returns the linux integration set union a small capture-confirmed delta
-// (standard node_exporter self-metrics). When host-capture.md is populated (Phase 5),
-// the delta will be expanded to the full homelab reference broad-Alloy surface.
+// (standard node_exporter self-metrics, see fullLinuxExtraNames). This is the settled,
+// permanent scope of the synthetic `full` profile, not a placeholder: the
+// hardware/driver-specific families (ZFS, ethtool, NFS mountstats, RAPL, hwmon,
+// NUMA/THP) are deliberately out of scope — see the fullLinuxExtraNames doc comment.
 //
 // ProfileK8s returns the exact name set emitted by k8scluster/nodeexporter.go today
 // (grepped 2026-06-17). Callers emitting k8s Windows series must call keepSetWindows.
@@ -593,8 +598,8 @@ func keepSet(prof Profile) map[string]bool {
 	case ProfileIntegration:
 		return makeSet(linuxIntegrationNames)
 	case ProfileFull:
-		// integration ∪ capture-confirmed delta.
-		// TODO(phase5): expand delta from host-capture.md.
+		// integration ∪ capture-confirmed delta (deliberately modest, by design — see
+		// the fullLinuxExtraNames doc comment for the out-of-scope rationale).
 		return mergeSet(linuxIntegrationNames, fullLinuxExtraNames)
 	case ProfileK8s:
 		return makeSet(k8sNodeNames)
