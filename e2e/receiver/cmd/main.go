@@ -15,9 +15,14 @@ func main() {
 	if v := os.Getenv("RECEIVER_ADDR"); v != "" {
 		addr = v
 	}
+	certFile := os.Getenv("RECEIVER_TLS_CERT_FILE")
+	keyFile := os.Getenv("RECEIVER_TLS_KEY_FILE")
+	if certFile == "" || keyFile == "" {
+		log.Fatal("RECEIVER_TLS_CERT_FILE and RECEIVER_TLS_KEY_FILE are required")
+	}
 	rec := receiver.New()
-	log.Printf("e2e receiver listening on %s", addr)
-	if err := http.ListenAndServe(addr, rec.Handler()); err != nil {
+	log.Printf("e2e receiver listening with TLS on %s", addr)
+	if err := http.ListenAndServeTLS(addr, certFile, keyFile, rec.Handler()); err != nil {
 		log.Fatal(err)
 	}
 }

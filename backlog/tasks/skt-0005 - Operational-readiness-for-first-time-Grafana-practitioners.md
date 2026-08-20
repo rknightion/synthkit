@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-20 10:58'
-updated_date: '2026-08-20 13:11'
+updated_date: '2026-08-20 13:18'
 labels: []
 dependencies: []
 references:
@@ -65,4 +65,6 @@ Wave 1 landed and pushed: implementation 9c93f5c plus tracker finalization ecad9
 Wave 2 landed and pushed on main: implementation e98411b, task finalization 1569d34. Completed SKT-0005.04, .05, .15, .16, and .18 after one integrated CodeRabbit review (5 minor issues, all fixed), make gate, and default/focused dry-run inventories. Wave 3 started with disjoint active lanes SKT-0005.06, .07, .08, and .17; root retains integration, review, Backlog, commit, and push ownership. docs.toml remains unrelated concurrent work and is excluded from campaign staging.
 
 Wave 3 landed in implementation commit 265ecd9 and pushed at merged head dab60de after disjoint Renovate workflow commits advanced origin/main. Completed SKT-0005.06, .07, .08, and .17 after CodeRabbit reviews 7 and 8 (eight-review cap reached), make gate, focused UI/helper/docs checks, and default plus otlp-native dry-run inventories. No live Grafana calls occurred; docs.toml remains unrelated unstaged work. Next dependency-unblocked operational queue starts with .09 and .10, then .12.
+
+Wave 3 exact-head CI exposed a real SKT-0005.17 regression: run 32372813999 job 96437819784 rejected the e2e receiver HTTP GC_PROM_RW URL under the new HTTPS-only live contract and emitted zero signals. SKT-0005.17 is reopened for a TLS-preserving e2e repair. The eight-review CodeRabbit budget is exhausted; no review 9 will be run.
 <!-- SECTION:NOTES:END -->

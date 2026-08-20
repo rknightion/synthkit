@@ -25,7 +25,7 @@ func TestReceiverCapturesAllLanes(t *testing.T) {
 	ctx := context.Background()
 
 	// Metrics (RW2): use the real promrw sink to encode + push one series.
-	ms := promrw.New(srv.URL+"/api/v1/write", "u", "tok", false, func() int { return 0 })
+	ms := promrw.New(srv.URL+"/api/prom/push", "u", "tok", false, func() int { return 0 })
 	if err := ms.Write(ctx, []promrw.Series{{
 		Name:   "e2e_demo_total",
 		Labels: map[string]string{"cluster": "c1", "job": "demo"},
@@ -46,7 +46,7 @@ func TestReceiverCapturesAllLanes(t *testing.T) {
 	}
 
 	// Traces (OTLP): use the real otlp sink to encode + push one span.
-	os := otlp.New(srv.URL, "u", "tok", false)
+	os := otlp.New(srv.URL+"/otlp", "u", "tok", false)
 	now := time.Now()
 	if err := os.Write(ctx, []otlp.Resource{{
 		Attrs: map[string]any{"service.name": "checkout"},
@@ -63,7 +63,7 @@ func TestReceiverCapturesAllLanes(t *testing.T) {
 	}
 
 	// Metrics (OTLP native): use the real otlp metrics sink to encode + push one metric.
-	oms := otlp.NewMetrics(srv.URL, "u", "tok", false)
+	oms := otlp.NewMetrics(srv.URL+"/otlp", "u", "tok", false)
 	if err := oms.Write(ctx, []otlp.MetricResource{{
 		Attrs: map[string]any{"service.name": "checkout"},
 		Metrics: []otlp.Metric{{

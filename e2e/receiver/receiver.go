@@ -63,9 +63,9 @@ func add(m map[string]map[string]bool, k string, vals ...string) {
 // Handler returns an http.Handler routing all synthkit egress paths.
 func (r *Receiver) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/v1/write", r.handleRW2)
-	mux.HandleFunc("POST /v1/traces", r.handleTraces)
-	mux.HandleFunc("POST /v1/metrics", r.handleOTLPMetrics)
+	mux.HandleFunc("POST /api/prom/push", r.handleRW2)
+	mux.HandleFunc("POST /otlp/v1/traces", r.handleTraces)
+	mux.HandleFunc("POST /otlp/v1/metrics", r.handleOTLPMetrics)
 	mux.HandleFunc("POST /loki/api/v1/push", r.handleLoki)
 	// Sigil native-ingest lanes (plain protojson, no gzip).
 	mux.HandleFunc("POST /api/v1/generations:export", r.handleSigilGenerations)

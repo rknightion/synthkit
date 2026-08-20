@@ -20,9 +20,17 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"os"
 	"os/exec"
@@ -48,6 +56,7 @@ const e2eBlueprint = "otlp-native"
 // at the receiver.
 func TestDockerE2E(t *testing.T) {
 	ctx := context.Background()
+	testTLS := newTestTLS(t)
 
 	// Shared Docker network — both containers join it so synthkit can reach
 	// "receiver:9099" by name.
@@ -69,7 +78,27 @@ func TestDockerE2E(t *testing.T) {
 				KeepImage:  true,
 			},
 			ExposedPorts: []string{"9099/tcp"},
-			Networks:     []string{net.Name},
+			Env: map[string]string{
+				"RECEIVER_TLS_CERT_FILE": "/tmp/receiver.crt",
+				"RECEIVER_TLS_KEY_FILE":  "/tmp/receiver.key",
+			},
+			Files: []testcontainers.ContainerFile{
+				{
+					HostFilePath:      testTLS.certPath,
+					ContainerFilePath: "/tmp/receiver.crt",
+					FileMode:          0o644,
+				},
+				{
+					HostFilePath:      testTLS.keyPath,
+					ContainerFilePath: "/tmp/receiver.key",
+					// ContainerFile has no ownership setting: Docker copies as root,
+					// while the distroless receiver runs as uid 65532. Keep the
+					// short-lived host key 0600 and grant only the container's
+					// non-owner read bit here.
+					FileMode: 0o604,
+				},
+			},
+			Networks: []string{net.Name},
 			NetworkAliases: map[string][]string{
 				net.Name: {"receiver"},
 			},
@@ -109,23 +138,29 @@ func TestDockerE2E(t *testing.T) {
 			},
 			Networks: []string{net.Name},
 			Env: map[string]string{
-				"DRY_RUN":              "false",
-				"GC_TOKEN":             "e2e",
-				"GC_PROM_RW":           "http://receiver:9099/api/v1/write",
-				"GC_PROM_USER":         "e2e",
-				"GC_OTLP_ENDPOINT":     "http://receiver:9099",
-				"GC_OTLP_USER":         "e2e",
-				"GC_LOKI":              "http://receiver:9099/loki/api/v1/push",
-				"GC_LOKI_USER":         "e2e",
-				"GC_SIGIL_ENDPOINT":    "http://receiver:9099",
-				"GC_SIGIL_TENANT_ID":   "e2e",
-				"GC_SIGIL_TOKEN":       "e2e",
-				"BLUEPRINTS":           "/app/blueprints-e2e",
+				"DRY_RUN":            "false",
+				"GC_TOKEN":           "e2e",
+				"GC_PROM_RW":         "https://receiver:9099/api/prom/push",
+				"GC_PROM_USER":       "1",
+				"GC_OTLP_ENDPOINT":   "https://receiver:9099/otlp",
+				"GC_OTLP_USER":       "2",
+				"GC_LOKI":            "https://receiver:9099/loki/api/v1/push",
+				"GC_LOKI_USER":       "3",
+				"GC_SIGIL_ENDPOINT":  "https://receiver:9099",
+				"GC_SIGIL_TENANT_ID": "e2e",
+				"GC_SIGIL_TOKEN":     "e2e",
+				"SSL_CERT_FILE":      "/tmp/e2e-ca.crt",
+				"BLUEPRINTS":         "/app/blueprints-e2e",
 			},
 			Files: []testcontainers.ContainerFile{
 				{
 					HostFilePath:      blueprintHostPath,
 					ContainerFilePath: "/app/blueprints-e2e/" + e2eBlueprint + ".yaml",
+					FileMode:          0o644,
+				},
+				{
+					HostFilePath:      testTLS.caPath,
+					ContainerFilePath: "/tmp/e2e-ca.crt",
 					FileMode:          0o644,
 				},
 			},
@@ -155,10 +190,25 @@ func TestDockerE2E(t *testing.T) {
 	if err != nil {
 		t.Fatalf("receiver mapped port: %v", err)
 	}
-	inventoryURL := fmt.Sprintf("http://%s:%s/__inventory", host, port.Port())
+	inventoryURL := fmt.Sprintf("https://%s:%s/__inventory", host, port.Port())
 	t.Logf("fetching inventory from %s", inventoryURL)
 
-	resp, err := http.Get(inventoryURL) //nolint:noctx // test-only helper
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, inventoryURL, nil)
+	if err != nil {
+		t.Fatalf("create inventory request: %v", err)
+	}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+				RootCAs:    testTLS.roots,
+				ServerName: "receiver",
+			},
+		},
+	}
+	t.Cleanup(client.CloseIdleConnections)
+	resp, err := client.Do(request)
 	if err != nil {
 		t.Fatalf("GET /__inventory: %v", err)
 	}
@@ -190,6 +240,81 @@ func TestDockerE2E(t *testing.T) {
 	}
 	t.Logf("PASS: all %d declared metrics + %d log sources + %d trace services + %d sigil kinds received",
 		len(expected.Metrics), len(expected.LogSources), len(expected.Traces), len(expected.Sigil))
+}
+
+type generatedTLS struct {
+	caPath   string
+	certPath string
+	keyPath  string
+	roots    *x509.CertPool
+}
+
+// newTestTLS creates a short-lived CA and receiver certificate. The certificate is
+// valid only for the Docker network alias; host inventory access verifies that same
+// identity explicitly through its trusted CA pool.
+func newTestTLS(t *testing.T) generatedTLS {
+	t.Helper()
+	now := time.Now()
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate test CA key: %v", err)
+	}
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "synthkit e2e test CA"},
+		NotBefore:             now.Add(-time.Minute),
+		NotAfter:              now.Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("create test CA certificate: %v", err)
+	}
+
+	serverKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate receiver key: %v", err)
+	}
+	serverTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "receiver"},
+		DNSNames:     []string{"receiver"},
+		NotBefore:    now.Add(-time.Minute),
+		NotAfter:     now.Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	serverDER, err := x509.CreateCertificate(rand.Reader, serverTemplate, caTemplate, &serverKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("create receiver certificate: %v", err)
+	}
+
+	dir := t.TempDir()
+	caPath := filepath.Join(dir, "ca.crt")
+	certPath := filepath.Join(dir, "receiver.crt")
+	keyPath := filepath.Join(dir, "receiver.key")
+	writePEM(t, caPath, "CERTIFICATE", caDER, 0o644)
+	writePEM(t, certPath, "CERTIFICATE", serverDER, 0o644)
+	keyDER, err := x509.MarshalPKCS8PrivateKey(serverKey)
+	if err != nil {
+		t.Fatalf("marshal receiver key: %v", err)
+	}
+	writePEM(t, keyPath, "PRIVATE KEY", keyDER, 0o600)
+
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})) {
+		t.Fatal("add test CA to trust pool")
+	}
+	return generatedTLS{caPath: caPath, certPath: certPath, keyPath: keyPath, roots: roots}
+}
+
+func writePEM(t *testing.T, path, typ string, der []byte, perm os.FileMode) {
+	t.Helper()
+	if err := os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: typ, Bytes: der}), perm); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
 }
 
 // dumpSchema runs `go run ../cmd/synthkit -once -dump` with DRY_RUN=true and a
