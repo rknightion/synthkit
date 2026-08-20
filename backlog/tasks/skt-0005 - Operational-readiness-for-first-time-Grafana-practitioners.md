@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-20 10:58'
-updated_date: '2026-08-20 12:17'
+updated_date: '2026-08-20 13:11'
 labels: []
 dependencies: []
 references:
@@ -63,4 +63,6 @@ Final completeness pass added .17 for mandatory live endpoint/identity/reachabil
 Wave 1 landed and pushed: implementation 9c93f5c plus tracker finalization ecad9d5. SKT-0005.01 through .03 are Done after four CodeRabbit reviews (final zero findings), make gate, and 26-blueprint dry-run inventory. Wave 2 active with disjoint owners: .04 focused blueprint selection, .05 marketplace relocation, .15 local docs validation, .16 mutation-safe APIs, and .18 slim portable agent contract. Config/control security/readiness tasks remain queued behind these file owners.
 
 Wave 2 landed and pushed on main: implementation e98411b, task finalization 1569d34. Completed SKT-0005.04, .05, .15, .16, and .18 after one integrated CodeRabbit review (5 minor issues, all fixed), make gate, and default/focused dry-run inventories. Wave 3 started with disjoint active lanes SKT-0005.06, .07, .08, and .17; root retains integration, review, Backlog, commit, and push ownership. docs.toml remains unrelated concurrent work and is excluded from campaign staging.
+
+Wave 3 landed in implementation commit 265ecd9 and pushed at merged head dab60de after disjoint Renovate workflow commits advanced origin/main. Completed SKT-0005.06, .07, .08, and .17 after CodeRabbit reviews 7 and 8 (eight-review cap reached), make gate, focused UI/helper/docs checks, and default plus otlp-native dry-run inventories. No live Grafana calls occurred; docs.toml remains unrelated unstaged work. Next dependency-unblocked operational queue starts with .09 and .10, then .12.
 <!-- SECTION:NOTES:END -->
