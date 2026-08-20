@@ -28,9 +28,19 @@ go build ./cmd/synthkit
 # Dry run: print the full series/label inventory, push nothing
 DRY_RUN=true ./synthkit -once -dump
 
-# Live: set credentials, then run the loop
-cp .env.example .env   # fill GC_TOKEN (+ GC_PROM_RW / GC_OTLP_ENDPOINT / GC_LOKI)
+# Live: create a private env file, fill the required Grafana Cloud values,
+# and explicitly set DRY_RUN=false before starting
+if test -e .env; then
+  printf '%s\n' '.env already exists; review it before changing live-mode settings.' >&2
+else
+  install -m 600 .env.example .env
+  ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
+fi
+# Edit .env and fill the required Grafana Cloud values without printing them.
 ./synthkit
+
+# From another terminal; this must print true
+curl -fsS http://localhost:8088/control/status | jq -e '.dry_run == false'
 ```
 
 ## LLM-assisted setup (Claude Code / Codex / OpenCode)

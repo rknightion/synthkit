@@ -4,7 +4,7 @@
 # Single source of truth: plugins/synthkit/skills/<name>/ (real files).
 # Fan-out (committed symlinks):  .claude/skills/<name>  (Claude Code, priority)
 #                                .agents/skills/<name>  (Codex; OpenCode also reads .claude)
-# Plus AGENTS.md -> CLAUDE.md (Codex/OpenCode house rules).
+# Repository instructions are canonical in AGENTS.md; CLAUDE.md files import them.
 #
 # Usage:
 #   scripts/sync-skills.sh           regenerate the farm to match the canonical dir
@@ -24,6 +24,46 @@ copy="${SYNTHKIT_SKILLS_COPY:-0}"
 
 fail=0
 note() { echo "sync-skills: $*"; }
+
+# Instruction files are not part of the generated skill farm. Every CLAUDE.md must
+# have a regular nearest AGENTS.md and import it explicitly; in particular, the
+# root AGENTS.md is a regular canonical file. A normal sync refuses to continue
+# when this arrangement is broken rather than repairing it by replacing AGENTS.md.
+assert_instruction_arrangement() {
+  local bad=0 claude agents
+
+  if [ ! -f AGENTS.md ] || [ -L AGENTS.md ]; then
+    note "DRIFT: AGENTS.md must be a regular canonical file"
+    bad=1
+  fi
+
+  while IFS= read -r claude; do
+    [ -n "$claude" ] || continue
+    agents="$(dirname "$claude")/AGENTS.md"
+    if [ ! -f "$claude" ] || [ -L "$claude" ]; then
+      note "DRIFT: $claude must be a regular adapter"
+      bad=1
+    fi
+    if [ ! -f "$agents" ] || [ -L "$agents" ]; then
+      note "DRIFT: $claude has no regular nearest AGENTS.md"
+      bad=1
+    fi
+    if [ -f "$claude" ] && ! grep -Eq '^[[:space:]]*@AGENTS\.md[[:space:]]*$' "$claude"; then
+      note "DRIFT: $claude must import @AGENTS.md"
+      bad=1
+    fi
+  done < <(find . -path './.git' -prune -o -name CLAUDE.md -print | sort)
+
+  if [ "$bad" -ne 0 ]; then
+    fail=1
+    if [ "$check" -eq 0 ]; then
+      note "FAILED — canonical instruction arrangement is invalid"
+      exit 1
+    fi
+  fi
+}
+
+assert_instruction_arrangement
 
 # Discover skill names (dirs under canon that contain SKILL.md).
 # NOTE: `mapfile` is bash 4+; macOS ships bash 3.2, so use a read loop instead.
@@ -75,13 +115,6 @@ for base in "${targets[@]}"; do
     done
   fi
 done
-
-# AGENTS.md -> CLAUDE.md
-if [ "$check" -eq 1 ]; then
-  [ "$(readlink AGENTS.md 2>/dev/null || true)" = "CLAUDE.md" ] || { note "DRIFT: AGENTS.md should symlink CLAUDE.md"; fail=1; }
-else
-  [ -e CLAUDE.md ] && { rm -f AGENTS.md; ln -s CLAUDE.md AGENTS.md; }
-fi
 
 if [ "$check" -eq 1 ] && [ "$fail" -ne 0 ]; then
   note "FAILED — run scripts/sync-skills.sh to fix"; exit 1

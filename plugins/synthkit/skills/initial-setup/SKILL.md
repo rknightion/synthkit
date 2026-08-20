@@ -64,7 +64,7 @@ existing line, so re-runs don't duplicate).
   flags for chosen lanes (e.g. `SELFOBS_ENABLED true` + `GC_SELF_OTLP_ENDPOINT`,
   `GC_SELF_OTLP_USER` for the staff stack).
 - Generate the control token idempotently (value never printed; strips any prior line first):
-  `grep -v '^CONTROL_TOKEN=' .env > .env.tmp 2>/dev/null; mv -f .env.tmp .env; printf 'CONTROL_TOKEN=%s\n' "$(openssl rand -hex 24)" >> .env`
+  `set -o pipefail; openssl rand -hex 24 | bash plugins/synthkit/skills/initial-setup/scripts/add-secret.sh CONTROL_TOKEN .env`
 - Collect the **secret** vars via the secure path. Confirm `.env` is gitignored: `git check-ignore .env` → prints `.env`.
 
 ## Step 5 — Host prep (once per host)

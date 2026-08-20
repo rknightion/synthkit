@@ -56,13 +56,30 @@ go build ./cmd/synthkit
 DRY_RUN=true ./synthkit -once -dump
 ```
 
-To push for real, copy the example environment file, fill in `GC_TOKEN` and the
-endpoints, then run it with no flags:
+To push for real, create a private environment file, fill in `GC_TOKEN` and the
+endpoints, and explicitly change `DRY_RUN=false` before starting:
 
 ```bash
-cp .env.example .env
+if test -e .env; then
+  printf '%s\n' '.env already exists; review it before changing live-mode settings.' >&2
+else
+  install -m 600 .env.example .env
+  ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
+fi
+# Edit .env and fill in the required Grafana Cloud values without printing them.
 ./synthkit
 ```
+
+For an existing `.env`, review its credentials first, then run the same `set-env.sh DRY_RUN false
+.env` command when you are ready to opt into live delivery.
+
+From another terminal, confirm the status endpoint reports `dry_run=false`:
+
+```bash
+curl -fsS http://localhost:8088/control/status | jq -e '.dry_run == false'
+```
+
+The command prints `true`; it exits nonzero if live mode is not active.
 
 ## What synthkit emits
 

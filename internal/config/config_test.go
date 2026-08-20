@@ -71,6 +71,48 @@ func TestLoadDefaultsAndOverrides(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInvalidDryRun(t *testing.T) {
+	p := writeEnv(t, "DRY_RUN=maybe\n")
+
+	_, err := Load(p)
+	if err == nil {
+		t.Fatal("DRY_RUN=maybe must be rejected")
+	}
+	if !strings.Contains(err.Error(), "DRY_RUN") || !strings.Contains(err.Error(), "expected true or false") {
+		t.Fatalf("invalid DRY_RUN error must explain the accepted values, got: %v", err)
+	}
+}
+
+func TestLoadTreatsEmptyDryRunAsSafeDefault(t *testing.T) {
+	cfg, err := Load(writeEnv(t, "DRY_RUN=\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.DryRun {
+		t.Fatal("an empty DRY_RUN must retain the safe dry-run default")
+	}
+}
+
+func TestLoadAcceptsCaseInsensitiveDryRun(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		want  bool
+	}{
+		{value: "TRUE", want: true},
+		{value: "fAlSe", want: false},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			cfg, err := Load(writeEnv(t, "DRY_RUN="+tc.value+"\n"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.DryRun != tc.want {
+				t.Fatalf("DRY_RUN=%s: want %t, got %t", tc.value, tc.want, cfg.DryRun)
+			}
+		})
+	}
+}
+
 // TestExternalBlueprintSourceDefaults pins the three new external-blueprint-source config fields.
 func TestExternalBlueprintSourceDefaults(t *testing.T) {
 	// Absent vars → all defaults.

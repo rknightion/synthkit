@@ -13,7 +13,7 @@ Anything still unverified lives in [`cantfind.md`](./cantfind.md) — it is NEVE
 > reproduces the *absence* so the dashboards teach the real constraint.
 
 Read [ARCHITECTURE.md](./ARCHITECTURE.md) (frozen seams, §5 scoping, §7 invariants I1–I33) and
-[CLAUDE.md](./CLAUDE.md) first. Mechanics (remote_write, hand-encoded OTLP, the two-cadence
+[AGENTS.md](./AGENTS.md) first. Mechanics (remote_write, hand-encoded OTLP, the two-cadence
 scheduler, the ledger) are documented there and not repeated here.
 
 ---

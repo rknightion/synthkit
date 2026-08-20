@@ -172,7 +172,17 @@ func Load(envPath string) (*Config, error) {
 		return nil, err
 	}
 	dry := get("DRY_RUN", "true")
-	cfg.DryRun = !strings.EqualFold(dry, "false")
+	if dry == "" {
+		dry = "true"
+	}
+	switch {
+	case strings.EqualFold(dry, "true"):
+		cfg.DryRun = true
+	case strings.EqualFold(dry, "false"):
+		cfg.DryRun = false
+	default:
+		return nil, fmt.Errorf("config: bad DRY_RUN %q: expected true or false", dry)
+	}
 	tick := get("TICK_DEFAULT", "5s")
 	d, derr := time.ParseDuration(tick)
 	if derr != nil {

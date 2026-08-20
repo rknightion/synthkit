@@ -22,6 +22,9 @@ services:
     env_file: .env
     environment:
       BLUEPRINTS: /app/blueprints
+      # Override the loopback-safe direct-run default only inside the container so Docker can
+      # reach the process through its port mapping. SYNTHKIT_BIND still controls host exposure.
+      JSON_HTTP_ADDR: 0.0.0.0:8088
       # State must live on the mounted /data volume (the distroless rootfs is read-only and
       # nonroot). The ./control-state.json default would silently fail to persist every tick.
       # compose `environment` overrides `env_file`, so a local relative default never leaks in.

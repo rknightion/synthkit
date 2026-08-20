@@ -6,6 +6,9 @@ metrics/traces/logs (+ optional RUM) to Grafana Cloud for whatever each declared
 supports. Read [ARCHITECTURE.md](./ARCHITECTURE.md) (frozen seams + invariants I1–I34) before
 touching code; [SIGNALS.md](./SIGNALS.md) indexes the authoritative per-construct data contract in [`signals/`](./signals/).
 
+This is the canonical repository instruction file. `CLAUDE.md` is a Claude Code import adapter;
+edit this file for cross-harness guidance.
+
 ## The three-tier rule (never violate)
 
 - **Constructs** (`internal/construct/<kind>/`) and **workloads** (`internal/workload/<kind>/`)
@@ -81,18 +84,19 @@ See ARCHITECTURE §3 (construct boundaries + emission switch) for the full ratio
 
 ## Working style
 
-- **Execution: ALWAYS subagent-driven, highly parallel.** For any non-trivial build, decompose into
-  tasks and dispatch fresh subagents (`superpowers:subagent-driven-development`), parallelising every
-  lane that touches disjoint files. Prefer **Sonnet** child agents when the task is well-scoped/low-
-  judgment (extraction, table-driven tests, fixtures, proto/codegen, doc regen) for cost + speed;
-  keep design, cross-cutting integration, and the final adversarial review on the main (Opus) thread.
-  Rob will always pick subagent-driven over inline — do not ask which.
-- **Branching policy:** SIGNIFICANT features/developments (new signal types, new workloads/constructs,
-  new sinks, cross-cutting architecture) → build on a **feature branch** and submit via **PR** to the
-  repo. Smaller things — fixes, CI/chore, doc tweaks, single-construct touch-ups — still go **straight
-  to `main`**. Green (build + vet + test) is mandatory before every commit — evidence, not assertion.
+- **Execution: subagent-driven and parallel where seams are disjoint.** For any non-trivial build,
+  decompose the work into lanes that have one file owner and a checkable acceptance result. Read the
+  canonical **Agent fan-out protocol** (`backlog doc view doc-0001 --plain`) and this repository's
+  **Wave operating model** (`backlog doc view doc-0002 --plain`) before designing a campaign. Route
+  each lane by role — RETRIEVAL, MAPPING, GATE, EXECUTION, JUDGMENT+EXECUTION, REVIEW,
+  DESIGN+INTEGRATION, or SECURITY — and record the harness-resolved route in its brief; do not
+  hard-code a harness model or plugin name in this portable contract. The root owns architecture,
+  integration, tracker and other external mutations, commits, pushes, final gates, and final
+  synthesis. A lane does not commit or push unless that authority is explicitly assigned.
+- **Branching policy:** Work directly on `main` in this repository. Do not create feature branches or
+  pull requests; keep changes scoped and require the relevant green gate before committing.
 - Plans/specs are SCRATCH → `docs/superpowers/` (gitignored). Only code + the durable docs
-  (SIGNALS.md + `signals/`, ARCHITECTURE.md, CLAUDE.md, README.md) are committed.
+  (AGENTS.md, CLAUDE.md, SIGNALS.md + `signals/`, ARCHITECTURE.md, README.md) are committed.
 - Parallel lanes touch DISJOINT files; one file = one owner. Wiring files (registry/catalog,
   YAML schema, go.mod, fixture vocabulary) are single-owner, edited in a dedicated wiring pass.
 - **Multiple agents often work this codebase CONCURRENTLY.** When Rob sees overlap risk between
@@ -106,9 +110,8 @@ See ARCHITECTURE §3 (construct boundaries + emission switch) for the full ratio
   agent, coordinate/sequence rather than racing it.
 - Strict TDD on logic (ledger, state, shape, blueprint loader/resolver, runner). Renderers are
   data-shape: validate with `-once -dump` inventory diff against `signals/` + adversarial review.
-- Adversarial/critical review runs on **Opus**, as a fresh independent-context agent — but reserve
-  it for the END of a SIGNIFICANT code change, not after every artifact or phase, so reviews stay
-  rare and high-signal (one comprehensive pass, not a per-commit reflex).
+- Reserve an independent adversarial review for the end of a significant or high-risk change, not
+  after every artifact or phase. Run the integrated final gate once, with evidence, before commit.
 - No customer-specific identifiers anywhere in the catalog (blueprint names, account ids,
   env/workspace strings stay generic or fictional). Technology-native signal names — including
   Portkey/Bedrock/AgentCore/LangSmith/LangGraph/gen_ai/Snowflake — carry over UNCHANGED (they
@@ -129,6 +132,21 @@ See ARCHITECTURE §3 (construct boundaries + emission switch) for the full ratio
   surfaces aligned: every Go-read var is in `.env.example`, every compose `${interpolation}` is
   documented, no stale example keys, and the local `.env` provisions them all. Add a comment as
   its OWN line in `.env`/`.env.example` — Docker's `env_file` does NOT strip inline `value # comment`.
+
+## Operational entrypoints (fresh clones)
+
+Use the repository-local skill source as the agent entrypoint; the synced `.agents/skills/` and
+`.claude/skills/` paths point to the same files when available. These entrypoints contain procedure,
+not credential values. If a skill is unavailable, use the listed documentation fallback.
+
+| Job | Agent entrypoint | Documentation fallback |
+|---|---|---|
+| Create or edit a blueprint | [`create-blueprint`](./plugins/synthkit/skills/create-blueprint/SKILL.md) | [`blueprints`](./docs/blueprints.md), [`blueprint-reference`](./docs/blueprint-reference.md), [`tools`](./docs/tools.md) |
+| Set up a first deployment | [`initial-setup`](./plugins/synthkit/skills/initial-setup/SKILL.md) | [`getting-started`](./docs/getting-started.md), [`deployment`](./docs/deployment.md), [`credentials`](./docs/credentials.md) |
+| Verify a deployment | [`verify-deployment`](./plugins/synthkit/skills/verify-deployment/SKILL.md) | [`control-plane`](./docs/control-plane.md), [`troubleshooting`](./docs/troubleshooting.md), [`RUNBOOK`](./docs/RUNBOOK.md) |
+
+Keep secrets in the local ignored environment file and follow the entrypoint's safe presence-check
+procedure; never add credential values to a blueprint, documentation, or instruction file.
 
 ## Build & verify
 

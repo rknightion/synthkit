@@ -16,6 +16,7 @@ control-state-data/
 
 # Secrets / local config
 .env
+.synthkit-env.*
 *.env.local
 
 # Forbidden-words guard: the real customer/deployment term list (the credential-shape layer is
@@ -74,3 +75,5 @@ docs/assets/project-icon-solid.svg
 docs/assets/social-card.png
 docs/assets/social-card.svg
 docs/fonts/
+
+codex/

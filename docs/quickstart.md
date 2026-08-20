@@ -41,10 +41,16 @@ Expected output: a `loaded blueprint "<name>"` line per `blueprints/*.yaml` file
 ## Step 3: Configure credentials
 
 ```bash
-cp .env.example .env
+if test -e .env; then
+  printf '%s\n' '.env already exists; review it before changing live-mode settings.' >&2
+else
+  install -m 600 .env.example .env
+  ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
+fi
 ```
 
-Open `.env` in your editor. The minimum set for a live push:
+This creates `.env` with mode `0600`, sets live mode through the non-secret helper, and prints no
+credential values. Open it in your editor. The minimum set for a live push:
 
 ```dotenv
 GC_TOKEN=<your-CAP-token>
@@ -56,6 +62,10 @@ GC_LOKI=https://logs-prod-XXX.grafana.net/loki/api/v1/push
 GC_LOKI_USER=<loki-instance-id>
 DRY_RUN=false
 ```
+
+If `.env` already existed, review it first and then run
+`./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env` to make the same
+explicit live-mode transition without replacing the file.
 
 A single Cloud Access Policy token with `metrics:write`, `logs:write`, `traces:write` scopes covers all three sinks. See [Credentials](credentials.md) for the full table including optional RUM, Synthetic Monitoring, Fleet Management, and self-observability destinations.
 
@@ -89,10 +99,10 @@ Open [http://localhost:8088/control/ui](http://localhost:8088/control/ui) in you
 **Via the JSON API:**
 
 ```bash
-curl -s http://localhost:8088/control/status | jq
+curl -fsS http://localhost:8088/control/status | jq -e '.dry_run == false'
 ```
 
-Each sink shows `last_success_ms` advancing and `failures: 0`. `dry_run: true` means `DRY_RUN` is still set — re-check your `.env`.
+This must print `true`; otherwise `DRY_RUN` is still set incorrectly. Each sink should also show `last_success_ms` advancing and `failures: 0` in the operator UI.
 
 **In Grafana:**
 

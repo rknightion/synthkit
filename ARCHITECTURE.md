@@ -7,6 +7,10 @@ them with config. Zero coupling between constructs; zero coupling from any const
 blueprint. A newcomer authors a new blueprint in one YAML file touching no construct code; deleting
 that file affects nothing else.
 
+Repository guidance is canonical in [`AGENTS.md`](./AGENTS.md); [`CLAUDE.md`](./CLAUDE.md) is the
+Claude Code import adapter. Keep operational instructions there, separate from this architecture
+contract.
+
 Provenance: mechanics and signal shapes are lifted from a proven private generator (the "predecessor");
 every construct's signal contract is reproduced byte-exact in the [`signals/`](./signals/) catalogue (indexed by [SIGNALS.md](./SIGNALS.md)) with
 citations. The predecessor's coupling anti-patterns (scenario policy matrix, env fold layer, positional
@@ -691,7 +695,7 @@ synthkit/
 ├── cmd/synthkit/            main: config → load blueprints → registry → runner loop
 ├── cmd/sm-provision/        one-shot Synthetic Monitoring provisioner (offline probe + checks)
 ├── blueprints/              example blueprints (k8s-minimal.yaml, k8s-full-stack.yaml, acme-ai-platform.yaml, …) — committed
-├── ARCHITECTURE.md  SIGNALS.md (index)  signals/ (per-area contract)  CLAUDE.md  README.md  cantfind.md
+├── ARCHITECTURE.md  SIGNALS.md (index)  signals/ (per-area contract)  AGENTS.md  CLAUDE.md  README.md  cantfind.md
 ├── docs/superpowers/        gitignored scratch (plans/specs — never committed)
 └── internal/
     ├── core/                frozen seams: SignalClass, Scope, World, Construct, Workload, registry
