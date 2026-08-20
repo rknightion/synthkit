@@ -30,7 +30,9 @@ cd "$SYNTHKIT_CHECKOUT"
 
    ```bash
    command -v gcx
-   gcx config get-contexts
+   gcx config list-contexts
+   gcx config current-context
+   gcx config check
    ```
 
    Select the named customer or staff context deliberately. If gcx is unavailable, use the Grafana
@@ -41,16 +43,20 @@ cd "$SYNTHKIT_CHECKOUT"
 
 ## 2. Control plane health
 
-Resolve `SYNTHKIT_BIND` from `.env` (default `127.0.0.1`), then run:
+Resolve `SYNTHKIT_BIND` from `.env` (default `127.0.0.1`) and detect only whether
+`CONTROL_TOKEN` is non-empty. Never print its value. Use Basic auth for protected routes when set,
+and call the public readiness probe without credentials:
 
 ```bash
-curl -fsS "http://<bind>:8088/control/status"
-curl -fsS -o /dev/null -w '%{http_code}\n' "http://<bind>:8088/control/ui"
+curl -fsS "http://<bind>:8088/control/readiness"
+curl -fsS -u "control:${CONTROL_TOKEN}" "http://<bind>:8088/control/status"
+curl -fsS -u "control:${CONTROL_TOKEN}" -o /dev/null -w '%{http_code}\n' "http://<bind>:8088/control/ui"
 docker compose ps
 docker compose logs --tail=50 synthkit
 ```
 
-Expect UI status `200`, a running container, and ready sinks in the status result. Treat a
+Omit `-u` only when `CONTROL_TOKEN` is absent on a loopback-only deployment. Expect UI status
+`200`, a running container, and ready sinks in the authenticated status result. Treat a
 connection refusal from another machine as a likely loopback bind; query on the host or use an SSH
 tunnel, rather than opening the bind casually.
 

@@ -3,12 +3,20 @@
 package bpsource
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestManifestRoundTrip(t *testing.T) {
 	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(dir, manifestFile)
+	if err := os.WriteFile(manifestPath, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	m := Manifest{
 		Blueprints: []ManifestEntry{{Name: "custom/a", Provenance: ProvUpload}},
 		SourceSHAs: map[string]string{"src1": "abc"},
@@ -20,7 +28,15 @@ func TestManifestRoundTrip(t *testing.T) {
 	if len(got.Blueprints) != 1 || got.Blueprints[0].Name != "custom/a" || got.SourceSHAs["src1"] != "abc" {
 		t.Fatalf("round-trip mismatch: %+v", got)
 	}
-	_ = filepath.Join // keep import
+	for path, want := range map[string]os.FileMode{dir: 0o700, manifestPath: 0o600} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("%s mode = %o, want %o", path, got, want)
+		}
+	}
 }
 
 func TestReadManifestAbsent(t *testing.T) {

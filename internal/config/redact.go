@@ -64,8 +64,8 @@ func (c *Config) Redacted() RedactedConfig {
 			safe("TICK_TIMEOUT", c.TickTimeout.String()), safe("SERIES_CAP", itoa(c.SeriesCap)),
 		}},
 		{Title: "Paths & bind", Fields: []RedactedField{
-			safe("BLUEPRINTS", c.BlueprintsDir), safe("JSON_HTTP_ADDR", c.HTTPAddr),
-			safe("CONFIG_SNAPSHOT_PATH", c.SnapshotPath), secret("CONTROL_TOKEN", c.ControlToken),
+			safe("BLUEPRINTS", c.BlueprintsDir), safe("JSON_HTTP_ADDR", c.HTTPAddr), safe("SYNTHKIT_BIND", c.HostBind),
+			safe("CONFIG_SNAPSHOT_PATH", c.SnapshotPath), secret("CONTROL_TOKEN", c.ControlToken), safe("CONTROL_EXPOSURE_ACK", c.ControlExposure),
 		}},
 		{Title: "External blueprint sources", Fields: []RedactedField{
 			safe("BLUEPRINT_DATA_DIR", c.BlueprintDataDir),

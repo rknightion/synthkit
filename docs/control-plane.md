@@ -10,7 +10,9 @@ synthkit embeds an operator control plane served on port **8088** (configured vi
 - **Operator UI** at `/control/ui` — a browser dashboard for live runtime management.
 - **HTTP API** — a JSON API used by the UI, the Grafana Infinity datasource, and curl/automation.
 
-All GET endpoints are open (no auth). POST mutation endpoints require HTTP Basic auth when `CONTROL_TOKEN` is set.
+With `CONTROL_TOKEN` set, every control route except sanitized `GET /control/readiness` requires
+HTTP Basic auth. The sibling Infinity JSON host keeps only `/healthz` public. Loopback may remain
+token-free; non-loopback exposure has an additional fail-closed acknowledgement gate.
 
 ## State vocabulary
 
@@ -60,10 +62,13 @@ The schema driving the UI (available modes, targets, scenarios, scalable workloa
 
 When `CONTROL_TOKEN` is set:
 
-- All GET routes remain **open** (unauthenticated). The Grafana Infinity datasource reads GET routes and must not be blocked.
-- All POST, DELETE, and other mutation routes require **HTTP Basic auth**: username `control`, password = `CONTROL_TOKEN`.
+- All control reads except sanitized `/control/readiness`, all Infinity data routes except
+  `/healthz`, and every mutation require **HTTP Basic auth**: username `control`, password =
+  `CONTROL_TOKEN`.
 - A browser hitting a guarded route for the first time triggers Chrome/Firefox's native credential dialog.
-- The Grafana Infinity datasource authenticates via `basicAuthUser: control` + `basicAuthPassword: <CONTROL_TOKEN>`.
+- The Grafana Infinity datasource stores the password in `secureJsonData` and authenticates its
+  server-side reads. Browser-direct dashboard action buttons do not inherit datasource credentials;
+  they use the browser's separate Basic challenge and therefore require a trusted HTTPS endpoint.
 
 For the mutation examples below, run this once in Bash or Zsh. When `CONTROL_TOKEN` is set it uses a
 mode-0600 temporary netrc file, keeping the token out of process arguments. When the token is unset,
@@ -81,8 +86,11 @@ if [ -n "${CONTROL_TOKEN:-}" ]; then
 fi
 ```
 
-!!! warning "Set CONTROL_TOKEN when the bind address is non-loopback"
-    The startup log warns if `CONTROL_TOKEN` is not set and `JSON_HTTP_ADDR` is not `127.0.0.1`. POST mutations with no auth on a reachable host allow anyone to inject failures, scale workloads down to zero, or disable blueprints.
+!!! warning "Non-loopback startup is explicit"
+    Direct runs evaluate `JSON_HTTP_ADDR`; Compose evaluates the exact interpolated
+    `SYNTHKIT_BIND`. A non-loopback bind fails startup unless `CONTROL_TOKEN` is non-empty and
+    `CONTROL_EXPOSURE_ACK` is exactly `trusted-network` or `tls-proxy`. Never send Basic
+    credentials over untrusted plaintext HTTP.
 
 ```bash
 # Example: uses the temporary netrc when CONTROL_TOKEN is set
@@ -95,11 +103,12 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
 
 ## Endpoint reference
 
-### Read-only (GET)
+### Read-only (GET; authenticated when `CONTROL_TOKEN` is set, except readiness)
 
 | Endpoint | Description |
 |---|---|
 | `GET /control/ui/` | Embedded operator UI (SPA). Redirect from `/control/ui`. |
+| `GET /control/readiness` | Public sanitized readiness probe: process, HTTP, blueprint counts, and state-writable boolean only. |
 | `GET /control/schema` | Blueprint-derived schema: all modes, addressable targets, scenarios, scalable workloads, construct instances. Add `?audience=customer` for a reduced view without operator-internal fields. |
 | `GET /control/state` | Current control snapshot (volume multiplier, active scenarios, failures, scaling, disabled blueprints/constructs/kinds). |
 | `GET /control/status` | Sink readiness strip: `last_success_ms`, failure counts, dry-run flag, per-blueprint emission, Fleet Management health, persist health. |
@@ -114,7 +123,8 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
 | `GET /control/blueprints/sources` | Configured git blueprint sources (token values are never included). |
 | `GET /control/blueprints/pending` | Staged-vs-manifest diff driving the "restart to apply" banner. |
 
-The root path `/` serves the Infinity JSON host — the full synthetic data schema queryable by Grafana's Infinity datasource.
+The root path `/` serves the Infinity JSON host. Every Infinity data route requires the same Basic
+auth when `CONTROL_TOKEN` is set; only `/healthz` remains public.
 
 ### Mutations (POST / DELETE — guarded by CONTROL_TOKEN when set)
 
@@ -186,7 +196,7 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/failures \
 ### Check sink readiness
 
 ```bash
-curl -fsS http://127.0.0.1:8088/control/status | jq '.sinks[] | {name, last_success_ms, failures}'
+curl -fsS "${control_auth[@]}" http://127.0.0.1:8088/control/status | jq '.sinks[] | {name, last_success_ms, failures}'
 ```
 
 `dry_run: true` in the response means no live push is happening regardless of sink health — re-check `DRY_RUN` in your `.env`.
@@ -208,7 +218,10 @@ Control state (volume multiplier, active scenarios, scaling, disabled blueprints
 State is **not** written on a clean shutdown (it is already in the file from the last mutation). It is written only when a mutation succeeds.
 
 !!! note "Security note for shared-use deployments"
-    The control-state snapshot at `CONFIG_SNAPSHOT_PATH` may contain resolved git blueprint source token values. Restrict filesystem permissions on the host and exclude it from untrusted backups. The UI never transmits token values over the wire — it stores and displays only the env-var name (e.g. `MY_GIT_TOKEN`).
+    The owner-only control-state snapshot persists operational state and a private git source's
+    `token_env_var` name only. The resolved PAT is read from the process environment at fetch time
+    and never serialized. Exclude the snapshot from untrusted backups because its operational
+    metadata can still be sensitive.
 
 ---
 
@@ -216,4 +229,4 @@ State is **not** written on a clean shutdown (it is already in the file from the
 
 - [incidents.md](incidents.md) — declaring and triggering incident scenarios in blueprints
 - [custom-blueprints.md](custom-blueprints.md) — uploading and managing custom blueprints
-- [configuration.md](configuration.md) — `CONTROL_TOKEN`, `JSON_HTTP_ADDR`, `CONFIG_SNAPSHOT_PATH`
+- [configuration.md](configuration.md) — `CONTROL_TOKEN`, `CONTROL_EXPOSURE_ACK`, binds, and state paths

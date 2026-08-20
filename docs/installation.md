@@ -77,7 +77,8 @@ cp .env.example .env
 
 # 3. Create the state bind-mount directory and give it to the container user
 #    (uid 65532 = distroless nonroot; a single-file mount breaks atomic save)
-mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data
+if [ -L control-state-data ] || { [ -e control-state-data ] && [ ! -d control-state-data ]; }; then echo 'refusing unsafe state path' >&2; exit 1; fi
+sudo install -d -o 65532 -g 65532 -m 700 control-state-data
 
 # 4. Pull the image and start
 #    The image is pulled from ghcr.io/rknightion/synthkit (SYNTHKIT_IMAGE_TAG in .env,
@@ -92,8 +93,10 @@ The container binds the control plane on port **8088** inside the container. Hos
 http://localhost:8088/control/ui
 ```
 
-!!! warning "Control plane is unauthenticated by default"
-    POST routes (`/control/scenarios`, `/control/scaling`, `/control/failures`, `/control/load`) require no authentication unless `CONTROL_TOKEN` is set in `.env`. Keep the default `SYNTHKIT_BIND=127.0.0.1` unless you are on a trusted network; use an SSH tunnel or `tailscale serve` to reach it remotely.
+!!! warning "Non-loopback exposure is fail-closed"
+    Keep `SYNTHKIT_BIND=127.0.0.1` for frictionless local use. Any non-loopback value requires a
+    non-empty `CONTROL_TOKEN` plus `CONTROL_EXPOSURE_ACK=trusted-network` or `tls-proxy`. Prefer an
+    SSH tunnel or browser-trusted HTTPS proxy; never send Basic credentials over untrusted HTTP.
 
 To build from source instead of pulling the published image (e.g. to test local changes):
 

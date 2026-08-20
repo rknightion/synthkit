@@ -111,7 +111,9 @@ func TestIncidentsPOSTGETDELETE(t *testing.T) {
 	id := st.RuntimeIncidents[0].ID
 
 	// GET lists declared (from the source).
-	gresp, _ := http.Get(srv.URL + "/control/incidents")
+	greq, _ := http.NewRequest(http.MethodGet, srv.URL+"/control/incidents", nil)
+	greq.SetBasicAuth("control", "tok")
+	gresp, _ := http.DefaultClient.Do(greq)
 	var infos []IncidentInfo
 	json.NewDecoder(gresp.Body).Decode(&infos)
 	if len(infos) != 1 || infos[0].Source != "declared" {
@@ -150,7 +152,9 @@ func TestIncidentsGETUnavailableWithoutSource(t *testing.T) {
 	h := NewHandler(store, func(State) {}, "tok") // no IncidentSource
 	srv := httptest.NewServer(h)
 	defer srv.Close()
-	resp, _ := http.Get(srv.URL + "/control/incidents")
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/control/incidents", nil)
+	req.SetBasicAuth("control", "tok")
+	resp, _ := http.DefaultClient.Do(req)
 	if resp.StatusCode != 404 {
 		t.Fatalf("GET without source should be 404, got %d", resp.StatusCode)
 	}

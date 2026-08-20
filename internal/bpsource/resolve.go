@@ -113,7 +113,14 @@ func (m *Manager) scanBaked() ([]Loaded, []Diag) {
 // scanCustom loads every namespace-prefixed *.yaml from the custom (upload) directory.
 // Files must be named "<ns>__<name>.yaml"; others are silently skipped.
 func (m *Manager) scanCustom() ([]Loaded, []Diag) {
-	return m.loadDir(filepath.Join(m.dataDir, customDir), ProvUpload, "", func(fn string) (string, bool) {
+	if err := ensurePrivateDir(m.dataDir); err != nil {
+		return nil, []Diag{{"error", "custom", "secure", err.Error()}}
+	}
+	dir := filepath.Join(m.dataDir, customDir)
+	if err := secureBlueprintDir(dir); err != nil {
+		return nil, []Diag{{"error", "custom", "secure", err.Error()}}
+	}
+	return m.loadDir(dir, ProvUpload, "", func(fn string) (string, bool) {
 		ns, _, ok := parseUploadFilename(fn)
 		return ns, ok
 	})
@@ -124,11 +131,21 @@ func (m *Manager) scanCustom() ([]Loaded, []Diag) {
 func (m *Manager) scanGitDirs() ([]Loaded, []Diag) {
 	var out []Loaded
 	var diags []Diag
+	if err := ensurePrivateDir(m.dataDir); err != nil {
+		return nil, []Diag{{"error", "git", "secure", err.Error()}}
+	}
+	if err := ensurePrivateDir(filepath.Join(m.dataDir, gitDir)); err != nil {
+		return nil, []Diag{{"error", "git", "secure", err.Error()}}
+	}
 	for _, s := range m.sourceSnapshot() {
 		if s.FetchedSHA == "" {
 			continue
 		}
 		dir := filepath.Join(m.dataDir, gitDir, s.ID)
+		if err := secureBlueprintDir(dir); err != nil {
+			diags = append(diags, Diag{"error", s.ID, "secure", err.Error()})
+			continue
+		}
 		ld, d := m.loadDir(dir, ProvGit, s.ID, func(fn string) (string, bool) {
 			return s.Namespace, filepath.Ext(fn) == ".yaml"
 		})

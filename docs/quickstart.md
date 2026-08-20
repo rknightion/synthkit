@@ -123,8 +123,11 @@ Open [http://localhost:8088/control/ui](http://localhost:8088/control/ui) in you
 
 **Via the JSON API:**
 
+`curl -u control` prompts for `CONTROL_TOKEN` without echoing it. Press Enter only for an
+intentionally token-free loopback run.
+
 ```bash
-curl -fsS http://localhost:8088/control/status | jq -e '.dry_run == false'
+curl -fsS -u control http://localhost:8088/control/status | jq -e '.dry_run == false'
 ```
 
 This must print `true`; otherwise `DRY_RUN` is still set incorrectly. Each sink should also show `last_success_ms` advancing and `failures: 0` in the operator UI.
@@ -133,7 +136,7 @@ This must print `true`; otherwise `DRY_RUN` is still set incorrectly. Each sink 
 response contains `"dry_run":false`:
 
 ```bash
-curl -fsS http://localhost:8088/control/status
+curl -fsS -u control http://localhost:8088/control/status
 ```
 
 **In Grafana:**

@@ -28,6 +28,39 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
+func TestResolveTightensExistingStagedBlueprintPaths(t *testing.T) {
+	data := t.TempDir()
+	customDirPath := filepath.Join(data, customDir)
+	gitRoot := filepath.Join(data, gitDir)
+	gitSource := filepath.Join(gitRoot, "s1")
+	customFile := filepath.Join(customDirPath, "team__custom.yaml")
+	gitFile := filepath.Join(gitSource, "git.yaml")
+	writeFile(t, customFile, miniBlueprint)
+	writeFile(t, gitFile, miniBlueprint)
+	for _, path := range []string{data, customDirPath, gitRoot, gitSource} {
+		if err := os.Chmod(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	m := NewManager(Options{
+		BakedDir: t.TempDir(), DataDir: data, Registry: runner.Catalog(),
+		Config: &fakeConfig{list: []Source{{ID: "s1", Namespace: "git", FetchedSHA: "sha1"}}},
+	})
+	m.Resolve(context.Background())
+	for path, want := range map[string]os.FileMode{
+		data: 0o700, customDirPath: 0o700, gitRoot: 0o700, gitSource: 0o700,
+		customFile: 0o600, gitFile: 0o600,
+	} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("staged path %s mode = %o, want %o", path, got, want)
+		}
+	}
+}
+
 func TestScanCustomNamespaces(t *testing.T) {
 	data := t.TempDir()
 	writeFile(t, filepath.Join(data, customDir, "team-a__mini.yaml"), miniBlueprint)

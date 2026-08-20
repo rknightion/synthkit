@@ -65,7 +65,8 @@ RUM is disabled when either variable is empty.
 | `BLUEPRINTS` | `./blueprints` | Directory from which every `*.yaml` file is loaded as a blueprint. In Docker compose this is overridden to `/app/blueprints` (the image's bundled blueprints). |
 | `JSON_HTTP_ADDR` | `127.0.0.1:8088` | Address the process binds for the control plane and Infinity JSON host. In Docker compose this is overridden to `0.0.0.0:8088` (bind all interfaces inside the container; host exposure is controlled by `SYNTHKIT_BIND`). |
 | `CONFIG_SNAPSHOT_PATH` | `./control-state.json` | Path where control-plane state is persisted across restarts. In Docker compose this is overridden to `/data/control-state.json` (on the `/data` volume). |
-| `CONTROL_TOKEN` | _(empty)_ | HTTP Basic password (username `control`) required for all POST mutation routes. Empty = auth disabled. Set this whenever the bind address is non-loopback. |
+| `CONTROL_TOKEN` | _(empty)_ | HTTP Basic password (username `control`) for sensitive control/Infinity reads and all mutations. Empty is supported for loopback-only use. |
+| `CONTROL_EXPOSURE_ACK` | _(empty)_ | Required for non-loopback exposure: exactly `trusted-network` for an isolated plaintext path or `tls-proxy` for a trusted HTTPS proxy. Invalid non-empty values fail startup, including on loopback. |
 | `TICK_TIMEOUT` | _(empty, disabled)_ | Optional per-blueprint per-tick backstop in seconds (integer). Set `>0` only as a coarse safety net for a stuck tick. The per-sink 15 s HTTP timeout already bounds hung pushes under normal operation. |
 
 ---
@@ -102,7 +103,7 @@ This variable is consumed by Docker Compose's port-mapping interpolation, not by
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SYNTHKIT_BIND` | `127.0.0.1` | Host interface on which Docker Compose publishes port 8088. Defaults to loopback — **safe**, because the control plane is unauthenticated by default and accepts write mutations. Set to `0.0.0.0` (or a specific Tailscale/LAN IP) only on a trusted network when Grafana or another host must reach it. Front with `tailscale serve` for a browser-trusted HTTPS endpoint. Grafana Cloud reaches it privately via the user-configured PDC Tailscale connection. |
+| `SYNTHKIT_BIND` | `127.0.0.1` | Host interface on which Docker Compose publishes port 8088. Any non-loopback value requires `CONTROL_TOKEN` plus `CONTROL_EXPOSURE_ACK`; Compose passes this exact interpolated value into the container for validation. |
 
 ---
 

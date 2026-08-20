@@ -92,6 +92,10 @@ func TestEnvSurfaceAligned(t *testing.T) {
 	example := keys(assignRe, read(root(".env.example")))
 	compose := read(root("docker-compose.yml"))
 	interpolated := keys(interpRe, compose)
+	if !strings.Contains(compose, "SYNTHKIT_BIND: ${SYNTHKIT_BIND:-127.0.0.1}") ||
+		!strings.Contains(compose, `"${SYNTHKIT_BIND:-127.0.0.1}:8088:8088"`) {
+		t.Error("docker-compose.yml must pass the exact Compose-interpolated SYNTHKIT_BIND to both the container and port publication")
+	}
 
 	// 1. Every Go-consumed var is documented in .env.example.
 	if miss := sortedMissing(consumed, example); len(miss) > 0 {

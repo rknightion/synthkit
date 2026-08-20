@@ -61,14 +61,14 @@ belong in one.
 
 Two secondary places also need attention:
 
-- **The control-state snapshot** (`CONFIG_SNAPSHOT_PATH`, default `./control-state.json`) can
-  contain resolved git blueprint source token values if you've configured a private git source.
-  Restrict filesystem permissions on this file and exclude it from untrusted backups. The operator
-  UI never transmits the token value over the wire — only the configured env-var name (e.g.
-  `MY_GIT_TOKEN`) is ever displayed. See [Control Plane](control-plane.md).
+- **The control-state snapshot** (`CONFIG_SNAPSHOT_PATH`, default `./control-state.json`) contains
+  operational state and git source metadata. It persists only a private source's configured
+  `token_env_var` name (for example `MY_GIT_TOKEN`), never the resolved token value. The token is
+  read from the process environment only when a fetch runs. The snapshot is still owner-only
+  operational data and should be excluded from untrusted backups. See [Control Plane](control-plane.md).
 - **Docker's persistent volume** (`/data`, bind-mounted to `control-state-data/` and owned by uid
-  65532) holds this same snapshot plus staged custom blueprints. Treat it with the same care as the
-  `.env` file if git sources are in use.
+  65532) holds this same snapshot plus staged custom blueprints. Setup uses mode `0700` for its
+  directories and `0600` for the snapshot, manifests, and staged YAML files.
 
 `GET /control/config` returns the runtime configuration with all secret values replaced by
 `[redacted]` — safe to share for debugging without exposing credentials.
@@ -78,11 +78,12 @@ Two secondary places also need attention:
 - All synthetic-data pushes (Remote-Write v2, OTLP, Loki, Faro, Pyroscope) go to Grafana Cloud
   endpoints over HTTPS.
 - The embedded control plane (`JSON_HTTP_ADDR`, default `127.0.0.1:8088`) serves **plain HTTP**
-  with no built-in TLS. It binds loopback only by default — the safe default, because GET routes
-  are always open and POST routes are unauthenticated unless `CONTROL_TOKEN` is set. To expose it
-  to another host, set `CONTROL_TOKEN`, then either front it with `tailscale serve` for a
-  browser-trusted HTTPS endpoint, use a PDC Tailscale connection for private access from Grafana
-  Cloud, or use an SSH tunnel. See [Deployment](deployment.md#networking-and-exposure).
+  with no built-in TLS. Loopback remains the frictionless default. With `CONTROL_TOKEN` set,
+  sensitive control reads, all Infinity data routes, and every mutation require HTTP Basic auth;
+  only `/healthz` and sanitized `/control/readiness` remain public. A non-loopback bind will not
+  start unless `CONTROL_TOKEN` is non-empty and `CONTROL_EXPOSURE_ACK` is exactly
+  `trusted-network` or `tls-proxy`. Do not send Basic credentials over untrusted plaintext HTTP;
+  use an SSH tunnel or a browser-trusted TLS proxy such as `tailscale serve`.
 
 ## What a compromised instance could and could not reach
 
@@ -90,12 +91,11 @@ Two secondary places also need attention:
 
 - Push synthetic-looking data to whichever Grafana Cloud sinks its configured `GC_TOKEN` (or
   self-obs / FM / SM credentials) can write to, within that token's granted scopes.
-- If the control plane is reachable and `CONTROL_TOKEN` is unset, mutate live state: inject
+- On the intentionally compatible loopback/no-token setup, mutate live state: inject
   failures, scale workloads to zero, disable blueprints or constructs, or replace active
   scenarios — all without authentication.
-- Read a configured git blueprint source's PAT if it can read both the source's env var and the
-  process environment, or read the resolved token value out of an unprotected
-  `control-state.json`.
+- Read a configured git blueprint source's PAT only if it can read the source's named process
+  environment variable; the resolved value is never serialized into `control-state.json`.
 
 **Could not:**
 

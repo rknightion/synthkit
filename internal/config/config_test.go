@@ -255,6 +255,18 @@ func TestControlTokenAndLoopbackDefault(t *testing.T) {
 	}
 }
 
+func TestControlExposureConfig(t *testing.T) {
+	t.Setenv("SYNTHKIT_BIND", "10.0.0.8")
+	t.Setenv("CONTROL_EXPOSURE_ACK", "trusted-network")
+	cfg, err := Load(filepath.Join(t.TempDir(), "absent.env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HostBind != "10.0.0.8" || cfg.ControlExposure != "trusted-network" {
+		t.Fatalf("control exposure config = bind %q ack %q", cfg.HostBind, cfg.ControlExposure)
+	}
+}
+
 // TestFleetConfigRead pins the GC_FM_* triplet read by the config loader. These feed the
 // runner's fleet.Config (Fleet Management registration is now wired — see env_alignment_test.go).
 func TestFleetConfigRead(t *testing.T) {

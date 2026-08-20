@@ -132,7 +132,8 @@ go run ./cmd/synthkit-control-dash \
 | `-write-base-url <url>` | no | Absolute browser-reachable base URL for action-button POSTs. Override per deployment (default is the tailscale-serve endpoint pattern). |
 | `-blueprints <dir>` | no | Directory of blueprint YAML files for enumerating scenarios (default `./blueprints`). |
 
-GET routes on the control plane are open. POST routes use HTTP Basic auth — the browser handles the credential prompt natively. No token is embedded in the dashboard JSON.
+When `CONTROL_TOKEN` is set, the Infinity datasource uses secure Basic auth for protected reads;
+browser-direct action POSTs use their own native Basic challenge. No token is embedded in the dashboard JSON.
 
 ## LLM-assisted skills
 

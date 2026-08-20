@@ -409,6 +409,7 @@ test_add_secret_interrupt_cleanup() {
 test_secret_recipes() {
   local skill_file="$script_dir/../SKILL.md"
   local credentials_file="$script_dir/../references/credentials.md"
+  local state_block symlink_line nondir_line sudo_line
   if grep -Eq 'grep -v .*CONTROL_TOKEN|\.env\.tmp' "$skill_file"; then
     fail 'SKILL.md still contains the unsafe CONTROL_TOKEN .env.tmp recipe'
   fi
@@ -425,6 +426,20 @@ test_secret_recipes() {
     fail 'SKILL.md does not route the Faro collector URL through secure secret handling'
   grep -Fq '| `GC_FARO_COLLECTOR` | **secret credential** |' "$credentials_file" ||
     fail 'credential reference does not classify the Faro collector URL as secret-bearing'
+  grep -Fq 'install -m 600 "$SYNTHKIT_CHECKOUT/.env.example" "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
+    fail 'SKILL.md does not create .env with mode 0600'
+  grep -Fq 'chmod 600 "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
+    fail 'SKILL.md does not tighten an existing .env'
+  state_block="$(sed -n '/^## Step 5 /,/^## Step 6 /p' "$skill_file")"
+  symlink_line="$(printf '%s\n' "$state_block" | grep -nF '[ -L "$state_dir" ]' | cut -d: -f1)"
+  nondir_line="$(printf '%s\n' "$state_block" | grep -nF '[ ! -d "$state_dir" ]' | cut -d: -f1)"
+  sudo_line="$(printf '%s\n' "$state_block" | grep -nF 'sudo install -d -o 65532 -g 65532 -m 700 "$state_dir"' | cut -d: -f1)"
+  [ -n "$symlink_line" ] && [ -n "$nondir_line" ] && [ -n "$sudo_line" ] ||
+    fail 'SKILL.md state setup is missing its path guards or narrow install command'
+  [ "$symlink_line" -lt "$sudo_line" ] && [ "$nondir_line" -lt "$sudo_line" ] ||
+    fail 'SKILL.md must reject symlink and non-directory paths before sudo'
+  grep -Fq 'CONTROL_EXPOSURE_ACK=trusted-network|tls-proxy' "$skill_file" ||
+    fail 'SKILL.md does not document the exact non-loopback acknowledgement contract'
   pass 'SKILL.md routes operator secrets through atomic add-secret.sh handling'
 }
 

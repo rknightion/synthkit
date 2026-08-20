@@ -5,8 +5,8 @@
 // (master volume + incident scenarios) as read panels + native fetch-POST action buttons.
 // Reads come from the synthkit control plane's GET routes (?audience=customer); writes POST
 // to /control/load and /control/scenarios. The operator UI (/control/ui) is unaffected.
-// GET routes are open (no auth); POST routes use HTTP Basic auth (WWW-Authenticate challenge)
-// so the browser handles the credential prompt natively — no token is embedded in the dashboard.
+// Protected reads use the Infinity datasource's secure Basic auth. Browser-direct POST routes use
+// a separate HTTP Basic challenge; no token is embedded in the dashboard.
 package main
 
 import (

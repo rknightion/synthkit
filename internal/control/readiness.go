@@ -52,6 +52,29 @@ type ReadinessReport struct {
 	Reasons        []string                `json:"reasons"`
 }
 
+// ReadinessProbe is the credential-free healthcheck representation. It deliberately omits lane
+// names, endpoint errors, filesystem paths, and reason strings; authenticated operators get the
+// complete ReadinessReport through /control/status.
+type ReadinessProbe struct {
+	Running        bool               `json:"running"`
+	HTTPReady      bool               `json:"http_ready"`
+	Ready          bool               `json:"ready"`
+	LiveReady      bool               `json:"live_ready"`
+	Blueprints     BlueprintReadiness `json:"blueprints"`
+	PersistedState struct {
+		Writable bool `json:"writable"`
+	} `json:"persisted_state"`
+}
+
+func (r ReadinessReport) Probe() ReadinessProbe {
+	p := ReadinessProbe{
+		Running: r.Running, HTTPReady: r.HTTPReady, Ready: r.Ready, LiveReady: r.LiveReady,
+		Blueprints: r.Blueprints,
+	}
+	p.PersistedState.Writable = r.PersistedState.Writable
+	return p
+}
+
 // EvaluateReadiness folds independently observed process, HTTP, blueprint, persisted-state, and
 // lane-delivery facts into a strict readiness verdict. A missing first push remains red; only a
 // current success for every declared live lane is green. Disabled lanes are intentional and remain

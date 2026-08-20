@@ -85,7 +85,8 @@ are present. The staff triplets never reuse `GC_TOKEN`.
 | `GIT_TOKEN` | **secret** | Default HTTPS PAT for private blueprint repositories. |
 | `JSON_HTTP_ADDR` | non-secret bind | Control plane / Infinity HTTP bind address. |
 | `CONFIG_SNAPSHOT_PATH` | non-secret path | Persisted control-plane snapshot path. |
-| `CONTROL_TOKEN` | **secret** | HTTP Basic password for `POST /control/*` (user `control`). |
+| `CONTROL_TOKEN` | **secret** | HTTP Basic password (user `control`) for sensitive control/Infinity reads and all mutations. |
+| `CONTROL_EXPOSURE_ACK` | non-secret policy | Required for non-loopback exposure; exactly `trusted-network` or `tls-proxy`. |
 | `SYNTHKIT_IMAGE_TAG` | non-secret compose config | Published image tag; compose-only. |
 | `SYNTHKIT_BIND` | non-secret compose bind | Host exposure for port 8088; default loopback. |
 | `SYNTHKIT_IN_CONTAINER` | non-secret runtime hint | Optional container-runtime hint. |

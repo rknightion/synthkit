@@ -129,7 +129,7 @@
             "spec": {
               "options": {
                 "mode": "markdown",
-                "content": "## synthkit — self-serve controls\n\n- **Load presets** scale the whole synthetic estate's volume coherently.\n- **Activate incident** fires a curated failure scenario (replaces any active incident); **Clear all incidents** returns to steady state.\n- **Current state** / **Incidents** show the live picture. Changes apply within a few seconds."
+                "content": "## synthkit — self-serve controls\n\n- **Load presets** scale the whole synthetic estate's volume coherently.\n- **Activate incident** fires a curated failure scenario (replaces any active incident); **Clear all incidents** returns to steady state.\n- **Current state** / **Incidents** show the live picture. Changes apply within a few seconds.\n- If an action prompts for credentials, use the synthkit control login only over this dashboard's trusted HTTPS origin."
               },
               "fieldConfig": {
                 "defaults": {},
@@ -211,7 +211,7 @@
                     },
                     {
                       "type": "fetch",
-                      "title": "AI gateway brownout (Bedrock throttle → retry/fallback storm)",
+                      "title": "AI gateway brownout (AgentCore throttle → retry/fallback storm)",
                       "fetch": {
                         "method": "POST",
                         "url": "https://your-host.example.com/control/scenarios",
@@ -233,7 +233,7 @@
                     },
                     {
                       "type": "fetch",
-                      "title": "Assist outage (user-facing errors)",
+                      "title": "Document-generation outage (user-facing errors)",
                       "fetch": {
                         "method": "POST",
                         "url": "https://your-host.example.com/control/scenarios",
@@ -244,7 +244,7 @@
                     },
                     {
                       "type": "fetch",
-                      "title": "Assistant backend latency storm",
+                      "title": "Content-gen backend latency storm",
                       "fetch": {
                         "method": "POST",
                         "url": "https://your-host.example.com/control/scenarios",
@@ -266,11 +266,11 @@
                     },
                     {
                       "type": "fetch",
-                      "title": "Postgres ACL connection saturation",
+                      "title": "Aurora collab-store connection saturation",
                       "fetch": {
                         "method": "POST",
                         "url": "https://your-host.example.com/control/scenarios",
-                        "body": "{\"active_scenarios\":[\"acme-ai-platform/db_acl_saturation\"]}"
+                        "body": "{\"active_scenarios\":[\"acme-ai-platform/db_collab_saturation\"]}"
                       },
                       "confirmation": "",
                       "oneClick": false

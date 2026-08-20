@@ -54,7 +54,7 @@ And locally/on the host: the **operator UI** at `/control/ui` with a green sink-
 ## 2. Configure `.env`
 
 ```bash
-cp .env.example .env       # then fill the values
+install -m 600 .env.example .env       # then fill the values
 ```
 
 Minimum for a live synthetic push: `GC_TOKEN` + `GC_PROM_RW`/`GC_PROM_USER` +
@@ -107,7 +107,8 @@ every save fails (silently except for the surfaced error — see below):
 
 ```bash
 # on the host clone (e.g. /opt/synthkit), ONCE:
-mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data
+if [ -L control-state-data ] || { [ -e control-state-data ] && [ ! -d control-state-data ]; }; then echo 'refusing unsafe state path' >&2; exit 1; fi
+sudo install -d -o 65532 -g 65532 -m 700 control-state-data
 ```
 
 Deploy = push the change, pull on the host, and copy the (gitignored) `.env` across if it changed. The image is pulled from GHCR automatically (`pull_policy: always`):
@@ -135,8 +136,11 @@ compose port mapping. Control state persists to the mounted `/data` volume
 
 ### 5.1 Sink readiness (fastest signal)
 
+`curl -u control` prompts without echoing the password; enter `CONTROL_TOKEN` (or press Enter for
+an intentionally token-free loopback deployment).
+
 ```bash
-curl -s http://127.0.0.1:8088/control/status | jq
+curl -s -u control http://127.0.0.1:8088/control/status | jq
 ```
 
 Each sink shows `last_success_ms` advancing and `failures: 0`. `dry_run: true` means you are not
@@ -203,20 +207,20 @@ the synthetic telemetry above and never uses `GC_TOKEN`.
 
 The operator UI (`/control/ui`) drives the live runtime without a restart: master volume multiplier,
 per-blueprint incident scenarios, ad-hoc failure injection, live service/node scaling, and
-per-construct / per-kind / per-blueprint enable toggles. Mutations are gated by HTTP Basic auth when
-`CONTROL_TOKEN` is set — username `control`, password = `CONTROL_TOKEN` (empty = unauthenticated,
-acceptable only on loopback or an off-network host mapping). GETs are always open. In the browser the
-first mutation triggers Chrome's native credential dialog; the Grafana Infinity datasource (e.g. the
-customer dashboard) authenticates with `basicAuthUser: control` + `basicAuthPassword: <CONTROL_TOKEN>`.
-State persists across restarts via the snapshot file.
+per-construct / per-kind / per-blueprint enable toggles. When `CONTROL_TOKEN` is set, HTTP Basic
+auth (username `control`) protects every mutation, all Infinity data routes, and control reads
+other than sanitized `/control/readiness`. `/healthz` is also public. The Infinity datasource's
+secure Basic-auth configuration covers server-side reads only. Browser-direct action buttons use
+a separate browser challenge, so verify them through a browser-trusted HTTPS endpoint. State
+persists across restarts via the snapshot file.
 
-**Security notes for shared-use deployments.** Set `CONTROL_TOKEN` whenever the bind address is
-non-loopback (the startup log warns if it is not set and the bind is not `127.0.0.1`). The UI
-only ever stores or displays the *env-var name* for git blueprint source tokens (e.g.
-`MY_GIT_TOKEN`) — it never transmits the value over the wire — but the *resolved token value*
-is written into the control-state snapshot (`control-state.json` at `CONFIG_SNAPSHOT_PATH`). Treat
-that file as a secret: restrict filesystem permissions on the host, and do not include it in
-backups that land in less-trusted storage.
+**Security notes for shared-use deployments.** Non-loopback startup fails unless `CONTROL_TOKEN`
+is non-empty and `CONTROL_EXPOSURE_ACK` is exactly `trusted-network` or `tls-proxy`. Use
+`trusted-network` only for an isolated plaintext path; use `tls-proxy` with a trusted HTTPS proxy
+and never send Basic credentials over untrusted plaintext HTTP. The UI and snapshot persist only
+the *env-var name* for git blueprint source tokens (for example `MY_GIT_TOKEN`); the resolved PAT
+is read from the environment at fetch time and never serialized. The owner-only snapshot still
+contains operational state and source metadata, so exclude it from untrusted backups.
 
 ---
 

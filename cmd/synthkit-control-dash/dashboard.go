@@ -86,8 +86,8 @@ func loadScenarios(dir string) ([]scenario, error) {
 //  5. Activate incident — ACTION BOARD: one discrete fixed-body button per enumerated scenario, plus Clear all
 //
 // Reads use RELATIVE paths (the Infinity datasource's Base URL prefixes them) so the dashboard is
-// host/scheme-agnostic. Writes are ABSOLUTE browser fetches (--write-base-url, HTTPS). GET routes
-// are open; POST routes require HTTP Basic auth the browser challenges natively — no embedded creds.
+// host/scheme-agnostic. Protected reads use Infinity datasource Basic auth. Writes are ABSOLUTE
+// browser fetches (--write-base-url, HTTPS) with a separate native Basic challenge and no embedded creds.
 func buildControlDashboard(o opts) (dashboard.Dashboard, error) {
 	d, err := dashboard.NewDashboard("synthkit-customer-control", "synthkit — Customer Control")
 	if err != nil {
@@ -109,6 +109,7 @@ func buildControlDashboard(o opts) (dashboard.Dashboard, error) {
 		"- **Activate incident** fires a curated failure scenario (replaces any active incident); " +
 			"**Clear all incidents** returns to steady state.",
 		"- **Current state** / **Incidents** show the live picture. Changes apply within a few seconds.",
+		"- If an action prompts for credentials, use the synthkit control login only over this dashboard's trusted HTTPS origin.",
 	}, "\n")))
 
 	// 2. Load presets — VERIFIED action board (fixed-body fetch buttons → /control/load).

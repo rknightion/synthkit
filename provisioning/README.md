@@ -24,7 +24,6 @@ queries. There is **no pdc-agent**, no Tailscale Funnel, and no self-signed cert
 ## Usage
 
 ```bash
-# Default base URL is the tailscale-serve endpoint; override per-deploy with --base-url.
 provisioning/provision.sh --context <customer-stack> \
   --base-url https://<host>.<tailnet>.ts.net
 
@@ -38,10 +37,10 @@ then `gcx resources push`es the dashboards.
 
 ## Auth model (recap)
 
-- **GET** routes (Infinity reads: `/control/schema?audience=customer`, `/control/state`) are open.
-- **POST** routes (the dashboard's write buttons: `/control/load`, `/control/scenarios`) sit behind
-  HTTP Basic (user `control`, password `CONTROL_TOKEN`) when a token is set — the datasource carries
-  those creds, and the browser also challenges on direct button presses. Empty token = open.
+- **GET** routes used by Infinity require HTTP Basic. The provisioner requires `CONTROL_TOKEN` and
+  stores it only in datasource `secureJsonData`.
+- **POST** routes used by dashboard action buttons are browser-direct, so datasource credentials do
+  not apply. The browser performs a separate Basic challenge against the same HTTPS origin.
 - Transport trust comes from `tailscale serve`'s browser-trusted cert; the datasource is a normal
   proxy datasource (no pinned cert, no skip-verify).
 

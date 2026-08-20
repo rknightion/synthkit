@@ -104,9 +104,8 @@ type StatusSources struct {
 
 // NewHandler serves the control plane. onApply (optional) is called with the new
 // snapshot after every successful mutation — the runner adapter wires knobs from it.
-// token (optional) is the HTTP Basic password (username controlUser) gating the POST
-// mutation routes; empty = auth disabled (GET routes are always open — Infinity datasource
-// + operator UI require unauthenticated GET).
+// token (optional) is the HTTP Basic password (username controlUser) gating every mutation and
+// topology-bearing read; empty = auth disabled. Only the sanitized readiness probe stays public.
 // src (optional, variadic so the existing 3-arg call sites keep compiling) supplies the
 // blueprint-derived schema: when present and non-nil, GET /control/schema marshals
 // src[0].ControlSchema() and the scenario/scaling POSTs validate against it; absent ⇒ the
@@ -177,7 +176,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	})
 	mux.Handle("GET /control/ui", http.RedirectHandler("/control/ui/", http.StatusFound))
 	mux.Handle("GET /control/ui/", spaHandler())
-	// GET /control/status — sink readiness + persist health (unguarded, side-effect-free,
+	// GET /control/status — sink readiness + persist health (protected when configured,
 	// I26). Status is read off h.status at request time so the source can be attached after
 	// construction via SetStatus.
 	mux.HandleFunc("GET /control/status", func(w http.ResponseWriter, r *http.Request) {
@@ -201,8 +200,8 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		}
 		writeJSON(w, StatusReport{Sinks: sinks, ByBlueprint: byBp, Fleet: fleet, Persist: h.store.PersistHealth(), DryRun: h.status.DryRun, Readiness: readiness})
 	})
-	// GET /control/readiness is deliberately unguarded so Docker can call it without carrying
-	// control-plane credentials. The body is identical in both states; only the HTTP code changes.
+	// GET /control/readiness is deliberately public so Docker can call it without credentials. Its
+	// probe representation omits topology, errors, filesystem paths, and operational reasons.
 	mux.HandleFunc("GET /control/readiness", func(w http.ResponseWriter, r *http.Request) {
 		if h.status.Readiness == nil {
 			http.Error(w, "readiness not configured", http.StatusNotFound)
@@ -213,10 +212,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		if !report.Ready {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
-		_ = json.NewEncoder(w).Encode(report)
+		_ = json.NewEncoder(w).Encode(report.Probe())
 	})
 
-	// GET /control/config — redacted runtime config (unguarded, side-effect-free, I26).
+	// GET /control/config — redacted runtime config (protected when configured, side-effect-free, I26).
 	// cfg is read at request time so it can be attached after construction via SetConfig.
 	mux.HandleFunc("GET /control/config", func(w http.ResponseWriter, r *http.Request) {
 		if h.cfg == nil {
@@ -225,7 +224,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		}
 		writeJSON(w, h.cfg)
 	})
-	// GET /control/inventory — live emission + cardinality inventory (unguarded, side-effect-free, I26).
+	// GET /control/inventory — live emission + cardinality inventory (protected, side-effect-free, I26).
 	mux.HandleFunc("GET /control/inventory", func(w http.ResponseWriter, r *http.Request) {
 		if h.inv == nil {
 			http.Error(w, "inventory not configured", http.StatusNotFound)
@@ -233,7 +232,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		}
 		writeJSON(w, h.inv.Inventory())
 	})
-	// GET /control/health — per-construct tick health + process metrics (unguarded, side-effect-free, I26).
+	// GET /control/health — per-construct tick health + process metrics (protected, side-effect-free, I26).
 	mux.HandleFunc("GET /control/health", func(w http.ResponseWriter, r *http.Request) {
 		if h.health == nil {
 			http.Error(w, "health not configured", http.StatusNotFound)
@@ -243,7 +242,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	})
 
 	// GET /control/diagnostics — load-time problems (skipped blueprints / dropped config entries),
-	// errors first. Unguarded + side-effect-free, like /control/status and /control/health.
+	// errors first. Protected when configured and side-effect-free, like status and health.
 	mux.HandleFunc("GET /control/diagnostics", func(w http.ResponseWriter, r *http.Request) {
 		if h.diag == nil {
 			http.Error(w, "diagnostics not configured", http.StatusNotFound)
@@ -613,7 +612,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		writeJSON(w, out)
 	}))
 
-	// GET /control/blueprints/staged — list blueprints staged for next restart (open, I26).
+	// GET /control/blueprints/staged — protected list of blueprints staged for restart (I26).
 	mux.HandleFunc("GET /control/blueprints/staged", func(w http.ResponseWriter, r *http.Request) {
 		if h.bpadmin == nil {
 			http.Error(w, "blueprint admin not configured", http.StatusNotFound)
@@ -622,8 +621,8 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		writeJSON(w, h.bpadmin.ListStaged())
 	})
 
-	// GET /control/blueprints/sources — list configured git sources (open, I26).
-	// SourceView has no raw token field — only TokenEnvVar (the env-var NAME) — safe to serve.
+	// GET /control/blueprints/sources — protected list of configured git sources (I26).
+	// SourceView has no raw token field — only TokenEnvVar (the env-var NAME).
 	mux.HandleFunc("GET /control/blueprints/sources", func(w http.ResponseWriter, r *http.Request) {
 		if h.bpadmin == nil {
 			http.Error(w, "blueprint admin not configured", http.StatusNotFound)
@@ -633,7 +632,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	})
 
 	// GET /control/blueprints/pending — staged-vs-manifest diff driving the "restart to apply"
-	// banner (open, side-effect-free I26).
+	// banner (protected when configured, side-effect-free I26).
 	mux.HandleFunc("GET /control/blueprints/pending", func(w http.ResponseWriter, r *http.Request) {
 		if h.bpadmin == nil {
 			http.Error(w, "blueprint admin not configured", http.StatusNotFound)
@@ -754,7 +753,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		writeJSON(w, map[string]string{"status": "fetched"})
 	}))
 
-	h.mux = corsEcho(mux)
+	h.mux = corsEcho(protectControlReads(token, mux))
 	return h
 }
 
@@ -766,31 +765,53 @@ const controlUser = "control"
 // requireToken returns a middleware that requires HTTP Basic auth — username controlUser,
 // password <token> — when token is non-empty. Uses crypto/subtle.ConstantTimeCompare to
 // avoid timing leaks. On failure it emits a Basic WWW-Authenticate challenge so a browser
-// pops its native credential dialog (prompt-on-mutation: GETs are open, the first guarded
-// POST triggers the prompt). When token is empty, the handler is passed through unchanged
+// pops its native credential dialog. When token is empty, the handler is passed through unchanged
 // (auth disabled).
 func requireToken(token string, next http.HandlerFunc) http.HandlerFunc {
+	protected := requireTokenHandler(token, next)
+	return protected.ServeHTTP
+}
+
+// RequireToken protects an arbitrary handler with the control plane's fixed Basic-auth contract.
+// It is exported for the composition root so the sibling Infinity JSON host can share the exact
+// same credential semantics without duplicating secret comparison code.
+func RequireToken(token string, next http.Handler) http.Handler {
+	return requireTokenHandler(token, next)
+}
+
+func requireTokenHandler(token string, next http.Handler) http.Handler {
 	if token == "" {
 		return next
 	}
 	// Precompute the full expected header so the compare is constant-time over the whole
 	// credential, not a short-circuiting user-then-pass check.
 	want := "Basic " + base64.StdEncoding.EncodeToString([]byte(controlUser+":"+token))
-	return func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got := r.Header.Get("Authorization")
 		if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
 			w.Header().Set("WWW-Authenticate", `Basic realm="synthkit control", charset="UTF-8"`)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		next(w, r)
-	}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func protectControlReads(token string, next http.Handler) http.Handler {
+	protected := RequireToken(token, next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if (r.Method == http.MethodGet || r.Method == http.MethodHead) && r.URL.Path != "/control/readiness" {
+			protected.ServeHTTP(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // corsEcho echoes the request's Origin and requested headers (I26 — Grafana's fetch
 // adds x-grafana-device-id, which a fixed allow-list would reject).
-// Only GET and OPTIONS are advertised — browsers won't attempt cross-origin POST;
-// HTTP Basic auth (CONTROL_TOKEN) is the real mutation barrier.
+// GET, POST, and OPTIONS are advertised so browser action buttons can preflight guarded
+// mutations; HTTP Basic auth (CONTROL_TOKEN) remains the mutation barrier.
 func corsEcho(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if origin := r.Header.Get("Origin"); origin != "" {
@@ -800,7 +821,7 @@ func corsEcho(next http.Handler) http.Handler {
 		if reqHdrs := r.Header.Get("Access-Control-Request-Headers"); reqHdrs != "" {
 			w.Header().Set("Access-Control-Allow-Headers", reqHdrs)
 		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

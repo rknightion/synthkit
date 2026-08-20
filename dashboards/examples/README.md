@@ -57,17 +57,19 @@ the master **volume** presets and the curated **incident scenarios** — while t
 
 It is powered by the **Infinity datasource** pointed at the synthkit control plane, not by promrw:
 
-- **Reads** (GET, open — no auth) use **relative paths** — `/control/schema?audience=customer`,
+- **Reads** use **relative paths** — `/control/schema?audience=customer`,
   `/control/state` — which the Infinity datasource's configured **Base URL** prefixes. So the committed
   dashboard is host-agnostic: it works against whatever base URL the datasource is provisioned with
   (see [`../../provisioning/`](../../provisioning)). The datasource is a normal proxy datasource — no
   pinned cert. Grafana Cloud reaches the host's URL privately via the user-configured PDC
-  Tailscale connection.
+  Tailscale connection. When `CONTROL_TOKEN` is set, provisioning stores the matching Basic
+  password in datasource `secureJsonData`; it is never committed to dashboard JSON.
 - **Writes** (native fetch-POST action buttons): volume → `/control/load`, clear incidents →
   `/control/scenarios`. These are **browser** fetches (not via the datasource), so they carry an absolute
   `--write-base-url`. POST routes sit behind the control plane's **HTTP Basic** challenge (username
   `control`, password `CONTROL_TOKEN`); the browser prompts natively on the first button press, so **no
-  credentials are baked into the dashboard JSON**.
+  credentials are baked into the dashboard JSON**. Datasource credentials do not flow into these
+  browser-direct requests, so verify the challenge flow over the HTTPS write base.
 
 ### Connectivity
 

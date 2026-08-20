@@ -3,8 +3,10 @@
 package bpsource_test
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/bpsource"
@@ -158,6 +160,30 @@ func TestStoreSourceConfigPersistsThroughStoreReload(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got[0], s) {
 		t.Fatalf("source mismatch after reload:\n  got  %+v\n  want %+v", got[0], s)
+	}
+}
+
+func TestStoreSourceConfigPersistsOnlyTokenEnvironmentName(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	const secret = "resolved-private-token-must-not-persist"
+	t.Setenv("PRIVATE_BLUEPRINT_TOKEN", secret)
+	store := control.NewStore(path)
+	cfg := bpsource.NewStoreSourceConfig(store)
+	if err := cfg.UpsertSource(bpsource.Source{
+		ID: "private", Name: "Private", URL: "https://example.com/private",
+		Ref: "refs/heads/main", TokenEnvVar: "PRIVATE_BLUEPRINT_TOKEN",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), secret) {
+		t.Fatal("control state persisted the resolved private-git token")
+	}
+	if !strings.Contains(string(b), `"token_env_var": "PRIVATE_BLUEPRINT_TOKEN"`) {
+		t.Fatalf("control state omitted token_env_var name: %s", b)
 	}
 }
 

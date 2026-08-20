@@ -17,7 +17,7 @@ This page covers the most common operational problems. For a structured end-to-e
 
 **Fix:** Set `DRY_RUN=false` in `.env`. Restart the container or process.
 
-**Verify:** `curl -s http://127.0.0.1:8088/control/status | jq '.dry_run'` must return `false`.
+**Verify:** `curl -s -u control http://127.0.0.1:8088/control/status | jq '.dry_run'` must return `false`.
 
 ---
 
@@ -34,7 +34,7 @@ This page covers the most common operational problems. For a structured end-to-e
 **Verify:** Look at sink failures in the status strip:
 
 ```bash
-curl -s http://127.0.0.1:8088/control/status | jq '.sinks[] | {name, failures, last_error}'
+curl -s -u control http://127.0.0.1:8088/control/status | jq '.sinks[] | {name, failures, last_error}'
 ```
 
 A non-zero `failures` count and a `last_error` message (e.g. `401 Unauthorized`) confirms a credential problem.
@@ -80,7 +80,9 @@ A non-zero `failures` count and a `last_error` message (e.g. `401 Unauthorized`)
 
 **Cause:** `JSON_HTTP_ADDR` defaults to `127.0.0.1:8088` (loopback only) for direct binary runs. In Docker Compose the binary binds `0.0.0.0:8088` inside the container, but the host-side interface is `SYNTHKIT_BIND` (defaults to `127.0.0.1`).
 
-**Fix (reach from another host):** Set `SYNTHKIT_BIND=0.0.0.0` (or a specific Tailscale/LAN IP) in `.env`, set `CONTROL_TOKEN` to a non-empty value, and restart. Alternatively, use an SSH tunnel:
+**Fix (reach from another host):** Prefer an SSH tunnel. For deliberate non-loopback exposure, set
+`SYNTHKIT_BIND`, a non-empty `CONTROL_TOKEN`, and `CONTROL_EXPOSURE_ACK=trusted-network` or
+`tls-proxy`; startup fails without all required values.
 
 ```bash
 ssh -L 8088:localhost:8088 <host>
@@ -98,13 +100,14 @@ ssh -L 8088:localhost:8088 <host>
 The control plane saves state atomically (write to a temp file → rename). A single-file bind mount breaks the rename step. A directory not owned by uid 65532 (distroless nonroot) produces a `permission denied` error on every save attempt — visible in `persist.last_error`:
 
 ```bash
-curl -s http://127.0.0.1:8088/control/status | jq '.persist'
+curl -s -u control http://127.0.0.1:8088/control/status | jq '.persist'
 ```
 
 **Fix — wrong uid:**
 
 ```bash
-sudo chown -R 65532:65532 control-state-data
+if [ -L control-state-data ] || { [ -e control-state-data ] && [ ! -d control-state-data ]; }; then echo 'refusing unsafe state path' >&2; exit 1; fi
+sudo install -d -o 65532 -g 65532 -m 700 control-state-data
 docker compose restart
 ```
 

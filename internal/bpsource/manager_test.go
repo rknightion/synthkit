@@ -4,6 +4,7 @@ package bpsource
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -52,6 +53,51 @@ func TestStageUploadRejectsInvalid(t *testing.T) {
 	}
 }
 
+func TestStageUploadUsesOwnerOnlyPaths(t *testing.T) {
+	data := t.TempDir()
+	custom := filepath.Join(data, customDir)
+	file := filepath.Join(custom, uploadFilename("team", "private"))
+	if err := os.Chmod(data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(custom, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(Options{DataDir: data, Registry: runner.Catalog(), Config: &fakeConfig{}})
+	if err := m.StageUpload("team", "private", []byte("name: private\nhosts: [{name: h1, os: linux}]\n")); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]os.FileMode{data: 0o700, custom: 0o700, file: 0o600} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("%s mode = %o, want %o", path, got, want)
+		}
+	}
+}
+
+func TestStageUploadRefusesSymlinkDataRoot(t *testing.T) {
+	parent := t.TempDir()
+	external := t.TempDir()
+	data := filepath.Join(parent, "blueprints")
+	if err := os.Symlink(external, data); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(Options{DataDir: data, Registry: runner.Catalog(), Config: &fakeConfig{}})
+	err := m.StageUpload("team", "private", []byte("name: private\nhosts: [{name: h1, os: linux}]\n"))
+	if err == nil || !strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("StageUpload() error = %v, want symlink refusal", err)
+	}
+	if _, err := os.Stat(filepath.Join(external, customDir, uploadFilename("team", "private"))); !os.IsNotExist(err) {
+		t.Fatalf("external target was modified: %v", err)
+	}
+}
+
 func TestPendingDetectsStagedUpload(t *testing.T) {
 	data := t.TempDir()
 	m := NewManager(Options{DataDir: data, BakedDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}, Now: func() int64 { return 1 }})
@@ -89,6 +135,15 @@ hosts: [{name: h1, os: linux}]
 	m.mu.Unlock()
 	if sha != "sha42" {
 		t.Fatalf("latestSHAs not seeded on skip, got %q", sha)
+	}
+	for path, want := range map[string]os.FileMode{data: 0o700, filepath.Join(data, gitDir): 0o700, gitDirPath: 0o700, filepath.Join(gitDirPath, "existing.yaml"): 0o600} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("cached path %s mode = %o, want %o", path, got, want)
+		}
 	}
 }
 
@@ -128,6 +183,15 @@ hosts: [{name: h2, os: linux}]
 	}
 	if !found {
 		t.Fatal("fresh.yaml not written")
+	}
+	for path, want := range map[string]os.FileMode{data: 0o700, filepath.Join(data, gitDir): 0o700, gitDirPath: 0o700, filepath.Join(gitDirPath, "fresh.yaml"): 0o600} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("%s mode = %o, want %o", path, got, want)
+		}
 	}
 }
 

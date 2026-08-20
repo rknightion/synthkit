@@ -166,6 +166,14 @@ func run(once, dump bool, envPath string) error {
 	if err := cfg.ValidateLive(); err != nil {
 		return err
 	}
+	if err := validateControlExposure(controlExposure{
+		HTTPAddr: cfg.HTTPAddr,
+		HostBind: cfg.HostBind,
+		Token:    cfg.ControlToken,
+		Ack:      cfg.ControlExposure,
+	}, inContainer(), !once); err != nil {
+		return fmt.Errorf("control exposure: %w", err)
+	}
 
 	// Self-profiling (Pyroscope → a SEPARATE self-obs stack). Process profiles are just another
 	// self-obs signal, so they share SELFOBS_ENABLED (no separate master switch) and the same DRY_RUN
@@ -484,17 +492,7 @@ func run(once, dump bool, envPath string) error {
 	// browser-trusted endpoint; Grafana Cloud reaches it privately via the user-configured
 	// PDC Tailscale connection.
 	if cfg.ControlToken == "" {
-		switch {
-		case isLoopback(cfg.HTTPAddr):
-			log.Printf("WARNING: CONTROL_TOKEN unset — control-plane mutations are unauthenticated (loopback bind http=%q; acceptable for local use, SSH-tunnel for remote access)", cfg.HTTPAddr)
-		case inContainer():
-			// Inside a container the in-container bind is necessarily non-loopback (0.0.0.0)
-			// so loopback detection is meaningless; actual exposure is governed by the host
-			// port mapping (SYNTHKIT_BIND), not this bind. Don't cry network-exposure.
-			log.Printf("WARNING: CONTROL_TOKEN unset — control-plane mutations are unauthenticated (containerized bind http=%q; actual exposure is the host port mapping, not this bind); set CONTROL_TOKEN unless the host mapping keeps the control plane off the network", cfg.HTTPAddr)
-		default:
-			log.Printf("WARNING: CONTROL_TOKEN unset and the bind is NOT loopback (http=%q) — the control plane is UNAUTHENTICATED and write-capable from the network; set CONTROL_TOKEN or bind 127.0.0.1", cfg.HTTPAddr)
-		}
+		log.Printf("WARNING: CONTROL_TOKEN unset — control-plane reads and mutations are unauthenticated on the verified loopback-only exposure")
 	}
 	mux := http.NewServeMux()
 	cv := toControlConfigView(cfg.Redacted())
@@ -526,7 +524,7 @@ func run(once, dump bool, envPath string) error {
 			configureReadinessLanes()
 			so.EmitEvent("config_change", configChangeAttrs(s), configChangeBody(s))
 		}))
-	mux.Handle("/", jsondata.NewServer(r))
+	mux.Handle("/", jsonHost(r, cfg.ControlToken))
 	newSrv := func(addr string) *http.Server {
 		return &http.Server{
 			Addr:              addr,
@@ -578,9 +576,24 @@ func run(once, dump bool, envPath string) error {
 	return err
 }
 
+func jsonHost(src jsondata.Source, token string) http.Handler {
+	data := jsondata.NewServer(src)
+	mux := http.NewServeMux()
+	mux.Handle("/healthz", data)
+	protected := control.RequireToken(token, data)
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			data.ServeHTTP(w, r)
+			return
+		}
+		protected.ServeHTTP(w, r)
+	}))
+	return mux
+}
+
 // isLoopback reports whether addr's host is a loopback address. addr is host:port. An empty host
 // (":8088") or 0.0.0.0 binds ALL interfaces — NOT loopback — so it returns false and the caller
-// warns that the (unauthenticated) control plane is reachable from the network.
+// validates exposure against the effective host-side publish address.
 // inContainer reports whether the process is running inside a container, where
 // loopback detection on the in-container bind is meaningless (the bind is
 // necessarily 0.0.0.0; real exposure is the host port mapping). Docker writes

@@ -50,8 +50,10 @@ type Config struct {
 	BlueprintNames   []string      // BLUEPRINT_NAMES (optional comma-separated exact-name allowlist; empty = all)
 	BlueprintDataDir string        // BLUEPRINT_DATA_DIR — persisted staging root for custom/git blueprints (default ./data/blueprints)
 	HTTPAddr         string        // JSON_HTTP_ADDR — control plane + Infinity JSON host over HTTP (default 127.0.0.1:8088)
+	HostBind         string        // SYNTHKIT_BIND — effective host-side Compose publish address
 	SnapshotPath     string        // CONFIG_SNAPSHOT_PATH — control-plane state (default ./control-state.json)
-	ControlToken     string        // CONTROL_TOKEN — HTTP Basic password (user: control) for POST /control/* (empty = auth disabled)
+	ControlToken     string        // CONTROL_TOKEN — HTTP Basic password (user: control) for sensitive reads and mutations (empty = auth disabled)
+	ControlExposure  string        // CONTROL_EXPOSURE_ACK — trusted-network | tls-proxy for non-loopback exposure
 
 	// External/custom blueprint sources (git + local).
 	GitPollInterval int    // GIT_POLL_INTERVAL — seconds between "update available" polls (0 = off)
@@ -146,8 +148,10 @@ func Load(envPath string) (*Config, error) {
 		BlueprintNames:   parseBlueprintNames(get("BLUEPRINT_NAMES", "")),
 		BlueprintDataDir: get("BLUEPRINT_DATA_DIR", "./data/blueprints"),
 		HTTPAddr:         get("JSON_HTTP_ADDR", "127.0.0.1:8088"),
+		HostBind:         get("SYNTHKIT_BIND", ""),
 		SnapshotPath:     get("CONFIG_SNAPSHOT_PATH", "./control-state.json"),
 		ControlToken:     get("CONTROL_TOKEN", ""),
+		ControlExposure:  get("CONTROL_EXPOSURE_ACK", ""),
 		GitTokenDefault:  get("GIT_TOKEN", ""),
 
 		SelfObsEnabled:   strings.EqualFold(get("SELFOBS_ENABLED", "false"), "true"),

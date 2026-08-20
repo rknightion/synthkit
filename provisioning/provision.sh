@@ -14,8 +14,9 @@
 # script.
 #
 # Usage:
-#   provisioning/provision.sh --context <customer-stack> [--base-url https://your-host.example.com]
-# Basic auth: export CONTROL_TOKEN=… first (matches synthkit's CONTROL_TOKEN). Unset = open.
+#   provisioning/provision.sh --context <customer-stack> --base-url https://your-host.example.com
+# Basic auth: export CONTROL_TOKEN=… first (matches synthkit's CONTROL_TOKEN). It is required here
+# because a remote datasource must not target the intentionally token-free loopback-only mode.
 set -euo pipefail
 
 CONTEXT="" BASE_URL="" DS_NAME="synthkit (Infinity)" DASHBOARDS="dashboards/customer"
@@ -29,22 +30,21 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$CONTEXT" ] || { echo "required: --context" >&2; exit 2; }
+[ -n "$BASE_URL" ] || { echo "required: --base-url" >&2; exit 2; }
+case "$BASE_URL" in https://*) ;; *) echo "--base-url must use https" >&2; exit 2;; esac
+[ -n "${CONTROL_TOKEN:-}" ] || { echo "required: CONTROL_TOKEN in the environment" >&2; exit 2; }
 
 gcx_api() { gcx --context "$CONTEXT" api "$@"; }
 
-# 1. Build the Infinity datasource payload (a normal proxy datasource + optional HTTP Basic auth).
+# 1. Build the Infinity datasource payload (a normal proxy datasource + secure HTTP Basic auth).
 PAYLOAD="$(BASE_URL="$BASE_URL" DS_NAME="$DS_NAME" CONTROL_TOKEN="${CONTROL_TOKEN:-}" python3 - <<'PY'
 import json, os
 url, name, token = os.environ["BASE_URL"], os.environ["DS_NAME"], os.environ.get("CONTROL_TOKEN", "")
 ds = {"name": name, "type": "yesoreyeram-infinity-datasource", "access": "proxy", "url": url}
 secure = {}
-if token:                            # basic auth only when CONTROL_TOKEN is set (matches synthkit)
-    ds.update(basicAuth=True, basicAuthUser="control")
-    secure["basicAuthPassword"] = token
-else:
-    ds["basicAuth"] = False
-if secure:
-    ds["secureJsonData"] = secure
+ds.update(basicAuth=True, basicAuthUser="control")
+secure["basicAuthPassword"] = token
+ds["secureJsonData"] = secure
 print(json.dumps(ds))
 PY
 )"

@@ -78,11 +78,10 @@ it. See [Deployment](deployment.md#counter-resets-and-rate-windows).
 
 ### Is the control plane authenticated?
 
-GET routes are always open. POST/DELETE mutation routes require HTTP Basic auth (username
-`control`) only if you set `CONTROL_TOKEN` — leaving it unset means anyone who can reach the port
-can inject failures, scale workloads to zero, or disable blueprints. The default bind is loopback
-only, which is the safe default. See [Control Plane](control-plane.md) and
-[Security](security.md).
+When `CONTROL_TOKEN` is set, HTTP Basic auth (username `control`) protects every mutation,
+sensitive control reads, and Infinity data routes. Only `/healthz` and sanitized
+`/control/readiness` stay public. Loopback can remain token-free; non-loopback startup additionally
+requires `CONTROL_EXPOSURE_ACK=trusted-network|tls-proxy`. See [Control Plane](control-plane.md).
 
 ### My control-plane changes aren't surviving a restart — why?
 

@@ -669,19 +669,55 @@ func basicHeader(user, pass string) string {
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))
 }
 
-// TestRequireToken covers all requireToken cases: HTTP Basic auth enforced on POST
-// (fixed username "control", password = CONTROL_TOKEN), GET always open, and a
-// WWW-Authenticate challenge on 401 so the browser pops its native credential dialog.
+// TestRequireToken covers HTTP Basic auth on topology-bearing reads and mutations while probe
+// routes and CORS preflight remain credential-free.
 func TestRequireToken(t *testing.T) {
 	st := NewStore(filepath.Join(t.TempDir(), "x.json"))
 	const tok = "s3cret"
 	h := NewHandler(st, nil, tok)
 
-	// GET /control/state is always open regardless of token.
+	// Topology-bearing GETs require the same credentials as mutations.
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest("GET", "/control/state", nil))
-	if rec.Code != 200 {
-		t.Fatalf("GET without token must be 200, got %d", rec.Code)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("GET without token must be 401, got %d", rec.Code)
+	}
+	for _, path := range []string{
+		"/control/status", "/control/ui", "/control/ui/", "/control/schema",
+		"/control/blueprint-schema", "/control/config", "/control/inventory",
+		"/control/health", "/control/diagnostics", "/control/incidents",
+		"/control/blueprint?name=starter", "/control/blueprints/staged",
+		"/control/blueprints/sources", "/control/blueprints/pending",
+	} {
+		rec = httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("GET %s without token = %d, want 401", path, rec.Code)
+		}
+	}
+	for _, path := range []string{"/control/status", "/control/ui/", "/control/blueprint?name=starter"} {
+		rec = httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodHead, path, nil))
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("HEAD %s without token = %d, want 401", path, rec.Code)
+		}
+	}
+
+	// Readiness stays public for the container healthcheck. Its normal 404 is proof auth did not
+	// intercept the request when no readiness source is attached.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/control/readiness", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("readiness without token = %d, want handler 404", rec.Code)
+	}
+
+	// Correct Basic credentials preserve the route's normal semantics.
+	req := httptest.NewRequest(http.MethodGet, "/control/state", nil)
+	req.Header.Set("Authorization", basicHeader("control", tok))
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("authenticated GET = %d, want 200", rec.Code)
 	}
 
 	// POST without Authorization → 401, and MUST carry a Basic challenge so Chrome prompts.
@@ -695,7 +731,7 @@ func TestRequireToken(t *testing.T) {
 	}
 
 	// POST with the old Bearer scheme → 401 (no longer accepted).
-	req := httptest.NewRequest("POST", "/control/load", strings.NewReader(`{"volume_multiplier": 2}`))
+	req = httptest.NewRequest("POST", "/control/load", strings.NewReader(`{"volume_multiplier": 2}`))
 	req.Header.Set("Authorization", "Bearer "+tok)
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -739,20 +775,48 @@ func TestRequireToken(t *testing.T) {
 	}
 }
 
-// TestCORSAllowMethodsDropsPost verifies OPTIONS preflight returns methods without POST.
-func TestCORSAllowMethodsDropsPost(t *testing.T) {
+func TestPublicReadinessOmitsOperationalDetails(t *testing.T) {
+	report := ReadinessReport{
+		Running: true, HTTPReady: true, Ready: false, LiveReady: false,
+		Blueprints:     BlueprintReadiness{Loaded: 2, Skipped: 1, Active: 1},
+		PersistedState: PersistedStateReadiness{Writable: false, Error: "secret filesystem path"},
+		Lanes:          []pushstatus.LaneStatus{{Name: "private-sink", LastError: "private endpoint failure"}},
+		Reasons:        []string{"private reason"},
+	}
+	h := NewHandler(NewStore(filepath.Join(t.TempDir(), "state.json")), nil, "token").
+		SetStatus(StatusSources{Readiness: func() ReadinessReport { return report }})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/control/readiness", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("readiness status = %d, want 503", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, forbidden := range []string{"private-sink", "private endpoint", "secret filesystem", "private reason", `"lanes"`, `"reasons"`, `"error"`} {
+		if strings.Contains(body, forbidden) {
+			t.Errorf("public readiness exposed %q: %s", forbidden, body)
+		}
+	}
+	for _, required := range []string{`"ready":false`, `"loaded":2`, `"writable":false`} {
+		if !strings.Contains(body, required) {
+			t.Errorf("public readiness missing %q: %s", required, body)
+		}
+	}
+}
+
+// TestCORSAllowsBrowserActionPost verifies action-button preflight can reach guarded mutations.
+func TestCORSAllowsBrowserActionPost(t *testing.T) {
 	st := NewStore(filepath.Join(t.TempDir(), "x.json"))
-	h := NewHandler(st, nil, "")
+	h := NewHandler(st, nil, "secret")
 	req := httptest.NewRequest("OPTIONS", "/control/state", nil)
 	req.Header.Set("Origin", "https://g.example.net")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	methods := rec.Header().Get("Access-Control-Allow-Methods")
-	if strings.Contains(methods, "POST") {
-		t.Fatalf("Allow-Methods must not include POST, got %q", methods)
-	}
-	if !strings.Contains(methods, "GET") || !strings.Contains(methods, "OPTIONS") {
-		t.Fatalf("Allow-Methods must include GET and OPTIONS, got %q", methods)
+	for _, method := range []string{"GET", "POST", "OPTIONS"} {
+		if !strings.Contains(methods, method) {
+			t.Fatalf("Allow-Methods must include %s, got %q", method, methods)
+		}
 	}
 }
 
@@ -855,7 +919,11 @@ func TestPersistHealthRecordsSuccess(t *testing.T) {
 }
 
 func TestProbeWriteAtomicallyProvesSnapshotDirectoryWritable(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "control-state.json")
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "control-state.json")
 	st := NewStore(path)
 	if err := st.ProbeWrite(); err != nil {
 		t.Fatalf("ProbeWrite: %v", err)
@@ -865,6 +933,20 @@ func TestProbeWriteAtomicallyProvesSnapshotDirectoryWritable(t *testing.T) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("atomic probe did not create snapshot: %v", err)
+	}
+	dirInfo, err := os.Stat(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := dirInfo.Mode().Perm(); got != 0o755 {
+		t.Fatalf("snapshot write changed caller-owned directory mode to %o", got)
+	}
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fileInfo.Mode().Perm(); got != 0o600 {
+		t.Fatalf("snapshot mode = %o, want 600", got)
 	}
 }
 
@@ -905,11 +987,11 @@ func TestReadinessEndpointAndStatusShareReport(t *testing.T) {
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("not-ready status = %d, want 503", rec.Code)
 	}
-	var got ReadinessReport
+	var got ReadinessProbe
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Ready || len(got.Reasons) != 1 {
+	if got.Ready {
 		t.Fatalf("readiness body = %+v", got)
 	}
 
@@ -922,7 +1004,12 @@ func TestReadinessEndpointAndStatusShareReport(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/control/status", nil))
+	req := httptest.NewRequest(http.MethodGet, "/control/status", nil)
+	req.SetBasicAuth("control", "secret")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("authenticated status = %d, want 200", rec.Code)
+	}
 	var status StatusReport
 	if err := json.Unmarshal(rec.Body.Bytes(), &status); err != nil {
 		t.Fatal(err)
@@ -932,14 +1019,21 @@ func TestReadinessEndpointAndStatusShareReport(t *testing.T) {
 	}
 }
 
-func TestStatusEndpointIsUnguarded(t *testing.T) {
-	// GET status carries no mutation, so it must work without a token even when one is set.
+func TestStatusEndpointRequiresToken(t *testing.T) {
+	// Status contains lane errors and topology, so it shares the operator authentication boundary.
 	store := NewStore(filepath.Join(t.TempDir(), "control-state.json"))
 	h := NewHandler(store, nil, "secret").SetStatus(StatusSources{Sinks: func() []pushstatus.SinkStat { return nil }})
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/control/status", nil))
-	if rec.Code != 200 {
-		t.Fatalf("status guarded unexpectedly: %d", rec.Code)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status = %d, want 401", rec.Code)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/control/status", nil)
+	req.SetBasicAuth("control", "secret")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("authenticated status = %d, want 200", rec.Code)
 	}
 }
 

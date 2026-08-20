@@ -80,21 +80,38 @@ Everything else is non-secret config, written by the agent with
 (it *upserts* — replaces any existing line, so re-runs don't duplicate).
 
 ## Step 4 — Assemble .env
-- If absent: `cp "$SYNTHKIT_CHECKOUT/.env.example" "$SYNTHKIT_CHECKOUT/.env"`.
+- If absent: `install -m 600 "$SYNTHKIT_CHECKOUT/.env.example" "$SYNTHKIT_CHECKOUT/.env"`.
+  If it already exists, tighten it before inspection or mutation:
+  `chmod 600 "$SYNTHKIT_CHECKOUT/.env"`.
 - Write the **non-secret** config with `set-env.sh` (it upserts). This includes the six mandatory
   customer-sink endpoints/users — `GC_PROM_RW`, `GC_PROM_USER`, `GC_OTLP_ENDPOINT`, `GC_OTLP_USER`,
   `GC_LOKI`, `GC_LOKI_USER` — plus `DRY_RUN true`, `SYNTHKIT_BIND <choice>`, and the `*_ENABLED`
   flags for chosen lanes (e.g. `SELFOBS_ENABLED true` + `GC_SELF_OTLP_ENDPOINT`,
   `GC_SELF_OTLP_USER` for the staff stack). Profiling has no separate enable flag: it requires
   `SELFOBS_ENABLED=true`, `DRY_RUN=false`, and the `GC_PYROSCOPE_*` triplet.
+- For non-loopback `SYNTHKIT_BIND`, also set `CONTROL_EXPOSURE_ACK` to exactly `trusted-network`
+  for an isolated plaintext path or `tls-proxy` for a trusted HTTPS proxy. Startup fails closed
+  unless both that acknowledgement and `CONTROL_TOKEN` are present.
 - Generate the control token idempotently (value never printed; strips any prior line first):
   `set -o pipefail; openssl rand -hex 24 | bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" CONTROL_TOKEN "$SYNTHKIT_CHECKOUT/.env"`
 - Collect the **secret** vars via the secure path. Confirm `.env` is gitignored:
   `git -C "$SYNTHKIT_CHECKOUT" check-ignore .env` → prints `.env`.
 
 ## Step 5 — Host prep (once per host)
-`mkdir -p "$SYNTHKIT_CHECKOUT/control-state-data" && sudo chown -R 65532:65532 "$SYNTHKIT_CHECKOUT/control-state-data"`
-(the container runs as uid 65532 and must own the persisted control-state volume).
+
+Reject path surprises before invoking `sudo`, then create or tighten only the dedicated directory:
+
+```bash
+state_dir="$SYNTHKIT_CHECKOUT/control-state-data"
+if [ -L "$state_dir" ] || { [ -e "$state_dir" ] && [ ! -d "$state_dir" ]; }; then
+  echo "refusing non-directory or symlink state path: $state_dir" >&2
+  exit 1
+fi
+sudo install -d -o 65532 -g 65532 -m 700 "$state_dir"
+```
+
+The container runs as uid 65532 and must own the persisted control-state volume. Do not use a
+recursive ownership change here; runtime manages the files beneath this dedicated directory.
 
 ## Step 6 — Dry-run gate (before any live push)
 `DRY_RUN=true docker compose run --rm synthkit -once -dump`
@@ -111,11 +128,11 @@ default-branch build), or `vX.Y.Z` to pin a release. To build from local source 
 
 - **Local:** `docker compose up -d`.
 - **Remote (aware/handoff):** on the standing host, first repeat **Locate the synthkit checkout**
-  against its existing clone. Then, from that verified root: `git pull --ff-only` →
-  `mkdir -p "$SYNTHKIT_CHECKOUT/control-state-data" && sudo chown -R 65532:65532 "$SYNTHKIT_CHECKOUT/control-state-data"` →
-  copy the host's `.env` across → `docker compose up -d`.
-  Set `SYNTHKIT_BIND` deliberately (loopback + SSH tunnel rather than `0.0.0.0` on an
-  untrusted network). Full SSH automation is out of scope for v1 — guide the user through these steps.
+  against its existing clone. Then, from that verified root: `git pull --ff-only` → repeat Step 5's
+  symlink-safe state-directory setup → preserve/copy the host's `.env` → `docker compose up -d`.
+  Set `SYNTHKIT_BIND` deliberately. Loopback + SSH tunnel needs no acknowledgement; any
+  non-loopback bind needs `CONTROL_TOKEN` plus `CONTROL_EXPOSURE_ACK=trusted-network|tls-proxy`.
+  Full SSH automation is out of scope for v1 — guide the user through these steps.
 
 ## Step 8 — Verify
 **REQUIRED SUB-SKILL:** Use verify-deployment to confirm the control plane is healthy and data is

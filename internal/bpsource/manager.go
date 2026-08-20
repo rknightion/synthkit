@@ -186,6 +186,18 @@ func (m *Manager) FetchNow(ctx context.Context, id string) error {
 	m.mu.Unlock()
 
 	gitIDDir := filepath.Join(m.dataDir, gitDir, id)
+	if err := ensurePrivateDir(m.dataDir); err != nil {
+		return fmt.Errorf("bpsource: secure data root: %w", err)
+	}
+	if err := ensurePrivateDir(filepath.Join(m.dataDir, gitDir)); err != nil {
+		return fmt.Errorf("bpsource: secure git root: %w", err)
+	}
+	if err := ensurePrivateDir(gitIDDir); err != nil {
+		return fmt.Errorf("bpsource: secure source directory: %w", err)
+	}
+	if err := secureBlueprintDir(gitIDDir); err != nil {
+		return fmt.Errorf("bpsource: secure staged source files: %w", err)
+	}
 
 	// If HEAD matches what we already have on-disk and the dir is non-empty, skip fetch.
 	if headSHA == src.FetchedSHA && dirNonEmpty(gitIDDir) {
@@ -223,14 +235,11 @@ func (m *Manager) FetchNow(ctx context.Context, id string) error {
 	}
 
 	// Write fetched files.
-	if err := os.MkdirAll(gitIDDir, 0o755); err != nil {
-		return fmt.Errorf("bpsource: mkdir %q: %w", gitIDDir, err)
-	}
 	for fn, data := range blobs {
 		if filepath.Base(fn) != fn || filepath.Ext(fn) != ".yaml" {
 			return fmt.Errorf("bpsource: refusing invalid fetched filename %q for source %q", fn, id)
 		}
-		if err := os.WriteFile(filepath.Join(gitIDDir, fn), data, 0o644); err != nil {
+		if err := writePrivateFile(filepath.Join(gitIDDir, fn), data); err != nil {
 			return fmt.Errorf("bpsource: writing %q for source %q: %w", fn, id, err)
 		}
 	}
@@ -349,11 +358,14 @@ func (m *Manager) StageUpload(ns, name string, data []byte) error {
 		return err
 	}
 	dir := filepath.Join(m.dataDir, customDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := ensurePrivateDir(m.dataDir); err != nil {
+		return fmt.Errorf("bpsource: secure data root: %w", err)
+	}
+	if err := ensurePrivateDir(dir); err != nil {
 		return fmt.Errorf("bpsource: mkdir custom: %w", err)
 	}
 	dst := filepath.Join(dir, uploadFilename(ns, name))
-	if err := os.WriteFile(dst, data, 0o644); err != nil {
+	if err := writePrivateFile(dst, data); err != nil {
 		return fmt.Errorf("bpsource: writing upload: %w", err)
 	}
 	return nil

@@ -29,6 +29,9 @@ services:
       # Override the loopback-safe direct-run default only inside the container so Docker can
       # reach the process through its port mapping. SYNTHKIT_BIND still controls host exposure.
       JSON_HTTP_ADDR: 0.0.0.0:8088
+      # Repeat the exact Compose-interpolated host bind inside the container. `env_file` alone is
+      # insufficient because a shell/--env-file override can change port publication independently.
+      SYNTHKIT_BIND: ${SYNTHKIT_BIND:-127.0.0.1}
       # State must live on the mounted /data volume (the distroless rootfs is read-only and
       # nonroot). The ./control-state.json default would silently fail to persist every tick.
       # compose `environment` overrides `env_file`, so a local relative default never leaks in.
@@ -39,16 +42,14 @@ services:
       BLUEPRINT_DATA_DIR: /data/blueprints
     ports:
       # JSON_HTTP_ADDR (:8088) serves the operator control plane (/control/ui) + the Infinity JSON
-      # datasource host (/) over plain HTTP. SAFE BY DEFAULT: binds loopback only — the control plane
-      # is UNAUTHENTICATED and accepts POSTs. To reach it from Grafana/another host, set
-      # SYNTHKIT_BIND=0.0.0.0 (or a tailscale/LAN IP) in .env, ONLY on a trusted network, and front it
-      # with `tailscale serve` for a browser-trusted endpoint; otherwise SSH-tunnel. (If you change the
-      # port in .env, update this too.)
+      # datasource host (/) over plain HTTP. SAFE BY DEFAULT: binds loopback only. Any non-loopback
+      # bind also requires CONTROL_TOKEN plus CONTROL_EXPOSURE_ACK=trusted-network or tls-proxy;
+      # startup fails closed otherwise. Prefer a browser-trusted HTTPS proxy such as `tailscale serve`.
       - "${SYNTHKIT_BIND:-127.0.0.1}:8088:8088"
     volumes:
       # DIRECTORY bind mount, owned by uid 65532 (distroless nonroot) — a single-file
       # mount breaks the control plane's atomic save → state wipe (I25). First run:
-      #   mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data
+      #   Reject symlink/non-directory paths, then use: sudo install -d -o 65532 -g 65532 -m 700 control-state-data
       - ./control-state-data:/data
     # Delivery-aware health: fresh/live deployments remain starting until every intended lane has
     # completed a current successful push and the state volume has passed an atomic write probe.

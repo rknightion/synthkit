@@ -16,6 +16,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/blueprint"
 	"github.com/rknightion/synthkit/internal/bpsource"
+	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/preflight"
 	"github.com/rknightion/synthkit/internal/runner"
 )
@@ -61,6 +62,56 @@ func TestRunPreflightReportsStaticAndNetworkResultsWithoutValues(t *testing.T) {
 	}
 	if strings.Contains(got, fmt.Sprint(http.StatusNoContent)) {
 		t.Fatalf("output exposed unnecessary response details: %s", got)
+	}
+}
+
+type emptyJSONSource struct{}
+
+func (emptyJSONSource) Blueprints() []string                                      { return nil }
+func (emptyJSONSource) Recent(string, time.Time, time.Duration) []*ledger.Request { return nil }
+func (emptyJSONSource) WindowStats(string, time.Time, time.Duration) ledger.WindowStats {
+	return ledger.WindowStats{}
+}
+
+func TestJSONHostProtectsDataButNotHealth(t *testing.T) {
+	h := jsonHost(emptyJSONSource{}, "secret")
+
+	for _, tc := range []struct {
+		path string
+		want int
+	}{
+		{path: "/healthz", want: http.StatusOK},
+		{path: "/", want: http.StatusUnauthorized},
+		{path: "/blueprints", want: http.StatusUnauthorized},
+	} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
+		if rec.Code != tc.want {
+			t.Errorf("GET %s = %d, want %d", tc.path, rec.Code, tc.want)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/blueprints", nil)
+	req.SetBasicAuth("control", "secret")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("authenticated GET /blueprints = %d, want 200", rec.Code)
+	}
+}
+
+func TestJSONHostAllowsAuthenticatedCORSPreflight(t *testing.T) {
+	h := jsonHost(emptyJSONSource{}, "secret")
+	req := httptest.NewRequest(http.MethodOptions, "/blueprints", nil)
+	req.Header.Set("Origin", "https://grafana.example.com")
+	req.Header.Set("Access-Control-Request-Headers", "Authorization, x-grafana-device-id")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("OPTIONS /blueprints = %d, want 204", rec.Code)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") {
+		t.Fatalf("Access-Control-Allow-Headers = %q, want Authorization", got)
 	}
 }
 
@@ -143,6 +194,43 @@ func TestIsLoopback(t *testing.T) {
 		if got := isLoopback(c.addr); got != c.want {
 			t.Errorf("isLoopback(%q) = %v, want %v", c.addr, got, c.want)
 		}
+	}
+}
+
+func TestValidateControlExposure(t *testing.T) {
+	tests := []struct {
+		name        string
+		exposure    controlExposure
+		inContainer bool
+		servesHTTP  bool
+		wantErr     string
+	}{
+		{name: "direct loopback remains open", exposure: controlExposure{HTTPAddr: "127.12.0.1:8088"}, servesHTTP: true},
+		{name: "one-shot does not expose HTTP", exposure: controlExposure{HTTPAddr: "0.0.0.0:8088"}, servesHTTP: false},
+		{name: "direct non-loopback needs token", exposure: controlExposure{HTTPAddr: "0.0.0.0:8088", Ack: "trusted-network"}, servesHTTP: true, wantErr: "CONTROL_TOKEN"},
+		{name: "direct non-loopback needs acknowledgement", exposure: controlExposure{HTTPAddr: "10.0.0.8:8088", Token: "secret"}, servesHTTP: true, wantErr: "CONTROL_EXPOSURE_ACK"},
+		{name: "trusted network accepted", exposure: controlExposure{HTTPAddr: "10.0.0.8:8088", Token: "secret", Ack: "trusted-network"}, servesHTTP: true},
+		{name: "TLS proxy accepted", exposure: controlExposure{HTTPAddr: "example.internal:8088", Token: "secret", Ack: "tls-proxy"}, servesHTTP: true},
+		{name: "invalid acknowledgement rejected on loopback", exposure: controlExposure{HTTPAddr: "localhost:8088", Ack: "yes"}, servesHTTP: true, wantErr: "trusted-network"},
+		{name: "container uses host bind", exposure: controlExposure{HTTPAddr: "0.0.0.0:8088", HostBind: "127.0.0.1"}, inContainer: true, servesHTTP: true},
+		{name: "container global publish needs acknowledgement", exposure: controlExposure{HTTPAddr: "0.0.0.0:8088", HostBind: "0.0.0.0", Token: "secret"}, inContainer: true, servesHTTP: true, wantErr: "CONTROL_EXPOSURE_ACK"},
+		{name: "container missing effective bind fails closed", exposure: controlExposure{HTTPAddr: "0.0.0.0:8088"}, inContainer: true, servesHTTP: true, wantErr: "SYNTHKIT_BIND"},
+		{name: "malformed direct bind rejected", exposure: controlExposure{HTTPAddr: "not-an-address"}, servesHTTP: true, wantErr: "JSON_HTTP_ADDR"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateControlExposure(tt.exposure, tt.inContainer, tt.servesHTTP)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("validateControlExposure() error = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("validateControlExposure() error = %v, want text %q", err, tt.wantErr)
+			}
+		})
 	}
 }
 

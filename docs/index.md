@@ -75,12 +75,15 @@ For an existing `.env`, review its credentials first, then run the same `set-env
 
 From another terminal, confirm the status endpoint reports `dry_run=false`:
 
+The `-u control` form prompts for `CONTROL_TOKEN` without echoing it; press Enter only for an
+intentionally token-free loopback run.
+
 ```bash
-curl -fsS http://localhost:8088/control/status | jq -e '.dry_run == false'
+curl -fsS -u control http://localhost:8088/control/status | jq -e '.dry_run == false'
 ```
 
 The command prints `true`; it exits nonzero if live mode is not active. `jq` is optional: without
-it, inspect the same JSON with `curl -fsS http://localhost:8088/control/status` and look for
+it, inspect the same JSON with `curl -fsS -u control http://localhost:8088/control/status` and look for
 `"dry_run":false`.
 
 ## What synthkit emits

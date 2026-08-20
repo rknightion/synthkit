@@ -93,7 +93,8 @@ Sends the synthkit process's continuous profiles to a **separate** stack. Follow
 3. Generate a token.
 4. Find the endpoint URLs under **Details** for each data source (Mimir, Loki, Tempo, Profiles).
 
-If you use `gcx`, `gcx config get --context <your-stack>` prints the endpoint URLs for the configured context.
+If you use `gcx`, `gcx config view` shows the active configuration with secret values redacted;
+use `gcx config list-contexts` and `gcx config current-context` to select the intended stack deliberately.
 
 ---
 

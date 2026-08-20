@@ -10,18 +10,14 @@ import (
 )
 
 func writeManifest(dir string, m Manifest) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := ensurePrivateDir(dir); err != nil {
 		return err
 	}
 	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := filepath.Join(dir, manifestFile+".tmp")
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, filepath.Join(dir, manifestFile)) // atomic within dir (I25)
+	return writePrivateFile(filepath.Join(dir, manifestFile), b)
 }
 
 func readManifest(dir string) Manifest {
