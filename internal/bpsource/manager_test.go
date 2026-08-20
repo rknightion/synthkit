@@ -29,7 +29,7 @@ hosts: [{name: gh, os: linux}]
 `)}},
 	}
 	cfg := &fakeConfig{list: []Source{{ID: "s1", Namespace: "gns", URL: "https://x/r", Ref: "refs/heads/main"}}}
-	m := NewManager(Options{BakedDir: baked, DataDir: data, Registry: runner.Catalog(), Git: git, Config: cfg, Now: func() int64 { return 1 }})
+	m := NewManager(Options{BakedDir: baked, BlueprintNames: []string{"*"}, DataDir: data, Registry: runner.Catalog(), Git: git, Config: cfg, Now: func() int64 { return 1 }})
 	if err := m.FetchNow(context.Background(), "s1"); err != nil {
 		t.Fatalf("FetchNow: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestEffectiveBlueprintIdentityUsesSanitizedNamespace(t *testing.T) {
 }
 
 func TestStageUploadNamespaceSeparatorRoundTrips(t *testing.T) {
-	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}})
+	m := NewManager(Options{DataDir: t.TempDir(), BlueprintNames: []string{"*"}, Registry: runner.Catalog(), Config: &fakeConfig{}})
 	const want = "foo-bar/pasted"
 	if got := m.EffectiveBlueprintIdentity("foo__bar", "pasted"); got != want {
 		t.Fatalf("EffectiveBlueprintIdentity() = %q, want %q", got, want)
@@ -299,7 +299,7 @@ unknown: field
 }
 
 func TestPasteValidateStageAndRestartDryRun(t *testing.T) {
-	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}})
+	m := NewManager(Options{DataDir: t.TempDir(), BlueprintNames: []string{"*"}, Registry: runner.Catalog(), Config: &fakeConfig{}})
 	paste := []byte(`name: pasted
 hosts: [{name: pasted-host, os: linux}]
 `)
@@ -387,7 +387,7 @@ hosts: [{name: bh, os: linux}]
 `)
 	// Git=nil → no git fetch, no git scan, baked still loads.
 	cfg := &fakeConfig{list: []Source{{ID: "s1", Namespace: "gns", URL: "https://x/r", Ref: "refs/heads/main"}}}
-	m := NewManager(Options{BakedDir: baked, DataDir: data, Registry: runner.Catalog(), Config: cfg, Now: func() int64 { return 1 }})
+	m := NewManager(Options{BakedDir: baked, BlueprintNames: []string{"*"}, DataDir: data, Registry: runner.Catalog(), Config: cfg, Now: func() int64 { return 1 }})
 	loaded, _, diags := m.Resolve(context.Background())
 	if len(diags) != 0 {
 		t.Fatalf("unexpected diags with nil git: %+v", diags)
@@ -427,11 +427,12 @@ func TestPendingIgnoresBuiltins(t *testing.T) {
 	baked := t.TempDir()
 	writeFile(t, filepath.Join(baked, "base.yaml"), miniBlueprint)
 	m := NewManager(Options{
-		BakedDir: baked,
-		DataDir:  t.TempDir(),
-		Registry: runner.Catalog(),
-		Config:   &fakeConfig{},
-		Now:      func() int64 { return 1 },
+		BakedDir:       baked,
+		BlueprintNames: []string{"*"},
+		DataDir:        t.TempDir(),
+		Registry:       runner.Catalog(),
+		Config:         &fakeConfig{},
+		Now:            func() int64 { return 1 },
 	})
 	loaded, man, _ := m.Resolve(context.Background())
 	if len(loaded) != 1 {

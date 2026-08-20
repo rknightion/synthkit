@@ -53,6 +53,7 @@ The image is distroless (based on `gcr.io/distroless/static-debian12:nonroot`) a
 # Dry run — prints the series inventory, pushes nothing
 docker run --rm \
   -e DRY_RUN=true \
+  -e BLUEPRINT_NAMES=otlp-native \
   ghcr.io/rknightion/synthkit:latest -once -dump
 ```
 
@@ -73,7 +74,7 @@ cd synthkit
 
 # 2. Create the .env file and fill in your credentials
 cp .env.example .env
-# edit .env — see Credentials for what to fill in
+# edit .env — select exact BLUEPRINT_NAMES and see Credentials for what to fill in
 
 # 3. Create the state bind-mount directory and give it to the container user
 #    (uid 65532 = distroless nonroot; a single-file mount breaks atomic save)

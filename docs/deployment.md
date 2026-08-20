@@ -25,8 +25,9 @@ The canonical deployment is Docker Compose on a persistent host. The committed `
 
     # 3. Configure credentials
     install -m 600 .env.example .env
-    # Edit .env: set DRY_RUN=false and fill GC_TOKEN, GC_PROM_RW/USER,
-    # GC_OTLP_ENDPOINT/USER, GC_LOKI/USER at minimum.
+    # Edit .env: set BLUEPRINT_NAMES=otlp-native (or other exact names), set
+    # DRY_RUN=false, and fill GC_TOKEN, GC_PROM_RW/USER, GC_OTLP_ENDPOINT/USER,
+    # GC_LOKI/USER at minimum. Empty BLUEPRINT_NAMES emits nothing.
 
     # 4. Start (pulls ghcr.io/rknightion/synthkit:latest from GHCR)
     docker compose up -d
@@ -42,7 +43,7 @@ The canonical deployment is Docker Compose on a persistent host. The committed `
     go build ./cmd/synthkit
 
     # Dry run (offline, no push):
-    DRY_RUN=true ./synthkit -once -dump
+    DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
 
     # Live run:
     install -m 600 .env.example .env   # fill credentials
@@ -126,6 +127,11 @@ The `VERSION` build-arg is stamped as `service.version` in self-observability an
 ---
 
 ## Updating
+
+!!! warning "Selection default changed to emit nothing"
+    Empty or unset `BLUEPRINT_NAMES` now starts setup mode. Before upgrading an existing deployment
+    that relied on the former implicit full catalog, set `BLUEPRINT_NAMES=*` to preserve that
+    behavior, or preferably list the exact blueprint identities you intend to emit.
 
 ```bash
 # On the host:

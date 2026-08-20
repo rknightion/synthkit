@@ -47,7 +47,7 @@ type Config struct {
 	TickTimeout      time.Duration // TICK_TIMEOUT seconds (0/unset = disabled) — optional per-blueprint per-tick backstop
 	SeriesCap        int           // SERIES_CAP global sink backstop (0 = unlimited)
 	BlueprintsDir    string        // BLUEPRINTS (default ./blueprints)
-	BlueprintNames   []string      // BLUEPRINT_NAMES (optional comma-separated exact-name allowlist; empty = all)
+	BlueprintNames   []string      // BLUEPRINT_NAMES (empty = none; exact comma-separated names; "*" = all)
 	BlueprintDataDir string        // BLUEPRINT_DATA_DIR — persisted staging root for custom/git blueprints (default ./data/blueprints)
 	HTTPAddr         string        // JSON_HTTP_ADDR — control plane + Infinity JSON host over HTTP (default 127.0.0.1:8088)
 	HostBind         string        // SYNTHKIT_BIND — effective host-side Compose publish address
@@ -259,8 +259,9 @@ func Load(envPath string) (*Config, error) {
 	return cfg, nil
 }
 
-// parseBlueprintNames turns the optional comma-separated selection into a stable exact-name
-// allowlist. Empty entries are ignored so an absent or blank value retains the all-blueprint default.
+// parseBlueprintNames turns the optional comma-separated selection into a stable runtime selector.
+// Empty entries are ignored: absent/blank selects none, exact names select those identities, and
+// the source manager interprets "*" as the explicit all-catalog opt-in.
 func parseBlueprintNames(raw string) []string {
 	seen := make(map[string]struct{})
 	var names []string

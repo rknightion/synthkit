@@ -8,7 +8,8 @@ description: Adding blueprints beyond the bundled set — control-plane upload, 
 Synthkit loads blueprints from two sources at startup:
 
 1. **Bundled blueprints** — the `blueprints/` directory baked into the binary (always present).
-2. **Custom blueprints** — staged to the `BLUEPRINT_DATA_DIR` volume by upload or git fetch, then applied on restart.
+2. **Custom blueprints** — staged to the `BLUEPRINT_DATA_DIR` volume by upload or git fetch, then
+   loaded on restart only when their exact names are included in `BLUEPRINT_NAMES` (or `*` is set).
 
 Custom blueprints use the same YAML format as the bundled set. They are managed via the control-plane API and optionally via git sources that poll for updates.
 
@@ -33,7 +34,9 @@ On success the response includes the effective identity, for example `{"status":
 
 To check a blueprint **without** staging it, `POST /control/blueprints/validate` with body `{"yaml": "..."}`. This JSON automation-compatible endpoint remains an isolated parse and dry-run cardinality check. It is useful feedback while editing, but it does not replace Save's prospective-set preflight.
 
-The blueprint is staged immediately but **does not take effect until restart**. The control-plane UI shows a "restart to apply" banner when staged blueprints differ from what is running. See [Control Plane](control-plane.md) for the full `/control/blueprints` API.
+The blueprint is staged immediately but **does not take effect until restart**. Add its effective
+namespaced identity to `BLUEPRINT_NAMES` before restarting; otherwise it remains staged and pending.
+The control-plane UI shows a "restart to apply" banner when staged blueprints differ from what is running. See [Control Plane](control-plane.md) for the full `/control/blueprints` API.
 
 To remove a staged upload: `DELETE /control/blueprints/custom?name=<namespace>/<name>`.
 
@@ -107,7 +110,9 @@ Save catches collisions involving a custom upload against the prospective staged
 
 ## Restart to apply
 
-Custom and git blueprints take effect only on restart. The runner loads the already staged snapshot at startup, writes the boot manifest, and runs with that fixed set for its lifetime. Restarting does not fetch a newer remote revision. There is no hot-reload.
+Custom and git blueprints take effect only on restart and only when selected by exact runtime identity
+or the explicit `*` selector. The runner loads the selected staged snapshot at startup, writes the
+boot manifest, and runs with that fixed set for its lifetime. Restarting does not fetch a newer remote revision. There is no hot-reload.
 
 The control-plane endpoint `GET /control/blueprints/pending` returns the diff between the boot manifest and the current staged state:
 

@@ -109,6 +109,34 @@ test("surfaces a wired deployment-readiness failure in the overview verdict", ()
   expect(getByTestId("overview-readiness").textContent).toContain("delivery lane promrw is not_attempted");
 });
 
+test("labels an operational empty deployment as setup required", () => {
+  const store = fakeStore({
+    state: defaultState(),
+    inventory: { blueprints: [], totals: { distinct_series: 0, constructs: 0, blueprints: 0 } },
+    status: {
+      sinks: [],
+      by_blueprint: {},
+      persist: { last_ok_ms: 1, last_error_ms: 0, last_error: "" },
+      dry_run: false,
+      readiness: {
+        running: true,
+        http_ready: true,
+        ready: true,
+        live_ready: false,
+        setup_required: true,
+        blueprints: { loaded: 0, skipped: 0, active: 0 },
+        persisted_state: { writable: true, error: "" },
+        lanes: [],
+        reasons: ["no blueprints selected; setup required"],
+      },
+    },
+    diagnostics: [],
+  });
+  const { getByTestId } = renderOverview(store);
+  expect(getByTestId("overview-readiness").textContent).toContain("Setup required");
+  expect(getByTestId("overview-readiness").textContent).not.toContain("Deployment readiness: Ready");
+});
+
 test("shows a distinct empty state when there are no blueprints", () => {
   const store = fakeStore({
     state: defaultState(),
@@ -118,7 +146,12 @@ test("shows a distinct empty state when there are no blueprints", () => {
   });
   const { getByTestId, queryByTestId } = renderOverview(store);
   // The empty node renders; the loading node does NOT.
-  expect(getByTestId("overview-empty")).toBeInTheDocument();
+  const empty = getByTestId("overview-empty");
+  expect(empty).toBeInTheDocument();
+  expect(empty.textContent).toContain("No synthetic telemetry is being emitted");
+  expect(empty.textContent).toContain("BLUEPRINT_NAMES=otlp-native");
+  expect(empty.textContent).toContain("BLUEPRINT_NAMES=*");
+  expect(empty.textContent).toContain("restart");
   expect(queryByTestId("overview-loading")).not.toBeInTheDocument();
 });
 

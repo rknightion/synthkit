@@ -31,6 +31,7 @@ type PersistedStateReadiness struct {
 type ReadinessInput struct {
 	ProcessRunning       bool
 	HTTPServing          bool
+	SetupRequired        bool
 	Blueprints           BlueprintReadiness
 	PersistedState       PersistedStateReadiness
 	Lanes                []pushstatus.LaneStatus
@@ -46,6 +47,7 @@ type ReadinessReport struct {
 	HTTPReady      bool                    `json:"http_ready"`
 	Ready          bool                    `json:"ready"`
 	LiveReady      bool                    `json:"live_ready"`
+	SetupRequired  bool                    `json:"setup_required"`
 	Blueprints     BlueprintReadiness      `json:"blueprints"`
 	PersistedState PersistedStateReadiness `json:"persisted_state"`
 	Lanes          []pushstatus.LaneStatus `json:"lanes"`
@@ -60,6 +62,7 @@ type ReadinessProbe struct {
 	HTTPReady      bool               `json:"http_ready"`
 	Ready          bool               `json:"ready"`
 	LiveReady      bool               `json:"live_ready"`
+	SetupRequired  bool               `json:"setup_required"`
 	Blueprints     BlueprintReadiness `json:"blueprints"`
 	PersistedState struct {
 		Writable bool `json:"writable"`
@@ -69,7 +72,8 @@ type ReadinessProbe struct {
 func (r ReadinessReport) Probe() ReadinessProbe {
 	p := ReadinessProbe{
 		Running: r.Running, HTTPReady: r.HTTPReady, Ready: r.Ready, LiveReady: r.LiveReady,
-		Blueprints: r.Blueprints,
+		SetupRequired: r.SetupRequired,
+		Blueprints:    r.Blueprints,
 	}
 	p.PersistedState.Writable = r.PersistedState.Writable
 	return p
@@ -83,9 +87,10 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 	report := ReadinessReport{
 		Running:        in.ProcessRunning,
 		HTTPReady:      in.HTTPServing,
+		SetupRequired:  in.SetupRequired,
 		Blueprints:     in.Blueprints,
 		PersistedState: in.PersistedState,
-		Lanes:          append([]pushstatus.LaneStatus(nil), in.Lanes...),
+		Lanes:          append([]pushstatus.LaneStatus{}, in.Lanes...),
 		Reasons:        []string{},
 	}
 	if !report.Running {
@@ -94,7 +99,9 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 	if !report.HTTPReady {
 		report.Reasons = append(report.Reasons, "HTTP handler is not serving")
 	}
-	if report.Blueprints.Active <= 0 {
+	if report.SetupRequired {
+		report.Reasons = append(report.Reasons, "no blueprints selected; setup required")
+	} else if report.Blueprints.Active <= 0 {
 		report.Reasons = append(report.Reasons, "no intended blueprint is active")
 	}
 	if !report.PersistedState.Writable {
@@ -103,6 +110,11 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 			reason += ": " + report.PersistedState.Error
 		}
 		report.Reasons = append(report.Reasons, reason)
+	}
+	if report.SetupRequired {
+		report.LiveReady = false
+		report.Ready = report.Running && report.HTTPReady && report.PersistedState.Writable
+		return report
 	}
 
 	liveLaneCount := 0

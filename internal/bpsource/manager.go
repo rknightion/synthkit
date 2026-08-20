@@ -34,7 +34,12 @@ func NewManager(opts Options) *Manager {
 		available:  map[string]struct{}{},
 	}
 	for _, name := range opts.BlueprintNames {
-		if name = strings.TrimSpace(name); name != "" {
+		name = strings.TrimSpace(name)
+		if name == "*" {
+			m.selectAll = true
+			continue
+		}
+		if name != "" {
 			m.selection[name] = struct{}{}
 		}
 	}
@@ -52,7 +57,7 @@ func NewManager(opts Options) *Manager {
 // SelectionError reports requested runtime blueprint names that were absent from every configured
 // source. It is checked by the composition root before any runner is built.
 func (m *Manager) SelectionError() error {
-	if len(m.selection) == 0 {
+	if m.selectAll || len(m.selection) == 0 {
 		return nil
 	}
 	missing := make([]string, 0)
@@ -71,6 +76,12 @@ func (m *Manager) SelectionError() error {
 	sort.Strings(missing)
 	sort.Strings(available)
 	return fmt.Errorf("bpsource: requested blueprint name(s) %s not found; available: %s", strings.Join(missing, ", "), strings.Join(available, ", "))
+}
+
+// SelectionRequested reports whether startup was given an explicit runtime blueprint selection.
+// An empty selection is the intentional fresh-install setup state and loads no blueprints.
+func (m *Manager) SelectionRequested() bool {
+	return m.selectAll || len(m.selection) > 0
 }
 
 // BootManifest returns the last manifest read from disk (set at construction and after Resolve).

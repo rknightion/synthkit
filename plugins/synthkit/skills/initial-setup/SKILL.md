@@ -31,6 +31,8 @@ Use `$SYNTHKIT_CHECKOUT` for every repository file and command. Invoke plugin-ow
 - The customer/synthetic stack and the staff stack NEVER share a token.
 - Default to the **secure** secret path (below). `.env` is gitignored — keep it that way.
 - `DRY_RUN` stays `true` until the dry-run gate passes.
+- Empty `BLUEPRINT_NAMES` is the safe setup-mode default and emits nothing. Never substitute `*`
+  without the operator explicitly choosing the complete catalog.
 - NEVER run a command that prints secret values into context: no `cat .env`, no
   `docker compose config` (it interpolates and echoes env values), and no `echo` of a secret. Inspect
   `.env` only with presence/shape checks like
@@ -48,6 +50,8 @@ Ask the user (use AskUserQuestion):
 3. Optional lanes to enable now: Fleet Management, Synthetic Monitoring, RUM (Faro).
 4. Deploy target: this machine (local) now, or a remote host? (remote = handoff, see Step 7).
 5. Network exposure: loopback `127.0.0.1` (default, safest) or `0.0.0.0`?
+6. Initial blueprint selection: no selection (setup mode), one or more exact runtime names
+   (`otlp-native` is the focused first-workload recommendation), or the complete catalog (`*`)?
 Their answers select which credential groups Step 3 collects.
 
 ## Step 3 — Collect credentials (per chosen lane)
@@ -89,6 +93,8 @@ Everything else is non-secret config, written by the agent with
   flags for chosen lanes (e.g. `SELFOBS_ENABLED true` + `GC_SELF_OTLP_ENDPOINT`,
   `GC_SELF_OTLP_USER` for the staff stack). Profiling has no separate enable flag: it requires
   `SELFOBS_ENABLED=true`, `DRY_RUN=false`, and the `GC_PYROSCOPE_*` triplet.
+- Also write the operator's exact `BLUEPRINT_NAMES` decision: for example `otlp-native`; leave it
+  empty only for intentional setup mode; use `*` only after explicit complete-catalog confirmation.
 - For non-loopback `SYNTHKIT_BIND`, also set `CONTROL_EXPOSURE_ACK` to exactly `trusted-network`
   for an isolated plaintext path or `tls-proxy` for a trusted HTTPS proxy. Startup fails closed
   unless both that acknowledgement and `CONTROL_TOKEN` are present.
@@ -118,7 +124,9 @@ recursive ownership change here; runtime manages the files beneath this dedicate
 (`pull_policy: always` pulls the latest image automatically; `run` honours `env_file: .env` and
 appends `-once -dump` to the entrypoint). Confirm the config parses and the series inventory looks
 right. `make dump` is an equivalent **only if Go is installed locally** — the docker form is the
-no-toolchain path. Only then set `DRY_RUN false` via `set-env.sh`.
+no-toolchain path. With exact names, require a non-empty selected inventory. With intentional setup
+mode, require the actionable `no blueprints selected` warning and an empty inventory; do not claim
+signal verification. Only then set `DRY_RUN false` via `set-env.sh` when live delivery was requested.
 
 ## Step 7 — Deploy
 The image is pulled from `ghcr.io/rknightion/synthkit`. Set `SYNTHKIT_IMAGE_TAG` in `.env` to
@@ -145,4 +153,6 @@ landing in the right stack(s). Do not hand-roll verification here.
 - Transposing the customer and staff OTLP creds (`GC_OTLP_ENDPOINT`/`GC_OTLP_USER` = customer;
   `GC_SELF_OTLP_ENDPOINT`/`GC_SELF_OTLP_USER` = staff) — self-obs metrics then land in the wrong stack.
 - Forgetting the `control-state-data` chown (container can't write its snapshot).
+- Leaving `BLUEPRINT_NAMES` empty while expecting telemetry (empty is intentional setup mode).
+- Setting `BLUEPRINT_NAMES=*` without explicitly choosing the complete catalog.
 - Going live with `DRY_RUN=true` still set, or skipping the dry-run gate.

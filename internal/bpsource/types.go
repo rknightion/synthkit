@@ -105,7 +105,7 @@ type ValidationResult struct {
 // Options configures a Manager at construction time.
 type Options struct {
 	BakedDir       string         // cfg.BlueprintsDir (built-ins)
-	BlueprintNames []string       // optional exact-name allowlist, applied before full blueprint resolution
+	BlueprintNames []string       // exact-name allowlist; empty selects none, "*" selects every available blueprint
 	DataDir        string         // <volume>/blueprints (custom + git + manifest)
 	Registry       *core.Registry // runner.Catalog()
 	Git            GitClient      // nanogit adapter (may be nil → git sources skipped)
@@ -130,5 +130,6 @@ type Manager struct {
 	sourceMu   sync.Mutex
 	latestSHAs map[string]string
 	selection  map[string]struct{}
+	selectAll  bool
 	available  map[string]struct{}
 }

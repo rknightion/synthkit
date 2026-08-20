@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Command synthkit loads every blueprint in the blueprints directory, validates the
-// set, and drives the two-cadence generator loop against Grafana Cloud sinks.
+// Command synthkit loads the blueprints explicitly selected from the configured sources,
+// validates the set, and drives the two-cadence generator loop against Grafana Cloud sinks.
 //
 // Verification modes (ARCHITECTURE I32):
 //
@@ -308,7 +308,7 @@ func run(once, dump bool, envPath string) error {
 		}
 	}
 
-	if len(loaded) == 0 {
+	if len(loaded) == 0 && mgr.SelectionRequested() {
 		return fmt.Errorf("no blueprints loaded successfully from %s (see diagnostics/logs)", cfg.BlueprintsDir)
 	}
 	selectedNames := make([]string, 0, len(loaded))
@@ -317,6 +317,9 @@ func run(once, dump bool, envPath string) error {
 	}
 	sort.Strings(selectedNames)
 	log.Printf("selected blueprints: %d %v", len(selectedNames), selectedNames)
+	if !mgr.SelectionRequested() {
+		log.Printf("WARNING: no blueprints selected — synthkit is running in setup mode and emits no synthetic telemetry; set BLUEPRINT_NAMES=otlp-native (or another exact name) and restart; use BLUEPRINT_NAMES=* only to load the complete catalog")
+	}
 	// Log warnings for all loaded blueprints before validation.
 	for _, l := range loaded {
 		res := l.Resolved
@@ -348,7 +351,7 @@ func run(once, dump bool, envPath string) error {
 	}
 	// Degrade has a floor: if every blueprint was skipped (load OR add), there is nothing to run —
 	// fail rather than boot a silent do-nothing instance.
-	if r.BlueprintCount() == 0 {
+	if r.BlueprintCount() == 0 && mgr.SelectionRequested() {
 		return fmt.Errorf("no blueprints could be loaded/added from %s (see diagnostics/logs)", cfg.BlueprintsDir)
 	}
 	// Shape-engine incident-schedule warnings collected while wiring blueprints (bad/over-long
@@ -502,6 +505,7 @@ func run(once, dump bool, envPath string) error {
 		return control.EvaluateReadiness(control.ReadinessInput{
 			ProcessRunning: true,
 			HTTPServing:    true,
+			SetupRequired:  !mgr.SelectionRequested(),
 			Blueprints: control.BlueprintReadiness{
 				Loaded: loadedBlueprints, Skipped: skippedBlueprints, Active: r.ActiveBlueprintCount(),
 			},

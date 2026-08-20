@@ -53,10 +53,10 @@ inventory it would emit, and pushes nothing:
 ```bash
 go build ./cmd/synthkit
 
-DRY_RUN=true ./synthkit -once -dump
+DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
 ```
 
-To push for real, create a private environment file, fill in `GC_TOKEN` and the
+To push for real, create a private environment file, select a blueprint, fill in `GC_TOKEN` and the
 endpoints, and explicitly change `DRY_RUN=false` before starting:
 
 ```bash
@@ -64,6 +64,7 @@ if test -e .env; then
   printf '%s\n' '.env already exists; review it before changing live-mode settings.' >&2
 else
   install -m 600 .env.example .env
+  ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh BLUEPRINT_NAMES otlp-native .env
   ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
 fi
 # Edit .env and fill in the required Grafana Cloud values without printing them.
@@ -102,7 +103,8 @@ Each signal type uses its own credential triplet. A single Cloud Access Policy t
 
 A **blueprint** is a single YAML file that wires together construct and workload instances with config. Constructs are isolated modules — each emits the real signal names of one technology (EKS, RDS, Cloudflare, Fleet Management, and so on). Workloads generate correlated request traffic: `web_service` models a single service with a browser→backend→DB hop tree; `app` models a multi-service graph whose nodes emit custom telemetry via a DSL. They model traffic and telemetry only; synthkit does not deploy a real app. Constructs know nothing about blueprints or each other; deleting a blueprint file removes its telemetry and affects nothing else.
 
-`DRY_RUN` defaults to `true` — live pushing is always an explicit opt-in.
+`DRY_RUN` defaults to `true`, and empty `BLUEPRINT_NAMES` selects nothing. Live pushing and the
+blueprint set are both explicit opt-ins; use `BLUEPRINT_NAMES=*` only for the complete catalog.
 
 ## Principles
 

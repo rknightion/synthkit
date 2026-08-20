@@ -56,6 +56,11 @@ The UI provides:
 
 The schema driving the UI (available modes, targets, scenarios, scalable workloads) is derived from the currently loaded blueprints at startup — it is never hardcoded.
 
+With no `BLUEPRINT_NAMES` selection, the UI remains available in a distinct **Setup required**
+state and states that no synthetic telemetry is emitted. The public readiness probe remains healthy
+so the container does not restart-loop, while `live_ready` stays `false` until a selected blueprint
+has completed its intended delivery lanes.
+
 ---
 
 ## Authentication

@@ -11,7 +11,11 @@ Before installing synthkit, read this page. It defines the vocabulary used every
 
 ### Blueprint
 
-A blueprint is a single YAML file that declares the infrastructure and applications you want to model. It is the only place blueprint-specific config lives. One blueprint file = one deletable unit of synthetic telemetry: add a file to the `blueprints/` directory and synthkit loads it; remove it and that telemetry disappears, with no effect on anything else.
+A blueprint is a single YAML file that declares the infrastructure and applications you want to
+model. It is the only place blueprint-specific config lives. One blueprint file is one deletable
+unit of synthetic telemetry: add its exact runtime identity to `BLUEPRINT_NAMES` (or explicitly use
+`*`) to load it at startup; remove that identity and restart to stop its telemetry without affecting
+anything else.
 
 A blueprint contains:
 
@@ -58,7 +62,11 @@ Each sink has its own credential triplet. See [Credentials](credentials.md).
 
 ### DRY_RUN
 
-`DRY_RUN` defaults to `true`. In dry-run mode synthkit loads all blueprints, builds the full series inventory, and logs what it would push — but makes no network calls. Live pushing requires an explicit opt-in: `DRY_RUN=false`. Use dry-run mode to validate blueprints and inspect the series inventory without needing credentials.
+`DRY_RUN` defaults to `true`. Empty or unset `BLUEPRINT_NAMES` also selects no blueprints, so a
+fresh process runs in setup mode and emits nothing. Select one or more exact names (for example,
+`BLUEPRINT_NAMES=otlp-native`) before using `-once -dump`; use `BLUEPRINT_NAMES=*` only when you
+intentionally want the complete catalog. Dry-run builds the selected inventory without network calls.
+Live pushing additionally requires the explicit opt-in `DRY_RUN=false`.
 
 ## The emit loop
 

@@ -37,7 +37,7 @@ Use `blueprints/k8s-full-stack.yaml` as a complete repository example. A cluster
 declares the synthetic FM roster. Validate the copied declaration offline with:
 
 ```bash
-DRY_RUN=true go run ./cmd/synthkit -once -dump
+DRY_RUN=true BLUEPRINT_NAMES=k8s-full-stack go run ./cmd/synthkit -once -dump
 ```
 
 ## Configure credentials safely

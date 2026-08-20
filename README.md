@@ -26,8 +26,8 @@ spans via a telemetry DSL) — sharing one end-to-end correlation ID per request
 ```bash
 go build ./cmd/synthkit
 
-# Dry run: print the full series/label inventory, push nothing
-DRY_RUN=true ./synthkit -once -dump
+# Dry run: select one bundled blueprint and print its series/label inventory, push nothing
+DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
 
 # Live: create a private env file, fill the required Grafana Cloud values,
 # and explicitly set DRY_RUN=false before starting
@@ -37,7 +37,8 @@ else
   install -m 600 .env.example .env
   ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
 fi
-# Edit .env and fill the required Grafana Cloud values without printing them.
+# Edit .env and fill the required Grafana Cloud values plus an exact BLUEPRINT_NAMES selection
+# without printing secrets.
 ./synthkit
 
 # From another terminal; this must print true
@@ -85,6 +86,10 @@ and synthetic workloads you want to model. This is a telemetry model, not a depl
 synthkit does not create pods, databases, or application code. The schema is documented in
 ARCHITECTURE.md §3; unknown constructs or fields fail loudly at load. Deleting your blueprint file
 removes its telemetry and affects nothing else.
+
+A fresh synthkit process selects no blueprints and emits no synthetic telemetry. Set
+`BLUEPRINT_NAMES` to one or more exact names before starting (for example,
+`BLUEPRINT_NAMES=otlp-native`); `BLUEPRINT_NAMES=*` is the explicit all-catalog opt-in.
 
 ```yaml
 name: mine

@@ -18,7 +18,7 @@ import (
 // prefix for a filename and whether to accept it. prov==ProvBuiltin ⇒ plain Load
 // (bare names); otherwise LoadNamespaced applies the prefix BEFORE resolve
 // (consistent seed+label — see BLOCKER fix in seams.md).
-func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, nsFor func(fn string) (string, bool)) ([]Loaded, []Diag) {
+func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, applySelection bool, nsFor func(fn string) (string, bool)) ([]Loaded, []Diag) {
 	var out []Loaded
 	var diags []Diag
 	if m.available == nil {
@@ -55,13 +55,11 @@ func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, nsFor fu
 			name = SanitizeNS(ns) + "/" + declaredName
 		}
 		m.available[name] = struct{}{}
-		if len(m.selection) != 0 {
-			if _, selected := m.selection[name]; !selected {
-				if sourceID != "" {
-					diags = append(diags, Diag{"info", diagSource(sourceID, fn), "selection", "deselected by runtime blueprint selection"})
-				}
-				continue
+		if _, selected := m.selection[name]; applySelection && !m.selectAll && !selected {
+			if sourceID != "" && len(m.selection) > 0 {
+				diags = append(diags, Diag{"info", diagSource(sourceID, fn), "selection", "deselected by runtime blueprint selection"})
 			}
+			continue
 		}
 
 		var res *blueprint.Resolved
@@ -105,7 +103,13 @@ func declaredBlueprintName(data []byte) (string, error) {
 // scanBaked loads every *.yaml from the built-in baked blueprints directory.
 // Built-ins use plain Load (no namespace prefix — bare names are intentional).
 func (m *Manager) scanBaked() ([]Loaded, []Diag) {
-	return m.loadDir(m.bakedDir, ProvBuiltin, "", func(fn string) (string, bool) {
+	return m.loadDir(m.bakedDir, ProvBuiltin, "", false, func(fn string) (string, bool) {
+		return "", filepath.Ext(fn) == ".yaml"
+	})
+}
+
+func (m *Manager) scanBakedSelected() ([]Loaded, []Diag) {
+	return m.loadDir(m.bakedDir, ProvBuiltin, "", true, func(fn string) (string, bool) {
 		return "", filepath.Ext(fn) == ".yaml"
 	})
 }
@@ -113,6 +117,10 @@ func (m *Manager) scanBaked() ([]Loaded, []Diag) {
 // scanCustom loads every namespace-prefixed *.yaml from the custom (upload) directory.
 // Files must be named "<ns>__<name>.yaml"; others are silently skipped.
 func (m *Manager) scanCustom() ([]Loaded, []Diag) {
+	return m.scanCustomWithSelection(false)
+}
+
+func (m *Manager) scanCustomWithSelection(applySelection bool) ([]Loaded, []Diag) {
 	if err := ensurePrivateDir(m.dataDir); err != nil {
 		return nil, []Diag{{"error", "custom", "secure", err.Error()}}
 	}
@@ -120,7 +128,7 @@ func (m *Manager) scanCustom() ([]Loaded, []Diag) {
 	if err := secureBlueprintDir(dir); err != nil {
 		return nil, []Diag{{"error", "custom", "secure", err.Error()}}
 	}
-	return m.loadDir(dir, ProvUpload, "", func(fn string) (string, bool) {
+	return m.loadDir(dir, ProvUpload, "", applySelection, func(fn string) (string, bool) {
 		ns, _, ok := parseUploadFilename(fn)
 		return ns, ok
 	})
@@ -129,6 +137,10 @@ func (m *Manager) scanCustom() ([]Loaded, []Diag) {
 // scanGitDirs loads every *.yaml from every configured git source's on-disk directory,
 // namespacing blueprints by the source's configured Namespace field.
 func (m *Manager) scanGitDirs() ([]Loaded, []Diag) {
+	return m.scanGitDirsWithSelection(false)
+}
+
+func (m *Manager) scanGitDirsWithSelection(applySelection bool) ([]Loaded, []Diag) {
 	var out []Loaded
 	var diags []Diag
 	if err := ensurePrivateDir(m.dataDir); err != nil {
@@ -146,7 +158,7 @@ func (m *Manager) scanGitDirs() ([]Loaded, []Diag) {
 			diags = append(diags, Diag{"error", s.ID, "secure", err.Error()})
 			continue
 		}
-		ld, d := m.loadDir(dir, ProvGit, s.ID, func(fn string) (string, bool) {
+		ld, d := m.loadDir(dir, ProvGit, s.ID, applySelection, func(fn string) (string, bool) {
 			return s.Namespace, filepath.Ext(fn) == ".yaml"
 		})
 		out = append(out, ld...)
@@ -169,15 +181,15 @@ func (m *Manager) Resolve(ctx context.Context) ([]Loaded, Manifest, []Diag) {
 	m.available = map[string]struct{}{}
 
 	// 1. Scan all three source trees.
-	baked, bd := m.scanBaked()
+	baked, bd := m.scanBakedSelected()
 	allLoaded = append(allLoaded, baked...)
 	allDiags = append(allDiags, bd...)
 
-	custom, cd := m.scanCustom()
+	custom, cd := m.scanCustomWithSelection(true)
 	allLoaded = append(allLoaded, custom...)
 	allDiags = append(allDiags, cd...)
 
-	git, gd := m.scanGitDirs()
+	git, gd := m.scanGitDirsWithSelection(true)
 	allLoaded = append(allLoaded, git...)
 	allDiags = append(allDiags, gd...)
 

@@ -128,7 +128,7 @@ The sink identifiers used in `yaml signals` blocks (`promrw`, `loki`, `otlp`, `f
 Run synthkit in dry-run mode with `-once -dump` to print the full series/label inventory to stdout without pushing anything to Grafana Cloud:
 
 ```bash
-DRY_RUN=true go run ./cmd/synthkit -once -dump
+DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -dump
 ```
 
 The output is a structured inventory of every series that would be emitted in one tick, with full label sets. Diff it against the `yaml signals` blocks in the relevant area files to verify a new construct, check for label drift, or confirm that a signals/ change is reflected in the emit path.
@@ -143,7 +143,7 @@ The `signals/` catalogue is meant to grow. When you discover a real signal via a
 
 1. Add or update the family's `yaml signals` block in the right area file, with prose provenance and a capture date.
 2. If the discovery resolves a `cantfind.md` SK-N item, move it out of that file and into the area file.
-3. Verify with `DRY_RUN=true go run ./cmd/synthkit -once -dump` and diff the output.
+3. Verify the complete catalog with `DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -dump` and diff the output.
 4. Correct the synth to match observed reality — never the reverse.
 
 Never invent a metric, label, or field name. If a name cannot be sourced, add a PENDING SK-N entry to [`cantfind.md`](https://github.com/rknightion/synthkit/blob/main/cantfind.md) and flag it rather than emitting an assumed name.

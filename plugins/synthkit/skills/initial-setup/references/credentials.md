@@ -79,7 +79,7 @@ are present. The staff triplets never reuse `GC_TOKEN`.
 | `TICK_TIMEOUT` | non-secret config | Optional whole-tick seconds; empty/`0` disables it. |
 | `SERIES_CAP` | non-secret config | Optional global series cap. |
 | `BLUEPRINTS` | non-secret path | Bundled blueprint directory. |
-| `BLUEPRINT_NAMES` | non-secret selector | Comma-separated exact enabled blueprint names. |
+| `BLUEPRINT_NAMES` | non-secret selector | Empty/unset = setup mode and no emission; comma-separated exact runtime names select only those blueprints; `*` explicitly selects the complete available catalog. |
 | `BLUEPRINT_DATA_DIR` | non-secret path | Persisted custom/git blueprint staging directory. |
 | `GIT_POLL_INTERVAL` | non-secret config | Git source update-check seconds; `0` disables polling. |
 | `GIT_TOKEN` | **secret** | Default HTTPS PAT for private blueprint repositories. |

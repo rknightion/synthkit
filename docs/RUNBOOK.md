@@ -63,6 +63,9 @@ disable RUM / SM / FM / self-obs.
 
 `DRY_RUN` defaults to **`true`** — a live push is always an explicit opt-in (`DRY_RUN=false`).
 Keep comments on their own line (Docker `env_file` does not strip inline `value # comment`).
+`BLUEPRINT_NAMES` defaults empty, which is setup mode and emits no synthetic telemetry. Set one or
+more exact runtime names; use `*` only when the complete catalog is deliberate. Process
+self-observability is independent and may still send when `SELFOBS_ENABLED=true`.
 
 To enable Fleet Management collector registration, fill the `GC_FM_*` triplet **and** ensure a
 blueprint declares a `fleet_management` construct (e.g. `blueprints/k8s-full-stack.yaml`). With the triplet
@@ -75,11 +78,11 @@ empty, those collectors still emit metrics — they just are not registered with
 Confirm the blueprints load and the series inventory is what you expect, with **no network push**:
 
 ```bash
-DRY_RUN=true go run ./cmd/synthkit -once -dump 2>&1 | less
+DRY_RUN=true BLUEPRINT_NAMES=otlp-native go run ./cmd/synthkit -once -dump 2>&1 | less
 ```
 
-Expected: a `loaded blueprint "<name>"` line per `blueprints/*.yaml`, a `synthkit up: N blueprints`
-line, and `[dry-run promrw|loki|otlp]` summaries with example series/streams/spans. Spot-check a few
+Expected: a `selected blueprints: 1 [otlp-native]` line, its `loaded blueprint` line, a
+`synthkit up: 1 blueprints` line, and `[dry-run promrw|loki|otlp]` summaries. Spot-check a few
 names against `signals/` — synthkit never invents names, so anything surprising is a bug.
 
 ---
@@ -235,7 +238,7 @@ contains operational state and source metadata, so exclude it from untrusted bac
 
 ## 8. First-value smoke checklist
 
-- [ ] `.env` filled; `DRY_RUN=true … -once -dump` inventory matches `signals/`.
+- [ ] `.env` filled with exact `BLUEPRINT_NAMES`; `DRY_RUN=true … -once -dump` inventory matches `signals/`.
 - [ ] `DRY_RUN=false` run; `/control/status` shows every sink `last_success` advancing, `failures: 0`.
 - [ ] Mimir: per-blueprint series present.
 - [ ] Tempo: end-to-end correlated trace (service → DB) present.

@@ -14,21 +14,30 @@ detail — treat those linked pages as the source of truth.
 
 Only if you configure it to and only synthetic data — it never reads from or writes to your
 production systems. `DRY_RUN` defaults to `true`, so a fresh checkout produces no network traffic
-at all until you explicitly set `DRY_RUN=false` and fill in credentials. See [Getting
+at all until you explicitly set `DRY_RUN=false` and fill in credentials. Empty `BLUEPRINT_NAMES`
+also selects no blueprints, so even live mode emits no synthetic telemetry until you choose exact
+runtime names. See [Getting
 Started](getting-started.md) and [Credentials](credentials.md).
 
 ### Do I need a Kubernetes cluster or cloud account to try synthkit?
 
 No. synthkit doesn't touch real infrastructure — it generates telemetry that *looks like* it came
 from an EKS cluster, RDS database, or Cloudflare account, entirely from a YAML blueprint. Run
-`DRY_RUN=true ./synthkit -once -dump` to see the full series inventory with no credentials and no
-cloud account at all. See [Quick Start](quickstart.md).
+`DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump` to see a focused series inventory
+with no credentials and no cloud account at all. See [Quick Start](quickstart.md).
 
 ### What's the smallest thing I need to get real data into Grafana Cloud?
 
 `GC_TOKEN` plus the `GC_PROM_RW`/`GC_PROM_USER`, `GC_OTLP_ENDPOINT`/`GC_OTLP_USER`, and
-`GC_LOKI`/`GC_LOKI_USER` pairs, then `DRY_RUN=false`. RUM, profiles, Synthetic Monitoring, and
+`GC_LOKI`/`GC_LOKI_USER` pairs, an exact `BLUEPRINT_NAMES` selection, then `DRY_RUN=false`. RUM, profiles, Synthetic Monitoring, and
 Fleet Management are all optional add-ons layered on top. See [Credentials](credentials.md).
+
+### Why is synthkit healthy but emitting nothing?
+
+A fresh installation intentionally starts in setup mode. The UI and startup log report that no
+blueprints are selected; this is operationally healthy but never live-delivery-ready. Set
+`BLUEPRINT_NAMES=otlp-native` (or other exact names) and restart. `BLUEPRINT_NAMES=*` explicitly
+restores the complete-catalog behavior used by older versions.
 
 ## Blueprints
 

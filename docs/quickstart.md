@@ -24,15 +24,16 @@ Requires Go 1.26.5 or later. See [Installation](installation.md) for the Docker 
 ## Step 2: Dry run one focused workload offline
 
 Before touching credentials, select the bundled `otlp-native` reference blueprint and inspect its
-full series inventory:
+full selected series inventory:
 
 ```bash
 DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
 ```
 
-`BLUEPRINT_NAMES` is an optional comma-separated allowlist of exact runtime blueprint names. An
-empty or absent value keeps the established all-blueprint behavior; an unknown name stops startup
-and lists the names that are available. `-once` runs a single tick and exits. `-dump` prints the
+`BLUEPRINT_NAMES` is the runtime selector. An empty or absent value starts setup mode and emits no
+synthetic telemetry; comma-separated exact names select only those blueprints; `*` is the explicit
+opt-in for the complete available catalog. An unknown name stops startup and lists the names that
+are available. `-once` runs a single tick and exits. `-dump` prints the
 complete series/label inventory to stdout — every metric name, label set, and example value that
 would be pushed. No network calls are made.
 

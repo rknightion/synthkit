@@ -17,7 +17,9 @@ docker compose up -d     # or: ./synthkit
 
 **Keep comments on their own line.** Docker Compose's `env_file` does NOT strip inline comments — `TOKEN=abc123 # my token` sets the variable to the literal string `abc123 # my token`. Put comments above the value, never beside it.
 
-`DRY_RUN` defaults to **`true`**. A live push is always an explicit opt-in (`DRY_RUN=false`). This is a deliberate safety default: you can run and inspect the full series inventory offline with no risk of pushing synthetic data.
+`DRY_RUN` defaults to **`true`**. A live push is always an explicit opt-in (`DRY_RUN=false`). This
+is a deliberate safety default: after explicitly selecting blueprints, you can inspect their full
+series inventory offline with no risk of pushing synthetic data.
 
 Cross-references: for where to obtain the sink credentials see [credentials.md](credentials.md); for self-observability tuning see [self-observability.md](self-observability.md); for Synthetic Monitoring setup see [synthetic-monitoring.md](synthetic-monitoring.md); for Fleet Management setup see [fleet-management.md](fleet-management.md).
 
@@ -62,7 +64,8 @@ RUM is disabled when either variable is empty.
 | `DRY_RUN` | `true` | Set to `false` to push live data. **Defaults to `true`** — live push is always opt-in. |
 | `TICK_DEFAULT` | `5s` | Master-clock cadence. Go duration string (`5s`, `1m`, `30s`). All constructs tick at a multiple of this. |
 | `SERIES_CAP` | _(empty, unlimited)_ | Optional global per-push series backstop. Set a positive integer to cap how many series synthkit will push per tick across all sinks — a kill switch for runaway cardinality. |
-| `BLUEPRINTS` | `./blueprints` | Directory from which every `*.yaml` file is loaded as a blueprint. In Docker compose this is overridden to `/app/blueprints` (the image's bundled blueprints). |
+| `BLUEPRINTS` | `./blueprints` | Directory containing available bundled-style `*.yaml` blueprints. In Docker Compose this is `/app/blueprints`. Availability does not enable emission. |
+| `BLUEPRINT_NAMES` | _(empty)_ | Runtime selection: empty/unset starts setup mode and emits nothing; a comma-separated exact-name list loads only those identities; `*` explicitly loads the complete available catalog. |
 | `JSON_HTTP_ADDR` | `127.0.0.1:8088` | Address the process binds for the control plane and Infinity JSON host. In Docker compose this is overridden to `0.0.0.0:8088` (bind all interfaces inside the container; host exposure is controlled by `SYNTHKIT_BIND`). |
 | `CONFIG_SNAPSHOT_PATH` | `./control-state.json` | Path where control-plane state is persisted across restarts. In Docker compose this is overridden to `/data/control-state.json` (on the `/data` volume). |
 | `CONTROL_TOKEN` | _(empty)_ | HTTP Basic password (username `control`) for sensitive control/Infinity reads and all mutations. Empty is supported for loopback-only use. |

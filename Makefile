@@ -85,9 +85,9 @@ env-check:
 blueprint-schema:
 	go run ./cmd/blueprint-schema
 
-# Full series/label inventory for offline diff against signals/ (I32).
+# Full catalog series/label inventory for offline diff against signals/ (I32).
 dump:
-	DRY_RUN=true go run ./cmd/synthkit -once -dump
+	DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -dump
 
 run:
 	go run ./cmd/synthkit

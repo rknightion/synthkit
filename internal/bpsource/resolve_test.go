@@ -118,6 +118,58 @@ func TestResolveFiltersBeforeBlueprintLoad(t *testing.T) {
 	}
 }
 
+func TestResolveSelectsNothingByDefault(t *testing.T) {
+	baked := t.TempDir()
+	writeFile(t, filepath.Join(baked, "mini.yaml"), miniBlueprint)
+	m := NewManager(Options{
+		BakedDir: baked,
+		DataDir:  t.TempDir(),
+		Registry: runner.Catalog(),
+		Config:   &fakeConfig{},
+	})
+
+	got, _, diags := m.Resolve(context.Background())
+	if m.SelectionRequested() {
+		t.Fatal("empty BLUEPRINT_NAMES must be an intentional no-selection setup")
+	}
+	if err := m.SelectionError(); err != nil {
+		t.Fatalf("SelectionError() = %v, want nil for intentional no-selection", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("loaded = %+v, want no blueprints", got)
+	}
+	if len(diags) != 0 {
+		t.Fatalf("intentional no-selection produced diagnostics: %v", diags)
+	}
+}
+
+func TestResolveWildcardSelectsAllBlueprints(t *testing.T) {
+	baked := t.TempDir()
+	writeFile(t, filepath.Join(baked, "mini.yaml"), miniBlueprint)
+	writeFile(t, filepath.Join(baked, "other.yaml"), "name: other\nhosts:\n  - name: h2\n    os: linux\n")
+	m := NewManager(Options{
+		BakedDir:       baked,
+		DataDir:        t.TempDir(),
+		Registry:       runner.Catalog(),
+		Config:         &fakeConfig{},
+		BlueprintNames: []string{"*"},
+	})
+
+	got, _, diags := m.Resolve(context.Background())
+	if !m.SelectionRequested() {
+		t.Fatal("BLUEPRINT_NAMES=* must be an explicit selection")
+	}
+	if err := m.SelectionError(); err != nil {
+		t.Fatalf("SelectionError() = %v, want nil for wildcard selection", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("loaded = %+v, want the complete two-blueprint catalog", got)
+	}
+	if len(diags) != 0 {
+		t.Fatalf("wildcard selection produced diagnostics: %v", diags)
+	}
+}
+
 func TestResolveRejectsUnknownSelectedBlueprint(t *testing.T) {
 	baked := t.TempDir()
 	writeFile(t, filepath.Join(baked, "mini.yaml"), miniBlueprint)

@@ -62,7 +62,7 @@ func TestFetchedSourceIsStagedThenLoadedOnlyOnRestart(t *testing.T) {
 		}},
 	}
 	cfg := &fakeConfig{}
-	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Git: git, Config: cfg, Now: func() int64 { return 99 }})
+	m := NewManager(Options{DataDir: t.TempDir(), BlueprintNames: []string{"*"}, Registry: runner.Catalog(), Git: git, Config: cfg, Now: func() int64 { return 99 }})
 	source := Source{ID: "team-source", Name: "Team source", Namespace: "team-a", URL: "https://example.com/team.git", Ref: "refs/heads/main"}
 	if err := m.UpsertSource(source); err != nil {
 		t.Fatalf("UpsertSource: %v", err)

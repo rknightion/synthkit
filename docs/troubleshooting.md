@@ -128,7 +128,7 @@ docker compose restart
 Before debugging live connectivity, always confirm blueprints load and series look correct offline:
 
 ```bash
-DRY_RUN=true ./synthkit -once -dump 2>&1 | less
+DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump 2>&1 | less
 ```
 
 Expected output per blueprint:
@@ -140,6 +140,9 @@ Cross-check a few metric names against `signals/` — synthkit never invents nam
 
 This command requires no network connectivity and exits cleanly after one tick.
 
+If startup logs `WARNING: no blueprints selected`, the process is intentionally in setup mode and
+emits nothing. Set `BLUEPRINT_NAMES` to exact names and restart; use `*` only for the full catalog.
+
 ---
 
 ## Debugging further
@@ -150,4 +153,4 @@ This command requires no network connectivity and exits cleanly after one tick.
 | Per-construct tick errors | `GET /control/health` |
 | Load-time blueprint problems | `GET /control/diagnostics` |
 | Generator throughput, queue depth, dropped ticks | [self-observability.md](self-observability.md) |
-| Series inventory vs. signal contracts | `DRY_RUN=true ./synthkit -once -dump` |
+| Series inventory vs. signal contracts | `DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump` |

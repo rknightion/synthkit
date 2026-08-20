@@ -104,8 +104,8 @@ export function BpManage(): JSX.Element {
         <span class="sub">paste, validate, and manage external blueprint sources</span>
       </div>
       <p class="pane-lead">
-        Paste YAML blueprints directly or pull from remote git sources. Changes take effect after a
-        process restart.
+        Paste YAML blueprints directly or pull from remote git sources. Add each effective identity
+        to <code>BLUEPRINT_NAMES</code>; selected changes take effect after a process restart.
       </p>
 
       <Show
@@ -136,7 +136,8 @@ export function BpManage(): JSX.Element {
               <For each={changed()}>{(n) => <li>~ {n} (changed)</li>}</For>
             </ul>
             <div class="bpm-restart-help">
-              Restart to apply: <code>docker compose restart synthkit</code> (Docker Compose),{" "}
+              Ensure added identities are selected in <code>BLUEPRINT_NAMES</code>, then restart:{" "}
+              <code>docker compose restart synthkit</code> (Docker Compose),{" "}
               <code>systemctl restart synthkit</code> (system service), or{" "}
               <code>kubectl rollout restart deployment/synthkit</code> (Kubernetes).
             </div>
@@ -158,8 +159,9 @@ export function BpManage(): JSX.Element {
                 <div class="empty" data-testid="bpm-staged-empty">
                   <div>No custom or git-sourced blueprints staged.</div>
                   <div class="bpm-empty-actions">
-                    Start with a bundled example from <code>blueprints/</code>, <a href="#bpm-paste">Paste YAML</a>,
-                    or <a href="#bpm-git-source">add a git source</a>. Validate and save it, then restart to apply.
+                    Start with a bundled example from <code>blueprints/</code>,{" "}
+                    <a href="#bpm-paste">Paste YAML</a>, or <a href="#bpm-git-source">add a git source</a>.
+                    Validate, save, select its identity in <code>BLUEPRINT_NAMES</code>, then restart to apply.
                   </div>
                 </div>
               }

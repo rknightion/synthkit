@@ -48,6 +48,26 @@ func TestEvaluateReadinessBecomesGreenAfterAllLiveLanesSucceed(t *testing.T) {
 	}
 }
 
+func TestEvaluateReadinessSetupRequiredIsOperationalButNotLive(t *testing.T) {
+	got := EvaluateReadiness(ReadinessInput{
+		ProcessRunning:       true,
+		HTTPServing:          true,
+		SetupRequired:        true,
+		Blueprints:           BlueprintReadiness{},
+		PersistedState:       PersistedStateReadiness{Writable: true},
+		LiveDeliveryExpected: true,
+	})
+	if !got.Ready || got.LiveReady || !got.SetupRequired {
+		t.Fatalf("setup mode must be operational but not live-delivery-ready: %+v", got)
+	}
+	if got.Lanes == nil {
+		t.Fatal("setup readiness lanes must serialize as an empty array, not null")
+	}
+	if !containsReason(got.Reasons, "no blueprints selected") {
+		t.Fatalf("setup mode must explain the operator action: %v", got.Reasons)
+	}
+}
+
 func TestEvaluateReadinessRejectsNoActiveBlueprintAndUnwritableState(t *testing.T) {
 	got := EvaluateReadiness(ReadinessInput{
 		ProcessRunning:       true,

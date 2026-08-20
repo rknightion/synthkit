@@ -1019,6 +1019,28 @@ func TestReadinessEndpointAndStatusShareReport(t *testing.T) {
 	}
 }
 
+func TestPublicReadinessReportsHealthySetupMode(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "control-state.json"))
+	report := ReadinessReport{
+		Running: true, HTTPReady: true, Ready: true, LiveReady: false, SetupRequired: true,
+		Blueprints: BlueprintReadiness{}, PersistedState: PersistedStateReadiness{Writable: true},
+		Reasons: []string{"no blueprints selected; setup required"},
+	}
+	h := NewHandler(store, nil, "secret").SetStatus(StatusSources{Readiness: func() ReadinessReport { return report }})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/control/readiness", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("setup readiness status = %d, want 200", rec.Code)
+	}
+	var got ReadinessProbe
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !got.Ready || !got.SetupRequired || got.LiveReady || got.Blueprints.Loaded != 0 {
+		t.Fatalf("setup readiness body = %+v", got)
+	}
+}
+
 func TestStatusEndpointRequiresToken(t *testing.T) {
 	// Status contains lane errors and topology, so it shares the operator authentication boundary.
 	store := NewStore(filepath.Join(t.TempDir(), "control-state.json"))

@@ -128,6 +128,7 @@ export interface ReadinessReport {
   http_ready: boolean;
   ready: boolean;
   live_ready: boolean;
+  setup_required: boolean;
   blueprints: { loaded: number; skipped: number; active: number };
   persisted_state: { writable: boolean; error: string };
   lanes: LaneStatus[];

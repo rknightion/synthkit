@@ -3,8 +3,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -173,6 +175,62 @@ func TestRunRejectsUnknownBlueprintSelectionBeforeRunnerStart(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "missing") || !strings.Contains(err.Error(), "known") {
 		t.Fatalf("run() error = %v, want requested and available names", err)
+	}
+}
+
+func TestRunRejectsExplicitSelectionWhenEverySelectedBlueprintFails(t *testing.T) {
+	baked := t.TempDir()
+	if err := os.WriteFile(filepath.Join(baked, "broken.yaml"), []byte("name: broken\nunknown: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	data := t.TempDir()
+	env := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(env, []byte(strings.Join([]string{
+		"DRY_RUN=true",
+		"BLUEPRINTS=" + baked,
+		"BLUEPRINT_DATA_DIR=" + data,
+		"CONFIG_SNAPSHOT_PATH=" + filepath.Join(data, "control-state.json"),
+		"BLUEPRINT_NAMES=broken",
+	}, "\n")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BLUEPRINT_NAMES", "broken")
+
+	err := run(true, false, env)
+	if err == nil || !strings.Contains(err.Error(), "no blueprints loaded successfully") {
+		t.Fatalf("run() error = %v, want fatal selected-load failure", err)
+	}
+}
+
+func TestRunAllowsIntentionalNoSelectionAndWarns(t *testing.T) {
+	baked := t.TempDir()
+	if err := os.WriteFile(filepath.Join(baked, "available.yaml"), []byte("name: available\nhosts:\n  - name: h1\n    os: linux\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	data := t.TempDir()
+	env := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(env, []byte(strings.Join([]string{
+		"DRY_RUN=true",
+		"BLUEPRINTS=" + baked,
+		"BLUEPRINT_DATA_DIR=" + data,
+		"CONFIG_SNAPSHOT_PATH=" + filepath.Join(data, "control-state.json"),
+		"BLUEPRINT_NAMES=",
+	}, "\n")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BLUEPRINT_NAMES", "")
+
+	var logs bytes.Buffer
+	previous := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previous) })
+
+	if err := run(true, false, env); err != nil {
+		t.Fatalf("intentional no-selection startup failed: %v", err)
+	}
+	if got := logs.String(); !strings.Contains(got, "WARNING: no blueprints selected") ||
+		!strings.Contains(got, "BLUEPRINT_NAMES=otlp-native") || !strings.Contains(got, "BLUEPRINT_NAMES=*") {
+		t.Fatalf("setup warning is not actionable:\n%s", got)
 	}
 }
 

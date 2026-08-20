@@ -9,7 +9,9 @@ synthkit ships several binaries under `cmd/`. All configuration is environment-d
 
 ## synthkit — the generator
 
-The main binary. Loads all blueprints from the directory named by `BLUEPRINTS` (default `./blueprints`), validates the set, and drives the two-cadence generator loop.
+The main binary. Scans the directory named by `BLUEPRINTS` (default `./blueprints`) and loads only
+the runtime identities selected by `BLUEPRINT_NAMES`. Empty/unset starts setup mode; `*` explicitly
+loads the complete catalog.
 
 ```bash
 ./synthkit [flags]
@@ -25,10 +27,10 @@ The main binary. Loads all blueprints from the directory named by `BLUEPRINTS` (
 
 ```bash
 # Print the full inventory of distinct series names + label keys — push nothing.
-DRY_RUN=true ./synthkit -once -dump
+DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
 
 # One live cycle (DRY_RUN=false to push real data).
-DRY_RUN=false ./synthkit -once
+DRY_RUN=false BLUEPRINT_NAMES=otlp-native ./synthkit -once
 
 # The continuous loop (default).
 ./synthkit
@@ -163,7 +165,7 @@ browser-direct POSTs use the browser's separate Basic challenge. No token is emb
 | `make gate` | Full mandatory gate: build + vet + test + race + `rw-proto-check` + `spdx-check` + `forbidden-words`. Run before every commit. |
 | `make race` | Race-detector test run over the whole module. |
 | `make blueprint-schema` | Regenerate schema artifacts from live Go types. See [blueprint-reference.md](blueprint-reference.md). |
-| `make dump` | `DRY_RUN=true go run ./cmd/synthkit -once -dump` — full series/label inventory. |
+| `make dump` | `DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -dump` — explicit full-catalog series/label inventory. |
 | `make run` | `go run ./cmd/synthkit` |
 | `make docker` | `docker compose up -d` — pulls `ghcr.io/rknightion/synthkit` and starts the stack. |
 | `make docker-build` | `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build` — build from source instead of pulling the published image. |

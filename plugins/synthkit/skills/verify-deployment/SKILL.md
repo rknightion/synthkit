@@ -24,7 +24,8 @@ cd "$SYNTHKIT_CHECKOUT"
 
 1. Read `.env` by presence/shape only; never `cat` it or run `docker compose config`. Confirm
    `DRY_RUN=false` before expecting landing data. Record the declared `TICK_DEFAULT` value; if it
-   is absent, use the documented default `5s`.
+   is absent, use the documented default `5s`. Check whether `BLUEPRINT_NAMES` is empty, exact names,
+   or `*` without printing any secret values. Empty means intentional setup mode and no synthetic data.
 2. For a CLI query, confirm `gcx` exists and that its active contexts are visible without exposing
    credentials:
 
@@ -59,6 +60,13 @@ Omit `-u` only when `CONTROL_TOKEN` is absent on a loopback-only deployment. Exp
 `200`, a running container, and ready sinks in the authenticated status result. Treat a
 connection refusal from another machine as a likely loopback bind; query on the host or use an SSH
 tunnel, rather than opening the bind casually.
+
+Read `setup_required`, `ready`, and `live_ready` from the readiness/status response. When
+`setup_required=true`, require HTTP `200`, `ready=true`, `live_ready=false`, and zero loaded/active
+blueprints. Search the retained service log, not only the 50-line sample above, for the actionable
+warning with `docker compose logs --no-color synthkit | rg -F 'WARNING: no blueprints selected'`.
+Report that the control plane is healthy but no synthetic telemetry is intended, and stop before
+remote landing queries. When `setup_required=false`, continue with the selected blueprint checks below.
 
 ## 3. Wait for declared cadence, then query
 

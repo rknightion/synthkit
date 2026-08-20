@@ -217,8 +217,10 @@ export function Overview(): JSX.Element {
 
         <Show when={readiness()}>
           {(rd) => (
-            <section class="readiness-summary" data-testid="overview-readiness">
-              <div class="readiness-summary-title">Deployment readiness: {rd().ready ? "Ready" : "Not ready"}</div>
+            <section class={`readiness-summary${rd().setup_required ? " setup" : ""}`} data-testid="overview-readiness">
+              <div class="readiness-summary-title">
+                Deployment readiness: {rd().setup_required ? "Setup required" : rd().ready ? "Ready" : "Not ready"}
+              </div>
               <div class="readiness-summary-meta">
                 {rd().blueprints.loaded} loaded · {rd().blueprints.skipped} skipped · {rd().blueprints.active} active
                 {" · state "}{rd().persisted_state.writable ? "writable" : "not writable"}
@@ -292,10 +294,12 @@ export function Overview(): JSX.Element {
               }
             >
               <div class="empty" data-testid="overview-empty">
-                <div class="empty-title">No blueprints loaded.</div>
+                <div class="empty-title">No blueprints selected.</div>
                 <div class="empty-hint" data-testid="overview-firstrun-hint">
-                  synthkit generates structured synthetic telemetry for any blueprint declared in <code>blueprints/*.yaml</code>.
-                  To make changes, authenticate as username <code>control</code> with the value of <code>CONTROL_TOKEN</code>.
+                  No synthetic telemetry is being emitted. Set <code>BLUEPRINT_NAMES=otlp-native</code> (or another exact
+                  blueprint name) and restart synthkit. Use <code>BLUEPRINT_NAMES=*</code> only when you intentionally want
+                  the complete bundled catalog. Authenticate as <code>control</code> with <code>CONTROL_TOKEN</code> to manage
+                  staged custom or git blueprints.
                 </div>
               </div>
             </Show>
@@ -410,10 +414,12 @@ const VIEW_CSS = `
 
 .readiness-summary { margin:-10px 0 22px; padding:11px 14px; border:1px solid var(--bd); border-radius:10px;
   background:var(--panel2); font-size:12px; }
+.readiness-summary.setup { border-color:var(--warnbd); background:var(--warnbg); }
 .readiness-summary-title { font:700 13px system-ui; color:var(--tx); }
 .readiness-summary-meta { margin-top:3px; color:var(--dim); }
 .readiness-summary-lanes { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; font:11px var(--mono); }
 .readiness-summary-reasons { margin:8px 0 0; padding-left:16px; color:var(--err); }
+.readiness-summary.setup .readiness-summary-reasons { color:var(--warn); }
 
 .selfobs-link { display:inline-flex; align-items:center; gap:6px; font:600 12px system-ui;
   color:var(--acc); text-decoration:none; border:1px solid var(--accbd); background:var(--acc2);

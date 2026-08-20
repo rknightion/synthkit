@@ -176,8 +176,13 @@ export function Health(): JSX.Element {
             {(rd) => (
               <section class="sec">
                 <div class="sec-label">Deployment readiness</div>
-                <div class={`readiness-card${rd().ready ? " ready" : " not-ready"}`} data-testid="health-readiness">
-                  <div class="readiness-title">{rd().ready ? "Ready" : "Not ready"}</div>
+                <div
+                  class={`readiness-card${rd().setup_required ? " setup" : rd().ready ? " ready" : " not-ready"}`}
+                  data-testid="health-readiness"
+                >
+                  <div class="readiness-title">
+                    {rd().setup_required ? "Setup required" : rd().ready ? "Ready" : "Not ready"}
+                  </div>
                   <div class="readiness-meta">
                     {rd().blueprints.loaded} loaded · {rd().blueprints.skipped} skipped · {rd().blueprints.active} active
                     {" · state "}{rd().persisted_state.writable ? "writable" : "not writable"}
@@ -419,11 +424,13 @@ const VIEW_CSS = `
 
 .readiness-card { border:1px solid var(--bd); border-radius:10px; padding:12px 14px; background:var(--panel2); font-size:12px; }
 .readiness-card.ready { border-color:var(--okbd); }
+.readiness-card.setup { border-color:var(--warnbd); background:var(--warnbg); }
 .readiness-card.not-ready { border-color:var(--critbd); }
 .readiness-title { font:700 14px system-ui; color:var(--tx); }
 .readiness-meta { margin-top:4px; color:var(--dim); }
 .readiness-lanes { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:9px; font:11px var(--mono); color:var(--tx); }
 .readiness-reasons { margin:9px 0 0; padding-left:16px; color:var(--err); }
+.readiness-card.setup .readiness-reasons { color:var(--warn); }
 
 .panel { background:var(--panel2); border:1px solid var(--bd); border-radius:10px; overflow-x:auto; }
 

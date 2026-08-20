@@ -7,9 +7,10 @@ description: What a blueprint is, how it loads, and how one YAML declaration fan
 
 A blueprint is a single deletable YAML file that declares a synthetic estate. It is a telemetry model, not an infrastructure or application deployment manifest: synthkit emits the resulting signals but does not create the declared resources. Delete the file and only that blueprint's telemetry disappears — constructs know nothing about blueprints, so removing one affects nothing else.
 
-Bundled `*.yaml` files under `BLUEPRINTS` (default `./blueprints`) are loaded at startup when
-`BLUEPRINT_NAMES` is unset. Set `BLUEPRINT_NAMES` to a comma-separated list of exact runtime
-identities to load only those blueprints; unselected files are not fully decoded or validated.
+Bundled `*.yaml` files under `BLUEPRINTS` (default `./blueprints`) are available at startup but are
+not selected automatically. Empty or unset `BLUEPRINT_NAMES` starts setup mode and emits nothing.
+Set it to a comma-separated list of exact runtime identities to load only those blueprints, or to
+`*` to explicitly load the complete available catalog; unselected files are not fully decoded or validated.
 Decoding remains strict for every selected blueprint: any unknown top-level key, unknown construct
 kind, or unknown field inside a construct's config is a loud load error, not a silent ignore.
 
@@ -100,7 +101,10 @@ See [emission-switches.md](emission-switches.md) for the full list of gates.
 
 ## How loading works
 
-At startup synthkit selects the configured `BLUEPRINTS` files, strict-decodes each **selected** blueprint into its Go struct, and runs the topology resolver. With `BLUEPRINT_NAMES` unset, every `*.yaml` file is selected.
+At startup synthkit scans the configured sources for available identities, strict-decodes each
+**selected** blueprint into its Go struct, and runs the topology resolver. Empty or unset
+`BLUEPRINT_NAMES` selects none; exact comma-separated names select only those identities; `*`
+selects the complete catalog.
 
 - Cross-blueprint uniqueness is checked: cluster names, `account_id`, DB names, and cache names must be globally unique across all enabled blueprints.
 - Every string reference (`runs_on`, `calls[].db`, `calls[].cache`, `incidents[].target`) is resolved or the load fails with the list of available names.
