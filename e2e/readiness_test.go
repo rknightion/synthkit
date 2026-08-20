@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	readinessPath    = "/control/readiness"
-	readinessTimeout = 90 * time.Second
+	readinessPath     = "/control/readiness"
+	controlStatusPath = "/control/status"
+	controlToken      = "e2e-control-token"
+	readinessTimeout  = 90 * time.Second
 )
 
 type readinessReport struct {
@@ -60,6 +62,10 @@ type readinessLane struct {
 	LiveReady  bool   `json:"live_ready"`
 }
 
+type readinessStatus struct {
+	Readiness readinessReport `json:"readiness"`
+}
+
 func TestDockerReadinessFreshDryRunReturns503(t *testing.T) {
 	ctx := context.Background()
 	synth, baseURL, client := startReadinessSynthkit(t, ctx, nil, nil, map[string]string{
@@ -79,11 +85,16 @@ func TestDockerReadinessFreshDryRunReturns503(t *testing.T) {
 		t.Fatalf("dry-run reported live readiness: %+v", report)
 	}
 	assertBootstrapReady(t, report)
-	if !allLanesDisabled(report.Lanes) {
-		t.Fatalf("dry-run lanes are not explicitly disabled: %+v", report.Lanes)
+	assertPublicReadinessSanitized(t, report, body)
+	assertDetailedReadinessRequiresAuth(t, ctx, client, baseURL)
+	detailed := getDetailedReadiness(t, ctx, client, baseURL)
+	assertBootstrapReady(t, detailed)
+	assertRequiredReadinessLanes(t, detailed.Lanes)
+	if !allLanesDisabled(detailed.Lanes) {
+		t.Fatalf("dry-run lanes are not explicitly disabled: %+v", detailed.Lanes)
 	}
-	if !containsReadinessReason(report.Reasons, "live delivery is disabled") {
-		t.Fatalf("dry-run reason missing from %v", report.Reasons)
+	if !containsReadinessReason(detailed.Reasons, "live delivery is disabled") {
+		t.Fatalf("dry-run reason missing from %v", detailed.Reasons)
 	}
 }
 
@@ -99,12 +110,17 @@ func TestDockerReadinessUnwritablePersistedStateReturns503(t *testing.T) {
 	})
 	defer printContainerLogs(t, ctx, synth, "synthkit-readiness-unwritable")
 
-	status, report, body := waitForReadiness(t, ctx, client, baseURL, func(_ int, report readinessReport) bool {
+	report := waitForDetailedReadiness(t, ctx, client, baseURL, func(report readinessReport) bool {
 		return allLiveLanesReady(report.Lanes)
 	})
+	status, public, body, err := getReadiness(ctx, client, baseURL)
+	if err != nil {
+		t.Fatalf("decode unwritable-state %s response: %v; body=%s", readinessPath, err, body)
+	}
 	if status != http.StatusServiceUnavailable {
 		t.Fatalf("unwritable-state readiness HTTP status = %d, want 503; body=%s", status, body)
 	}
+	assertPublicReadinessSanitized(t, public, body)
 	if report.PersistedState.Writable || report.PersistedState.Error == "" {
 		t.Fatalf("unwritable state probe not reported: %+v", report.PersistedState)
 	}
@@ -137,16 +153,24 @@ func TestDockerReadinessTransitionsAfterFakeSinkDelivery(t *testing.T) {
 		t.Fatalf("decode fresh %s response: %v; body=%s", readinessPath, err, body)
 	}
 	assertBootstrapReady(t, fresh)
-	if !hasNotAttemptedLane(fresh.Lanes) {
-		t.Fatalf("fresh live readiness did not expose a not-attempted lane: %+v", fresh.Lanes)
+	assertPublicReadinessSanitized(t, fresh, body)
+	detailedFresh := getDetailedReadiness(t, ctx, client, baseURL)
+	assertRequiredReadinessLanes(t, detailedFresh.Lanes)
+	if !hasNotAttemptedLane(detailedFresh.Lanes) {
+		t.Fatalf("fresh live readiness did not expose a not-attempted lane: %+v", detailedFresh.Lanes)
 	}
 
-	status, ready, body := waitForReadiness(t, ctx, client, baseURL, func(status int, report readinessReport) bool {
-		return status == http.StatusOK && report.Ready
+	ready := waitForDetailedReadiness(t, ctx, client, baseURL, func(report readinessReport) bool {
+		return report.Ready
 	})
+	status, publicReady, body, err := getReadiness(ctx, client, baseURL)
+	if err != nil {
+		t.Fatalf("decode ready %s response: %v; body=%s", readinessPath, err, body)
+	}
 	if status != http.StatusOK || !ready.Ready || !ready.LiveReady {
 		t.Fatalf("post-delivery readiness did not become green: status=%d report=%+v body=%s", status, ready, body)
 	}
+	assertPublicReadinessSanitized(t, publicReady, body)
 	if !allLiveLanesReady(ready.Lanes) {
 		t.Fatalf("readiness became green before every configured lane delivered: %+v", ready.Lanes)
 	}
@@ -181,6 +205,7 @@ func startReadinessSynthkit(
 		"DRY_RUN":             "false",
 		"JSON_HTTP_ADDR":      "0.0.0.0:8088",
 		"SYNTHKIT_BIND":       "127.0.0.1",
+		"CONTROL_TOKEN":       controlToken,
 		"BLUEPRINTS":          "/app/blueprints-readiness",
 		"BLUEPRINT_DATA_DIR":  "/tmp/blueprints-readiness",
 		"TICK_DEFAULT":        "10s",
@@ -323,23 +348,71 @@ func getReadiness(ctx context.Context, client *http.Client, baseURL string) (int
 	return resp.StatusCode, report, string(body), nil
 }
 
-func waitForReadiness(
+func getDetailedReadiness(t *testing.T, ctx context.Context, client *http.Client, baseURL string) readinessReport {
+	t.Helper()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+controlStatusPath, nil)
+	if err != nil {
+		t.Fatalf("create authenticated status request: %v", err)
+	}
+	req.SetBasicAuth("control", controlToken)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("get authenticated status: %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read authenticated status: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("authenticated status HTTP status = %d, want 200; body=%s", resp.StatusCode, body)
+	}
+	var status readinessStatus
+	if err := json.Unmarshal(body, &status); err != nil {
+		t.Fatalf("decode authenticated status: %v; body=%s", err, body)
+	}
+	return status.Readiness
+}
+
+func assertDetailedReadinessRequiresAuth(t *testing.T, ctx context.Context, client *http.Client, baseURL string) {
+	t.Helper()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+controlStatusPath, nil)
+	if err != nil {
+		t.Fatalf("create unauthenticated status request: %v", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("get unauthenticated status: %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read unauthenticated status: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status HTTP status = %d, want 401; body=%s", resp.StatusCode, body)
+	}
+	for _, forbidden := range []string{`"readiness"`, `"lanes"`, `"reasons"`, `"error"`} {
+		if strings.Contains(string(body), forbidden) {
+			t.Fatalf("unauthenticated status exposed %s: %s", forbidden, body)
+		}
+	}
+}
+
+func waitForDetailedReadiness(
 	t *testing.T,
 	ctx context.Context,
 	client *http.Client,
 	baseURL string,
-	done func(int, readinessReport) bool,
-) (int, readinessReport, string) {
+	done func(readinessReport) bool,
+) readinessReport {
 	t.Helper()
 	deadline := time.Now().Add(readinessTimeout)
-	var lastStatus int
 	var lastReport readinessReport
-	var lastBody string
-	var lastErr error
 	for time.Now().Before(deadline) {
-		lastStatus, lastReport, lastBody, lastErr = getReadiness(ctx, client, baseURL)
-		if lastErr == nil && done(lastStatus, lastReport) {
-			return lastStatus, lastReport, lastBody
+		lastReport = getDetailedReadiness(t, ctx, client, baseURL)
+		if done(lastReport) {
+			return lastReport
 		}
 		select {
 		case <-ctx.Done():
@@ -347,9 +420,8 @@ func waitForReadiness(
 		case <-time.After(500 * time.Millisecond):
 		}
 	}
-	t.Fatalf("readiness condition not met within %s: status=%d report=%+v body=%s err=%v",
-		readinessTimeout, lastStatus, lastReport, lastBody, lastErr)
-	return 0, readinessReport{}, ""
+	t.Fatalf("detailed readiness condition not met within %s: report=%+v", readinessTimeout, lastReport)
+	return readinessReport{}
 }
 
 func assertBootstrapReady(t *testing.T, report readinessReport) {
@@ -363,7 +435,18 @@ func assertBootstrapReady(t *testing.T, report readinessReport) {
 	if !report.PersistedState.Writable {
 		t.Fatalf("writable state path reported unavailable: %+v", report.PersistedState)
 	}
-	assertRequiredReadinessLanes(t, report.Lanes)
+}
+
+func assertPublicReadinessSanitized(t *testing.T, report readinessReport, body string) {
+	t.Helper()
+	if len(report.Lanes) != 0 || len(report.Reasons) != 0 || report.PersistedState.Error != "" {
+		t.Fatalf("public readiness exposed operational details: report=%+v body=%s", report, body)
+	}
+	for _, forbidden := range []string{`"lanes"`, `"reasons"`, `"error"`} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("public readiness exposed %s: %s", forbidden, body)
+		}
+	}
 }
 
 func assertRequiredReadinessLanes(t *testing.T, lanes []readinessLane) {
