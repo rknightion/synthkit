@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-20 10:58'
-updated_date: '2026-08-20 13:18'
+updated_date: '2026-08-20 13:34'
 labels: []
 dependencies: []
 references:
@@ -67,4 +67,6 @@ Wave 2 landed and pushed on main: implementation e98411b, task finalization 1569
 Wave 3 landed in implementation commit 265ecd9 and pushed at merged head dab60de after disjoint Renovate workflow commits advanced origin/main. Completed SKT-0005.06, .07, .08, and .17 after CodeRabbit reviews 7 and 8 (eight-review cap reached), make gate, focused UI/helper/docs checks, and default plus otlp-native dry-run inventories. No live Grafana calls occurred; docs.toml remains unrelated unstaged work. Next dependency-unblocked operational queue starts with .09 and .10, then .12.
 
 Wave 3 exact-head CI exposed a real SKT-0005.17 regression: run 32372813999 job 96437819784 rejected the e2e receiver HTTP GC_PROM_RW URL under the new HTTPS-only live contract and emitted zero signals. SKT-0005.17 is reopened for a TLS-preserving e2e repair. The eight-review CodeRabbit budget is exhausted; no review 9 will be run.
+
+Wave 3 integration regression repaired in pushed commit 12b1aca. Local make gate and repeat make e2e passed with 664 declared metrics, 3 log sources, 3 trace services, and 3 Sigil kinds; exact-SHA CI run 32374469397 and e2e job 96443059588 passed; publish run 32374470107 succeeded for the signed/attested/scanned multi-arch image. SKT-0005.17 is Done again. SKT-0005.09 through .14 remain To Do: they are substantive code/security/operations waves requiring a fresh review gate, while the user-authorized eight CodeRabbit reviews are exhausted. Recommended resume order remains .09 and .10, then .12, followed by dependency-unlocked .11, .13, and .14.
 <!-- SECTION:NOTES:END -->
