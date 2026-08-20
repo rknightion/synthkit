@@ -38,8 +38,9 @@ func boolStr(b bool) string {
 
 func itoa(i int) string { return strconv.Itoa(i) }
 
-// Redacted projects the resolved config to its secret-safe view. Every credential (Token/Password/
-// Key field) goes through secret(); everything else through safe().
+// Redacted projects the resolved config to its secret-safe view. Every credential, including a
+// credential-bearing endpoint such as GC_FARO_COLLECTOR, goes through secret(); everything else
+// goes through safe().
 func (c *Config) Redacted() RedactedConfig {
 	return RedactedConfig{Groups: []RedactedGroup{
 		{Title: "Sinks (primary stack)", Fields: []RedactedField{
@@ -49,7 +50,7 @@ func (c *Config) Redacted() RedactedConfig {
 			secret("GC_TOKEN", c.Token),
 		}},
 		{Title: "RUM (Faro)", Fields: []RedactedField{
-			safe("GC_FARO_COLLECTOR", c.FaroCollector), secret("GC_FARO_APP_KEY", c.FaroAppKey),
+			secret("GC_FARO_COLLECTOR", c.FaroCollector), secret("GC_FARO_APP_KEY", c.FaroAppKey),
 		}},
 		{Title: "Fleet Management", Fields: []RedactedField{
 			safe("GC_FM_URL", c.FMURL), safe("GC_FM_STACK_ID", c.FMStackID), secret("GC_FM_TOKEN", c.FMToken),

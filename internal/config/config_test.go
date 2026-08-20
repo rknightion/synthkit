@@ -308,6 +308,96 @@ func TestLiveModeRequiresCreds(t *testing.T) {
 	}
 }
 
+func validLiveConfig() *Config {
+	return &Config{
+		PromRWURL:    "https://prom.example/api/prom/push",
+		PromUser:     "123456",
+		OTLPEndpoint: "https://otlp.example/otlp",
+		OTLPUser:     "234567",
+		LokiURL:      "https://logs.example/loki/api/v1/push",
+		LokiUser:     "345678",
+		Token:        "test-token",
+	}
+}
+
+func TestValidateLiveRejectsMalformedPrometheusEndpoint(t *testing.T) {
+	cfg := validLiveConfig()
+	cfg.PromRWURL = "://malformed-prom-secret"
+
+	err := cfg.ValidateLive()
+	if err == nil {
+		t.Fatal("malformed Prometheus endpoint must be rejected")
+	}
+	if strings.Contains(err.Error(), cfg.PromRWURL) {
+		t.Fatalf("validation error exposed configured endpoint: %v", err)
+	}
+}
+
+func TestValidateLiveRejectsInvalidMandatoryEndpointShape(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value string
+		set   func(*Config, string)
+	}{
+		{name: "prometheus requires HTTPS", key: "GC_PROM_RW", value: "http://prom.example/api/prom/push", set: func(c *Config, v string) { c.PromRWURL = v }},
+		{name: "prometheus requires hostname", key: "GC_PROM_RW", value: "https://:443/api/prom/push", set: func(c *Config, v string) { c.PromRWURL = v }},
+		{name: "prometheus requires push path", key: "GC_PROM_RW", value: "https://prom.example/loki/api/v1/push", set: func(c *Config, v string) { c.PromRWURL = v }},
+		{name: "prometheus rejects encoded path", key: "GC_PROM_RW", value: "https://prom.example/api%2Fprom/push", set: func(c *Config, v string) { c.PromRWURL = v }},
+		{name: "loki requires HTTPS", key: "GC_LOKI", value: "http://logs.example/loki/api/v1/push", set: func(c *Config, v string) { c.LokiURL = v }},
+		{name: "loki requires push path", key: "GC_LOKI", value: "https://logs.example/api/prom/push", set: func(c *Config, v string) { c.LokiURL = v }},
+		{name: "OTLP requires HTTPS", key: "GC_OTLP_ENDPOINT", value: "http://otlp.example/otlp", set: func(c *Config, v string) { c.OTLPEndpoint = v }},
+		{name: "OTLP requires base path", key: "GC_OTLP_ENDPOINT", value: "https://otlp.example/v1/traces", set: func(c *Config, v string) { c.OTLPEndpoint = v }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := validLiveConfig()
+			tc.set(cfg, tc.value)
+
+			err := cfg.ValidateLive()
+			if err == nil {
+				t.Fatal("invalid endpoint must be rejected")
+			}
+			if !strings.Contains(err.Error(), tc.key) {
+				t.Fatalf("error = %v, want redacted field name %s", err, tc.key)
+			}
+			if strings.Contains(err.Error(), tc.value) {
+				t.Fatalf("validation error exposed configured endpoint: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateLiveRejectsInvalidMandatoryIdentifierShape(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value string
+		set   func(*Config, string)
+	}{
+		{name: "Prometheus identifier is decimal", key: "GC_PROM_USER", value: "prom-user-secret", set: func(c *Config, v string) { c.PromUser = v }},
+		{name: "Loki identifier is positive", key: "GC_LOKI_USER", value: "0", set: func(c *Config, v string) { c.LokiUser = v }},
+		{name: "OTLP identifier is unsigned", key: "GC_OTLP_USER", value: "-234567", set: func(c *Config, v string) { c.OTLPUser = v }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := validLiveConfig()
+			tc.set(cfg, tc.value)
+
+			err := cfg.ValidateLive()
+			if err == nil {
+				t.Fatal("invalid identifier must be rejected")
+			}
+			if !strings.Contains(err.Error(), tc.key) {
+				t.Fatalf("error = %v, want redacted field name %s", err, tc.key)
+			}
+			if strings.Contains(err.Error(), tc.value) {
+				t.Fatalf("validation error exposed configured identifier: %v", err)
+			}
+		})
+	}
+}
+
 // TestSendDefaults pins the decoupled delivery queue config defaults and env overrides.
 func TestSendDefaults(t *testing.T) {
 	// Absent vars → all defaults.

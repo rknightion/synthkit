@@ -14,6 +14,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -35,6 +36,7 @@ import (
 	"github.com/rknightion/synthkit/internal/fleetstatus"
 	"github.com/rknightion/synthkit/internal/healthstatus"
 	"github.com/rknightion/synthkit/internal/jsondata"
+	"github.com/rknightion/synthkit/internal/preflight"
 	"github.com/rknightion/synthkit/internal/profiling"
 	"github.com/rknightion/synthkit/internal/pushhook"
 	"github.com/rknightion/synthkit/internal/pushstatus"
@@ -55,12 +57,61 @@ var version = "dev"
 func main() {
 	once := flag.Bool("once", false, "run one full cycle and exit")
 	dump := flag.Bool("dump", false, "with -once: print the full series/label inventory (diff vs signals/)")
+	preflightCheck := flag.Bool("preflight", false, "validate and probe mandatory live Grafana endpoints, then exit")
 	envPath := flag.String("env", ".env", "path to .env file (optional)")
 	flag.Parse()
 
+	if *preflightCheck {
+		if err := runPreflight(context.Background(), *envPath, os.Stdout, preflight.Options{}); err != nil {
+			log.Fatalf("synthkit: %v", err)
+		}
+		return
+	}
 	if err := run(*once, *dump, *envPath); err != nil {
 		log.Fatalf("synthkit: %v", err)
 	}
+}
+
+func runPreflight(ctx context.Context, envPath string, out io.Writer, opts preflight.Options) error {
+	cfg, err := config.Load(envPath)
+	if err != nil {
+		return err
+	}
+	staticResults, err := preflight.Static(cfg)
+	if err != nil {
+		return err
+	}
+	if err := writePreflightResults(out, staticResults); err != nil {
+		return err
+	}
+	results, err := preflight.Check(ctx, cfg, opts)
+	if err != nil {
+		return err
+	}
+	if err := writePreflightResults(out, results); err != nil {
+		return err
+	}
+	for _, result := range results {
+		if result.State != preflight.StateReady {
+			return fmt.Errorf("preflight: one or more mandatory lanes are not ready")
+		}
+	}
+	return nil
+}
+
+func writePreflightResults(out io.Writer, results []preflight.Result) error {
+	for _, result := range results {
+		if result.Reason == "" {
+			if _, err := fmt.Fprintf(out, "%s: %s\n", result.Lane, result.State); err != nil {
+				return fmt.Errorf("preflight: write report: %w", err)
+			}
+			continue
+		}
+		if _, err := fmt.Fprintf(out, "%s: %s (%s)\n", result.Lane, result.State, result.Reason); err != nil {
+			return fmt.Errorf("preflight: write report: %w", err)
+		}
+	}
+	return nil
 }
 
 func run(once, dump bool, envPath string) error {
@@ -135,7 +186,7 @@ func run(once, dump bool, envPath string) error {
 	if cfg.SigilEnabled() || cfg.DryRun {
 		s, serr := sigilsink.New(cfg.SigilEndpoint, cfg.SigilTenantID, cfg.SigilToken, cfg.DryRun)
 		if serr != nil {
-			log.Fatalf("sigil sink: %v", serr)
+			return fmt.Errorf("sigil sink: %w", serr)
 		}
 		sigilSink = s
 		sinks.Sigil = s

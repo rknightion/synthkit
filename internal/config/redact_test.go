@@ -3,6 +3,7 @@
 package config
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -13,7 +14,7 @@ import (
 func fullConfig() *Config {
 	return &Config{
 		PromRWURL: "https://prom", PromUser: "111", OTLPEndpoint: "https://otlp", OTLPUser: "222",
-		LokiURL: "https://loki", LokiUser: "333", Token: "SEC-GC", FaroCollector: "https://faro",
+		LokiURL: "https://loki", LokiUser: "333", Token: "SEC-GC", FaroCollector: "SEC-FARO-COLLECTOR",
 		FaroAppKey: "SEC-FARO", FMURL: "https://fm", FMStackID: "444", FMToken: "SEC-FM",
 		SigilEndpoint: "https://sigil", SigilTenantID: "888", SigilToken: "SEC-SIGIL",
 		DryRun: false, MasterTick: 5_000_000_000, TickTimeout: 0, SeriesCap: 0,
@@ -67,7 +68,26 @@ func TestRedactedNeverLeaksAnySecretValue(t *testing.T) {
 	}
 }
 
-// The 7 known credentials must be PRESENT as Secret:true with Configured reflecting presence — i.e.
+func TestRedactedTreatsFaroCollectorAsSecret(t *testing.T) {
+	cfg := &Config{FaroCollector: "https://faro.example/collect/embedded-app-key"}
+	view := cfg.Redacted()
+	var got RedactedField
+	for _, group := range view.Groups {
+		for _, field := range group.Fields {
+			if field.Key == "GC_FARO_COLLECTOR" {
+				got = field
+			}
+		}
+	}
+	if !got.Secret || !got.Configured || got.Value != "" {
+		t.Fatalf("GC_FARO_COLLECTOR redaction = %+v, want Secret:true Configured:true Value empty", got)
+	}
+	if strings.Contains(fmt.Sprintf("%+v", view), cfg.FaroCollector) {
+		t.Fatal("debug rendering of redacted config exposed GC_FARO_COLLECTOR")
+	}
+}
+
+// The 8 known credentials must be PRESENT as Secret:true with Configured reflecting presence — i.e.
 // shown as set/unset, not silently dropped (that's the feature).
 func TestRedactedExposesSecretsAsConfigured(t *testing.T) {
 	view := fullConfig().Redacted()
@@ -77,7 +97,7 @@ func TestRedactedExposesSecretsAsConfigured(t *testing.T) {
 			byKey[f.Key] = f
 		}
 	}
-	for _, k := range []string{"GC_TOKEN", "GC_FARO_APP_KEY", "GC_FM_TOKEN", "CONTROL_TOKEN", "GC_SELF_OTLP_PASSWORD", "GC_PYROSCOPE_PASSWORD", "GIT_TOKEN"} {
+	for _, k := range []string{"GC_TOKEN", "GC_FARO_COLLECTOR", "GC_FARO_APP_KEY", "GC_FM_TOKEN", "CONTROL_TOKEN", "GC_SELF_OTLP_PASSWORD", "GC_PYROSCOPE_PASSWORD", "GIT_TOKEN"} {
 		f, ok := byKey[k]
 		if !ok {
 			t.Fatalf("secret %s missing from view", k)

@@ -19,6 +19,19 @@ type BlueprintAdmin interface {
 	FetchNow(id string) error
 }
 
+// BlueprintIdentityer is an optional extension implemented by source managers that can report
+// the exact runtime identity after namespace sanitisation. It keeps BlueprintAdmin's existing
+// methods stable for JSON automation adapters.
+type BlueprintIdentityer interface {
+	EffectiveBlueprintIdentity(ns, name string) string
+}
+
+// StageUploadResponse confirms staging and reports the identity synthkit will load on restart.
+type StageUploadResponse struct {
+	Status string `json:"status"`
+	Name   string `json:"name"`
+}
+
 // StagedBlueprint describes a blueprint that has been staged (upload or git). NO omitempty (I24).
 type StagedBlueprint struct {
 	Name       string `json:"name"`

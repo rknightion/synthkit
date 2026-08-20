@@ -1,6 +1,6 @@
 ---
 name: initial-setup
-description: Use when deploying synthkit for the first time, setting up its .env or docker-compose, configuring Grafana Cloud credentials, or onboarding a new synthkit host. Triggers include "deploy synthkit", "set up synthkit", "first run", "configure credentials", "get synthkit running".
+description: "Deploy synthkit for first use: safely configure its .env and Docker Compose checkout; not generic Docker setup."
 ---
 
 # synthkit initial setup
@@ -32,7 +32,7 @@ Use `$SYNTHKIT_CHECKOUT` for every repository file and command. Invoke plugin-ow
 - Default to the **secure** secret path (below). `.env` is gitignored — keep it that way.
 - `DRY_RUN` stays `true` until the dry-run gate passes.
 - NEVER run a command that prints secret values into context: no `cat .env`, no
-  `docker compose config` (it interpolates and echoes env values), no `echo "$GC_TOKEN"`. Inspect
+  `docker compose config` (it interpolates and echoes env values), and no `echo` of a secret. Inspect
   `.env` only with presence/shape checks like
   `grep -q '^KEY=.\+' "$SYNTHKIT_CHECKOUT/.env"`.
 
@@ -54,25 +54,27 @@ Their answers select which credential groups Step 3 collects.
 For each selected lane, look up its exact vars + where to generate them in
 [references/credentials.md](references/credentials.md). Tell the user the precise scopes for each token.
 
-### Secret handling — two paths (default = secure)
+### Secret handling
 **Why it matters:** the agent's Bash tool runs in a *separate, non-interactive* shell. A secret you
 `export` in your own terminal is invisible to the agent; and any command the agent writes that
 contains the secret value puts that value in model context. The only way that is BOTH out-of-context
 AND readable by docker-compose is **you writing the secret into `.env` from your own shell**.
 
-- **Secure (default):** after Step 4 has created `.env`, tell the user to run this in THEIR terminal:
-  `read -rsp "GC_TOKEN: " V && printf 'GC_TOKEN=%s\n' "$V" >> "$SYNTHKIT_CHECKOUT/.env" && unset V; echo`
-  This is the primary operator-copyable command; it needs only the checkout-location block above,
-  not a Claude plugin environment.
-- **Agent helper path:** when Claude performs an authorised write, it invokes the relocation-safe
-  helper: `bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"`.
-  Then the agent verifies **presence only**:
-  `grep -q '^GC_TOKEN=.\+' "$SYNTHKIT_CHECKOUT/.env" && echo ok`. Never print the value.
-- **Easy (opt-in):** the user gives the agent the value and the agent writes it with
-  `scripts/set-env.sh`. Warn explicitly: "this value will enter the model context."
+- **Secure (required):** after Step 4 has created `.env`, have the operator run this in their own
+  terminal and type the value at its hidden prompt:
+  `bash "$SYNTHKIT_CHECKOUT/plugins/synthkit/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"`
+  The helper atomically replaces every existing `GC_TOKEN` entry, publishes a mode-0600 file, and
+  never prints the value. Substitute another secret key when adding that key.
+- When an agent is authorised to write, invoke the same helper; it must not receive the secret in
+  an argument or chat: `bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"`.
+  Verify **presence only** with
+  `grep -q '^GC_TOKEN=.\+' "$SYNTHKIT_CHECKOUT/.env" && echo ok`.
 
-**The secret vars (always secure path, never `set-env.sh`):** `GC_TOKEN`, `GC_SELF_OTLP_PASSWORD`,
-`GC_PYROSCOPE_PASSWORD`, `GC_FM_TOKEN`, `GC_SM_TOKEN`, `CONTROL_TOKEN`.
+**The secret vars (always secure path, never `set-env.sh`):** `GC_TOKEN`, `GC_FARO_COLLECTOR`,
+`GC_FARO_APP_KEY`,
+`GC_SELF_OTLP_PASSWORD`, `GC_PYROSCOPE_PASSWORD`, `GC_FM_TOKEN`, `GC_SM_TOKEN`, `GC_SIGIL_TOKEN`,
+`GIT_TOKEN`, and `CONTROL_TOKEN`. A custom blueprint source's operator-defined `token_env_var` is
+also a secret private-git token; do not add its value to a blueprint or print it.
 Everything else is non-secret config, written by the agent with
 `bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/set-env.sh" KEY VALUE "$SYNTHKIT_CHECKOUT/.env"`
 (it *upserts* — replaces any existing line, so re-runs don't duplicate).
@@ -83,7 +85,8 @@ Everything else is non-secret config, written by the agent with
   customer-sink endpoints/users — `GC_PROM_RW`, `GC_PROM_USER`, `GC_OTLP_ENDPOINT`, `GC_OTLP_USER`,
   `GC_LOKI`, `GC_LOKI_USER` — plus `DRY_RUN true`, `SYNTHKIT_BIND <choice>`, and the `*_ENABLED`
   flags for chosen lanes (e.g. `SELFOBS_ENABLED true` + `GC_SELF_OTLP_ENDPOINT`,
-  `GC_SELF_OTLP_USER` for the staff stack).
+  `GC_SELF_OTLP_USER` for the staff stack). Profiling has no separate enable flag: it requires
+  `SELFOBS_ENABLED=true`, `DRY_RUN=false`, and the `GC_PYROSCOPE_*` triplet.
 - Generate the control token idempotently (value never printed; strips any prior line first):
   `set -o pipefail; openssl rand -hex 24 | bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" CONTROL_TOKEN "$SYNTHKIT_CHECKOUT/.env"`
 - Collect the **secret** vars via the secure path. Confirm `.env` is gitignored:

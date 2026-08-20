@@ -5,6 +5,7 @@ package bpsource
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/runner"
@@ -149,6 +150,97 @@ hosts: [{name: h1, os: linux}]
 `))
 	if err == nil {
 		t.Fatal("expected rejection for name containing '__'")
+	}
+}
+
+func TestStageUploadRequiresFormNameToMatchYAMLName(t *testing.T) {
+	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}})
+	err := m.StageUpload("team-a", "form-name", []byte(`name: yaml-name
+hosts: [{name: h1, os: linux}]
+`))
+	if err == nil || !strings.Contains(err.Error(), "must match YAML name") {
+		t.Fatalf("StageUpload() error = %v, want form/YAML name mismatch", err)
+	}
+}
+
+func TestEffectiveBlueprintIdentityUsesSanitizedNamespace(t *testing.T) {
+	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}})
+	if got := m.EffectiveBlueprintIdentity(" Team A ", "myapp"); got != "team-a/myapp" {
+		t.Fatalf("EffectiveBlueprintIdentity() = %q, want team-a/myapp", got)
+	}
+}
+
+func TestStageUploadNamespaceSeparatorRoundTrips(t *testing.T) {
+	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}})
+	const want = "foo-bar/pasted"
+	if got := m.EffectiveBlueprintIdentity("foo__bar", "pasted"); got != want {
+		t.Fatalf("EffectiveBlueprintIdentity() = %q, want %q", got, want)
+	}
+	if err := m.StageUpload("foo__bar", "pasted", []byte(`name: pasted
+hosts: [{name: separator-host, os: linux}]
+`)); err != nil {
+		t.Fatalf("StageUpload: %v", err)
+	}
+	staged := m.ListStaged()
+	if len(staged) != 1 || staged[0].Name != want {
+		t.Fatalf("ListStaged() = %+v, want %q", staged, want)
+	}
+	loaded, _, diags := m.Resolve(context.Background())
+	if len(diags) != 0 || len(loaded) != 1 || loaded[0].Resolved.Name != want {
+		t.Fatalf("restart resolve = loaded=%+v diags=%+v, want %q", loaded, diags, want)
+	}
+}
+
+func TestStageUploadRejectsProspectiveStagedIdentityCollision(t *testing.T) {
+	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}})
+	if err := m.StageUpload("team-a", "one", []byte(`name: one
+hosts: [{name: shared-host, os: linux}]
+`)); err != nil {
+		t.Fatalf("stage first upload: %v", err)
+	}
+	err := m.StageUpload("team-b", "two", []byte(`name: two
+hosts: [{name: shared-host, os: linux}]
+`))
+	if err == nil || !strings.Contains(err.Error(), "identity collision") || !strings.Contains(err.Error(), "shared-host") {
+		t.Fatalf("StageUpload() error = %v, want prospective host collision", err)
+	}
+	if got := m.ListStaged(); len(got) != 1 || got[0].Name != "team-a/one" {
+		t.Fatalf("collision must not stage the second blueprint, got %+v", got)
+	}
+}
+
+func TestStageUploadRevalidatesExactReplacementContent(t *testing.T) {
+	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}})
+	if err := m.StageUpload("team-a", "one", []byte(`name: one
+hosts: [{name: original-host, os: linux}]
+`)); err != nil {
+		t.Fatalf("stage first upload: %v", err)
+	}
+	err := m.StageUpload("team-a", "one", []byte(`name: one
+unknown: field
+`))
+	if err == nil || !strings.Contains(err.Error(), "invalid blueprint") {
+		t.Fatalf("StageUpload() error = %v, want the current replacement content rejected", err)
+	}
+}
+
+func TestPasteValidateStageAndRestartDryRun(t *testing.T) {
+	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}})
+	paste := []byte(`name: pasted
+hosts: [{name: pasted-host, os: linux}]
+`)
+	if validation := m.Validate(paste); !validation.OK || validation.Cardinality <= 0 {
+		t.Fatalf("Validate(paste) = %+v, want a dry-run validation result", validation)
+	}
+	if err := m.StageUpload("team-a", "pasted", paste); err != nil {
+		t.Fatalf("StageUpload(paste): %v", err)
+	}
+	loaded, _, diags := m.Resolve(context.Background())
+	if len(diags) != 0 || len(loaded) != 1 || loaded[0].Resolved.Name != "team-a/pasted" {
+		t.Fatalf("restart resolve = loaded=%+v diags=%+v, want team-a/pasted", loaded, diags)
+	}
+	if n, estimated := projectCardinality(m.reg, loaded[0].Resolved); n <= 0 || estimated {
+		t.Fatalf("restart dry run = count=%d estimated=%t, want exact non-zero inventory", n, estimated)
 	}
 }
 

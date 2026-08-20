@@ -25,11 +25,12 @@ The three tiers are mandatory:
 
 Non-negotiable data-path rules:
 
-- All synthetic metrics go to `sink/promrw` with final pre-mangled names via Prometheus Remote-
-  Write v2 (`io.prometheus.write.v2.Request`); vendored RW2 is under
+- Most synthetic metrics go to `sink/promrw` with final pre-mangled names via Prometheus
+  Remote-Write v2 (`io.prometheus.write.v2.Request`); vendored RW2 is under
   `internal/sink/promrw/writev2`, pinned to Prometheus v3.12.0; provenance is kept beside the
-  vendored proto. Regenerate with `make proto` (`protoc` + `protoc-gen-go`). The
-  OTel metrics SDK is banned on this path; OTLP carries hand-encoded traces only.
+  vendored proto. A workload with `otel.metrics: true` instead emits hand-encoded native OTLP
+  ResourceMetrics to `/v1/metrics`. Neither path uses the OTel metrics SDK; OTLP also carries
+  hand-encoded traces.
 - `internal/selfobs` is the sole sanctioned OTel SDK user: it instruments the synthkit process
   and uses a separate credential triplet/stack, never `GC_TOKEN`. `internal/pushhook` and
   `runner.TickFunc` are the stdlib-only seams. Constructs/workloads never import OTel, selfobs,
@@ -79,10 +80,12 @@ commits completed work to `main` and pushes after the relevant green gate.
 
 ## Secrets and environment surface
 
-Secrets live only in ignored `.env`, never committed YAML. `docker-compose.yml` reads variables via
-`env_file: .env`; new variables belong in both `.env` and `.env.example`. In `internal/config`,
-all reads use literal `get("LIT")`/`getInt("LIT")` keys. `TestEnvSurfaceAligned` checks Go reads,
-`.env.example`, compose interpolation, and local `.env`. Put `.env` comments on their own lines;
+Secrets live only in ignored `.env`, never committed YAML. Service runtime variables are loaded by
+`docker-compose.yml` via `env_file: .env`; Compose `${...}` interpolation uses the project `.env`
+by default and may be overridden by the shell or `--env-file`. New variables belong in both `.env`
+and `.env.example`. In `internal/config`, all reads use literal `get("LIT")`/`getInt("LIT")` keys.
+`TestEnvSurfaceAligned` checks the declared Go-read, example, compose, and project-`.env` surfaces;
+it does not validate arbitrary external override values. Put `.env` comments on their own lines;
 Docker does not strip inline comments from `env_file` values.
 
 ## Operational entrypoints

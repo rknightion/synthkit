@@ -23,6 +23,11 @@ func (a *blueprintAdminAdapter) StageUpload(ns, name string, yaml []byte) error 
 	return a.mgr.StageUpload(ns, name, yaml)
 }
 
+// EffectiveBlueprintIdentity returns the exact namespaced runtime identity used after restart.
+func (a *blueprintAdminAdapter) EffectiveBlueprintIdentity(ns, name string) string {
+	return a.mgr.EffectiveBlueprintIdentity(ns, name)
+}
+
 // RemoveUpload removes a staged upload by its namespaced name "<ns>/<name>".
 func (a *blueprintAdminAdapter) RemoveUpload(nsName string) error {
 	return a.mgr.RemoveUpload(nsName)

@@ -1,11 +1,11 @@
 ---
 title: synthkit
-description: Composable synthetic-telemetry generator for Grafana Cloud — declare infrastructure and applications in YAML, receive structurally-correct metrics, traces, logs, and RUM.
+description: Get Grafana-visible synthetic telemetry from a YAML model — realistic metrics, traces, logs, and RUM without deploying an application.
 ---
 
 # synthkit
 
-synthkit is a composable synthetic-telemetry generator for Grafana Cloud. Declare the infrastructure and applications you want in one YAML **blueprint** and synthkit emits structurally-correct synthetic metrics (Prometheus Remote-Write v2), traces (OTLP), logs (Loki), and optional RUM (Faro) — using the **real** technology-native metric/label/field names of each technology it models. No invented names, no placeholder shapes. Every signal is sourced from production-validated contracts in the [`signals/`](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md) catalogue.
+synthkit gives you a Grafana-visible synthetic environment: run a bundled blueprint and see realistic metrics, traces, and logs arrive in your stack. It models the infrastructure and applications you declare; it does **not** deploy them. From that YAML **blueprint**, synthkit emits structurally-correct synthetic metrics (Prometheus Remote-Write v2), traces (OTLP), logs (Loki), and optional RUM (Faro) using the **real** technology-native metric/label/field names of each technology it models. No invented names, no placeholder shapes. Every signal is sourced from production-validated contracts in the [`signals/`](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md) catalogue.
 
 Use synthkit to build and validate dashboards and alerts against realistic data, generate demo environments, or run observability training without touching a production system.
 
@@ -79,7 +79,9 @@ From another terminal, confirm the status endpoint reports `dry_run=false`:
 curl -fsS http://localhost:8088/control/status | jq -e '.dry_run == false'
 ```
 
-The command prints `true`; it exits nonzero if live mode is not active.
+The command prints `true`; it exits nonzero if live mode is not active. `jq` is optional: without
+it, inspect the same JSON with `curl -fsS http://localhost:8088/control/status` and look for
+`"dry_run":false`.
 
 ## What synthkit emits
 
@@ -95,7 +97,7 @@ Each signal type uses its own credential triplet. A single Cloud Access Policy t
 
 ## The blueprint model
 
-A **blueprint** is a single YAML file that wires together construct and workload instances with config. Constructs are isolated modules — each emits the real signal names of one technology (EKS, RDS, Cloudflare, Fleet Management, and so on). Workloads generate correlated request traffic: `web_service` models a single service with a browser→backend→DB hop tree; `app` models a multi-service graph whose nodes emit custom telemetry via a DSL. Constructs know nothing about blueprints or each other; deleting a blueprint file removes its telemetry and affects nothing else.
+A **blueprint** is a single YAML file that wires together construct and workload instances with config. Constructs are isolated modules — each emits the real signal names of one technology (EKS, RDS, Cloudflare, Fleet Management, and so on). Workloads generate correlated request traffic: `web_service` models a single service with a browser→backend→DB hop tree; `app` models a multi-service graph whose nodes emit custom telemetry via a DSL. They model traffic and telemetry only; synthkit does not deploy a real app. Constructs know nothing about blueprints or each other; deleting a blueprint file removes its telemetry and affects nothing else.
 
 `DRY_RUN` defaults to `true` — live pushing is always an explicit opt-in.
 

@@ -116,9 +116,14 @@ test("an action-error banner surfaces a mutation failure (distinct error state)"
 test("the empty state renders when no blueprints are staged", () => {
   const store = fakeStore({ loading: false, pending: pending(), staged: [], sources: [] });
   const { getByTestId } = renderBpManage(store);
-  expect(getByTestId("bpm-staged-empty").textContent).toContain(
+  const empty = getByTestId("bpm-staged-empty");
+  expect(empty.textContent).toContain(
     "No custom or git-sourced blueprints staged",
   );
+  expect(empty.textContent).toContain("bundled example");
+  expect(empty.textContent).toContain("Paste YAML");
+  expect(empty.textContent).toContain("git source");
+  expect(empty.textContent).toContain("restart to apply");
 });
 
 test("the data state renders staged blueprints with provenance badges", () => {
@@ -210,6 +215,27 @@ test("Validate renders an estimated cardinality suffix and a failed verdict on o
   expect(result.textContent).toContain("ERROR: unknown construct kind 'frob'");
   // cardinality -1 ⇒ no "~ series" string.
   expect(result.textContent).not.toContain("series");
+});
+
+test("editing YAML clears a prior validation result and requires a fresh preflight", async () => {
+  const f = stubFetch({
+    ok: true,
+    name: "myapp",
+    cardinality: 12,
+    estimated: false,
+    diagnostics: [],
+  } satisfies ValidationResult);
+  const store = fakeStore({ loading: false, pending: pending(), staged: [], sources: [] });
+  const { getByTestId, queryByTestId } = renderBpManage(store);
+
+  fireEvent.input(getByTestId("bpm-yaml"), { target: { value: "name: myapp" } });
+  await userEvent.click(getByTestId("bpm-validate"));
+  await flush();
+  expect(getByTestId("bpm-vresult")).toBeInTheDocument();
+
+  fireEvent.input(getByTestId("bpm-yaml"), { target: { value: "name: changed" } });
+  expect(queryByTestId("bpm-vresult")).not.toBeInTheDocument();
+  expect(f.pathCalled("blueprints/validate")).toBe(true);
 });
 
 test("Validate blocks an empty-YAML submit with an inline field error (no POST)", async () => {

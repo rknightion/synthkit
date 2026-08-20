@@ -13,6 +13,9 @@ MIN_PYTHON = (3, 11)
 
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HTML_LINK_RE = re.compile(r"(?:href|src)\s*=\s*[\"']([^\"']+)", re.IGNORECASE)
+REFERENCE_DEFINITION_RE = re.compile(r"(?m)^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*(?:<([^>\n]+)>|(\S+))")
+REFERENCE_LABEL_RE = re.compile(r"(?m)^[ \t]{0,3}\[([^\]\n]+)\]:")
+REFERENCE_USE_RE = re.compile(r"!?\[[^\]\n]+\]\[([^\]\n]+)\]")
 
 
 def nav_pages(value: object) -> list[str]:
@@ -29,11 +32,33 @@ def nav_pages(value: object) -> list[str]:
     return pages
 
 
-def link_targets(markdown: str) -> list[str]:
+def without_code(markdown: str) -> str:
     # Fenced examples are not document links; rendering semantics belong to the hub.
     markdown = re.sub(r"(?ms)^```.*?^```\s*$", "", markdown)
-    targets = [match.group(1).strip().split()[0].strip("<>") for match in LINK_RE.finditer(markdown)]
+    # Inline code is likewise literal text, not a rendered link.
+    return re.sub(r"`+[^`\n]*`+", "", markdown)
+
+
+def normalize_reference_label(label: str) -> str:
+    return " ".join(label.split()).casefold()
+
+
+def reference_definitions(markdown: str) -> set[str]:
+    return {normalize_reference_label(match.group(1)) for match in REFERENCE_LABEL_RE.finditer(without_code(markdown))}
+
+
+def reference_uses(markdown: str) -> list[str]:
+    return [match.group(1).strip() for match in REFERENCE_USE_RE.finditer(without_code(markdown))]
+
+
+def link_targets(markdown: str) -> list[str]:
+    markdown = without_code(markdown)
+    targets: list[str] = []
+    for match in LINK_RE.finditer(markdown):
+        raw_target = match.group(1).strip()
+        targets.append(raw_target.split()[0].strip("<>") if raw_target else "")
     targets.extend(HTML_LINK_RE.findall(markdown))
+    targets.extend(match.group(1) or match.group(2) for match in REFERENCE_DEFINITION_RE.finditer(markdown))
     return targets
 
 
@@ -62,8 +87,15 @@ def validate(root: Path) -> list[str]:
     pages = nav_pages(site.get("nav", []) if site is not None else [])
     if not pages:
         errors.append("docs.toml site.nav contains no Markdown pages")
+    docs_resolved = docs.resolve()
     for page in pages:
-        if not (docs / page).is_file():
+        candidate = (docs / page).resolve()
+        try:
+            candidate.relative_to(docs_resolved)
+        except ValueError:
+            errors.append(f"nav target escapes docs directory: {page}")
+            continue
+        if not candidate.is_file():
             errors.append(f"nav target does not exist: {page}")
 
     if not (docs / "404.md").is_file():
@@ -81,7 +113,12 @@ def validate(root: Path) -> list[str]:
 
     root_resolved = root.resolve()
     for source in sorted(docs.rglob("*.md")):
-        for target in link_targets(source.read_text(encoding="utf-8")):
+        markdown = source.read_text(encoding="utf-8")
+        defined_references = reference_definitions(markdown)
+        for label in reference_uses(markdown):
+            if normalize_reference_label(label) not in defined_references:
+                errors.append(f"{source.relative_to(root)}: undefined Markdown reference: {label}")
+        for target in link_targets(markdown):
             if not target or target.startswith("#"):
                 continue
             parsed = urlsplit(target)

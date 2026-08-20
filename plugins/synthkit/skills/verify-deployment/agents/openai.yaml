@@ -1,5 +1,5 @@
 interface:
   display_name: "Verify synthkit deployment"
-  short_description: "Check a deployed synthkit checkout and its configured signals."
+  short_description: "Verify a deployed synthkit checkout and its configured signals."
 policy:
   allow_implicit_invocation: true

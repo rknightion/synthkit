@@ -7,13 +7,18 @@ import (
 	"strings"
 )
 
-var nsClean = regexp.MustCompile(`[^a-z0-9_-]+`)
+var (
+	nsClean     = regexp.MustCompile(`[^a-z0-9_-]+`)
+	nsSeparator = regexp.MustCompile(`__+`)
+)
 
 // SanitizeNS lowercases raw and replaces any run of non [a-z0-9_-] with a single "-",
-// trimming leading/trailing "-". Empty result defaults to "custom".
+// normalises the upload filename separator "__" to "-", and trims leading/trailing "-".
+// Empty result defaults to "custom".
 func SanitizeNS(raw string) string {
 	s := strings.ToLower(strings.TrimSpace(raw))
 	s = nsClean.ReplaceAllString(s, "-")
+	s = nsSeparator.ReplaceAllString(s, "-")
 	s = strings.Trim(s, "-")
 	if s == "" {
 		return "custom"

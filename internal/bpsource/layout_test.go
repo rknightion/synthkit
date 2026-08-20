@@ -15,6 +15,17 @@ func TestUploadFilenameRoundTrip(t *testing.T) {
 	}
 }
 
+func TestUploadFilenameRoundTripNormalizesSeparatorInNamespace(t *testing.T) {
+	fn := uploadFilename("foo__bar", "fleet")
+	if fn != "foo-bar__fleet.yaml" {
+		t.Fatalf("uploadFilename=%q", fn)
+	}
+	ns, name, ok := parseUploadFilename(fn)
+	if !ok || ns != "foo-bar" || name != "fleet" {
+		t.Fatalf("parse=%q,%q,%v", ns, name, ok)
+	}
+}
+
 func TestParseUploadFilenameRejects(t *testing.T) {
 	if _, _, ok := parseUploadFilename("noseparator.yaml"); ok {
 		t.Fatal("expected reject for missing __ separator")

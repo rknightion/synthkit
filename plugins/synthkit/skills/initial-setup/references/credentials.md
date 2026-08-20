@@ -1,68 +1,101 @@
-# synthkit credential & env reference
+# synthkit credential and environment reference
 
-Every var below is consumed by synthkit (`internal/config`) or docker-compose and is documented in
-`.env.example`. `TestEnvSurfaceAligned` keeps these surfaces in lockstep — do not invent names.
+This is the complete supported `.env` surface in the shipped checkout. It mirrors
+`.env.example` and `internal/config`; do not invent keys. “Secret” means use the hidden prompt
+path (`add-secret.sh` or an operator-owned terminal), never `set-env.sh`, chat, logs, or a
+blueprint. A value marked **credential** is sensitive even when it is not technically a password.
 
-Two stacks are involved and **never share a token**:
-- **Customer / synthetic-data stack** — the destination for the fake telemetry synthkit emits.
-- **Staff stack(s)** — where synthkit's OWN telemetry (self-observability, profiling) goes.
+Two data destinations must never share a token: the **customer/synthetic-data stack** receives
+the fake signals; the **staff self-observability stack** receives synthkit's own process telemetry.
 
-## Lane → variables → where to get them
+## Customer synthetic-data sinks
 
-### Customer sinks — MANDATORY
-| Var | Meaning | Source (Grafana Cloud) |
+| Variable | Classification | Purpose / source |
 |---|---|---|
-| `GC_PROM_RW` | Prometheus remote-write URL | Stack → Connections → Prometheus → "Sending metrics" |
-| `GC_PROM_USER` | Mimir instance ID (Basic-auth user) | same panel |
-| `GC_OTLP_ENDPOINT` | OTLP gateway base URL (`…/otlp`) | Connections → OpenTelemetry |
-| `GC_OTLP_USER` | OTLP stack ID | same panel |
-| `GC_LOKI` | Loki push URL | Connections → Loki |
-| `GC_LOKI_USER` | Loki instance ID | same panel |
-| `GC_TOKEN` | **secret** — Cloud Access Policy token, scopes `metrics:write` + `logs:write` + `traces:write` | Connections → Access Policies → create token |
+| `GC_PROM_RW` | endpoint | Prometheus remote-write URL; Grafana Cloud Connections → Prometheus. |
+| `GC_PROM_USER` | identifier | Mimir instance ID / Basic-auth user. |
+| `GC_OTLP_ENDPOINT` | endpoint | OTLP gateway base ending in `/otlp`. |
+| `GC_OTLP_USER` | identifier | OTLP stack ID / Basic-auth user. |
+| `GC_LOKI` | endpoint | Loki push URL. |
+| `GC_LOKI_USER` | identifier | Loki instance ID / Basic-auth user. |
+| `GC_TOKEN` | **secret** | Customer CAP token with `metrics:write`, `logs:write`, and `traces:write`. |
 
-### Self-observability — OPTIONAL (staff stack, separate token)
-| Var | Meaning |
-|---|---|
-| `SELFOBS_ENABLED` | `true` to enable (non-secret flag) |
-| `GC_SELF_OTLP_ENDPOINT` | staff OTLP gateway base URL |
-| `GC_SELF_OTLP_USER` | staff OTLP stack ID |
-| `GC_SELF_OTLP_PASSWORD` | **secret** — token (`metrics/logs/traces:write`) on the STAFF stack — never `GC_TOKEN` |
+All seven are required for a normal live synthetic sink. `DRY_RUN=true` permits offline work
+without them; do not turn it off until they are present and validated.
 
-### Profiling (Pyroscope) — OPTIONAL (staff stack, separate token)
-| Var | Meaning |
-|---|---|
-| `PYROSCOPE_ENABLED` | `true` to enable |
-| `GC_PYROSCOPE_URL` | staff Profiles ingest URL |
-| `GC_PYROSCOPE_USER` | staff Profiles instance ID |
-| `GC_PYROSCOPE_PASSWORD` | **secret** — token with `profiles:write` |
+## Optional synthetic-data lanes
 
-### Fleet Management — OPTIONAL
-| Var | Meaning |
-|---|---|
-| `GC_FM_URL` | FM API base URL |
-| `GC_FM_STACK_ID` | Grafana Cloud **stack ID** (Basic-auth user — NOT `GC_PROM_USER`) |
-| `GC_FM_TOKEN` | **secret** — token with `fleet-management:write` |
-Also requires a `fleet_management` construct in the active blueprint → hand to `setup-fleet-management`.
-Empty `GC_FM_URL` ⇒ collectors emit metrics only (no registration).
+| Variable | Classification | Gate / use |
+|---|---|---|
+| `GC_FARO_COLLECTOR` | **secret credential** | Faro collector URL, including its app-key path. |
+| `GC_FARO_APP_KEY` | **secret credential** | Faro application key; RUM needs both Faro values and a RUM-enabled workload. |
+| `GC_PROFILES_URL` | endpoint | Target-stack Pyroscope ingest endpoint. |
+| `GC_PROFILES_USER` | identifier | Target-stack Profiles instance ID. |
+| `GC_SIGIL_ENDPOINT` | endpoint | Sigil base endpoint. |
+| `GC_SIGIL_TENANT_ID` | identifier | Sigil tenant/stack ID, not `GC_PROM_USER`. |
+| `GC_SIGIL_TOKEN` | **secret** | Sigil-ingest CAP token, not `GC_TOKEN`. |
 
-### Synthetic Monitoring — OPTIONAL
-| Var | Meaning |
-|---|---|
-| `GC_SM_URL` | SM API URL |
-| `GC_SM_TOKEN` | **secret** — SM API token (separate; used by `cmd/sm-provision`) |
+Synthetic profiles use `GC_PROFILES_URL` + `GC_PROFILES_USER` + the customer `GC_TOKEN`; there is
+no profiles flag. Sigil needs its triplet and an `ai_agent` workload that uses the lane.
 
-### RUM (Faro) — OPTIONAL
-| Var | Meaning |
-|---|---|
-| `GC_FARO_COLLECTOR` | Faro collector URL (includes app key) |
-| `GC_FARO_APP_KEY` | Faro app key |
+## Staff self-observability and profiling
 
+| Variable | Classification | Gate / use |
+|---|---|---|
+| `SELFOBS_ENABLED` | non-secret flag | Master switch for self-obs and process profiling. |
+| `GC_SELF_OTLP_ENDPOINT` | endpoint | Staff OTLP base endpoint. |
+| `GC_SELF_OTLP_USER` | identifier | Staff stack ID. |
+| `GC_SELF_OTLP_PASSWORD` | **secret** | Staff CAP token with metrics/logs/traces write scopes. |
+| `SELFOBS_TAGS` | non-secret config | CSV resource tags. |
+| `GC_SELF_GRAFANA_URL` | endpoint | Optional control-UI deep-link base. |
+| `SELFOBS_METRIC_INTERVAL` | non-secret config | Self-obs metric flush duration; default `15s`. |
+| `GC_PYROSCOPE_URL` | endpoint | Staff Profiles ingest endpoint. |
+| `GC_PYROSCOPE_USER` | identifier | Staff Profiles instance ID. |
+| `GC_PYROSCOPE_PASSWORD` | **secret** | Staff Profiles write token. |
+| `PYROSCOPE_TAGS` | non-secret config | CSV profile tags. |
+| `PYROSCOPE_MUTEX_FRACTION` | non-secret config | Runtime mutex profile rate; `0` disables it. |
+| `PYROSCOPE_BLOCK_RATE` | non-secret config | Runtime block profile rate; `0` disables it. |
 
-### Control plane / behaviour
-| Var | Meaning |
-|---|---|
-| `DRY_RUN` | `true` (default) = no live push; flip to `false` to emit |
-| `CONTROL_TOKEN` | **secret** — HTTP Basic password (user `control`) for POST /control/*; generate `openssl rand -hex 24` |
-| `SYNTHKIT_BIND` | host port exposure; `127.0.0.1` (default, safe) or `0.0.0.0` |
-| `SYNTHKIT_IMAGE_TAG` | published GHCR image tag; default `latest` (last release); `main` for edge, `vX.Y.Z` to pin — compose-only, app ignores it |
-| `TICK_DEFAULT` | master tick cadence (default `5s`) |
+Profiling has no standalone enable flag. It can ship only when **all** of `SELFOBS_ENABLED=true`,
+`DRY_RUN=false`, and the `GC_PYROSCOPE_URL`/`GC_PYROSCOPE_USER`/`GC_PYROSCOPE_PASSWORD` triplet
+are present. The staff triplets never reuse `GC_TOKEN`.
+
+## Optional Grafana Cloud control lanes
+
+| Variable | Classification | Gate / use |
+|---|---|---|
+| `GC_FM_URL` | endpoint | Fleet Management API base. Empty means collector metrics only, no registration. |
+| `GC_FM_STACK_ID` | identifier | FM Basic-auth user: Grafana Cloud stack ID, not `GC_PROM_USER`. |
+| `GC_FM_TOKEN` | **secret** | CAP token with `fleet-management:write`; requires a `fleet_management` blueprint feature. |
+| `GC_SM_URL` | endpoint | Synthetic Monitoring API base, used only by `cmd/sm-provision`. |
+| `GC_SM_TOKEN` | **secret** | Synthetic Monitoring API token, used only by that provisioner. |
+
+## Control plane, blueprint sources, and delivery behaviour
+
+| Variable | Classification | Purpose |
+|---|---|---|
+| `DRY_RUN` | non-secret flag | Default `true`; suppresses all live pushes, including self-obs/profiling. |
+| `TICK_DEFAULT` | non-secret config | Master scheduler cadence; default `5s`; affects first observation timing. |
+| `TICK_TIMEOUT` | non-secret config | Optional whole-tick seconds; empty/`0` disables it. |
+| `SERIES_CAP` | non-secret config | Optional global series cap. |
+| `BLUEPRINTS` | non-secret path | Bundled blueprint directory. |
+| `BLUEPRINT_NAMES` | non-secret selector | Comma-separated exact enabled blueprint names. |
+| `BLUEPRINT_DATA_DIR` | non-secret path | Persisted custom/git blueprint staging directory. |
+| `GIT_POLL_INTERVAL` | non-secret config | Git source update-check seconds; `0` disables polling. |
+| `GIT_TOKEN` | **secret** | Default HTTPS PAT for private blueprint repositories. |
+| `JSON_HTTP_ADDR` | non-secret bind | Control plane / Infinity HTTP bind address. |
+| `CONFIG_SNAPSHOT_PATH` | non-secret path | Persisted control-plane snapshot path. |
+| `CONTROL_TOKEN` | **secret** | HTTP Basic password for `POST /control/*` (user `control`). |
+| `SYNTHKIT_IMAGE_TAG` | non-secret compose config | Published image tag; compose-only. |
+| `SYNTHKIT_BIND` | non-secret compose bind | Host exposure for port 8088; default loopback. |
+| `SYNTHKIT_IN_CONTAINER` | non-secret runtime hint | Optional container-runtime hint. |
+| `SEND_SHARDS` | non-secret config | Delivery queue worker count. |
+| `SEND_BATCH_MAX` | non-secret config | Delivery batch maximum series. |
+| `SEND_BATCH_DEADLINE` | non-secret config | Delivery partial-batch duration. |
+| `SEND_QUEUE_CAPACITY` | non-secret config | Delivery ring-buffer capacity. |
+| `SEND_DRAIN_DEADLINE` | non-secret config | Graceful delivery-drain duration. |
+
+Per-source `token_env_var` is intentionally operator-defined and is not a supported fixed key.
+Treat the referenced process environment variable as a **secret** private-git token; do not add it
+to `.env.example` or this list. There is no supported environment-variable lane for arbitrary
+vendor APIs, Kubernetes credentials, cloud access keys, or a standalone profiling enable flag.

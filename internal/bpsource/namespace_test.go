@@ -25,4 +25,13 @@ func TestSanitizeNS(t *testing.T) {
 	if got := SanitizeNS(""); got != "custom" {
 		t.Errorf("SanitizeNS('')=%q want custom", got)
 	}
+	if got := SanitizeNS("foo__bar"); got != "foo-bar" {
+		t.Errorf("SanitizeNS(foo__bar)=%q want foo-bar", got)
+	}
+	if got := SanitizeNS("foo___bar"); got != "foo-bar" {
+		t.Errorf("SanitizeNS(foo___bar)=%q want foo-bar", got)
+	}
+	if got := SanitizeNS("team_a"); got != "team_a" {
+		t.Errorf("SanitizeNS(team_a)=%q want team_a", got)
+	}
 }

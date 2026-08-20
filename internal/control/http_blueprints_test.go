@@ -48,6 +48,9 @@ func (f *fakeBlueprintAdmin) StageUpload(ns, name string, yaml []byte) error {
 	f.stageUploadYAML = yaml
 	return f.stageUploadErr
 }
+func (f *fakeBlueprintAdmin) EffectiveBlueprintIdentity(ns, name string) string {
+	return "effective/" + name
+}
 func (f *fakeBlueprintAdmin) RemoveUpload(nsName string) error {
 	f.removeUploadCalled = true
 	f.removeUploadName = nsName
@@ -259,12 +262,18 @@ func TestStageUploadHappy(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("want 200, got %d", resp.StatusCode)
 	}
-	var got map[string]string
+	var got struct {
+		Status string `json:"status"`
+		Name   string `json:"name"`
+	}
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got["status"] != "staged" {
+	if got.Status != "staged" {
 		t.Fatalf("want status=staged, got %+v", got)
+	}
+	if got.Name != "effective/my-bp" {
+		t.Fatalf("want effective runtime identity, got %+v", got)
 	}
 	if !admin.stageUploadCalled {
 		t.Fatal("StageUpload not called")

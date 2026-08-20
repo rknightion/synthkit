@@ -12,6 +12,28 @@ synthkit embeds an operator control plane served on port **8088** (configured vi
 
 All GET endpoints are open (no auth). POST mutation endpoints require HTTP Basic auth when `CONTROL_TOKEN` is set.
 
+## State vocabulary
+
+These terms describe different points in the blueprint lifecycle:
+
+- **Loaded** means the blueprint passed startup loading and is part of the running process.
+- **Enabled** means a loaded blueprint is not in the control state's disabled list. It can be
+  disabled or enabled live; this is not a YAML `enabled:` field.
+- **Emitting** means the running blueprint has produced telemetry observed by the sink-status
+  report. It is a runtime outcome, not a promise made by loading.
+- **Staged** means a custom upload or fetched git blueprint has been written to the staging area
+  for a future restart.
+- **Pending** means staged custom/git content differs from the startup manifest, so a restart will
+  add, remove, or update loaded content.
+- **Active** describes a runtime incident scenario currently applied to its qualified
+  `blueprint/scenario` ID.
+
+Use `GET /control/status` for sink readiness and per-blueprint emission, `GET /control/inventory`
+for the live emission/cardinality inventory, `GET /control/health` for per-construct tick and
+process health, `GET /control/diagnostics` for startup/load problems, and
+`GET /control/blueprints/pending` for staged-versus-running changes. `GET /control/blueprints/staged`
+lists staged custom/git blueprints.
+
 ---
 
 ## Operator UI
@@ -43,12 +65,28 @@ When `CONTROL_TOKEN` is set:
 - A browser hitting a guarded route for the first time triggers Chrome/Firefox's native credential dialog.
 - The Grafana Infinity datasource authenticates via `basicAuthUser: control` + `basicAuthPassword: <CONTROL_TOKEN>`.
 
+For the mutation examples below, run this once in Bash or Zsh. When `CONTROL_TOKEN` is set it uses a
+mode-0600 temporary netrc file, keeping the token out of process arguments. When the token is unset,
+requests remain unauthenticated:
+
+```bash
+control_auth=()
+control_netrc=
+if [ -n "${CONTROL_TOKEN:-}" ]; then
+  control_netrc="$(mktemp)"
+  chmod 600 "$control_netrc"
+  printf 'machine 127.0.0.1 login control password %s\n' "$CONTROL_TOKEN" > "$control_netrc"
+  control_auth=(--netrc-file "$control_netrc")
+  trap 'test -z "$control_netrc" || rm -f "$control_netrc"' EXIT
+fi
+```
+
 !!! warning "Set CONTROL_TOKEN when the bind address is non-loopback"
     The startup log warns if `CONTROL_TOKEN` is not set and `JSON_HTTP_ADDR` is not `127.0.0.1`. POST mutations with no auth on a reachable host allow anyone to inject failures, scale workloads down to zero, or disable blueprints.
 
 ```bash
-# Example: curl with auth
-curl -s -u control:${CONTROL_TOKEN} -X POST http://127.0.0.1:8088/control/load \
+# Example: uses the temporary netrc when CONTROL_TOKEN is set
+curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
   -H "Content-Type: application/json" \
   -d '{"volume_multiplier": 2.0}'
 ```
@@ -86,23 +124,29 @@ The root path `/` serves the Infinity JSON host — the full synthetic data sche
 | `POST /control/scenarios` | `{"active_scenarios": ["bp/name", ...]}` | Full replacement of the active scenario list. Kept for backward compatibility; use the item operations for ordinary UI/client toggles. Each id must match a `blueprint/scenario-name` pair in the derived schema. |
 | `POST /control/scenarios/activate` | `{"scenario": "bp/name"}` | Add one active scenario. Idempotent; validates the scenario against the derived schema. |
 | `POST /control/scenarios/deactivate` | `{"scenario": "bp/name"}` | Remove one active scenario. Idempotent; validates the scenario against the derived schema. |
-| `POST /control/scaling` | `{"workload-name": 4, ...}` | Set live workload pod counts (merge into existing scaling map). Each target must be live-scalable within its blueprint-declared bounds. Node count cascades automatically via `fixture.DeriveNodes`. |
+| `POST /control/scaling` | `{"blueprint/workload": 4, ...}` | Set live workload pod counts (merge into existing scaling map). Each target must be live-scalable within its blueprint-declared bounds. Node count cascades automatically via `fixture.DeriveNodes`. |
 | `POST /control/failures` | `{"mode": {"enabled": true, "intensity": 0.8, "scope": "target"}, ...}` | Ad-hoc failure injection (merge). Unknown modes are warned but accepted — an intentional escape hatch for exercising modes not yet in the schema. |
 | `POST /control/blueprints` | `{"disabled_blueprints": ["name", ...]}` | Full replacement of the disabled blueprint list. Kept for backward compatibility; use the item operations for ordinary UI/client toggles. |
 | `POST /control/blueprints/disable` | `{"blueprint": "name"}` | Add one blueprint to the disabled list. Idempotent. |
 | `POST /control/blueprints/enable` | `{"blueprint": "name"}` | Remove one blueprint from the disabled list. Idempotent. |
 | `POST /control/constructs` | `{"disabled_constructs": ["bp/kind:name", ...]}` | Replace the disabled construct instance list. IDs validated against the derived schema. |
 | `POST /control/kinds` | `{"disabled_kinds": ["cloudflare", ...]}` | Replace the disabled construct-kind list. All instances of these kinds go dark. |
-| `POST /control/spanmetrics` | `{"span_metrics_blueprints": ["name", ...]}` | Opt-IN list for synthkit's own span-metrics emission. Default OFF (defer to Grafana Cloud metrics-generator or Beyla). |
+| `POST /control/spanmetrics` | `{"span_metrics_blueprints": ["name", ...]}` | Full replacement of the opt-in list for synthkit's own span-metrics emission. Default OFF (defer to Grafana Cloud metrics-generator or Beyla). |
 | `POST /control/incidents` | `{"blueprint": "...", "mode": "...", "target": "...", "at": "...", "for": "...", "intensity": 0.8}` | Create a runtime incident (server mints the ID). |
 | `DELETE /control/incidents/{id}` | — | Remove a runtime incident by ID. |
-| `POST /control/blueprints/custom` | `{"namespace": "...", "name": "...", "yaml": "..."}` | Stage a custom blueprint upload. Takes effect on next restart. See [custom-blueprints.md](custom-blueprints.md). |
+| `POST /control/blueprints/custom` | `{"namespace": "...", "name": "...", "yaml": "..."}` | Validate the exact upload against the prospective bundled/custom/git set, reject identity collisions, and stage it for the next restart. The response names its effective namespaced runtime identity. See [custom-blueprints.md](custom-blueprints.md). |
 | `DELETE /control/blueprints/custom?name=ns/name` | — | Remove a staged custom blueprint. |
 | `POST /control/blueprints/sources` | SourceView JSON | Upsert a git blueprint source. Token value never echoed in the response. |
 | `DELETE /control/blueprints/sources?id=<id>` | — | Remove a git blueprint source. |
 | `POST /control/blueprints/sources/fetch?id=<id>` | — | Trigger an immediate git fetch for a source. |
-| `POST /control/blueprints/validate` | `{"yaml": "..."}` | Validate a blueprint YAML in isolation. Note: cross-blueprint substrate-identity collisions are NOT detected here; see `GET /control/diagnostics` after a restart. |
+| `POST /control/blueprints/validate` | `{"yaml": "..."}` | Validate blueprint YAML in isolation for automation compatibility. Cross-blueprint collisions are checked by `POST /control/blueprints/custom` when Save stages the exact content. |
 | `POST /control/reset` | — | Reset all control state to defaults. |
+
+Array-bearing mutation routes are replacements, not additive patches: submitting an array omits every
+existing item not included in that request. For routine one-at-a-time scenario and blueprint
+changes, use `/control/scenarios/{activate,deactivate}` and
+`/control/blueprints/{disable,enable}` instead. The item routes are idempotent and avoid replacing
+another operator's change.
 
 ---
 
@@ -111,7 +155,7 @@ The root path `/` serves the Infinity JSON host — the full synthetic data sche
 ### Activate a scenario
 
 ```bash
-curl -s -X POST http://127.0.0.1:8088/control/scenarios/activate \
+curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/scenarios/activate \
   -H "Content-Type: application/json" \
   -d '{"scenario": "mine/db-pressure"}'
 ```
@@ -124,9 +168,9 @@ whole list (including deactivating all scenarios), use `POST /control/scenarios`
 ### Scale a workload live
 
 ```bash
-curl -s -X POST http://127.0.0.1:8088/control/scaling \
+curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/scaling \
   -H "Content-Type: application/json" \
-  -d '{"mine-api": 8}'
+  -d '{"mine/mine-api": 8}'
 ```
 
 Node count cascades: the k8s cluster and EC2 construct both re-derive their node counts via `fixture.DeriveNodes` so the substrate stays consistent. Scale-down retires old pod and node series automatically (`state.DropWhere`).
@@ -134,7 +178,7 @@ Node count cascades: the k8s cluster and EC2 construct both re-derive their node
 ### Inject a failure ad-hoc
 
 ```bash
-curl -s -X POST http://127.0.0.1:8088/control/failures \
+curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/failures \
   -H "Content-Type: application/json" \
   -d '{"connection_saturation": {"enabled": true, "intensity": 0.7, "scope": "mine-db"}}'
 ```
@@ -142,7 +186,7 @@ curl -s -X POST http://127.0.0.1:8088/control/failures \
 ### Check sink readiness
 
 ```bash
-curl -s http://127.0.0.1:8088/control/status | jq '.sinks[] | {name, last_success_ms, failures}'
+curl -fsS http://127.0.0.1:8088/control/status | jq '.sinks[] | {name, last_success_ms, failures}'
 ```
 
 `dry_run: true` in the response means no live push is happening regardless of sink health — re-check `DRY_RUN` in your `.env`.
@@ -150,7 +194,7 @@ curl -s http://127.0.0.1:8088/control/status | jq '.sinks[] | {name, last_succes
 ### Boost volume temporarily
 
 ```bash
-curl -s -X POST http://127.0.0.1:8088/control/load \
+curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
   -H "Content-Type: application/json" \
   -d '{"volume_multiplier": 3.0}'
 ```

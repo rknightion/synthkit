@@ -113,6 +113,9 @@ func (m *Manager) scanCustom() ([]Loaded, []Diag) {
 func (m *Manager) scanGitDirs() ([]Loaded, []Diag) {
 	var out []Loaded
 	var diags []Diag
+	if m.cfg == nil {
+		return out, diags
+	}
 	for _, s := range m.cfg.Sources() {
 		dir := filepath.Join(m.dataDir, gitDir, s.ID)
 		ld, d := m.loadDir(dir, ProvGit, s.ID, func(fn string) (string, bool) {

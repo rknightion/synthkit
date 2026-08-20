@@ -7,6 +7,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -278,18 +279,70 @@ func (c *Config) ValidateLive() error {
 	if c.DryRun {
 		return nil
 	}
+	return c.ValidateMandatory()
+}
+
+// ValidateMandatory checks the static endpoint and credential shape required by the mandatory
+// synthetic-data lanes. Unlike ValidateLive, it runs regardless of DryRun so an explicit preflight
+// can validate a future live configuration while ordinary dry-run startup remains credential-free.
+func (c *Config) ValidateMandatory() error {
 	var missing []string
-	for k, v := range map[string]string{
-		"GC_TOKEN": c.Token, "GC_PROM_RW": c.PromRWURL, "GC_PROM_USER": c.PromUser,
-		"GC_OTLP_ENDPOINT": c.OTLPEndpoint, "GC_OTLP_USER": c.OTLPUser,
-		"GC_LOKI": c.LokiURL, "GC_LOKI_USER": c.LokiUser,
+	for _, field := range []struct {
+		key   string
+		value string
+	}{
+		{key: "GC_TOKEN", value: c.Token},
+		{key: "GC_PROM_RW", value: c.PromRWURL},
+		{key: "GC_PROM_USER", value: c.PromUser},
+		{key: "GC_OTLP_ENDPOINT", value: c.OTLPEndpoint},
+		{key: "GC_OTLP_USER", value: c.OTLPUser},
+		{key: "GC_LOKI", value: c.LokiURL},
+		{key: "GC_LOKI_USER", value: c.LokiUser},
 	} {
-		if v == "" {
-			missing = append(missing, k)
+		if field.value == "" {
+			missing = append(missing, field.key)
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("config: DRY_RUN=false but missing: %s", strings.Join(missing, ", "))
+		return fmt.Errorf("config: missing mandatory live settings: %s", strings.Join(missing, ", "))
+	}
+	if err := validateHTTPSURL("GC_PROM_RW", c.PromRWURL, "/api/prom/push"); err != nil {
+		return err
+	}
+	if err := validateHTTPSURL("GC_LOKI", c.LokiURL, "/loki/api/v1/push"); err != nil {
+		return err
+	}
+	if err := validateHTTPSURL("GC_OTLP_ENDPOINT", c.OTLPEndpoint, "/otlp"); err != nil {
+		return err
+	}
+	for _, field := range []struct {
+		key   string
+		value string
+	}{
+		{key: "GC_PROM_USER", value: c.PromUser},
+		{key: "GC_LOKI_USER", value: c.LokiUser},
+		{key: "GC_OTLP_USER", value: c.OTLPUser},
+	} {
+		if err := validatePositiveDecimal(field.key, field.value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateHTTPSURL(key, raw, wantPath string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.Path != wantPath ||
+		u.RawPath != "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return fmt.Errorf("config: %s must be an HTTPS URL with path %s", key, wantPath)
+	}
+	return nil
+}
+
+func validatePositiveDecimal(key, raw string) error {
+	n, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil || n == 0 {
+		return fmt.Errorf("config: %s must be a positive decimal identifier", key)
 	}
 	return nil
 }

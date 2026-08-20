@@ -52,6 +52,7 @@ To prove the Docker path is using your authored checkout rather than a cached pu
 build with the local-source Compose override and then run the same isolated dry run:
 
 ```bash
+test -e .env || install -m 600 .env.example .env
 docker compose -f docker-compose.yml -f docker-compose.build.yml build synthkit
 docker compose -f docker-compose.yml -f docker-compose.build.yml run --rm --no-deps \
   -e DRY_RUN=true -e BLUEPRINT_NAMES=otlp-native synthkit -once -dump
@@ -68,16 +69,11 @@ uses the current checkout's `Dockerfile`, binary, and `blueprints/` directory.
 ## Step 3: Configure credentials
 
 ```bash
-if test -e .env; then
-  printf '%s\n' '.env already exists; review it before changing live-mode settings.' >&2
-else
-  install -m 600 .env.example .env
-  ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
-fi
+test -e .env || install -m 600 .env.example .env
 ```
 
-This creates `.env` with mode `0600`, sets live mode through the non-secret helper, and prints no
-credential values. Open it in your editor. The minimum set for a live push:
+This creates `.env` with mode `0600` without replacing an existing file. Keep `DRY_RUN=true` while
+you add credentials. The minimum set for a live push is:
 
 ```dotenv
 GC_TOKEN=<your-CAP-token>
@@ -88,12 +84,8 @@ GC_OTLP_USER=<stack-id>
 GC_LOKI=https://logs-prod-XXX.grafana.net/loki/api/v1/push
 GC_LOKI_USER=<loki-instance-id>
 BLUEPRINT_NAMES=otlp-native
-DRY_RUN=false
+DRY_RUN=true
 ```
-
-If `.env` already existed, review it first and then run
-`./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env` to make the same
-explicit live-mode transition without replacing the file.
 
 A single Cloud Access Policy token with `metrics:write`, `logs:write`, `traces:write` scopes covers all three sinks. See [Credentials](credentials.md) for the full table including optional RUM, Synthetic Monitoring, Fleet Management, and self-observability destinations.
 
@@ -105,8 +97,13 @@ A single Cloud Access Policy token with `metrics:write`, `logs:write`, `traces:w
 ## Step 4: Push live
 
 ```bash
+./synthkit -preflight
+./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
 ./synthkit
 ```
+
+The preflight sends empty authenticated requests and must report `ready` for Prometheus, Loki, and
+OTLP before you disable dry-run. It prints only redacted lane states and reason codes.
 
 synthkit loads the `.env` file automatically on startup. It runs the emit loop continuously (default tick: every 5 seconds). Let it run for a few ticks so cumulative counter series accumulate before querying.
 
@@ -131,6 +128,13 @@ curl -fsS http://localhost:8088/control/status | jq -e '.dry_run == false'
 ```
 
 This must print `true`; otherwise `DRY_RUN` is still set incorrectly. Each sink should also show `last_success_ms` advancing and `failures: 0` in the operator UI.
+
+`jq` is optional. If it is not installed, use the dependency-free form below and confirm that the
+response contains `"dry_run":false`:
+
+```bash
+curl -fsS http://localhost:8088/control/status
+```
 
 **In Grafana:**
 

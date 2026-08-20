@@ -1,5 +1,5 @@
 interface:
   display_name: "Set up synthkit"
-  short_description: "Prepare a verified synthkit checkout for its first deployment."
+  short_description: "Deploy a verified synthkit checkout for its first run."
 policy:
   allow_implicit_invocation: true

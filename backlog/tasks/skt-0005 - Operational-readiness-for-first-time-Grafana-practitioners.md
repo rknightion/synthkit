@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-20 10:58'
-updated_date: '2026-08-20 11:53'
+updated_date: '2026-08-20 12:17'
 labels: []
 dependencies: []
 references:
@@ -61,4 +61,6 @@ Audit synthesis complete: 16 child tasks now own every accepted finding. Wave 1 
 Final completeness pass added .17 for mandatory live endpoint/identity/reachability preflight and .18 for reducing always-loaded maintainer history after canonicalization. The initiative now has 18 child tasks; all accepted audit findings have a durable owner.
 
 Wave 1 landed and pushed: implementation 9c93f5c plus tracker finalization ecad9d5. SKT-0005.01 through .03 are Done after four CodeRabbit reviews (final zero findings), make gate, and 26-blueprint dry-run inventory. Wave 2 active with disjoint owners: .04 focused blueprint selection, .05 marketplace relocation, .15 local docs validation, .16 mutation-safe APIs, and .18 slim portable agent contract. Config/control security/readiness tasks remain queued behind these file owners.
+
+Wave 2 landed and pushed on main: implementation e98411b, task finalization 1569d34. Completed SKT-0005.04, .05, .15, .16, and .18 after one integrated CodeRabbit review (5 minor issues, all fixed), make gate, and default/focused dry-run inventories. Wave 3 started with disjoint active lanes SKT-0005.06, .07, .08, and .17; root retains integration, review, Backlog, commit, and push ownership. docs.toml remains unrelated concurrent work and is excluded from campaign staging.
 <!-- SECTION:NOTES:END -->

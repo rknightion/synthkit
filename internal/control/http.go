@@ -643,7 +643,8 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 
 	// POST /control/blueprints/custom — stage a custom blueprint upload (guarded).
 	// Body: {"namespace": "...", "name": "...", "yaml": "..."}.
-	// Calls StageUpload; error (invalid YAML / bad name) → 400; success → {"status":"staged"}.
+	// Calls StageUpload; error (invalid YAML / bad name) → 400; success reports the exact
+	// namespaced runtime identity where the admin can provide it.
 	mux.HandleFunc("POST /control/blueprints/custom", guard(func(w http.ResponseWriter, r *http.Request) {
 		if h.bpadmin == nil {
 			http.Error(w, "blueprint admin not configured", http.StatusNotFound)
@@ -661,7 +662,11 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		writeJSON(w, map[string]string{"status": "staged"})
+		identity := body.Name
+		if named, ok := h.bpadmin.(BlueprintIdentityer); ok {
+			identity = named.EffectiveBlueprintIdentity(body.Namespace, body.Name)
+		}
+		writeJSON(w, StageUploadResponse{Status: "staged", Name: identity})
 	}))
 
 	// DELETE /control/blueprints/custom?name=<ns/name> — remove a staged custom blueprint (guarded).

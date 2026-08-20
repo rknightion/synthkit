@@ -2,12 +2,13 @@
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/rknightion/synthkit/badge)](https://scorecard.dev/viewer/?uri=github.com/rknightion/synthkit)
 
-**Synthetic metrics, traces, logs and RUM for Prometheus, Loki and Grafana Cloud — from one YAML file.**
+**Get a realistic, Grafana-visible metrics, logs, and traces environment from one YAML blueprint — without deploying a real application.**
 
 **[Documentation](https://m7kni.io/synthkit/)** — installation, blueprint reference and the signal catalog.
 
-Composable synthetic-telemetry generator for Grafana Cloud. Declare the infrastructure and
-applications you want — in one YAML **blueprint** — and synthkit emits structurally-correct
+Composable synthetic-telemetry generator for Grafana Cloud. Declare a model of the infrastructure
+and applications you want in one YAML **blueprint** — synthkit does not deploy those applications
+or infrastructure — and it emits structurally-correct
 synthetic metrics, traces, and logs (plus optional Faro/RUM) with the REAL metric/label/field
 names of each technology it models: EKS + the k8s-monitoring substrate, EC2/ALB/NAT-gateway/EBS/
 S3 CloudWatch families, RDS/ElastiCache, Database Observability (MySQL/Postgres), Azure/GCP CSP,
@@ -79,9 +80,11 @@ so data-plane and control-plane cannot drift.
 
 ## Authoring a blueprint
 
-Copy `blueprints/k8s-minimal.yaml`, rename, declare your environments/cluster/databases/workloads, and
-enable it. The schema is documented in ARCHITECTURE.md §3; unknown constructs or fields fail
-loudly at load. Deleting your blueprint file removes its telemetry and affects nothing else.
+Copy `blueprints/k8s-minimal.yaml`, rename it, and declare the environments, clusters, databases,
+and synthetic workloads you want to model. This is a telemetry model, not a deployment manifest:
+synthkit does not create pods, databases, or application code. The schema is documented in
+ARCHITECTURE.md §3; unknown constructs or fields fail loudly at load. Deleting your blueprint file
+removes its telemetry and affects nothing else.
 
 ```yaml
 name: mine
@@ -125,29 +128,45 @@ Scenarios can also be activated or deactivated live without a restart — see **
 The control plane (`GET /control/ui`, `GET /control/schema`, `GET /control/state`) is available
 by default. Mutation routes require `CONTROL_TOKEN` when set.
 
+For the mutation examples below, run this once in Bash or Zsh. When `CONTROL_TOKEN` is set it writes
+credentials to a mode-0600 temporary netrc file, keeping the token out of process arguments. When
+the token is unset, requests remain unauthenticated:
+
+```bash
+control_auth=()
+control_netrc=
+if [ -n "${CONTROL_TOKEN:-}" ]; then
+  control_netrc="$(mktemp)"
+  chmod 600 "$control_netrc"
+  printf 'machine localhost login control password %s\n' "$CONTROL_TOKEN" > "$control_netrc"
+  control_auth=(--netrc-file "$control_netrc")
+  trap 'test -z "$control_netrc" || rm -f "$control_netrc"' EXIT
+fi
+```
+
 | Route | Method | Description |
 |---|---|---|
 | `/control/schema` | GET | Blueprint-derived schema: all modes, addressable targets, scenarios, live scaling state. |
 | `/control/state` | GET | Current control snapshot (volume multiplier, active scenarios, failures, scaling). |
-| `/control/scenarios` | POST | Activate/deactivate scenarios by `blueprint/name`. Validated against derived schema. |
-| `/control/scaling` | POST | Set live workload pod counts (within blueprint-declared bounds). Node count cascades automatically — k8scluster and ec2 agree via the shared `fixture.DeriveNodes` call. |
+| `/control/scenarios` | POST | Replace the active scenario list using qualified `blueprint/scenario` IDs. Prefer the item routes for ordinary activation/deactivation. |
+| `/control/scaling` | POST | Set live workload pod counts using qualified `blueprint/workload` IDs, within blueprint-declared bounds. Node count cascades automatically. |
 | `/control/failures` | POST | Ad-hoc `{mode → {enabled, intensity, scope}}` override (escape hatch; unknown modes warned, not rejected). |
 | `/control/load` | POST | Master volume multiplier — scales all synthetic volume coherently. |
 
 **Example — activate a scenario:**
 
 ```bash
-curl -s -X POST http://localhost:9090/control/scenarios \
+curl -fsS "${control_auth[@]}" -X POST http://localhost:8088/control/scenarios/activate \
   -H "Content-Type: application/json" \
-  -d '{"active_scenarios": ["mine/db-pressure"]}'
+  -d '{"scenario": "mine/db-pressure"}'
 ```
 
 **Example — scale workload pods live:**
 
 ```bash
-curl -s -X POST http://localhost:9090/control/scaling \
+curl -fsS "${control_auth[@]}" -X POST http://localhost:8088/control/scaling \
   -H "Content-Type: application/json" \
-  -d '{"mine-api": 8}'
+  -d '{"mine/mine-api": 8}'
 # Node count cascades: k8scluster + ec2 both re-derive via fixture.DeriveNodes.
 # Scale-down retires old pod/node series automatically (state.DropWhere).
 ```

@@ -14,7 +14,9 @@ Custom blueprints use the same YAML format as the bundled set. They are managed 
 
 ## Control-plane upload
 
-The simplest way to add a blueprint is `POST /control/blueprints/custom` with a JSON body carrying the namespace, name, and blueprint YAML. The server validates the YAML and the name, writes it to the staging area, and returns `{"status":"staged"}` (an invalid blueprint or bad name returns `400`).
+The simplest way to add a blueprint is `POST /control/blueprints/custom` with a JSON body carrying the namespace, name, and blueprint YAML. The form `name` is required to exactly match the YAML's top-level `name:`. This deliberately removes the former ambiguity: the effective runtime identity is always `{sanitized namespace}/{name}` (or `custom/{name}` when the namespace is empty).
+
+Save is the authoritative preflight. Before it writes, synthkit loads the submitted YAML with that effective identity and validates the prospective built-in + staged custom + staged git set, including substrate identity collisions. A rejected save leaves the existing staged file unchanged and returns `400`.
 
 ```json
 POST /control/blueprints/custom
@@ -23,11 +25,13 @@ Content-Type: application/json
 {
   "namespace": "mine",
   "name": "my-blueprint",
-  "yaml": "name: my-custom-blueprint\n..."
+  "yaml": "name: my-blueprint\n..."
 }
 ```
 
-To check a blueprint **without** staging it, `POST /control/blueprints/validate` with body `{"yaml": "..."}` — it validates one blueprint in isolation and returns the validation result. (It cannot detect cross-blueprint substrate-identity collisions; those are surfaced by `GET /control/diagnostics` and enforced at restart.)
+On success the response includes the effective identity, for example `{"status":"staged","name":"mine/my-blueprint"}`. A form/YAML name mismatch, invalid current YAML, or prospective-set collision returns `400`.
+
+To check a blueprint **without** staging it, `POST /control/blueprints/validate` with body `{"yaml": "..."}`. This JSON automation-compatible endpoint remains an isolated parse and dry-run cardinality check. It is useful feedback while editing, but it does not replace Save's prospective-set preflight.
 
 The blueprint is staged immediately but **does not take effect until restart**. The control-plane UI shows a "restart to apply" banner when staged blueprints differ from what is running. See [Control Plane](control-plane.md) for the full `/control/blueprints` API.
 
@@ -87,17 +91,19 @@ data/blueprints/
 
 ## Namespacing
 
-Every custom blueprint is prefixed with its namespace: `{namespace}/{name}`. This prevents collision between blueprints from different sources. The namespace:
+Every custom blueprint is prefixed with its effective namespace: `{namespace}/{name}`. The effective
+namespace is the submitted namespace after sanitization; an empty submitted namespace falls back to
+`custom`, so the runtime identity is `custom/{name}`. This prevents collision between blueprints from
+different sources. The form name must exactly match YAML `name:`; it is never a second rename. The namespace:
 
-- Is a URL-safe slug (alphanumeric + hyphens).
-- Cannot contain `/` or `__` (the upload separator).
+- Is sanitised to a URL-safe slug (lowercase alphanumeric characters, `_`, and `-`).
 - Is applied at load time, not inside the YAML file — the file's `name:` field is the bare blueprint name; the namespace wraps it.
 
 Blueprint identity (the determinism seed root) includes the namespaced name, so blueprints from different namespaces with the same bare name produce distinct identities and series.
 
 ## Collision handling
 
-At restart, the loader resolves all staged blueprints. If two blueprints from different sources (or a custom and a bundled blueprint) claim the same substrate identity — the same cluster name, AWS account ID + DB name, or network-topology instance — the collision is logged as a diagnostic and the colliding blueprint is skipped. The diagnostic appears in `GET /control/diagnostics`. Fix the collision by renaming the conflicting resource in one of the blueprints, then re-stage and restart.
+Save catches collisions involving a custom upload against the prospective staged set before it writes. At restart, the loader repeats the set check for every source; this still protects git content fetched after a prior upload and logs a diagnostic for anything it skips. Fix the collision by renaming the conflicting resource in one of the blueprints, then re-stage and restart.
 
 ## Restart to apply
 

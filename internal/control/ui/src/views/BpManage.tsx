@@ -88,10 +88,10 @@ export function BpManage(): JSX.Element {
       <style>{VIEW_CSS}</style>
       <div class="pane-head">
         <h1>📦 Custom blueprints</h1>
-        <span class="sub">upload, validate, and manage external blueprint sources</span>
+        <span class="sub">paste, validate, and manage external blueprint sources</span>
       </div>
       <p class="pane-lead">
-        Upload YAML blueprints directly or pull from remote git sources. Changes take effect after a
+        Paste YAML blueprints directly or pull from remote git sources. Changes take effect after a
         process restart.
       </p>
 
@@ -138,7 +138,11 @@ export function BpManage(): JSX.Element {
               when={staged().length > 0}
               fallback={
                 <div class="empty" data-testid="bpm-staged-empty">
-                  No custom or git-sourced blueprints staged. Upload one below or add a source.
+                  <div>No custom or git-sourced blueprints staged.</div>
+                  <div class="bpm-empty-actions">
+                    Start with a bundled example from <code>blueprints/</code>, <a href="#bpm-paste">Paste YAML</a>,
+                    or <a href="#bpm-git-source">add a git source</a>. Validate and save it, then restart to apply.
+                  </div>
                 </div>
               }
             >
@@ -173,7 +177,7 @@ export function BpManage(): JSX.Element {
         <UploadEditor onSaved={() => void store.refresh()} />
 
         {/* ── remote sources panel ──────────────────────────────────────────── */}
-        <section class="sec">
+        <section class="sec" id="bpm-git-source">
           <div class="sec-label">
             Remote sources
             <span class="meta">
@@ -268,7 +272,7 @@ export function BpManage(): JSX.Element {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Upload editor — namespace + name + YAML; Validate then Save.
+// Paste editor — namespace + name + YAML; Validate then Save.
 // ════════════════════════════════════════════════════════════════════════════
 function UploadEditor(props: { onSaved: () => void }): JSX.Element {
   const [namespace, setNamespace] = createSignal("");
@@ -278,6 +282,10 @@ function UploadEditor(props: { onSaved: () => void }): JSX.Element {
   const [validating, setValidating] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
   const [vres, setVres] = createSignal<ValidationResult>();
+  const updateYAML = (value: string) => {
+    setYaml(value);
+    setVres(undefined);
+  };
 
   const cardStr = (r: ValidationResult): string =>
     r.cardinality != null && r.cardinality >= 0
@@ -328,11 +336,11 @@ function UploadEditor(props: { onSaved: () => void }): JSX.Element {
   };
 
   return (
-    <section class="sec">
-      <div class="sec-label">Upload custom blueprint</div>
+    <section class="sec" id="bpm-paste">
+      <div class="sec-label">Paste YAML blueprint</div>
       <div class="panel">
-        <h3>YAML editor</h3>
-        <p class="gh">Paste or type a blueprint YAML. Validate before saving.</p>
+        <h3>Paste YAML</h3>
+        <p class="gh">Paste or type a blueprint YAML. Save performs the same preflight on this exact content.</p>
 
         <div class="bpm-form">
           <div class="bpm-row2">
@@ -347,7 +355,7 @@ function UploadEditor(props: { onSaved: () => void }): JSX.Element {
               />
             </div>
             <div>
-              <label>Blueprint name</label>
+              <label>Blueprint name (must match YAML name)</label>
               <input
                 type="text"
                 placeholder="e.g. myapp (required; no / or __ in name)"
@@ -363,13 +371,14 @@ function UploadEditor(props: { onSaved: () => void }): JSX.Element {
               placeholder={"# blueprint YAML\nname: myapp\nenvironments:\n  - name: prod\n    …"}
               value={yaml()}
               data-testid="bpm-yaml"
-              onInput={(e) => setYaml(e.currentTarget.value)}
+              onInput={(e) => updateYAML(e.currentTarget.value)}
             />
           </div>
 
           <div class="bpm-caveat">
-            Validation checks this blueprint alone. Cross-blueprint name collisions (cluster/db/host/
-            workload reused across blueprints) are reported in Diagnostics after restart.
+            Prospective identity input: <code>{namespace().trim() || "custom"}/{name().trim() || "&lt;name&gt;"}</code>.
+            Save sanitizes it, returns the effective runtime identity, and checks the prospective staged set,
+            including cross-blueprint identity collisions, before it writes.
           </div>
 
           <div class="bpm-actions">
@@ -579,6 +588,8 @@ const VIEW_CSS = `
 
 .empty { color:var(--dim); font-size:13px; padding:14px; text-align:center;
   border:1px dashed var(--bd2); border-radius:10px; background:var(--panel); }
+.bpm-empty-actions { margin-top:8px; line-height:1.5; }
+.bpm-empty-actions a { color:var(--acc); }
 .field-err { color:var(--err); font-size:11.5px; margin:6px 0; min-height:0; }
 
 .bpm-pending { background:var(--warnbg); border:1px solid var(--warnbd); color:var(--warn);

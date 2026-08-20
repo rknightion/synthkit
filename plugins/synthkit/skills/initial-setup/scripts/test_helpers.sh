@@ -406,14 +406,26 @@ test_add_secret_interrupt_cleanup() {
   pass 'add-secret removes the temporary file when interrupted during rename'
 }
 
-test_control_token_recipe() {
+test_secret_recipes() {
   local skill_file="$script_dir/../SKILL.md"
+  local credentials_file="$script_dir/../references/credentials.md"
   if grep -Eq 'grep -v .*CONTROL_TOKEN|\.env\.tmp' "$skill_file"; then
     fail 'SKILL.md still contains the unsafe CONTROL_TOKEN .env.tmp recipe'
   fi
   grep -Fq 'set -o pipefail; openssl rand -hex 24 | bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" CONTROL_TOKEN "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
     fail 'SKILL.md does not use a pipefail-protected add-secret.sh CONTROL_TOKEN pipeline'
-  pass 'SKILL.md routes CONTROL_TOKEN through a pipefail-protected add-secret.sh pipeline'
+  grep -Fq 'bash "$SYNTHKIT_CHECKOUT/plugins/synthkit/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
+    fail 'SKILL.md does not provide a checkout-relative operator GC_TOKEN helper path'
+  grep -Fq 'bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
+    fail 'SKILL.md does not provide a separate plugin-relative agent GC_TOKEN helper path'
+  if grep -Fq 'printf '\''GC_TOKEN=%s\n'\'' "$V" >> "$SYNTHKIT_CHECKOUT/.env"' "$skill_file"; then
+    fail 'SKILL.md still appends operator GC_TOKEN directly to .env'
+  fi
+  grep -Fq '`GC_FARO_COLLECTOR`' "$skill_file" ||
+    fail 'SKILL.md does not route the Faro collector URL through secure secret handling'
+  grep -Fq '| `GC_FARO_COLLECTOR` | **secret credential** |' "$credentials_file" ||
+    fail 'credential reference does not classify the Faro collector URL as secret-bearing'
+  pass 'SKILL.md routes operator secrets through atomic add-secret.sh handling'
 }
 
 run_all() {
@@ -429,7 +441,7 @@ run_all() {
   test_add_secret_failure_cleanup
   test_set_env_interrupt_cleanup
   test_add_secret_interrupt_cleanup
-  test_control_token_recipe
+  test_secret_recipes
 }
 
 case "${1:-all}" in
@@ -439,7 +451,7 @@ case "${1:-all}" in
   sole-line) test_set_env_sole_line; test_add_secret_sole_line ;;
   invalid) test_invalid_keys; test_invalid_values ;;
   cleanup) test_set_env_failure_cleanup; test_add_secret_failure_cleanup; test_set_env_interrupt_cleanup; test_add_secret_interrupt_cleanup ;;
-  skill) test_control_token_recipe ;;
+  skill) test_secret_recipes ;;
   *)
     printf 'usage: %s [all|first-write|replacement|sole-line|invalid|cleanup|skill]\n' "$0" >&2
     exit 2

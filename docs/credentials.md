@@ -109,4 +109,40 @@ cp .env.example .env
 
 The minimum set for a live synthetic push: `GC_TOKEN` + `GC_PROM_RW`/`GC_PROM_USER` + `GC_OTLP_ENDPOINT`/`GC_OTLP_USER` + `GC_LOKI`/`GC_LOKI_USER`. Leave optional blocks empty to disable RUM, SM, FM, and self-obs.
 
+Before switching to live mode, run the explicit preflight:
+
+```bash
+go run ./cmd/synthkit -preflight
+```
+
+For a Compose deployment, run the same command through the image without starting the long-running service:
+
+```bash
+docker compose run --rm --no-deps synthkit -preflight
+```
+
+The preflight first validates configuration locally, then sends an empty authenticated request to each mandatory ingest lane. It does not emit telemetry. Each network request has a five-second timeout and the command exits non-zero unless all three lanes are ready. Output is deliberately redacted; it names only the lane, state, and a fixed reason code:
+
+```text
+prometheus: statically valid
+loki: statically valid
+otlp: statically valid
+prometheus: ready
+loki: unauthorized (http-403)
+otlp: unreachable (tls)
+```
+
+`unauthorized` distinguishes HTTP 401 from 403. `unreachable` distinguishes DNS, TLS, timeout/connection, unexpected HTTP status, and endpoint-path failures. Tokens, endpoint URLs, user IDs, and response bodies are never printed.
+
+Mandatory live values have these static requirements:
+
+| Env var | Required shape |
+|---|---|
+| `GC_PROM_RW` | HTTPS URL ending exactly in `/api/prom/push` |
+| `GC_LOKI` | HTTPS URL ending exactly in `/loki/api/v1/push` |
+| `GC_OTLP_ENDPOINT` | HTTPS base URL ending exactly in `/otlp`; synthkit appends `/v1/traces` or `/v1/metrics` |
+| `GC_PROM_USER`, `GC_LOKI_USER`, `GC_OTLP_USER` | Positive decimal instance or stack ID |
+
+Normal dry-run commands remain credential-free and offline. They do not execute preflight probes; network/auth checks occur only when `-preflight` is supplied. Live startup (`DRY_RUN=false`) always performs the static checks before constructing sinks, so malformed or transposed endpoints fail synchronously rather than during background delivery.
+
 See [Configuration](configuration.md) for the full environment variable reference including behaviour knobs (`TICK_DEFAULT`, `SEND_SHARDS`, queue tunables, etc.).

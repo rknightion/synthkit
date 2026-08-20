@@ -5,9 +5,32 @@ description: What a blueprint is, how it loads, and how one YAML declaration fan
 
 # Blueprints Overview
 
-A blueprint is a single deletable YAML file that declares a synthetic estate. Copy one, rename it, drop it in the `BLUEPRINTS` directory, and synthkit starts emitting structurally-correct metrics, traces, logs, and optional RUM for everything you declared. Delete the file and only that blueprint's telemetry disappears — constructs know nothing about blueprints, so removing one affects nothing else.
+A blueprint is a single deletable YAML file that declares a synthetic estate. It is a telemetry model, not an infrastructure or application deployment manifest: synthkit emits the resulting signals but does not create the declared resources. Delete the file and only that blueprint's telemetry disappears — constructs know nothing about blueprints, so removing one affects nothing else.
 
-Every `*.yaml` file under `BLUEPRINTS` is loaded at startup. Decoding is strict: any unknown top-level key, unknown construct kind, or unknown field inside a construct's config is a loud load error, not a silent ignore.
+Bundled `*.yaml` files under `BLUEPRINTS` (default `./blueprints`) are loaded at startup when
+`BLUEPRINT_NAMES` is unset. Set `BLUEPRINT_NAMES` to a comma-separated list of exact runtime
+identities to load only those blueprints; unselected files are not fully decoded or validated.
+Decoding remains strict for every selected blueprint: any unknown top-level key, unknown construct
+kind, or unknown field inside a construct's config is a loud load error, not a silent ignore.
+
+## Where blueprints come from
+
+- **Bundled:** files shipped in `BLUEPRINTS` are available on the next startup. In a checkout, copy
+  a bundled example to another `*.yaml` file in that directory only when you intentionally maintain
+  a local bundled-style blueprint.
+- **Selected directory:** set `BLUEPRINTS` to a directory containing the `*.yaml` files you want
+  synthkit to load at startup. This replaces the bundled-directory location; it is not a staging
+  directory.
+- **Custom paste/upload:** submit YAML through the control-plane upload endpoint or UI. synthkit
+  validates it and writes it below `BLUEPRINT_DATA_DIR/custom/`; it is **staged** and takes effect
+  after restart. Do not copy files into the root of `BLUEPRINT_DATA_DIR`: that root is manager
+  metadata, not a source directory.
+- **Git source:** configure a source through the control plane, fetch it, then restart. Fetched YAML
+  is staged below `BLUEPRINT_DATA_DIR/git/<source-id>/`; do not write there by hand.
+
+Use `GET /control/blueprints/staged` to see staged custom/git blueprints and
+`GET /control/blueprints/pending` to see whether restart will change what is running. See
+[Custom blueprints](custom-blueprints.md) for the request formats.
 
 ## Anatomy of a blueprint
 
@@ -44,7 +67,7 @@ See [workloads.md](workloads.md) for the per-kind detail.
 
 ### Features and integrations
 
-`features` is a map of Grafana Cloud product declarations (e.g. `synthetic_monitoring`, `fleet_management`). `integrations` is a map of external-source declarations that Grafana Cloud ingests (e.g. `cloudflare`, `csp_azure`, `csp_gcp`, `portkey_gateway`, `langsmith_eval`). Both sections use the same strict-decode path; unknown keys fail at load.
+`features` is a map of registered Grafana Cloud product kinds (for example, `synthetic_monitoring` and `fleet_management`). `integrations` is a map of registered external-source kinds that Grafana Cloud ingests (for example, `cloudflare`, `csp_azure`, `csp_gcp`, `portkey_gateway`, and `langsmith_eval`). Each key must name a supported kind in the matching section; the mapping may contain any supported set. The fields inside each kind's config object are schema-strict, so an unknown config field fails at load.
 
 ### Incidents and scenarios
 
@@ -77,7 +100,7 @@ See [emission-switches.md](emission-switches.md) for the full list of gates.
 
 ## How loading works
 
-At startup synthkit scans `BLUEPRINTS` for `*.yaml` files, strict-decodes each into its Go struct, and runs the topology resolver:
+At startup synthkit selects the configured `BLUEPRINTS` files, strict-decodes each **selected** blueprint into its Go struct, and runs the topology resolver. With `BLUEPRINT_NAMES` unset, every `*.yaml` file is selected.
 
 - Cross-blueprint uniqueness is checked: cluster names, `account_id`, DB names, and cache names must be globally unique across all enabled blueprints.
 - Every string reference (`runs_on`, `calls[].db`, `calls[].cache`, `incidents[].target`) is resolved or the load fails with the list of available names.
@@ -109,7 +132,6 @@ environments:
       node_groups:
         - { name: general, instance_type: m6i.large, desired: 3 }
       k8s_monitoring:
-        enabled: true
         alloy: true
         features:
           cluster_metrics: true

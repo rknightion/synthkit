@@ -3,15 +3,101 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
 	"github.com/rknightion/synthkit/internal/bpsource"
+	"github.com/rknightion/synthkit/internal/preflight"
 	"github.com/rknightion/synthkit/internal/runner"
 )
+
+func TestRunPreflightReportsStaticAndNetworkResultsWithoutValues(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	values := map[string]string{
+		"DRY_RUN":          "true",
+		"GC_PROM_RW":       srv.URL + "/api/prom/push",
+		"GC_PROM_USER":     "7123456",
+		"GC_OTLP_ENDPOINT": srv.URL + "/otlp",
+		"GC_OTLP_USER":     "7234567",
+		"GC_LOKI":          srv.URL + "/loki/api/v1/push",
+		"GC_LOKI_USER":     "7345678",
+		"GC_TOKEN":         "command-test-token-should-never-appear",
+	}
+	for key, value := range values {
+		t.Setenv(key, value)
+	}
+	var output strings.Builder
+
+	err := runPreflight(context.Background(), filepath.Join(t.TempDir(), "absent.env"), &output,
+		preflight.Options{Client: srv.Client(), Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := output.String()
+	for _, expected := range []string{
+		"prometheus: statically valid", "loki: statically valid", "otlp: statically valid",
+		"prometheus: ready", "loki: ready", "otlp: ready",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Errorf("output missing %q:\n%s", expected, got)
+		}
+	}
+	for key, value := range values {
+		if strings.Contains(got, value) {
+			t.Fatalf("output exposed %s value %q:\n%s", key, value, got)
+		}
+	}
+	if strings.Contains(got, fmt.Sprint(http.StatusNoContent)) {
+		t.Fatalf("output exposed unnecessary response details: %s", got)
+	}
+}
+
+func TestOrdinaryDryRunRemainsCredentialFreeAndOffline(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	baked := t.TempDir()
+	if err := os.WriteFile(filepath.Join(baked, "minimal.yaml"), []byte("name: minimal\nhosts:\n  - name: h1\n    os: linux\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for key, value := range map[string]string{
+		"DRY_RUN":              "true",
+		"BLUEPRINTS":           baked,
+		"BLUEPRINT_DATA_DIR":   t.TempDir(),
+		"CONFIG_SNAPSHOT_PATH": filepath.Join(t.TempDir(), "control-state.json"),
+		"GC_PROM_RW":           srv.URL + "/api/prom/push",
+		"GC_PROM_USER":         "8123456",
+		"GC_OTLP_ENDPOINT":     srv.URL + "/otlp",
+		"GC_OTLP_USER":         "8234567",
+		"GC_LOKI":              srv.URL + "/loki/api/v1/push",
+		"GC_LOKI_USER":         "8345678",
+		"GC_TOKEN":             "dry-run-token",
+	} {
+		t.Setenv(key, value)
+	}
+
+	if err := run(true, false, filepath.Join(t.TempDir(), "absent.env")); err != nil {
+		t.Fatal(err)
+	}
+	if got := calls.Load(); got != 0 {
+		t.Fatalf("ordinary dry-run made %d network calls", got)
+	}
+}
 
 func TestRunRejectsUnknownBlueprintSelectionBeforeRunnerStart(t *testing.T) {
 	baked := t.TempDir()

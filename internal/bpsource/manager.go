@@ -141,16 +141,13 @@ func (m *Manager) FetchNow(ctx context.Context, id string) error {
 	return nil
 }
 
-// StageUpload validates and writes a blueprint to the custom staging directory.
-// name must not contain '/' or '__'. The YAML is validated via blueprint.Load
-// before writing.
+// StageUpload validates the exact prospective staged set and writes a blueprint to the custom
+// staging directory. The form name is required to match the YAML name; the resulting runtime
+// identity is therefore Namespace(ns, name). Validation runs before the write so a rejected
+// prospective collision cannot leave a staged file that would fail on restart.
 func (m *Manager) StageUpload(ns, name string, data []byte) error {
-	if strings.Contains(name, "/") || strings.Contains(name, "__") {
-		return fmt.Errorf("blueprint name %q must not contain '/' or '__'", name)
-	}
-	// Validate via blueprint.Load (pre-namespace; we just need structural validity).
-	if _, err := blueprint.Load(data, m.reg); err != nil {
-		return fmt.Errorf("bpsource: invalid blueprint: %w", err)
+	if _, err := m.validateUpload(ns, name, data); err != nil {
+		return err
 	}
 	dir := filepath.Join(m.dataDir, customDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -161,6 +158,55 @@ func (m *Manager) StageUpload(ns, name string, data []byte) error {
 		return fmt.Errorf("bpsource: writing upload: %w", err)
 	}
 	return nil
+}
+
+// EffectiveBlueprintIdentity returns the namespaced identity that an accepted upload will have
+// after restart. It is kept beside StageUpload so control callers do not duplicate namespace
+// sanitisation.
+func (m *Manager) EffectiveBlueprintIdentity(ns, name string) string {
+	return Namespace(ns, name)
+}
+
+// validateUpload uses the same loader and set validation as restart, replacing any existing
+// upload with the same effective identity in memory. Existing invalid staged files are ignored
+// here just as startup records them as diagnostics and continues loading the rest of the set.
+func (m *Manager) validateUpload(ns, name string, data []byte) (*blueprint.Resolved, error) {
+	if strings.Contains(name, "/") || strings.Contains(name, "__") {
+		return nil, fmt.Errorf("blueprint name %q must not contain '/' or '__'", name)
+	}
+	declaredName, err := declaredBlueprintName(data)
+	if err != nil {
+		return nil, fmt.Errorf("bpsource: invalid blueprint: %w", err)
+	}
+	if name != declaredName {
+		return nil, fmt.Errorf("blueprint form name %q must match YAML name %q", name, declaredName)
+	}
+	res, err := blueprint.LoadNamespaced(data, SanitizeNS(ns), m.reg)
+	if err != nil {
+		return nil, fmt.Errorf("bpsource: invalid blueprint: %w", err)
+	}
+
+	// Build the same source set restart evaluates, but replace any prior staged instance with the
+	// candidate before checking its cross-blueprint substrate identities.
+	baked, _ := m.scanBaked()
+	custom, _ := m.scanCustom()
+	var git []Loaded
+	if m.git != nil {
+		git, _ = m.scanGitDirs()
+	}
+	loadedSet := append(baked, custom...)
+	loadedSet = append(loadedSet, git...)
+	var candidate []*blueprint.Resolved
+	for _, loaded := range loadedSet {
+		if loaded.Resolved.Name != res.Name {
+			candidate = append(candidate, loaded.Resolved)
+		}
+	}
+	candidate = append(candidate, res)
+	if err := blueprint.ValidateSet(candidate); err != nil {
+		return nil, fmt.Errorf("bpsource: prospective staged set: %w", err)
+	}
+	return res, nil
 }
 
 // RemoveUpload deletes a staged upload by its namespaced name "<ns>/<name>".
