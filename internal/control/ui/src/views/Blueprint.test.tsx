@@ -190,8 +190,8 @@ test("a construct toggle posts the updated disabled_constructs (blueprint/kind:n
   expect(new Set(body.disabled_constructs)).toEqual(new Set(["alpha/rds:db", "alpha/ec2:web"]));
 });
 
-// ── blueprint enable/disable toggle posts disabled_blueprints ────────────────
-test("disabling this blueprint via ConfirmButton posts disabled_blueprints", async () => {
+// ── blueprint enable/disable toggle posts an item mutation ───────────────────
+test("disabling this blueprint via ConfirmButton posts one blueprint mutation", async () => {
   const f = stubFetchOK();
   const store = fakeStore({
     loading: false,
@@ -203,7 +203,8 @@ test("disabling this blueprint via ConfirmButton posts disabled_blueprints", asy
   await userEvent.click(getByText("Enabled"));   // ConfirmButton label → opens confirm
   await userEvent.click(getByText("Disable"));   // confirm label
   await flush();
-  expect(f.bodyFor("blueprints")).toEqual({ disabled_blueprints: ["alpha"] });
+  expect(f.bodyFor("blueprints/disable")).toEqual({ blueprint: "alpha" });
+  expect(f.pathCalled("blueprints")).toBe(false);
 });
 
 // ── disabled blueprint shows a warning banner ────────────────────────────────

@@ -9,6 +9,23 @@ Guide a Grafana staff user from a fresh checkout to a running, verified synthkit
 Ask the right questions, collect every required credential **safely**, write `.env`, deploy with
 docker-compose, and validate. Full variable reference: [references/credentials.md](references/credentials.md).
 
+## Locate the synthkit checkout
+
+Plugin installation provides guidance and helpers only; it does not install synthkit or create a
+checkout. Before any repository command, establish and verify the checkout root:
+
+```bash
+SYNTHKIT_CHECKOUT="/absolute/path/to/synthkit"
+SYNTHKIT_CHECKOUT="$(git -C "$SYNTHKIT_CHECKOUT" rev-parse --show-toplevel)" || exit 1
+test -f "$SYNTHKIT_CHECKOUT/AGENTS.md" && \
+  test -f "$SYNTHKIT_CHECKOUT/docker-compose.yml" && \
+  test -f "$SYNTHKIT_CHECKOUT/.env.example" || exit 1
+cd "$SYNTHKIT_CHECKOUT"
+```
+
+Use `$SYNTHKIT_CHECKOUT` for every repository file and command. Invoke plugin-owned helpers through
+`${CLAUDE_PLUGIN_ROOT}` and pass them absolute targets under `$SYNTHKIT_CHECKOUT`.
+
 **Core rules**
 - NEVER invent an env-var name. Use only the vars in `references/credentials.md` (they are gate-enforced).
 - The customer/synthetic stack and the staff stack NEVER share a token.
@@ -16,19 +33,19 @@ docker-compose, and validate. Full variable reference: [references/credentials.m
 - `DRY_RUN` stays `true` until the dry-run gate passes.
 - NEVER run a command that prints secret values into context: no `cat .env`, no
   `docker compose config` (it interpolates and echoes env values), no `echo "$GC_TOKEN"`. Inspect
-  `.env` only with presence/shape checks like `grep -q '^KEY=.\+' .env`.
+  `.env` only with presence/shape checks like
+  `grep -q '^KEY=.\+' "$SYNTHKIT_CHECKOUT/.env"`.
 
 ## Step 1 — Preflight
 Run (report failures, don't proceed past them):
 - `docker --version && docker compose version` — both must exist.
-- `git rev-parse --show-toplevel` — confirm we're in a synthkit checkout; `ls docker-compose.yml .env.example`.
-- `test -f .env && echo "EXISTS — do NOT clobber; offer to review/extend" || echo "no .env yet"`.
+- `test -f "$SYNTHKIT_CHECKOUT/.env" && echo "EXISTS — do NOT clobber; offer to review/extend" || echo "no .env yet"`.
 
 ## Step 2 — Scope questions (ask before collecting creds)
 Ask the user (use AskUserQuestion):
 1. Customer/synthetic-data stack details ready? (mandatory)
 2. Also ship synthkit's own telemetry to a **staff** stack? → self-observability and/or profiling.
-3. Optional lanes to enable now: Fleet Management, Synthetic Monitoring, RUM (Faro), PDC.
+3. Optional lanes to enable now: Fleet Management, Synthetic Monitoring, RUM (Faro).
 4. Deploy target: this machine (local) now, or a remote host? (remote = handoff, see Step 7).
 5. Network exposure: loopback `127.0.0.1` (default, safest) or `0.0.0.0`?
 Their answers select which credential groups Step 3 collects.
@@ -43,32 +60,37 @@ For each selected lane, look up its exact vars + where to generate them in
 contains the secret value puts that value in model context. The only way that is BOTH out-of-context
 AND readable by docker-compose is **you writing the secret into `.env` from your own shell**.
 
-- **Secure (default):** for each secret var, tell the user to run, in THEIR terminal:
-  `bash plugins/synthkit/skills/initial-setup/scripts/add-secret.sh GC_TOKEN`
-  (or the inline form: `read -rsp "GC_TOKEN: " V && printf 'GC_TOKEN=%s\n' "$V" >> .env && unset V; echo`).
-  Then the agent verifies **presence only**: `grep -q '^GC_TOKEN=.\+' .env && echo ok`. Never print the value.
+- **Secure (default):** after Step 4 has created `.env`, tell the user to run this in THEIR terminal:
+  `read -rsp "GC_TOKEN: " V && printf 'GC_TOKEN=%s\n' "$V" >> "$SYNTHKIT_CHECKOUT/.env" && unset V; echo`
+  This is the primary operator-copyable command; it needs only the checkout-location block above,
+  not a Claude plugin environment.
+- **Agent helper path:** when Claude performs an authorised write, it invokes the relocation-safe
+  helper: `bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"`.
+  Then the agent verifies **presence only**:
+  `grep -q '^GC_TOKEN=.\+' "$SYNTHKIT_CHECKOUT/.env" && echo ok`. Never print the value.
 - **Easy (opt-in):** the user gives the agent the value and the agent writes it with
   `scripts/set-env.sh`. Warn explicitly: "this value will enter the model context."
 
 **The secret vars (always secure path, never `set-env.sh`):** `GC_TOKEN`, `GC_SELF_OTLP_PASSWORD`,
 `GC_PYROSCOPE_PASSWORD`, `GC_FM_TOKEN`, `GC_SM_TOKEN`, `CONTROL_TOKEN`.
 Everything else is non-secret config, written by the agent with
-`bash plugins/synthkit/skills/initial-setup/scripts/set-env.sh KEY VALUE` (it *upserts* — replaces any
-existing line, so re-runs don't duplicate).
+`bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/set-env.sh" KEY VALUE "$SYNTHKIT_CHECKOUT/.env"`
+(it *upserts* — replaces any existing line, so re-runs don't duplicate).
 
 ## Step 4 — Assemble .env
-- If absent: `cp .env.example .env`.
+- If absent: `cp "$SYNTHKIT_CHECKOUT/.env.example" "$SYNTHKIT_CHECKOUT/.env"`.
 - Write the **non-secret** config with `set-env.sh` (it upserts). This includes the six mandatory
   customer-sink endpoints/users — `GC_PROM_RW`, `GC_PROM_USER`, `GC_OTLP_ENDPOINT`, `GC_OTLP_USER`,
   `GC_LOKI`, `GC_LOKI_USER` — plus `DRY_RUN true`, `SYNTHKIT_BIND <choice>`, and the `*_ENABLED`
   flags for chosen lanes (e.g. `SELFOBS_ENABLED true` + `GC_SELF_OTLP_ENDPOINT`,
   `GC_SELF_OTLP_USER` for the staff stack).
 - Generate the control token idempotently (value never printed; strips any prior line first):
-  `set -o pipefail; openssl rand -hex 24 | bash plugins/synthkit/skills/initial-setup/scripts/add-secret.sh CONTROL_TOKEN .env`
-- Collect the **secret** vars via the secure path. Confirm `.env` is gitignored: `git check-ignore .env` → prints `.env`.
+  `set -o pipefail; openssl rand -hex 24 | bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" CONTROL_TOKEN "$SYNTHKIT_CHECKOUT/.env"`
+- Collect the **secret** vars via the secure path. Confirm `.env` is gitignored:
+  `git -C "$SYNTHKIT_CHECKOUT" check-ignore .env` → prints `.env`.
 
 ## Step 5 — Host prep (once per host)
-`mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data`
+`mkdir -p "$SYNTHKIT_CHECKOUT/control-state-data" && sudo chown -R 65532:65532 "$SYNTHKIT_CHECKOUT/control-state-data"`
 (the container runs as uid 65532 and must own the persisted control-state volume).
 
 ## Step 6 — Dry-run gate (before any live push)
@@ -85,11 +107,11 @@ default-branch build), or `vX.Y.Z` to pin a release. To build from local source 
 `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 
 - **Local:** `docker compose up -d`.
-- **Remote (aware/handoff):** synthkit deploys to a standing host via:
-  `ssh <host>` → `cd <repo> && git pull --ff-only` →
-  `mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data` →
-  scp the host's `.env` across → `docker compose up -d`.
-  Set `SYNTHKIT_BIND` deliberately (loopback + SSH tunnel, or PDC, rather than `0.0.0.0` on an
+- **Remote (aware/handoff):** on the standing host, first repeat **Locate the synthkit checkout**
+  against its existing clone. Then, from that verified root: `git pull --ff-only` →
+  `mkdir -p "$SYNTHKIT_CHECKOUT/control-state-data" && sudo chown -R 65532:65532 "$SYNTHKIT_CHECKOUT/control-state-data"` →
+  copy the host's `.env` across → `docker compose up -d`.
+  Set `SYNTHKIT_BIND` deliberately (loopback + SSH tunnel rather than `0.0.0.0` on an
   untrusted network). Full SSH automation is out of scope for v1 — guide the user through these steps.
 
 ## Step 8 — Verify

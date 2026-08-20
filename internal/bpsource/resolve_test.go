@@ -3,8 +3,10 @@
 package bpsource
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/runner"
@@ -55,5 +57,50 @@ func TestScanCustomBadYAMLDegrades(t *testing.T) {
 	}
 	if len(diags) == 0 || diags[0].Severity != "error" {
 		t.Fatal("expected error diag")
+	}
+}
+
+func TestResolveFiltersBeforeBlueprintLoad(t *testing.T) {
+	baked := t.TempDir()
+	data := t.TempDir()
+	writeFile(t, filepath.Join(baked, "selected.yaml"), miniBlueprint)
+	writeFile(t, filepath.Join(baked, "unselected.yaml"), "name: unselected\nunknown: true\n")
+
+	m := NewManager(Options{
+		BakedDir:       baked,
+		DataDir:        data,
+		Registry:       runner.Catalog(),
+		Config:         &fakeConfig{},
+		BlueprintNames: []string{"mini"},
+	})
+	got, _, diags := m.Resolve(context.Background())
+	if err := m.SelectionError(); err != nil {
+		t.Fatalf("SelectionError() = %v", err)
+	}
+	if len(got) != 1 || got[0].Resolved.Name != "mini" {
+		t.Fatalf("loaded = %+v, want only mini", got)
+	}
+	if len(diags) != 0 {
+		t.Fatalf("unselected invalid blueprint must not be resolved: %v", diags)
+	}
+}
+
+func TestResolveRejectsUnknownSelectedBlueprint(t *testing.T) {
+	baked := t.TempDir()
+	writeFile(t, filepath.Join(baked, "mini.yaml"), miniBlueprint)
+	m := NewManager(Options{
+		BakedDir:       baked,
+		DataDir:        t.TempDir(),
+		Registry:       runner.Catalog(),
+		Config:         &fakeConfig{},
+		BlueprintNames: []string{"missing"},
+	})
+	m.Resolve(context.Background())
+	err := m.SelectionError()
+	if err == nil {
+		t.Fatal("unknown selected blueprint must fail")
+	}
+	if !strings.Contains(err.Error(), "missing") || !strings.Contains(err.Error(), "mini") {
+		t.Fatalf("SelectionError() = %v, want requested and available names", err)
 	}
 }

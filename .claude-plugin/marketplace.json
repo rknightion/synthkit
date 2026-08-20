@@ -1,13 +1,13 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "synthkit",
-  "description": "Grafana PS marketplace for synthkit — skills to deploy, verify, and operate the synthetic-telemetry generator.",
+  "description": "Guidance and setup helpers for an existing synthkit checkout; installation does not install the synthkit binary.",
   "owner": { "name": "Grafana PS" },
   "plugins": [
     {
       "name": "synthkit",
       "source": "./plugins/synthkit",
-      "description": "Deploy and operate synthkit: first-run onboarding, deployment verification, blueprint authoring, PDC and Fleet Management setup.",
+      "description": "Guide setup, verification, blueprint authoring, and Fleet Management for an existing synthkit checkout.",
       "version": "0.1.0",
       "keywords": ["grafana", "observability", "synthetic-telemetry", "onboarding", "deployment"]
     }

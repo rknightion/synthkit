@@ -67,7 +67,7 @@ export function Global(): JSX.Element {
   const [volDraft, setVolDraft] = createSignal<number | undefined>();
   const volShown = (): number => volDraft() ?? volume();
 
-  // ── mutations (each clamps/replaces exactly as legacy renderGlobal did) ──────
+  // ── mutations ─────────────────────────────────────────────────────────────
   function commitVolume(v: number) {
     const d = volDesc();
     const cv = d ? clamp(v, d.min, d.max) : v;
@@ -75,9 +75,8 @@ export function Global(): JSX.Element {
     runMutation(postJSON("load", { volume_multiplier: cv }));
   }
   function toggleBlueprint(bp: string) {
-    const dis = disabledSet();
-    dis.has(bp) ? dis.delete(bp) : dis.add(bp);
-    runMutation(postJSON("blueprints", { disabled_blueprints: [...dis] }));
+    const disabled = !disabledSet().has(bp);
+    runMutation(postJSON(`blueprints/${disabled ? "disable" : "enable"}`, { blueprint: bp }));
   }
   function setAllBlueprints(enabled: boolean) {
     if (!blueprints().length) return;

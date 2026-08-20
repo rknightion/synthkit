@@ -69,6 +69,28 @@ func TestLoadDefaultsAndOverrides(t *testing.T) {
 	if cfg.BlueprintsDir != "./blueprints" {
 		t.Fatalf("blueprints dir default: %q", cfg.BlueprintsDir)
 	}
+	if len(cfg.BlueprintNames) != 0 {
+		t.Fatalf("blueprint names default: %v", cfg.BlueprintNames)
+	}
+}
+
+func TestLoadParsesBlueprintNameAllowlist(t *testing.T) {
+	p := writeEnv(t, "BLUEPRINT_NAMES= otlp-native, other ,otlp-native\n")
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.Join(cfg.BlueprintNames, ","), "otlp-native,other"; got != want {
+		t.Fatalf("BlueprintNames = %q, want %q", got, want)
+	}
+
+	empty, err := Load(writeEnv(t, "BLUEPRINT_NAMES= , , \n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(empty.BlueprintNames) != 0 {
+		t.Fatalf("empty BlueprintNames = %v, want no selection", empty.BlueprintNames)
+	}
 }
 
 func TestLoadRejectsInvalidDryRun(t *testing.T) {

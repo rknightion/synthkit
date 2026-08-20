@@ -21,17 +21,44 @@ Requires Go 1.26.5 or later. See [Installation](installation.md) for the Docker 
 
 ---
 
-## Step 2: Dry run — validate blueprints offline
+## Step 2: Dry run one focused workload offline
 
-Before touching credentials, confirm the blueprints load and inspect the full series inventory:
+Before touching credentials, select the bundled `otlp-native` reference blueprint and inspect its
+full series inventory:
 
 ```bash
-DRY_RUN=true ./synthkit -once -dump
+DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
 ```
 
-`-once` runs a single tick and exits. `-dump` prints the complete series/label inventory to stdout — every metric name, label set, and example value that would be pushed. No network calls are made.
+`BLUEPRINT_NAMES` is an optional comma-separated allowlist of exact runtime blueprint names. An
+empty or absent value keeps the established all-blueprint behavior; an unknown name stops startup
+and lists the names that are available. `-once` runs a single tick and exits. `-dump` prints the
+complete series/label inventory to stdout — every metric name, label set, and example value that
+would be pushed. No network calls are made.
 
-Expected output: a `loaded blueprint "<name>"` line per `blueprints/*.yaml` file, a `synthkit up: N blueprints` startup line, then `[dry-run promrw|loki|otlp]` summaries with the series/streams/spans that would be sent.
+Expected output includes `selected blueprints: 1 [otlp-native]` before any sink can push, a
+`loaded blueprint "otlp-native"` line, `synthkit up: 1 blueprints [otlp-native]`, and `[dry-run
+promrw|loki|otlp]` summaries.
+
+The focused runtime identities are:
+
+- Blueprint: `otlp-native`
+- Cluster: `otlp-native-prod-euw1`
+- Workloads and Tempo service names: `otlp-api-enriched` and `otlp-api-naked`
+- Loki stream selector for the enriched service:
+  `{source="app",service_name="otlp-api-enriched",cluster="otlp-native-prod-euw1"}`
+
+To prove the Docker path is using your authored checkout rather than a cached published image,
+build with the local-source Compose override and then run the same isolated dry run:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml build synthkit
+docker compose -f docker-compose.yml -f docker-compose.build.yml run --rm --no-deps \
+  -e DRY_RUN=true -e BLUEPRINT_NAMES=otlp-native synthkit -once -dump
+```
+
+The build override tags the result `synthkit:local` and disables registry pulling, so this command
+uses the current checkout's `Dockerfile`, binary, and `blueprints/` directory.
 
 !!! tip "Use -dump to verify signal contracts"
     Spot-check a few metric names against the [`signals/`](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md) catalogue. synthkit never invents names — anything unexpected is a bug, not a configuration choice.
@@ -60,6 +87,7 @@ GC_OTLP_ENDPOINT=https://otlp-gateway-<region>.grafana.net/otlp
 GC_OTLP_USER=<stack-id>
 GC_LOKI=https://logs-prod-XXX.grafana.net/loki/api/v1/push
 GC_LOKI_USER=<loki-instance-id>
+BLUEPRINT_NAMES=otlp-native
 DRY_RUN=false
 ```
 
@@ -90,7 +118,7 @@ DRY_RUN=false ./synthkit -once
 
 ---
 
-## Step 5: Verify
+## Step 5: Verify the focused workload
 
 **Fastest signal — the operator UI:**
 
@@ -107,16 +135,31 @@ This must print `true`; otherwise `DRY_RUN` is still set incorrectly. Each sink 
 **In Grafana:**
 
 1. Open Explore in your Grafana Cloud stack.
-2. Query a metric from a declared construct, for example:
+2. In Prometheus, query the enriched service's native-OTLP histogram count:
    ```promql
-   kube_node_info
+   http_server_request_duration_seconds_count{service_name="otlp-api-enriched"}
    ```
-   or for an RDS construct:
+   Expect one or more non-empty series. To also confirm the k8s-enriched identity, query:
    ```promql
-   aws_rds_cpuutilization_average
+   target_info{service_name="otlp-api-enriched",k8s_cluster_name="otlp-native-prod-euw1"}
    ```
-3. For traces, open Explore → Tempo and search `service.name="<your-workload-name>"`. Confirm a root request span with a child DB span.
-4. For logs, query Loki with `{source="app"}`.
+   Expect a gauge-1 series. The native active-request metric is also non-empty and is a gauge,
+   not a `_total` counter:
+   ```promql
+   http_server_active_requests{service_name="otlp-api-enriched"}
+   ```
+3. In Loki, query:
+   ```logql
+   {source="app",service_name="otlp-api-enriched",cluster="otlp-native-prod-euw1"}
+   ```
+   Expect log lines after a few ticks.
+4. In Tempo, use TraceQL:
+   ```traceql
+   { resource.service.name = "otlp-api-enriched" }
+   ```
+   Expect one or more traces; open one to confirm a root HTTP request span for the selected
+   service. Repeat the three checks with `otlp-api-naked` to compare its non-enriched resource
+   shape.
 
 !!! info "Ingestion lag"
     Mimir and Loki typically ingest within seconds. Tempo trace search has a short ingestion lag (30s–2m) before new traces appear in search results.

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Set up Fleet Management"
+  short_description: "Configure synthkit's optional Fleet Management lane."
+policy:
+  allow_implicit_invocation: true

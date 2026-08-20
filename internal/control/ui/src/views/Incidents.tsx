@@ -128,12 +128,9 @@ export function Incidents(): JSX.Element {
     void runMutation(postJSON("failures", { [mode]: { enabled: true, intensity, scope } }));
   const setFailureEnabled = (mode: string, f: FailureSetting, enabled: boolean) =>
     void runMutation(postJSON("failures", { [mode]: { enabled, intensity: f.intensity, scope: f.scope || "" } }));
-  // scenarios: {"active_scenarios":[...]} — REPLACE.
+  // scenarios: mutate one id server-side so a stale local state cannot replace another operator's change.
   const toggleScenario = (sc: ScenarioInfo, activate: boolean) => {
-    const set = activeScnSet();
-    const id = scnId(sc);
-    activate ? set.add(id) : set.delete(id);
-    void runMutation(postJSON("scenarios", { active_scenarios: [...set] }));
+    void runMutation(postJSON(`scenarios/${activate ? "activate" : "deactivate"}`, { scenario: scnId(sc) }));
   };
   // incidents/<id> — DELETE one runtime incident.
   const deleteIncident = (id: string) => void runMutation(delJSON("incidents/" + encodeURIComponent(id)));

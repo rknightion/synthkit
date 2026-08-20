@@ -176,8 +176,8 @@ test("a span-metrics toggle posts span_metrics_blueprints", async () => {
   expect(f.bodyFor("spanmetrics")).toEqual({ span_metrics_blueprints: ["alpha"] });
 });
 
-// ── single blueprint toggle posts disabled_blueprints ────────────────────────
-test("an individual blueprint toggle posts the updated disabled_blueprints", async () => {
+// ── single blueprint toggle posts an item mutation ───────────────────────────
+test("an individual blueprint toggle disables one blueprint without posting the full list", async () => {
   const f = stubFetchOK();
   const store = fakeStore({
     loading: false,
@@ -187,7 +187,22 @@ test("an individual blueprint toggle posts the updated disabled_blueprints", asy
   const { getByTestId } = renderGlobal(store);
   await userEvent.click(getByTestId("global-bp-alpha"));
   await flush();
-  expect(f.bodyFor("blueprints")).toEqual({ disabled_blueprints: ["alpha"] });
+  expect(f.bodyFor("blueprints/disable")).toEqual({ blueprint: "alpha" });
+  expect(f.pathCalled("blueprints")).toBe(false);
+});
+
+test("an individual disabled blueprint toggle enables only that blueprint", async () => {
+  const f = stubFetchOK();
+  const store = fakeStore({
+    loading: false,
+    state: defaultState({ disabled_blueprints: ["alpha", "bravo"] }),
+    schema: schema({ blueprints: ["alpha", "bravo"] }),
+  });
+  const { getByTestId } = renderGlobal(store);
+  await userEvent.click(getByTestId("global-bp-alpha"));
+  await flush();
+  expect(f.bodyFor("blueprints/enable")).toEqual({ blueprint: "alpha" });
+  expect(f.pathCalled("blueprints")).toBe(false);
 });
 
 // ── bulk all-off is gated by ConfirmButton ───────────────────────────────────

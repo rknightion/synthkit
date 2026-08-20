@@ -1,4 +1,4 @@
-.PHONY: build test helper-tests cover vet gate race dump run docker skills-sync skills-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker e2e ci spdx-check forbidden-words hygiene secret-scan notices sbom
+.PHONY: build test helper-tests cover vet gate race dump run docker skills-sync skills-check docs-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker e2e ci spdx-check forbidden-words hygiene secret-scan notices sbom
 
 GCX_CONTEXT ?= default
 
@@ -109,6 +109,11 @@ skills-sync:
 # Verify the symlink farm matches the canonical source (fails on drift). Safe for CI.
 skills-check:
 	./scripts/sync-skills.sh --check
+
+# Validate the repository-owned docs.toml contract without the externally generated hub config.
+docs-check:
+	@python3 -c 'import sys; assert sys.version_info >= (3, 11), "Python 3.11 or newer is required for docs-check"'
+	python3 scripts/validate-docs.py
 
 # Regenerate vendored RW2 protobuf Go types (requires protoc + protoc-gen-go on PATH).
 # Install regen toolchain (one-time): go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11

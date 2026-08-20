@@ -46,6 +46,7 @@ type Config struct {
 	TickTimeout      time.Duration // TICK_TIMEOUT seconds (0/unset = disabled) — optional per-blueprint per-tick backstop
 	SeriesCap        int           // SERIES_CAP global sink backstop (0 = unlimited)
 	BlueprintsDir    string        // BLUEPRINTS (default ./blueprints)
+	BlueprintNames   []string      // BLUEPRINT_NAMES (optional comma-separated exact-name allowlist; empty = all)
 	BlueprintDataDir string        // BLUEPRINT_DATA_DIR — persisted staging root for custom/git blueprints (default ./data/blueprints)
 	HTTPAddr         string        // JSON_HTTP_ADDR — control plane + Infinity JSON host over HTTP (default 127.0.0.1:8088)
 	SnapshotPath     string        // CONFIG_SNAPSHOT_PATH — control-plane state (default ./control-state.json)
@@ -141,6 +142,7 @@ func Load(envPath string) (*Config, error) {
 		SigilTenantID:    get("GC_SIGIL_TENANT_ID", ""),
 		SigilToken:       get("GC_SIGIL_TOKEN", ""),
 		BlueprintsDir:    get("BLUEPRINTS", "./blueprints"),
+		BlueprintNames:   parseBlueprintNames(get("BLUEPRINT_NAMES", "")),
 		BlueprintDataDir: get("BLUEPRINT_DATA_DIR", "./data/blueprints"),
 		HTTPAddr:         get("JSON_HTTP_ADDR", "127.0.0.1:8088"),
 		SnapshotPath:     get("CONFIG_SNAPSHOT_PATH", "./control-state.json"),
@@ -250,6 +252,25 @@ func Load(envPath string) (*Config, error) {
 	cfg.SendDrainDeadline = sdd
 
 	return cfg, nil
+}
+
+// parseBlueprintNames turns the optional comma-separated selection into a stable exact-name
+// allowlist. Empty entries are ignored so an absent or blank value retains the all-blueprint default.
+func parseBlueprintNames(raw string) []string {
+	seen := make(map[string]struct{})
+	var names []string
+	for _, part := range strings.Split(raw, ",") {
+		name := strings.TrimSpace(part)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	return names
 }
 
 // ValidateLive checks the credentials a live (non-dry-run) push needs.

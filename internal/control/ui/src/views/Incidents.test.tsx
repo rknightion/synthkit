@@ -221,8 +221,8 @@ test("disabling an active failure posts failures {[mode]:{enabled:false,...}}", 
   });
 });
 
-// ── on-demand: a scenario toggle posts the replace body to scenarios ──────────
-test("a scenario toggle posts active_scenarios to scenarios (replace)", async () => {
+// ── on-demand: a scenario toggle posts an item mutation ──────────────────────
+test("a scenario toggle activates one scenario without posting the full list", async () => {
   const f = stubFetchOK();
   const store = fakeStore({
     loading: false,
@@ -238,7 +238,28 @@ test("a scenario toggle posts active_scenarios to scenarios (replace)", async ()
   const { getByTestId } = renderIncidents(store);
   await userEvent.click(getByTestId("incidents-scn-alpha/outage"));
   await flush();
-  expect(f.bodyFor("scenarios")).toEqual({ active_scenarios: ["alpha/outage"] });
+  expect(f.bodyFor("scenarios/activate")).toEqual({ scenario: "alpha/outage" });
+  expect(f.pathCalled("scenarios")).toBe(false);
+});
+
+test("an active scenario toggle deactivates only that scenario", async () => {
+  const f = stubFetchOK();
+  const store = fakeStore({
+    loading: false,
+    state: defaultState({ active_scenarios: ["alpha/outage", "alpha/latency"] }),
+    schema: schema({
+      blueprints: ["alpha"],
+      modes: [mode("latency")],
+      scenarios: [
+        { blueprint: "alpha", name: "outage", title: "Outage", summary: "", effects: [], active: true },
+      ],
+    }),
+  });
+  const { getByTestId } = renderIncidents(store);
+  await userEvent.click(getByTestId("incidents-scn-alpha/outage"));
+  await flush();
+  expect(f.bodyFor("scenarios/deactivate")).toEqual({ scenario: "alpha/outage" });
+  expect(f.pathCalled("scenarios")).toBe(false);
 });
 
 // ── scheduled: incident delete is ConfirmButton-gated and calls delJSON ───────

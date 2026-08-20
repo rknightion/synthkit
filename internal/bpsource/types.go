@@ -97,12 +97,13 @@ type ValidationResult struct {
 
 // Options configures a Manager at construction time.
 type Options struct {
-	BakedDir string         // cfg.BlueprintsDir (built-ins)
-	DataDir  string         // <volume>/blueprints (custom + git + manifest)
-	Registry *core.Registry // runner.Catalog()
-	Git      GitClient      // nanogit adapter (may be nil → git sources skipped)
-	Config   SourceConfig   // control.Store adapter
-	Now      func() int64   // unix-ms clock (injectable for tests)
+	BakedDir       string         // cfg.BlueprintsDir (built-ins)
+	BlueprintNames []string       // optional exact-name allowlist, applied before full blueprint resolution
+	DataDir        string         // <volume>/blueprints (custom + git + manifest)
+	Registry       *core.Registry // runner.Catalog()
+	Git            GitClient      // nanogit adapter (may be nil → git sources skipped)
+	Config         SourceConfig   // control.Store adapter
+	Now            func() int64   // unix-ms clock (injectable for tests)
 }
 
 // Manager is the composition-root object wiring all of the above. Constructed in main.go.
@@ -120,4 +121,6 @@ type Manager struct {
 	boot       Manifest
 	mu         sync.Mutex
 	latestSHAs map[string]string
+	selection  map[string]struct{}
+	available  map[string]struct{}
 }

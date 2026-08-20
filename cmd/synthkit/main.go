@@ -89,6 +89,32 @@ func run(once, dump bool, envPath string) error {
 	if perr != nil {
 		log.Printf("profiling: failed to start: %v", perr)
 	}
+	// Install shutdown before any later startup step can fail. In particular, an invalid blueprint
+	// selection returns below after profiling has started; it must still flush and stop the process
+	// profiler through the same bounded path as normal shutdown.
+	var (
+		so   *selfobs.SelfObs
+		serr error
+	)
+	defer func() {
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			if so != nil {
+				so.Shutdown(context.Background())
+			}
+			if prof != nil {
+				if err := profiling.StopWithTimeout(prof, 8*time.Second); err != nil {
+					log.Printf("profiling: %v", err)
+				}
+			}
+		}()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			log.Printf("synthkit: shutdown deadline (10s) exceeded — forcing exit")
+		}
+	}()
 	capFn := func() int { return cfg.SeriesCap }
 	prom := promrw.New(cfg.PromRWURL, cfg.PromUser, cfg.Token, cfg.DryRun, capFn)
 	lokiSink := loki.New(cfg.LokiURL, cfg.LokiUser, cfg.Token, cfg.DryRun)
@@ -153,17 +179,21 @@ func run(once, dump bool, envPath string) error {
 	gitClient := bpsource.NewNanogitClient(tokenLookup)
 	sc := bpsource.NewStoreSourceConfig(store)
 	mgr := bpsource.NewManager(bpsource.Options{
-		BakedDir: cfg.BlueprintsDir,
-		DataDir:  cfg.BlueprintDataDir,
-		Registry: reg,
-		Git:      gitClient,
-		Config:   sc,
-		Now:      func() int64 { return time.Now().UnixMilli() },
+		BakedDir:       cfg.BlueprintsDir,
+		BlueprintNames: cfg.BlueprintNames,
+		DataDir:        cfg.BlueprintDataDir,
+		Registry:       reg,
+		Git:            gitClient,
+		Config:         sc,
+		Now:            func() int64 { return time.Now().UnixMilli() },
 	})
 
 	// Resolve loads built-ins + custom uploads + on-disk git blobs, fetching any configured
 	// git sources (degrade-on-error). Replaces the old filepath.Glob + blueprint.Load loop.
 	loaded, _, resolveDiags := mgr.Resolve(context.Background())
+	if err := mgr.SelectionError(); err != nil {
+		return err
+	}
 	for _, d := range resolveDiags {
 		diag.Add(d.Severity, d.Source, d.Stage, d.Detail)
 	}
@@ -171,6 +201,12 @@ func run(once, dump bool, envPath string) error {
 	if len(loaded) == 0 {
 		return fmt.Errorf("no blueprints loaded successfully from %s (see diagnostics/logs)", cfg.BlueprintsDir)
 	}
+	selectedNames := make([]string, 0, len(loaded))
+	for _, l := range loaded {
+		selectedNames = append(selectedNames, l.Resolved.Name)
+	}
+	sort.Strings(selectedNames)
+	log.Printf("selected blueprints: %d %v", len(selectedNames), selectedNames)
 	// Log warnings for all loaded blueprints before validation.
 	for _, l := range loaded {
 		res := l.Resolved
@@ -218,7 +254,7 @@ func run(once, dump bool, envPath string) error {
 	// Suppress self-observability under DRY_RUN: a dry run pushes no synthetic data, so its
 	// operability telemetry is noise that would pollute the staff self-obs stack. SELFOBS_ENABLED
 	// is thus an opt-in that only takes effect on a live run (DRY_RUN=false).
-	so, serr := selfobs.Start(selfobs.Options{
+	so, serr = selfobs.Start(selfobs.Options{
 		Enabled:        cfg.SelfObsEnabled && !cfg.DryRun,
 		Endpoint:       cfg.SelfOTLPEndpoint,
 		User:           cfg.SelfOTLPUser,
@@ -246,26 +282,6 @@ func run(once, dump bool, envPath string) error {
 	if serr != nil {
 		log.Printf("selfobs: failed to start: %v", serr)
 	}
-	// Bounded shutdown for the generator's OWN telemetry (M6). so.Shutdown self-caps at 5s; the
-	// Pyroscope Stop() can otherwise block on in-flight uploads, so it is bounded too — all under an
-	// outer 10s deadline so process exit can never hang. Runs for both the -once and server paths.
-	defer func() {
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			so.Shutdown(context.Background())
-			if prof != nil {
-				if err := profiling.StopWithTimeout(prof, 8*time.Second); err != nil {
-					log.Printf("profiling: %v", err)
-				}
-			}
-		}()
-		select {
-		case <-done:
-		case <-time.After(10 * time.Second):
-			log.Printf("synthkit: shutdown deadline (10s) exceeded — forcing exit")
-		}
-	}()
 	// Fan every push event out to BOTH the selfobs observer (nil when disabled) and the
 	// pushstatus store (always non-nil → sinks are always instrumented for the control-plane
 	// status view). pushstatus and selfobs both consume each event without coupling.

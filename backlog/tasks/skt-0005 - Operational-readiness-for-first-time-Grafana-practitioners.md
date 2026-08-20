@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-20 10:58'
-updated_date: '2026-08-20 11:04'
+updated_date: '2026-08-20 11:53'
 labels: []
 dependencies: []
 references:
@@ -59,4 +59,6 @@ Campaign started at repository head 76ce61c on 2026-08-20. Six read-only audit l
 Audit synthesis complete: 16 child tasks now own every accepted finding. Wave 1 active: .01 safe clone-to-live defaults, .02 canonical agent context/sync, .03 helper/secret safety. Dependency chain then unlocks .04 focused first workload, .05 relocatable marketplace, .06 complete skills, .07 beginner docs, .08 upload validation, .09 git/apply state, .10 readiness, .11 loss/capacity, .12 control/file security, .13 optional product lanes, .14 update/rollback, .15 local docs verification, and .16 mutation-safe APIs. No telemetry-realism task or signal-catalog change was created.
 
 Final completeness pass added .17 for mandatory live endpoint/identity/reachability preflight and .18 for reducing always-loaded maintainer history after canonicalization. The initiative now has 18 child tasks; all accepted audit findings have a durable owner.
+
+Wave 1 landed and pushed: implementation 9c93f5c plus tracker finalization ecad9d5. SKT-0005.01 through .03 are Done after four CodeRabbit reviews (final zero findings), make gate, and 26-blueprint dry-run inventory. Wave 2 active with disjoint owners: .04 focused blueprint selection, .05 marketplace relocation, .15 local docs validation, .16 mutation-safe APIs, and .18 slim portable agent contract. Config/control security/readiness tasks remain queued behind these file owners.
 <!-- SECTION:NOTES:END -->

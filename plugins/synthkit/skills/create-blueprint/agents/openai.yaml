@@ -1,0 +1,5 @@
+interface:
+  display_name: "Create synthkit blueprint"
+  short_description: "Author or edit a blueprint in a verified synthkit checkout."
+policy:
+  allow_implicit_invocation: true

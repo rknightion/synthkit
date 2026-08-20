@@ -112,7 +112,8 @@ type StatusSources struct {
 //
 // Routes: GET /control/schema · GET /control/state · GET /control/ui ·
 // GET /control/blueprint · POST /control/load · POST /control/failures ·
-// POST /control/blueprints · POST /control/scenarios · POST /control/scaling ·
+// POST /control/blueprints · POST /control/blueprints/{disable,enable} ·
+// POST /control/scenarios · POST /control/scenarios/{activate,deactivate} · POST /control/scaling ·
 // POST /control/constructs · POST /control/kinds · POST /control/reset.
 // GETs are strictly side-effect-free (I26).
 func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSource) *Handler {
@@ -325,6 +326,37 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		writeJSON(w, out)
 	}))
 
+	// POST /control/scenarios/activate and /deactivate mutate one scenario without
+	// replacing the active list. Their server-side read/modify/write avoids stale UI
+	// snapshots clearing a scenario changed by another operator.
+	scenarioMutation := func(active bool) http.HandlerFunc {
+		return guard(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Scenario string `json:"scenario"`
+			}
+			if !decodeStrict(w, r, &body) {
+				return
+			}
+			if body.Scenario == "" {
+				http.Error(w, "missing scenario", http.StatusBadRequest)
+				return
+			}
+			if schemaSrc == nil {
+				http.Error(w, "scenarios unavailable: no schema source configured", http.StatusBadRequest)
+				return
+			}
+			if err := validateScenarios([]string{body.Scenario}, schemaSrc.ControlSchema()); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			out := store.SetScenarioActive(body.Scenario, active)
+			apply(out)
+			writeJSON(w, out)
+		})
+	}
+	mux.HandleFunc("POST /control/scenarios/activate", scenarioMutation(true))
+	mux.HandleFunc("POST /control/scenarios/deactivate", scenarioMutation(false))
+
 	// GET /control/incidents — declared + runtime incidents with authoritative active_now.
 	// Side-effect-free (I26); unavailable (404) when no IncidentSource is wired.
 	mux.HandleFunc("GET /control/incidents", func(w http.ResponseWriter, r *http.Request) {
@@ -442,6 +474,29 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		apply(out)
 		writeJSON(w, out)
 	}))
+
+	// POST /control/blueprints/disable and /enable mutate one blueprint without
+	// replacing the disabled list. They are intentionally available without a schema
+	// source, matching the legacy full-replacement endpoint's validation contract.
+	blueprintMutation := func(disabled bool) http.HandlerFunc {
+		return guard(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Blueprint string `json:"blueprint"`
+			}
+			if !decodeStrict(w, r, &body) {
+				return
+			}
+			if body.Blueprint == "" {
+				http.Error(w, "missing blueprint", http.StatusBadRequest)
+				return
+			}
+			out := store.SetBlueprintDisabled(body.Blueprint, disabled)
+			apply(out)
+			writeJSON(w, out)
+		})
+	}
+	mux.HandleFunc("POST /control/blueprints/disable", blueprintMutation(true))
+	mux.HandleFunc("POST /control/blueprints/enable", blueprintMutation(false))
 
 	// POST /control/spanmetrics — {"span_metrics_blueprints": ["name", ...]} (replace).
 	// Opt-IN list (default OFF): a blueprint emits synthkit's own backend spanmetrics/service-graph

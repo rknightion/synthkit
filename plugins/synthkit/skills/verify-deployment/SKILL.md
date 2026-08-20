@@ -8,6 +8,23 @@ description: Use when confirming a synthkit deployment is healthy — checking t
 Confirm the control plane is up and synthetic data is reaching the correct stack(s). Runs standalone
 or as the final step of `initial-setup`.
 
+## Locate the synthkit checkout
+
+Plugin installation provides guidance only; it does not install synthkit or create a checkout.
+Before any repository command, establish and verify the checkout root:
+
+```bash
+SYNTHKIT_CHECKOUT="/absolute/path/to/synthkit"
+SYNTHKIT_CHECKOUT="$(git -C "$SYNTHKIT_CHECKOUT" rev-parse --show-toplevel)" || exit 1
+test -f "$SYNTHKIT_CHECKOUT/AGENTS.md" && \
+  test -f "$SYNTHKIT_CHECKOUT/docker-compose.yml" && \
+  test -f "$SYNTHKIT_CHECKOUT/.env.example" || exit 1
+cd "$SYNTHKIT_CHECKOUT"
+```
+
+All repository paths below are rooted at `$SYNTHKIT_CHECKOUT`. This skill has no plugin-owned
+helper to invoke.
+
 ## Step 1 — Control plane health
 Resolve the bind host (from `.env` `SYNTHKIT_BIND`, default `127.0.0.1`). Then:
 - `curl -fsS http://<bind>:8088/control/status` — sinks should report ready; check `DRY_RUN`.
@@ -32,7 +49,7 @@ where available:
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | status ok but no data | `DRY_RUN=true` still set | set `DRY_RUN=false`, `docker compose up -d` |
-| `curl` connection refused | bound to loopback; querying from elsewhere | query from the host, or set `SYNTHKIT_BIND`/use PDC/SSH tunnel |
+| `curl` connection refused | bound to loopback; querying from elsewhere | query from the host, or use an SSH tunnel |
 | 401/403 on push (logs) | token scope/user mismatch | check the lane's token scopes + `*_USER` value |
 | container restart loop | `control-state-data` not writable | `sudo chown -R 65532:65532 control-state-data` |
 | staff stack empty | reused `GC_TOKEN` instead of staff token | set the separate `GC_SELF_OTLP_*`/`GC_PYROSCOPE_*` creds |

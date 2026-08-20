@@ -101,11 +101,10 @@ export function Blueprint(): JSX.Element {
       .then(() => { setActionErr(undefined); return store.refresh(); })
       .catch((e: unknown) => setActionErr(e instanceof ApiError ? e.message : String(e)));
 
-  // ── mutations (each replaces the FULL list exactly as legacy renderBlueprint did) ──
+  // ── mutations ─────────────────────────────────────────────────────────────
   function toggleBlueprint() {
-    const dis = disabledSet();
-    dis.has(name()) ? dis.delete(name()) : dis.add(name());
-    runMutation(postJSON("blueprints", { disabled_blueprints: [...dis] }));
+    const disabled = !disabledSet().has(name());
+    runMutation(postJSON(`blueprints/${disabled ? "disable" : "enable"}`, { blueprint: name() }));
   }
   function commitScaling(t: TargetInfo, count: number) {
     const sc = t.scalable;

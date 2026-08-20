@@ -83,10 +83,14 @@ The root path `/` serves the Infinity JSON host — the full synthetic data sche
 | Endpoint | Body | Description |
 |---|---|---|
 | `POST /control/load` | `{"volume_multiplier": 1.5}` | Set the master volume multiplier. Scales all synthetic volume coherently. |
-| `POST /control/scenarios` | `{"active_scenarios": ["bp/name", ...]}` | Replace the active scenario list. Each id must match a `blueprint/scenario-name` pair in the derived schema. |
+| `POST /control/scenarios` | `{"active_scenarios": ["bp/name", ...]}` | Full replacement of the active scenario list. Kept for backward compatibility; use the item operations for ordinary UI/client toggles. Each id must match a `blueprint/scenario-name` pair in the derived schema. |
+| `POST /control/scenarios/activate` | `{"scenario": "bp/name"}` | Add one active scenario. Idempotent; validates the scenario against the derived schema. |
+| `POST /control/scenarios/deactivate` | `{"scenario": "bp/name"}` | Remove one active scenario. Idempotent; validates the scenario against the derived schema. |
 | `POST /control/scaling` | `{"workload-name": 4, ...}` | Set live workload pod counts (merge into existing scaling map). Each target must be live-scalable within its blueprint-declared bounds. Node count cascades automatically via `fixture.DeriveNodes`. |
 | `POST /control/failures` | `{"mode": {"enabled": true, "intensity": 0.8, "scope": "target"}, ...}` | Ad-hoc failure injection (merge). Unknown modes are warned but accepted — an intentional escape hatch for exercising modes not yet in the schema. |
-| `POST /control/blueprints` | `{"disabled_blueprints": ["name", ...]}` | Replace the disabled blueprint list. |
+| `POST /control/blueprints` | `{"disabled_blueprints": ["name", ...]}` | Full replacement of the disabled blueprint list. Kept for backward compatibility; use the item operations for ordinary UI/client toggles. |
+| `POST /control/blueprints/disable` | `{"blueprint": "name"}` | Add one blueprint to the disabled list. Idempotent. |
+| `POST /control/blueprints/enable` | `{"blueprint": "name"}` | Remove one blueprint from the disabled list. Idempotent. |
 | `POST /control/constructs` | `{"disabled_constructs": ["bp/kind:name", ...]}` | Replace the disabled construct instance list. IDs validated against the derived schema. |
 | `POST /control/kinds` | `{"disabled_kinds": ["cloudflare", ...]}` | Replace the disabled construct-kind list. All instances of these kinds go dark. |
 | `POST /control/spanmetrics` | `{"span_metrics_blueprints": ["name", ...]}` | Opt-IN list for synthkit's own span-metrics emission. Default OFF (defer to Grafana Cloud metrics-generator or Beyla). |
@@ -107,12 +111,15 @@ The root path `/` serves the Infinity JSON host — the full synthetic data sche
 ### Activate a scenario
 
 ```bash
-curl -s -X POST http://127.0.0.1:8088/control/scenarios \
+curl -s -X POST http://127.0.0.1:8088/control/scenarios/activate \
   -H "Content-Type: application/json" \
-  -d '{"active_scenarios": ["mine/db-pressure"]}'
+  -d '{"scenario": "mine/db-pressure"}'
 ```
 
-Scenarios are identified as `blueprint-name/scenario-name`. To deactivate all scenarios, pass an empty list.
+Scenarios are identified as `blueprint-name/scenario-name`. Item activation/deactivation is safe when
+another client may be changing a different scenario at the same time. To intentionally replace the
+whole list (including deactivating all scenarios), use `POST /control/scenarios` with
+`{"active_scenarios": []}`.
 
 ### Scale a workload live
 

@@ -22,6 +22,9 @@ services:
     env_file: .env
     environment:
       BLUEPRINTS: /app/blueprints
+      # Optional exact-name selection. Empty (the default) retains the full bundled catalog;
+      # set BLUEPRINT_NAMES=otlp-native in .env for the focused first-workload path.
+      BLUEPRINT_NAMES: ${BLUEPRINT_NAMES:-}
       # Override the loopback-safe direct-run default only inside the container so Docker can
       # reach the process through its port mapping. SYNTHKIT_BIND still controls host exposure.
       JSON_HTTP_ADDR: 0.0.0.0:8088

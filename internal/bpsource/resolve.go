@@ -4,11 +4,13 @@ package bpsource
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
+	"gopkg.in/yaml.v3"
 )
 
 // loadDir loads every accepted file in dir. nsFor returns the sanitized namespace
@@ -18,6 +20,9 @@ import (
 func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, nsFor func(fn string) (string, bool)) ([]Loaded, []Diag) {
 	var out []Loaded
 	var diags []Diag
+	if m.available == nil {
+		m.available = map[string]struct{}{}
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, nil // absent dir = nothing staged, not an error
@@ -39,6 +44,22 @@ func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, nsFor fu
 			diags = append(diags, Diag{"error", fn, "read", rerr.Error()})
 			continue
 		}
+		declaredName, nerr := declaredBlueprintName(data)
+		if nerr != nil {
+			diags = append(diags, Diag{"error", fn, "load", nerr.Error()})
+			continue
+		}
+		name := declaredName
+		if prov != ProvBuiltin {
+			name = SanitizeNS(ns) + "/" + declaredName
+		}
+		m.available[name] = struct{}{}
+		if len(m.selection) != 0 {
+			if _, selected := m.selection[name]; !selected {
+				continue
+			}
+		}
+
 		var res *blueprint.Resolved
 		var lerr error
 		if prov == ProvBuiltin {
@@ -53,6 +74,21 @@ func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, nsFor fu
 		out = append(out, Loaded{Resolved: res, Provenance: prov, SourceID: sourceID})
 	}
 	return out, diags
+}
+
+// declaredBlueprintName reads only the declared identity used for source selection. Full schema
+// validation and topology resolution happen later through blueprint.Load.
+func declaredBlueprintName(data []byte) (string, error) {
+	var header struct {
+		Name string `yaml:"name"`
+	}
+	if err := yaml.Unmarshal(data, &header); err != nil {
+		return "", err
+	}
+	if header.Name == "" {
+		return "", fmt.Errorf("blueprint name is required")
+	}
+	return header.Name, nil
 }
 
 // scanBaked loads every *.yaml from the built-in baked blueprints directory.
@@ -96,6 +132,7 @@ func (m *Manager) scanGitDirs() ([]Loaded, []Diag) {
 func (m *Manager) Resolve(ctx context.Context) ([]Loaded, Manifest, []Diag) {
 	var allLoaded []Loaded
 	var allDiags []Diag
+	m.available = map[string]struct{}{}
 
 	// 1. Fetch git sources (degrade on error; seeds latestSHAs).
 	if m.git != nil {

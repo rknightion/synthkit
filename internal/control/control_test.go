@@ -449,6 +449,165 @@ func TestHandlerScenariosEndpoint(t *testing.T) {
 	}
 }
 
+func TestStoreSetBlueprintDisabledAddsAndRemovesOneItemIdempotently(t *testing.T) {
+	st := NewStore(filepath.Join(t.TempDir(), "x.json"))
+	st.SetBlueprintDisabled("alpha", true)
+	st.SetBlueprintDisabled("bravo", true)
+	st.SetBlueprintDisabled("alpha", true)
+	if got := st.Snapshot().DisabledBlueprints; !sameStringSet(got, []string{"alpha", "bravo"}) {
+		t.Fatalf("add must preserve unrelated blueprints and be idempotent: %v", got)
+	}
+
+	st.SetBlueprintDisabled("alpha", false)
+	st.SetBlueprintDisabled("alpha", false)
+	if got := st.Snapshot().DisabledBlueprints; !sameStringSet(got, []string{"bravo"}) {
+		t.Fatalf("remove must preserve unrelated blueprints and be idempotent: %v", got)
+	}
+}
+
+func TestStoreSetScenarioActiveAddsAndRemovesOneItemIdempotently(t *testing.T) {
+	st := NewStore(filepath.Join(t.TempDir(), "x.json"))
+	st.SetScenarioActive("alpha/outage", true)
+	st.SetScenarioActive("bravo/latency", true)
+	st.SetScenarioActive("alpha/outage", true)
+	if got := st.Snapshot().ActiveScenarios; !sameStringSet(got, []string{"alpha/outage", "bravo/latency"}) {
+		t.Fatalf("add must preserve unrelated scenarios and be idempotent: %v", got)
+	}
+
+	st.SetScenarioActive("alpha/outage", false)
+	st.SetScenarioActive("alpha/outage", false)
+	if got := st.Snapshot().ActiveScenarios; !sameStringSet(got, []string{"bravo/latency"}) {
+		t.Fatalf("remove must preserve unrelated scenarios and be idempotent: %v", got)
+	}
+}
+
+func TestStoreItemMutationsPreserveBothConcurrentUpdates(t *testing.T) {
+	st := NewStore(filepath.Join(t.TempDir(), "x.json"))
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for _, name := range []string{"alpha", "bravo"} {
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+			<-start
+			st.SetBlueprintDisabled(name, true)
+		}(name)
+	}
+	for _, id := range []string{"alpha/outage", "bravo/latency"} {
+		wg.Add(1)
+		go func(id string) {
+			defer wg.Done()
+			<-start
+			st.SetScenarioActive(id, true)
+		}(id)
+	}
+	close(start)
+	wg.Wait()
+
+	got := st.Snapshot()
+	if !sameStringSet(got.DisabledBlueprints, []string{"alpha", "bravo"}) {
+		t.Fatalf("concurrent blueprint updates lost state: %v", got.DisabledBlueprints)
+	}
+	if !sameStringSet(got.ActiveScenarios, []string{"alpha/outage", "bravo/latency"}) {
+		t.Fatalf("concurrent scenario updates lost state: %v", got.ActiveScenarios)
+	}
+}
+
+func TestHandlerBlueprintItemEndpointsPreserveOtherStateAndKeepReplacement(t *testing.T) {
+	st := NewStore(filepath.Join(t.TempDir(), "x.json"))
+	h := NewHandler(st, nil, "")
+
+	post := func(path, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("POST", path, strings.NewReader(body)))
+		return rec
+	}
+	if rec := post("/control/blueprints/disable", `{"blueprint":"alpha"}`); rec.Code != http.StatusOK {
+		t.Fatalf("disable one blueprint: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post("/control/blueprints/disable", `{"blueprint":"bravo"}`); rec.Code != http.StatusOK {
+		t.Fatalf("disable unrelated blueprint: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post("/control/blueprints/disable", `{"blueprint":"alpha"}`); rec.Code != http.StatusOK {
+		t.Fatalf("idempotent disable: %d %s", rec.Code, rec.Body)
+	}
+	if got := st.Snapshot().DisabledBlueprints; !sameStringSet(got, []string{"alpha", "bravo"}) {
+		t.Fatalf("item disable lost unrelated state: %v", got)
+	}
+	if rec := post("/control/blueprints/enable", `{"blueprint":"alpha"}`); rec.Code != http.StatusOK {
+		t.Fatalf("enable one blueprint: %d %s", rec.Code, rec.Body)
+	}
+	if got := st.Snapshot().DisabledBlueprints; !sameStringSet(got, []string{"bravo"}) {
+		t.Fatalf("item enable lost unrelated state: %v", got)
+	}
+
+	if rec := post("/control/blueprints", `{"disabled_blueprints":["charlie"]}`); rec.Code != http.StatusOK {
+		t.Fatalf("legacy full replacement: %d %s", rec.Code, rec.Body)
+	}
+	if got := st.Snapshot().DisabledBlueprints; !sameStringSet(got, []string{"charlie"}) {
+		t.Fatalf("full replacement changed semantics: %v", got)
+	}
+}
+
+func TestHandlerScenarioItemEndpointsValidateAndKeepReplacement(t *testing.T) {
+	st := NewStore(filepath.Join(t.TempDir(), "x.json"))
+	schema := testSchema()
+	schema.Scenarios = append(schema.Scenarios, ScenarioInfo{Blueprint: "t", Name: "latency", Title: "Latency"})
+	h := NewHandler(st, nil, "", fakeSchemaSource{schema: schema})
+
+	post := func(path, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("POST", path, strings.NewReader(body)))
+		return rec
+	}
+	if rec := post("/control/scenarios/activate", `{"scenario":"t/db_storm"}`); rec.Code != http.StatusOK {
+		t.Fatalf("activate one scenario: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post("/control/scenarios/activate", `{"scenario":"t/latency"}`); rec.Code != http.StatusOK {
+		t.Fatalf("activate unrelated scenario: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post("/control/scenarios/activate", `{"scenario":"t/db_storm"}`); rec.Code != http.StatusOK {
+		t.Fatalf("idempotent activate: %d %s", rec.Code, rec.Body)
+	}
+	if got := st.Snapshot().ActiveScenarios; !sameStringSet(got, []string{"t/db_storm", "t/latency"}) {
+		t.Fatalf("item activate lost unrelated state: %v", got)
+	}
+	if rec := post("/control/scenarios/activate", `{"scenario":"t/ghost"}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("unknown scenario must be rejected: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post("/control/scenarios/deactivate", `{"scenario":"t/db_storm"}`); rec.Code != http.StatusOK {
+		t.Fatalf("deactivate one scenario: %d %s", rec.Code, rec.Body)
+	}
+	if got := st.Snapshot().ActiveScenarios; !sameStringSet(got, []string{"t/latency"}) {
+		t.Fatalf("item deactivate lost unrelated state: %v", got)
+	}
+
+	if rec := post("/control/scenarios", `{"active_scenarios":["t/db_storm"]}`); rec.Code != http.StatusOK {
+		t.Fatalf("legacy full replacement: %d %s", rec.Code, rec.Body)
+	}
+	if got := st.Snapshot().ActiveScenarios; !sameStringSet(got, []string{"t/db_storm"}) {
+		t.Fatalf("full replacement changed semantics: %v", got)
+	}
+}
+
+func sameStringSet(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	seen := make(map[string]bool, len(got))
+	for _, v := range got {
+		seen[v] = true
+	}
+	for _, v := range want {
+		if !seen[v] {
+			return false
+		}
+	}
+	return true
+}
+
 // TestHandlerScalingEndpoint covers POST /control/scaling: non-scalable target → 400; out-of-bounds
 // → 400; in-bounds → 200 + merged into state.
 func TestHandlerScalingEndpoint(t *testing.T) {

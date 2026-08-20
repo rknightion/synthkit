@@ -173,3 +173,18 @@ After installation the skills are available as `/synthkit:initial-setup`, `/synt
 The same skills work in Codex (reads `.agents/skills/`) and OpenCode (reads `.claude/skills/`). Both directories are populated by `make skills-sync`. Install the tool on a new machine and run `make skills-sync` to get the skills available immediately.
 
 For more on authoring custom blueprints, see [custom-blueprints.md](custom-blueprints.md). For Fleet Management setup, see [fleet-management.md](fleet-management.md). For the full CLI reference, see [cli.md](cli.md).
+
+## Local documentation validation
+
+The documentation hub generates its complete Zensical configuration externally, so a
+fresh clone cannot run that private build locally. Validate the repository-owned
+navigation, every relative Markdown/HTML link, and the intentional `404.md` page with:
+
+```bash
+make docs-check
+```
+
+The command uses only Python 3.11+ standard-library `tomllib`; it does not install
+dependencies or contact the documentation hub. Run it before opening a documentation
+change. The same check runs in `.github/workflows/trigger-docs-sync.yml` before the
+cross-repository sync is dispatched.

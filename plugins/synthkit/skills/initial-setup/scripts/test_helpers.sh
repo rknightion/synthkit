@@ -411,7 +411,7 @@ test_control_token_recipe() {
   if grep -Eq 'grep -v .*CONTROL_TOKEN|\.env\.tmp' "$skill_file"; then
     fail 'SKILL.md still contains the unsafe CONTROL_TOKEN .env.tmp recipe'
   fi
-  grep -Fq 'set -o pipefail; openssl rand -hex 24 | bash plugins/synthkit/skills/initial-setup/scripts/add-secret.sh CONTROL_TOKEN .env' "$skill_file" ||
+  grep -Fq 'set -o pipefail; openssl rand -hex 24 | bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" CONTROL_TOKEN "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
     fail 'SKILL.md does not use a pipefail-protected add-secret.sh CONTROL_TOKEN pipeline'
   pass 'SKILL.md routes CONTROL_TOKEN through a pipefail-protected add-secret.sh pipeline'
 }

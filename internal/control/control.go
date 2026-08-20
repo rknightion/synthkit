@@ -166,6 +166,38 @@ func (s *Store) Update(fn func(*State)) State {
 	return out
 }
 
+// SetBlueprintDisabled atomically adds or removes one blueprint from the disabled set.
+// Repeating the same request leaves the state unchanged.
+func (s *Store) SetBlueprintDisabled(blueprint string, disabled bool) State {
+	return s.Update(func(st *State) {
+		st.DisabledBlueprints = setMember(st.DisabledBlueprints, blueprint, disabled)
+	})
+}
+
+// SetScenarioActive atomically adds or removes one scenario from the active set.
+// Repeating the same request leaves the state unchanged.
+func (s *Store) SetScenarioActive(scenario string, active bool) State {
+	return s.Update(func(st *State) {
+		st.ActiveScenarios = setMember(st.ActiveScenarios, scenario, active)
+	})
+}
+
+func setMember(values []string, value string, present bool) []string {
+	if present {
+		if slices.Contains(values, value) {
+			return values
+		}
+		return append(values, value)
+	}
+	kept := values[:0]
+	for _, v := range values {
+		if v != value {
+			kept = append(kept, v)
+		}
+	}
+	return append([]string{}, kept...)
+}
+
 // Reset returns the state to defaults (persisted atomically under the lock).
 func (s *Store) Reset() State {
 	s.mu.Lock()

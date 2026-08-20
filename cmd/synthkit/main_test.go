@@ -3,12 +3,41 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
 	"github.com/rknightion/synthkit/internal/bpsource"
 	"github.com/rknightion/synthkit/internal/runner"
 )
+
+func TestRunRejectsUnknownBlueprintSelectionBeforeRunnerStart(t *testing.T) {
+	baked := t.TempDir()
+	if err := os.WriteFile(filepath.Join(baked, "known.yaml"), []byte("name: known\nhosts:\n  - name: h1\n    os: linux\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	data := t.TempDir()
+	env := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(env, []byte(strings.Join([]string{
+		"DRY_RUN=true",
+		"BLUEPRINTS=" + baked,
+		"BLUEPRINT_DATA_DIR=" + data,
+		"CONFIG_SNAPSHOT_PATH=" + filepath.Join(data, "control-state.json"),
+		"BLUEPRINT_NAMES=missing",
+	}, "\n")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := run(true, false, env)
+	if err == nil {
+		t.Fatal("run() must reject an unknown selected blueprint")
+	}
+	if !strings.Contains(err.Error(), "missing") || !strings.Contains(err.Error(), "known") {
+		t.Fatalf("run() error = %v, want requested and available names", err)
+	}
+}
 
 func TestIsLoopback(t *testing.T) {
 	cases := []struct {

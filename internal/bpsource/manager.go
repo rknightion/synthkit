@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -29,9 +30,40 @@ func NewManager(opts Options) *Manager {
 		cfg:        opts.Config,
 		now:        now,
 		latestSHAs: map[string]string{},
+		selection:  make(map[string]struct{}, len(opts.BlueprintNames)),
+		available:  map[string]struct{}{},
+	}
+	for _, name := range opts.BlueprintNames {
+		if name = strings.TrimSpace(name); name != "" {
+			m.selection[name] = struct{}{}
+		}
 	}
 	m.boot = readManifest(m.dataDir)
 	return m
+}
+
+// SelectionError reports requested runtime blueprint names that were absent from every configured
+// source. It is checked by the composition root before any runner is built.
+func (m *Manager) SelectionError() error {
+	if len(m.selection) == 0 {
+		return nil
+	}
+	missing := make([]string, 0)
+	for name := range m.selection {
+		if _, ok := m.available[name]; !ok {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	available := make([]string, 0, len(m.available))
+	for name := range m.available {
+		available = append(available, name)
+	}
+	sort.Strings(missing)
+	sort.Strings(available)
+	return fmt.Errorf("bpsource: requested blueprint name(s) %s not found; available: %s", strings.Join(missing, ", "), strings.Join(available, ", "))
 }
 
 // BootManifest returns the last manifest read from disk (set at construction and after Resolve).

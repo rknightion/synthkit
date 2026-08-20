@@ -3,8 +3,8 @@
   "name": "synthkit",
   "displayName": "synthkit",
   "version": "0.1.0",
-  "description": "Skills for deploying and operating synthkit, a synthetic-telemetry generator for Grafana Cloud.",
+  "description": "Guidance and helpers for deploying and operating an existing synthkit checkout.",
   "author": { "name": "synthkit" },
   "repository": "https://github.com/rknightion/synthkit",
-  "license": "Apache-2.0"
+  "license": "AGPL-3.0-only"
 }
