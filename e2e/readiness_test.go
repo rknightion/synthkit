@@ -203,6 +203,7 @@ func startReadinessSynthkit(
 
 	env := map[string]string{
 		"DRY_RUN":             "false",
+		"BLUEPRINT_NAMES":     e2eBlueprint,
 		"JSON_HTTP_ADDR":      "0.0.0.0:8088",
 		"SYNTHKIT_BIND":       "127.0.0.1",
 		"CONTROL_TOKEN":       controlToken,

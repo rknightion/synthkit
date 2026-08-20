@@ -139,6 +139,7 @@ func TestDockerE2E(t *testing.T) {
 			Networks: []string{net.Name},
 			Env: map[string]string{
 				"DRY_RUN":            "false",
+				"BLUEPRINT_NAMES":    e2eBlueprint,
 				"GC_TOKEN":           "e2e",
 				"GC_PROM_RW":         "https://receiver:9099/api/prom/push",
 				"GC_PROM_USER":       "1",
@@ -340,6 +341,7 @@ func dumpSchema(t *testing.T) inventory.Schema {
 	env := os.Environ()
 	env = setEnv(env, "DRY_RUN", "true")
 	env = setEnv(env, "BLUEPRINTS", dir)
+	env = setEnv(env, "BLUEPRINT_NAMES", e2eBlueprint)
 	// Keep synthkit's runtime state under the temp dir — the default ./data/blueprints
 	// is relative to cwd (the e2e package dir), so without this the dump run litters an
 	// e2e/data/ artifact into the repo tree.
