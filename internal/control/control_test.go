@@ -854,6 +854,20 @@ func TestPersistHealthRecordsSuccess(t *testing.T) {
 	}
 }
 
+func TestProbeWriteAtomicallyProvesSnapshotDirectoryWritable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "control-state.json")
+	st := NewStore(path)
+	if err := st.ProbeWrite(); err != nil {
+		t.Fatalf("ProbeWrite: %v", err)
+	}
+	if h := st.PersistHealth(); h.LastOKMs == 0 || h.LastError != "" {
+		t.Fatalf("persist health after probe = %+v", h)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("atomic probe did not create snapshot: %v", err)
+	}
+}
+
 func TestStatusEndpoint(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "control-state.json"))
 	store.Update(func(s *State) {}) // force one successful persist
@@ -878,6 +892,43 @@ func TestStatusEndpoint(t *testing.T) {
 	}
 	if got.Persist.LastOKMs == 0 {
 		t.Fatalf("persist health missing: %+v", got.Persist)
+	}
+}
+
+func TestReadinessEndpointAndStatusShareReport(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "control-state.json"))
+	report := ReadinessReport{Running: true, HTTPReady: true, Ready: false, Reasons: []string{"not attempted"}}
+	h := NewHandler(store, nil, "secret").SetStatus(StatusSources{Readiness: func() ReadinessReport { return report }})
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/control/readiness", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("not-ready status = %d, want 503", rec.Code)
+	}
+	var got ReadinessReport
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Ready || len(got.Reasons) != 1 {
+		t.Fatalf("readiness body = %+v", got)
+	}
+
+	report.Ready = true
+	report.LiveReady = true
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/control/readiness", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ready status = %d, want 200", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/control/status", nil))
+	var status StatusReport
+	if err := json.Unmarshal(rec.Body.Bytes(), &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.Readiness == nil || !status.Readiness.Ready {
+		t.Fatalf("status readiness = %+v", status.Readiness)
 	}
 }
 
@@ -956,16 +1007,19 @@ func TestBlueprintSourcesRoundTrip(t *testing.T) {
 	}
 
 	src := SourceView{
-		ID:          "my-repo",
-		Name:        "My Repo",
-		Namespace:   "myns",
-		URL:         "https://github.com/example/repo",
-		Ref:         "refs/heads/main",
-		Subpath:     "blueprints",
-		TokenEnvVar: "MY_GH_TOKEN",
-		LastSHA:     "abc123",
-		LastFetchMs: 1718700000000,
-		LastErr:     "",
+		ID:             "my-repo",
+		Name:           "My Repo",
+		Namespace:      "myns",
+		URL:            "https://github.com/example/repo",
+		Ref:            "refs/heads/main",
+		Subpath:        "blueprints",
+		TokenEnvVar:    "MY_GH_TOKEN",
+		FetchedSHA:     "abc123",
+		EffectiveNames: []string{},
+		LastFetchMs:    1718700000000,
+		LastErr:        "",
+		LoadedNames:    []string{},
+		Skipped:        []string{},
 	}
 	store.Update(func(s *State) { s.BlueprintSources = []SourceView{src} })
 
@@ -975,7 +1029,7 @@ func TestBlueprintSourcesRoundTrip(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("expected 1 source after reload, got %d: %+v", len(got), got)
 	}
-	if got[0] != src {
+	if !reflect.DeepEqual(got[0], src) {
 		t.Fatalf("source mismatch after round-trip:\n  got  %+v\n  want %+v", got[0], src)
 	}
 
@@ -1019,5 +1073,19 @@ func TestCloneStateRuntimeIncidentsIndependent(t *testing.T) {
 	c.RuntimeIncidents[0].Mode = "mutated"
 	if s.RuntimeIncidents[0].Mode != "x" {
 		t.Fatal("cloneState must deep-copy RuntimeIncidents; original was mutated")
+	}
+}
+
+func TestCloneStateBlueprintSourceSlicesIndependent(t *testing.T) {
+	s := DefaultState()
+	s.BlueprintSources = append(s.BlueprintSources, SourceView{
+		ID: "source", EffectiveNames: []string{"team/app"}, LoadedNames: []string{"team/app"}, Skipped: []string{"bad.yaml"},
+	})
+	c := cloneState(s)
+	c.BlueprintSources[0].EffectiveNames[0] = "mutated"
+	c.BlueprintSources[0].LoadedNames[0] = "mutated"
+	c.BlueprintSources[0].Skipped[0] = "mutated"
+	if s.BlueprintSources[0].EffectiveNames[0] != "team/app" || s.BlueprintSources[0].LoadedNames[0] != "team/app" || s.BlueprintSources[0].Skipped[0] != "bad.yaml" {
+		t.Fatalf("cloneState shared source lifecycle slices: original=%+v clone=%+v", s.BlueprintSources[0], c.BlueprintSources[0])
 	}
 }

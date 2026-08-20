@@ -261,3 +261,41 @@ func resolvedNames(rs []*blueprint.Resolved) []string {
 	}
 	return names
 }
+
+func TestCheckReadinessRequiresHTTP200(t *testing.T) {
+	status := http.StatusServiceUnavailable
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(status)
+	}))
+	defer srv.Close()
+	if err := checkReadiness(context.Background(), srv.Client(), srv.URL); err == nil {
+		t.Fatal("503 readiness unexpectedly succeeded")
+	}
+	status = http.StatusOK
+	if err := checkReadiness(context.Background(), srv.Client(), srv.URL); err != nil {
+		t.Fatalf("200 readiness failed: %v", err)
+	}
+}
+
+func TestReadinessEndpointUsesConfiguredPortAndLoopbackForWildcard(t *testing.T) {
+	cases := map[string]string{
+		"":               "http://127.0.0.1:8088/control/readiness",
+		":9090":          "http://127.0.0.1:9090/control/readiness",
+		"0.0.0.0:7070":   "http://127.0.0.1:7070/control/readiness",
+		"[::]:6060":      "http://127.0.0.1:6060/control/readiness",
+		"127.0.0.1:5050": "http://127.0.0.1:5050/control/readiness",
+		"localhost:4040": "http://localhost:4040/control/readiness",
+	}
+	for addr, want := range cases {
+		got, err := readinessEndpoint(addr)
+		if err != nil {
+			t.Fatalf("readinessEndpoint(%q): %v", addr, err)
+		}
+		if got != want {
+			t.Errorf("readinessEndpoint(%q) = %q, want %q", addr, got, want)
+		}
+	}
+	if _, err := readinessEndpoint("not-an-address"); err == nil {
+		t.Fatal("invalid bind address unexpectedly accepted")
+	}
+}

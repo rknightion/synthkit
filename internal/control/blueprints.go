@@ -63,14 +63,21 @@ type PendingChanges struct {
 // INVARIANT: no raw token ever appears here — only the name of the env var that holds it
 // (TokenEnvVar). NO omitempty (I24: persisted into control.State in Task 14; must round-trip).
 type SourceView struct {
-	ID          string `json:"id"`            // stable slug, also the on-disk dir name
-	Name        string `json:"name"`          // human label
-	Namespace   string `json:"namespace"`     // prefix applied to its blueprints
-	URL         string `json:"url"`           // https://… (no SSH)
-	Ref         string `json:"ref"`           // e.g. "refs/heads/main"
-	Subpath     string `json:"subpath"`       // dir within repo holding *.yaml ("" = root)
-	TokenEnvVar string `json:"token_env_var"` // NAME of env var holding the token ("" = public)
-	LastSHA     string `json:"last_sha"`      // last fetched commit SHA (status only)
-	LastFetchMs int64  `json:"last_fetch_ms"` // unix ms of last successful fetch (status only)
-	LastErr     string `json:"last_err"`      // last fetch error ("" = ok)
+	ID               string   `json:"id"`                 // stable slug, also the on-disk dir name
+	Name             string   `json:"name"`               // human label
+	Namespace        string   `json:"namespace"`          // prefix applied to its blueprints
+	URL              string   `json:"url"`                // https://… (no SSH)
+	Ref              string   `json:"ref"`                // e.g. "refs/heads/main"
+	Subpath          string   `json:"subpath"`            // dir within repo holding *.yaml ("" = root)
+	TokenEnvVar      string   `json:"token_env_var"`      // NAME of env var holding the token ("" = public)
+	FetchedSHA       string   `json:"fetched_sha"`        // commit SHA currently staged on disk
+	FetchedFileCount int      `json:"fetched_file_count"` // number of YAML files in that snapshot
+	EffectiveNames   []string `json:"effective_names"`    // namespaced names derived from fetched YAML
+	ObservedSHA      string   `json:"observed_sha"`       // newest remote SHA observed by FetchNow/poll
+	LastFetchMs      int64    `json:"last_fetch_ms"`      // unix ms of last successful fetch
+	LastErr          string   `json:"last_err"`           // last fetch error ("" = ok)
+	LoadedSHA        string   `json:"loaded_sha"`         // staged SHA most recently evaluated at startup
+	PendingRestart   bool     `json:"pending_restart"`    // fetched snapshot differs from loaded snapshot
+	LoadedNames      []string `json:"loaded_names"`       // effective names successfully loaded at startup
+	Skipped          []string `json:"skipped"`            // restart load failures for this source
 }

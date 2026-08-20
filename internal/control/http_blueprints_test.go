@@ -391,7 +391,7 @@ func TestUpsertSourceHappy(t *testing.T) {
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
-	body := `{"id":"src2","name":"Other Repo","namespace":"ext","url":"https://example.com/other.git","ref":"refs/heads/main","subpath":"","token_env_var":"","last_sha":"","last_fetch_ms":0,"last_err":""}`
+	body := `{"id":"src2","name":"Other Repo","namespace":"ext","url":"https://example.com/other.git","ref":"refs/heads/main","subpath":"","token_env_var":"","last_fetch_ms":0,"last_err":""}`
 	req, _ := http.NewRequest("POST", srv.URL+"/control/blueprints/sources", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBasicAuth("control", token)
@@ -427,7 +427,7 @@ func TestUpsertSourceRequiresToken(t *testing.T) {
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
-	body := `{"id":"src2","name":"Other Repo","namespace":"ext","url":"https://example.com/other.git","ref":"refs/heads/main","subpath":"","token_env_var":"","last_sha":"","last_fetch_ms":0,"last_err":""}`
+	body := `{"id":"src2","name":"Other Repo","namespace":"ext","url":"https://example.com/other.git","ref":"refs/heads/main","subpath":"","token_env_var":"","last_fetch_ms":0,"last_err":""}`
 	req, _ := http.NewRequest("POST", srv.URL+"/control/blueprints/sources", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	// No auth.
@@ -576,7 +576,7 @@ func TestBlueprintMutationAdminNil404(t *testing.T) {
 	}{
 		{"POST", "/control/blueprints/custom", `{"namespace":"x","name":"y","yaml":"z"}`},
 		{"DELETE", "/control/blueprints/custom?name=x/y", ""},
-		{"POST", "/control/blueprints/sources", `{"id":"x","name":"y","namespace":"z","url":"https://example.com","ref":"refs/heads/main","subpath":"","token_env_var":"","last_sha":"","last_fetch_ms":0,"last_err":""}`},
+		{"POST", "/control/blueprints/sources", `{"id":"x","name":"y","namespace":"z","url":"https://example.com","ref":"refs/heads/main","subpath":"","token_env_var":"","last_fetch_ms":0,"last_err":""}`},
 		{"DELETE", "/control/blueprints/sources?id=x", ""},
 		{"POST", "/control/blueprints/sources/fetch?id=x", ""},
 	}

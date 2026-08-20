@@ -225,6 +225,17 @@ func (s *Store) PersistHealth() PersistHealth {
 	return PersistHealth{LastOKMs: s.persistOKMs, LastErrorMs: s.persistErrMs, LastError: s.persistErr}
 }
 
+// ProbeWrite atomically persists the current snapshot without changing its logical contents.
+// Startup calls this before serving control mutations so readiness proves that the mounted state
+// directory supports the same temp-file-plus-rename operation every later mutation depends on.
+func (s *Store) ProbeWrite() error {
+	s.mu.Lock()
+	err := s.persist(cloneState(s.state))
+	s.recordPersist(err)
+	s.mu.Unlock()
+	return err
+}
+
 // PersistHealth is the last snapshot-persist outcome, surfaced via /control/status.
 // It is NOT part of the persisted State (see Store).
 type PersistHealth struct {
@@ -284,7 +295,13 @@ func cloneState(s State) State {
 	out.DisabledKinds = append([]string{}, s.DisabledKinds...)
 	out.SpanMetricsBlueprints = append([]string{}, s.SpanMetricsBlueprints...)
 	out.RuntimeIncidents = append([]RuntimeIncident{}, s.RuntimeIncidents...)
-	out.BlueprintSources = append([]SourceView{}, s.BlueprintSources...)
+	out.BlueprintSources = make([]SourceView, len(s.BlueprintSources))
+	for i, source := range s.BlueprintSources {
+		source.EffectiveNames = append([]string{}, source.EffectiveNames...)
+		source.LoadedNames = append([]string{}, source.LoadedNames...)
+		source.Skipped = append([]string{}, source.Skipped...)
+		out.BlueprintSources[i] = source
+	}
 	return out
 }
 

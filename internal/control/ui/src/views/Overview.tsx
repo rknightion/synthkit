@@ -83,6 +83,7 @@ export function Overview(): JSX.Element {
   const status = () => s().status;
   const diagnostics = (): Diagnostic[] => s().diagnostics ?? [];
   const selfObsURL = () => selfObsDashboardURL(s().config);
+  const readiness = () => status()?.readiness;
 
   const disabledSet = () => new Set(state()?.disabled_blueprints ?? []);
 
@@ -119,6 +120,8 @@ export function Overview(): JSX.Element {
       }
       if (st.persist?.last_error) out.push("persist error: " + st.persist.last_error);
     }
+    const rd = readiness();
+    if (rd && !rd.ready) out.push(...rd.reasons);
     const h = s().health;
     if (h) {
       let dropped = 0;
@@ -211,6 +214,24 @@ export function Overview(): JSX.Element {
             </Show>
           </div>
         </div>
+
+        <Show when={readiness()}>
+          {(rd) => (
+            <section class="readiness-summary" data-testid="overview-readiness">
+              <div class="readiness-summary-title">Deployment readiness: {rd().ready ? "Ready" : "Not ready"}</div>
+              <div class="readiness-summary-meta">
+                {rd().blueprints.loaded} loaded · {rd().blueprints.skipped} skipped · {rd().blueprints.active} active
+                {" · state "}{rd().persisted_state.writable ? "writable" : "not writable"}
+              </div>
+              <Show when={rd().lanes.length > 0}>
+                <div class="readiness-summary-lanes"><For each={rd().lanes}>{(lane) => <span>{lane.name}: {lane.state}</span>}</For></div>
+              </Show>
+              <Show when={rd().reasons.length > 0}>
+                <ul class="readiness-summary-reasons"><For each={rd().reasons}>{(reason) => <li>{reason}</li>}</For></ul>
+              </Show>
+            </section>
+          )}
+        </Show>
 
         {/* self-obs deep-link (shown only when GC_SELF_GRAFANA_URL is configured) */}
         <Show when={selfObsURL()}>
@@ -386,6 +407,13 @@ const VIEW_CSS = `
 .verdict .vtitle { font-weight:800; font-size:15px; margin-bottom:4px; }
 .verdict .vreasons { font-weight:500; font-size:12.5px; margin-top:4px; list-style:none; padding:0; }
 .verdict .vreasons li::before { content:"• "; }
+
+.readiness-summary { margin:-10px 0 22px; padding:11px 14px; border:1px solid var(--bd); border-radius:10px;
+  background:var(--panel2); font-size:12px; }
+.readiness-summary-title { font:700 13px system-ui; color:var(--tx); }
+.readiness-summary-meta { margin-top:3px; color:var(--dim); }
+.readiness-summary-lanes { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; font:11px var(--mono); }
+.readiness-summary-reasons { margin:8px 0 0; padding-left:16px; color:var(--err); }
 
 .selfobs-link { display:inline-flex; align-items:center; gap:6px; font:600 12px system-ui;
   color:var(--acc); text-decoration:none; border:1px solid var(--accbd); background:var(--acc2);

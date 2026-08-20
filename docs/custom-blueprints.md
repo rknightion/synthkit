@@ -14,7 +14,7 @@ Custom blueprints use the same YAML format as the bundled set. They are managed 
 
 ## Control-plane upload
 
-The simplest way to add a blueprint is `POST /control/blueprints/custom` with a JSON body carrying the namespace, name, and blueprint YAML. The form `name` is required to exactly match the YAML's top-level `name:`. This deliberately removes the former ambiguity: the effective runtime identity is always `{sanitized namespace}/{name}` (or `custom/{name}` when the namespace is empty).
+The simplest way to add a blueprint is `POST /control/blueprints/custom` with a JSON body carrying the namespace, name, and blueprint YAML. The form `name` is required to exactly match the YAML's top-level `name:`. This deliberately removes the former ambiguity: the effective runtime identity is always `{sanitised namespace}/{name}` (or `custom/{name}` when the namespace is empty).
 
 Save is the authoritative preflight. Before it writes, synthkit loads the submitted YAML with that effective identity and validates the prospective built-in + staged custom + staged git set, including substrate identity collisions. A rejected save leaves the existing staged file unchanged and returns `400`.
 
@@ -39,7 +39,7 @@ To remove a staged upload: `DELETE /control/blueprints/custom?name=<namespace>/<
 
 ## Git sources
 
-A git source is a repository (HTTPS only) that synthkit fetches YAML blueprints from on demand. Configure one via `POST /control/blueprints/sources` or through the control-plane UI:
+A git source moves through four explicit states: **configured → fetched → staged → loaded**. Configure one through the control-plane UI, which performs **Add source → Fetch now** as one guided operation, or use `POST /control/blueprints/sources` followed by `POST /control/blueprints/sources/fetch?id=<id>` yourself:
 
 ```json
 {
@@ -55,19 +55,19 @@ A git source is a repository (HTTPS only) that synthkit fetches YAML blueprints 
 
 | Field | Description |
 |---|---|
-| `id` | Stable slug, also the on-disk directory name under `git/`. |
+| `id` | Required stable lowercase slug (letters, numbers, `_`, `-`), also the on-disk directory name under `git/`. |
 | `name` | Human-readable label shown in the UI. |
-| `namespace` | Prefix applied to every blueprint name from this source (`namespace/blueprint-name`). |
-| `url` | Repository URL (HTTPS). SSH is not supported. |
-| `ref` | Git ref to fetch from, e.g. `refs/heads/main` or `refs/tags/v1.0`. |
+| `namespace` | Required lowercase slug, applied to every blueprint name from this source (`namespace/blueprint-name`). It is validated rather than silently rewritten. |
+| `url` | Required absolute HTTPS repository URL with a non-empty host. SSH, embedded credentials, and fragments are rejected. |
+| `ref` | Required Git ref, e.g. `refs/heads/main` or `refs/tags/v1.0`. |
 | `subpath` | Directory within the repo holding `*.yaml` files (`""` = repo root). |
 | `token_env_var` | Name of an environment variable holding the HTTPS PAT for private repos. Empty = public repo. The token itself never leaves the server; only the variable name is persisted. |
 
-Trigger a fetch: `POST /control/blueprints/sources/fetch?id=<id>`. Synthkit fetches the remote HEAD SHA, compares it to the last applied SHA, and downloads updated YAML blobs only when the SHA has changed.
+`Fetch now` contacts the remote, reports authentication and network failures immediately, and stages the fetched YAML. Each source reports its fetched SHA, fetched file count, and effective names. A fetch never changes the running process: restart to load that staged snapshot. The source row separately reports the loaded SHA, pending-restart state, and the names loaded or skipped by the most recent restart.
 
 ### Polling for "update available"
 
-Set `GIT_POLL_INTERVAL` (in seconds) to enable background polling. The poller checks `HEAD` for each configured source on the interval and marks sources as "update available" when a new SHA is found. Polling updates only the cached SHA — it does not re-fetch blobs automatically. Use `POST /control/blueprints/sources/fetch?id=<id>` to apply the update, then restart.
+Set `GIT_POLL_INTERVAL` (in seconds) to enable background polling. The poller resolves each configured source's configured ref to its current commit SHA and marks an unseen remote SHA as **update available**. Polling is change detection, not automatic apply: it does not fetch blobs, alter the staged snapshot, or change the running blueprints. Choose **Fetch now** to stage the observed revision, then restart to apply it.
 
 A default fallback PAT for all sources can be set via `GIT_TOKEN`; individual sources override with `token_env_var`. See [Configuration](configuration.md).
 
@@ -87,17 +87,17 @@ data/blueprints/
 
 - `custom/` — uploads, named `<namespace>__<name>.yaml`.
 - `git/<id>/` — one directory per configured source, containing the fetched `*.yaml` blobs.
-- `.boot-manifest.json` — written by the runner at startup; records which blueprints (and git source SHAs) were applied. The control plane diffs this against the current staged state to drive the "restart to apply" banner.
+- `.boot-manifest.json` — written by the runner at startup; records which blueprints (and fetched git source SHAs) were loaded. The control plane diffs this against the current staged state to drive the "restart to apply" banner.
 
 ## Namespacing
 
-Every custom blueprint is prefixed with its effective namespace: `{namespace}/{name}`. The effective
-namespace is the submitted namespace after sanitization; an empty submitted namespace falls back to
-`custom`, so the runtime identity is `custom/{name}`. This prevents collision between blueprints from
-different sources. The form name must exactly match YAML `name:`; it is never a second rename. The namespace:
-
-- Is sanitised to a URL-safe slug (lowercase alphanumeric characters, `_`, and `-`).
-- Is applied at load time, not inside the YAML file — the file's `name:` field is the bare blueprint name; the namespace wraps it.
+Every custom blueprint is prefixed with its effective namespace: `{namespace}/{name}`. For uploads, the
+submitted namespace is sanitised; if sanitisation produces an empty value, it falls back to `custom`, so
+the runtime identity is `custom/{name}`. For git sources, the configured namespace must already be a
+non-empty valid lowercase slug and is rejected if it is not—it is never rewritten. This prevents
+collision between blueprints from different sources. The form name must exactly match YAML `name:`; it is
+never a second rename. The namespace is applied at load time, not inside the YAML file — the file's `name:`
+field is the bare blueprint name; the namespace wraps it.
 
 Blueprint identity (the determinism seed root) includes the namespaced name, so blueprints from different namespaces with the same bare name produce distinct identities and series.
 
@@ -107,7 +107,7 @@ Save catches collisions involving a custom upload against the prospective staged
 
 ## Restart to apply
 
-Custom and git blueprints take effect only on restart. The runner loads all staged blueprints at startup, writes the boot manifest, and runs with that fixed set for its lifetime. There is no hot-reload.
+Custom and git blueprints take effect only on restart. The runner loads the already staged snapshot at startup, writes the boot manifest, and runs with that fixed set for its lifetime. Restarting does not fetch a newer remote revision. There is no hot-reload.
 
 The control-plane endpoint `GET /control/blueprints/pending` returns the diff between the boot manifest and the current staged state:
 
@@ -120,7 +120,20 @@ The control-plane endpoint `GET /control/blueprints/pending` returns the diff be
 }
 ```
 
-`changed` lists git sources whose latest fetched SHA differs from the applied SHA. `restart: true` means a restart is needed to apply pending changes.
+`changed` lists git sources whose fetched SHA differs from the loaded SHA. `restart: true` means a restart is needed to apply pending changes. Use the command matching your deployment:
+
+```bash
+# Docker Compose (the shipped deployment)
+docker compose restart synthkit
+
+# A system service deployment
+systemctl restart synthkit
+
+# Kubernetes
+kubectl rollout restart deployment/synthkit
+```
+
+After the process starts, inspect the source row or `GET /control/blueprints/sources`: it records the loaded SHA plus names that loaded and files skipped during that startup. A skipped file is not silently applied; correct it, Fetch now again, and restart.
 
 ## skcapture and skforge
 

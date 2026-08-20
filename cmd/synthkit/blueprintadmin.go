@@ -70,22 +70,29 @@ func (a *blueprintAdminAdapter) Pending() control.PendingChanges {
 	}
 }
 
-// Sources returns all configured git sources via the SourceConfig.
+// Sources returns configured git sources enriched with the manager's fetched/loaded lifecycle.
 func (a *blueprintAdminAdapter) Sources() []control.SourceView {
-	srcs := a.sc.Sources()
+	srcs := a.mgr.Sources()
 	out := make([]control.SourceView, len(srcs))
 	for i, s := range srcs {
 		out[i] = control.SourceView{
-			ID:          s.ID,
-			Name:        s.Name,
-			Namespace:   s.Namespace,
-			URL:         s.URL,
-			Ref:         s.Ref,
-			Subpath:     s.Subpath,
-			TokenEnvVar: s.TokenEnvVar,
-			LastSHA:     s.LastSHA,
-			LastFetchMs: s.LastFetchMs,
-			LastErr:     s.LastErr,
+			ID:               s.ID,
+			Name:             s.Name,
+			Namespace:        s.Namespace,
+			URL:              s.URL,
+			Ref:              s.Ref,
+			Subpath:          s.Subpath,
+			TokenEnvVar:      s.TokenEnvVar,
+			FetchedSHA:       s.FetchedSHA,
+			FetchedFileCount: s.FetchedFileCount,
+			EffectiveNames:   s.EffectiveNames,
+			ObservedSHA:      s.ObservedSHA,
+			LastFetchMs:      s.LastFetchMs,
+			LastErr:          s.LastErr,
+			LoadedSHA:        s.LoadedSHA,
+			PendingRestart:   s.PendingRestart,
+			LoadedNames:      s.LoadedNames,
+			Skipped:          s.Skipped,
 		}
 	}
 	return out
@@ -93,7 +100,7 @@ func (a *blueprintAdminAdapter) Sources() []control.SourceView {
 
 // UpsertSource adds or replaces a git source configuration.
 func (a *blueprintAdminAdapter) UpsertSource(sv control.SourceView) error {
-	return a.sc.UpsertSource(bpsource.Source{
+	return a.mgr.UpsertSource(bpsource.Source{
 		ID:          sv.ID,
 		Name:        sv.Name,
 		Namespace:   sv.Namespace,
@@ -101,9 +108,6 @@ func (a *blueprintAdminAdapter) UpsertSource(sv control.SourceView) error {
 		Ref:         sv.Ref,
 		Subpath:     sv.Subpath,
 		TokenEnvVar: sv.TokenEnvVar,
-		LastSHA:     sv.LastSHA,
-		LastFetchMs: sv.LastFetchMs,
-		LastErr:     sv.LastErr,
 	})
 }
 

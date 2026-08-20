@@ -60,34 +60,55 @@ func (s *storeSourceConfig) RemoveSource(id string) error {
 }
 
 // sourceToView maps bpsource.Source → control.SourceView field-for-field.
-// JSON tags on both structs are identical so this is a trivial 10-field copy.
+// JSON tags on both structs are identical so this is a trivial field-for-field copy.
 func sourceToView(s Source) control.SourceView {
 	return control.SourceView{
-		ID:          s.ID,
-		Name:        s.Name,
-		Namespace:   s.Namespace,
-		URL:         s.URL,
-		Ref:         s.Ref,
-		Subpath:     s.Subpath,
-		TokenEnvVar: s.TokenEnvVar,
-		LastSHA:     s.LastSHA,
-		LastFetchMs: s.LastFetchMs,
-		LastErr:     s.LastErr,
+		ID:               s.ID,
+		Name:             s.Name,
+		Namespace:        s.Namespace,
+		URL:              s.URL,
+		Ref:              s.Ref,
+		Subpath:          s.Subpath,
+		TokenEnvVar:      s.TokenEnvVar,
+		FetchedSHA:       s.FetchedSHA,
+		FetchedFileCount: s.FetchedFileCount,
+		EffectiveNames:   cloneStrings(s.EffectiveNames),
+		ObservedSHA:      s.ObservedSHA,
+		LastFetchMs:      s.LastFetchMs,
+		LastErr:          s.LastErr,
+		LoadedSHA:        s.LoadedSHA,
+		PendingRestart:   s.PendingRestart,
+		LoadedNames:      cloneStrings(s.LoadedNames),
+		Skipped:          cloneStrings(s.Skipped),
 	}
 }
 
 // viewToSource maps control.SourceView → bpsource.Source field-for-field.
 func viewToSource(v control.SourceView) Source {
 	return Source{
-		ID:          v.ID,
-		Name:        v.Name,
-		Namespace:   v.Namespace,
-		URL:         v.URL,
-		Ref:         v.Ref,
-		Subpath:     v.Subpath,
-		TokenEnvVar: v.TokenEnvVar,
-		LastSHA:     v.LastSHA,
-		LastFetchMs: v.LastFetchMs,
-		LastErr:     v.LastErr,
+		ID:               v.ID,
+		Name:             v.Name,
+		Namespace:        v.Namespace,
+		URL:              v.URL,
+		Ref:              v.Ref,
+		Subpath:          v.Subpath,
+		TokenEnvVar:      v.TokenEnvVar,
+		FetchedSHA:       v.FetchedSHA,
+		FetchedFileCount: v.FetchedFileCount,
+		EffectiveNames:   cloneStrings(v.EffectiveNames),
+		ObservedSHA:      v.ObservedSHA,
+		LastFetchMs:      v.LastFetchMs,
+		LastErr:          v.LastErr,
+		LoadedSHA:        v.LoadedSHA,
+		PendingRestart:   v.PendingRestart,
+		LoadedNames:      cloneStrings(v.LoadedNames),
+		Skipped:          cloneStrings(v.Skipped),
 	}
+}
+
+func cloneStrings(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	return append([]string{}, values...)
 }

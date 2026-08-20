@@ -10,6 +10,19 @@ import type {
   ValidationResult,
 } from "../api/types";
 
+// The shared API type mirrors these fields. Keeping this view-local intersection makes the
+// lifecycle rendering tolerant of a rolling control-plane upgrade that has not yet returned them.
+type LifecycleSource = SourceView & {
+  fetched_sha?: string;
+  fetched_file_count?: number;
+  effective_names?: string[] | null;
+  observed_sha?: string;
+  loaded_sha?: string;
+  pending_restart?: boolean;
+  loaded_names?: string[] | null;
+  skipped?: string[] | null;
+};
+
 // Ports internal/control/ui.html renderBpManage (the form-heavy external-blueprints view):
 // the pending-changes "restart to apply" banner, the staged-blueprint list with provenance
 // badges + custom-delete, the upload editor (namespace/name/YAML + Validate→diagnostics+
@@ -122,6 +135,11 @@ export function BpManage(): JSX.Element {
               <For each={removed()}>{(n) => <li>− {n} (removed)</li>}</For>
               <For each={changed()}>{(n) => <li>~ {n} (changed)</li>}</For>
             </ul>
+            <div class="bpm-restart-help">
+              Restart to apply: <code>docker compose restart synthkit</code> (Docker Compose),{" "}
+              <code>systemctl restart synthkit</code> (system service), or{" "}
+              <code>kubectl rollout restart deployment/synthkit</code> (Kubernetes).
+            </div>
           </div>
         </Show>
 
@@ -187,7 +205,8 @@ export function BpManage(): JSX.Element {
           <div class="panel">
             <h3>Git / remote sources</h3>
             <p class="gh">
-              Registered sources are fetched automatically and staged for the next restart.
+              Add a source, then Fetch now to stage its current revision. Polling only detects a
+              remote revision; it never applies one. Restart after a successful fetch to load it.
             </p>
 
             <Show
@@ -199,8 +218,12 @@ export function BpManage(): JSX.Element {
               }
             >
               <For each={sources()}>
-                {(src) => {
-                  const hasUpdate = () => changedSet().has(src.id);
+                {(rawSource) => {
+                  const src = rawSource as LifecycleSource;
+                  const hasUpdate = () => !!src.observed_sha && src.observed_sha !== src.fetched_sha;
+                  const effectiveNames = () => src.effective_names ?? [];
+                  const loadedNames = () => src.loaded_names ?? [];
+                  const skipped = () => src.skipped ?? [];
                   return (
                     <div class="bpm-source-row" data-testid={"bpm-source-" + src.id}>
                       <div class="bpm-source-head">
@@ -247,8 +270,29 @@ export function BpManage(): JSX.Element {
                             token env var: {src.token_env_var}
                           </span>
                         </Show>
-                        <Show when={src.last_sha}>
-                          <span>sha: {src.last_sha.slice(0, 8)}</span>
+	                        <Show when={src.fetched_sha}>
+                          <span>fetched sha: {src.fetched_sha?.slice(0, 8)}</span>
+                        </Show>
+                        <Show when={src.fetched_file_count != null}>
+                          <span>{src.fetched_file_count} file{src.fetched_file_count === 1 ? "" : "s"} fetched</span>
+                        </Show>
+                        <Show when={effectiveNames().length}>
+                          <span>effective: {effectiveNames().join(", ")}</span>
+                        </Show>
+                        <Show when={hasUpdate()}>
+                          <span>remote sha: {src.observed_sha?.slice(0, 8)} (Fetch now to stage)</span>
+                        </Show>
+                        <Show when={src.loaded_sha}>
+                          <span>loaded sha: {src.loaded_sha?.slice(0, 8)}</span>
+                        </Show>
+                        <Show when={src.pending_restart}>
+                          <span class="bpm-source-pending">restart pending</span>
+                        </Show>
+                        <Show when={loadedNames().length}>
+                          <span>loaded: {loadedNames().join(", ")}</span>
+                        </Show>
+                        <Show when={skipped().length}>
+                          <span class="bpm-source-skipped">skipped: {skipped().join("; ")}</span>
                         </Show>
                         <Show when={src.last_fetch_ms}>
                           <span>fetched: {agoMs(src.last_fetch_ms)}</span>
@@ -440,6 +484,7 @@ function UploadEditor(props: { onSaved: () => void }): JSX.Element {
 // SECURITY: token_env_var is the env-var NAME only; there is NO secret-token input here.
 // ════════════════════════════════════════════════════════════════════════════
 function AddSourceForm(props: { onAdded: () => void }): JSX.Element {
+  const [id, setID] = createSignal("");
   const [name, setName] = createSignal("");
   const [url, setUrl] = createSignal("");
   const [ref, setRef] = createSignal("");
@@ -450,20 +495,29 @@ function AddSourceForm(props: { onAdded: () => void }): JSX.Element {
   const [saving, setSaving] = createSignal(false);
 
   const submit = () => {
+	const sourceID = id().trim();
     const n = name().trim();
     const u = url().trim();
+	const r = ref().trim();
+	const ns = namespace().trim();
+	if (!sourceID) { setErr("Source ID is required."); return; }
     if (!n) { setErr("Source name is required."); return; }
     if (!u) { setErr("URL is required."); return; }
+	if (!/^https:\/\/[^/\s]+/i.test(u)) { setErr("URL must be an HTTPS URL."); return; }
+	if (!ns) { setErr("Namespace is required."); return; }
+	if (!r) { setErr("Ref is required."); return; }
     setErr("");
-    // Build the SourceView POST body; only include optional fields when set (matches legacy).
-    const body: Record<string, string> = { name: n, url: u };
-    if (ref().trim()) body.ref = ref().trim();
-    if (subpath().trim()) body.subpath = subpath().trim();
-    if (namespace().trim()) body.namespace = namespace().trim();
+    // Server validation is authoritative; this catches obvious mistakes before the request, then
+    // Fetch now proves authentication/network access and stages the exact revision.
+    const body: Record<string, string> = { id: sourceID, name: n, url: u, ref: r, namespace: ns };
+    const normalizedSubpath = subpath().trim().replace(/\/+$/, "");
+    if (normalizedSubpath) body.subpath = normalizedSubpath;
     if (tokenEnv().trim()) body.token_env_var = tokenEnv().trim();
     setSaving(true);
     postJSON("blueprints/sources", body)
+      .then(() => postJSON("blueprints/sources/fetch?id=" + encodeURIComponent(sourceID), null))
       .then(() => {
+		setID("");
         setName("");
         setUrl("");
         setRef("");
@@ -481,6 +535,16 @@ function AddSourceForm(props: { onAdded: () => void }): JSX.Element {
       <div class="bpm-addlabel">Add source</div>
       <div class="bpm-form">
         <div class="bpm-row2">
+          <div>
+            <label>Stable source ID</label>
+            <input
+              type="text"
+              placeholder="e.g. my-org-blueprints (lowercase slug; required)"
+              value={id()}
+              data-testid="bpm-src-id"
+              onInput={(e) => setID(e.currentTarget.value)}
+            />
+          </div>
           <div>
             <label>Source name</label>
             <input
@@ -504,10 +568,10 @@ function AddSourceForm(props: { onAdded: () => void }): JSX.Element {
         </div>
         <div class="bpm-row2">
           <div>
-            <label>Ref (branch/tag)</label>
+            <label>Ref (branch/tag; required)</label>
             <input
               type="text"
-              placeholder="main"
+              placeholder="refs/heads/main"
               value={ref()}
               data-testid="bpm-src-ref"
               onInput={(e) => setRef(e.currentTarget.value)}
@@ -517,7 +581,7 @@ function AddSourceForm(props: { onAdded: () => void }): JSX.Element {
             <label>Subpath</label>
             <input
               type="text"
-              placeholder="blueprints/ (optional path within repo)"
+              placeholder="blueprints"
               value={subpath()}
               data-testid="bpm-src-subpath"
               onInput={(e) => setSubpath(e.currentTarget.value)}
@@ -526,10 +590,10 @@ function AddSourceForm(props: { onAdded: () => void }): JSX.Element {
         </div>
         <div class="bpm-row2">
           <div>
-            <label>Namespace prefix (optional)</label>
+            <label>Namespace prefix (lowercase slug; required)</label>
             <input
               type="text"
-              placeholder="team-a (optional namespace prefix)"
+              placeholder="team-a (required namespace prefix)"
               value={namespace()}
               data-testid="bpm-src-namespace"
               onInput={(e) => setNamespace(e.currentTarget.value)}
@@ -555,7 +619,7 @@ function AddSourceForm(props: { onAdded: () => void }): JSX.Element {
             data-testid="bpm-src-add"
             onClick={submit}
           >
-            {saving() ? "Saving…" : "Add source"}
+            {saving() ? "Adding and fetching…" : "Add source & Fetch now"}
           </button>
         </div>
         <Show when={err()}>
@@ -651,6 +715,8 @@ const VIEW_CSS = `
 .bpm-source-meta span { font-family:var(--mono); }
 .bpm-update-badge { font:700 9px system-ui; letter-spacing:.4px; text-transform:uppercase;
   padding:1px 6px; border-radius:6px; background:var(--warnbg); color:var(--warn); border:1px solid var(--warnbd); }
+.bpm-source-pending { color:var(--warn); }
+.bpm-source-skipped { color:var(--err); }
 
 .bpm-addlabel { margin-top:16px; font:700 11px system-ui; letter-spacing:.6px;
   text-transform:uppercase; color:var(--dim); margin-bottom:8px; }

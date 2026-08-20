@@ -102,6 +102,7 @@ export function Health(): JSX.Element {
   const process_ = () => health()?.process;
   const blueprints = (): BlueprintHealth[] => health()?.blueprints ?? [];
   const constructs = (): ConstructHealth[] => health()?.constructs ?? [];
+  const readiness = () => s().status?.readiness;
 
   const visibleConstructs = createMemo((): ConstructHealth[] => {
     const q = filter().trim();
@@ -166,6 +167,29 @@ export function Health(): JSX.Element {
                     <div class="pval">{fmtNum(proc().gc_count)}</div>
                     <div class="plbl">GC cycles</div>
                   </div>
+                </div>
+              </section>
+            )}
+          </Show>
+
+          <Show when={readiness()}>
+            {(rd) => (
+              <section class="sec">
+                <div class="sec-label">Deployment readiness</div>
+                <div class={`readiness-card${rd().ready ? " ready" : " not-ready"}`} data-testid="health-readiness">
+                  <div class="readiness-title">{rd().ready ? "Ready" : "Not ready"}</div>
+                  <div class="readiness-meta">
+                    {rd().blueprints.loaded} loaded · {rd().blueprints.skipped} skipped · {rd().blueprints.active} active
+                    {" · state "}{rd().persisted_state.writable ? "writable" : "not writable"}
+                  </div>
+                  <Show when={rd().lanes.length > 0}>
+                    <div class="readiness-lanes">
+                      <For each={rd().lanes}>{(lane) => <span>{lane.name}: {lane.state}</span>}</For>
+                    </div>
+                  </Show>
+                  <Show when={rd().reasons.length > 0}>
+                    <ul class="readiness-reasons"><For each={rd().reasons}>{(reason) => <li>{reason}</li>}</For></ul>
+                  </Show>
                 </div>
               </section>
             )}
@@ -392,6 +416,14 @@ const VIEW_CSS = `
 .proc-stat { display:flex; flex-direction:column; gap:2px; }
 .pval { font:700 22px system-ui; color:var(--acc); letter-spacing:-.5px; }
 .plbl { font:11px system-ui; color:var(--dim); }
+
+.readiness-card { border:1px solid var(--bd); border-radius:10px; padding:12px 14px; background:var(--panel2); font-size:12px; }
+.readiness-card.ready { border-color:var(--okbd); }
+.readiness-card.not-ready { border-color:var(--critbd); }
+.readiness-title { font:700 14px system-ui; color:var(--tx); }
+.readiness-meta { margin-top:4px; color:var(--dim); }
+.readiness-lanes { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:9px; font:11px var(--mono); color:var(--tx); }
+.readiness-reasons { margin:9px 0 0; padding-left:16px; color:var(--err); }
 
 .panel { background:var(--panel2); border:1px solid var(--bd); border-radius:10px; overflow-x:auto; }
 

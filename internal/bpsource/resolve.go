@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
 	"gopkg.in/yaml.v3"
@@ -41,12 +42,12 @@ func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, nsFor fu
 		}
 		data, rerr := os.ReadFile(filepath.Join(dir, fn))
 		if rerr != nil {
-			diags = append(diags, Diag{"error", fn, "read", rerr.Error()})
+			diags = append(diags, Diag{"error", diagSource(sourceID, fn), "read", rerr.Error()})
 			continue
 		}
 		declaredName, nerr := declaredBlueprintName(data)
 		if nerr != nil {
-			diags = append(diags, Diag{"error", fn, "load", nerr.Error()})
+			diags = append(diags, Diag{"error", diagSource(sourceID, fn), "load", nerr.Error()})
 			continue
 		}
 		name := declaredName
@@ -56,6 +57,9 @@ func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, nsFor fu
 		m.available[name] = struct{}{}
 		if len(m.selection) != 0 {
 			if _, selected := m.selection[name]; !selected {
+				if sourceID != "" {
+					diags = append(diags, Diag{"info", diagSource(sourceID, fn), "selection", "deselected by runtime blueprint selection"})
+				}
 				continue
 			}
 		}
@@ -68,12 +72,19 @@ func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, nsFor fu
 			res, lerr = blueprint.LoadNamespaced(data, SanitizeNS(ns), m.reg)
 		}
 		if lerr != nil {
-			diags = append(diags, Diag{"error", fn, "load", lerr.Error()})
+			diags = append(diags, Diag{"error", diagSource(sourceID, fn), "load", lerr.Error()})
 			continue
 		}
 		out = append(out, Loaded{Resolved: res, Provenance: prov, SourceID: sourceID})
 	}
 	return out, diags
+}
+
+func diagSource(sourceID, filename string) string {
+	if sourceID == "" {
+		return filename
+	}
+	return sourceID + "/" + filename
 }
 
 // declaredBlueprintName reads only the declared identity used for source selection. Full schema
@@ -113,10 +124,10 @@ func (m *Manager) scanCustom() ([]Loaded, []Diag) {
 func (m *Manager) scanGitDirs() ([]Loaded, []Diag) {
 	var out []Loaded
 	var diags []Diag
-	if m.cfg == nil {
-		return out, diags
-	}
-	for _, s := range m.cfg.Sources() {
+	for _, s := range m.sourceSnapshot() {
+		if s.FetchedSHA == "" {
+			continue
+		}
 		dir := filepath.Join(m.dataDir, gitDir, s.ID)
 		ld, d := m.loadDir(dir, ProvGit, s.ID, func(fn string) (string, bool) {
 			return s.Namespace, filepath.Ext(fn) == ".yaml"
@@ -127,32 +138,20 @@ func (m *Manager) scanGitDirs() ([]Loaded, []Diag) {
 	return out, diags
 }
 
-// Resolve is the startup entry-point: it fetches all git sources (degrade-on-error),
-// scans all directories, builds and persists a Manifest, and returns the merged
+// Resolve is the startup entry-point: it scans the already-fetched directories, builds and
+// persists a Manifest, and returns the merged
 // Loaded set plus any diagnostics.
 //
-// If m.git is nil, git sources are skipped (no fetch, no git-dir scan).
+// Fetching is deliberately separate: a configured source becomes staged only through FetchNow;
+// restarting never reaches out to a newer remote revision and therefore never applies a change
+// that the operator has not fetched first.
 func (m *Manager) Resolve(ctx context.Context) ([]Loaded, Manifest, []Diag) {
+	_ = ctx // kept for the composition-root startup seam; resolving itself performs no network I/O.
 	var allLoaded []Loaded
 	var allDiags []Diag
 	m.available = map[string]struct{}{}
 
-	// 1. Fetch git sources (degrade on error; seeds latestSHAs).
-	if m.git != nil {
-		for _, s := range m.cfg.Sources() {
-			if err := m.FetchNow(ctx, s.ID); err != nil {
-				allDiags = append(allDiags, Diag{
-					Severity: "error",
-					Source:   s.ID,
-					Stage:    "fetch",
-					Detail:   err.Error(),
-				})
-				// Continue: keep whatever on-disk copy remains.
-			}
-		}
-	}
-
-	// 2. Scan all three source trees.
+	// 1. Scan all three source trees.
 	baked, bd := m.scanBaked()
 	allLoaded = append(allLoaded, baked...)
 	allDiags = append(allDiags, bd...)
@@ -161,19 +160,17 @@ func (m *Manager) Resolve(ctx context.Context) ([]Loaded, Manifest, []Diag) {
 	allLoaded = append(allLoaded, custom...)
 	allDiags = append(allDiags, cd...)
 
-	if m.git != nil {
-		git, gd := m.scanGitDirs()
-		allLoaded = append(allLoaded, git...)
-		allDiags = append(allDiags, gd...)
-	}
+	git, gd := m.scanGitDirs()
+	allLoaded = append(allLoaded, git...)
+	allDiags = append(allDiags, gd...)
 
-	// 3. Build the Manifest.
-	m.mu.Lock()
-	shas := make(map[string]string, len(m.latestSHAs))
-	for k, v := range m.latestSHAs {
-		shas[k] = v
+	// 2. Build the Manifest from the fetched (not merely observed) SHA for each source.
+	shas := make(map[string]string)
+	for _, source := range m.sourceSnapshot() {
+		if source.FetchedSHA != "" {
+			shas[source.ID] = source.FetchedSHA
+		}
 	}
-	m.mu.Unlock()
 
 	// The boot manifest tracks ONLY custom/git blueprints — the staged-vs-loaded set that can
 	// change between restarts. Built-ins are baked into the image and never staged, so including
@@ -195,11 +192,51 @@ func (m *Manager) Resolve(ctx context.Context) ([]Loaded, Manifest, []Diag) {
 		SourceSHAs: shas,
 	}
 
-	// 4. Persist manifest + update boot.
+	// 3. Persist manifest + update boot.
 	_ = writeManifest(m.dataDir, man) // best-effort; non-fatal if disk is unhappy
 	m.mu.Lock()
 	m.boot = man
 	m.mu.Unlock()
+	allDiags = append(allDiags, m.recordLoadResults(git, gd)...)
 
 	return allLoaded, man, allDiags
+}
+
+// recordLoadResults persists the startup result alongside each source's fetched metadata. This
+// lets an operator distinguish "fetched but skipped" from "not fetched" after the process is
+// running, rather than inferring load success from a restart banner that has already cleared.
+func (m *Manager) recordLoadResults(loaded []Loaded, diags []Diag) []Diag {
+	if m.cfg == nil {
+		return nil
+	}
+	loadedNames := map[string][]string{}
+	for _, entry := range loaded {
+		loadedNames[entry.SourceID] = append(loadedNames[entry.SourceID], entry.Resolved.Name)
+	}
+	skipped := map[string][]string{}
+	for _, diag := range diags {
+		parts := strings.SplitN(diag.Source, "/", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		skipped[parts[0]] = append(skipped[parts[0]], parts[1]+": "+diag.Detail)
+	}
+	var persistDiags []Diag
+	m.sourceMu.Lock()
+	defer m.sourceMu.Unlock()
+	for _, source := range m.cfg.Sources() {
+		if source.FetchedSHA == "" {
+			continue
+		}
+		source.LoadedSHA = source.FetchedSHA
+		source.PendingRestart = false
+		source.LoadedNames = append([]string{}, loadedNames[source.ID]...)
+		source.Skipped = append([]string{}, skipped[source.ID]...)
+		sort.Strings(source.LoadedNames)
+		sort.Strings(source.Skipped)
+		if err := m.cfg.UpsertSource(source); err != nil {
+			persistDiags = append(persistDiags, Diag{"error", source.ID, "persist", err.Error()})
+		}
+	}
+	return persistDiags
 }

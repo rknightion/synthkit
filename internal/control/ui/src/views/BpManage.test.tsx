@@ -10,6 +10,17 @@ import type {
   ValidationResult,
 } from "../api/types";
 
+type LifecycleSource = SourceView & {
+  fetched_sha: string;
+  fetched_file_count: number;
+  effective_names: string[] | null;
+  observed_sha: string;
+  loaded_sha: string;
+  pending_restart: boolean;
+  loaded_names: string[] | null;
+  skipped: string[] | null;
+};
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });
@@ -39,7 +50,7 @@ const staged = (over: Partial<StagedBlueprint> = {}): StagedBlueprint => ({
   ...over,
 });
 
-const source = (over: Partial<SourceView> = {}): SourceView => ({
+const source = (over: Partial<LifecycleSource> = {}): LifecycleSource => ({
   id: "src-1",
   name: "my-org-blueprints",
   namespace: "team-a",
@@ -47,9 +58,16 @@ const source = (over: Partial<SourceView> = {}): SourceView => ({
   ref: "refs/heads/main",
   subpath: "blueprints/",
   token_env_var: "MY_GITHUB_TOKEN",
-  last_sha: "deadbeefcafef00d",
+  fetched_sha: "deadbeefcafef00d",
+  fetched_file_count: 2,
+  effective_names: ["team-a/checkout", "team-a/payments"],
+  observed_sha: "deadbeefcafef00d",
   last_fetch_ms: 0,
   last_err: "",
+  loaded_sha: "cafebabedeadbeef",
+  pending_restart: true,
+  loaded_names: ["team-a/checkout"],
+  skipped: ["broken.yaml: unknown construct"],
   ...over,
 });
 
@@ -160,6 +178,7 @@ test("the pending-changes banner renders added/removed/changed when present", ()
   expect(banner.textContent).toContain("2 changes pending — restart to apply");
   expect(banner.textContent).toContain("+ team-a/myapp (added)");
   expect(banner.textContent).toContain("~ team-b/remote (changed)");
+	  expect(banner.textContent).toContain("docker compose restart synthkit");
 
   // absent when no pending changes.
   const clean = renderBpManage(
@@ -302,35 +321,71 @@ test("the sources panel renders only the token env-var NAME — never a secret t
   expect(getByTestId("bpm-src-tokenenv").getAttribute("type")).toBe("text");
 });
 
-test("the add-source form posts only the env-var NAME under token_env_var (no raw token key)", async () => {
+test("Add source validates required lifecycle identity and then fetches it", async () => {
   const f = stubFetch({ status: "ok" });
   const store = fakeStore({ loading: false, pending: pending(), staged: [], sources: [] });
   const { getByTestId } = renderBpManage(store);
 
-  fireEvent.input(getByTestId("bpm-src-name"), { target: { value: "my-org" } });
+  fireEvent.input(getByTestId("bpm-src-id"), { target: { value: "my-org" } });
+  fireEvent.input(getByTestId("bpm-src-name"), { target: { value: "My org blueprints" } });
   fireEvent.input(getByTestId("bpm-src-url"), { target: { value: "https://x/blueprints.git" } });
+  fireEvent.input(getByTestId("bpm-src-ref"), { target: { value: "refs/heads/main" } });
+  fireEvent.input(getByTestId("bpm-src-subpath"), { target: { value: "blueprints///" } });
+  fireEvent.input(getByTestId("bpm-src-namespace"), { target: { value: "team-a" } });
   fireEvent.input(getByTestId("bpm-src-tokenenv"), { target: { value: "MY_GITHUB_TOKEN" } });
   await userEvent.click(getByTestId("bpm-src-add"));
   await flush();
 
   const body = f.bodyFor("blueprints/sources") as Record<string, unknown>;
   expect(body).toEqual({
-    name: "my-org",
+    id: "my-org",
+    name: "My org blueprints",
     url: "https://x/blueprints.git",
+    ref: "refs/heads/main",
+    subpath: "blueprints",
+    namespace: "team-a",
     token_env_var: "MY_GITHUB_TOKEN",
   });
+	  expect(f.pathCalled("blueprints/sources/fetch?id=my-org")).toBe(true);
   // never a raw-token key.
   expect(body).not.toHaveProperty("token");
 });
 
-test("the add-source form validates name + url before posting", async () => {
+test("the add-source form validates id, name, HTTPS URL, namespace, and ref before posting", async () => {
   const f = stubFetch({});
   const store = fakeStore({ loading: false, pending: pending(), staged: [], sources: [] });
   const { getByTestId } = renderBpManage(store);
   await userEvent.click(getByTestId("bpm-src-add"));
   await flush();
   expect(f.pathCalled("blueprints/sources")).toBe(false);
-  expect(getByTestId("bpm-src-err").textContent).toContain("name is required");
+  expect(getByTestId("bpm-src-err").textContent).toContain("Source ID is required");
+});
+
+test("the sources panel separates fetched, loaded, pending, and skipped state", () => {
+  const store = fakeStore({ loading: false, pending: pending({ restart: true }), staged: [], sources: [source()] });
+  const { getByTestId } = renderBpManage(store);
+  const row = getByTestId("bpm-source-src-1");
+  expect(row.textContent).toContain("fetched sha: deadbeef");
+  expect(row.textContent).toContain("2 files fetched");
+  expect(row.textContent).toContain("effective: team-a/checkout, team-a/payments");
+  expect(row.textContent).toContain("loaded sha: cafebabe");
+  expect(row.textContent).toContain("restart pending");
+  expect(row.textContent).toContain("loaded: team-a/checkout");
+  expect(row.textContent).toContain("skipped: broken.yaml: unknown construct");
+});
+
+test("the sources panel safely ignores null lifecycle lists", () => {
+  const store = fakeStore({
+    loading: false,
+    pending: pending(),
+    staged: [],
+    sources: [source({ effective_names: null, loaded_names: null, skipped: null })],
+  });
+  const { getByTestId } = renderBpManage(store);
+  const row = getByTestId("bpm-source-src-1");
+  expect(row.textContent).not.toContain("effective:");
+  expect(row.textContent).not.toContain("loaded:");
+  expect(row.textContent).not.toContain("skipped:");
 });
 
 // ── delete actions are ConfirmButton-gated and hit the right DELETE paths ──────

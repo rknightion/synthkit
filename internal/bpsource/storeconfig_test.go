@@ -4,6 +4,7 @@ package bpsource_test
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/bpsource"
@@ -27,16 +28,19 @@ func TestStoreSourceConfigUpsertSource_AddAndUpdate(t *testing.T) {
 	cfg := bpsource.NewStoreSourceConfig(store)
 
 	s1 := bpsource.Source{
-		ID:          "repo-a",
-		Name:        "Repo A",
-		Namespace:   "ns-a",
-		URL:         "https://github.com/example/repo-a",
-		Ref:         "refs/heads/main",
-		Subpath:     "",
-		TokenEnvVar: "GH_TOKEN_A",
-		LastSHA:     "",
-		LastFetchMs: 0,
-		LastErr:     "",
+		ID:             "repo-a",
+		Name:           "Repo A",
+		Namespace:      "ns-a",
+		URL:            "https://github.com/example/repo-a",
+		Ref:            "refs/heads/main",
+		Subpath:        "",
+		TokenEnvVar:    "GH_TOKEN_A",
+		FetchedSHA:     "",
+		EffectiveNames: []string{},
+		LastFetchMs:    0,
+		LastErr:        "",
+		LoadedNames:    []string{},
+		Skipped:        []string{},
 	}
 	if err := cfg.UpsertSource(s1); err != nil {
 		t.Fatalf("UpsertSource (add): %v", err)
@@ -46,14 +50,14 @@ func TestStoreSourceConfigUpsertSource_AddAndUpdate(t *testing.T) {
 	if len(srcs) != 1 {
 		t.Fatalf("expected 1 source after add, got %d", len(srcs))
 	}
-	if srcs[0] != s1 {
+	if !reflect.DeepEqual(srcs[0], s1) {
 		t.Fatalf("source mismatch:\n  got  %+v\n  want %+v", srcs[0], s1)
 	}
 
 	// Update the same ID.
 	s1Updated := s1
 	s1Updated.Name = "Repo A (updated)"
-	s1Updated.LastSHA = "deadbeef"
+	s1Updated.FetchedSHA = "deadbeef"
 	s1Updated.LastFetchMs = 1718700000001
 	if err := cfg.UpsertSource(s1Updated); err != nil {
 		t.Fatalf("UpsertSource (update): %v", err)
@@ -63,7 +67,7 @@ func TestStoreSourceConfigUpsertSource_AddAndUpdate(t *testing.T) {
 	if len(srcs) != 1 {
 		t.Fatalf("expected still 1 source after update, got %d", len(srcs))
 	}
-	if srcs[0] != s1Updated {
+	if !reflect.DeepEqual(srcs[0], s1Updated) {
 		t.Fatalf("update mismatch:\n  got  %+v\n  want %+v", srcs[0], s1Updated)
 	}
 }
@@ -127,16 +131,19 @@ func TestStoreSourceConfigPersistsThroughStoreReload(t *testing.T) {
 	cfg := bpsource.NewStoreSourceConfig(store)
 
 	s := bpsource.Source{
-		ID:          "persist-test",
-		Name:        "Persist Test",
-		Namespace:   "pt",
-		URL:         "https://github.com/example/persist",
-		Ref:         "refs/heads/main",
-		Subpath:     "blueprints",
-		TokenEnvVar: "PT_TOKEN",
-		LastSHA:     "cafebabe",
-		LastFetchMs: 9999,
-		LastErr:     "some error",
+		ID:             "persist-test",
+		Name:           "Persist Test",
+		Namespace:      "pt",
+		URL:            "https://github.com/example/persist",
+		Ref:            "refs/heads/main",
+		Subpath:        "blueprints",
+		TokenEnvVar:    "PT_TOKEN",
+		FetchedSHA:     "cafebabe",
+		EffectiveNames: []string{},
+		LastFetchMs:    9999,
+		LastErr:        "some error",
+		LoadedNames:    []string{},
+		Skipped:        []string{},
 	}
 	if err := cfg.UpsertSource(s); err != nil {
 		t.Fatalf("UpsertSource: %v", err)
@@ -149,7 +156,7 @@ func TestStoreSourceConfigPersistsThroughStoreReload(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("expected 1 source after reload, got %d", len(got))
 	}
-	if got[0] != s {
+	if !reflect.DeepEqual(got[0], s) {
 		t.Fatalf("source mismatch after reload:\n  got  %+v\n  want %+v", got[0], s)
 	}
 }
@@ -160,16 +167,23 @@ func TestStoreSourceConfigFieldForFieldMapping(t *testing.T) {
 	cfg := bpsource.NewStoreSourceConfig(store)
 
 	full := bpsource.Source{
-		ID:          "full-mapping",
-		Name:        "Full Mapping",
-		Namespace:   "fm",
-		URL:         "https://github.com/example/full",
-		Ref:         "refs/heads/feat",
-		Subpath:     "sub/path",
-		TokenEnvVar: "FM_TOKEN",
-		LastSHA:     "0123456789abcdef",
-		LastFetchMs: 1718700000000,
-		LastErr:     "connection refused",
+		ID:               "full-mapping",
+		Name:             "Full Mapping",
+		Namespace:        "fm",
+		URL:              "https://github.com/example/full",
+		Ref:              "refs/heads/feat",
+		Subpath:          "sub/path",
+		TokenEnvVar:      "FM_TOKEN",
+		FetchedSHA:       "0123456789abcdef",
+		FetchedFileCount: 2,
+		EffectiveNames:   []string{"fm/one", "fm/two"},
+		ObservedSHA:      "abcdef0123456789",
+		LastFetchMs:      1718700000000,
+		LastErr:          "connection refused",
+		LoadedSHA:        "old-sha",
+		PendingRestart:   true,
+		LoadedNames:      []string{"fm/old"},
+		Skipped:          []string{"bad.yaml: invalid blueprint"},
 	}
 	if err := cfg.UpsertSource(full); err != nil {
 		t.Fatalf("UpsertSource: %v", err)
@@ -183,14 +197,17 @@ func TestStoreSourceConfigFieldForFieldMapping(t *testing.T) {
 	view := sv[0]
 	if view.ID != full.ID || view.Name != full.Name || view.Namespace != full.Namespace ||
 		view.URL != full.URL || view.Ref != full.Ref || view.Subpath != full.Subpath ||
-		view.TokenEnvVar != full.TokenEnvVar || view.LastSHA != full.LastSHA ||
-		view.LastFetchMs != full.LastFetchMs || view.LastErr != full.LastErr {
+		view.TokenEnvVar != full.TokenEnvVar || view.FetchedSHA != full.FetchedSHA ||
+		view.FetchedFileCount != full.FetchedFileCount || !reflect.DeepEqual(view.EffectiveNames, full.EffectiveNames) ||
+		view.ObservedSHA != full.ObservedSHA || view.LastFetchMs != full.LastFetchMs || view.LastErr != full.LastErr ||
+		view.LoadedSHA != full.LoadedSHA || view.PendingRestart != full.PendingRestart ||
+		!reflect.DeepEqual(view.LoadedNames, full.LoadedNames) || !reflect.DeepEqual(view.Skipped, full.Skipped) {
 		t.Fatalf("SourceView field mismatch:\n  view   %+v\n  source %+v", view, full)
 	}
 
 	// And Sources() maps SourceView back to Source identically.
 	roundTripped := cfg.Sources()
-	if len(roundTripped) != 1 || roundTripped[0] != full {
+	if len(roundTripped) != 1 || !reflect.DeepEqual(roundTripped[0], full) {
 		t.Fatalf("Sources() round-trip mismatch:\n  got  %+v\n  want %+v", roundTripped[0], full)
 	}
 }

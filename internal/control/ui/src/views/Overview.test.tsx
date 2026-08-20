@@ -89,6 +89,26 @@ test("renders a card per blueprint for a populated snapshot", () => {
   expect(getByText("bravo")).toBeInTheDocument();
 });
 
+test("surfaces a wired deployment-readiness failure in the overview verdict", () => {
+  const store = fakeStore({
+    state: defaultState(),
+    inventory: { blueprints: [{ blueprint: "alpha", distinct_series: 1, metric_names: 1, label_keys: 1, constructs: [] }], totals: { distinct_series: 1, constructs: 0, blueprints: 1 } },
+    status: {
+      sinks: [], by_blueprint: {}, persist: { last_ok_ms: 1, last_error_ms: 0, last_error: "" }, dry_run: false,
+      readiness: {
+        running: true, http_ready: true, ready: false, live_ready: false,
+        blueprints: { loaded: 1, skipped: 0, active: 1 },
+        persisted_state: { writable: true, error: "" }, lanes: [],
+        reasons: ["delivery lane promrw is not_attempted"],
+      },
+    } as unknown as Snapshot["status"],
+    diagnostics: [],
+  });
+  const { getByTestId } = renderOverview(store);
+  expect(getByTestId("overview-readiness").textContent).toContain("Not ready");
+  expect(getByTestId("overview-readiness").textContent).toContain("delivery lane promrw is not_attempted");
+});
+
 test("shows a distinct empty state when there are no blueprints", () => {
   const store = fakeStore({
     state: defaultState(),

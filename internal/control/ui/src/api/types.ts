@@ -105,6 +105,33 @@ export interface StatusReport {
   fleet?: FleetStat;          // fleetstatus.FleetStat — FM lifecycle health
   persist: PersistHealth;
   dry_run: boolean;
+  readiness?: ReadinessReport;
+}
+
+export interface LaneStatus {
+  name: string;
+  configured: boolean;
+  disabled: boolean;
+  disabled_reason: string;
+  attempted: boolean;
+  last_attempt_ms: number;
+  last_success_ms: number;
+  last_error_ms: number;
+  last_error: string;
+  current_error: boolean;
+  stale: boolean;
+  state: "unconfigured" | "disabled" | "not_attempted" | "error" | "stale_success" | "success";
+  live_ready: boolean;
+}
+export interface ReadinessReport {
+  running: boolean;
+  http_ready: boolean;
+  ready: boolean;
+  live_ready: boolean;
+  blueprints: { loaded: number; skipped: number; active: number };
+  persisted_state: { writable: boolean; error: string };
+  lanes: LaneStatus[];
+  reasons: string[];
 }
 
 // ── GET /control/diagnostics (control.Diagnostic) ─────────────────────────────
@@ -313,9 +340,16 @@ export interface SourceView {
   ref: string;            // e.g. "refs/heads/main"
   subpath: string;        // dir within repo holding *.yaml ("" = root)
   token_env_var: string;  // NAME of env var holding the token ("" = public)
-  last_sha: string;       // last fetched commit SHA (status only)
-  last_fetch_ms: number;  // unix ms of last successful fetch (status only)
-  last_err: string;       // last fetch error ("" = ok)
+  fetched_sha: string;
+  fetched_file_count: number;
+  effective_names: string[] | null;
+  observed_sha: string;
+  last_fetch_ms: number;
+  last_err: string;
+  loaded_sha: string;
+  pending_restart: boolean;
+  loaded_names: string[] | null;
+  skipped: string[] | null;
 }
 // ValidationResult — POST /control/blueprints/validate outcome (not polled; typed for the
 // view's mutation path). Source: internal/control/blueprints.go.

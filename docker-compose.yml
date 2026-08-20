@@ -1,13 +1,14 @@
 services:
   synthkit:
     # Pulls the published multi-arch image from GHCR (built + signed by CI). The default tag
-    # `latest` tracks the last tagged RELEASE; the published image already has its VERSION stamped.
-    # Override the tag in .env via SYNTHKIT_IMAGE_TAG — e.g. `main` to ride the bleeding-edge
-    # default-branch build, or `vX.Y.Z` to pin a specific release. (`latest` only exists once the
-    # first release is cut; before that, set SYNTHKIT_IMAGE_TAG=main.)
+    # `main` is the pre-release default and includes the delivery-aware `-healthcheck` command.
+    # Override the tag in .env via SYNTHKIT_IMAGE_TAG — use a released `vX.Y.Z` only when that
+    # release includes `synthkit -healthcheck` (older images become unhealthy under this Compose
+    # contract). SKT-0005.14 will replace this mutable pre-release default with the first eligible
+    # pinned release after its image metadata and rollback path are verified.
     # To BUILD from local source instead of pulling, layer the build override:
     #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
-    image: ghcr.io/rknightion/synthkit:${SYNTHKIT_IMAGE_TAG:-latest}
+    image: ghcr.io/rknightion/synthkit:${SYNTHKIT_IMAGE_TAG:-main}
     # `latest`/`main` are mutable tags — always re-check the registry on `up` so a plain
     # `docker compose up -d` (after `git pull`) actually picks up the newest published digest.
     pull_policy: always
@@ -49,5 +50,14 @@ services:
       # mount breaks the control plane's atomic save → state wipe (I25). First run:
       #   mkdir -p control-state-data && sudo chown -R 65532:65532 control-state-data
       - ./control-state-data:/data
+    # Delivery-aware health: fresh/live deployments remain starting until every intended lane has
+    # completed a current successful push and the state volume has passed an atomic write probe.
+    # All bundled construct/workload intervals are 60s; allow that full interval plus queue flush.
+    healthcheck:
+      test: ["CMD", "/app/synthkit", "-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 75s
     # Container restart = counter reset = a clean rate() window (I29) — intentional;
     # no counter state volume exists or should.

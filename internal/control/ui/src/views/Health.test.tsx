@@ -118,6 +118,29 @@ test("shows empty state when no constructs have ticked yet", () => {
   expect(queryByTestId("health-error")).not.toBeInTheDocument();
 });
 
+test("shows deployment readiness separately from tick health once status is wired", () => {
+  const store = fakeStore({
+    health: FAKE_HEALTH,
+    status: {
+      sinks: [], by_blueprint: {}, persist: { last_ok_ms: 1, last_error_ms: 0, last_error: "" }, dry_run: false,
+      readiness: {
+        running: true, http_ready: true, ready: false, live_ready: false,
+        blueprints: { loaded: 2, skipped: 1, active: 2 },
+        persisted_state: { writable: true, error: "" },
+        lanes: [{ name: "promrw", configured: true, disabled: false, attempted: false, state: "not_attempted", live_ready: false }],
+        reasons: ["delivery lane promrw is not_attempted"],
+      },
+    } as unknown as Snapshot["status"],
+  });
+  const { getByTestId } = renderHealth(store);
+  const card = getByTestId("health-readiness");
+  expect(card.textContent).toContain("Not ready");
+  expect(card.textContent).toContain("2 loaded");
+  expect(card.textContent).toContain("1 skipped");
+  expect(card.textContent).toContain("promrw");
+  expect(card.textContent).toContain("not_attempted");
+});
+
 // ── data state tests ─────────────────────────────────────────────────────────
 
 test("renders process stats from health snapshot", () => {

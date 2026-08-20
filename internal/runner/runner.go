@@ -15,6 +15,7 @@ import (
 	"hash/fnv"
 	"log"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -119,6 +120,15 @@ type boundWorkload struct {
 	interval time.Duration
 	nextDue  time.Time
 	inv      *constructInv
+	rum      bool
+}
+
+// DeliveryReadinessLane is one sink lane an active blueprint intends to emit. EmissionInterval is
+// the slowest declared instance cadence feeding that lane and therefore the earliest safe stale
+// threshold before adding the queue delivery deadline.
+type DeliveryReadinessLane struct {
+	Name             string
+	EmissionInterval time.Duration
 }
 
 // bpRuntime is one blueprint's running state: its own shape engine (its incidents +
@@ -440,6 +450,7 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 			world:    wworld,
 			inv:      winv,
 			interval: r.clampInterval(res.Name, wi.Name, w.Interval()),
+			rum:      rum != nil,
 		})
 	}
 
@@ -1091,6 +1102,74 @@ func (r *Runner) VolumeMultiplier() float64 {
 
 // BlueprintCount is a self-obs gauge source: the number of loaded blueprints.
 func (r *Runner) BlueprintCount() int { return len(r.bps) }
+
+// ActiveBlueprintCount reports loaded blueprints not disabled by the current control snapshot.
+func (r *Runner) ActiveBlueprintCount() int {
+	n := 0
+	for _, bp := range r.bps {
+		if r.enabled(bp.name) {
+			n++
+		}
+	}
+	return n
+}
+
+// DeliveryReadinessLanes derives intended delivery from the writers actually wired to active
+// blueprint instances. This avoids declaring optional sinks that no selected blueprint can emit.
+func (r *Runner) DeliveryReadinessLanes() []DeliveryReadinessLane {
+	intervals := map[string]time.Duration{}
+	add := func(name string, interval time.Duration) {
+		if interval > intervals[name] {
+			intervals[name] = interval
+		}
+	}
+	addWorld := func(w *core.World, interval time.Duration) {
+		if w.Metrics != nil {
+			add("promrw", interval)
+		}
+		if w.Logs != nil {
+			add("loki", interval)
+		}
+		if w.Traces != nil {
+			add("otlp", interval)
+		}
+		if w.Pyroscope != nil {
+			add("pyroscope", interval)
+		}
+		if w.OTLPMetrics != nil {
+			add("otlpmetrics", interval)
+		}
+		if w.Sigil != nil {
+			add("sigil", interval)
+		}
+	}
+	for _, bp := range r.bps {
+		if !r.enabled(bp.name) {
+			continue
+		}
+		for _, bc := range bp.constructs {
+			if r.constructEnabled(bp.name, bc.kind, bc.name) {
+				addWorld(bc.world, bc.interval)
+			}
+		}
+		for _, bw := range bp.workloads {
+			addWorld(bw.world, bw.interval)
+			if bw.rum {
+				add("faro", bw.interval)
+			}
+		}
+	}
+	names := make([]string, 0, len(intervals))
+	for name := range intervals {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]DeliveryReadinessLane, 0, len(names))
+	for _, name := range names {
+		out = append(out, DeliveryReadinessLane{Name: name, EmissionInterval: intervals[name]})
+	}
+	return out
+}
 
 // spanMetricsEnabled reports whether the named blueprint should emit synthkit's OWN backend
 // spanmetrics + service-graph this tick. Opt-IN (default OFF, incl. a nil snapshot): defer to

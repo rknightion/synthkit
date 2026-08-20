@@ -58,8 +58,21 @@ func main() {
 	once := flag.Bool("once", false, "run one full cycle and exit")
 	dump := flag.Bool("dump", false, "with -once: print the full series/label inventory (diff vs signals/)")
 	preflightCheck := flag.Bool("preflight", false, "validate and probe mandatory live Grafana endpoints, then exit")
+	healthcheck := flag.Bool("healthcheck", false, "exit successfully only when the local control plane is delivery-ready")
 	envPath := flag.String("env", ".env", "path to .env file (optional)")
 	flag.Parse()
+	if *healthcheck {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		endpoint, err := readinessEndpoint(os.Getenv("JSON_HTTP_ADDR"))
+		if err != nil {
+			log.Fatalf("synthkit healthcheck: %v", err)
+		}
+		if err := checkReadiness(ctx, &http.Client{Timeout: 4 * time.Second}, endpoint); err != nil {
+			log.Fatalf("synthkit healthcheck: %v", err)
+		}
+		return
+	}
 
 	if *preflightCheck {
 		if err := runPreflight(context.Background(), *envPath, os.Stdout, preflight.Options{}); err != nil {
@@ -70,6 +83,37 @@ func main() {
 	if err := run(*once, *dump, *envPath); err != nil {
 		log.Fatalf("synthkit: %v", err)
 	}
+}
+
+func readinessEndpoint(bindAddr string) (string, error) {
+	if bindAddr == "" {
+		bindAddr = "127.0.0.1:8088"
+	}
+	host, port, err := net.SplitHostPort(bindAddr)
+	if err != nil {
+		return "", fmt.Errorf("invalid JSON_HTTP_ADDR %q: %w", bindAddr, err)
+	}
+	ip := net.ParseIP(host)
+	if host == "" || (ip != nil && ip.IsUnspecified()) {
+		host = "127.0.0.1"
+	}
+	return "http://" + net.JoinHostPort(host, port) + "/control/readiness", nil
+}
+
+func checkReadiness(ctx context.Context, client *http.Client, endpoint string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("readiness returned HTTP %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func runPreflight(ctx context.Context, envPath string, out io.Writer, opts preflight.Options) error {
@@ -214,6 +258,9 @@ func run(once, dump bool, envPath string) error {
 	// adapter can read/write git source state during Resolve. ApplyControl runs after AddBlueprint
 	// (below) — but the store itself is safe to construct first; Snapshot() is idempotent.
 	store := control.NewStore(cfg.SnapshotPath)
+	if err := store.ProbeWrite(); err != nil {
+		log.Printf("control: startup state-volume probe failed: %v", err)
+	}
 
 	// diag collects load-time problems (skipped blueprints, dropped config entries) so they surface
 	// in the control UI's diagnostics panel instead of only in stderr.
@@ -245,8 +292,12 @@ func run(once, dump bool, envPath string) error {
 	if err := mgr.SelectionError(); err != nil {
 		return err
 	}
+	skippedBlueprints := 0
 	for _, d := range resolveDiags {
 		diag.Add(d.Severity, d.Source, d.Stage, d.Detail)
+		if d.Severity == "error" {
+			skippedBlueprints++
+		}
 	}
 
 	if len(loaded) == 0 {
@@ -275,13 +326,17 @@ func run(once, dump bool, envPath string) error {
 	for _, d := range skipped {
 		log.Printf("ERROR skipping blueprint %q: %v", d.Source, d.Detail)
 		diag.Add(d.Severity, d.Source, d.Stage, d.Detail)
+		skippedBlueprints++
 	}
+	loadedBlueprints := 0
 	for _, res := range accepted {
 		if err := r.AddBlueprint(res); err != nil {
 			log.Printf("ERROR skipping blueprint %q: %v", res.Name, err)
 			diag.Add("error", res.Name, "load", err.Error())
+			skippedBlueprints++
 			continue
 		}
+		loadedBlueprints++
 	}
 	// Degrade has a floor: if every blueprint was skipped (load OR add), there is nothing to run —
 	// fail rather than boot a silent do-nothing instance.
@@ -337,6 +392,20 @@ func run(once, dump bool, envPath string) error {
 	// pushstatus store (always non-nil → sinks are always instrumented for the control-plane
 	// status view). pushstatus and selfobs both consume each event without coupling.
 	ps := pushstatus.NewStore()
+	configureReadinessLanes := func() {
+		lanes := r.DeliveryReadinessLanes()
+		configs := make([]pushstatus.LaneConfig, 0, len(lanes))
+		for _, lane := range lanes {
+			lc := pushstatus.LaneConfig{Name: lane.Name, FreshAfter: lane.EmissionInterval + cfg.SendDeadline}
+			if cfg.DryRun {
+				lc.Disabled = true
+				lc.DisabledReason = "dry_run"
+			}
+			configs = append(configs, lc)
+		}
+		ps.ConfigureLanes(configs)
+	}
+	configureReadinessLanes()
 	fan := func(a, b pushhook.Observer) pushhook.Observer {
 		return func(ctx context.Context, ev pushhook.Event) {
 			if a != nil {
@@ -430,15 +499,33 @@ func run(once, dump bool, envPath string) error {
 	mux := http.NewServeMux()
 	cv := toControlConfigView(cfg.Redacted())
 	adapter := &blueprintAdminAdapter{mgr: mgr, sc: sc}
+	readiness := func() control.ReadinessReport {
+		persist := store.PersistHealth()
+		return control.EvaluateReadiness(control.ReadinessInput{
+			ProcessRunning: true,
+			HTTPServing:    true,
+			Blueprints: control.BlueprintReadiness{
+				Loaded: loadedBlueprints, Skipped: skippedBlueprints, Active: r.ActiveBlueprintCount(),
+			},
+			PersistedState: control.PersistedStateReadiness{
+				Writable: persist.LastOKMs > 0 && persist.LastError == "", Error: persist.LastError,
+			},
+			Lanes:                ps.SnapshotLanes(),
+			LiveDeliveryExpected: !cfg.DryRun,
+		})
+	}
 	mux.Handle("/control/", control.NewHandler(store, r.ApplyControl, cfg.ControlToken, r).
-		SetStatus(control.StatusSources{Sinks: ps.Snapshot, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, DryRun: cfg.DryRun}).
+		SetStatus(control.StatusSources{Sinks: ps.Snapshot, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, Readiness: readiness, DryRun: cfg.DryRun}).
 		SetBlueprintSchema(blueprintschema.JSON(runner.Catalog())).
 		SetConfig(cv).
 		SetInventory(r).
 		SetHealth(func() any { return healthReport(hs.Snapshot()) }).
 		SetDiagnostics(diag).
 		SetBlueprintAdmin(adapter).
-		SetChangeObserver(func(s control.State) { so.EmitEvent("config_change", configChangeAttrs(s), configChangeBody(s)) }))
+		SetChangeObserver(func(s control.State) {
+			configureReadinessLanes()
+			so.EmitEvent("config_change", configChangeAttrs(s), configChangeBody(s))
+		}))
 	mux.Handle("/", jsondata.NewServer(r))
 	newSrv := func(addr string) *http.Server {
 		return &http.Server{

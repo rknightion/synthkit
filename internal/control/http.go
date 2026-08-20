@@ -87,6 +87,7 @@ type StatusReport struct {
 	Fleet       *fleetstatus.FleetStat                  `json:"fleet,omitempty"`
 	Persist     PersistHealth                           `json:"persist"`
 	DryRun      bool                                    `json:"dry_run"`
+	Readiness   *ReadinessReport                        `json:"readiness,omitempty"`
 }
 
 // StatusSources supplies the runtime status the /control/status route renders. Sinks and Fleet are
@@ -97,6 +98,7 @@ type StatusSources struct {
 	Sinks       func() []pushstatus.SinkStat
 	ByBlueprint func() map[string]pushstatus.BlueprintEmission
 	Fleet       func() fleetstatus.FleetStat
+	Readiness   func() ReadinessReport
 	DryRun      bool
 }
 
@@ -192,7 +194,26 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		if h.status.ByBlueprint != nil {
 			byBp = h.status.ByBlueprint()
 		}
-		writeJSON(w, StatusReport{Sinks: sinks, ByBlueprint: byBp, Fleet: fleet, Persist: h.store.PersistHealth(), DryRun: h.status.DryRun})
+		var readiness *ReadinessReport
+		if h.status.Readiness != nil {
+			report := h.status.Readiness()
+			readiness = &report
+		}
+		writeJSON(w, StatusReport{Sinks: sinks, ByBlueprint: byBp, Fleet: fleet, Persist: h.store.PersistHealth(), DryRun: h.status.DryRun, Readiness: readiness})
+	})
+	// GET /control/readiness is deliberately unguarded so Docker can call it without carrying
+	// control-plane credentials. The body is identical in both states; only the HTTP code changes.
+	mux.HandleFunc("GET /control/readiness", func(w http.ResponseWriter, r *http.Request) {
+		if h.status.Readiness == nil {
+			http.Error(w, "readiness not configured", http.StatusNotFound)
+			return
+		}
+		report := h.status.Readiness()
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if !report.Ready {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+		_ = json.NewEncoder(w).Encode(report)
 	})
 
 	// GET /control/config — redacted runtime config (unguarded, side-effect-free, I26).

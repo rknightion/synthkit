@@ -23,6 +23,7 @@ const maxSamples = 30
 // rate, and a short sparkline of recent per-push item counts instead.
 type SinkStat struct {
 	Sink          string  `json:"sink"`
+	LastAttemptMs int64   `json:"last_attempt_ms"`
 	LastSuccessMs int64   `json:"last_success_ms"`
 	LastErrorMs   int64   `json:"last_error_ms"`
 	LastError     string  `json:"last_error"`
@@ -45,8 +46,52 @@ type sample struct {
 
 // sinkAgg holds the folded stat plus the bounded sample ring for one sink.
 type sinkAgg struct {
-	stat    SinkStat
-	samples []sample
+	stat         SinkStat
+	currentError bool
+	samples      []sample
+}
+
+// LaneState is the current delivery classification for a configured sink lane. The state is
+// deliberately derived from configuration plus observed push outcomes: receiving an event never
+// turns an undeclared sink into a configured or ready lane.
+type LaneState string
+
+const (
+	LaneUnconfigured LaneState = "unconfigured"
+	LaneDisabled     LaneState = "disabled"
+	LaneNotAttempted LaneState = "not_attempted"
+	LaneError        LaneState = "error"
+	LaneStaleSuccess LaneState = "stale_success"
+	LaneSuccess      LaneState = "success"
+)
+
+// LaneConfig declares a sink lane that the process intends to deliver. FreshAfter is the
+// declared emission interval plus the delivery deadline; zero leaves staleness disabled for
+// callers that are displaying delivery history rather than evaluating readiness.
+type LaneConfig struct {
+	Name           string
+	Disabled       bool
+	DisabledReason string
+	FreshAfter     time.Duration
+}
+
+// LaneStatus joins a LaneConfig with observed delivery history. State is mutually exclusive;
+// the individual fields retain the evidence an operator needs to distinguish a first attempt,
+// a recovered error, and a stale prior success.
+type LaneStatus struct {
+	Name           string    `json:"name"`
+	Configured     bool      `json:"configured"`
+	Disabled       bool      `json:"disabled"`
+	DisabledReason string    `json:"disabled_reason"`
+	Attempted      bool      `json:"attempted"`
+	LastAttemptMs  int64     `json:"last_attempt_ms"`
+	LastSuccessMs  int64     `json:"last_success_ms"`
+	LastErrorMs    int64     `json:"last_error_ms"`
+	LastError      string    `json:"last_error"`
+	CurrentError   bool      `json:"current_error"`
+	Stale          bool      `json:"stale"`
+	State          LaneState `json:"state"`
+	LiveReady      bool      `json:"live_ready"`
 }
 
 // BlueprintEmission is the observed push history rolled up per blueprint name (cross-sink).
@@ -69,12 +114,29 @@ type Store struct {
 	mu          sync.Mutex
 	bySink      map[string]*sinkAgg
 	byBlueprint map[string]*bpAgg
+	lanes       map[string]LaneConfig
 	now         func() time.Time
 }
 
 // NewStore returns an empty store using the wall clock.
 func NewStore() *Store {
-	return &Store{bySink: map[string]*sinkAgg{}, byBlueprint: map[string]*bpAgg{}, now: time.Now}
+	return &Store{bySink: map[string]*sinkAgg{}, byBlueprint: map[string]*bpAgg{}, lanes: map[string]LaneConfig{}, now: time.Now}
+}
+
+// ConfigureLanes replaces the declared delivery lanes while retaining observed history. A lane
+// is configured by its presence in configs; disabled lanes are deliberate (for example DRY_RUN),
+// not missing data. Empty names are ignored because no pushhook event can address them.
+func (s *Store) ConfigureLanes(configs []LaneConfig) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	lanes := make(map[string]LaneConfig, len(configs))
+	for _, cfg := range configs {
+		if cfg.Name == "" {
+			continue
+		}
+		lanes[cfg.Name] = cfg
+	}
+	s.lanes = lanes
 }
 
 // Observer returns a pushhook.Observer that folds each event into the per-sink stat.
@@ -97,6 +159,7 @@ func (s *Store) Observer() pushhook.Observer {
 		st.Pushes++
 		st.TotalItems += int64(ev.Items)
 		ms := s.now().UnixMilli()
+		st.LastAttemptMs = ms
 		a.samples = append(a.samples, sample{ms: ms, items: ev.Items})
 		if len(a.samples) > maxSamples {
 			a.samples = a.samples[len(a.samples)-maxSamples:]
@@ -105,9 +168,11 @@ func (s *Store) Observer() pushhook.Observer {
 			st.Failures++
 			st.LastErrorMs = ms
 			st.LastError = ev.Err.Error()
+			a.currentError = true
 			return
 		}
 		st.LastSuccessMs = ms
+		a.currentError = false
 
 		// Per-blueprint fold (additive; skipped when Blueprint is empty — substrate/unscoped).
 		if ev.Blueprint != "" {
@@ -123,6 +188,69 @@ func (s *Store) Observer() pushhook.Observer {
 			}
 		}
 	}
+}
+
+// SnapshotLanes returns every configured lane plus any observed-but-undeclared lane, sorted by
+// name. An observed event is evidence of an attempt only; it cannot invent configuration or make
+// a missing entry green. Callers that use this for readiness should supply FreshAfter on every
+// live lane as one full emission interval plus the delivery deadline.
+func (s *Store) SnapshotLanes() []LaneStatus {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	names := make(map[string]struct{}, len(s.lanes)+len(s.bySink))
+	for name := range s.lanes {
+		names[name] = struct{}{}
+	}
+	for name := range s.bySink {
+		names[name] = struct{}{}
+	}
+	now := s.now()
+	out := make([]LaneStatus, 0, len(names))
+	for name := range names {
+		cfg, configured := s.lanes[name]
+		var stat SinkStat
+		var currentError bool
+		if a := s.bySink[name]; a != nil {
+			stat = a.stat
+			currentError = a.currentError
+		}
+		out = append(out, foldLane(name, configured, cfg, stat, currentError, now))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+func foldLane(name string, configured bool, cfg LaneConfig, stat SinkStat, currentError bool, now time.Time) LaneStatus {
+	st := LaneStatus{
+		Name:           name,
+		Configured:     configured,
+		Disabled:       configured && cfg.Disabled,
+		DisabledReason: cfg.DisabledReason,
+		Attempted:      stat.Pushes > 0,
+		LastAttemptMs:  stat.LastAttemptMs,
+		LastSuccessMs:  stat.LastSuccessMs,
+		LastErrorMs:    stat.LastErrorMs,
+		LastError:      stat.LastError,
+	}
+	st.CurrentError = currentError
+	st.Stale = st.LastSuccessMs > 0 && cfg.FreshAfter > 0 && now.Sub(time.UnixMilli(st.LastSuccessMs)) > cfg.FreshAfter
+	switch {
+	case !configured:
+		st.State = LaneUnconfigured
+	case st.Disabled:
+		st.State = LaneDisabled
+	case !st.Attempted:
+		st.State = LaneNotAttempted
+	case st.CurrentError:
+		st.State = LaneError
+	case st.Stale:
+		st.State = LaneStaleSuccess
+	default:
+		st.State = LaneSuccess
+		st.LiveReady = true
+	}
+	return st
 }
 
 // SnapshotByBlueprint returns per-blueprint emission totals, keyed by blueprint name.

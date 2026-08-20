@@ -29,6 +29,9 @@ hosts: [{name: gh, os: linux}]
 	}
 	cfg := &fakeConfig{list: []Source{{ID: "s1", Namespace: "gns", URL: "https://x/r", Ref: "refs/heads/main"}}}
 	m := NewManager(Options{BakedDir: baked, DataDir: data, Registry: runner.Catalog(), Git: git, Config: cfg, Now: func() int64 { return 1 }})
+	if err := m.FetchNow(context.Background(), "s1"); err != nil {
+		t.Fatalf("FetchNow: %v", err)
+	}
 	loaded, man, diags := m.Resolve(context.Background())
 	names := map[string]bool{}
 	for _, l := range loaded {
@@ -71,11 +74,11 @@ func TestFetchNowSkipsIfCached(t *testing.T) {
 	writeFile(t, filepath.Join(gitDirPath, "existing.yaml"), `name: existing
 hosts: [{name: h1, os: linux}]
 `)
-	// Source has LastSHA matching HeadSHA → skip fetch.
+	// Source has FetchedSHA matching HeadSHA → skip fetch.
 	git := &fakeGit{
 		head: map[string]string{key("https://x/r", "refs/heads/main"): "sha42"},
 	}
-	cfg := &fakeConfig{list: []Source{{ID: "s1", Namespace: "gns", URL: "https://x/r", Ref: "refs/heads/main", LastSHA: "sha42"}}}
+	cfg := &fakeConfig{list: []Source{{ID: "s1", Name: "source", Namespace: "gns", URL: "https://x/r", Ref: "refs/heads/main", FetchedSHA: "sha42"}}}
 	m := NewManager(Options{DataDir: data, Registry: runner.Catalog(), Git: git, Config: cfg, Now: func() int64 { return 1 }})
 	if err := m.FetchNow(context.Background(), "s1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -103,8 +106,8 @@ hosts: [{name: h1, os: linux}]
 hosts: [{name: h2, os: linux}]
 `)}},
 	}
-	// LastSHA differs → will fetch.
-	cfg := &fakeConfig{list: []Source{{ID: "s1", Namespace: "gns", URL: "https://x/r", Ref: "refs/heads/main", LastSHA: "sha1"}}}
+	// FetchedSHA differs → will fetch.
+	cfg := &fakeConfig{list: []Source{{ID: "s1", Name: "source", Namespace: "gns", URL: "https://x/r", Ref: "refs/heads/main", FetchedSHA: "sha1"}}}
 	m := NewManager(Options{DataDir: data, Registry: runner.Catalog(), Git: git, Config: cfg, Now: func() int64 { return 1 }})
 	if err := m.FetchNow(context.Background(), "s1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -132,6 +135,13 @@ func TestFetchNowUnknownSourceErrors(t *testing.T) {
 	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}, Git: &fakeGit{}})
 	if err := m.FetchNow(context.Background(), "nonexistent"); err == nil {
 		t.Fatal("expected error for unknown source")
+	}
+}
+
+func TestFetchNowRequiresSourceConfiguration(t *testing.T) {
+	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Git: &fakeGit{}})
+	if err := m.FetchNow(context.Background(), "source"); err == nil || !strings.Contains(err.Error(), "source configuration is not available") {
+		t.Fatalf("FetchNow() error = %v, want unavailable source configuration", err)
 	}
 }
 
@@ -262,6 +272,18 @@ hosts: [{name: h1, os: linux}]
 	staged = m.ListStaged()
 	if len(staged) != 0 {
 		t.Fatalf("expected 0 staged after remove, got %d", len(staged))
+	}
+}
+
+func TestListStagedWithoutSourceConfigurationIncludesUploads(t *testing.T) {
+	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog()})
+	if err := m.StageUpload("ns", "bp1", []byte(`name: bp1
+hosts: [{name: h1, os: linux}]
+`)); err != nil {
+		t.Fatal(err)
+	}
+	if got := m.ListStaged(); len(got) != 1 || got[0].Name != "ns/bp1" || got[0].Provenance != ProvUpload {
+		t.Fatalf("ListStaged() = %+v, want the staged upload", got)
 	}
 }
 
