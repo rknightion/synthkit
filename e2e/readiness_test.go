@@ -10,14 +10,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/moby/moby/api/types/container"
+	dockernetwork "github.com/moby/moby/api/types/network"
 	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/network"
+	tcnetwork "github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
@@ -177,6 +180,7 @@ func startReadinessSynthkit(
 	env := map[string]string{
 		"DRY_RUN":             "false",
 		"JSON_HTTP_ADDR":      "0.0.0.0:8088",
+		"SYNTHKIT_BIND":       "127.0.0.1",
 		"BLUEPRINTS":          "/app/blueprints-readiness",
 		"BLUEPRINT_DATA_DIR":  "/tmp/blueprints-readiness",
 		"TICK_DEFAULT":        "10s",
@@ -220,9 +224,17 @@ func startReadinessSynthkit(
 				KeepImage:  true,
 			},
 			ExposedPorts: []string{"8088/tcp"},
-			Env:          env,
-			Files:        files,
-			Networks:     networks,
+			HostConfigModifier: func(hostConfig *container.HostConfig) {
+				hostConfig.PortBindings = dockernetwork.PortMap{
+					dockernetwork.MustParsePort("8088/tcp"): {{
+						HostIP:   netip.MustParseAddr("127.0.0.1"),
+						HostPort: "0",
+					}},
+				}
+			},
+			Env:      env,
+			Files:    files,
+			Networks: networks,
 			WaitingFor: wait.ForListeningPort("8088/tcp").
 				WithStartupTimeout(2 * time.Minute),
 		},
@@ -253,7 +265,7 @@ func startReadinessReceiver(t *testing.T, ctx context.Context) (*testcontainers.
 	t.Helper()
 	testTLS := newTestTLS(t)
 
-	net, err := network.New(ctx)
+	net, err := tcnetwork.New(ctx)
 	if err != nil {
 		t.Fatalf("create readiness Docker network: %v", err)
 	}
