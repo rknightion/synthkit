@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-20 10:58'
-updated_date: '2026-08-20 15:41'
+updated_date: '2026-08-20 16:51'
 labels: []
 dependencies: []
 references:
@@ -71,4 +71,6 @@ Wave 3 exact-head CI exposed a real SKT-0005.17 regression: run 32372813999 job 
 Wave 3 integration regression repaired in pushed commit 12b1aca. Local make gate and repeat make e2e passed with 664 declared metrics, 3 log sources, 3 trace services, and 3 Sigil kinds; exact-SHA CI run 32374469397 and e2e job 96443059588 passed; publish run 32374470107 succeeded for the signed/attested/scanned multi-arch image. SKT-0005.17 is Done again. SKT-0005.09 through .14 remain To Do: they are substantive code/security/operations waves requiring a fresh review gate, while the user-authorized eight CodeRabbit reviews are exhausted. Recommended resume order remains .09 and .10, then .12, followed by dependency-unlocked .11, .13, and .14.
 
 Continuation Wave A is active for SKT-0005.09 and .10 under the superseding run goal. Fresh CodeRabbit quota and a live reference deployment are authorized. Baseline exact-head RC deployment passed a focused dry-run and landed metrics, logs, and traces with zero sink failures; it also reproduced the current readiness gap (PID Up plus event-populated status, no explicit readiness verdict). External identifiers and credentials remain outside this public tracker.
+
+Continuation Wave A completed at exact-head b6c4ea5: SKT-0005.09 and .10 passed standing-host deployment verification and are Done. The live RC exercised delivery-aware Compose health, writable-state readiness, all configured sink lanes, fresh landed metrics, and the complete Git-source fetch/restart/loaded-versus-skipped lifecycle; temporary source artifacts were removed and the deployment returned clean and healthy. Next dependency-unblocked task is SKT-0005.12, followed by .11, .13, and .14.
 <!-- SECTION:NOTES:END -->
