@@ -369,8 +369,10 @@ func TestControllerUnregistersOnCancel(t *testing.T) {
 	done := make(chan struct{})
 	go func() { ctrl.Start(ctx, roster); close(done) }()
 
-	// Wait for all registrations.
-	waitFor(t, 5*time.Second, func() bool { return mc.get("RegisterCollector") >= len(roster) })
+	// Wait until every registration has completed, not merely reached the HTTP handler.
+	// GetConfig starts only after the controller records the successful registration;
+	// cancelling at RegisterCollector handler entry races the client reading its response.
+	waitFor(t, 5*time.Second, func() bool { return mc.get("GetConfig") >= len(roster) })
 
 	cancel()
 	<-done
