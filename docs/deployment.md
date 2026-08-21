@@ -150,7 +150,7 @@ container memory             >= steady_heap + queue budget + encoding/retry head
 ticks at steady state, then during an isolated fake-sink stall. Never stall a real Grafana endpoint
 to size the queue.
 
-On 2026-08-21 the Jules single-blueprint standing deployment measured about 300.5 MiB resident
+On 2026-08-21 the single-blueprint standing deployment measured about 300.5 MiB resident
 memory and 0.53% of one CPU in a one-shot `docker stats` sample. That is a baseline, not a full-queue
 capacity guarantee. A practical initial allocation for a small explicit blueprint set is 1 CPU and
 1 GiB, with at least 2x the measured steady heap free; increase memory or reduce
