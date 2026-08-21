@@ -98,13 +98,9 @@ func TestPublishedCompose(t *testing.T) {
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Errorf("published Compose cleanup: %v\n%s", err, out)
 		}
-		cmd = exec.CommandContext(cleanupCtx, "docker", "run", "--rm", "--volume", stateDir+":/data", "--entrypoint", "/bin/sh", publishedStateHelper, "-ceu", "rm -rf /data/* /data/.[!.]* /data/..?*; chmod 0777 /data")
+		cmd = exec.CommandContext(cleanupCtx, "docker", "run", "--rm", "--volume", stateDir+":/data", "--entrypoint", "/bin/chown", publishedStateHelper, "-R", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()), "/data")
 		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Errorf("published state container cleanup: %v\n%s", err, out)
-			return
-		}
-		if err := os.RemoveAll(stateDir); err != nil {
-			t.Errorf("published state host cleanup: %v", err)
+			t.Errorf("published state ownership cleanup: %v\n%s", err, out)
 		}
 	})
 
