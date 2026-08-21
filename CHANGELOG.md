@@ -2,6 +2,13 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.3.1](https://github.com/rknightion/synthkit/compare/v1.3.0...v1.3.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* make published state cleanup portable ([bddbc65](https://github.com/rknightion/synthkit/commit/bddbc6574bfded5ab0b0df5612593210e0e02c16))
+
 ## [1.3.0](https://github.com/rknightion/synthkit/compare/v1.2.0...v1.3.0) (2026-08-21)
 
 
