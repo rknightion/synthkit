@@ -53,16 +53,33 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # Build + push the image for the freshly-created tag. Same run as the merge that created it.
+  # Dispatch at the freshly-created tag ref, then wait for publication and the published-image gate.
   publish:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    uses: ./.github/workflows/publish.yml
+    runs-on: ubuntu-24.04
     permissions:
-      contents: write        # attach SBOMs + third-party notices to the GitHub Release
-      packages: write
-      id-token: write         # cosign keyless signing + provenance attestation
-      attestations: write
-      security-events: write  # Trivy SARIF upload
-    with:
-      release_tag: ${{ needs.release-please.outputs.tag_name }}
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch the tag-context publisher and wait for its gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          revision=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq .sha)
+          request_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          expected_title="publish ${RELEASE_TAG} request=${request_id}"
+          gh workflow run publish.yml --ref "${RELEASE_TAG}" \
+            -f "release_tag=${RELEASE_TAG}" -f "request_id=${request_id}"
+          run_id=""
+          for _attempt in $(seq 1 30); do
+            run_id=$(gh run list --workflow publish.yml --event workflow_dispatch \
+              --branch "${RELEASE_TAG}" --limit 20 --json databaseId,displayTitle,headSha | \
+              jq -r --arg title "${expected_title}" --arg sha "${revision}" \
+                '[.[] | select(.displayTitle == $title and .headSha == $sha) | .databaseId][0] // empty')
+            [ -n "${run_id}" ] && break
+            sleep 2
+          done
+          [ -n "${run_id}" ] || { echo "publisher run was not created" >&2; exit 1; }
+          gh run watch "${run_id}" --exit-status

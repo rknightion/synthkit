@@ -29,8 +29,9 @@ The canonical deployment is Docker Compose on a persistent host. The committed `
     # DRY_RUN=false, and fill GC_TOKEN, GC_PROM_RW/USER, GC_OTLP_ENDPOINT/USER,
     # GC_LOKI/USER at minimum. Empty BLUEPRINT_NAMES emits nothing.
 
-    # 4. Start (pulls ghcr.io/rknightion/synthkit:latest from GHCR)
-    docker compose up -d
+    # 4. Validate the committed pin and start it, waiting for delivery readiness
+    make compose-check
+    docker compose up -d --wait
 
     # 5. Verify
     open http://127.0.0.1:8088/control/ui
@@ -74,12 +75,12 @@ sudo install -d -o 65532 -g 65532 -m 700 control-state-data
 
 If a control-plane change made in the operator UI doesn't survive a restart, check `persist.last_error` in `/control/status` — a `permission denied` there confirms the ownership problem.
 
-Resetting only control-plane choices means stopping synthkit, deleting (or truncating)
-`control-state-data/control-state.json`, and restarting. A full `/data` reset is different: stop the
-container first, then remove the entire `control-state-data/runtime/` directory as well. That also
-removes the Synthetic Monitoring ownership, registration, adoption-preview, and crash-recovery
-state, so existing remote resources become foreign until they are explicitly previewed and
-adopted. Never remove runtime state from a running container.
+Resetting state is destructive maintenance, not an upgrade or rollback technique. Stop synthkit and
+take a retained integrity snapshot before removing anything. Resetting only control-plane choices
+removes `control-state-data/control-state.json`; a full `/data` reset also removes
+`control-state-data/runtime/`, including Synthetic Monitoring ownership, registration,
+adoption-preview, and crash-recovery state. Existing remote resources then become foreign until
+explicitly previewed and adopted. Never remove runtime state from a running container.
 
 ---
 
@@ -186,20 +187,50 @@ on the host filesystem.
 The published multi-arch image (amd64 + arm64) is at:
 
 ```text
-ghcr.io/rknightion/synthkit:<vX.Y.Z>
+ghcr.io/rknightion/synthkit:<X.Y.Z>
 ghcr.io/rknightion/synthkit:latest
 ghcr.io/rknightion/synthkit:main
 ```
 
-Built by CI on each push to `main` and each tagged release. The image is signed with cosign and ships with SBOM and provenance attestations.
+Built by CI on each push to `main` and each tagged release. Release Git tags have the form
+`vX.Y.Z`; GHCR strips the leading `v` from the image tag. The image is signed with cosign and ships
+with SBOM and provenance attestations.
 
-The `docker-compose.yml` pulls this image by default — no local build step is required. The tag is controlled by `SYNTHKIT_IMAGE_TAG` in `.env`:
+`SYNTHKIT_IMAGE_REF` is the preferred Compose selector and may contain a release tag or complete
+index-digest reference. The committed `.env.example` selects a published, healthcheck-capable image;
+copying it preserves that known-good pin. `SYNTHKIT_IMAGE_TAG` is legacy compatibility for a bare
+tag and is consulted only when `SYNTHKIT_IMAGE_REF` is absent or empty. A malformed or unavailable
+preferred reference fails: Compose and the deployment helper never fall back silently.
 
-| Value | Image | Notes |
+| Selector | Image | Notes |
 |---|---|---|
-| `latest` (default) | last tagged release | Only exists once the first release has been cut. Until then, set `SYNTHKIT_IMAGE_TAG=main`. |
-| `main` | bleeding-edge default-branch build | Always available; rebuilt on every push to `main`. |
-| `vX.Y.Z` | pinned release | Use to lock a specific version. |
+| `SYNTHKIT_IMAGE_REF=ghcr.io/rknightion/synthkit@sha256:<index>` | immutable release index | Preferred for standing deployments. |
+| `SYNTHKIT_IMAGE_REF=ghcr.io/rknightion/synthkit:X.Y.Z` | released version tag | Reproducible while the registry tag remains intact; record its resolved digest. |
+| `SYNTHKIT_IMAGE_REF=...:main` or `...:latest` | mutable edge | Deliberate testing only. Pass `--allow-mutable` to `set-image` and pull explicitly before recreate. |
+| `SYNTHKIT_IMAGE_TAG=X.Y.Z` | legacy fallback | Bare tag only; ignored when the preferred selector is non-empty. |
+
+An image has several related identities. The **registry index digest** names the multi-platform
+artifact; the **platform manifest digest** selects one OS/architecture from that index; the **OCI
+config digest** identifies the selected image configuration; and Docker's **running image ID** is a
+distinct runtime observation. An accepted synthkit Compose deployment requires the OCI config
+digest and the running image ID to be byte-equal. Neither is a substitute for the binary's reported
+release version and complete source revision.
+
+Verify a release before changing a deployment:
+
+```bash
+python3 scripts/synthkit-deploy.py verify-image \
+  --reference ghcr.io/rknightion/synthkit@sha256:<index> \
+  --expected-version X.Y.Z \
+  --expected-oci-version vX.Y.Z \
+  --expected-revision <40-hex-source-sha> \
+  --source-ref refs/tags/vX.Y.Z \
+  --platform linux/amd64
+```
+
+This checks the exact index and selected manifest/config, `synthkit -version`, the keyless cosign
+signature, and GitHub provenance bound to the repository, tag ref, source SHA, reusable signer
+workflow, and pinned signer revision. Its output contains closed statuses and non-secret identities.
 
 **Building from source (opt-in).** If you need to test local changes, override the compose file:
 
@@ -207,24 +238,152 @@ The `docker-compose.yml` pulls this image by default — no local build step is 
 docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
-The `VERSION` build-arg is stamped as `service.version` in self-observability and profiling data; the published image already has this stamped by CI.
+The `VERSION` build-arg is stamped as `service.version` in self-observability and profiling data;
+`REVISION` supplies the complete source commit reported by `synthkit -version`. Published images have
+both stamped by CI.
 
 ---
 
-## Updating
+## Reproducible upgrade
 
 !!! warning "Selection default changed to emit nothing"
     Empty or unset `BLUEPRINT_NAMES` now starts setup mode. Before upgrading an existing deployment
     that relied on the former implicit full catalog, set `BLUEPRINT_NAMES=*` to preserve that
     behavior, or preferably list the exact blueprint identities you intend to emit.
 
+Use Docker Compose 2.24.4 or later. Never run raw `docker compose config` against the real `.env`;
+render with `.env.example` or generated fake inputs through `make compose-check`.
+
+Set the candidate identity from the verified release, and the current expected identity from its
+previous deployment record. Records and snapshots belong outside the checkout:
+
 ```bash
-# On the host:
-git pull --ff-only
-docker compose up -d
+CHECKOUT="$(git rev-parse --show-toplevel)"
+STATE_DIR="$(cd control-state-data && pwd -P)"
+DEPLOYMENT_ROOT="$(dirname "$STATE_DIR")"
+RECORDS_DIR="/absolute/private/path/synthkit-deployment-records"
+CONTAINER_ID="$(docker compose ps -q synthkit)"
+CANDIDATE_REF="ghcr.io/rknightion/synthkit@sha256:<candidate-index>"
+CANDIDATE_VERSION="X.Y.Z"
+CANDIDATE_REVISION="<40-hex-source-sha>"
+PREVIOUS_RECORD="$RECORDS_DIR/current.json"
+
+test -f "$PREVIOUS_RECORD" && test ! -L "$PREVIOUS_RECORD" || exit 1
+CURRENT_REF="$(jq -er '.identity.configured_ref | strings | select(length > 0)' "$PREVIOUS_RECORD")"
+CURRENT_VERSION="$(jq -er '.identity.version | strings | select(length > 0)' "$PREVIOUS_RECORD")"
+CURRENT_REVISION="$(jq -er '.identity.revision | strings | select(test("^[0-9a-f]{40}$"))' "$PREVIOUS_RECORD")"
+case "$CURRENT_REF" in
+  ghcr.io/rknightion/synthkit@sha256:*) ;;
+  *) echo "previous deployment record is not digest-bound" >&2; exit 1 ;;
+esac
+
+make compose-check
+python3 scripts/synthkit-deploy.py verify-image \
+  --reference "$CANDIDATE_REF" --expected-version "$CANDIDATE_VERSION" \
+  --expected-oci-version "v$CANDIDATE_VERSION" --expected-revision "$CANDIDATE_REVISION" \
+  --source-ref "refs/tags/v$CANDIDATE_VERSION" --platform linux/amd64
 ```
 
-`git pull` picks up any changes to `docker-compose.yml` itself; `docker compose up -d` re-checks the registry and pulls the newest digest for the configured tag (`pull_policy: always` is set in the compose file). The `.env` file is gitignored and survives the pull. State in `control-state-data/` survives the restart (the compose `restart: unless-stopped` policy keeps the container running through host reboots).
+If the previous record contains a tag rather than an index digest, stop here. Resolve that tag to
+its exact index digest, verify the artifact and source identity, and write a replacement
+digest-bound record before continuing; `inspect-running` deliberately does not accept a tag.
+
+Inspect the current deployment with its recorded expected values, stop it, and snapshot `/data`
+before any selector mutation:
+
+```bash
+CURRENT_JSON="$(python3 scripts/synthkit-deploy.py inspect-running \
+  --container "$CONTAINER_ID" --expected-reference "$CURRENT_REF" \
+  --expected-version "$CURRENT_VERSION" --expected-revision "$CURRENT_REVISION")"
+docker compose stop synthkit
+SNAPSHOT_JSON="$(python3 scripts/synthkit-deploy.py snapshot-state \
+  --state-dir "$STATE_DIR" --records-dir "$RECORDS_DIR" --checkout-root "$CHECKOUT" \
+  --name before-upgrade --container "$CONTAINER_ID")"
+SNAPSHOT_MANIFEST_SHA="$(jq -r .manifest_sha256 <<<"$SNAPSHOT_JSON")"
+```
+
+Write the private deployment record from the closed identity report and snapshot manifest. The
+directory is created mode `0700`; records, manifests, and stored files are mode `0600`. The helper
+rejects links, devices, sockets, FIFOs, and records inside the checkout.
+
+```bash
+python3 scripts/synthkit-deploy.py write-record \
+  --records-dir "$RECORDS_DIR" --checkout-root "$CHECKOUT" --name known-good \
+  --field "configured_ref=$(jq -r .configured_ref <<<"$CURRENT_JSON")" \
+  --field "index_digest=$(jq -r .index_digest <<<"$CURRENT_JSON")" \
+  --field "platform_manifest_digest=$(jq -r .platform_manifest_digest <<<"$CURRENT_JSON")" \
+  --field "oci_config_digest=$(jq -r .oci_config_digest <<<"$CURRENT_JSON")" \
+  --field "running_image_id=$(jq -r .running_image_id <<<"$CURRENT_JSON")" \
+  --field "version=$(jq -r .version <<<"$CURRENT_JSON")" \
+  --field "revision=$(jq -r .revision <<<"$CURRENT_JSON")" \
+  --field "state_manifest_sha256=$(jq -r .manifest_sha256 <<<"$SNAPSHOT_JSON")"
+```
+
+Change only `SYNTHKIT_IMAGE_REF` with compare-and-swap, retaining the returned new `.env` hash for
+rollback. A concurrent byte, inode, ownership, or mode change aborts rather than restoring unrelated
+content:
+
+```bash
+ENV_SHA="$(python3 -c 'import hashlib, pathlib; print(hashlib.sha256(pathlib.Path(".env").read_bytes()).hexdigest())')"
+SELECTOR_JSON="$(python3 scripts/synthkit-deploy.py set-image \
+  --env-file .env --expected-sha256 "$ENV_SHA" --reference "$CANDIDATE_REF")"
+ROLLBACK_ENV_SHA="$(jq -r .sha256 <<<"$SELECTOR_JSON")"
+docker compose up -d --wait --force-recreate synthkit
+python3 scripts/synthkit-deploy.py inspect-running \
+  --container "$(docker compose ps -q synthkit)" --expected-reference "$CANDIDATE_REF" \
+  --expected-version "$CANDIDATE_VERSION" --expected-revision "$CANDIDATE_REVISION"
+```
+
+Finally require public readiness, writable persisted state, authenticated status, and every signal
+declared by the selected blueprints after its emission interval plus delivery deadline. Preserve
+`ROLLBACK_ENV_SHA`, the exact record hash, and snapshot manifest hash outside shell history or a
+public issue. A legacy image without `-version` cannot produce a fully bound record; document that
+gap and first upgrade to a versioned known-good target before treating rollback as proven.
+
+## Rollback
+
+Stop the candidate. If backward state compatibility is not explicitly proven, restore the retained
+quiesced snapshot before selecting the old exact reference:
+
+```bash
+ROLLBACK_CONTAINER_ID="$(docker compose ps -q synthkit)"
+docker compose stop synthkit
+python3 scripts/synthkit-deploy.py restore-state \
+  --state-dir "$STATE_DIR" --expected-root "$DEPLOYMENT_ROOT" \
+  --records-dir "$RECORDS_DIR" --name before-upgrade \
+  --expected-manifest-sha256 "$SNAPSHOT_MANIFEST_SHA" --container "$ROLLBACK_CONTAINER_ID"
+python3 scripts/synthkit-deploy.py set-image \
+  --env-file .env --expected-sha256 "$ROLLBACK_ENV_SHA" --reference "$CURRENT_REF"
+docker compose up -d --wait --force-recreate synthkit
+python3 scripts/synthkit-deploy.py inspect-running \
+  --container "$(docker compose ps -q synthkit)" --expected-reference "$CURRENT_REF" \
+  --expected-version "$CURRENT_VERSION" --expected-revision "$CURRENT_REVISION"
+```
+
+The restore retains the candidate state beside the live tree as an exact
+`.control-state-data.displaced-*` directory. Re-run the same readiness, writability, authenticated
+status, and declared-signal checks after rollback. Do not automatically remove snapshots, records,
+or displaced state.
+
+Restoring uid/gid metadata can require elevated host privileges. If the helper returns
+`restore_requires_elevated_privileges`, revalidate every exact path and rerun only the
+`restore-state` command with `sudo`; do not run the entire upgrade workflow as root.
+
+After the rollback window, review each exact artifact path and account for backups or encrypted
+storage before removal. Arm only one validated target, pause for operator confirmation, then remove
+that exact path; never use a wildcard or a broad recursive target:
+
+```bash
+REMOVE_TARGET="/absolute/private/path/synthkit-deployment-records/before-upgrade"
+test -d "$REMOVE_TARGET" && test ! -L "$REMOVE_TARGET" || exit 1
+find "$REMOVE_TARGET" -xdev -print
+read -r -p "Remove exactly this retained artifact? [y/N] " answer
+[ "$answer" = y ] && rm -r -- "$REMOVE_TARGET"
+```
+
+Repeat separately for the exact displaced-state path only after validating it remains beneath the
+expected deployment root. Secure erase is storage-dependent; deletion on copy-on-write, SSD, or
+backed-up filesystems may not erase every historical block.
 
 ---
 

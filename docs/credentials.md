@@ -105,9 +105,12 @@ use `gcx config list-contexts` and `gcx config current-context` to select the in
 ## Filling in `.env`
 
 ```bash
-cp .env.example .env
+install -m 600 .env.example .env
 # open .env in your editor and fill in the values
 ```
+
+Do not pass the real `.env` to raw `docker compose config`; rendered output can expose interpolated
+credentials. `make compose-check` uses `.env.example` as fake input for deployment rendering.
 
 !!! warning "Comment placement"
     Docker Compose's `env_file` does **not** strip inline comments. Put comments on their own line — `VALUE=foo # comment` makes `# comment` part of the value. `.env.example` demonstrates the correct style throughout.

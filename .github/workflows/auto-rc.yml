@@ -35,22 +35,35 @@ jobs:
   # container-publish suppresses `latest` for any tag containing '-', so an RC
   # can never steal Latest from a stable release.
   #
-  # publish.yml also triggers on push to main directly (edge :main image). This
-  # workflow's own push trigger fires on the same push, so a single push to main
-  # now produces two publish.yml runs: the repo's own push-triggered edge build,
-  # and this one calling publish.yml via workflow_call for the RC tag. They push
-  # different tags (edge :main vs the RC tag), so this is not the same artifact
-  # published twice, but it does double the container-publish compute per push.
-  # Not restructured here per instruction — flagging for a human decision.
+  # publish.yml also publishes the edge :main image for this push. The RC is dispatched at the
+  # freshly-created tag ref so OCI metadata, binary identity, signature and provenance all bind to
+  # the release context; this job waits for that separate published-image gate to finish.
   publish:
     needs: rc
     if: needs.rc.outputs.tag != ''
+    runs-on: ubuntu-24.04
     permissions:
-      contents: write        # attach SBOMs + notices to the RC release
-      packages: write        # push the image to GHCR
-      id-token: write        # cosign keyless signing
-      attestations: write    # SLSA build provenance
-      security-events: write # Trivy SARIF upload
-    uses: ./.github/workflows/publish.yml
-    with:
-      release_tag: ${{ needs.rc.outputs.tag }}
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch the tag-context publisher and wait for its gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.rc.outputs.tag }}
+        run: |
+          revision=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq .sha)
+          request_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          expected_title="publish ${RELEASE_TAG} request=${request_id}"
+          gh workflow run publish.yml --ref "${RELEASE_TAG}" \
+            -f "release_tag=${RELEASE_TAG}" -f "request_id=${request_id}"
+          run_id=""
+          for _attempt in $(seq 1 30); do
+            run_id=$(gh run list --workflow publish.yml --event workflow_dispatch \
+              --branch "${RELEASE_TAG}" --limit 20 --json databaseId,displayTitle,headSha | \
+              jq -r --arg title "${expected_title}" --arg sha "${revision}" \
+                '[.[] | select(.displayTitle == $title and .headSha == $sha) | .databaseId][0] // empty')
+            [ -n "${run_id}" ] && break
+            sleep 2
+          done
+          [ -n "${run_id}" ] || { echo "publisher run was not created" >&2; exit 1; }
+          gh run watch "${run_id}" --exit-status

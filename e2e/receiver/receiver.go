@@ -31,20 +31,22 @@ import (
 // (metric names + label keys, log sources + stream-label keys, trace services + span names,
 // sigil ingest kinds + operation names).
 type Receiver struct {
-	mu      sync.Mutex
-	metrics map[string]map[string]bool // name → label-key set
-	logs    map[string]map[string]bool // source → stream-key set
-	traces  map[string]map[string]bool // service → span-name set
-	sigil   map[string]map[string]bool // ingest kind → operation-name set
+	mu       sync.Mutex
+	metrics  map[string]map[string]bool // name → label-key set
+	logs     map[string]map[string]bool // source → stream-key set
+	traces   map[string]map[string]bool // service → span-name set
+	sigil    map[string]map[string]bool // ingest kind → operation-name set
+	receipts map[string]int             // wire protocol → successfully decoded non-empty item count
 }
 
 // New returns a zero-state Receiver ready to use.
 func New() *Receiver {
 	return &Receiver{
-		metrics: map[string]map[string]bool{},
-		logs:    map[string]map[string]bool{},
-		traces:  map[string]map[string]bool{},
-		sigil:   map[string]map[string]bool{},
+		metrics:  map[string]map[string]bool{},
+		logs:     map[string]map[string]bool{},
+		traces:   map[string]map[string]bool{},
+		sigil:    map[string]map[string]bool{},
+		receipts: map[string]int{},
 	}
 }
 
@@ -95,6 +97,7 @@ func (r *Receiver) handleRW2(w http.ResponseWriter, req *http.Request) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	sym := pb.Symbols
+	decoded := 0
 	for _, ts := range pb.Timeseries {
 		var name string
 		var keys []string
@@ -113,8 +116,10 @@ func (r *Receiver) handleRW2(w http.ResponseWriter, req *http.Request) {
 		}
 		if name != "" {
 			add(r.metrics, name, keys...)
+			decoded++
 		}
 	}
+	r.receipts["promrw"] += decoded
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -147,6 +152,7 @@ func (r *Receiver) handleTraces(w http.ResponseWriter, req *http.Request) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	b := raw
+	decoded := 0
 	for len(b) > 0 {
 		num, typ, n := protowire.ConsumeTag(b)
 		if n < 0 {
@@ -181,9 +187,11 @@ func (r *Receiver) handleTraces(w http.ResponseWriter, req *http.Request) {
 		for _, ss := range rs.GetScopeSpans() {
 			for _, sp := range ss.GetSpans() {
 				add(r.traces, svc, sp.GetName())
+				decoded++
 			}
 		}
 	}
+	r.receipts["otlp_traces"] += decoded
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -200,6 +208,7 @@ func (r *Receiver) handleOTLPMetrics(w http.ResponseWriter, req *http.Request) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	b := raw
+	decoded := 0
 	for len(b) > 0 {
 		num, typ, n := protowire.ConsumeTag(b)
 		if n < 0 {
@@ -227,9 +236,11 @@ func (r *Receiver) handleOTLPMetrics(w http.ResponseWriter, req *http.Request) {
 		for _, sm := range rm.GetScopeMetrics() {
 			for _, m := range sm.GetMetrics() {
 				add(r.metrics, m.GetName())
+				decoded++
 			}
 		}
 	}
+	r.receipts["otlp_metrics"] += decoded
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -265,6 +276,7 @@ func (r *Receiver) handleLoki(w http.ResponseWriter, req *http.Request) {
 		}
 		add(r.logs, src, keys...)
 	}
+	r.receipts["loki"] += len(push.Streams)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -286,6 +298,7 @@ func (r *Receiver) handleSigilGenerations(w http.ResponseWriter, req *http.Reque
 		op := g.GetOperationName()
 		add(r.sigil, "generations", op)
 	}
+	r.receipts["sigil_generations"] += len(pb.GetGenerations())
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -307,6 +320,7 @@ func (r *Receiver) handleSigilWorkflowSteps(w http.ResponseWriter, req *http.Req
 	if len(pb.GetWorkflowSteps()) > 0 {
 		add(r.sigil, "workflow_steps")
 	}
+	r.receipts["sigil_workflow_steps"] += len(pb.GetWorkflowSteps())
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -328,6 +342,7 @@ func (r *Receiver) handleSigilScores(w http.ResponseWriter, req *http.Request) {
 	if len(pb.GetScores()) > 0 {
 		add(r.sigil, "scores")
 	}
+	r.receipts["sigil_scores"] += len(pb.GetScores())
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -340,6 +355,7 @@ func (r *Receiver) Snapshot() inventory.Schema {
 		LogSources: map[string][]string{},
 		Traces:     map[string][]string{},
 		Sigil:      map[string][]string{},
+		Receipts:   map[string]int{},
 	}
 	flatten := func(src map[string]map[string]bool, dst map[string][]string) {
 		for k, set := range src {
@@ -355,6 +371,9 @@ func (r *Receiver) Snapshot() inventory.Schema {
 	flatten(r.logs, out.LogSources)
 	flatten(r.traces, out.Traces)
 	flatten(r.sigil, out.Sigil)
+	for protocol, count := range r.receipts {
+		out.Receipts[protocol] = count
+	}
 	return out
 }
 

@@ -121,6 +121,10 @@ The container runs as uid 65532 and must own the persisted control-state volume.
 recursive ownership change here; runtime manages the files beneath this dedicated directory.
 
 ## Step 6 — Dry-run gate (before any live push)
+First run `make compose-check`. It requires Compose 2.24.4 or later and renders the default and
+`sm-provision` profile with `.env.example` fake inputs; never substitute the real credential file or
+run raw `docker compose config` against it.
+
 `DRY_RUN=true docker compose run --rm synthkit -once -dump`
 (`pull_policy: always` pulls the selected image automatically; the emitter uses `.env` by default or
 the service env file selected by `SYNTHKIT_ENV_FILE`, and appends `-once -dump` to the entrypoint).
@@ -136,18 +140,25 @@ Resolve requested `partial` dispositions before deployment; `unsupported` is a h
 Fleet registration is valid when the operator chose metrics-only mode.
 
 ## Step 7 — Deploy
-The image is pulled from `ghcr.io/rknightion/synthkit`. Set `SYNTHKIT_IMAGE_TAG` in `.env` to
-control which tag is used: `latest` (default, last tagged release), `main` (bleeding-edge
-default-branch build), or `vX.Y.Z` to pin a release. To build from local source instead, use
+The image is pulled from `ghcr.io/rknightion/synthkit`. Keep the eligible published
+`SYNTHKIT_IMAGE_REF` copied from `.env.example`, or replace it only with a release that has already
+passed `scripts/synthkit-deploy.py verify-image`. Prefer the exact index digest.
+`SYNTHKIT_IMAGE_TAG` is a legacy bare-tag fallback used only when the preferred selector is empty;
+a malformed or unavailable preferred value never falls back. `main` and `latest` are mutable edge
+tags and require deliberate `set-image --allow-mutable` plus an explicit pull. To build from local
+source instead, use
 `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 
-- **Local:** `docker compose up -d`.
+- **Local:** `docker compose up -d --wait`.
 - **Remote (aware/handoff):** on the standing host, first repeat **Locate the synthkit checkout**
-  against its existing clone. Then, from that verified root: `git pull --ff-only` → repeat Step 5's
-  symlink-safe state-directory setup → preserve/copy the host's `.env` → `docker compose up -d`.
-  Set `SYNTHKIT_BIND` deliberately. Loopback + SSH tunnel needs no acknowledgement; any
-  non-loopback bind needs `CONTROL_TOKEN` plus `CONTROL_EXPOSURE_ACK=trusted-network|tls-proxy`.
-  Full SSH automation is out of scope for v1 — guide the user through these steps.
+  against its existing clone. A first deployment repeats Step 5 and uses `docker compose up -d
+  --wait`. An existing deployment must follow `docs/deployment.md`'s reproducible lifecycle:
+  verify the candidate first; inspect and record the current identity; stop and snapshot `/data`
+  into an external private directory; compare-and-swap only `SYNTHKIT_IMAGE_REF`; recreate with
+  `--wait`; then retain and verify the rollback target. Never copy or replace the whole host `.env`
+  during an upgrade. Set `SYNTHKIT_BIND` deliberately. Loopback + SSH tunnel needs no
+  acknowledgement; any non-loopback bind needs `CONTROL_TOKEN` plus
+  `CONTROL_EXPOSURE_ACK=trusted-network|tls-proxy`.
 
 When Synthetic Monitoring was selected, the first start writes a private snapshot and intentionally
 suppresses SM. Preview, explicitly apply, then restart the same image:

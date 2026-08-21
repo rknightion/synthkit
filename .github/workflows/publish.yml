@@ -1,25 +1,24 @@
 # Publish the multi-arch image to GHCR via the shared rknightion container-publish
 # reusable (native amd64+arm64 matrix, cosign signing, provenance, SBOM, Trivy).
-# Triggers: push to main publishes the edge :main image (release_tag empty); called
-# by release-please.yml when a release is created (release_tag set); also
-# workflow_dispatch-able: leave release_tag empty for an edge (:main) test build,
-# or set it to re-publish a tag.
+# Triggers: push to main publishes the edge :main image. Release automation dispatches this workflow
+# at the exact tag ref with release_tag set, which keeps the shared reusable signer while making the
+# OCI version label, binary version and source revision release-specific. Release runs then verify
+# the exact index signature/provenance and exercise that digest through committed Compose.
 name: publish
+run-name: publish ${{ inputs.release_tag || github.ref_name }} request=${{ inputs.request_id || github.run_id }}
 
 on:
   push:
     branches: [main]
-  workflow_call:
-    inputs:
-      release_tag:
-        description: "Release tag to publish, e.g. v1.2.3"
-        required: false
-        type: string
-        default: ""
   workflow_dispatch:
     inputs:
       release_tag:
         description: "Release tag (vX.Y.Z) to publish; empty = edge (:main) test build"
+        required: false
+        type: string
+        default: ""
+      request_id:
+        description: "Opaque parent-run correlation token"
         required: false
         type: string
         default: ""
@@ -28,7 +27,31 @@ permissions:
   contents: read
 
 jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.source.outputs.revision }}
+    steps:
+      - name: Checkout published source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_tag || github.sha }}
+          persist-credentials: false
+      - name: Resolve complete source revision
+        id: source
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if [ -n "${RELEASE_TAG}" ] && [ "${GITHUB_REF}" != "refs/tags/${RELEASE_TAG}" ]; then
+            echo "release publication must run at its exact tag ref" >&2
+            exit 1
+          fi
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   image:
+    needs: identity
     permissions:
       contents: write        # SBOMs attached to the release (when release_tag set)
       packages: write
@@ -38,6 +61,94 @@ jobs:
     uses: rknightion/.github/.github/workflows/container-publish.yml@f31690684f4292d1fe8e528618f7c8306fe27d9a # v1.3.1
     with:
       release-tag: ${{ inputs.release_tag }}
+      build-args: |
+        REVISION=${{ needs.identity.outputs.revision }}
+
+  verify-release:
+    needs: [identity, image]
+    if: inputs.release_tag != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+      attestations: read
+    steps:
+      - name: Harden the runner (audit egress)
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+      - name: Checkout released source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_tag }}
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+      - name: Download the publisher's exact platform digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ${{ runner.temp }}/published-digests
+          pattern: digests-*
+          merge-multiple: true
+      - name: Verify exact image identity, signature, and provenance
+        id: verify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_REVISION: ${{ needs.identity.outputs.revision }}
+          PUBLISHED_DIGESTS: ${{ runner.temp }}/published-digests
+          PUBLISHED_INDEX: ${{ runner.temp }}/published-index.json
+        run: |
+          version="${RELEASE_TAG#v}"
+          shopt -s nullglob
+          digest_files=("${PUBLISHED_DIGESTS}"/*)
+          [ "${#digest_files[@]}" -eq 2 ] || { echo "expected two exact platform digests" >&2; exit 1; }
+          mapfile -t digest_files < <(printf '%s\n' "${digest_files[@]}" | LC_ALL=C sort)
+          sources=()
+          for digest_file in "${digest_files[@]}"; do
+            platform_digest="${digest_file##*/}"
+            [[ "${platform_digest}" =~ ^[0-9a-f]{64}$ ]] || { echo "invalid platform digest artifact" >&2; exit 1; }
+            sources+=("ghcr.io/rknightion/synthkit@sha256:${platform_digest}")
+          done
+          docker buildx imagetools create --dry-run "${sources[@]}" > "${PUBLISHED_INDEX}"
+          digest=$(python3 - "${PUBLISHED_INDEX}" <<'PY'
+          import hashlib
+          from pathlib import Path
+          import sys
+
+          content = Path(sys.argv[1]).read_bytes()
+          if not content.endswith(b"\n"):
+              raise SystemExit("dry-run index did not end with the expected display newline")
+          content = content[:-1]
+          print("sha256:" + hashlib.sha256(content).hexdigest())
+          PY
+          )
+          reference="ghcr.io/rknightion/synthkit@${digest}"
+          python3 scripts/synthkit-deploy.py verify-image \
+            --reference "${reference}" \
+            --expected-version "${version}" \
+            --expected-oci-version "${RELEASE_TAG}" \
+            --expected-revision "${SOURCE_REVISION}" \
+            --source-ref "refs/tags/${RELEASE_TAG}" \
+            --platform linux/amd64 | tee verification.json
+          python3 scripts/synthkit-deploy.py check-compose \
+            --compose-file docker-compose.yml \
+            --env-file .env.example \
+            --expected-reference "${reference}"
+          echo "reference=${reference}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - name: Exercise the published image through committed Compose
+        env:
+          SYNTHKIT_PUBLISHED_IMAGE_REF: ${{ steps.verify.outputs.reference }}
+          SYNTHKIT_EXPECTED_VERSION: ${{ steps.verify.outputs.version }}
+          SYNTHKIT_EXPECTED_REVISION: ${{ needs.identity.outputs.revision }}
+        run: make published-e2e
 
   # go-licenses third-party notices (Go-specific; migrates to the shared binaries
   # reusable later). Releases only.

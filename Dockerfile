@@ -14,9 +14,11 @@ RUN go mod download
 COPY . .
 # Replace the committed dist/.gitkeep placeholder with the real Vite build (COPY has no inline comments).
 COPY --from=ui /ui/dist /src/internal/control/ui/dist
-# VERSION is stamped as service.version onto self-obs + profiling data (defaults to "dev").
+# VERSION is stamped as service.version onto self-obs + profiling data. REVISION is the complete
+# source commit reported by `synthkit -version`; published workflows always supply both.
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /out/synthkit ./cmd/synthkit && \
+ARG REVISION=unknown
+RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION} -X main.revision=${REVISION}" -o /out/synthkit ./cmd/synthkit && \
     CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /out/sm-provision ./cmd/sm-provision
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35

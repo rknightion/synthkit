@@ -98,7 +98,9 @@ DRY_RUN=false go run ./cmd/synthkit
 ```
 
 It binds the control plane on `127.0.0.1:8088` (loopback-safe). Open <http://127.0.0.1:8088/control/ui>.
-Let it run for a few master ticks (default 5s) so cumulative series accumulate, then verify (§5).
+Wait one declared emission interval plus `SEND_BATCH_DEADLINE` before verifying (§5). Metric lanes
+below the 60-second DPM floor still require at least that 60-second interval; a few master ticks are
+not landing proof.
 
 ### 4b. Containerised deploy (the standing host)
 
@@ -117,12 +119,20 @@ if [ -L control-state-data ] || { [ -e control-state-data ] && [ ! -d control-st
 sudo install -d -o 65532 -g 65532 -m 700 control-state-data
 ```
 
-Deploy = push the change, pull on the host, and copy the (gitignored) `.env` across if it changed. The image is pulled from GHCR automatically (`pull_policy: always`):
+For a first deployment, retain the image pin copied from `.env.example`, validate Compose with fake
+inputs, and wait for delivery-aware health:
 
 ```bash
 # on the host clone (e.g. /opt/synthkit):
-git pull --ff-only && docker compose up -d
+make compose-check
+docker compose up -d --wait
 ```
+
+For an existing deployment, do not replace `.env` or use a plain pull-and-up sequence. Follow the
+[reproducible upgrade and rollback procedure](deployment.md#reproducible-upgrade): verify the exact
+candidate, record the running index/platform/config/image/version identities, stop and snapshot
+`/data`, compare-and-swap only `SYNTHKIT_IMAGE_REF`, recreate with `--wait`, and retain the concrete
+rollback target.
 
 The host `.env` runs live (`DRY_RUN=false`) and binds `0.0.0.0:8088` **inside** the container so
 Docker's port mapping can reach it; host exposure is restricted separately by `SYNTHKIT_BIND` in the
@@ -134,11 +144,24 @@ compose port mapping. Control state persists to the mounted `/data` volume
 > is written lazily on the first mutation, not at startup. If a change you make in the operator UI
 > doesn't stick across a restart, check `persist.last_error` in `/control/status` (§5.1): a
 > `permission denied` there means the bind-mount dir isn't owned by uid 65532 — run the `chown` above.
-> To wipe state, just delete the file (or the dir's contents) on the host.
+> State reset is destructive maintenance. Stop the container and take a retained integrity snapshot
+> first; never delete the file or directory contents as part of an upgrade.
 
 ---
 
 ## 5. Verify in Grafana
+
+Before signal queries, prove that the container still runs the intended immutable release:
+
+```bash
+python3 scripts/synthkit-deploy.py inspect-running \
+  --container "$(docker compose ps -q synthkit)" \
+  --expected-reference "ghcr.io/rknightion/synthkit@sha256:<index>" \
+  --expected-version "X.Y.Z" --expected-revision "<40-hex-source-sha>"
+```
+
+This closed report distinguishes the registry index, platform manifest, OCI config, running Docker
+image ID, binary version, and source revision without exposing configuration values.
 
 ### 5.1 Sink readiness (fastest signal)
 

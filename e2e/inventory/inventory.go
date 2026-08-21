@@ -24,6 +24,9 @@ type Schema struct {
 	// recorded under the "generations" key and are informational only — Subset correlates at
 	// the kind level, not the operation-name level.
 	Sigil map[string][]string
+	// Receipts counts successfully decoded, non-empty items by wire protocol. It is populated by
+	// the receiver only; dump parsing leaves it empty because the dry-run inventory has no transport.
+	Receipts map[string]int
 }
 
 func newSchema() Schema {
@@ -32,6 +35,7 @@ func newSchema() Schema {
 		LogSources: map[string][]string{},
 		Traces:     map[string][]string{},
 		Sigil:      map[string][]string{},
+		Receipts:   map[string]int{},
 	}
 }
 

@@ -90,7 +90,8 @@ independent of synthetic `DRY_RUN`. The staff triplets never reuse `GC_TOKEN`.
 | `CONFIG_SNAPSHOT_PATH` | non-secret path | Persisted control-plane snapshot path. |
 | `CONTROL_TOKEN` | **secret** | HTTP Basic password (user `control`) for sensitive control/Infinity reads and all mutations. |
 | `CONTROL_EXPOSURE_ACK` | non-secret policy | Required for non-loopback exposure; exactly `trusted-network` or `tls-proxy`. |
-| `SYNTHKIT_IMAGE_TAG` | non-secret compose config | Published image tag; compose-only. |
+| `SYNTHKIT_IMAGE_REF` | non-secret compose config | Preferred complete published image reference, ideally an index digest. Invalid/unavailable values fail and never fall back. |
+| `SYNTHKIT_IMAGE_TAG` | non-secret compose config | Legacy bare-tag fallback used only when `SYNTHKIT_IMAGE_REF` is absent or empty. |
 | `SYNTHKIT_ENV_FILE` | non-secret compose path | Service env file; normal default `.env`, fake-input override for render checks. |
 | `SYNTHKIT_BIND` | non-secret compose bind | Host exposure for port 8088; default loopback. |
 | `SYNTHKIT_IN_CONTAINER` | non-secret runtime hint | Optional container-runtime hint. |

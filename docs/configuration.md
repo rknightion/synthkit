@@ -10,9 +10,9 @@ All synthkit configuration is supplied via environment variables — either in a
 ## The `.env` contract
 
 ```bash
-cp .env.example .env
+install -m 600 .env.example .env
 # fill values in-place, then:
-docker compose up -d     # or: ./synthkit
+docker compose up -d --wait     # or: ./synthkit
 ```
 
 **Keep comments on their own line.** Docker Compose's `env_file` does NOT strip inline comments — `TOKEN=abc123 # my token` sets the variable to the literal string `abc123 # my token`. Put comments above the value, never beside it.
@@ -102,11 +102,21 @@ The delivery queue (`internal/sink/queue`) decouples construct rendering from ne
 
 ## Host bind (Docker Compose only)
 
-This variable is consumed by Docker Compose's port-mapping interpolation, not by the synthkit binary itself.
+These values are consumed by Docker Compose, not by the synthkit binary itself.
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `SYNTHKIT_IMAGE_REF` | committed eligible release | Preferred complete GHCR reference, ideally `ghcr.io/rknightion/synthkit@sha256:<index>`. A malformed or unavailable preferred value fails; it never falls back silently. |
+| `SYNTHKIT_IMAGE_TAG` | _(empty)_ | Legacy bare-tag fallback used only when `SYNTHKIT_IMAGE_REF` is absent or empty. A non-empty legacy value is ignored when the preferred reference exists. |
+| `SYNTHKIT_ENV_FILE` | `.env` | Service env-file path used by Compose. Keep one value for every command in a deployment. |
 | `SYNTHKIT_BIND` | `127.0.0.1` | Host interface on which Docker Compose publishes port 8088. Any non-loopback value requires `CONTROL_TOKEN` plus `CONTROL_EXPOSURE_ACK`; Compose passes this exact interpolated value into the container for validation. |
+
+The committed default is a published image with the current healthcheck and rollback contract, not
+`main` or `latest`. Prefer the verified index digest. Never run raw `docker compose config` against a
+real credential file; `make compose-check` renders the deployment using `.env.example` as fake input.
+Selector assignments may be quoted or prefixed with `export`, matching Compose, but the deployment
+helper requires the selected value itself to be a direct literal image reference. Do not build it
+through interpolation from another environment variable.
 
 ---
 

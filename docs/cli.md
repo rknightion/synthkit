@@ -21,6 +21,9 @@ loads the complete catalog.
 |---|---|---|
 | `-once` | false | Run one full cycle and exit. |
 | `-dump` | false | With `-once`: print the full series/label inventory to stdout (diff against `signals/`). |
+| `-preflight` | false | Validate and probe mandatory live Grafana endpoints, then exit with redacted lane/reason output. |
+| `-healthcheck` | false | Exit successfully only when the local control plane reports delivery readiness; used by Compose. |
+| `-version` | false | Print `{"version":"X.Y.Z","revision":"<40-hex>"}` as JSON, then exit. Local builds report `dev`/`unknown` unless stamped. |
 | `-env <path>` | `.env` | Path to the `.env` file (optional; falls back to process environment). |
 
 **Verification modes** (I32):
@@ -39,6 +42,24 @@ DRY_RUN=false BLUEPRINT_NAMES=otlp-native ./synthkit -once
 `DRY_RUN` defaults to `true`. You must explicitly set `DRY_RUN=false` to push synthetic data to Grafana Cloud. See [Configuration](configuration.md) for the full environment variable reference, and [Credentials](credentials.md) for how the Grafana Cloud tokens are scoped.
 
 The control plane is available at `http://<bind>:<port>/control/` (default port **8088**). See [control-plane.md](control-plane.md).
+
+## synthkit-deploy.py — deployment identity and rollback helper
+
+The stdlib-only helper emits closed, secret-safe JSON reports. It never prints `.env` values or
+private state content.
+
+| Subcommand | Mutation boundary |
+|---|---|
+| `resolve-image` | Read-only selector precedence and mutable-tag report. |
+| `set-image` | Compare-and-swap only `SYNTHKIT_IMAGE_REF`; preserves unrelated bytes and aborts on drift. Mutable `main`/`latest` needs `--allow-mutable`. |
+| `snapshot-state` | Requires the named container stopped; creates an integrity-manifested external private snapshot. |
+| `restore-state` | Requires the container stopped; verifies the snapshot, atomically replaces the validated state target, and retains displaced state. |
+| `write-record` | Writes one external mode-0600 closed identity record. |
+| `verify-image` | Read-only exact index/platform/config/binary/signature/provenance verification. |
+| `check-compose` | Read-only minimum-version and default/profile rendering check with a fake env file. |
+| `inspect-running` | Read-only cross-check of configured index, platform/config/image ID, health, binary version, and revision against expected values. |
+
+See [Deployment](deployment.md#reproducible-upgrade) for the ordered upgrade and rollback commands.
 
 ## sm-provision — Synthetic Monitoring provisioner
 
@@ -163,14 +184,16 @@ browser-direct POSTs use the browser's separate Basic challenge. No token is emb
 |---|---|
 | `make build` | `go build ./...` |
 | `make test` | `go test ./...` |
+| `make deploy-tests` | Focused deployment-helper safety and identity tests. |
 | `make vet` | `go vet ./...` |
 | `make gate` | Full mandatory gate: build + vet + test + race + `rw-proto-check` + `spdx-check` + `forbidden-words`. Run before every commit. |
 | `make race` | Race-detector test run over the whole module. |
 | `make blueprint-schema` | Regenerate schema artifacts from live Go types. See [blueprint-reference.md](blueprint-reference.md). |
 | `make dump` | `DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -dump` — explicit full-catalog series/label inventory. |
 | `make run` | `go run ./cmd/synthkit` |
-| `make docker` | `docker compose up -d` — pulls `ghcr.io/rknightion/synthkit` and starts the stack. |
+| `make docker` | `docker compose up -d --wait` — pulls the selected `SYNTHKIT_IMAGE_REF` and waits for readiness. |
 | `make docker-build` | `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build` — build from source instead of pulling the published image. |
+| `make compose-check` | Validate Compose 2.24.4+, the default/profile render, and exact image selection using `.env.example`. |
 | `make skills-sync` | Regenerate the cross-harness skill symlink farm (`.claude/skills`, `.agents/skills`) from `plugins/synthkit/skills/`; `AGENTS.md` remains the canonical repository guidance. |
 | `make skills-check` | Verify the symlink farm matches the canonical source. Safe for CI. |
 | `make proto` | Regenerate vendored RW2 protobuf Go types (requires `protoc` + `protoc-gen-go`). |
@@ -186,5 +209,6 @@ browser-direct POSTs use the browser's separate Basic challenge. No token is emb
 | `make notices` | Generate `THIRD_PARTY_NOTICES.md` from dependency licenses. |
 | `make sbom` | Generate SPDX + CycloneDX SBOMs into `dist/sbom/`. |
 | `make e2e` | Docker-level end-to-end smoke test (requires Docker; `//go:build e2e`). |
+| `make published-e2e` | Exercise an exact published digest through committed Compose with writable state, health, and positive fake-sink receipts. Requires expected image/version/revision env vars. |
 | `make ci` | Local full-CI simulation: `ci-go` + `ci-ui` + `ci-docker`. |
 | `make env-check` | Env-surface drift guard: verifies all Go-read vars are documented in `.env.example`. |

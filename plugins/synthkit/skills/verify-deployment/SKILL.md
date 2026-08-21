@@ -20,7 +20,27 @@ test -f "$SYNTHKIT_CHECKOUT/AGENTS.md" && \
 cd "$SYNTHKIT_CHECKOUT"
 ```
 
-## 1. Preflight context and credentials
+## 1. Immutable deployment identity
+
+For Compose, require the intended verified release reference, version, and complete source revision.
+Do not infer them from a mutable tag. Run the closed read-only cross-check before health or Grafana
+queries:
+
+```bash
+python3 scripts/synthkit-deploy.py inspect-running \
+  --container "$(docker compose ps -q synthkit)" \
+  --expected-reference "ghcr.io/rknightion/synthkit@sha256:<index>" \
+  --expected-version "X.Y.Z" \
+  --expected-revision "<40-hex-source-sha>"
+```
+
+Require the configured index reference, discovered registry index, selected platform manifest, OCI
+config/running image ID, binary version, and revision to agree. Docker's image ID normally equals
+the config digest but remains a separate runtime observation. Stop if the expected release is not
+available; this skill never changes the selector, snapshots/restores state, or prints private
+deployment records.
+
+## 2. Preflight context and credentials
 
 1. Read `.env` by presence/shape only; never `cat` it or run `docker compose config`. Confirm
    `DRY_RUN=false` before expecting landing data. Record the declared `TICK_DEFAULT` value; if it
@@ -42,7 +62,7 @@ cd "$SYNTHKIT_CHECKOUT"
    remote data landing is unverified because no Grafana context/credential was supplied” and stop
    before any remote request.
 
-## 2. Control plane health
+## 3. Control plane health
 
 Resolve `SYNTHKIT_BIND` from `.env` (default `127.0.0.1`) and detect only whether
 `CONTROL_TOKEN` is non-empty. Never print its value. Use Basic auth for protected routes when set,
@@ -74,7 +94,7 @@ lanes and report each state/reason/verification. Stop before claiming an optiona
 values. An SM partial state is a successful diagnostic boundary: report that snapshot provisioning
 and/or the required emitter restart remains. This read-only skill does not run the provisioner.
 
-## 3. Wait for declared cadence, then query
+## 4. Wait for declared cadence, then query
 
 The master cadence is not a promise that every series appears every master tick: metric-producing
 constructs/workloads have their own intervals and the runner clamps metric lanes to a 60-second
@@ -146,7 +166,7 @@ token in a command, chat, or URL. A successful response must have `status: "succ
 one result. The absence of a result before the calculated wait window is inconclusive, not a
 failure.
 
-## 4. Optional lanes
+## 5. Optional lanes
 
 - Self-observability is expected only with `SELFOBS_ENABLED=true` and the complete self-OTLP
   triplet, independently of synthetic `DRY_RUN`; query the staff context, never the customer context.
@@ -164,7 +184,7 @@ failure.
 - RUM, Sigil, Synthetic Monitoring, and synthetic profiles are expected only when both their
   documented credential/configuration gate and an emitting blueprint lane are present.
 
-## 5. Triage
+## 6. Triage
 
 | Symptom | Likely cause | Safe next step |
 |---|---|---|

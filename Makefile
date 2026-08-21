@@ -1,4 +1,4 @@
-.PHONY: build test helper-tests cover vet gate race dump run docker skills-sync skills-check docs-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker e2e ci spdx-check forbidden-words hygiene secret-scan notices sbom
+.PHONY: build test helper-tests deploy-tests cover vet gate race dump run docker skills-sync skills-check docs-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker compose-check e2e published-e2e ci spdx-check forbidden-words hygiene secret-scan notices sbom
 
 GCX_CONTEXT ?= default
 
@@ -15,6 +15,10 @@ test: helper-tests
 
 helper-tests:
 	bash plugins/synthkit/skills/initial-setup/scripts/test_helpers.sh all
+	$(MAKE) deploy-tests
+
+deploy-tests:
+	python3 -m unittest scripts/test_synthkit_deploy.py
 
 # Coverage profile for Codacy upload. Superset of `test` (same packages, plus
 # instrumentation), so CI runs it in place of the plain `test` leg — no extra full
@@ -92,9 +96,9 @@ dump:
 run:
 	go run ./cmd/synthkit
 
-# Pull the published GHCR image (tag from SYNTHKIT_IMAGE_TAG in .env, default :latest) and run.
+# Pull the preferred published GHCR reference from SYNTHKIT_IMAGE_REF (legacy tag fallback) and run.
 docker:
-	docker compose up -d
+	docker compose up -d --wait
 
 # Build the image from local source instead of pulling (layers the opt-in build override).
 docker-build:
@@ -182,6 +186,16 @@ ci-ui:
 
 ci-docker:
 	docker build -t synthkit:ci .
+	$(MAKE) compose-check
+
+compose-check:
+	python3 scripts/synthkit-deploy.py check-compose \
+		--compose-file docker-compose.yml \
+		--env-file .env.example \
+		--expected-reference "$$(python3 scripts/synthkit-deploy.py resolve-image \
+			--env-file .env.example \
+			--default-ref ghcr.io/rknightion/synthkit:1.3.0-rc.25 | \
+			python3 -c 'import json, sys; print(json.load(sys.stdin)["reference"])')"
 
 # Docker-level e2e (build tag keeps it out of the normal `go test ./...` gate).
 # Requires a docker-capable host. Builds the production image + receiver, runs the smoke blueprint.
@@ -190,6 +204,13 @@ ci-docker:
 e2e: ## docker-level e2e (testcontainers). Honors an existing DOCKER_HOST; else derives from the active docker context (local OrbStack/Docker Desktop).
 	@DH="$${DOCKER_HOST:-$$(docker context inspect --format '{{.Endpoints.docker.Host}}' "$$(docker context show)" 2>/dev/null)}"; \
 	  DOCKER_HOST="$$DH" go test -tags e2e -v -timeout 15m ./e2e/...
+
+published-e2e: ## exact published digest through committed Compose; requires SYNTHKIT_PUBLISHED_IMAGE_REF and expected version/revision.
+	@test -n "$${SYNTHKIT_PUBLISHED_IMAGE_REF:-}" || { echo "SYNTHKIT_PUBLISHED_IMAGE_REF is required" >&2; exit 1; }
+	@test -n "$${SYNTHKIT_EXPECTED_VERSION:-}" || { echo "SYNTHKIT_EXPECTED_VERSION is required" >&2; exit 1; }
+	@test -n "$${SYNTHKIT_EXPECTED_REVISION:-}" || { echo "SYNTHKIT_EXPECTED_REVISION is required" >&2; exit 1; }
+	@DH="$${DOCKER_HOST:-$$(docker context inspect --format '{{.Endpoints.docker.Host}}' "$$(docker context show)" 2>/dev/null)}"; \
+	  DOCKER_HOST="$$DH" go test -tags e2e -run '^TestPublishedCompose$$' -v -timeout 15m ./e2e/
 
 # Local "simulate full CI" umbrella.
 ci: ci-go ci-ui ci-docker

@@ -19,6 +19,7 @@ synthkit ships as a single self-contained binary. Build from source with Go, or 
 === "Docker"
 
     - Docker (or any OCI-compatible runtime).
+    - Docker Compose **2.24.4 or later** for the committed standing-deployment contract.
     - No Go installation needed — the prebuilt image is a distroless static binary.
 
 ---
@@ -43,8 +44,8 @@ This produces a `synthkit` binary in the current directory.
 The multi-arch image (linux/amd64 + linux/arm64) is published to GHCR on each release:
 
 ```text
-ghcr.io/rknightion/synthkit:latest
-ghcr.io/rknightion/synthkit:<vX.Y.Z>
+ghcr.io/rknightion/synthkit:<X.Y.Z>
+ghcr.io/rknightion/synthkit@sha256:<index-digest>
 ```
 
 The image is distroless (based on `gcr.io/distroless/static-debian12:nonroot`) and runs as **uid 65532 (nonroot)**. It has no shell, no package manager, and no writable filesystem except the `/data` volume.
@@ -54,7 +55,7 @@ The image is distroless (based on `gcr.io/distroless/static-debian12:nonroot`) a
 docker run --rm \
   -e DRY_RUN=true \
   -e BLUEPRINT_NAMES=otlp-native \
-  ghcr.io/rknightion/synthkit:latest -once -dump
+  ghcr.io/rknightion/synthkit@sha256:<verified-index> -once -dump
 ```
 
 For a persistent run with credentials, use the docker-compose path below or mount a `.env` file.
@@ -73,7 +74,7 @@ git clone https://github.com/rknightion/synthkit.git
 cd synthkit
 
 # 2. Create the .env file and fill in your credentials
-cp .env.example .env
+install -m 600 .env.example .env
 # edit .env — select exact BLUEPRINT_NAMES and see Credentials for what to fill in
 
 # 3. Create the state bind-mount directory and give it to the container user
@@ -81,12 +82,17 @@ cp .env.example .env
 if [ -L control-state-data ] || { [ -e control-state-data ] && [ ! -d control-state-data ]; }; then echo 'refusing unsafe state path' >&2; exit 1; fi
 sudo install -d -o 65532 -g 65532 -m 700 control-state-data
 
-# 4. Pull the image and start
-#    The image is pulled from ghcr.io/rknightion/synthkit (SYNTHKIT_IMAGE_TAG in .env,
-#    defaults to "latest"). Set SYNTHKIT_IMAGE_TAG=main for the bleeding-edge build.
-#    Note: "latest" only exists once the first release has been cut.
-docker compose up -d
+# 4. Validate the committed eligible release pin, pull it, and wait for readiness
+make compose-check
+docker compose up -d --wait
 ```
+
+`SYNTHKIT_IMAGE_REF` is preferred and should be the verified release index digest for a standing
+deployment. `SYNTHKIT_IMAGE_TAG` is a legacy bare-tag fallback used only when the preferred value is
+empty. `main` and `latest` are mutable edge tags: use them only deliberately, pull explicitly, and
+record the digest actually deployed. Existing deployments must follow the
+[snapshot/CAS upgrade and rollback lifecycle](deployment.md#reproducible-upgrade), not a plain
+`docker compose up`.
 
 The container binds the control plane on port **8088** inside the container. Host exposure is controlled by `SYNTHKIT_BIND` in `.env` (defaults to `127.0.0.1` — loopback only, safe by default). The operator UI is available at:
 

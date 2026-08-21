@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -52,9 +53,13 @@ import (
 	sigilsink "github.com/rknightion/synthkit/internal/sink/sigil"
 )
 
-// version is stamped onto self-profiling + self-observability data as service.version. Override at
-// build time with -ldflags "-X main.version=$(git rev-parse --short HEAD)"; defaults to "dev".
-var version = "dev"
+// version is stamped onto self-profiling + self-observability data as service.version. Revision is
+// the complete source commit. Published builds override both with -ldflags; local builds retain
+// explicit development values rather than pretending to be a released artifact.
+var (
+	version  = "dev"
+	revision = "unknown"
+)
 
 // queueObserverFan delivers one immutable queue event value to each consumer in order. The queue
 // assigns shard/sequence before calling this fanout, so status and self-observability fold the
@@ -82,8 +87,18 @@ func main() {
 	dump := flag.Bool("dump", false, "with -once: print the full series/label inventory (diff vs signals/)")
 	preflightCheck := flag.Bool("preflight", false, "validate and probe mandatory live Grafana endpoints, then exit")
 	healthcheck := flag.Bool("healthcheck", false, "exit successfully only when the local control plane is delivery-ready")
+	showVersion := flag.Bool("version", false, "print the release version and source revision as JSON, then exit")
 	envPath := flag.String("env", ".env", "path to .env file (optional)")
 	flag.Parse()
+	if *showVersion {
+		if err := json.NewEncoder(os.Stdout).Encode(struct {
+			Version  string `json:"version"`
+			Revision string `json:"revision"`
+		}{Version: version, Revision: revision}); err != nil {
+			log.Fatalf("synthkit version: %v", err)
+		}
+		return
+	}
 	if *healthcheck {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
