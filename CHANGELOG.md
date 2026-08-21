@@ -2,6 +2,13 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.3.2](https://github.com/rknightion/synthkit/compare/v1.3.1...v1.3.2) (2026-08-21)
+
+
+### Documentation
+
+* record operational readiness closeout ([77c380d](https://github.com/rknightion/synthkit/commit/77c380dfa6c2bec8720529a0171c030beb1cab00))
+
 ## [1.3.1](https://github.com/rknightion/synthkit/compare/v1.3.0...v1.3.1) (2026-08-21)
 
 
