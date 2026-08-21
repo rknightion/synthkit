@@ -3,10 +3,11 @@ services:
     # Pulls the published multi-arch image from GHCR (built + signed by CI). Prefer a complete
     # SYNTHKIT_IMAGE_REF (ideally the verified index digest). SYNTHKIT_IMAGE_TAG remains a legacy
     # fallback only when the preferred ref is absent; a bad preferred ref fails rather than falling
-    # back silently.
+    # back silently. The temporary RC default is replaced with the stable release after its final
+    # publication proof.
     # To BUILD from local source instead of pulling, layer the build override:
     #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
-    image: ${SYNTHKIT_IMAGE_REF:-ghcr.io/rknightion/synthkit:${SYNTHKIT_IMAGE_TAG:-1.3.1}}
+    image: ${SYNTHKIT_IMAGE_REF:-ghcr.io/rknightion/synthkit:${SYNTHKIT_IMAGE_TAG:-1.3.0-rc.25}}
     # `latest`/`main` are mutable tags — always re-check the registry on an explicitly chosen edge
     # deployment. Immutable release/index references still pull safely and retain exact identity.
     pull_policy: always
@@ -67,7 +68,7 @@ services:
     # emitter so snapshot/source-version binding cannot drift on a Docker-only host. Preview is the
     # default; writes require SM_PROVISION_APPLY=true. After a successful apply, restart synthkit.
     profiles: ["sm-provision"]
-    image: ${SYNTHKIT_IMAGE_REF:-ghcr.io/rknightion/synthkit:${SYNTHKIT_IMAGE_TAG:-1.3.1}}
+    image: ${SYNTHKIT_IMAGE_REF:-ghcr.io/rknightion/synthkit:${SYNTHKIT_IMAGE_TAG:-1.3.0-rc.25}}
     pull_policy: always
     restart: "no"
     entrypoint: ["/app/sm-provision"]

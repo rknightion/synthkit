@@ -194,7 +194,7 @@ compose-check:
 		--env-file .env.example \
 		--expected-reference "$$(python3 scripts/synthkit-deploy.py resolve-image \
 			--env-file .env.example \
-			--default-ref ghcr.io/rknightion/synthkit:1.3.1 | \
+			--default-ref ghcr.io/rknightion/synthkit:1.3.0-rc.25 | \
 			python3 -c 'import json, sys; print(json.load(sys.stdin)["reference"])')"
 
 # Docker-level e2e (build tag keeps it out of the normal `go test ./...` gate).
