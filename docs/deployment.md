@@ -329,9 +329,9 @@ SELECTOR_JSON="$(python3 scripts/synthkit-deploy.py set-image \
   --env-file .env --expected-sha256 "$ENV_SHA" --reference "$CANDIDATE_REF")"
 ROLLBACK_ENV_SHA="$(jq -r .sha256 <<<"$SELECTOR_JSON")"
 docker compose up -d --wait --force-recreate synthkit
-python3 scripts/synthkit-deploy.py inspect-running \
+CANDIDATE_JSON="$(python3 scripts/synthkit-deploy.py inspect-running \
   --container "$(docker compose ps -q synthkit)" --expected-reference "$CANDIDATE_REF" \
-  --expected-version "$CANDIDATE_VERSION" --expected-revision "$CANDIDATE_REVISION"
+  --expected-version "$CANDIDATE_VERSION" --expected-revision "$CANDIDATE_REVISION")"
 ```
 
 Finally require public readiness, writable persisted state, authenticated status, and every signal
@@ -342,12 +342,27 @@ gap and first upgrade to a versioned known-good target before treating rollback 
 
 ## Rollback
 
-Stop the candidate. If backward state compatibility is not explicitly proven, restore the retained
-quiesced snapshot before selecting the old exact reference:
+Stop the candidate, snapshot its quiesced state, and write its exact identity record before any
+restore. This preserves both sides of the tested transition rather than retaining only the old
+known-good target. If backward state compatibility is not explicitly proven, then restore the
+retained pre-upgrade snapshot before selecting the old exact reference:
 
 ```bash
 ROLLBACK_CONTAINER_ID="$(docker compose ps -q synthkit)"
 docker compose stop synthkit
+CANDIDATE_SNAPSHOT_JSON="$(python3 scripts/synthkit-deploy.py snapshot-state \
+  --state-dir "$STATE_DIR" --records-dir "$RECORDS_DIR" --checkout-root "$CHECKOUT" \
+  --name candidate-after-upgrade --container "$ROLLBACK_CONTAINER_ID")"
+python3 scripts/synthkit-deploy.py write-record \
+  --records-dir "$RECORDS_DIR" --checkout-root "$CHECKOUT" --name candidate \
+  --field "configured_ref=$(jq -r .configured_ref <<<"$CANDIDATE_JSON")" \
+  --field "index_digest=$(jq -r .index_digest <<<"$CANDIDATE_JSON")" \
+  --field "platform_manifest_digest=$(jq -r .platform_manifest_digest <<<"$CANDIDATE_JSON")" \
+  --field "oci_config_digest=$(jq -r .oci_config_digest <<<"$CANDIDATE_JSON")" \
+  --field "running_image_id=$(jq -r .running_image_id <<<"$CANDIDATE_JSON")" \
+  --field "version=$(jq -r .version <<<"$CANDIDATE_JSON")" \
+  --field "revision=$(jq -r .revision <<<"$CANDIDATE_JSON")" \
+  --field "state_manifest_sha256=$(jq -r .manifest_sha256 <<<"$CANDIDATE_SNAPSHOT_JSON")"
 python3 scripts/synthkit-deploy.py restore-state \
   --state-dir "$STATE_DIR" --expected-root "$DEPLOYMENT_ROOT" \
   --records-dir "$RECORDS_DIR" --name before-upgrade \
