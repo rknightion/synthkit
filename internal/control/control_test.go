@@ -957,6 +957,9 @@ func TestStatusEndpoint(t *testing.T) {
 		Sinks: func() []pushstatus.SinkStat {
 			return []pushstatus.SinkStat{{Sink: "promrw", LastSuccessMs: 1700, Pushes: 5}}
 		},
+		Queues: func() []pushstatus.QueueStat {
+			return []pushstatus.QueueStat{{Sink: "promrw", Depth: 7, DroppedItems: 3, LastLossMs: 1600}}
+		},
 		DryRun: true,
 	})
 
@@ -971,6 +974,9 @@ func TestStatusEndpoint(t *testing.T) {
 	}
 	if len(got.Sinks) != 1 || got.Sinks[0].Sink != "promrw" || !got.DryRun {
 		t.Fatalf("bad report: %+v", got)
+	}
+	if len(got.Queues) != 1 || got.Queues[0].Depth != 7 || got.Queues[0].DroppedItems != 3 {
+		t.Fatalf("queue status missing: %+v", got.Queues)
 	}
 	if got.Persist.LastOKMs == 0 {
 		t.Fatalf("persist health missing: %+v", got.Persist)

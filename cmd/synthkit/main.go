@@ -47,12 +47,34 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 	pyroscope "github.com/rknightion/synthkit/internal/sink/pyroscope"
+	"github.com/rknightion/synthkit/internal/sink/queue"
 	sigilsink "github.com/rknightion/synthkit/internal/sink/sigil"
 )
 
 // version is stamped onto self-profiling + self-observability data as service.version. Override at
 // build time with -ldflags "-X main.version=$(git rev-parse --short HEAD)"; defaults to "dev".
 var version = "dev"
+
+// queueObserverFan delivers one immutable queue event value to each consumer in order. The queue
+// assigns shard/sequence before calling this fanout, so status and self-observability fold the
+// same completion rather than independently ordering concurrent sender callbacks.
+type queueObserverFan []queue.Observer
+
+func (f queueObserverFan) EnqueueBlocked(sink string, d time.Duration) {
+	for _, obs := range f {
+		if obs != nil {
+			obs.EnqueueBlocked(sink, d)
+		}
+	}
+}
+
+func (f queueObserverFan) FlushObserved(ev queue.FlushEvent) {
+	for _, obs := range f {
+		if obs != nil {
+			obs.FlushObserved(ev)
+		}
+	}
+}
 
 func main() {
 	once := flag.Bool("once", false, "run one full cycle and exit")
@@ -465,8 +487,8 @@ func run(once, dump bool, envPath string) error {
 		so.ObserveCycle(ctx, bp, dur, dropped)
 		hs.ObserveCycle(ctx, bp, dur, dropped)
 	}
-	r.SetCycleObserver(cycleFan) // per-blueprint cycle-duration + dropped-tick metrics; no-op when disabled
-	r.SetQueueObserver(so)       // delivery-queue backpressure (enqueue_blocked) metric; *SelfObs is a no-op when disabled
+	r.SetCycleObserver(cycleFan)                 // per-blueprint cycle-duration + dropped-tick metrics; no-op when disabled
+	r.SetQueueObserver(queueObserverFan{so, ps}) // identical loss/backpressure events feed selfobs and authenticated status
 	if so.Enabled() {
 		// Tee the std log to OTLP so the operational log stream ships to the self-obs stack. Only
 		// when enabled — otherwise local runs are byte-for-byte unchanged (stderr only).
@@ -517,7 +539,11 @@ func run(once, dump bool, envPath string) error {
 		})
 	}
 	mux.Handle("/control/", control.NewHandler(store, r.ApplyControl, cfg.ControlToken, r).
-		SetStatus(control.StatusSources{Sinks: ps.Snapshot, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, Readiness: readiness, DryRun: cfg.DryRun}).
+		SetStatus(control.StatusSources{
+			Sinks:       ps.Snapshot,
+			Queues:      func() []pushstatus.QueueStat { return ps.SnapshotQueues(r.QueueDepths()) },
+			ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, Readiness: readiness, DryRun: cfg.DryRun,
+		}).
 		SetBlueprintSchema(blueprintschema.JSON(runner.Catalog())).
 		SetConfig(cv).
 		SetInventory(r).

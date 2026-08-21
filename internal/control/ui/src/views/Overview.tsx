@@ -118,6 +118,13 @@ export function Overview(): JSX.Element {
           out.push((SINK_LABELS[sk.sink] || sk.sink) + " sink failing: " + sk.last_error);
         }
       }
+      for (const q of st.queues ?? []) {
+        if (q.current_loss) {
+          out.push(`${SINK_LABELS[q.sink] || q.sink} queue has current loss (${q.dropped_items} items dropped)`);
+        } else if (q.dropped_items > 0) {
+          out.push(`${SINK_LABELS[q.sink] || q.sink} queue recovered after ${q.dropped_items} dropped items`);
+        }
+      }
       if (st.persist?.last_error) out.push("persist error: " + st.persist.last_error);
     }
     const rd = readiness();

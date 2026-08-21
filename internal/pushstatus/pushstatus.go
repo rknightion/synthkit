@@ -11,7 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
+	"github.com/rknightion/synthkit/internal/sink/queue"
 )
 
 // maxSamples bounds the per-sink sparkline ring: at one push every few seconds this keeps a
@@ -22,19 +24,20 @@ const maxSamples = 30
 // "last N items" reading near-meaningless, so the panel reads cumulative totals, a rolling
 // rate, and a short sparkline of recent per-push item counts instead.
 type SinkStat struct {
-	Sink          string  `json:"sink"`
-	LastAttemptMs int64   `json:"last_attempt_ms"`
-	LastSuccessMs int64   `json:"last_success_ms"`
-	LastErrorMs   int64   `json:"last_error_ms"`
-	LastError     string  `json:"last_error"`
-	Pushes        int64   `json:"pushes"`
-	Failures      int64   `json:"failures"`
-	LastItems     int     `json:"last_items"`
-	LastStatus    int     `json:"last_status"`
-	TotalItems    int64   `json:"total_items"`  // cumulative items over real (non-dry-run) pushes
-	RatePerMin    float64 `json:"rate_per_min"` // rolling items/min over the sample ring (0 when <2 samples)
-	Spark         []int   `json:"spark"`        // recent per-push item counts, oldest→newest (cap maxSamples)
-	DryRun        bool    `json:"dry_run"`
+	Sink          string              `json:"sink"`
+	LastAttemptMs int64               `json:"last_attempt_ms"`
+	LastSuccessMs int64               `json:"last_success_ms"`
+	LastErrorMs   int64               `json:"last_error_ms"`
+	LastError     string              `json:"last_error"`
+	LastErrorCode operationalerr.Code `json:"last_error_code"`
+	Pushes        int64               `json:"pushes"`
+	Failures      int64               `json:"failures"`
+	LastItems     int                 `json:"last_items"`
+	LastStatus    int                 `json:"last_status"`
+	TotalItems    int64               `json:"total_items"`  // cumulative items over real (non-dry-run) pushes
+	RatePerMin    float64             `json:"rate_per_min"` // rolling items/min over the sample ring (0 when <2 samples)
+	Spark         []int               `json:"spark"`        // recent per-push item counts, oldest→newest (cap maxSamples)
+	DryRun        bool                `json:"dry_run"`
 }
 
 // sample is one real push's item count stamped with its wall-clock millis, kept in the ring
@@ -49,6 +52,25 @@ type sinkAgg struct {
 	stat         SinkStat
 	currentError bool
 	samples      []sample
+}
+
+// QueueStat is authoritative delivery-queue loss and pressure state for one sink. It is
+// deliberately separate from failed push attempts: retries can recover before a queue drops data.
+type QueueStat struct {
+	Sink            string              `json:"sink"`
+	Depth           int                 `json:"depth"`
+	BlockedEnqueues int64               `json:"blocked_enqueues"`
+	DroppedItems    int64               `json:"dropped_items"`
+	LastLossMs      int64               `json:"last_loss_ms"`
+	LastRecoveryMs  int64               `json:"last_recovery_ms"`
+	CurrentLoss     bool                `json:"current_loss"`
+	AffectedShards  int                 `json:"affected_shards"`
+	LastErrorCode   operationalerr.Code `json:"last_error_code"`
+}
+
+type queueAgg struct {
+	stat     QueueStat
+	affected map[int]uint64
 }
 
 // LaneState is the current delivery classification for a configured sink lane. The state is
@@ -79,19 +101,20 @@ type LaneConfig struct {
 // the individual fields retain the evidence an operator needs to distinguish a first attempt,
 // a recovered error, and a stale prior success.
 type LaneStatus struct {
-	Name           string    `json:"name"`
-	Configured     bool      `json:"configured"`
-	Disabled       bool      `json:"disabled"`
-	DisabledReason string    `json:"disabled_reason"`
-	Attempted      bool      `json:"attempted"`
-	LastAttemptMs  int64     `json:"last_attempt_ms"`
-	LastSuccessMs  int64     `json:"last_success_ms"`
-	LastErrorMs    int64     `json:"last_error_ms"`
-	LastError      string    `json:"last_error"`
-	CurrentError   bool      `json:"current_error"`
-	Stale          bool      `json:"stale"`
-	State          LaneState `json:"state"`
-	LiveReady      bool      `json:"live_ready"`
+	Name           string              `json:"name"`
+	Configured     bool                `json:"configured"`
+	Disabled       bool                `json:"disabled"`
+	DisabledReason string              `json:"disabled_reason"`
+	Attempted      bool                `json:"attempted"`
+	LastAttemptMs  int64               `json:"last_attempt_ms"`
+	LastSuccessMs  int64               `json:"last_success_ms"`
+	LastErrorMs    int64               `json:"last_error_ms"`
+	LastError      string              `json:"last_error"`
+	LastErrorCode  operationalerr.Code `json:"last_error_code"`
+	CurrentError   bool                `json:"current_error"`
+	Stale          bool                `json:"stale"`
+	State          LaneState           `json:"state"`
+	LiveReady      bool                `json:"live_ready"`
 }
 
 // BlueprintEmission is the observed push history rolled up per blueprint name (cross-sink).
@@ -114,13 +137,17 @@ type Store struct {
 	mu          sync.Mutex
 	bySink      map[string]*sinkAgg
 	byBlueprint map[string]*bpAgg
+	byQueue     map[string]*queueAgg
 	lanes       map[string]LaneConfig
 	now         func() time.Time
 }
 
 // NewStore returns an empty store using the wall clock.
 func NewStore() *Store {
-	return &Store{bySink: map[string]*sinkAgg{}, byBlueprint: map[string]*bpAgg{}, lanes: map[string]LaneConfig{}, now: time.Now}
+	return &Store{
+		bySink: map[string]*sinkAgg{}, byBlueprint: map[string]*bpAgg{},
+		byQueue: map[string]*queueAgg{}, lanes: map[string]LaneConfig{}, now: time.Now,
+	}
 }
 
 // ConfigureLanes replaces the declared delivery lanes while retaining observed history. A lane
@@ -164,10 +191,12 @@ func (s *Store) Observer() pushhook.Observer {
 		if len(a.samples) > maxSamples {
 			a.samples = a.samples[len(a.samples)-maxSamples:]
 		}
-		if ev.Err != nil {
+		code := operationalerr.Normalize(ev.ErrorCode)
+		if code != operationalerr.CodeNone {
 			st.Failures++
 			st.LastErrorMs = ms
-			st.LastError = ev.Err.Error()
+			st.LastErrorCode = code
+			st.LastError = operationalerr.Message(code)
 			a.currentError = true
 			return
 		}
@@ -188,6 +217,73 @@ func (s *Store) Observer() pushhook.Observer {
 			}
 		}
 	}
+}
+
+// EnqueueBlocked implements queue.Observer and records pressure without retaining durations or
+// caller-controlled text.
+func (s *Store) EnqueueBlocked(sink string, _ time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.queueAgg(sink)
+	a.stat.BlockedEnqueues++
+}
+
+// FlushObserved implements queue.Observer. Recovery is shard-aware: a success only clears a loss
+// previously recorded for the same shard, and only a later completion sequence can clear it.
+func (s *Store) FlushObserved(ev queue.FlushEvent) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.queueAgg(ev.Sink)
+	wasLoss := len(a.affected) > 0
+	code := operationalerr.Normalize(ev.Code)
+	if ev.Dropped > 0 {
+		a.stat.DroppedItems += int64(ev.Dropped)
+		a.stat.LastLossMs = s.now().UnixMilli()
+		a.stat.LastErrorCode = code
+		a.affected[ev.Shard] = ev.Sequence
+	} else if code == operationalerr.CodeNone {
+		if lossSeq, ok := a.affected[ev.Shard]; ok && ev.Sequence > lossSeq {
+			delete(a.affected, ev.Shard)
+		}
+	}
+	a.stat.CurrentLoss = len(a.affected) > 0
+	a.stat.AffectedShards = len(a.affected)
+	if wasLoss && !a.stat.CurrentLoss {
+		a.stat.LastRecoveryMs = s.now().UnixMilli()
+	}
+}
+
+func (s *Store) queueAgg(sink string) *queueAgg {
+	a := s.byQueue[sink]
+	if a == nil {
+		a = &queueAgg{stat: QueueStat{Sink: sink}, affected: map[int]uint64{}}
+		s.byQueue[sink] = a
+	}
+	return a
+}
+
+// SnapshotQueues joins folded historical state with the caller's live depth readings.
+func (s *Store) SnapshotQueues(depths map[string]int) []QueueStat {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	names := make(map[string]struct{}, len(s.byQueue)+len(depths))
+	for name := range s.byQueue {
+		names[name] = struct{}{}
+	}
+	for name := range depths {
+		names[name] = struct{}{}
+	}
+	out := make([]QueueStat, 0, len(names))
+	for name := range names {
+		st := QueueStat{Sink: name, Depth: depths[name]}
+		if a := s.byQueue[name]; a != nil {
+			st = a.stat
+			st.Depth = depths[name]
+		}
+		out = append(out, st)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Sink < out[j].Sink })
+	return out
 }
 
 // SnapshotLanes returns every configured lane plus any observed-but-undeclared lane, sorted by
@@ -232,6 +328,7 @@ func foldLane(name string, configured bool, cfg LaneConfig, stat SinkStat, curre
 		LastSuccessMs:  stat.LastSuccessMs,
 		LastErrorMs:    stat.LastErrorMs,
 		LastError:      stat.LastError,
+		LastErrorCode:  stat.LastErrorCode,
 	}
 	st.CurrentError = currentError
 	st.Stale = st.LastSuccessMs > 0 && cfg.FreshAfter > 0 && now.Sub(time.UnixMilli(st.LastSuccessMs)) > cfg.FreshAfter

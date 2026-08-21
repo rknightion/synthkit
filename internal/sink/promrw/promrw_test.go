@@ -254,7 +254,7 @@ func TestObserveLivePushSuccess(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("observer called %d times, want 1", n)
 	}
-	if got.Sink != "promrw" || got.Status != 200 || got.Err != nil || got.Items != 1 {
+	if got.Sink != "promrw" || got.Status != 200 || got.ErrorCode != "" || got.Items != 1 {
 		t.Fatalf("unexpected event: %+v", got)
 	}
 	if got.DryRun {
@@ -276,10 +276,10 @@ func TestObserveLivePushRateLimited(t *testing.T) {
 		t.Fatal("expected error on 429")
 	}
 	if got.Status != 429 {
-		t.Fatalf("Status = %d, want 429 (from resp.StatusCode; err %v)", got.Status, got.Err)
+		t.Fatalf("Status = %d, want 429 (event %+v)", got.Status, got)
 	}
-	if got.Err == nil {
-		t.Fatalf("Err should be set on 429")
+	if got.ErrorCode == "" {
+		t.Fatalf("ErrorCode should be set on 429")
 	}
 }
 

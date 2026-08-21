@@ -339,7 +339,7 @@ func TestObserveLivePushSuccess(t *testing.T) {
 	if err := s.Write(context.Background(), res); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	if got.Sink != "otlp" || got.Status != 200 || got.Err != nil || got.Items != 1 {
+	if got.Sink != "otlp" || got.Status != 200 || got.ErrorCode != "" || got.Items != 1 {
 		t.Fatalf("unexpected event: %+v", got)
 	}
 	if got.Bytes <= 0 {

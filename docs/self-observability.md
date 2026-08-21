@@ -19,11 +19,25 @@ All three signal types flow over a single OTLP/HTTP endpoint to the self-obs sta
 
 | Signal | What it covers |
 |---|---|
-| **Metrics** | `synthkit.push` (count/items/bytes/duration per sink/blueprint/outcome), `synthkit.tick` (invocations + duration), `synthkit.cycle.duration`, `synthkit.dropped_ticks`, delivery-queue depth/flush metrics (`synthkit.queue.*`), Fleet Management operations (`synthkit.fleet.*`), and observable gauges: `synthkit.ledger.size`, `synthkit.volume.multiplier`, `synthkit.blueprint.count`, `synthkit.cardinality.series` |
+| **Metrics** | `synthkit.push` (count/items/bytes/duration per sink/blueprint/outcome), `synthkit.tick` (invocations + duration), `synthkit.cycle.duration`, `synthkit.dropped_ticks`, delivery-queue depth/flush/loss metrics (`synthkit.queue.*`), Fleet Management operations (`synthkit.fleet.*`), and observable gauges: `synthkit.ledger.size`, `synthkit.volume.multiplier`, `synthkit.blueprint.count`, `synthkit.cardinality.series` |
 | **Traces** | Per-tick spans wrapping each construct invocation; `cycle` spans (backdated to the generation window); `push <sink>` child spans for each live push; `flush <sink>` spans for the decoupled delivery queue; `fleet <op>` spans for FM registration and heartbeat round-trips |
 | **Logs** | Structured OTLP LogRecords for push failures (event=`push_error`), tick errors (event=`tick_error`), FM failures (event=`fleet_error`), config-change events (event=`config_change`), and the operational heartbeat (every 5 minutes) |
 
 Go runtime metrics (goroutines, memory, GC) are collected via the OTel contrib runtime instrumentation against the self-obs `MeterProvider`.
+
+Delivery-queue metrics use only the bounded `sink` label:
+
+| Metric | Meaning |
+|---|---|
+| `synthkit.queue.depth` | Current enqueued-but-not-yet-flushed items |
+| `synthkit.queue.enqueue_blocked` | Times a producer blocked on a full shard buffer |
+| `synthkit.queue.flush` / `.duration` / `.batch` | Completed flushes, latency, and attempted item count |
+| `synthkit.queue.dropped.items` | Cumulative items discarded after sink retry exhaustion |
+| `synthkit.queue.current_loss` | `1` while any affected sender shard has not completed a later successful flush; otherwise `0` |
+| `synthkit.queue.last_loss` | Unix seconds of the most recent discarded sub-batch |
+
+Loss metrics do not imply replay. A transition of `current_loss` back to `0` records recovery for
+new delivery; `dropped.items` remains cumulative until the process restarts.
 
 ### Continuous profiles (Pyroscope)
 

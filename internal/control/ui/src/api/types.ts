@@ -69,6 +69,7 @@ export interface SinkStat {
   last_success_ms: number;
   last_error_ms: number;
   last_error: string;
+  last_error_code?: string;
   pushes: number;
   failures: number;
   last_items: number;
@@ -77,6 +78,17 @@ export interface SinkStat {
   rate_per_min: number;
   spark: number[];
   dry_run: boolean;
+}
+export interface QueueStat {
+  sink: string;
+  depth: number;
+  blocked_enqueues: number;
+  dropped_items: number;
+  last_loss_ms: number;
+  last_recovery_ms: number;
+  current_loss: boolean;
+  affected_shards: number;
+  last_error_code: string;
 }
 export interface BlueprintEmission {
   blueprint: string;
@@ -101,6 +113,7 @@ export interface FleetStat {
 }
 export interface StatusReport {
   sinks: SinkStat[];
+  queues?: QueueStat[];
   by_blueprint?: Record<string, BlueprintEmission>;
   fleet?: FleetStat;          // fleetstatus.FleetStat — FM lifecycle health
   persist: PersistHealth;
@@ -118,6 +131,7 @@ export interface LaneStatus {
   last_success_ms: number;
   last_error_ms: number;
   last_error: string;
+  last_error_code?: string;
   current_error: boolean;
   stale: boolean;
   state: "unconfigured" | "disabled" | "not_attempted" | "error" | "stale_success" | "success";

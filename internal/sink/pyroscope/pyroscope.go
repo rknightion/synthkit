@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 	pprofpb "github.com/rknightion/synthkit/internal/pyroscope/pprofpb"
 	"github.com/rknightion/synthkit/internal/sink/httpretry"
@@ -103,7 +104,7 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 	})
 	s.observe(ctx, batch, lastStatus, len(raw), time.Since(start), false, retryErr)
 	if retryErr != nil {
-		return fmt.Errorf("pyroscope: push: %w", retryErr)
+		return operationalerr.New(operationalerr.Classify(lastStatus, retryErr))
 	}
 	return nil
 }
@@ -256,6 +257,6 @@ func (s *Sink) observe(ctx context.Context, batch []Series, status, bytesLen int
 		Status:    status,
 		Duration:  dur,
 		DryRun:    dryRun,
-		Err:       err,
+		ErrorCode: operationalerr.Classify(status, err),
 	})
 }

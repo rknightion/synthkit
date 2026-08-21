@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/highcard"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 	"github.com/rknightion/synthkit/internal/sink/httpretry"
 )
@@ -232,7 +233,7 @@ func (s *Sink) Write(ctx context.Context, streams []Stream) error {
 		return resp.StatusCode, nil
 	})
 	s.observe(ctx, blueprint, total, len(gz), lastStatus, time.Since(start), false, retryErr)
-	return retryErr
+	return operationalerr.New(operationalerr.Classify(lastStatus, retryErr))
 }
 
 // observe fires the self-observability hook (no-op when unset).
@@ -242,6 +243,7 @@ func (s *Sink) observe(ctx context.Context, blueprint string, items, byteLen, st
 	}
 	s.Observe(ctx, pushhook.Event{
 		Sink: "loki", Blueprint: blueprint, Items: items,
-		Bytes: byteLen, Status: status, Duration: dur, DryRun: dryRun, Err: err,
+		Bytes: byteLen, Status: status, Duration: dur, DryRun: dryRun,
+		ErrorCode: operationalerr.Classify(status, err),
 	})
 }

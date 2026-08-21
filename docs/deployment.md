@@ -96,6 +96,58 @@ inside the container's exposure check. The binary itself binds `0.0.0.0:8088` in
 
 ---
 
+## Capacity, queue memory, and container limits
+
+Each configured sink has its own in-memory queue. `SEND_QUEUE_CAPACITY` is the maximum queued item
+count **per sink**, divided across `SEND_SHARDS`; it is not a byte limit. Items differ substantially:
+a metric series, Loki stream, OTLP resource, Faro beacon, profile, and Sigil export retain different
+maps, slices, strings, and encoded payloads. Do not estimate memory as capacity times one universal
+struct size.
+
+Use a controlled fake-sink pressure test for the selected blueprint set and calculate:
+
+```text
+retained bytes/item for sink ~= (heap_at_depth - steady_heap) / (depth_at_sample - steady_depth)
+queue memory budget          ~= sum(capacity_per_sink * measured bytes/item for that sink)
+container memory             >= steady_heap + queue budget + encoding/retry headroom
+```
+
+`/control/health` exposes `process.heap_bytes`; `/control/status` exposes each queue's `depth`,
+`blocked_enqueues`, cumulative `dropped_items`, and current/recovered loss state. Sample after several
+ticks at steady state, then during an isolated fake-sink stall. Never stall a real Grafana endpoint
+to size the queue.
+
+On 2026-08-21 the Jules single-blueprint standing deployment measured about 300.5 MiB resident
+memory and 0.53% of one CPU in a one-shot `docker stats` sample. That is a baseline, not a full-queue
+capacity guarantee. A practical initial allocation for a small explicit blueprint set is 1 CPU and
+1 GiB, with at least 2x the measured steady heap free; increase memory or reduce
+`SEND_QUEUE_CAPACITY` when the pressure calculation exceeds that headroom. For a larger catalog,
+measure first rather than copying the small-deployment limit.
+
+Example operator override:
+
+```yaml
+services:
+  synthkit:
+    cpus: "1.0"
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+Backpressure is intentional: when one shard buffer fills, the producer tick blocks instead of
+growing memory without bound. A slow or unavailable sink can therefore lengthen a cycle and cause
+later scheduled ticks to be dropped. OTLP has the longest retry window (up to five minutes), so an
+OTLP outage can hold a shard and apply backpressure much longer than the other HTTP sinks. After
+retry exhaustion, failed sub-batches are discarded and counted; there is no disk replay. Keep Docker
+log rotation bounded because repeated outage warnings otherwise compete with queue memory and state
+on the host filesystem.
+
+---
+
 ## Container image
 
 The published multi-arch image (amd64 + arm64) is at:

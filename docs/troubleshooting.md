@@ -119,7 +119,22 @@ docker compose restart
 
 **Cause:** The Forgejo autocommit hook (or similar) cannot reach the Forgejo server outside the Tailscale tailnet. This is expected and harmless for synthkit itself — the push-status hook exits `0` silently when offline.
 
-**For synthkit sinks:** If you are running synthkit on a machine that has lost connectivity to Grafana Cloud, the sink will log failures. synthkit keeps running and will resume pushing when connectivity is restored (the decoupled delivery queue buffers series internally up to `SEND_QUEUE_CAPACITY`).
+**For synthkit sinks:** The in-memory queue buffers only items waiting for their first delivery
+attempt. Each sink applies its bounded retry policy. When those retries are exhausted, the failed
+sub-batch is discarded and counted as loss; synthkit has no WAL and does not retain that sub-batch
+until connectivity returns. Later items continue normally when the affected sender shard completes
+a successful flush.
+
+Inspect the authoritative queue state separately from push-attempt history:
+
+```bash
+curl -s -u control http://127.0.0.1:8088/control/status |
+  jq '.queues[] | {sink,depth,blocked_enqueues,dropped_items,last_loss_ms,last_recovery_ms,current_loss,affected_shards}'
+```
+
+`dropped_items` is cumulative for the process lifetime. `current_loss=false` with a non-zero dropped
+count means delivery recovered after historical loss; it does not mean the lost items were replayed.
+`depth=0` likewise means the queue drained, not that no loss occurred.
 
 ---
 
@@ -152,5 +167,5 @@ emits nothing. Set `BLUEPRINT_NAMES` to exact names and restart; use `*` only fo
 | Sink push outcomes | `GET /control/status` → `sinks[].last_error` |
 | Per-construct tick errors | `GET /control/health` |
 | Load-time blueprint problems | `GET /control/diagnostics` |
-| Generator throughput, queue depth, dropped ticks | [self-observability.md](self-observability.md) |
+| Generator throughput, queue depth/loss, dropped ticks | [self-observability.md](self-observability.md) |
 | Series inventory vs. signal contracts | `DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump` |

@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/fleethook"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
+	"github.com/rknightion/synthkit/internal/sink/queue"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -75,9 +77,9 @@ func TestPushObserver_FailureLog(t *testing.T) {
 	// Success → no log.
 	obs(ctx, pushhook.Event{Sink: "loki", Blueprint: "initech", Status: 204, Items: 1})
 	// Substrate-scoped hard failure (no blueprint) → ERROR, blueprint omitted.
-	obs(ctx, pushhook.Event{Sink: "promrw", Status: 0, Err: errors.New("connection refused")})
+	obs(ctx, pushhook.Event{Sink: "promrw", Status: 0, ErrorCode: operationalerr.CodeTransport})
 	// Blueprint-scoped 429 → WARN, blueprint present.
-	obs(ctx, pushhook.Event{Sink: "otlp", Blueprint: "newco", Status: 429, Err: errors.New("too many requests")})
+	obs(ctx, pushhook.Event{Sink: "otlp", Blueprint: "newco", Status: 429, ErrorCode: operationalerr.CodeRateLimited})
 
 	recs := exp.all()
 	if len(recs) != 2 {
@@ -284,10 +286,10 @@ func TestClassify(t *testing.T) {
 	}{
 		{pushhook.Event{DryRun: true}, "dry_run"},
 		{pushhook.Event{Status: 200}, "ok"},
-		{pushhook.Event{Status: 429, Err: errors.New("x")}, "rate_limited"},
-		{pushhook.Event{Status: 400, Err: errors.New("x")}, "client_error"},
-		{pushhook.Event{Status: 503, Err: errors.New("x")}, "server_error"},
-		{pushhook.Event{Status: 0, Err: errors.New("x")}, "error"},
+		{pushhook.Event{Status: 429, ErrorCode: operationalerr.CodeRateLimited}, "rate_limited"},
+		{pushhook.Event{Status: 400, ErrorCode: operationalerr.CodeRejected}, "client_error"},
+		{pushhook.Event{Status: 503, ErrorCode: operationalerr.CodeRejected}, "server_error"},
+		{pushhook.Event{Status: 0, ErrorCode: operationalerr.CodeInternal}, "error"},
 	}
 	for _, c := range cases {
 		if got := classify(c.ev); got != c.want {
@@ -345,7 +347,7 @@ func TestRecorder_Metrics(t *testing.T) {
 	obs := so.PushObserver()
 	ctx := context.Background()
 	obs(ctx, pushhook.Event{Sink: "loki", Blueprint: "initech", Items: 5, Bytes: 100, Status: 204, Duration: 10 * time.Millisecond})
-	obs(ctx, pushhook.Event{Sink: "promrw", Items: 3, Status: 429, Duration: time.Millisecond, Err: errors.New("429")})
+	obs(ctx, pushhook.Event{Sink: "promrw", Items: 3, Status: 429, Duration: time.Millisecond, ErrorCode: operationalerr.CodeRateLimited})
 	if err := so.ObserveTick(ctx, "bp", "rds", "rds", func(context.Context) error { return nil }); err != nil {
 		t.Fatalf("ObserveTick: %v", err)
 	}
@@ -655,14 +657,14 @@ func TestFlushObserved_Metrics(t *testing.T) {
 	if err := so.initInstruments(mp, Gauges{}); err != nil {
 		t.Fatalf("initInstruments: %v", err)
 	}
-	so.FlushObserved("promrw", 4200, 12*time.Millisecond, nil)
-	so.FlushObserved("promrw", 10, 3*time.Millisecond, errors.New("503"))
+	so.FlushObserved(queue.FlushEvent{Sink: "promrw", Shard: 0, Sequence: 1, Attempted: 4200, Duration: 12 * time.Millisecond})
+	so.FlushObserved(queue.FlushEvent{Sink: "promrw", Shard: 0, Sequence: 2, Attempted: 10, Dropped: 10, Duration: 3 * time.Millisecond, Code: operationalerr.CodeRejected})
 
 	var rm metricdata.ResourceMetrics
 	if err := reader.Collect(context.Background(), &rm); err != nil {
 		t.Fatalf("collect: %v", err)
 	}
-	var okCount, errCount int64
+	var okCount, errCount, droppedCount, currentLoss, lastLoss int64
 	var sawDur, sawBatch bool
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
@@ -681,6 +683,18 @@ func TestFlushObserved_Metrics(t *testing.T) {
 				sawDur = len(m.Data.(metricdata.Histogram[float64]).DataPoints) > 0
 			case "synthkit.queue.flush.batch":
 				sawBatch = len(m.Data.(metricdata.Histogram[int64]).DataPoints) > 0
+			case "synthkit.queue.dropped.items":
+				for _, dp := range m.Data.(metricdata.Sum[int64]).DataPoints {
+					droppedCount += dp.Value
+				}
+			case "synthkit.queue.current_loss":
+				for _, dp := range m.Data.(metricdata.Gauge[int64]).DataPoints {
+					currentLoss = dp.Value
+				}
+			case "synthkit.queue.last_loss":
+				for _, dp := range m.Data.(metricdata.Gauge[int64]).DataPoints {
+					lastLoss = dp.Value
+				}
 			}
 		}
 	}
@@ -689,6 +703,9 @@ func TestFlushObserved_Metrics(t *testing.T) {
 	}
 	if !sawDur || !sawBatch {
 		t.Errorf("flush histograms: duration=%v batch=%v, want both true", sawDur, sawBatch)
+	}
+	if droppedCount != 10 || currentLoss != 1 || lastLoss == 0 {
+		t.Errorf("loss metrics: dropped=%d current=%d last=%d, want 10/1/nonzero", droppedCount, currentLoss, lastLoss)
 	}
 }
 

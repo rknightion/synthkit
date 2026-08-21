@@ -83,6 +83,7 @@ func (h *Handler) SetChangeObserver(fn func(State)) *Handler { h.onChange = fn; 
 // health. Fleet is a pointer omitted when no FM source is wired (its absence hides the panel row).
 type StatusReport struct {
 	Sinks       []pushstatus.SinkStat                   `json:"sinks"`
+	Queues      []pushstatus.QueueStat                  `json:"queues"`
 	ByBlueprint map[string]pushstatus.BlueprintEmission `json:"by_blueprint,omitempty"`
 	Fleet       *fleetstatus.FleetStat                  `json:"fleet,omitempty"`
 	Persist     PersistHealth                           `json:"persist"`
@@ -96,6 +97,7 @@ type StatusReport struct {
 // emission for the Overview grid. A nil func leaves that section absent from the report.
 type StatusSources struct {
 	Sinks       func() []pushstatus.SinkStat
+	Queues      func() []pushstatus.QueueStat
 	ByBlueprint func() map[string]pushstatus.BlueprintEmission
 	Fleet       func() fleetstatus.FleetStat
 	Readiness   func() ReadinessReport
@@ -184,6 +186,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		if h.status.Sinks != nil {
 			sinks = h.status.Sinks()
 		}
+		var queues []pushstatus.QueueStat
+		if h.status.Queues != nil {
+			queues = h.status.Queues()
+		}
 		var fleet *fleetstatus.FleetStat
 		if h.status.Fleet != nil {
 			f := h.status.Fleet()
@@ -198,7 +204,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			report := h.status.Readiness()
 			readiness = &report
 		}
-		writeJSON(w, StatusReport{Sinks: sinks, ByBlueprint: byBp, Fleet: fleet, Persist: h.store.PersistHealth(), DryRun: h.status.DryRun, Readiness: readiness})
+		writeJSON(w, StatusReport{Sinks: sinks, Queues: queues, ByBlueprint: byBp, Fleet: fleet, Persist: h.store.PersistHealth(), DryRun: h.status.DryRun, Readiness: readiness})
 	})
 	// GET /control/readiness is deliberately public so Docker can call it without credentials. Its
 	// probe representation omits topology, errors, filesystem paths, and operational reasons.

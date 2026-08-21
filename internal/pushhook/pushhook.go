@@ -7,9 +7,9 @@
 // synthetic-data path.
 //
 // A sink exposes an Observe field of type Observer (default nil). When set — only ever by package
-// main, only when self-observability is enabled — the sink calls it once per push with the outcome.
-// When nil the push path is byte-for-byte unchanged. internal/selfobs implements an Observer that
-// records OTel metrics + a child span; nothing else in the process ever sets it.
+// main — the sink calls it once per push with the outcome. When nil the push path is byte-for-byte
+// unchanged. The composition root fans events to internal/selfobs and the always-on pushstatus
+// store without exposing the raw sink error to either consumer.
 //
 // This is one half of the self-obs isolation; the other is the runner's stdlib-only tick seam
 // (runner.TickFunc), which keeps the OTel SDK out of the composition root's scheduler.
@@ -18,20 +18,22 @@ package pushhook
 import (
 	"context"
 	"time"
+
+	"github.com/rknightion/synthkit/internal/operationalerr"
 )
 
 // Event is the outcome of one sink push. The sink populates whatever it knows; fields it cannot
 // cheaply determine are left zero (documented per-sink — e.g. promrw cannot surface Bytes/Status
 // because its remote_write client owns marshalling and the HTTP round-trip).
 type Event struct {
-	Sink      string        // sink name: "promrw" | "loki" | "otlp" | "faro" | "pyroscope"
-	Blueprint string        // blueprint selector label stamped on the batch ("" when substrate/unscoped)
-	Items     int           // logical items pushed: series | (streams+lines) | spans | beacons
-	Bytes     int           // wire bytes of the request body (0 when the sink doesn't build it itself)
-	Status    int           // HTTP status code (0 = transport/marshal error before any response)
-	Duration  time.Duration // wall-clock of the push call
-	DryRun    bool          // true = dry-run (no network push happened; Status/Bytes not meaningful)
-	Err       error         // non-nil on failure
+	Sink      string              // sink name: "promrw" | "loki" | "otlp" | "faro" | "pyroscope"
+	Blueprint string              // blueprint selector label stamped on the batch ("" when substrate/unscoped)
+	Items     int                 // logical items pushed: series | (streams+lines) | spans | beacons
+	Bytes     int                 // wire bytes of the request body (0 when the sink doesn't build it itself)
+	Status    int                 // HTTP status code (0 = transport/marshal error before any response)
+	Duration  time.Duration       // wall-clock of the push call
+	DryRun    bool                // true = dry-run (no network push happened; Status/Bytes not meaningful)
+	ErrorCode operationalerr.Code // closed failure classification; never carries raw error text
 }
 
 // Observer receives one push Event. ctx carries any active trace span (the tick span the runner's

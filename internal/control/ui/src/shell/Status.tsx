@@ -1,6 +1,6 @@
 import { For, Show, type JSX } from "solid-js";
 import { useStore } from "../store/store";
-import type { FleetStat, SinkStat } from "../api/types";
+import type { FleetStat, QueueStat, SinkStat } from "../api/types";
 import { fmtNum } from "../utils/fmt";
 
 // Always-visible rail telemetry surface (ported from the legacy ui.html renderStatus,
@@ -144,10 +144,30 @@ function sinkRow(s: SinkStat): JSX.Element {
   );
 }
 
+function queueRow(q: QueueStat): JSX.Element {
+  const name = (SINK_LABELS[q.sink] || q.sink) + " queue";
+  const stats = [fmtNum(q.depth) + " queued", fmtNum(q.blocked_enqueues) + " blocked"];
+  let failText: string | undefined;
+  if (q.dropped_items > 0) {
+    failText = ` · ${fmtNum(q.dropped_items)} dropped · ${q.current_loss ? "current loss" : "recovered"}`;
+  }
+  const stamp = q.current_loss ? q.last_loss_ms : q.last_recovery_ms || q.last_loss_ms;
+  return (
+    <EmitterRow
+      name={name}
+      cls={q.current_loss ? "err" : q.dropped_items > 0 ? "ok" : "muted"}
+      ago={agoMs(stamp)}
+      stats={stats}
+      failText={failText}
+    />
+  );
+}
+
 export function Status(): JSX.Element {
   const store = useStore();
   const status = () => store.state.status;
   const sinks = () => status()?.sinks ?? [];
+  const queues = () => status()?.queues ?? [];
 
   // FM lifecycle row — only when the controller is actually registering/heartbeating
   // (hidden in metrics-only mode, where no controller runs).
@@ -180,6 +200,7 @@ export function Status(): JSX.Element {
               <div class="ptag muted">{st().dry_run ? "no pushes (dry run)" : "no pushes yet"}</div>
             </Show>
             <For each={sinks()}>{(s) => sinkRow(s)}</For>
+            <For each={queues()}>{(q) => queueRow(q)}</For>
 
             <Show when={fleet()}>
               {(f) => {

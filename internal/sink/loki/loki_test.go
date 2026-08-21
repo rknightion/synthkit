@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 )
 
@@ -262,8 +263,8 @@ func TestHTTPErrorIsReturned(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error on 429, got nil")
 	}
-	if !strings.Contains(err.Error(), "429") {
-		t.Errorf("error = %q, want to contain 429", err.Error())
+	if got := operationalerr.CodeOf(err); got != operationalerr.CodeRateLimited {
+		t.Errorf("error code=%q, want rate_limited", got)
 	}
 }
 
@@ -411,7 +412,7 @@ func TestObserveLivePushRateLimited(t *testing.T) {
 	}}); err == nil {
 		t.Fatal("expected error on 429")
 	}
-	if got.Status != 429 || got.Err == nil {
+	if got.Status != 429 || got.ErrorCode != operationalerr.CodeRateLimited {
 		t.Fatalf("unexpected event: %+v", got)
 	}
 }

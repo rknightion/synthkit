@@ -38,6 +38,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 	"github.com/rknightion/synthkit/internal/sink/httpretry"
 )
@@ -284,7 +285,7 @@ func (s *Sink) Write(ctx context.Context, payloads []Payload) error {
 		status = 0
 	}
 	s.observe(ctx, posted, status, time.Since(start), false, firstErr)
-	return firstErr
+	return operationalerr.New(operationalerr.CodeOf(firstErr))
 }
 
 // observe fires the self-observability hook (no-op when unset). Faro carries no blueprint
@@ -295,7 +296,8 @@ func (s *Sink) observe(ctx context.Context, beacons, status int, dur time.Durati
 	}
 	s.Observe(ctx, pushhook.Event{
 		Sink: "faro", Blueprint: "", Items: beacons,
-		Bytes: 0, Status: status, Duration: dur, DryRun: dryRun, Err: err,
+		Bytes: 0, Status: status, Duration: dur, DryRun: dryRun,
+		ErrorCode: operationalerr.Classify(status, err),
 	})
 }
 
@@ -326,7 +328,8 @@ func (s *Sink) post(ctx context.Context, p Payload) error {
 	if err != nil {
 		return fmt.Errorf("faro gzip: %w", err)
 	}
-	return httpretry.EmitOncePolicy().Do(ctx, func(rctx context.Context) (int, error) {
+	var lastStatus int
+	err = httpretry.EmitOncePolicy().Do(ctx, func(rctx context.Context) (int, error) {
 		// Fresh request per attempt — bytes.NewReader rewinds from the gz slice each time.
 		req, err := http.NewRequestWithContext(rctx, http.MethodPost, s.url, bytes.NewReader(gz))
 		if err != nil {
@@ -345,6 +348,7 @@ func (s *Sink) post(ctx context.Context, p Payload) error {
 			// treats status=0 as retryable — it will retry within the budget.
 			return 0, fmt.Errorf("faro post: %w", err)
 		}
+		lastStatus = resp.StatusCode
 		// Got a real HTTP response — drain+close for keep-alive reuse.
 		if resp.StatusCode/100 != 2 {
 			msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
@@ -355,4 +359,5 @@ func (s *Sink) post(ctx context.Context, p Payload) error {
 		resp.Body.Close()
 		return resp.StatusCode, nil
 	})
+	return operationalerr.New(operationalerr.Classify(lastStatus, err))
 }

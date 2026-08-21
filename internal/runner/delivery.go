@@ -267,5 +267,8 @@ func (r *Runner) QueueDepths() map[string]int {
 	if r.queues.OTLPMetrics != nil {
 		m["otlpmetrics"] = r.queues.OTLPMetrics.Depth()
 	}
+	if r.queues.Sigil != nil {
+		m["sigil"] = r.queues.Sigil.Depth()
+	}
 	return m
 }

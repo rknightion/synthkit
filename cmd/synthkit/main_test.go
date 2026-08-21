@@ -21,7 +21,27 @@ import (
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/preflight"
 	"github.com/rknightion/synthkit/internal/runner"
+	"github.com/rknightion/synthkit/internal/sink/queue"
 )
+
+type recordingQueueObserver struct {
+	blockedSink string
+	events      []queue.FlushEvent
+}
+
+func (o *recordingQueueObserver) EnqueueBlocked(sink string, _ time.Duration) { o.blockedSink = sink }
+func (o *recordingQueueObserver) FlushObserved(ev queue.FlushEvent)           { o.events = append(o.events, ev) }
+
+func TestQueueObserverFanDeliversIdenticalEvent(t *testing.T) {
+	a, b := &recordingQueueObserver{}, &recordingQueueObserver{}
+	fan := queueObserverFan{a, b}
+	event := queue.FlushEvent{Sink: "promrw", Shard: 3, Sequence: 42, Attempted: 8, Dropped: 2}
+	fan.EnqueueBlocked("promrw", time.Millisecond)
+	fan.FlushObserved(event)
+	if a.blockedSink != "promrw" || b.blockedSink != "promrw" || len(a.events) != 1 || len(b.events) != 1 || a.events[0] != event || b.events[0] != event {
+		t.Fatalf("fanout consumers did not receive identical event: a=%+v b=%+v", a, b)
+	}
+}
 
 func TestRunPreflightReportsStaticAndNetworkResultsWithoutValues(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

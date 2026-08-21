@@ -92,6 +92,28 @@ test("renders the prominent dry-run badge when dry_run is true", () => {
   expect(getByText("dry run")).toBeInTheDocument();
 });
 
+test("renders current queue loss separately from recovered historical drops", () => {
+  const status: StatusReport = {
+    sinks: [],
+    queues: [
+      { sink: "promrw", depth: 7, blocked_enqueues: 2, dropped_items: 5, last_loss_ms: now,
+        last_recovery_ms: 0, current_loss: true, affected_shards: 1, last_error_code: "transport" },
+      { sink: "loki", depth: 0, blocked_enqueues: 1, dropped_items: 3, last_loss_ms: now - 60_000,
+        last_recovery_ms: now, current_loss: false, affected_shards: 0, last_error_code: "rejected" },
+    ],
+    dry_run: false,
+    persist: persist(),
+  };
+  const { getByText, container } = render(() => (
+    <StoreProvider store={storeWith(status)}><Status /></StoreProvider>
+  ));
+  expect(getByText("metrics queue")).toBeInTheDocument();
+  expect(getByText("logs queue")).toBeInTheDocument();
+  expect(getByText(/5 dropped · current loss/)).toBeInTheDocument();
+  expect(getByText(/3 dropped · recovered/)).toBeInTheDocument();
+  expect(container.querySelectorAll(".emit.err").length).toBe(1);
+});
+
 test("omits the dry-run badge when dry_run is false", () => {
   const status: StatusReport = {
     sinks: [sink({ sink: "promrw", last_success_ms: now, total_items: 1 })],

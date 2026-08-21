@@ -9,11 +9,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 )
 
@@ -200,8 +200,8 @@ func TestWriteSurfacesError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error on 400 response")
 	}
-	if !strings.Contains(err.Error(), "400") {
-		t.Errorf("error should carry the status code, got %q", err)
+	if got := operationalerr.CodeOf(err); got != operationalerr.CodeRejected {
+		t.Errorf("error code=%q, want rejected", got)
 	}
 }
 
@@ -299,7 +299,7 @@ func TestObserveLivePushSuccess(t *testing.T) {
 	if err := s.Write(context.Background(), payloads); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	if got.Sink != "faro" || got.Status != 200 || got.Err != nil {
+	if got.Sink != "faro" || got.Status != 200 || got.ErrorCode != "" {
 		t.Fatalf("unexpected event: %+v", got)
 	}
 	if got.Items != 2 {

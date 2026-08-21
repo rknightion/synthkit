@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/highcard"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 	"github.com/rknightion/synthkit/internal/sink/httpretry"
 
@@ -207,7 +208,7 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 	})
 	s.observe(ctx, batch, lastStatus, len(compressed), time.Since(start), false, retryErr)
 	if retryErr != nil {
-		return fmt.Errorf("remote_write: %w", retryErr)
+		return operationalerr.New(operationalerr.Classify(lastStatus, retryErr))
 	}
 	return nil
 }
@@ -224,7 +225,8 @@ func (s *Sink) observe(ctx context.Context, batch []Series, status, bytesOut int
 	}
 	s.Observe(ctx, pushhook.Event{
 		Sink: "promrw", Blueprint: blueprint, Items: len(batch),
-		Bytes: bytesOut, Status: status, Duration: dur, DryRun: dryRun, Err: err,
+		Bytes: bytesOut, Status: status, Duration: dur, DryRun: dryRun,
+		ErrorCode: operationalerr.Classify(status, err),
 	})
 }
 

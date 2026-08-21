@@ -3,8 +3,11 @@
 package queue
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -13,6 +16,12 @@ import (
 
 // identityShard routes by a caller-supplied key so tests can force shard placement.
 func identityShard(i int) func(int) uint64 { return func(int) uint64 { return uint64(i) } }
+
+func TestDefaultCapacityMatchesConfiguredSurface(t *testing.T) {
+	if got := (Options{}).withDefaults().Capacity; got != 500000 {
+		t.Fatalf("default capacity=%d, want 500000", got)
+	}
+}
 
 func TestWriteRoutesAndIsNonBlockingUnderCapacity(t *testing.T) {
 	var mu sync.Mutex
@@ -157,7 +166,7 @@ func TestBackpressureBlocksWhenFull(t *testing.T) {
 // testObs adapts callbacks to the Observer interface; either callback may be nil.
 type testObs struct {
 	blocked func(string, time.Duration)
-	flushed func(string, int, time.Duration, error)
+	flushed func(FlushEvent)
 }
 
 func (o testObs) EnqueueBlocked(sink string, d time.Duration) {
@@ -166,14 +175,14 @@ func (o testObs) EnqueueBlocked(sink string, d time.Duration) {
 	}
 }
 
-func (o testObs) FlushObserved(sink string, items int, d time.Duration, err error) {
+func (o testObs) FlushObserved(ev FlushEvent) {
 	if o.flushed != nil {
-		o.flushed(sink, items, d, err)
+		o.flushed(ev)
 	}
 }
 
 func TestFlushObservedFiresWithItemsAndError(t *testing.T) {
-	wantErr := errors.New("boom")
+	wantErr := errors.New("raw-canary-boom")
 	var fail atomic.Bool
 	flush := func(_ context.Context, _ []int) error {
 		if fail.Load() {
@@ -182,16 +191,14 @@ func TestFlushObservedFiresWithItemsAndError(t *testing.T) {
 		return nil
 	}
 	type obsRec struct {
-		sink  string
-		items int
-		err   error
+		e FlushEvent
 	}
 	var mu sync.Mutex
 	var recs []obsRec
-	obs := testObs{flushed: func(sink string, items int, _ time.Duration, err error) {
+	obs := testObs{flushed: func(e FlushEvent) {
 		mu.Lock()
 		defer mu.Unlock()
-		recs = append(recs, obsRec{sink, items, err})
+		recs = append(recs, obsRec{e})
 	}}
 	q := New[int](Options{Shards: 1, BatchMax: 1000, Deadline: time.Hour, Capacity: 1000, Sink: "t"}, flush, func(int) uint64 { return 0 }, obs)
 
@@ -215,18 +222,55 @@ func TestFlushObservedFiresWithItemsAndError(t *testing.T) {
 	// Empty drains (no pending) must NOT fire the observer — flushPending returns early on len 0.
 	var nonEmpty []obsRec
 	for _, r := range recs {
-		if r.items > 0 {
+		if r.e.Attempted > 0 {
 			nonEmpty = append(nonEmpty, r)
 		}
 	}
 	if len(nonEmpty) != 2 {
 		t.Fatalf("want 2 non-empty flush observations, got %d (%+v)", len(nonEmpty), recs)
 	}
-	if nonEmpty[0].sink != "t" || nonEmpty[0].items != 3 || nonEmpty[0].err != nil {
+	if nonEmpty[0].e.Sink != "t" || nonEmpty[0].e.Attempted != 3 || nonEmpty[0].e.Dropped != 0 || nonEmpty[0].e.Code != "" || nonEmpty[0].e.Sequence == 0 {
 		t.Fatalf("first flush obs wrong: %+v", nonEmpty[0])
 	}
-	if nonEmpty[1].items != 2 || nonEmpty[1].err == nil {
+	if nonEmpty[1].e.Attempted != 2 || nonEmpty[1].e.Dropped != 2 || nonEmpty[1].e.Code == "" {
 		t.Fatalf("second flush obs should carry items=2 + error: %+v", nonEmpty[1])
+	}
+	if nonEmpty[1].e.Sequence <= nonEmpty[0].e.Sequence || nonEmpty[0].e.Shard != 0 || nonEmpty[1].e.Shard != 0 {
+		t.Fatalf("flush sequence/shard wrong: %+v", nonEmpty)
+	}
+}
+
+func TestFlushEventCountsOnlyFailedSubBatchesAndSanitizesFailure(t *testing.T) {
+	raw := "raw-canary-should-not-escape"
+	var calls int
+	var got FlushEvent
+	obs := testObs{flushed: func(ev FlushEvent) { got = ev }}
+	flush := func(_ context.Context, b []int) error {
+		calls++
+		if len(b) == 2 {
+			return errors.New(raw)
+		}
+		return nil
+	}
+	q := New[int](Options{Shards: 1, BatchMax: 2, Deadline: time.Hour, Capacity: 10, Sink: "t"}, flush, func(int) uint64 { return 0 }, obs)
+	pending := []int{1, 2, 3}
+	atomic.StoreInt64(&q.pending, int64(len(pending)))
+	var logs bytes.Buffer
+	previous := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previous) })
+	err := q.flushPending(0, &pending)
+	if err == nil || err.Error() == raw || strings.Contains(err.Error(), raw) {
+		t.Fatalf("Flush error leaked raw text or was nil: %v", err)
+	}
+	if calls != 2 || got.Attempted != 3 || got.Dropped != 2 || got.Sequence == 0 {
+		t.Fatalf("unexpected partial flush event: calls=%d event=%+v", calls, got)
+	}
+	if strings.Contains(logs.String(), raw) {
+		t.Fatalf("queue log leaked raw error: %q", logs.String())
+	}
+	if q.Depth() != 0 {
+		t.Fatalf("depth after failed flush=%d, want 0", q.Depth())
 	}
 }
 

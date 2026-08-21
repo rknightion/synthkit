@@ -4,10 +4,12 @@ package pushstatus
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 )
 
@@ -22,7 +24,7 @@ func TestObserverRecordsSuccessAndError(t *testing.T) {
 
 	obs(context.Background(), pushhook.Event{Sink: "promrw", Items: 12, Status: 200})
 	s.now = fixedNow(2000)
-	obs(context.Background(), pushhook.Event{Sink: "promrw", Status: 0, Err: errors.New("boom")})
+	obs(context.Background(), pushhook.Event{Sink: "promrw", Status: 0, ErrorCode: operationalerr.CodeTransport})
 
 	snap := s.Snapshot()
 	if len(snap) != 1 {
@@ -32,7 +34,7 @@ func TestObserverRecordsSuccessAndError(t *testing.T) {
 	if g.Sink != "promrw" || g.Pushes != 2 || g.Failures != 1 {
 		t.Fatalf("counts wrong: %+v", g)
 	}
-	if g.LastSuccessMs != 1000 || g.LastErrorMs != 2000 || g.LastError != "boom" {
+	if g.LastSuccessMs != 1000 || g.LastErrorMs != 2000 || g.LastError != operationalerr.Message(operationalerr.CodeTransport) {
 		t.Fatalf("timestamps/error wrong: %+v", g)
 	}
 }
@@ -44,6 +46,22 @@ func TestDryRunDoesNotCountAsPush(t *testing.T) {
 	snap := s.Snapshot()
 	if snap[0].Pushes != 0 || !snap[0].DryRun {
 		t.Fatalf("dry-run mishandled: %+v", snap[0])
+	}
+}
+
+func TestSnapshotNormalizesUntrustedErrorCode(t *testing.T) {
+	const canary = `secret<token>&"`
+	s := NewStore()
+	s.Observer()(context.Background(), pushhook.Event{Sink: "faro", ErrorCode: operationalerr.Code(canary)})
+	b, err := json.Marshal(s.Snapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), canary) || strings.Contains(string(b), "secret") {
+		t.Fatalf("status snapshot leaked untrusted error code: %s", b)
+	}
+	if got := s.Snapshot()[0].LastErrorCode; got != operationalerr.CodeInternal {
+		t.Fatalf("LastErrorCode=%q, want internal", got)
 	}
 }
 

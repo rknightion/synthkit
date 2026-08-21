@@ -146,8 +146,13 @@ an intentionally token-free loopback deployment).
 curl -s -u control http://127.0.0.1:8088/control/status | jq
 ```
 
-Each sink shows `last_success_ms` advancing and `failures: 0`. `dry_run: true` means you are not
-actually pushing — re-check `DRY_RUN`. This strip is also rendered in the operator UI.
+Each sink shows `last_success_ms` advancing. Compare `last_success_ms` with `last_error_ms`: a newer
+success means the sink recovered even though cumulative `failures` remains non-zero. Inspect `.queues` separately:
+`depth` is current pressure, `blocked_enqueues` is cumulative backpressure, and `dropped_items` is
+authoritative loss after retry exhaustion. `current_loss=false` with non-zero `dropped_items` means
+new delivery recovered but historical loss remains; discarded items were not replayed. `dry_run: true`
+means you are not actually pushing — re-check `DRY_RUN`. The sink and queue states are also
+rendered in the operator UI.
 
 ### 5.2 Metrics (Mimir)
 

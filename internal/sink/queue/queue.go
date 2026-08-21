@@ -13,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/rknightion/synthkit/internal/operationalerr"
 )
 
 // Options configures one queue. Zero values fall back to defaults (see withDefaults).
@@ -20,7 +22,7 @@ type Options struct {
 	Shards   int           // parallel ordered senders (SEND_SHARDS, default 8)
 	BatchMax int           // items per send; 1 metric series = 1 item (SEND_BATCH_MAX, default 5000)
 	Deadline time.Duration // partial-batch flush deadline (SEND_BATCH_DEADLINE, default 5s)
-	Capacity int           // total buffered items before backpressure (SEND_QUEUE_CAPACITY, default 200000)
+	Capacity int           // total buffered items before backpressure (SEND_QUEUE_CAPACITY, default 500000)
 	Sink     string        // "promrw"|"loki"|"otlp"|"pyroscope" — selfobs/log attribution
 }
 
@@ -35,7 +37,7 @@ func (o Options) withDefaults() Options {
 		o.Deadline = 5 * time.Second
 	}
 	if o.Capacity <= 0 {
-		o.Capacity = 200000
+		o.Capacity = 500000
 	}
 	return o
 }
@@ -47,11 +49,22 @@ type Observer interface {
 	// EnqueueBlocked fires when a tick blocked enqueuing because a shard buffer was full
 	// (backpressure). d is the time spent blocked.
 	EnqueueBlocked(sink string, d time.Duration)
-	// FlushObserved fires once per completed flush of a shard's pending batch: items is the count
-	// shipped, d the wall-clock of the flush call(s), err the joined flush error (nil on success).
+	// FlushObserved fires once per completed flush of a shard's pending batch with sanitized
+	// attempted/dropped counts, completion sequence, duration, and closed failure code.
 	// Called on the sender's own goroutine AFTER the (unchanged) synthetic flush; a nil observer
 	// is never called.
-	FlushObserved(sink string, items int, d time.Duration, err error)
+	FlushObserved(FlushEvent)
+}
+
+// FlushEvent is the sanitized completion record for one shard flush.
+type FlushEvent struct {
+	Sink      string
+	Shard     int
+	Sequence  uint64
+	Attempted int
+	Dropped   int
+	Duration  time.Duration
+	Code      operationalerr.Code
 }
 
 // Queue buffers items of type T between produce (tick) and deliver (sink).
@@ -69,6 +82,7 @@ type Queue[T any] struct {
 	stopOnce  sync.Once
 	stop      chan struct{}
 	wg        sync.WaitGroup
+	sequence  uint64
 
 	logMu   sync.Mutex
 	lastLog time.Time
@@ -174,7 +188,7 @@ func (q *Queue[T]) sender(shard int) {
 		timer.Reset(q.opts.Deadline)
 	}
 	// drainAndFlush pulls every item currently buffered in ch into pending, then ships it
-	// all. Returns the joined flush error. Safe because callers ensure no concurrent Write
+	// all. Returns a sanitized flush error. Safe because callers ensure no concurrent Write
 	// is in flight at a barrier (RunOnce ticks synchronously before Flush) — and even if
 	// items arrive after, they are simply caught by the next flush.
 	drainAndFlush := func() error {
@@ -183,7 +197,7 @@ func (q *Queue[T]) sender(shard int) {
 			case item := <-ch:
 				pending = append(pending, item)
 			default:
-				return q.flushPending(&pending)
+				return q.flushPending(shard, &pending)
 			}
 		}
 	}
@@ -193,11 +207,11 @@ func (q *Queue[T]) sender(shard int) {
 		case item := <-ch:
 			pending = append(pending, item)
 			if len(pending) >= q.opts.BatchMax {
-				_ = q.flushPending(&pending)
+				_ = q.flushPending(shard, &pending)
 				resetTimer()
 			}
 		case <-timer.C:
-			_ = q.flushPending(&pending)
+			_ = q.flushPending(shard, &pending)
 			timer.Reset(q.opts.Deadline)
 		case ack := <-q.flushReq[shard]:
 			ack <- drainAndFlush() // synchronous barrier: report errors back to Flush
@@ -211,15 +225,16 @@ func (q *Queue[T]) sender(shard int) {
 
 // flushPending ships *pending in ≤BatchMax slices, sequentially (preserves order),
 // decrements Depth by what it shipped, and resets the slice. Errors are logged here (the
-// live path) and also returned (so the Flush barrier can surface them to RunOnce). The
+// live path) and also returned as a sanitized error (so the Flush barrier can surface them to RunOnce). The
 // real sink owns its own HTTP timeout + retry, so flush uses a background context that
 // outlives a cancelled run context (matters during shutdown drain).
-func (q *Queue[T]) flushPending(pending *[]T) error {
+func (q *Queue[T]) flushPending(shard int, pending *[]T) error {
 	items := *pending
 	if len(items) == 0 {
 		return nil
 	}
-	var errs []error
+	var firstCode operationalerr.Code
+	var dropped int
 	var start0 time.Time
 	if q.obs != nil {
 		start0 = time.Now()
@@ -230,19 +245,29 @@ func (q *Queue[T]) flushPending(pending *[]T) error {
 			end = len(items)
 		}
 		if err := q.flush(context.Background(), items[start:end]); err != nil {
-			log.Printf("queue: %s sink flush of %d items failed: %v", q.opts.Sink, end-start, err)
-			errs = append(errs, err)
+			code := operationalerr.CodeOf(err)
+			if firstCode == operationalerr.CodeNone {
+				firstCode = code
+			}
+			dropped += end - start
+			log.Printf("queue: %s sink flush of %d items failed: code=%s", q.opts.Sink, end-start, code)
 		}
 	}
 	atomic.AddInt64(&q.pending, -int64(len(items)))
-	joined := errors.Join(errs...)
+	var result error
+	if firstCode != operationalerr.CodeNone {
+		result = operationalerr.New(firstCode)
+	}
+	sequence := atomic.AddUint64(&q.sequence, 1)
 	// Self-obs flush observation (depth/latency/batch + flush span). Additive and guarded — the
 	// synthetic flush above is byte-for-byte unchanged whether or not an observer is set.
 	if q.obs != nil {
-		q.obs.FlushObserved(q.opts.Sink, len(items), time.Since(start0), joined)
+		q.obs.FlushObserved(FlushEvent{Sink: q.opts.Sink, Shard: shard,
+			Sequence: sequence, Attempted: len(items), Dropped: dropped,
+			Duration: time.Since(start0), Code: firstCode})
 	}
 	*pending = items[:0]
-	return joined
+	return result
 }
 
 // Drain stops the senders after flushing pending items, bounded by ctx. Idempotent.

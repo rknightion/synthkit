@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 	"github.com/rknightion/synthkit/internal/sink/httpretry"
 )
@@ -76,8 +77,9 @@ func (e egress) post(ctx context.Context, body []byte, items int, blueprint stri
 	if obs != nil {
 		obs(ctx, pushhook.Event{
 			Sink: e.sinkName, Blueprint: blueprint, Items: items,
-			Bytes: len(gz), Status: lastStatus, Duration: time.Since(start), DryRun: false, Err: retryErr,
+			Bytes: len(gz), Status: lastStatus, Duration: time.Since(start), DryRun: false,
+			ErrorCode: operationalerr.Classify(lastStatus, retryErr),
 		})
 	}
-	return retryErr
+	return operationalerr.New(operationalerr.Classify(lastStatus, retryErr))
 }

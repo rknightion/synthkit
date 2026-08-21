@@ -36,7 +36,9 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/fleethook"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
+	"github.com/rknightion/synthkit/internal/sink/queue"
 
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel/attribute"
@@ -115,15 +117,24 @@ type SelfObs struct {
 	cycleDuration metric.Float64Histogram
 	droppedTicks  metric.Int64Counter
 	queueBlocked  metric.Int64Counter
+	queueDropped  metric.Int64Counter
 	flushCount    metric.Int64Counter
 	flushDuration metric.Float64Histogram
 	flushBatch    metric.Int64Histogram
 	fleetOp       metric.Int64Counter
 	fleetDuration metric.Float64Histogram
 
+	queueMu   sync.Mutex
+	queueLoss map[string]*queueLossState
+
 	stop      chan struct{} // closed by Shutdown to stop the heartbeat goroutine
 	stopOnce  sync.Once
 	shutdowns []func(context.Context) error
+}
+
+type queueLossState struct {
+	affected    map[int]uint64
+	lastLossSec int64
 }
 
 // Start builds and wires self-observability. Like profiling.Start it returns a usable handle even
@@ -146,7 +157,7 @@ func Start(opts Options, gauges Gauges) (*SelfObs, error) {
 	headers := map[string]string{"Authorization": "Basic " + basicAuth(opts.User, opts.Password)}
 	res := buildResource(opts)
 
-	so := &SelfObs{enabled: true}
+	so := &SelfObs{enabled: true, queueLoss: map[string]*queueLossState{}}
 
 	// ── Traces ──
 	texp, err := otlptracehttp.New(ctx,
@@ -391,6 +402,7 @@ func (s *SelfObs) PushObserver() pushhook.Observer {
 		return nil
 	}
 	return func(ctx context.Context, ev pushhook.Event) {
+		ev.ErrorCode = operationalerr.Normalize(ev.ErrorCode)
 		oc := classify(ev)
 		st := signalType(ev.Sink)
 		s.pushCount.Add(ctx, 1, metric.WithAttributes(
@@ -416,7 +428,7 @@ func (s *SelfObs) PushObserver() pushhook.Observer {
 		// the sinks don't log pushes). Emit one structured LogRecord per failure so the operational log
 		// stream is filterable by sink/blueprint/outcome (event="push_error"). Rate-limited is WARN
 		// (transient backpressure); every other failure is ERROR.
-		if ev.Err != nil {
+		if ev.ErrorCode != operationalerr.CodeNone {
 			s.logPushFailure(ctx, ev, oc)
 		}
 		// Attach a child span only when the runner passed a live tick span through ctx.
@@ -432,8 +444,8 @@ func (s *SelfObs) PushObserver() pushhook.Observer {
 					attribute.Int("http.status_code", ev.Status),
 				),
 			)
-			if ev.Err != nil {
-				span.RecordError(ev.Err)
+			if ev.ErrorCode != operationalerr.CodeNone {
+				span.SetAttributes(attribute.String("error.code", string(ev.ErrorCode)))
 				span.SetStatus(codes.Error, oc)
 			}
 			span.End(trace.WithTimestamp(end))
@@ -455,13 +467,14 @@ func (s *SelfObs) logPushFailure(_ context.Context, ev pushhook.Event, outcome s
 	now := time.Now()
 	rec.SetTimestamp(now)
 	rec.SetObservedTimestamp(now)
-	rec.SetBody(otellog.StringValue(fmt.Sprintf("selfobs: push %s %s: %v", ev.Sink, outcome, ev.Err)))
+	rec.SetBody(otellog.StringValue(fmt.Sprintf("selfobs: push %s %s", ev.Sink, outcome)))
 	rec.SetSeverity(sev)
 	rec.SetSeverityText(sevText)
 	rec.AddAttributes(
 		otellog.String("event", "push_error"),
 		otellog.String("sink", ev.Sink),
 		otellog.String("outcome", outcome),
+		otellog.String("error.code", string(ev.ErrorCode)),
 	)
 	if ev.Blueprint != "" {
 		rec.AddAttributes(otellog.String("blueprint", ev.Blueprint))
@@ -622,6 +635,10 @@ func (s *SelfObs) initInstruments(mp metric.MeterProvider, g Gauges) error {
 		metric.WithDescription("times a tick blocked enqueuing to a full delivery queue (backpressure) by sink")); err != nil {
 		return err
 	}
+	if s.queueDropped, err = m.Int64Counter("synthkit.queue.dropped.items",
+		metric.WithDescription("items discarded after delivery-queue sink retries were exhausted, by sink")); err != nil {
+		return err
+	}
 	if s.flushCount, err = m.Int64Counter("synthkit.queue.flush",
 		metric.WithDescription("delivery-queue flushes by sink/outcome (one per shard batch shipped)")); err != nil {
 		return err
@@ -704,6 +721,34 @@ func (s *SelfObs) initInstruments(mp metric.MeterProvider, g Gauges) error {
 			return err
 		}
 	}
+	if _, err = m.Int64ObservableGauge("synthkit.queue.current_loss",
+		metric.WithDescription("whether a delivery queue has an affected shard that has not recovered"),
+		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+			s.queueMu.Lock()
+			defer s.queueMu.Unlock()
+			for sink, state := range s.queueLoss {
+				var current int64
+				if len(state.affected) > 0 {
+					current = 1
+				}
+				o.Observe(current, metric.WithAttributes(attribute.String("sink", sink)))
+			}
+			return nil
+		})); err != nil {
+		return err
+	}
+	if _, err = m.Int64ObservableGauge("synthkit.queue.last_loss",
+		metric.WithUnit("s"), metric.WithDescription("Unix time of the last delivery-queue loss, by sink"),
+		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+			s.queueMu.Lock()
+			defer s.queueMu.Unlock()
+			for sink, state := range s.queueLoss {
+				o.Observe(state.lastLossSec, metric.WithAttributes(attribute.String("sink", sink)))
+			}
+			return nil
+		})); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -721,32 +766,56 @@ func (s *SelfObs) EnqueueBlocked(sink string, _ time.Duration) {
 // It records flush count/duration/batch-size and emits a `flush <sink>` span backdated to the
 // flush window — the span that makes the QUEUED sinks (promrw/loki/otlp/pyroscope) visible in
 // Tempo + spanmetrics again, since the decoupled queue ships them off the traced tick path.
-func (s *SelfObs) FlushObserved(sink string, items int, d time.Duration, err error) {
+func (s *SelfObs) FlushObserved(ev queue.FlushEvent) {
 	if s == nil || !s.enabled || s.flushCount == nil {
 		return
 	}
+	ev.Code = operationalerr.Normalize(ev.Code)
 	ctx := context.Background()
 	outcome := "ok"
-	if err != nil {
+	if ev.Code != operationalerr.CodeNone {
 		outcome = "error"
 	}
 	s.flushCount.Add(ctx, 1, metric.WithAttributes(
-		attribute.String("sink", sink), attribute.String("outcome", outcome)))
-	sinkAttr := metric.WithAttributes(attribute.String("sink", sink))
-	s.flushDuration.Record(ctx, d.Seconds(), sinkAttr)
-	s.flushBatch.Record(ctx, int64(items), sinkAttr)
+		attribute.String("sink", ev.Sink), attribute.String("outcome", outcome)))
+	sinkAttr := metric.WithAttributes(attribute.String("sink", ev.Sink))
+	s.flushDuration.Record(ctx, ev.Duration.Seconds(), sinkAttr)
+	s.flushBatch.Record(ctx, int64(ev.Attempted), sinkAttr)
+	if ev.Dropped > 0 {
+		s.queueDropped.Add(ctx, int64(ev.Dropped), sinkAttr)
+	}
+	s.queueMu.Lock()
+	if s.queueLoss == nil {
+		s.queueLoss = map[string]*queueLossState{}
+	}
+	state := s.queueLoss[ev.Sink]
+	if state == nil {
+		state = &queueLossState{affected: map[int]uint64{}}
+		s.queueLoss[ev.Sink] = state
+	}
+	if ev.Dropped > 0 {
+		state.affected[ev.Shard] = ev.Sequence
+		state.lastLossSec = time.Now().Unix()
+	} else if ev.Code == operationalerr.CodeNone {
+		if seq, ok := state.affected[ev.Shard]; ok && ev.Sequence > seq {
+			delete(state.affected, ev.Shard)
+		}
+	}
+	s.queueMu.Unlock()
 
 	end := time.Now()
-	_, span := s.tracer.Start(ctx, "flush "+sink,
+	_, span := s.tracer.Start(ctx, "flush "+ev.Sink,
 		trace.WithSpanKind(trace.SpanKindConsumer),
-		trace.WithTimestamp(end.Add(-d)),
+		trace.WithTimestamp(end.Add(-ev.Duration)),
 		trace.WithAttributes(
-			attribute.String("sink", sink),
-			attribute.String("signal_type", signalType(sink)),
-			attribute.Int("items", items),
+			attribute.String("sink", ev.Sink),
+			attribute.String("signal_type", signalType(ev.Sink)),
+			attribute.Int("items", ev.Attempted),
+			attribute.Int("dropped_items", ev.Dropped),
+			attribute.Int("shard", ev.Shard),
 		))
-	if err != nil {
-		span.RecordError(err)
+	if ev.Code != operationalerr.CodeNone {
+		span.SetAttributes(attribute.String("error.code", string(ev.Code)))
 		span.SetStatus(codes.Error, "flush error")
 	}
 	span.End(trace.WithTimestamp(end))
@@ -777,14 +846,14 @@ func classify(ev pushhook.Event) string {
 	switch {
 	case ev.DryRun:
 		return "dry_run"
-	case ev.Err == nil:
+	case ev.ErrorCode == operationalerr.CodeNone:
 		return "ok"
-	case ev.Status == 429:
+	case ev.ErrorCode == operationalerr.CodeRateLimited:
 		return "rate_limited"
-	case ev.Status >= 400 && ev.Status < 500:
-		return "client_error"
 	case ev.Status >= 500 && ev.Status < 600:
 		return "server_error"
+	case ev.ErrorCode == operationalerr.CodeAuthentication || ev.ErrorCode == operationalerr.CodePermission || ev.ErrorCode == operationalerr.CodeRejected:
+		return "client_error"
 	default:
 		return "error"
 	}
