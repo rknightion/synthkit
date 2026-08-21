@@ -18,9 +18,10 @@ services:
     #   - self-obs OTLP    (SELFOBS_ENABLED, GC_SELF_OTLP_* )         → a SEPARATE self-obs stack
     #   - self-profiling   (SELFOBS_ENABLED, GC_PYROSCOPE_* )         → a SEPARATE self-obs stack
     #   - SM/FM provision  (GC_SM_*, GC_FM_* )                        → control-plane tools
-    # The self-obs paths (OTLP + profiles) use their OWN tokens (never GC_TOKEN). Both share the
-    # SELFOBS_ENABLED master switch, are suppressed under DRY_RUN, and ship only when their creds are set.
-    env_file: .env
+    # The self-obs paths (OTLP + profiles) use their OWN tokens (never GC_TOKEN). They are
+    # independent of synthetic DRY_RUN and ship only when SELFOBS_ENABLED plus their credentials
+    # are set.
+    env_file: ${SYNTHKIT_ENV_FILE:-.env}
     environment:
       BLUEPRINTS: /app/blueprints
       # Runtime selection. Empty (the safe default) starts setup mode and emits nothing;
@@ -62,3 +63,25 @@ services:
       start_period: 75s
     # Container restart = counter reset = a clean rate() window (I29) — intentional;
     # no counter state volume exists or should.
+
+  sm-provision:
+    # One-shot, opt-in Synthetic Monitoring control-plane job. It is the exact same image as the
+    # emitter so snapshot/source-version binding cannot drift on a Docker-only host. Preview is the
+    # default; writes require SM_PROVISION_APPLY=true. After a successful apply, restart synthkit.
+    profiles: ["sm-provision"]
+    image: ghcr.io/rknightion/synthkit:${SYNTHKIT_IMAGE_TAG:-main}
+    pull_policy: always
+    restart: "no"
+    entrypoint: ["/app/sm-provision"]
+    # Least privilege: unlike the emitter, this job does not receive the deployment-wide env_file.
+    # Compose reads these values from the project .env, shell, or an explicit --env-file and passes
+    # no synthetic-sink, self-observability, Fleet, Sigil, Git, or control credentials.
+    environment:
+      CONFIG_SNAPSHOT_PATH: /data/control-state.json
+      GC_SM_URL: ${GC_SM_URL:-}
+      GC_SM_TOKEN: ${GC_SM_TOKEN:-}
+      SM_PROVISION_APPLY: ${SM_PROVISION_APPLY:-false}
+      SM_PROVISION_ADOPT_LEGACY: ${SM_PROVISION_ADOPT_LEGACY:-false}
+      SM_PROVISION_MIGRATE_TARGET: ${SM_PROVISION_MIGRATE_TARGET:-false}
+    volumes:
+      - ./control-state-data:/data

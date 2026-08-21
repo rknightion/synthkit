@@ -110,8 +110,8 @@ func TestEnvSurfaceAligned(t *testing.T) {
 		t.Errorf(".env.example documents vars nothing consumes: %v\n→ remove them, or add to operatorAllowlist if intentional", miss)
 	}
 	// 4. docker-compose.yml must pass .env through (so every documented var actually flows to the container).
-	if !strings.Contains(compose, "env_file") || !regexp.MustCompile(`env_file:\s*\.env`).MatchString(compose) {
-		t.Error("docker-compose.yml must keep `env_file: .env` so .env vars flow to the container")
+	if !strings.Contains(compose, "env_file") || !regexp.MustCompile(`env_file:\s*(?:\.env|\$\{SYNTHKIT_ENV_FILE:-\.env\})`).MatchString(compose) {
+		t.Error("docker-compose.yml must default env_file to .env so documented vars flow to the container")
 	}
 
 	// 5. When the real .env exists locally, it must provision every documented var (keep .env aligned

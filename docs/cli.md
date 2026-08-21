@@ -42,25 +42,27 @@ The control plane is available at `http://<bind>:<port>/control/` (default port 
 
 ## sm-provision — Synthetic Monitoring provisioner
 
-One-shot idempotent provisioner for Synthetic Monitoring. Reads blueprints, registers the offline private probe, and creates/updates SM checks in Grafana Cloud. Safe to re-run.
+One-shot snapshot-bound provisioner for Synthetic Monitoring. The published image contains both
+the emitter and provisioner at the same source version. Preview is always the default.
 
 ```bash
-GC_SM_URL=https://synthetic-monitoring-api.grafana.net \
-  GC_SM_TOKEN=<sm-bearer-token> \
-  DRY_RUN=false \
-  go run ./cmd/sm-provision
+docker compose --profile sm-provision run --rm sm-provision
+SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision
+docker compose restart synthkit
 ```
 
 | Environment variable | Required | Description |
 |---|---|---|
 | `GC_SM_URL` | yes | SM API base URL |
 | `GC_SM_TOKEN` | yes | SM API bearer token |
-| `BLUEPRINTS` | no | Blueprint directory (default `./blueprints`) |
-| `PROBE_NAME` | no | Offline probe name (default from `sm.DefaultProbeName`) |
-| `PROBE_REGION` | no | Probe region string (default from `sm.DefaultProbeRegion`) |
-| `DRY_RUN` | no | `true` (default) previews operations without calling the API |
+| `CONFIG_SNAPSHOT_PATH` | no | Emitter control-state path; Compose sets `/data/control-state.json` |
+| `SM_PROVISION_APPLY` | no | Exact `true` enables mutations; absent/`false` previews |
+| `SM_PROVISION_ADOPT_LEGACY` | no | Exact `true` records the exact-match plan during preview and allows only that same plan during apply |
+| `SM_PROVISION_MIGRATE_TARGET` | no | Exact `true` previews or applies a credential/endpoint target migration; apply also requires `SM_PROVISION_APPLY=true` and a matching preview no older than 15 minutes |
 
-`DRY_RUN=true` (the default) prints the planned operations without making any API calls. See [synthetic-monitoring.md](synthetic-monitoring.md) for the two-phase startup procedure.
+`DRY_RUN` does not control this command. Source checkouts may use `go run ./cmd/sm-provision`, but
+the Compose profile is the supported Docker-only deployment route. See
+[synthetic-monitoring.md](synthetic-monitoring.md) for ownership and crash-recovery rules.
 
 ## blueprint-schema — schema artifact generator
 

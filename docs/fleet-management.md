@@ -59,7 +59,16 @@ FM registration uses its own credential pair — distinct from the Mimir push cr
 | `GC_FM_STACK_ID` | FM Basic-auth username = Grafana Cloud **stack ID** (not `GC_PROM_USER`) |
 | `GC_FM_TOKEN` | CAP token with `fleet-management:write` scope |
 
-When the credential triplet is absent, the FM construct emits metrics only — no API registration calls are made.
+Two modes are intentionally distinct:
+
+- **Fleet metrics:** a selected `fleet_management` declaration plus the normal Prometheus lane.
+  No FM API credentials are required.
+- **Fleet registration:** the same declaration plus the complete `GC_FM_URL`, `GC_FM_STACK_ID`,
+  and `GC_FM_TOKEN` triplet. Verify both registration and fresh heartbeats.
+
+Authenticated `/control/status` reports these as separate `fleet_metrics` and
+`fleet_registration` dispositions. An intentionally disabled registration lane is not a metrics
+failure. Partial registration inputs fail closed; they do not silently downgrade to metrics-only.
 
 See [Credentials](credentials.md) for token-scoping guidance.
 

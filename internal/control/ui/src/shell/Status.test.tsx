@@ -48,7 +48,8 @@ test("renders a row per sink with an ok/err indicator and surfaces the failing s
       sink({ sink: "promrw", last_success_ms: now, pushes: 10, total_items: 1234 }),
       sink({
         sink: "loki",
-        last_error: "connection refused",
+        last_error: "raw canary must not render",
+        last_error_code: "transport",
         last_error_ms: now,
         last_success_ms: now - 60_000,
         pushes: 4,
@@ -73,9 +74,10 @@ test("renders a row per sink with an ok/err indicator and surfaces the failing s
   const errRow = container.querySelector(".emit.err");
   expect(errRow).not.toBeNull();
 
-  // The failing sink's failure count surfaces, and its last error is shown.
+  // The failing sink's failure count surfaces with closed text, not raw status input.
   expect(getByText(/3 failed/)).toBeInTheDocument();
-  expect(getByText(/connection refused/)).toBeInTheDocument();
+  expect(getByText(/transport failed/)).toBeInTheDocument();
+  expect(container.textContent).not.toContain("raw canary");
 });
 
 test("renders the prominent dry-run badge when dry_run is true", () => {
@@ -142,7 +144,7 @@ test("status undefined renders the muted fallback without crashing", () => {
 test("renders the fleet (FM) line when fleet is registering or heartbeating", () => {
   const status: StatusReport = {
     sinks: [sink({ sink: "promrw", last_success_ms: now, total_items: 1 })],
-    fleet: { registered: 3, heartbeats: 42, last_ok_ms: now, last_error_ms: 0, last_error: "", failures: 0, dry_run: false },
+    fleet: { registered: 3, heartbeats: 42, last_ok_ms: now, last_error_ms: 0, last_error: "", last_error_code: "", failures: 0, dry_run: false },
     dry_run: false,
     persist: persist(),
   };
@@ -153,6 +155,45 @@ test("renders the fleet (FM) line when fleet is registering or heartbeating", ()
   ));
   expect(getByText("fm")).toBeInTheDocument();
   expect(getByText(/3 collectors/)).toBeInTheDocument();
+});
+
+test("renders every optional lane disposition and the SM restart handoff", () => {
+  const status: StatusReport = {
+    sinks: [], dry_run: false, persist: persist(),
+    optional_lanes: [
+      { lane: "rum", requested: true, state: "enabled", reason: "enabled", declaration: "satisfied", emitter: "satisfied", verification: "verified", missing_fields: [] },
+      { lane: "fleet_metrics", requested: false, state: "disabled", reason: "intentionally_disabled", declaration: "not_required", emitter: "not_required", verification: "not_required", missing_fields: [] },
+      { lane: "fleet_registration", requested: false, state: "disabled", reason: "intentionally_disabled", declaration: "not_required", emitter: "not_required", verification: "not_required", missing_fields: [] },
+      { lane: "synthetic_monitoring", requested: true, state: "partial", reason: "emitter_missing", declaration: "satisfied", emitter: "missing", verification: "not_attempted", missing_fields: ["GC_SM_TOKEN"] },
+      { lane: "self_observability", requested: true, state: "enabled", reason: "enabled", declaration: "not_required", emitter: "satisfied", verification: "not_required", missing_fields: [] },
+      { lane: "process_profiling", requested: false, state: "disabled", reason: "intentionally_disabled", declaration: "not_required", emitter: "not_required", verification: "not_required", missing_fields: [] },
+      { lane: "sigil", requested: false, state: "disabled", reason: "intentionally_disabled", declaration: "not_required", emitter: "not_required", verification: "not_required", missing_fields: [] },
+      { lane: "private_git", requested: true, state: "unsupported", reason: "unsupported_runtime", declaration: "satisfied", emitter: "missing", verification: "failed", missing_fields: [] },
+      { lane: "synthetic_profiles", requested: false, state: "disabled", reason: "intentionally_disabled", declaration: "not_required", emitter: "not_required", verification: "not_required", missing_fields: [] },
+    ],
+  };
+  const { getByText, getByTestId } = render(() => (
+    <StoreProvider store={storeWith(status)}><Status /></StoreProvider>
+  ));
+  expect(getByText("Optional lanes")).toBeInTheDocument();
+  expect(getByTestId("optional-lane-rum")).toHaveTextContent("enabled");
+  expect(getByTestId("optional-lane-synthetic_monitoring")).toHaveTextContent("GC_SM_TOKEN");
+  expect(getByText(/provision\/apply, then restart synthkit/)).toBeInTheDocument();
+  expect(getByTestId("optional-lane-private_git")).toHaveTextContent("unsupported");
+  expect(document.querySelectorAll("[data-testid^='optional-lane-']")).toHaveLength(9);
+});
+
+test("renders Fleet failures from the closed code and ignores raw last_error", () => {
+  const status: StatusReport = {
+    sinks: [], dry_run: false, persist: persist(),
+    fleet: { registered: 0, heartbeats: 1, failures: 1, last_ok_ms: 0, last_error_ms: now,
+      last_error: "Bearer raw-secret", last_error_code: "authentication", dry_run: false },
+  };
+  const { getByText, container } = render(() => (
+    <StoreProvider store={storeWith(status)}><Status /></StoreProvider>
+  ));
+  expect(getByText(/authentication failed/)).toBeInTheDocument();
+  expect(container.textContent).not.toContain("raw-secret");
 });
 
 test("renders the passive auth note always (with and without status)", () => {

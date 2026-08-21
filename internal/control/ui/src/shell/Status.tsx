@@ -1,6 +1,6 @@
 import { For, Show, type JSX } from "solid-js";
 import { useStore } from "../store/store";
-import type { FleetStat, QueueStat, SinkStat } from "../api/types";
+import type { FleetStat, OptionalLaneDisposition, QueueStat, SinkStat } from "../api/types";
 import { fmtNum } from "../utils/fmt";
 
 // Always-visible rail telemetry surface (ported from the legacy ui.html renderStatus,
@@ -25,6 +25,21 @@ const SINK_UNITS: Record<string, string> = {
   otlp: "spans",
   faro: "beacons",
 };
+
+const OPERATIONAL_ERROR_TEXT: Record<string, string> = {
+  canceled: "operation canceled",
+  timeout: "operation timed out",
+  authentication: "authentication failed",
+  permission: "permission denied",
+  rate_limited: "rate limited",
+  rejected: "request rejected",
+  transport: "transport failed",
+  internal: "internal error",
+};
+
+function safeOperationalError(code: string | undefined): string {
+  return OPERATIONAL_ERROR_TEXT[code ?? ""] ?? "internal error";
+}
 
 // Convert an epoch-millis stamp into a compact "Ns ago" string (0/unset ⇒ "never").
 function agoMs(ms: number): string {
@@ -137,10 +152,25 @@ function sinkRow(s: SinkStat): JSX.Element {
   return (
     <>
       <EmitterRow name={name} cls={cls} ago={ago} stats={stats} spark={s.spark} failText={failText} />
-      <Show when={failed && s.last_error}>
-        <div class="esub esub-err">↳ {s.last_error}</div>
+      <Show when={failed}>
+        <div class="esub esub-err">↳ {safeOperationalError(s.last_error_code)}</div>
       </Show>
     </>
+  );
+}
+
+function optionalLaneRow(lane: OptionalLaneDisposition): JSX.Element {
+  const cls: RowCls = lane.state === "enabled" ? "ok" : lane.state === "disabled" ? "muted" : "err";
+  const detail = [lane.state, lane.reason, lane.verification];
+  if (lane.missing_fields?.length) detail.push(`missing ${lane.missing_fields.join(", ")}`);
+  return (
+    <div class={`optional-lane ${cls}`} data-testid={`optional-lane-${lane.lane}`}>
+      <span class={`dot ${cls}`} /> <span class="name">{lane.lane}</span>
+      <div class="esub">{detail.join(" · ")}</div>
+      <Show when={lane.lane === "synthetic_monitoring" && lane.requested && lane.state !== "enabled"}>
+        <div class="esub">↳ provision/apply, then restart synthkit</div>
+      </Show>
+    </div>
   );
 }
 
@@ -168,12 +198,13 @@ export function Status(): JSX.Element {
   const status = () => store.state.status;
   const sinks = () => status()?.sinks ?? [];
   const queues = () => status()?.queues ?? [];
+  const optionalLanes = () => status()?.optional_lanes ?? [];
 
   // FM lifecycle row — only when the controller is actually registering/heartbeating
   // (hidden in metrics-only mode, where no controller runs).
   const fleet = (): FleetStat | undefined => {
     const f = status()?.fleet;
-    if (f && (f.registered > 0 || f.heartbeats > 0 || f.last_error)) return f;
+    if (f && (f.registered > 0 || f.heartbeats > 0 || f.last_error_code)) return f;
     return undefined;
   };
 
@@ -204,7 +235,7 @@ export function Status(): JSX.Element {
 
             <Show when={fleet()}>
               {(f) => {
-                const failed = !!f().last_error && f().last_error_ms >= f().last_ok_ms;
+                const failed = !!f().last_error_code && f().last_error_ms >= f().last_ok_ms;
                 const cls: RowCls = failed ? "err" : f().last_ok_ms ? "ok" : "muted";
                 const ago = agoMs(failed ? f().last_error_ms : f().last_ok_ms);
                 const stats = [
@@ -215,12 +246,17 @@ export function Status(): JSX.Element {
                 return (
                   <>
                     <EmitterRow name="fm" cls={cls} ago={ago} stats={stats} failText={failText} />
-                    <Show when={failed && f().last_error}>
-                      <div class="esub esub-err">↳ {f().last_error}</div>
+                    <Show when={failed}>
+                      <div class="esub esub-err">↳ {safeOperationalError(f().last_error_code)}</div>
                     </Show>
                   </>
                 );
               }}
+            </Show>
+
+            <Show when={optionalLanes().length > 0}>
+              <div class="ph optional-heading">Optional lanes</div>
+              <For each={optionalLanes()}>{(lane) => optionalLaneRow(lane)}</For>
             </Show>
 
             <Show when={persist()?.last_error}>
@@ -278,4 +314,10 @@ const STATUS_CSS = `
 .status-panel .emit .esub .efail { color:var(--err); font-weight:600; }
 .status-panel .auth-note { margin-top:10px; font-size:10px; color:var(--dim); line-height:1.4; }
 .status-panel .auth-note code { font-family:monospace; font-size:10px; }
+.status-panel .optional-heading { margin-top:12px; }
+.status-panel .optional-lane { margin:6px 0; font-size:11.5px; }
+.status-panel .optional-lane .name { font-weight:700; }
+.status-panel .optional-lane.ok .name { color:var(--ok); }
+.status-panel .optional-lane.err .name { color:var(--err); }
+.status-panel .optional-lane.muted .name { color:var(--dim); }
 `;

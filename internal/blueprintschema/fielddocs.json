@@ -243,6 +243,7 @@
   "github.com/rknightion/synthkit/internal/construct/sm.CheckConfig.Probe": "Probe is the private probe name. Defaults to \"synthkit-private\".",
   "github.com/rknightion/synthkit/internal/construct/sm.CheckConfig.Region": "Region is the probe region. Defaults to defaultProbeRegion (\"EMEA\").",
   "github.com/rknightion/synthkit/internal/construct/sm.CheckConfig.Target": "Target is the HTTP URL probed. Defaults to \"https://<name>.example.com/health\" if empty.",
+  "github.com/rknightion/synthkit/internal/construct/sm.Config.Registration": "Registration is injected only by the composition root after it validates the private, version-bound provisioner handoff. It is never decoded from blueprint YAML.",
   "github.com/rknightion/synthkit/internal/construct/sm.resolvedCheck.configVersion": "stable deterministic decimal string — the join key",
   "github.com/rknightion/synthkit/internal/construct/sm.resolvedCheck.labels": "user labels emitted as label_<k>=<v>; nil if none",
   "github.com/rknightion/synthkit/internal/construct/snowflake.Config.Account": "Account is the Snowflake account identifier (default \"demo-acct\").",

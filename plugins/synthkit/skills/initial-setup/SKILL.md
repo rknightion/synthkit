@@ -47,7 +47,8 @@ Run (report failures, don't proceed past them):
 Ask the user (use AskUserQuestion):
 1. Customer/synthetic-data stack details ready? (mandatory)
 2. Also ship synthkit's own telemetry to a **staff** stack? → self-observability and/or profiling.
-3. Optional lanes to enable now: Fleet Management, Synthetic Monitoring, RUM (Faro).
+3. Optional lanes to enable now: RUM, Fleet metrics, Fleet API registration, Synthetic Monitoring,
+   self-observability, process profiling, Sigil, private Git, and synthetic profiles.
 4. Deploy target: this machine (local) now, or a remote host? (remote = handoff, see Step 7).
 5. Network exposure: loopback `127.0.0.1` (default, safest) or `0.0.0.0`?
 6. Initial blueprint selection: no selection (setup mode), one or more exact runtime names
@@ -92,7 +93,7 @@ Everything else is non-secret config, written by the agent with
   `GC_LOKI`, `GC_LOKI_USER` — plus `DRY_RUN true`, `SYNTHKIT_BIND <choice>`, and the `*_ENABLED`
   flags for chosen lanes (e.g. `SELFOBS_ENABLED true` + `GC_SELF_OTLP_ENDPOINT`,
   `GC_SELF_OTLP_USER` for the staff stack). Profiling has no separate enable flag: it requires
-  `SELFOBS_ENABLED=true`, `DRY_RUN=false`, and the `GC_PYROSCOPE_*` triplet.
+  `SELFOBS_ENABLED=true` and the `GC_PYROSCOPE_*` triplet, independently of synthetic `DRY_RUN`.
 - Also write the operator's exact `BLUEPRINT_NAMES` decision: for example `otlp-native`; leave it
   empty only for intentional setup mode; use `*` only after explicit complete-catalog confirmation.
 - For non-loopback `SYNTHKIT_BIND`, also set `CONTROL_EXPOSURE_ACK` to exactly `trusted-network`
@@ -121,12 +122,18 @@ recursive ownership change here; runtime manages the files beneath this dedicate
 
 ## Step 6 — Dry-run gate (before any live push)
 `DRY_RUN=true docker compose run --rm synthkit -once -dump`
-(`pull_policy: always` pulls the latest image automatically; `run` honours `env_file: .env` and
-appends `-once -dump` to the entrypoint). Confirm the config parses and the series inventory looks
+(`pull_policy: always` pulls the selected image automatically; the emitter uses `.env` by default or
+the service env file selected by `SYNTHKIT_ENV_FILE`, and appends `-once -dump` to the entrypoint).
+When an override is configured, retain the same `SYNTHKIT_ENV_FILE` value for this command and every
+later Compose command. Confirm the config parses and the series inventory looks
 right. `make dump` is an equivalent **only if Go is installed locally** — the docker form is the
 no-toolchain path. With exact names, require a non-empty selected inventory. With intentional setup
 mode, require the actionable `no blueprints selected` warning and an empty inventory; do not claim
 signal verification. Only then set `DRY_RUN false` via `set-env.sh` when live delivery was requested.
+
+Also run `docker compose run --rm synthkit -preflight` and inspect every `optional <lane>` line.
+Resolve requested `partial` dispositions before deployment; `unsupported` is a hard stop. Disabled
+Fleet registration is valid when the operator chose metrics-only mode.
 
 ## Step 7 — Deploy
 The image is pulled from `ghcr.io/rknightion/synthkit`. Set `SYNTHKIT_IMAGE_TAG` in `.env` to
@@ -142,6 +149,28 @@ default-branch build), or `vX.Y.Z` to pin a release. To build from local source 
   non-loopback bind needs `CONTROL_TOKEN` plus `CONTROL_EXPOSURE_ACK=trusted-network|tls-proxy`.
   Full SSH automation is out of scope for v1 — guide the user through these steps.
 
+When Synthetic Monitoring was selected, the first start writes a private snapshot and intentionally
+suppresses SM. Preview, explicitly apply, then restart the same image:
+
+```bash
+docker compose --profile sm-provision run --rm sm-provision
+SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision
+docker compose restart synthkit
+```
+
+`DRY_RUN=false` does not authorise the provisioner. Do not enable legacy adoption unless preview
+shows exactly one complete match and the operator explicitly confirms ownership.
+
+If an existing deployment rotates `GC_SM_TOKEN` or `GC_SM_URL`, the target fingerprint changes.
+Recreate synthkit to write the new suppressed snapshot, preview with
+`SM_PROVISION_MIGRATE_TARGET=true`, then within 15 minutes apply with both that flag and
+`SM_PROVISION_APPLY=true`. Do not combine target migration with legacy adoption. The migration must
+fail if any recorded remote resource no longer matches the ledger's authoritative evidence. If an
+interrupted apply reports an incomplete migration, retain the marker and rerun the same migration-
+plus-apply command; do not bypass it with a normal reconciliation. Target migration accepts only an
+unchanged, fully registered resource set and makes no remote API writes; reconcile configuration
+changes in a separate normal apply.
+
 ## Step 8 — Verify
 **REQUIRED SUB-SKILL:** Use verify-deployment to confirm the control plane is healthy and data is
 landing in the right stack(s). Do not hand-roll verification here.
@@ -156,3 +185,5 @@ landing in the right stack(s). Do not hand-roll verification here.
 - Leaving `BLUEPRINT_NAMES` empty while expecting telemetry (empty is intentional setup mode).
 - Setting `BLUEPRINT_NAMES=*` without explicitly choosing the complete catalog.
 - Going live with `DRY_RUN=true` still set, or skipping the dry-run gate.
+- Expecting SM credentials alone to activate emission, or provisioning without restarting synthkit.
+- Requiring a host Go toolchain for SM instead of using the shipped Compose profile.

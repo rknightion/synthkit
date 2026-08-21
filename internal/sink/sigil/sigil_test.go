@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rknightion/synthkit/internal/operationalerr"
+	"github.com/rknightion/synthkit/internal/pushhook"
 	nativesigil "github.com/rknightion/synthkit/internal/sigil"
 )
 
@@ -171,6 +173,8 @@ func TestSink_Write_DryRun_DoesNotHitServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
+	var observed pushhook.Event
+	sink.Observe = func(_ context.Context, event pushhook.Event) { observed = event }
 
 	gen := nativesigil.Generation{
 		ID:             "gen-dry-001",
@@ -212,6 +216,62 @@ func TestSink_Write_DryRun_DoesNotHitServer(t *testing.T) {
 	}
 	if inv.WorkflowSteps != 1 {
 		t.Errorf("Inventory.WorkflowSteps: want 1, got %d", inv.WorkflowSteps)
+	}
+	if observed.Sink != "sigil" || observed.Items != 6 || !observed.DryRun || observed.ErrorCode != operationalerr.CodeNone {
+		t.Fatalf("observed = %+v", observed)
+	}
+}
+
+func TestSink_Write_ObservesSanitizedFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`reflected-secret`))
+	}))
+	defer srv.Close()
+	sink, err := New(srv.URL, "tenant", "reflected-secret", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var observed pushhook.Event
+	sink.Observe = func(_ context.Context, event pushhook.Event) { observed = event }
+	err = sink.Write(context.Background(), []nativesigil.Export{{Generations: []nativesigil.Generation{{ID: "g1", Mode: "SYNC"}}}})
+	if operationalerr.CodeOf(err) != operationalerr.CodeAuthentication {
+		t.Fatalf("error = %v", err)
+	}
+	if strings.Contains(err.Error(), "reflected-secret") {
+		t.Fatal("returned error leaked secret")
+	}
+	if observed.Sink != "sigil" || observed.Items != 0 || observed.Status != http.StatusUnauthorized || observed.ErrorCode != operationalerr.CodeAuthentication {
+		t.Fatalf("observed = %+v", observed)
+	}
+}
+
+func TestSink_Write_ReportsOnlyItemsDeliveredBeforeFailure(t *testing.T) {
+	requests := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		if requests == 1 {
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	sink, err := New(srv.URL, "tenant", "token", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var observed pushhook.Event
+	sink.Observe = func(_ context.Context, event pushhook.Event) { observed = event }
+	err = sink.Write(context.Background(), []nativesigil.Export{{
+		Generations:   []nativesigil.Generation{{ID: "g1", Mode: "SYNC"}},
+		WorkflowSteps: []nativesigil.WorkflowStep{{ID: "s1"}},
+	}})
+	if operationalerr.CodeOf(err) != operationalerr.CodeAuthentication {
+		t.Fatalf("error = %v", err)
+	}
+	if observed.Items != 1 || observed.ErrorCode != operationalerr.CodeAuthentication {
+		t.Fatalf("observed = %+v", observed)
 	}
 }
 

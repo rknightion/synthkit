@@ -493,10 +493,11 @@ func (s *SelfObs) FleetObserver() fleethook.Observer {
 		return nil
 	}
 	return func(ctx context.Context, ev fleethook.Event) {
+		code := operationalerr.Normalize(ev.ErrorCode)
 		outcome := "ok"
 		if ev.DryRun {
 			outcome = "dry_run"
-		} else if ev.Err != nil {
+		} else if code != operationalerr.CodeNone {
 			outcome = "error"
 		}
 		s.fleetOp.Add(ctx, 1, metric.WithAttributes(
@@ -512,17 +513,15 @@ func (s *SelfObs) FleetObserver() fleethook.Observer {
 			_, span := s.tracer.Start(ctx, "fleet "+ev.Op,
 				trace.WithSpanKind(trace.SpanKindClient),
 				trace.WithTimestamp(end.Add(-ev.Duration)),
-				trace.WithAttributes(
-					attribute.String("op", ev.Op),
-					attribute.String("collector", ev.Collector),
-				))
-			if ev.Err != nil && !ev.DryRun {
-				span.RecordError(ev.Err)
-				span.SetStatus(codes.Error, outcome)
+				trace.WithAttributes(attribute.String("op", ev.Op)))
+			if code != operationalerr.CodeNone && !ev.DryRun {
+				span.RecordError(operationalerr.New(code))
+				span.SetAttributes(attribute.String("error.code", string(code)))
+				span.SetStatus(codes.Error, operationalerr.Message(code))
 			}
 			span.End(trace.WithTimestamp(end))
 		}
-		if ev.Err != nil && !ev.DryRun {
+		if code != operationalerr.CodeNone && !ev.DryRun {
 			s.logFleetFailure(ev)
 		}
 	}
@@ -532,17 +531,18 @@ func (s *SelfObs) FleetObserver() fleethook.Observer {
 // same self-obs log pipe as the push-failure log (never a synthetic sink) and is only reached from
 // FleetObserver, so the enabled gate is already satisfied.
 func (s *SelfObs) logFleetFailure(ev fleethook.Event) {
+	code := operationalerr.Normalize(ev.ErrorCode)
 	var rec otellog.Record
 	now := time.Now()
 	rec.SetTimestamp(now)
 	rec.SetObservedTimestamp(now)
-	rec.SetBody(otellog.StringValue(fmt.Sprintf("selfobs: fleet %s %s: %v", ev.Op, ev.Collector, ev.Err)))
+	rec.SetBody(otellog.StringValue(fmt.Sprintf("selfobs: fleet %s: %s", ev.Op, operationalerr.Message(code))))
 	rec.SetSeverity(otellog.SeverityError)
 	rec.SetSeverityText("ERROR")
 	rec.AddAttributes(
 		otellog.String("event", "fleet_error"),
 		otellog.String("op", ev.Op),
-		otellog.String("collector", ev.Collector),
+		otellog.String("error.code", string(code)),
 	)
 	s.logger.Emit(context.Background(), rec)
 }

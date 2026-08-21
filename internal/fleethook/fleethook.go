@@ -16,6 +16,8 @@ package fleethook
 import (
 	"context"
 	"time"
+
+	"github.com/rknightion/synthkit/internal/operationalerr"
 )
 
 // Op names the controller operation that produced an Event.
@@ -27,11 +29,11 @@ const (
 
 // Event is the outcome of one FM controller operation against a single collector.
 type Event struct {
-	Collector string        // collector ID the operation targeted
-	Op        string        // OpRegister | OpHeartbeat | OpUnregister
-	Duration  time.Duration // wall-clock of the call (0 when not timed)
-	DryRun    bool          // true = dry-run client (no HTTP happened)
-	Err       error         // non-nil on failure
+	Collector string              // collector ID the operation targeted
+	Op        string              // OpRegister | OpHeartbeat | OpUnregister
+	Duration  time.Duration       // wall-clock of the call (0 when not timed)
+	DryRun    bool                // true = dry-run client (no HTTP happened)
+	ErrorCode operationalerr.Code // closed sanitized failure code; CodeNone means success
 }
 
 // Observer receives one FM Event. ctx carries any active trace context.

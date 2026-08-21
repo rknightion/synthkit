@@ -112,7 +112,7 @@ This variable is consumed by Docker Compose's port-mapping interpolation, not by
 
 ## Self-profiling (Pyroscope)
 
-These variables configure continuous profiling of the **synthkit process itself** — not synthetic profile data sent to the target stack (see `GC_PROFILES_URL` above). This lane ships to a **separate** self-observability stack via its own credential triplet; it never uses `GC_TOKEN`. It follows `SELFOBS_ENABLED` and is suppressed when `DRY_RUN=true`.
+These variables configure continuous profiling of the **synthkit process itself** — not synthetic profile data sent to the target stack (see `GC_PROFILES_URL` above). This lane ships to a **separate** self-observability stack via its own credential triplet; it never uses `GC_TOKEN`. It follows `SELFOBS_ENABLED` and is independent of synthetic `DRY_RUN`.
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -143,12 +143,18 @@ RED metrics on the synthetic pipeline, Go runtime metrics, per-tick traces, and 
 
 ## Synthetic Monitoring provisioner
 
-These variables are used by the one-shot `cmd/sm-provision` command, not by the main emitter. See [synthetic-monitoring.md](synthetic-monitoring.md) for the full two-phase setup.
+These credentials authorize only the one-shot, version-matched `sm-provision` Compose job (or the
+same binary in a source checkout). The emitter uses their presence to bind and validate its private
+snapshot, but it never calls the SM API: provisioning, registration persistence, and the required
+emitter restart remain separate phases. See [synthetic-monitoring.md](synthetic-monitoring.md).
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `GC_SM_URL` | _(empty)_ | Synthetic Monitoring API endpoint, e.g. `https://synthetic-monitoring-api-<region>.grafana.net` |
 | `GC_SM_TOKEN` | _(empty)_ | SM API token (a dedicated SM token, NOT `GC_TOKEN`). |
+| `SM_PROVISION_APPLY` | `false` | Compose provisioner write gate; only exact `true` permits mutations. |
+| `SM_PROVISION_ADOPT_LEGACY` | `false` | Exact `true` on preview records an exact-match adoption marker; the same flag plus apply consumes it. |
+| `SM_PROVISION_MIGRATE_TARGET` | `false` | Exact `true` enables the preview-bound credential/endpoint rotation path; apply must consume the identical marker within 15 minutes. |
 
 ---
 

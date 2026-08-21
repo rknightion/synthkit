@@ -16,6 +16,7 @@ func fullConfig() *Config {
 		PromRWURL: "https://prom", PromUser: "111", OTLPEndpoint: "https://otlp", OTLPUser: "222",
 		LokiURL: "https://loki", LokiUser: "333", Token: "SEC-GC", FaroCollector: "SEC-FARO-COLLECTOR",
 		FaroAppKey: "SEC-FARO", FMURL: "https://fm", FMStackID: "444", FMToken: "SEC-FM",
+		SMURL: "https://sm", SMToken: "SEC-SM",
 		SigilEndpoint: "https://sigil", SigilTenantID: "888", SigilToken: "SEC-SIGIL",
 		DryRun: false, MasterTick: 5_000_000_000, TickTimeout: 0, SeriesCap: 0,
 		BlueprintsDir: "./blueprints", BlueprintDataDir: "./data/blueprints", HTTPAddr: "127.0.0.1:8088",
@@ -97,7 +98,7 @@ func TestRedactedExposesSecretsAsConfigured(t *testing.T) {
 			byKey[f.Key] = f
 		}
 	}
-	for _, k := range []string{"GC_TOKEN", "GC_FARO_COLLECTOR", "GC_FARO_APP_KEY", "GC_FM_TOKEN", "CONTROL_TOKEN", "GC_SELF_OTLP_PASSWORD", "GC_PYROSCOPE_PASSWORD", "GIT_TOKEN"} {
+	for _, k := range []string{"GC_TOKEN", "GC_FARO_COLLECTOR", "GC_FARO_APP_KEY", "GC_FM_TOKEN", "GC_SM_TOKEN", "CONTROL_TOKEN", "GC_SELF_OTLP_PASSWORD", "GC_PYROSCOPE_PASSWORD", "GIT_TOKEN"} {
 		f, ok := byKey[k]
 		if !ok {
 			t.Fatalf("secret %s missing from view", k)

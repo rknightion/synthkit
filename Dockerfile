@@ -16,11 +16,13 @@ COPY . .
 COPY --from=ui /ui/dist /src/internal/control/ui/dist
 # VERSION is stamped as service.version onto self-obs + profiling data (defaults to "dev").
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /out/synthkit ./cmd/synthkit
+RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /out/synthkit ./cmd/synthkit && \
+    CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /out/sm-provision ./cmd/sm-provision
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35
 WORKDIR /app
 COPY --from=build /out/synthkit /app/synthkit
+COPY --from=build /out/sm-provision /app/sm-provision
 COPY blueprints/ /app/blueprints/
 # Control-plane state (Phase 6) persists under /data — mount a DIRECTORY owned by
 # uid 65532 (distroless nonroot); a single-FILE mount breaks atomic save (I25).

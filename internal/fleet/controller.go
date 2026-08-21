@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/fleethook"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 )
 
 // Controller drives the FM registration lifecycle. Construct one per blueprint that
@@ -93,9 +94,10 @@ func (c *Controller) reconcile(ctx context.Context, want []Collector) {
 		for id := range c.registered {
 			if !wantSet[id] {
 				err := client.UnregisterCollector(ctx, id)
-				c.observe(ctx, fleethook.OpUnregister, id, 0, err)
+				code := operationalerr.CodeOf(err)
+				c.observe(ctx, fleethook.OpUnregister, id, 0, code)
 				if err != nil {
-					log.Printf("fleet: unregister (departed) %s: %v", id, err)
+					log.Printf("fleet: departed unregister failed: %s", operationalerr.Message(code))
 					continue
 				}
 				delete(c.registered, id)
@@ -106,18 +108,20 @@ func (c *Controller) reconcile(ctx context.Context, want []Collector) {
 	for _, col := range want {
 		if !c.registered[col.ID] {
 			err := client.RegisterCollector(ctx, col)
-			c.observe(ctx, fleethook.OpRegister, col.ID, 0, err)
+			code := operationalerr.CodeOf(err)
+			c.observe(ctx, fleethook.OpRegister, col.ID, 0, code)
 			if err != nil {
-				log.Printf("fleet: register %s: %v", col.ID, err)
+				log.Printf("fleet: register failed: %s", operationalerr.Message(code))
 				continue
 			}
 			c.registered[col.ID] = true
 		}
 		start := time.Now()
 		err := client.GetConfig(ctx, col)
-		c.observe(ctx, fleethook.OpHeartbeat, col.ID, time.Since(start), err)
+		code := operationalerr.CodeOf(err)
+		c.observe(ctx, fleethook.OpHeartbeat, col.ID, time.Since(start), code)
 		if err != nil {
-			log.Printf("fleet: heartbeat %s: %v", col.ID, err)
+			log.Printf("fleet: heartbeat failed: %s", operationalerr.Message(code))
 		}
 	}
 }
@@ -131,9 +135,10 @@ func (c *Controller) unregisterRegistered(ctx context.Context) {
 	client := c.client
 	for id := range c.registered {
 		err := client.UnregisterCollector(ctx, id)
-		c.observe(ctx, fleethook.OpUnregister, id, 0, err)
+		code := operationalerr.CodeOf(err)
+		c.observe(ctx, fleethook.OpUnregister, id, 0, code)
 		if err != nil {
-			log.Printf("fleet: unregister %s: %v", id, err)
+			log.Printf("fleet: unregister failed: %s", operationalerr.Message(code))
 			continue
 		}
 		delete(c.registered, id)
@@ -141,12 +146,12 @@ func (c *Controller) unregisterRegistered(ctx context.Context) {
 }
 
 // observe fires the fleethook seam (no-op when unset), stamping the controller's dry-run mode.
-func (c *Controller) observe(ctx context.Context, op, collector string, dur time.Duration, err error) {
+func (c *Controller) observe(ctx context.Context, op, collector string, dur time.Duration, code operationalerr.Code) {
 	if c.cfg.Observe == nil {
 		return
 	}
 	c.cfg.Observe(ctx, fleethook.Event{
-		Collector: collector, Op: op, Duration: dur, DryRun: c.cfg.DryRun, Err: err,
+		Collector: collector, Op: op, Duration: dur, DryRun: c.cfg.DryRun, ErrorCode: operationalerr.Normalize(code),
 	})
 }
 

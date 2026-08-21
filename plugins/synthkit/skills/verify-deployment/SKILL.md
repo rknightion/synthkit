@@ -68,6 +68,12 @@ warning with `docker compose logs --no-color synthkit | rg -F 'WARNING: no bluep
 Report that the control plane is healthy but no synthetic telemetry is intended, and stop before
 remote landing queries. When `setup_required=false`, continue with the selected blueprint checks below.
 
+Inspect authenticated `optional_lanes` immediately after health. Require exactly the nine documented
+lanes and report each state/reason/verification. Stop before claiming an optional lane when it is
+`unsupported` or unresolved `partial`; missing fields are names only and must never be expanded to
+values. An SM partial state is a successful diagnostic boundary: report that snapshot provisioning
+and/or the required emitter restart remains. This read-only skill does not run the provisioner.
+
 ## 3. Wait for declared cadence, then query
 
 The master cadence is not a promise that every series appears every master tick: metric-producing
@@ -142,13 +148,19 @@ failure.
 
 ## 4. Optional lanes
 
-- Self-observability is expected only with `SELFOBS_ENABLED=true` and `DRY_RUN=false`; query the
-  staff context, never the customer context.
-- Process profiling is expected only when self-obs is on, dry run is off, and the complete
+- Self-observability is expected only with `SELFOBS_ENABLED=true` and the complete self-OTLP
+  triplet, independently of synthetic `DRY_RUN`; query the staff context, never the customer context.
+- Process profiling is expected only when self-obs is on and the complete
   `GC_PYROSCOPE_*` triplet is present. There is no standalone profiling switch.
-- Fleet Management registration requires `GC_FM_URL`, `GC_FM_STACK_ID`, `GC_FM_TOKEN`, and a
-  `features.fleet_management` declaration. Use the read-only list procedure in
-  `setup-fleet-management`.
+- Fleet metrics require the declaration and normal metrics landing; they do not require FM API
+  credentials. Registration separately requires the complete `GC_FM_*` triplet and fresh
+  registration/heartbeat evidence. Never call the FM API for metrics-only mode.
+- Synthetic Monitoring requires a selected declaration, a matching private registration, and the
+  post-provision restart before status can be enabled/verified. Query only after its declared
+  interval plus delivery deadline.
+- An SM credential or endpoint change requires an explicit `SM_PROVISION_MIGRATE_TARGET=true`
+  preview and matching apply within 15 minutes before the restart; never treat a new snapshot alone
+  as migrated ownership.
 - RUM, Sigil, Synthetic Monitoring, and synthetic profiles are expected only when both their
   documented credential/configuration gate and an emitting blueprint lane are present.
 

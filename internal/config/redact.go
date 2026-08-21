@@ -55,6 +55,9 @@ func (c *Config) Redacted() RedactedConfig {
 		{Title: "Fleet Management", Fields: []RedactedField{
 			safe("GC_FM_URL", c.FMURL), safe("GC_FM_STACK_ID", c.FMStackID), secret("GC_FM_TOKEN", c.FMToken),
 		}},
+		{Title: "Synthetic Monitoring provisioner", Fields: []RedactedField{
+			safe("GC_SM_URL", c.SMURL), secret("GC_SM_TOKEN", c.SMToken),
+		}},
 		{Title: "Sigil AI Observability", Fields: []RedactedField{
 			safe("GC_SIGIL_ENDPOINT", c.SigilEndpoint), safe("GC_SIGIL_TENANT_ID", c.SigilTenantID),
 			secret("GC_SIGIL_TOKEN", c.SigilToken),

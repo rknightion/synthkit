@@ -55,9 +55,9 @@ full reference and where to generate each one.
 
 **Credentials belong only in a gitignored `.env` file. They must never be committed, and they must
 never appear in a blueprint YAML file or in `docker-compose.yml`.** The committed
-`docker-compose.yml` is deliberately secret-free — it reads every credential via `env_file: .env`
-— and blueprints are meant to be shared, copied, and version-controlled, so nothing secret can
-belong in one.
+`docker-compose.yml` is deliberately secret-free. The emitter reads credentials via
+`env_file: .env`; the one-shot SM profile interpolates only its dedicated SM credentials. Blueprints
+are meant to be shared, copied, and version-controlled, so nothing secret can belong in one.
 
 Two secondary places also need attention:
 

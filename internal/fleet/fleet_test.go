@@ -28,6 +28,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/construct/fleetmgmt"
 	"github.com/rknightion/synthkit/internal/fleet"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 )
 
 // --- helpers ---------------------------------------------------------------
@@ -189,8 +190,39 @@ func TestClientSurfacesHTTPError(t *testing.T) {
 	})
 	c := fleet.NewClient(srv.URL, "s", "t")
 	col := fleet.Collector{ID: "x", OS: "linux"}
-	if err := c.RegisterCollector(context.Background(), col); err == nil {
+	if err := c.RegisterCollector(context.Background(), col); operationalerr.CodeOf(err) != operationalerr.CodePermission {
+		t.Fatalf("code = %q err=%v", operationalerr.CodeOf(err), err)
+	} else if err == nil {
 		t.Fatal("want error on 403, got nil")
+	}
+}
+
+func TestClientHTTPFailuresAreClosedAndResponseBodiesNeverEscape(t *testing.T) {
+	canary := `raw-secret raw%2Dsecret Basic cmF3LXNlY3JldA== Bearer raw-secret {"token":"raw-secret"} &quot;raw-secret&quot;`
+	tests := []struct {
+		status int
+		want   operationalerr.Code
+	}{
+		{http.StatusUnauthorized, operationalerr.CodeAuthentication},
+		{http.StatusForbidden, operationalerr.CodePermission},
+		{http.StatusTooManyRequests, operationalerr.CodeRateLimited},
+		{http.StatusBadRequest, operationalerr.CodeRejected},
+		{http.StatusServiceUnavailable, operationalerr.CodeRejected},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("status_%d", test.status), func(t *testing.T) {
+			srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(test.status)
+				_, _ = w.Write([]byte(canary))
+			})
+			err := fleet.NewClient(srv.URL, "raw-secret", "raw-secret").RegisterCollector(context.Background(), fleet.Collector{ID: "raw-secret", OS: "linux"})
+			if operationalerr.CodeOf(err) != test.want {
+				t.Fatalf("code = %q err=%v", operationalerr.CodeOf(err), err)
+			}
+			if strings.Contains(err.Error(), "raw-secret") || strings.Contains(err.Error(), "cmF3") {
+				t.Fatalf("error leaked canary: %v", err)
+			}
+		})
 	}
 }
 

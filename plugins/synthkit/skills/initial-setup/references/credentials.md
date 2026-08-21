@@ -56,9 +56,9 @@ no profiles flag. Sigil needs its triplet and an `ai_agent` workload that uses t
 | `PYROSCOPE_MUTEX_FRACTION` | non-secret config | Runtime mutex profile rate; `0` disables it. |
 | `PYROSCOPE_BLOCK_RATE` | non-secret config | Runtime block profile rate; `0` disables it. |
 
-Profiling has no standalone enable flag. It can ship only when **all** of `SELFOBS_ENABLED=true`,
-`DRY_RUN=false`, and the `GC_PYROSCOPE_URL`/`GC_PYROSCOPE_USER`/`GC_PYROSCOPE_PASSWORD` triplet
-are present. The staff triplets never reuse `GC_TOKEN`.
+Profiling has no standalone enable flag. It can ship only when `SELFOBS_ENABLED=true` and the
+complete `GC_PYROSCOPE_URL`/`GC_PYROSCOPE_USER`/`GC_PYROSCOPE_PASSWORD` triplet are present. It is
+independent of synthetic `DRY_RUN`. The staff triplets never reuse `GC_TOKEN`.
 
 ## Optional Grafana Cloud control lanes
 
@@ -67,14 +67,17 @@ are present. The staff triplets never reuse `GC_TOKEN`.
 | `GC_FM_URL` | endpoint | Fleet Management API base. Empty means collector metrics only, no registration. |
 | `GC_FM_STACK_ID` | identifier | FM Basic-auth user: Grafana Cloud stack ID, not `GC_PROM_USER`. |
 | `GC_FM_TOKEN` | **secret** | CAP token with `fleet-management:write`; requires a `fleet_management` blueprint feature. |
-| `GC_SM_URL` | endpoint | Synthetic Monitoring API base, used only by `cmd/sm-provision`. |
-| `GC_SM_TOKEN` | **secret** | Synthetic Monitoring API token, used only by that provisioner. |
+| `GC_SM_URL` | endpoint | Synthetic Monitoring API base for the version-matched Docker `sm-provision` profile. |
+| `GC_SM_TOKEN` | **secret** | Synthetic Monitoring API token for that provisioner; source checkouts may run the same binary directly. |
+| `SM_PROVISION_APPLY` | non-secret flag | Exact `true` enables one-shot writes; false/absent previews. |
+| `SM_PROVISION_ADOPT_LEGACY` | non-secret flag | Exact `true` records the exact-match preview and allows only that same plan on apply. |
+| `SM_PROVISION_MIGRATE_TARGET` | non-secret flag | Exact `true` enables preview-bound credential/endpoint migration; apply also requires a matching marker no older than 15 minutes. |
 
 ## Control plane, blueprint sources, and delivery behaviour
 
 | Variable | Classification | Purpose |
 |---|---|---|
-| `DRY_RUN` | non-secret flag | Default `true`; suppresses all live pushes, including self-obs/profiling. |
+| `DRY_RUN` | non-secret flag | Default `true`; suppresses synthetic pushes, not self-obs/process profiling. |
 | `TICK_DEFAULT` | non-secret config | Master scheduler cadence; default `5s`; affects first observation timing. |
 | `TICK_TIMEOUT` | non-secret config | Optional whole-tick seconds; empty/`0` disables it. |
 | `SERIES_CAP` | non-secret config | Optional global series cap. |
@@ -88,6 +91,7 @@ are present. The staff triplets never reuse `GC_TOKEN`.
 | `CONTROL_TOKEN` | **secret** | HTTP Basic password (user `control`) for sensitive control/Infinity reads and all mutations. |
 | `CONTROL_EXPOSURE_ACK` | non-secret policy | Required for non-loopback exposure; exactly `trusted-network` or `tls-proxy`. |
 | `SYNTHKIT_IMAGE_TAG` | non-secret compose config | Published image tag; compose-only. |
+| `SYNTHKIT_ENV_FILE` | non-secret compose path | Service env file; normal default `.env`, fake-input override for render checks. |
 | `SYNTHKIT_BIND` | non-secret compose bind | Host exposure for port 8088; default loopback. |
 | `SYNTHKIT_IN_CONTAINER` | non-secret runtime hint | Optional container-runtime hint. |
 | `SEND_SHARDS` | non-secret config | Delivery queue worker count. |

@@ -7,7 +7,8 @@ description: How to configure synthkit's own process telemetry — RED metrics, 
 
 synthkit ships its own operational telemetry alongside (and completely separate from) the synthetic data it produces. This is the generator's self-observability: RED metrics on the synthetic-push pipeline, Go runtime metrics, per-tick traces, the operational log stream, and continuous process profiles via Pyroscope — all sent to a **different** Grafana Cloud stack through their own credential triplets, never `GC_TOKEN`.
 
-Self-observability is off by default and is suppressed under `DRY_RUN=true`. The profiling path has no master flag of its own; it follows `SELFOBS_ENABLED`.
+Self-observability is off by default and is independent of synthetic `DRY_RUN`. The profiling path
+has no master flag of its own; it follows `SELFOBS_ENABLED` but has its own credential triplet.
 
 ---
 
@@ -62,6 +63,16 @@ See [Architecture](architecture.md) §6.1 for the full isolation rationale.
 
 ## Configuration
 
+Self-observability activates only with `SELFOBS_ENABLED=true` and the complete
+`GC_SELF_OTLP_ENDPOINT`, `GC_SELF_OTLP_USER`, and `GC_SELF_OTLP_PASSWORD` triplet. Its in-process
+status can prove configuration/startup, not remote landing: verify fresh `synthkit_*` telemetry in
+the staff context after `SELFOBS_METRIC_INTERVAL` plus the delivery deadline.
+
+Process profiling is a separate lane. It additionally requires the complete
+`GC_PYROSCOPE_URL`, `GC_PYROSCOPE_USER`, and `GC_PYROSCOPE_PASSWORD` triplet. Verify the synthkit
+process profile in the staff profiles tenant. These are not the customer synthetic profiles emitted
+by a workload declaration through `GC_PROFILES_*` and `GC_TOKEN`.
+
 Enable self-observability by setting `SELFOBS_ENABLED=true` and providing the OTLP credential triplet. All three vars are required; if any is missing, synthkit logs a warning and falls back to a no-op handle.
 
 ### OTLP self-observability
@@ -78,7 +89,9 @@ Enable self-observability by setting `SELFOBS_ENABLED=true` and providing the OT
 
 ### Continuous profiling (Pyroscope)
 
-Profiling has no master flag of its own. It follows `SELFOBS_ENABLED` and is also suppressed under `DRY_RUN=true`. Set the three `GC_PYROSCOPE_*` vars to activate it; an incomplete triplet is a silent no-op (logged at startup).
+Profiling has no master flag of its own. It is independent of synthetic `DRY_RUN`, but activation
+requires `SELFOBS_ENABLED=true` and the complete three-variable `GC_PYROSCOPE_*` triplet. An
+incomplete gate is a no-op reported by the optional-lane disposition.
 
 | Env var | Required | Default | Description |
 |---|---|---|---|
@@ -118,7 +131,9 @@ PYROSCOPE_BLOCK_RATE=5
 
 ## Relationship to DRY_RUN
 
-`SELFOBS_ENABLED` is independent of `DRY_RUN`: the composition root gates self-obs off under `DRY_RUN=true` before calling `selfobs.Start`, so any telemetry that does reach the self-obs stack is from a live-push run. Under `DRY_RUN=true` the self-obs handle is always a no-op regardless of `SELFOBS_ENABLED`.
+`SELFOBS_ENABLED` and the complete staff credential triplets control these process signals.
+Synthetic `DRY_RUN` is stamped as run-mode context but does not suppress them. This lets operators
+observe a dry-run synthkit process without sending customer synthetic data.
 
 ---
 

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/rknightion/synthkit/internal/optionallane"
 	"github.com/rknightion/synthkit/internal/pushstatus"
 )
 
@@ -960,6 +961,9 @@ func TestStatusEndpoint(t *testing.T) {
 		Queues: func() []pushstatus.QueueStat {
 			return []pushstatus.QueueStat{{Sink: "promrw", Depth: 7, DroppedItems: 3, LastLossMs: 1600}}
 		},
+		Optional: func() []optionallane.Disposition {
+			return []optionallane.Disposition{{Lane: optionallane.Sigil, State: optionallane.Partial, Reason: optionallane.ReasonVerificationNotAttempted}}
+		},
 		DryRun: true,
 	})
 
@@ -981,6 +985,9 @@ func TestStatusEndpoint(t *testing.T) {
 	if got.Persist.LastOKMs == 0 {
 		t.Fatalf("persist health missing: %+v", got.Persist)
 	}
+	if len(got.Optional) != 1 || got.Optional[0].Lane != optionallane.Sigil {
+		t.Fatalf("optional status missing: %+v", got.Optional)
+	}
 }
 
 func TestReadinessEndpointAndStatusShareReport(t *testing.T) {
@@ -999,6 +1006,9 @@ func TestReadinessEndpointAndStatusShareReport(t *testing.T) {
 	}
 	if got.Ready {
 		t.Fatalf("readiness body = %+v", got)
+	}
+	if strings.Contains(rec.Body.String(), "optional_lanes") {
+		t.Fatalf("public readiness exposed optional lanes: %s", rec.Body.String())
 	}
 
 	report.Ready = true

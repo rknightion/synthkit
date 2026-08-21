@@ -34,6 +34,12 @@ type Config struct {
 	FMStackID string // GC_FM_STACK_ID
 	FMToken   string // GC_FM_TOKEN
 
+	// Synthetic Monitoring provisioning (optional control-plane lane). The version-matched
+	// sm-provision binary consumes the values; the main process uses presence plus a
+	// non-reversible target fingerprint to bind private registration state.
+	SMURL   string // GC_SM_URL
+	SMToken string // GC_SM_TOKEN
+
 	// Sigil AI-Observability ingest (optional). SigilEndpoint empty ⇒ the aiagent sigil
 	// generation lane no-ops (traces/metrics still emit via the OTLP/prom endpoints). Auth is
 	// HTTP Basic base64(SigilTenantID:SigilToken) — SigilTenantID is the stack/tenant id (NOT
@@ -60,8 +66,8 @@ type Config struct {
 	GitTokenDefault string // GIT_TOKEN — default HTTPS PAT for private git blueprint repos (fallback when a source's token_env_var is empty)
 
 	// Self-observability (OTLP → a SEPARATE self-obs stack; internal/selfobs). Own credential
-	// triplet, NEVER GC_TOKEN; default-off. Gated OFF under DRY_RUN by the composition root (a dry
-	// run emits no synthetic data, so its operability telemetry would just pollute the staff stack).
+	// triplet, NEVER GC_TOKEN; default-off. It is independent of synthetic DRY_RUN because it
+	// describes this process, including verification-only and dry-run executions.
 	SelfObsEnabled   bool   // SELFOBS_ENABLED
 	SelfOTLPEndpoint string // GC_SELF_OTLP_ENDPOINT (base …/otlp; /v1/{signal} appended)
 	SelfOTLPUser     string // GC_SELF_OTLP_USER (HTTP Basic user = self-obs stack id)
@@ -73,7 +79,7 @@ type Config struct {
 
 	// Continuous profiling (Pyroscope → the same SEPARATE stack; internal/profiling). Own triplet,
 	// NEVER GC_TOKEN. There is NO separate master switch: process profiles are just another self-obs
-	// signal, so they share SELFOBS_ENABLED (and the composition root's DRY_RUN gate); the lane is a
+	// signal, so they share SELFOBS_ENABLED; the lane is a
 	// no-op when its GC_PYROSCOPE_* creds are absent.
 	PyroscopeURL           string // GC_PYROSCOPE_URL (Profiles ingest ServerAddress)
 	PyroscopeUser          string // GC_PYROSCOPE_USER (Profiles instance id)
@@ -141,6 +147,8 @@ func Load(envPath string) (*Config, error) {
 		FMURL:            get("GC_FM_URL", ""),
 		FMStackID:        get("GC_FM_STACK_ID", ""),
 		FMToken:          get("GC_FM_TOKEN", ""),
+		SMURL:            get("GC_SM_URL", ""),
+		SMToken:          get("GC_SM_TOKEN", ""),
 		SigilEndpoint:    get("GC_SIGIL_ENDPOINT", ""),
 		SigilTenantID:    get("GC_SIGIL_TENANT_ID", ""),
 		SigilToken:       get("GC_SIGIL_TOKEN", ""),

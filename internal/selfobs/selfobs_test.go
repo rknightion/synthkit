@@ -477,7 +477,7 @@ func TestFleetObserver_Metrics(t *testing.T) {
 	obs := so.FleetObserver()
 	ctx := context.Background()
 	obs(ctx, fleethook.Event{Collector: "c1", Op: fleethook.OpHeartbeat, Duration: 5 * time.Millisecond})
-	obs(ctx, fleethook.Event{Collector: "c2", Op: fleethook.OpHeartbeat, Err: errors.New("503")})
+	obs(ctx, fleethook.Event{Collector: "c2", Op: fleethook.OpHeartbeat, ErrorCode: operationalerr.CodeRejected})
 
 	var rm metricdata.ResourceMetrics
 	if err := reader.Collect(ctx, &rm); err != nil {

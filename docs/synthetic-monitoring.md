@@ -28,7 +28,9 @@ SM provisioning uses a dedicated SM API token — separate from `GC_TOKEN` and f
 | `GC_SM_URL` | SM API base URL, e.g. `https://synthetic-monitoring-api-<region>.grafana.net` |
 | `GC_SM_TOKEN` | SM API bearer token (not `GC_TOKEN`) |
 
-The `BLUEPRINTS` environment variable controls which blueprint directory the provisioner scans (default: `./blueprints`). The `DRY_RUN` flag (default `true`) applies to the provisioner separately from the main emitter — see below.
+The provisioner never scans blueprints. The emitter resolves the exact selected built-in, custom,
+and Git sources and writes a private snapshot under `/data/runtime`. The provisioner reads only
+that snapshot. `SM_PROVISION_APPLY` is its independent write gate; emitter `DRY_RUN` is irrelevant.
 
 See [Credentials](credentials.md) for token-scoping guidance.
 
@@ -36,31 +38,60 @@ See [Credentials](credentials.md) for token-scoping guidance.
 
 ## Phase 1 — provision the offline probe and checks
 
-Run the one-shot provisioner once per environment. It is idempotent: it lists existing probes and checks first, creates only what is absent, and updates existing checks in place.
+Start the emitter once with the intended SM blueprint selected. Until a matching registration
+exists, synthkit writes the snapshot but suppresses SM emission. Preview the version-matched
+Docker provisioner:
 
 ```bash
-GC_SM_URL=https://synthetic-monitoring-api-<region>.grafana.net \
-  GC_SM_TOKEN=<sm-bearer-token> \
-  DRY_RUN=false \
-  go run ./cmd/sm-provision
+docker compose up -d synthkit
+docker compose --profile sm-provision run --rm sm-provision
 ```
 
-!!! tip "Preview first with DRY_RUN=true (the default)"
-    Without `DRY_RUN=false`, the provisioner prints the planned operations and exits without making any API calls:
+The preview reports action counts only and makes no remote mutation. Apply explicitly after review:
 
-    ```
-    [DRY RUN] Would register offline probe "synthkit-private" (region=EMEA lat=50.1109 lon=8.6821)
-    [DRY RUN] Would upsert 3 check(s):
-      job="synmon-api-health" target="https://api.example.com/health" frequency=60000ms alertSensitivity=none
-      …
-    ```
+```bash
+SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision
+docker compose restart synthkit
+```
 
-    This is safe to run at any time to inspect what would be provisioned.
+The restart is the activation boundary. On startup the same image validates the registration's
+snapshot hash, target fingerprint, source version, resource IDs, and authoritative API `modified`
+values. Missing, stale, corrupt, or incomplete state keeps SM suppressed and reports the lane as
+partial.
 
-The provisioner reads every `*.yaml` file in the `BLUEPRINTS` directory, collects all `synthetic_monitoring` construct instances, and:
+The provisioner owns only IDs recorded in its private durable ownership ledger. That ledger is
+independent of one snapshot/source version, so a changed check can update its recorded ID while the
+activation registration remains bound to the exact current snapshot. A same-name probe or same
+`(job,target)` check without matching ownership is a foreign collision and causes zero writes.
 
-1. Registers one offline private probe (idempotent — adds only if absent by name).
-2. For each declared check: creates if absent by `(job, target)` key; updates if present.
+Credential or endpoint rotation changes the target fingerprint and suppresses SM until an explicit
+migration succeeds. Recreate the emitter with the new credential so it writes the new snapshot, then
+preview and apply the migration:
+
+```bash
+docker compose up -d --force-recreate synthkit
+SM_PROVISION_MIGRATE_TARGET=true docker compose --profile sm-provision run --rm sm-provision
+SM_PROVISION_MIGRATE_TARGET=true SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision
+docker compose restart synthkit
+```
+
+Preview uses the new credential to revalidate every recorded API ID, key, managed specification,
+and remote revision against the ledger's last authoritative evidence, but changes only a mode-0600 private preview marker. Apply must run within 15
+minutes with the identical snapshot, source version, remote evidence, and plan. Only then is the
+ownership ledger atomically rebound. Migration is identity-only: every planned resource action must
+be unchanged, so it makes no remote API writes. Reconcile any configuration or resource change as a
+separate normal apply before or after rotation. Missing or changed resources, a stale or
+absent preview, or an absent migration flag fails closed. Target migration and legacy adoption cannot
+be combined; finish migration first and review any later adoption separately. If the process stops
+after the ledger is rebound, the marker remains and blocks normal reconciliation; rerun apply with
+the migration flag to resume the unchanged plan and consume the marker.
+
+Legacy adoption is off by default. First preview with `SM_PROVISION_ADOPT_LEGACY=true`; the
+provisioner records a private hash of that exact adoption plan. A later apply accepts only the same
+snapshot and plan, and only one exact complete-spec match may be adopted. A pending journal stores
+the expected specification as well as its hash. An ambiguous create is never reconciled by
+name/spec: inspect it and establish ownership before explicitly clearing the journal and choosing
+whether to adopt. Resources are never deleted.
 
 `alertSensitivity` is always registered as `"none"` at the API level (the real value is stamped on the `sm_check_info` metric by the data-plane emitter independently of the provisioner).
 
@@ -68,17 +99,16 @@ The provisioner reads every `*.yaml` file in the `BLUEPRINTS` directory, collect
 
 ## Phase 2 — run the emitter
 
-Once the probe and checks are registered, run the generator normally. The data-plane emitter pushes all SM telemetry each tick.
+After the successful apply and required restart, verify the authenticated disposition first:
 
 ```bash
-./synthkit
+curl -s -u control http://127.0.0.1:8088/control/status |
+  jq '.optional_lanes[] | select(.lane=="synthetic_monitoring")'
 ```
 
-Or with Docker Compose:
-
-```bash
-docker compose up
-```
+Require `state="enabled"` and `verification="verified"`, then wait one declared emission interval
+plus `SEND_BATCH_DEADLINE` before querying `probe_*` data. A successful provisioner exit without
+the restart is not activation.
 
 The SM emitter pushes per-tick:
 

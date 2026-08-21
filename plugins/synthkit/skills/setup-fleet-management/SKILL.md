@@ -42,6 +42,13 @@ DRY_RUN=true BLUEPRINT_NAMES=k8s-full-stack go run ./cmd/synthkit -once -dump
 
 ## Configure credentials safely
 
+First choose one mode:
+
+- **Metrics-only:** leave all `GC_FM_*` fields empty. Verify emitted Alloy metrics only; do not call
+  the FM API and do not report disabled registration as a failure.
+- **API registration:** configure the complete triplet below and verify both the metrics lane and
+  registration/heartbeat lane. Partial credentials are invalid and must not silently downgrade.
+
 Set the non-secret `GC_FM_URL` and `GC_FM_STACK_ID` (the Grafana Cloud stack ID, not
 `GC_PROM_USER`) with the initial-setup helper. Add `GC_FM_TOKEN` only through the secure prompt
 path in `initial-setup`; it needs the `fleet-management:write` scope and must not reuse `GC_TOKEN`.
@@ -84,3 +91,17 @@ stack ID, token, or `fleet-management:write` scope is wrong; do not retry with `
 
 Public schema reference: Grafana Fleet Management API, `CollectorService/CreateCollector` and
 `CollectorService/ListCollectors` (queried 2026-08-20). The list operation above is read-only.
+
+Before any list call, inspect authenticated `/control/status`; `curl` prompts for `CONTROL_TOKEN`
+without putting it in the command arguments:
+
+```bash
+curl -sS -u control http://127.0.0.1:8088/control/status |
+  jq '.optional_lanes[] |
+      select(.lane == "fleet_metrics" or .lane == "fleet_registration") |
+      {lane,state,verification}'
+```
+
+Require `fleet_metrics` enabled and,
+for registration mode only, `fleet_registration` enabled/verified. In metrics-only mode require
+`fleet_registration` disabled and stop without an FM API request.

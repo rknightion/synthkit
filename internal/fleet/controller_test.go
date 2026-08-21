@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/fleethook"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 )
 
 // TestControllerFiresEvents asserts the controller reports register + heartbeat + unregister
@@ -33,7 +34,7 @@ func TestControllerFiresEvents(t *testing.T) {
 		if !ev.DryRun {
 			t.Errorf("event %+v missing DryRun flag", ev)
 		}
-		if ev.Err != nil {
+		if ev.ErrorCode != operationalerr.CodeNone {
 			t.Errorf("dry-run op unexpectedly failed: %+v", ev)
 		}
 		counts[ev.Op]++

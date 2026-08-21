@@ -24,6 +24,11 @@ The two kinds may coexist in one blueprint: model the core correlated flow as an
 - Optional **Faro/RUM beacons** when `rum: true` and `GC_FARO_*` credentials are present.
 - Optional **Beyla eBPF** observation lane when `observability.beyla` is set.
 - Optional **Pyroscope SDK-push profiles** when `pyroscope:` is set with `mode: sdk`.
+
+Synthetic workload profiles are a customer-data lane: they require a selected workload/profile
+declaration plus `GC_PROFILES_URL`, `GC_PROFILES_USER`, and customer `GC_TOKEN`, followed by a fresh
+Pyroscope delivery. They are distinct from synthkit **process profiling**, which follows
+`SELFOBS_ENABLED` and the separate staff `GC_PYROSCOPE_*` triplet.
 - Optional **native OTLP application metrics** (`http.server.*`) when `otel.metrics: true`.
 
 ### Key fields

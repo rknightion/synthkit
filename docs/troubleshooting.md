@@ -9,6 +9,20 @@ This page covers the most common operational problems. For a structured end-to-e
 
 ---
 
+## Start with optional-lane dispositions
+
+```bash
+curl -s -u control http://127.0.0.1:8088/control/status | jq '.optional_lanes'
+```
+
+All nine lanes report one of `enabled`, `partial`, `disabled`, or `unsupported`. `partial` includes
+only closed non-secret missing field names; `disabled` is intentional/no request; `unsupported` is
+a hard stop. Fleet metrics and API registration are separate rows. For Synthetic Monitoring,
+`partial` after an apply normally means the required `docker compose restart synthkit` was not
+performed or the snapshot/registration binding is stale.
+
+---
+
 ## No data appearing in Grafana
 
 ### `DRY_RUN` is still `true`
@@ -34,10 +48,11 @@ This page covers the most common operational problems. For a structured end-to-e
 **Verify:** Look at sink failures in the status strip:
 
 ```bash
-curl -s -u control http://127.0.0.1:8088/control/status | jq '.sinks[] | {name, failures, last_error}'
+curl -s -u control http://127.0.0.1:8088/control/status | jq '.sinks[] | {sink,failures,last_error_code}'
 ```
 
-A non-zero `failures` count and a `last_error` message (e.g. `401 Unauthorized`) confirms a credential problem.
+A non-zero `failures` count with `last_error_code="authentication"` confirms an authentication
+problem without exposing remote response text.
 
 ---
 
@@ -164,7 +179,8 @@ emits nothing. Set `BLUEPRINT_NAMES` to exact names and restart; use `*` only fo
 
 | Signal | Where to look |
 |---|---|
-| Sink push outcomes | `GET /control/status` → `sinks[].last_error` |
+| Sink push outcomes | `GET /control/status` → `sinks[].last_error_code` |
+| Optional-product activation | `GET /control/status` → `optional_lanes[]` |
 | Per-construct tick errors | `GET /control/health` |
 | Load-time blueprint problems | `GET /control/diagnostics` |
 | Generator throughput, queue depth/loss, dropped ticks | [self-observability.md](self-observability.md) |

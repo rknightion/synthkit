@@ -1,139 +1,163 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package main — SM API client types and low-level HTTP plumbing.
-// Call shapes and endpoint paths match the Grafana Cloud Synthetic Monitoring API.
 package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
+
+	"github.com/rknightion/synthkit/internal/operationalerr"
 )
 
-// smClient is a thin wrapper around the Grafana Cloud Synthetic Monitoring API.
-// Auth: Bearer token in the Authorization header (predecessor line 33).
 type smClient struct {
 	base  string
 	token string
 	hc    *http.Client
 }
 
-// do executes one SM API call. body is JSON-encoded when non-nil; out is
-// JSON-decoded from the response body when non-nil. Any HTTP status >= 300 is
-// returned as an error containing the status code and raw body.
-func (c *smClient) do(method, path string, body, out any) error {
-	var r io.Reader
+type apiError struct {
+	code      operationalerr.Code
+	ambiguous bool
+}
+
+func (e apiError) Error() string                        { return operationalerr.Message(e.code) }
+func (e apiError) OperationalCode() operationalerr.Code { return e.code }
+func ambiguousAPIError(err error) bool {
+	var target apiError
+	return errors.As(err, &target) && target.ambiguous
+}
+
+func (c *smClient) do(ctx context.Context, method, path string, body, out any) error {
+	var reader io.Reader
 	if body != nil {
-		b, err := json.Marshal(body)
+		encoded, err := json.Marshal(body)
 		if err != nil {
-			return fmt.Errorf("sm api: marshal %s %s: %w", method, path, err)
+			return apiError{code: operationalerr.CodeInternal}
 		}
-		r = bytes.NewReader(b)
+		reader = bytes.NewReader(encoded)
 	}
-	req, err := http.NewRequest(method, c.base+path, r)
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, reader)
 	if err != nil {
-		return fmt.Errorf("sm api: build request %s %s: %w", method, path, err)
+		return apiError{code: operationalerr.CodeInternal}
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Content-Type", "application/json")
-
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return fmt.Errorf("sm api: %s %s: %w", method, path, err)
+		return apiError{code: operationalerr.CodeOf(err), ambiguous: method != http.MethodGet}
 	}
-	defer resp.Body.Close()
-	rb, _ := io.ReadAll(resp.Body)
+	defer func() { _ = resp.Body.Close() }()
+	response, readErr := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if readErr != nil {
+		return apiError{code: operationalerr.CodeOf(readErr), ambiguous: method != http.MethodGet && resp.StatusCode < 300}
+	}
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("sm api: %s %s -> %d: %s", method, path, resp.StatusCode, string(rb))
-	}
-	if out != nil && len(rb) > 0 {
-		if err := json.Unmarshal(rb, out); err != nil {
-			return fmt.Errorf("sm api: decode response %s %s: %w", method, path, err)
+		return apiError{
+			code:      operationalerr.Classify(resp.StatusCode, nil),
+			ambiguous: method != http.MethodGet && resp.StatusCode >= 500,
 		}
+	}
+	if out != nil && (len(response) == 0 || json.Unmarshal(response, out) != nil) {
+		return apiError{code: operationalerr.CodeInternal, ambiguous: method != http.MethodGet}
 	}
 	return nil
 }
 
-// ── Wire types (predecessor lines 51–77) ──────────────────────────────────────────
-
-// smProbe is the SM API probe object. ID is omitted on add (server assigns it).
 type smProbe struct {
-	ID        int     `json:"id,omitempty"`
+	ID        int64   `json:"id,omitempty"`
 	Name      string  `json:"name"`
 	Public    bool    `json:"public"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 	Region    string  `json:"region"`
+	Modified  float64 `json:"modified,omitempty"`
 }
 
-// smLabel is a key/value pair attached to an SM check (predecessor label struct).
 type smLabel struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
 
-// smCheck is the SM API check object (predecessor lines 65–77). ID is omitted on add.
 type smCheck struct {
-	ID               int            `json:"id,omitempty"`
+	ID               int64          `json:"id,omitempty"`
 	Job              string         `json:"job"`
 	Target           string         `json:"target"`
 	Frequency        int            `json:"frequency"`
 	Timeout          int            `json:"timeout"`
 	Enabled          bool           `json:"enabled"`
-	Probes           []int          `json:"probes"`
+	Probes           []int64        `json:"probes"`
 	Labels           []smLabel      `json:"labels"`
 	AlertSensitivity string         `json:"alertSensitivity"`
 	BasicMetricsOnly bool           `json:"basicMetricsOnly"`
 	Settings         map[string]any `json:"settings"`
+	Modified         float64        `json:"modified,omitempty"`
 }
 
-// ── Probe operations ──────────────────────────────────────────────────────────
-
-// listProbes calls GET /api/v1/probe/list (predecessor line 89).
-func (c *smClient) listProbes() ([]smProbe, error) {
-	var out []smProbe
-	if err := c.do("GET", "/api/v1/probe/list", nil, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// addProbeResponse is the response envelope for POST /api/v1/probe/add
-// (predecessor lines 100–103).
 type addProbeResponse struct {
 	Probe smProbe `json:"probe"`
+	Token []byte  `json:"token,omitempty"`
 }
 
-// addProbe calls POST /api/v1/probe/add and returns the created probe with its
-// server-assigned ID (predecessor lines 100–108).
-func (c *smClient) addProbe(p smProbe) (smProbe, error) {
-	var res addProbeResponse
-	if err := c.do("POST", "/api/v1/probe/add", p, &res); err != nil {
-		return smProbe{}, err
-	}
-	return res.Probe, nil
-}
-
-// ── Check operations ──────────────────────────────────────────────────────────
-
-// listChecks calls GET /api/v1/check/list (predecessor line 115).
-func (c *smClient) listChecks() ([]smCheck, error) {
-	var out []smCheck
-	if err := c.do("GET", "/api/v1/check/list", nil, &out); err != nil {
+func (c *smClient) listProbes(ctx context.Context) ([]smProbe, error) {
+	var out []smProbe
+	if err := c.do(ctx, http.MethodGet, "/api/v1/probe/list", nil, &out); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// addCheck calls POST /api/v1/check/add (predecessor line 152).
-func (c *smClient) addCheck(ch smCheck) error {
-	return c.do("POST", "/api/v1/check/add", ch, nil)
+func (c *smClient) addProbe(ctx context.Context, probe smProbe) (smProbe, error) {
+	var out addProbeResponse
+	if err := c.do(ctx, http.MethodPost, "/api/v1/probe/add", probe, &out); err != nil {
+		return smProbe{}, err
+	}
+	if out.Probe.ID <= 0 || out.Probe.Modified <= 0 {
+		return smProbe{}, apiError{code: operationalerr.CodeInternal, ambiguous: true}
+	}
+	return out.Probe, nil
 }
 
-// updateCheck calls POST /api/v1/check/update (predecessor line 147).
-// The check must carry a non-zero ID.
-func (c *smClient) updateCheck(ch smCheck) error {
-	return c.do("POST", "/api/v1/check/update", ch, nil)
+func (c *smClient) updateProbe(ctx context.Context, probe smProbe) (smProbe, error) {
+	var out smProbe
+	if err := c.do(ctx, http.MethodPost, "/api/v1/probe/update", probe, &out); err != nil {
+		return smProbe{}, err
+	}
+	if out.ID <= 0 || out.Modified <= 0 {
+		return smProbe{}, apiError{code: operationalerr.CodeInternal, ambiguous: true}
+	}
+	return out, nil
+}
+
+func (c *smClient) listChecks(ctx context.Context) ([]smCheck, error) {
+	var out []smCheck
+	if err := c.do(ctx, http.MethodGet, "/api/v1/check/list", nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *smClient) addCheck(ctx context.Context, check smCheck) (smCheck, error) {
+	var out smCheck
+	if err := c.do(ctx, http.MethodPost, "/api/v1/check/add", check, &out); err != nil {
+		return smCheck{}, err
+	}
+	if out.ID <= 0 || out.Modified <= 0 {
+		return smCheck{}, apiError{code: operationalerr.CodeInternal, ambiguous: true}
+	}
+	return out, nil
+}
+
+func (c *smClient) updateCheck(ctx context.Context, check smCheck) (smCheck, error) {
+	var out smCheck
+	if err := c.do(ctx, http.MethodPost, "/api/v1/check/update", check, &out); err != nil {
+		return smCheck{}, err
+	}
+	if out.ID <= 0 || out.Modified <= 0 {
+		return smCheck{}, apiError{code: operationalerr.CodeInternal, ambiguous: true}
+	}
+	return out, nil
 }

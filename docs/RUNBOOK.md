@@ -102,7 +102,10 @@ Let it run for a few master ticks (default 5s) so cumulative series accumulate, 
 
 ### 4b. Containerised deploy (the standing host)
 
-The committed `docker-compose.yml` is secret-free and reads everything via `env_file: .env`.
+The committed `docker-compose.yml` is secret-free. The emitter reads its full configuration from
+the service env file: `.env` by default, or the path selected by `SYNTHKIT_ENV_FILE`. Use the same
+override for every Compose command in one deployment. The one-shot SM job receives only its SM
+endpoint/token and explicit control flags through Compose interpolation.
 **First-time setup on a new host — create the state bind-mount directory and give it to the
 container's user.** The image is distroless and runs as **uid 65532 (nonroot)**; the bind mount keeps
 the state file directly inspectable/editable on the host, but the dir must be writable by 65532 or
@@ -182,25 +185,34 @@ gcx --context <your-stack> logs query '{blueprint="<blueprint-name>", source="ap
 Expect structured app log lines (route, status, latency). High-cardinality fields are JSON payload
 fields, never stream labels.
 
-### 5.5 Synthetic Monitoring (if `GC_SM_*` set)
+### 5.5 Synthetic Monitoring (if selected and `GC_SM_*` set)
 
-SM checks are **provisioned offline** by a one-shot command (not the emitter):
+SM checks are provisioned by a **one-shot control-plane command** separate from the emitter. Preview
+performs read-only inventory calls; apply uses `GC_SM_URL` and `GC_SM_TOKEN` for remote writes:
 
 ```bash
-go run ./cmd/sm-provision      # registers the offline probe + checks
+docker compose --profile sm-provision run --rm sm-provision
+SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision
+docker compose restart synthkit
 ```
 
-Then the SM app populates and `probe_*` series appear in Mimir (`job=<check>`); no real probe
-execution occurs.
+Require `optional_lanes[synthetic_monitoring]` to be enabled/verified after the restart. Then wait
+the declared interval plus delivery deadline and query `probe_*`; no real probe execution occurs.
 
-### 5.6 Fleet Management (if `GC_FM_*` set)
+When rotating the SM credential or endpoint, first recreate synthkit with the new value so it writes
+a new suppressed snapshot. Run the provisioner preview with `SM_PROVISION_MIGRATE_TARGET=true`, then
+within 15 minutes rerun with both that flag and `SM_PROVISION_APPLY=true`, and restart synthkit. The
+migration fails closed if any recorded remote ID, key, managed specification, or revision changed.
 
-With the triplet configured and a `fleet_management` blueprint, the runner registers each collector
+### 5.6 Fleet Management
+
+With a `fleet_management` blueprint, the metrics-only lane is valid without `GC_FM_*`. With the
+complete triplet, the separate registration lane registers each collector
 with the FM connect API at startup and heartbeats it every 45s. Open the Fleet Management app on the
 customer stack and confirm the fake collectors (linux/windows/darwin per the blueprint's
 `collectors_per_os`) appear; their `collector_id`/`os`/`cluster` attributes match the
-`alloy_*` metrics the construct emits. The process logs `fleet: register …` per collector
-(or, in `DRY_RUN`, logs the call without hitting the API).
+`alloy_*` metrics the construct emits. Verify `fleet_metrics` and `fleet_registration` separately
+in authenticated `optional_lanes`; never call the FM API for metrics-only mode.
 
 ### 5.7 Self-observability (if `SELFOBS_ENABLED=true`)
 

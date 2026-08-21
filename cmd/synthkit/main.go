@@ -36,6 +36,7 @@ import (
 	"github.com/rknightion/synthkit/internal/fleetstatus"
 	"github.com/rknightion/synthkit/internal/healthstatus"
 	"github.com/rknightion/synthkit/internal/jsondata"
+	"github.com/rknightion/synthkit/internal/optionallane"
 	"github.com/rknightion/synthkit/internal/preflight"
 	"github.com/rknightion/synthkit/internal/profiling"
 	"github.com/rknightion/synthkit/internal/pushhook"
@@ -150,6 +151,13 @@ func runPreflight(ctx context.Context, envPath string, out io.Writer, opts prefl
 	if err := writePreflightResults(out, staticResults); err != nil {
 		return err
 	}
+	optional, err := preflight.Optional(cfg)
+	if err != nil {
+		return err
+	}
+	if err := writeOptionalPreflightResults(out, optional); err != nil {
+		return err
+	}
 	results, err := preflight.Check(ctx, cfg, opts)
 	if err != nil {
 		return err
@@ -160,6 +168,25 @@ func runPreflight(ctx context.Context, envPath string, out io.Writer, opts prefl
 	for _, result := range results {
 		if result.State != preflight.StateReady {
 			return fmt.Errorf("preflight: one or more mandatory lanes are not ready")
+		}
+	}
+	return nil
+}
+
+func writeOptionalPreflightResults(out io.Writer, results []optionallane.Disposition) error {
+	for _, result := range results {
+		if len(result.MissingFields) == 0 {
+			if _, err := fmt.Fprintf(out, "optional %s: %s (%s)\n", result.Lane, result.State, result.Reason); err != nil {
+				return fmt.Errorf("preflight: write optional report: %w", err)
+			}
+			continue
+		}
+		fields := make([]string, 0, len(result.MissingFields))
+		for _, field := range result.MissingFields {
+			fields = append(fields, string(field))
+		}
+		if _, err := fmt.Fprintf(out, "optional %s: %s (%s; missing=%s)\n", result.Lane, result.State, result.Reason, strings.Join(fields, ",")); err != nil {
+			return fmt.Errorf("preflight: write optional report: %w", err)
 		}
 	}
 	return nil
@@ -198,11 +225,11 @@ func run(once, dump bool, envPath string) error {
 	}
 
 	// Self-profiling (Pyroscope → a SEPARATE self-obs stack). Process profiles are just another
-	// self-obs signal, so they share SELFOBS_ENABLED (no separate master switch) and the same DRY_RUN
-	// gate as selfobs — a dry run's process profiles are noise on the staff stack. A no-op when its
+	// self-obs signal, so they share SELFOBS_ENABLED (no separate master switch) independently of
+	// synthetic DRY_RUN. A no-op when its
 	// own GC_PYROSCOPE_* creds are absent. Stop() on shutdown flushes the final profile.
 	prof, perr := profiling.Start(profiling.Options{
-		Enabled:       cfg.SelfObsEnabled && !cfg.DryRun,
+		Enabled:       cfg.SelfObsEnabled,
 		URL:           cfg.PyroscopeURL,
 		User:          cfg.PyroscopeUser,
 		Password:      cfg.PyroscopePassword,
@@ -267,22 +294,6 @@ func run(once, dump bool, envPath string) error {
 	}
 
 	reg := runner.Catalog()
-	r := runner.New(sinks, reg, runner.Options{
-		MasterTick:  cfg.MasterTick,
-		TickTimeout: cfg.TickTimeout,
-		Fleet: fleet.Config{
-			FMURL:   cfg.FMURL,
-			StackID: cfg.FMStackID,
-			Token:   cfg.FMToken,
-			DryRun:  cfg.DryRun,
-		},
-		// Delivery-queue tunables (I41) — without these the SEND_* env vars would be inert.
-		SendShards:        cfg.SendShards,
-		SendBatchMax:      cfg.SendBatchMax,
-		SendDeadline:      cfg.SendDeadline,
-		SendCapacity:      cfg.SendCapacity,
-		SendDrainDeadline: cfg.SendDrainDeadline,
-	})
 
 	// Control plane store is built HERE (before blueprint resolution) so the source-config
 	// adapter can read/write git source state during Resolve. ApplyControl runs after AddBlueprint
@@ -361,7 +372,23 @@ func run(once, dump bool, envPath string) error {
 		diag.Add(d.Severity, d.Source, d.Stage, d.Detail)
 		skippedBlueprints++
 	}
+	// The SM handoff is resolved before runner construction. It always writes the exact current
+	// snapshot for a selected SM lane and removes SM constructs unless registration matches it.
+	smState, err := prepareSMHandoff(accepted, cfg, version, time.Now())
+	if err != nil {
+		return err
+	}
+	r := runner.New(sinks, reg, runner.Options{
+		MasterTick:  cfg.MasterTick,
+		TickTimeout: cfg.TickTimeout,
+		Fleet: fleet.Config{
+			FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun,
+		},
+		SendShards: cfg.SendShards, SendBatchMax: cfg.SendBatchMax, SendDeadline: cfg.SendDeadline,
+		SendCapacity: cfg.SendCapacity, SendDrainDeadline: cfg.SendDrainDeadline,
+	})
 	loadedBlueprints := 0
+	runtimeResolved := make([]*blueprint.Resolved, 0, len(accepted))
 	for _, res := range accepted {
 		if err := r.AddBlueprint(res); err != nil {
 			log.Printf("ERROR skipping blueprint %q: %v", res.Name, err)
@@ -370,6 +397,7 @@ func run(once, dump bool, envPath string) error {
 			continue
 		}
 		loadedBlueprints++
+		runtimeResolved = append(runtimeResolved, res)
 	}
 	// Degrade has a floor: if every blueprint was skipped (load OR add), there is nothing to run —
 	// fail rather than boot a silent do-nothing instance.
@@ -384,24 +412,22 @@ func run(once, dump bool, envPath string) error {
 
 	// Apply the persisted control snapshot before the first tick.
 	r.ApplyControl(store.Snapshot())
-
 	// Self-observability (OTLP → a SEPARATE self-obs stack). The generator's OWN operability
 	// telemetry, on a separate stack + credential triplet from all synthetic data — a no-op when
 	// disabled/under-configured. Started AFTER the blueprints + control snapshot so its gauges see a
 	// populated runner; the sink Observe fields + the runner tick seam are wired BEFORE any tick runs
 	// (no data race). Gauges are plain callbacks, so selfobs never imports the runner/control package.
-	// Suppress self-observability under DRY_RUN: a dry run pushes no synthetic data, so its
-	// operability telemetry is noise that would pollute the staff self-obs stack. SELFOBS_ENABLED
-	// is thus an opt-in that only takes effect on a live run (DRY_RUN=false).
+	// Self-observability describes synthkit itself and is independent of the synthetic DRY_RUN
+	// switch. SELFOBS_ENABLED plus the complete private credential triplet is the only activation.
 	so, serr = selfobs.Start(selfobs.Options{
-		Enabled:        cfg.SelfObsEnabled && !cfg.DryRun,
+		Enabled:        cfg.SelfObsEnabled,
 		Endpoint:       cfg.SelfOTLPEndpoint,
 		User:           cfg.SelfOTLPUser,
 		Password:       cfg.SelfOTLPPassword,
 		Tags:           selfobs.ParseTags(cfg.SelfObsTags),
 		Version:        version,
 		MetricInterval: cfg.SelfObsMetricInterval,
-		DryRun:         cfg.DryRun, // stamped as run_mode (always "live" given the gate above)
+		DryRun:         cfg.DryRun, // stamped as the synthetic run mode; self-obs still exports
 	}, selfobs.Gauges{
 		LedgerSize:       r.LedgerSize,
 		VolumeMultiplier: r.VolumeMultiplier,
@@ -456,6 +482,9 @@ func run(once, dump bool, envPath string) error {
 	}
 	if profSink != nil {
 		profSink.Observe = obs
+	}
+	if sigilSink != nil {
+		sigilSink.Observe = obs
 	}
 	// Same fan-out for the FM lifecycle: selfobs exports FM health to the staff stack, fleetstatus
 	// feeds the control-plane TELEMETRY panel. Both consume each fleethook event without coupling.
@@ -542,7 +571,12 @@ func run(once, dump bool, envPath string) error {
 		SetStatus(control.StatusSources{
 			Sinks:       ps.Snapshot,
 			Queues:      func() []pushstatus.QueueStat { return ps.SnapshotQueues(r.QueueDepths()) },
-			ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, Readiness: readiness, DryRun: cfg.DryRun,
+			ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, Readiness: readiness,
+			Optional: func() []optionallane.Disposition {
+				facts := collectOptionalRuntimeFacts(runtimeResolved, sc.Sources(), cfg, smState)
+				return optionalRuntimeDispositions(cfg, facts, ps.SnapshotLanes(), fs.Snapshot(), r.FleetRosterCount(), so.Enabled(), prof != nil && perr == nil)
+			},
+			DryRun: cfg.DryRun,
 		}).
 		SetBlueprintSchema(blueprintschema.JSON(runner.Catalog())).
 		SetConfig(cv).

@@ -261,6 +261,24 @@ func TestConfigVersionIsDecimalInteger(t *testing.T) {
 	}
 }
 
+func TestBuildRequiresInjectedRegistrationWhenRootGatesIt(t *testing.T) {
+	cfg := &Config{Checks: []CheckConfig{{Name: "api-health", Target: "https://api.example/health"}}, RequireRegistration: true}
+	if _, err := Build(cfg, &fixture.Set{Seed: "test"}); err == nil {
+		t.Fatal("missing registration accepted")
+	}
+	cfg.Registration = map[string]string{CheckKey("api-health", "https://api.example/health"): "1725000000123456000"}
+	construct, err := Build(cfg, &fixture.Set{Seed: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	series, _ := construct.(*Construct).build(noon, shape.New("", nil))
+	for _, item := range series {
+		if item.Labels["config_version"] != "1725000000123456000" {
+			t.Fatalf("config_version = %q", item.Labels["config_version"])
+		}
+	}
+}
+
 // TestCountersMonotone verifies probe_all_success_count and
 // probe_all_duration_seconds_count are monotonically non-decreasing across ticks.
 func TestCountersMonotone(t *testing.T) {

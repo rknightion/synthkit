@@ -104,18 +104,32 @@ export interface PersistHealth {
 // FM lifecycle health aggregate — mirrors internal/fleetstatus.FleetStat (json tags verbatim).
 export interface FleetStat {
   registered: number;    // collectors currently registered
+  heartbeat_healthy?: number; // registered collectors whose latest heartbeat succeeded
   heartbeats: number;    // total heartbeat attempts
   failures: number;      // failed ops (register/heartbeat/unregister)
   last_ok_ms: number;    // last successful op (epoch ms)
+  last_heartbeat_ok_ms?: number; // last successful heartbeat (epoch ms)
   last_error_ms: number; // last failed op (epoch ms)
   last_error: string;
+  last_error_code: string;
   dry_run: boolean;
+}
+export interface OptionalLaneDisposition {
+  lane: string;
+  requested: boolean;
+  state: "enabled" | "partial" | "disabled" | "unsupported";
+  reason: string;
+  declaration: string;
+  emitter: string;
+  verification: "not_required" | "not_attempted" | "verified" | "failed";
+  missing_fields: string[];
 }
 export interface StatusReport {
   sinks: SinkStat[];
   queues?: QueueStat[];
   by_blueprint?: Record<string, BlueprintEmission>;
   fleet?: FleetStat;          // fleetstatus.FleetStat — FM lifecycle health
+  optional_lanes?: OptionalLaneDisposition[];
   persist: PersistHealth;
   dry_run: boolean;
   readiness?: ReadinessReport;

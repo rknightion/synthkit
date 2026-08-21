@@ -61,6 +61,9 @@ The `/data` directory holds:
 
 - `control-state.json` — live control-plane state (volume multiplier, active scenarios, scaling overrides). Written lazily on the first mutation; absent at startup is normal.
 - `blueprints/` — staged custom and git-sourced blueprints (subdirectories `custom/`, `git/<id>/`, `.boot-manifest.json`).
+- `runtime/` — owner-only Synthetic Monitoring snapshot, activation registration, durable ownership
+  ledger, adoption-preview marker, lock, and pending journal used by the version-matched one-shot
+  provisioner.
 
 The container image runs as **uid 65532** (distroless nonroot). The bind-mount directory must be owned by this uid or state saves fail:
 
@@ -71,7 +74,12 @@ sudo install -d -o 65532 -g 65532 -m 700 control-state-data
 
 If a control-plane change made in the operator UI doesn't survive a restart, check `persist.last_error` in `/control/status` — a `permission denied` there confirms the ownership problem.
 
-To wipe state and start clean, delete (or truncate) `control-state-data/control-state.json` on the host and restart.
+Resetting only control-plane choices means stopping synthkit, deleting (or truncating)
+`control-state-data/control-state.json`, and restarting. A full `/data` reset is different: stop the
+container first, then remove the entire `control-state-data/runtime/` directory as well. That also
+removes the Synthetic Monitoring ownership, registration, adoption-preview, and crash-recovery
+state, so existing remote resources become foreign until they are explicitly previewed and
+adopted. Never remove runtime state from a running container.
 
 ---
 
@@ -93,6 +101,31 @@ By default `SYNTHKIT_BIND=127.0.0.1` — the control plane is loopback-only and 
 
 The compose file uses the same interpolated `${SYNTHKIT_BIND:-127.0.0.1}` for port publication and
 inside the container's exposure check. The binary itself binds `0.0.0.0:8088` inside the container.
+
+---
+
+## Docker-only Synthetic Monitoring provisioning
+
+`docker compose up -d` never provisions Synthetic Monitoring. With an SM blueprint selected and
+`GC_SM_URL`/`GC_SM_TOKEN` configured, the emitter first writes the exact private snapshot and keeps
+SM emission suppressed. Preview and apply the opt-in one-shot job from the same image:
+
+    docker compose --profile sm-provision run --rm sm-provision
+    SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision
+    docker compose restart synthkit
+
+The job receives only `GC_SM_URL`, `GC_SM_TOKEN`, its three explicit control flags, and `/data`; it
+does not inherit the emitter's other credentials. It has no port, restart policy, host Go toolchain,
+or long-running role. The restart validates the matching registration and activates the lane. If a
+collision, stale binding, or pending/ambiguous journal is reported, leave the emitter suppressed
+and inspect ownership before retrying. The provisioner never deletes remote resources.
+
+Credential or endpoint rotation requires a new emitter snapshot plus an explicit
+`SM_PROVISION_MIGRATE_TARGET=true` preview. Apply within 15 minutes with both the migration and apply
+flags; the preview-bound migration revalidates every owned resource before atomically rebinding the
+ledger and makes no remote API writes. Reconcile resource/configuration changes separately. An
+interrupted post-rebind migration retains its marker and requires the same migration-plus-
+apply command to resume. See [Synthetic Monitoring](synthetic-monitoring.md) for the exact sequence.
 
 ---
 

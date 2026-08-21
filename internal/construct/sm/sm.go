@@ -85,6 +85,11 @@ const failureMode = "sm_probe_failure"
 // Config is decoded from the blueprint's `synthetic_monitoring:` block.
 type Config struct {
 	Checks []CheckConfig `yaml:"checks"`
+
+	// Registration is injected only by the composition root after it validates the private,
+	// version-bound provisioner handoff. It is never decoded from blueprint YAML.
+	Registration        map[string]string `yaml:"-"`
+	RequireRegistration bool              `yaml:"-"`
 }
 
 // CheckConfig describes one synthetic HTTP check.
@@ -125,44 +130,71 @@ type resolvedCheck struct {
 	labels           map[string]string // user labels emitted as label_<k>=<v>; nil if none
 }
 
+// RuntimeSpec is the fully defaulted identity the composition root snapshots for provisioning.
+// It deliberately contains no API client or registration-state type.
+type RuntimeSpec struct {
+	Job         string
+	Target      string
+	FrequencyMs int
+	Probe       string
+	Region      string
+	Labels      map[string]string
+}
+
+// ResolveSpec applies the data-plane defaults without constructing an emitter.
+func ResolveSpec(c CheckConfig) RuntimeSpec {
+	spec := RuntimeSpec{Job: c.Name, Target: c.Target, FrequencyMs: c.FrequencyMs, Probe: c.Probe, Region: c.Region}
+	if spec.Target == "" {
+		spec.Target = "https://" + strings.ToLower(c.Name) + ".example.com/health"
+	}
+	if spec.FrequencyMs == 0 {
+		spec.FrequencyMs = 60000
+	}
+	if spec.Probe == "" {
+		spec.Probe = DefaultProbeName
+	}
+	if spec.Region == "" {
+		spec.Region = DefaultProbeRegion
+	}
+	if len(c.Labels) > 0 {
+		spec.Labels = make(map[string]string, len(c.Labels))
+		for key, value := range c.Labels {
+			spec.Labels[key] = value
+		}
+	}
+	return spec
+}
+
+// CheckKey is the stable registration identity shared with the composition root.
+func CheckKey(job, target string) string { return job + "\x00" + target }
+
 // resolveChecks applies defaults and derives stable per-check constants.
-func resolveChecks(cfg []CheckConfig, seed string) []resolvedCheck {
+func resolveChecks(cfg []CheckConfig, seed string, registration map[string]string, requireRegistration bool) ([]resolvedCheck, error) {
 	out := make([]resolvedCheck, 0, len(cfg))
 	for _, c := range cfg {
-		// Copy user labels so resolvedCheck owns its own map (blueprint cfg is not mutated).
-		var lbls map[string]string
-		if len(c.Labels) > 0 {
-			lbls = make(map[string]string, len(c.Labels))
-			for k, v := range c.Labels {
-				lbls[k] = v
+		spec := ResolveSpec(c)
+		version := configVersion(seed, c.Name)
+		if requireRegistration {
+			var ok bool
+			version, ok = registration[CheckKey(spec.Job, spec.Target)]
+			if !ok || version == "" {
+				return nil, fmt.Errorf("sm: check %q has no validated registration", c.Name)
 			}
 		}
 		rc := resolvedCheck{
-			job:              c.Name,
-			target:           c.Target,
-			frequencyMs:      c.FrequencyMs,
-			probe:            c.Probe,
-			region:           c.Region,
+			job:              spec.Job,
+			target:           spec.Target,
+			frequencyMs:      spec.FrequencyMs,
+			probe:            spec.Probe,
+			region:           spec.Region,
 			geohash:          defaultProbeGeohash,
 			alertSensitivity: "medium",
-			configVersion:    configVersion(seed, c.Name),
-			labels:           lbls,
-		}
-		if rc.target == "" {
-			rc.target = "https://" + strings.ToLower(c.Name) + ".example.com/health"
-		}
-		if rc.frequencyMs == 0 {
-			rc.frequencyMs = 60000
-		}
-		if rc.probe == "" {
-			rc.probe = DefaultProbeName
-		}
-		if rc.region == "" {
-			rc.region = defaultProbeRegion
+			configVersion:    version,
+			labels:           spec.Labels,
 		}
 		out = append(out, rc)
 	}
-	return out
+	return out, nil
 }
 
 // configVersion returns a stable decimal uint64 string derived from the blueprint
@@ -210,8 +242,12 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	if fx != nil {
 		seed = fx.Seed
 	}
+	checks, err := resolveChecks(c.Checks, seed, c.Registration, c.RequireRegistration)
+	if err != nil {
+		return nil, err
+	}
 	return &Construct{
-		checks: resolveChecks(c.Checks, seed),
+		checks: checks,
 		st:     state.NewState(),
 	}, nil
 }

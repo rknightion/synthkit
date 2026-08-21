@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/fleetstatus"
+	"github.com/rknightion/synthkit/internal/optionallane"
 	"github.com/rknightion/synthkit/internal/pushstatus"
 )
 
@@ -89,6 +90,7 @@ type StatusReport struct {
 	Persist     PersistHealth                           `json:"persist"`
 	DryRun      bool                                    `json:"dry_run"`
 	Readiness   *ReadinessReport                        `json:"readiness,omitempty"`
+	Optional    []optionallane.Disposition              `json:"optional_lanes,omitempty"`
 }
 
 // StatusSources supplies the runtime status the /control/status route renders. Sinks and Fleet are
@@ -101,6 +103,7 @@ type StatusSources struct {
 	ByBlueprint func() map[string]pushstatus.BlueprintEmission
 	Fleet       func() fleetstatus.FleetStat
 	Readiness   func() ReadinessReport
+	Optional    func() []optionallane.Disposition
 	DryRun      bool
 }
 
@@ -204,7 +207,11 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			report := h.status.Readiness()
 			readiness = &report
 		}
-		writeJSON(w, StatusReport{Sinks: sinks, Queues: queues, ByBlueprint: byBp, Fleet: fleet, Persist: h.store.PersistHealth(), DryRun: h.status.DryRun, Readiness: readiness})
+		var optional []optionallane.Disposition
+		if h.status.Optional != nil {
+			optional = h.status.Optional()
+		}
+		writeJSON(w, StatusReport{Sinks: sinks, Queues: queues, ByBlueprint: byBp, Fleet: fleet, Persist: h.store.PersistHealth(), DryRun: h.status.DryRun, Readiness: readiness, Optional: optional})
 	})
 	// GET /control/readiness is deliberately public so Docker can call it without credentials. Its
 	// probe representation omits topology, errors, filesystem paths, and operational reasons.

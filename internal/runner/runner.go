@@ -1103,6 +1103,18 @@ func (r *Runner) VolumeMultiplier() float64 {
 // BlueprintCount is a self-obs gauge source: the number of loaded blueprints.
 func (r *Runner) BlueprintCount() int { return len(r.bps) }
 
+// FleetRosterCount returns the current declared FM roster size across all loaded blueprints.
+// Dynamic k8s mirror providers are evaluated on each call so status tracks scaling changes.
+func (r *Runner) FleetRosterCount() int {
+	total := 0
+	for _, bp := range r.bps {
+		if provider := bp.fleetProvider(); provider != nil {
+			total += len(provider())
+		}
+	}
+	return total
+}
+
 // ActiveBlueprintCount reports loaded blueprints not disabled by the current control snapshot.
 func (r *Runner) ActiveBlueprintCount() int {
 	n := 0

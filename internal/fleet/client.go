@@ -11,18 +11,19 @@ package fleet
 //   - Methods:    RegisterCollector, GetConfig, UnregisterCollector.
 //   - Bodies:     JSON objects.
 //   - Heartbeat:  GetConfig with non-empty local_attributes is REQUIRED.
-//   - Errors:     any 4xx/5xx → error with method + status + first 512B.
+//   - Errors:     reduced to a closed operational code; response bodies are discarded.
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rknightion/synthkit/internal/operationalerr"
 )
 
 // Client posts connect-JSON calls to the FM CollectorService on behalf of a stack.
@@ -59,29 +60,27 @@ func NewDryRunClient(base, stackID, token string) *Client {
 func (c *Client) post(ctx context.Context, method string, body any) error {
 	b, err := json.Marshal(body)
 	if err != nil {
-		return err
+		return operationalerr.New(operationalerr.CodeInternal)
 	}
 	if c.dryRun {
-		log.Printf("fleet [dry-run]: POST %s/collector.v1.CollectorService/%s body=%s", c.base, method, b)
+		log.Printf("fleet [dry-run]: %s planned", method)
 		return nil
 	}
 	url := fmt.Sprintf("%s/collector.v1.CollectorService/%s", c.base, method) // predecessor line 38
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
 	if err != nil {
-		return err
+		return operationalerr.New(operationalerr.CodeInternal)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBasicAuth(c.stackID, c.token) // predecessor line 44
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return err
+		return operationalerr.New(operationalerr.CodeOf(err))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512)) // predecessor lines 51–52
-		return fmt.Errorf("FM %s: status %d: %s", method, resp.StatusCode, msg)
+		return operationalerr.New(operationalerr.Classify(resp.StatusCode, nil))
 	}
-	_, _ = io.Copy(io.Discard, resp.Body)
 	return nil
 }
 

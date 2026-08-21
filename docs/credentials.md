@@ -44,7 +44,10 @@ Needed only for blueprints with `rum: true` on a workload, or `app` workload nod
 
 ### Synthetic Monitoring (optional)
 
-Used only by the `cmd/sm-provision` provisioner, not by the main emitter. The SM token is a separate bearer token — not `GC_TOKEN`.
+Used by the version-matched Docker provisioner (`sm-provision` Compose profile; a source checkout
+may run the binary directly), not as a synthetic sink. The SM token is a separate bearer token —
+not `GC_TOKEN`. Provisioning is snapshot-bound and requires a subsequent emitter restart; see
+[Synthetic Monitoring](synthetic-monitoring.md).
 
 | Env var | Value |
 |---|---|
@@ -76,7 +79,8 @@ Sends synthkit's own RED metrics, traces, and operational logs to a **separate**
 
 ### Self-profiling — Pyroscope (optional)
 
-Sends the synthkit process's continuous profiles to a **separate** stack. Follows `SELFOBS_ENABLED` and is suppressed under `DRY_RUN`.
+Sends the synthkit process's continuous profiles to a **separate** stack. Follows
+`SELFOBS_ENABLED` and is independent of synthetic `DRY_RUN`.
 
 | Env var | Value |
 |---|---|

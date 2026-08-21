@@ -60,22 +60,24 @@ symlinks kept in sync by `make skills-sync` (verified by `make skills-check`).
 
 ## Synthetic Monitoring — two-phase startup
 
-Blueprints with `synthetic_monitoring` blocks require a one-shot control-plane step to register
-the offline private probe and the checks in Grafana Cloud before the data-plane emitter produces
-useful output. Run the provisioner once per environment (idempotent — safe to re-run):
+Blueprints with `synthetic_monitoring` blocks use a snapshot-bound one-shot control-plane step.
+Start the emitter once to write the private snapshot, preview/apply the version-matched Docker job,
+then restart the emitter to activate the matching registration:
 
 ```bash
-# Phase 1: provision the offline probe + SM checks (idempotent, one-shot)
-GC_SM_URL=https://synthetic-monitoring-api.grafana.net \
-  GC_SM_TOKEN=<sm-bearer-token> \
-  DRY_RUN=false \
-  go run ./cmd/sm-provision
-
-# Phase 2: run the generator normally
-./synthkit
+docker compose up -d synthkit
+docker compose --profile sm-provision run --rm sm-provision
 ```
 
-`DRY_RUN=true` (the default) previews the planned operations without making any API calls.
+Review the printed preview plan. Only then authorise the remote changes and restart the emitter:
+
+```bash
+SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision
+docker compose restart synthkit
+```
+
+Preview is the default and makes no remote mutation. `DRY_RUN` does not authorise the provisioner.
+Foreign collisions and ambiguous/pending operations fail closed; resources are never deleted.
 The probe name, region, and Frankfurt coordinates are shared constants in `internal/construct/sm`
 so data-plane and control-plane cannot drift.
 
