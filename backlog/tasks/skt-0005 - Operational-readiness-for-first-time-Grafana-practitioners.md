@@ -1,11 +1,11 @@
 ---
 id: SKT-0005
 title: Operational readiness for first-time Grafana practitioners
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-08-20 10:58'
-updated_date: '2026-08-20 16:51'
+updated_date: '2026-08-21 14:32'
 labels: []
 dependencies: []
 references:
@@ -27,18 +27,18 @@ Make synthkit easy to discover, deploy, configure, author blueprints for, and op
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A fresh user has one documented, focused path from clone to a running synthetic workload and can verify metrics, logs, and traces with concrete expected identities
-- [ ] #2 Direct and Docker deployment defaults are safe, explicit about dry-run versus live mode, and validated through their real entry points
-- [ ] #3 Blueprint creation, validation, selection, activation, staging, and restart semantics are understandable without reading Go source
-- [ ] #4 Repository agent instructions and skills let Claude Code and Codex create a blueprint and guide local deployment using only the cloned repository
-- [ ] #5 Every audit finding is either implemented, represented by a dependency-aware child task, or explicitly excluded as telemetry-realism work
+- [x] #1 A fresh user has one documented, focused path from clone to a running synthetic workload and can verify metrics, logs, and traces with concrete expected identities
+- [x] #2 Direct and Docker deployment defaults are safe, explicit about dry-run versus live mode, and validated through their real entry points
+- [x] #3 Blueprint creation, validation, selection, activation, staging, and restart semantics are understandable without reading Go source
+- [x] #4 Repository agent instructions and skills let Claude Code and Codex create a blueprint and guide local deployment using only the cloned repository
+- [x] #5 Every audit finding is either implemented, represented by a dependency-aware child task, or explicitly excluded as telemetry-realism work
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
-- [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -49,6 +49,8 @@ Make synthkit easy to discover, deploy, configure, author blueprints for, and op
 3. Implement the first wave: safe first-run defaults, broken onboarding examples, canonical agent context, and skill/package correctness.
 4. Forward-test changed skills and user journeys in isolated environments, run one integrated CodeRabbit review for code/config changes, then the proportionate repository gate.
 5. Finalize each completed task with objective evidence; leave later waves To Do or Parked with precise boundaries.
+
+Final campaign phase: complete the readiness, delivery visibility, control security, optional-product, and upgrade/rollback waves; reconcile all nineteen children; run the integrated local, published-image, exact-SHA, and standing-host gates; then close the initiative only after every child is terminal and the stable deployment is restored.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -73,4 +75,12 @@ Wave 3 integration regression repaired in pushed commit 12b1aca. Local make gate
 Continuation Wave A is active for SKT-0005.09 and .10 under the superseding run goal. Fresh CodeRabbit quota and a live reference deployment are authorized. Baseline exact-head RC deployment passed a focused dry-run and landed metrics, logs, and traces with zero sink failures; it also reproduced the current readiness gap (PID Up plus event-populated status, no explicit readiness verdict). External identifiers and credentials remain outside this public tracker.
 
 Continuation Wave A completed at exact-head b6c4ea5: SKT-0005.09 and .10 passed standing-host deployment verification and are Done. The live RC exercised delivery-aware Compose health, writable-state readiness, all configured sink lanes, fresh landed metrics, and the complete Git-source fetch/restart/loaded-versus-skipped lifecycle; temporary source artifacts were removed and the deployment returned clean and healthy. Next dependency-unblocked task is SKT-0005.12, followed by .11, .13, and .14.
+
+Campaign reconciliation complete: all nineteen child tasks are Done. The integrated closeout passed schema regeneration with no diff, make gate, a 26-blueprint/2,644-series complete-catalog dry-run, UI, docs, skills, Compose, workflow lint, and e2e gates; exact-SHA hosted CI and the corrected stable publisher also passed. The standing host finished the candidate upgrade, stable upgrade, rollback, and final stable restoration with health, writable state, configured-sink delivery, optional-lane dispositions, and fresh metrics/logs/traces verified after each transition.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Completed the operational-friendliness and usability campaign across all nineteen children: safe first-run defaults, focused onboarding, blueprint lifecycle clarity, portable agent instructions and skills, trustworthy control/readiness and mutation APIs, delivery visibility, optional-product gates, and reproducible signed upgrades and rollbacks. Verified through repository gates, exact-SHA CI/publication, and a complete standing-host upgrade/rollback/restoration cycle.
+<!-- SECTION:FINAL_SUMMARY:END -->
