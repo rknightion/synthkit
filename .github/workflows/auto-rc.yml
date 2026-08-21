@@ -48,6 +48,7 @@ jobs:
     steps:
       - name: Dispatch the tag-context publisher and wait for its gate
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.rc.outputs.tag }}
         run: |
