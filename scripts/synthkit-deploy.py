@@ -1120,7 +1120,7 @@ def verify_image(
             "ALL",
             "--security-opt",
             "no-new-privileges",
-            reference,
+            platform_ref,
             "-version",
         ],
         "binary_identity_failed",

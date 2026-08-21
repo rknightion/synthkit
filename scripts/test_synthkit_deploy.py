@@ -702,11 +702,15 @@ class DeployCLITest(unittest.TestCase):
             self.assertEqual(report["version"], version)
             self.assertEqual(report["revision"], revision)
             events = order_log.read_text(encoding="utf-8").splitlines()
-            candidate_probe = next(index for index, event in enumerate(events) if reference in event and " -version" in event)
+            platform_reference = f"{IMAGE}@{manifest}"
+            candidate_probe = next(
+                index for index, event in enumerate(events) if platform_reference in event and " -version" in event
+            )
             signature = next(index for index, event in enumerate(events) if COSIGN_IMAGE in event)
             provenance = next(index for index, event in enumerate(events) if event.startswith("gh attestation verify"))
             self.assertLess(signature, candidate_probe)
             self.assertLess(provenance, candidate_probe)
+            self.assertNotIn(f" {reference} -version", events[candidate_probe])
             self.assertIn("--network none --read-only --cap-drop ALL --security-opt no-new-privileges", events[candidate_probe])
 
     def test_check_compose_renders_default_and_profile_with_one_exact_image(self) -> None:

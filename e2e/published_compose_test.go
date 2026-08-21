@@ -156,6 +156,12 @@ func TestPublishedCompose(t *testing.T) {
 		t.Fatalf("published Compose readiness/state not green: %+v", readiness)
 	}
 
+	// Continuous operation phase-spreads each instance's first emission across its declared
+	// interval. After proving the committed service healthcheck and writable-state contract,
+	// quiesce it and use the same Compose service for one complete deterministic emission.
+	compose("stop", "synthkit")
+	compose("run", "--rm", "--no-deps", "synthkit", "-once")
+
 	received := fetchPublishedInventory(t, ctx, receiver, tlsFiles)
 	expected := dumpSchema(t)
 	if missing := expected.Subset(received); len(missing) != 0 {

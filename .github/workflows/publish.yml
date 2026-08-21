@@ -130,6 +130,7 @@ jobs:
           PY
           )
           reference="ghcr.io/rknightion/synthkit@${digest}"
+          make compose-check
           python3 scripts/synthkit-deploy.py verify-image \
             --reference "${reference}" \
             --expected-version "${version}" \
@@ -137,10 +138,6 @@ jobs:
             --expected-revision "${SOURCE_REVISION}" \
             --source-ref "refs/tags/${RELEASE_TAG}" \
             --platform linux/amd64 | tee verification.json
-          python3 scripts/synthkit-deploy.py check-compose \
-            --compose-file docker-compose.yml \
-            --env-file .env.example \
-            --expected-reference "${reference}"
           echo "reference=${reference}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
       - name: Exercise the published image through committed Compose
