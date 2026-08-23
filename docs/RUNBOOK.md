@@ -34,7 +34,7 @@ And locally/on the host: the **operator UI** at `/control/ui` with a green sink-
 
 ## 1. Prerequisites
 
-- Go 1.26 (for local runs) or Docker (for the containerised deploy).
+- Go 1.27 (for local runs) or Docker (for the containerised deploy).
 - `gcx` configured with a context for the customer stack (and optionally the staff stack). See the
   `gcx:setup-gcx` skill if it is not yet set up.
 - The credential set for the customer stack. synthkit reads **three independent destinations**, each
