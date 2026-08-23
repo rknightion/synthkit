@@ -1,10 +1,10 @@
 ---
 id: SKT-0006
 title: Upgrade Go toolchain to 1.27
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-23 19:06'
-updated_date: '2026-08-23 19:49'
+updated_date: '2026-08-23 21:21'
 labels: []
 dependencies: []
 ordinal: 25000
@@ -40,4 +40,12 @@ Adopt Go 1.27 consistently across the application, nested modules, build images,
 
 <!-- SECTION:NOTES:BEGIN -->
 Local Go 1.27.0 make gate passed in full. The complete-catalog DRY_RUN=true BLUEPRINT_NAMES=* go run ./cmd/synthkit -once -dump inventory completed for all 26 blueprints with 3,144 output lines and no hard errors. No blueprint field or construct/workload config struct changed, so schema regeneration was not required. CodeRabbit was skipped because only declarative module, container, and current documentation pins changed.
+
+Exact-head hosted evidence: GitHub Actions CI run 32662554471 passed at 0437f2dfb3a60386b3578926bbb3ec6a5dd44645, including Go, Docker, UI, hygiene, secret scan, E2E, and ci-success.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Upgraded all active Go toolchain surfaces to Go 1.27, passed the full local gate and complete 26-blueprint dry-run inventory, and passed exact-head hosted CI run 32662554471 at 0437f2dfb3a60386b3578926bbb3ec6a5dd44645.
+<!-- SECTION:FINAL_SUMMARY:END -->
