@@ -1,5 +1,5 @@
 ---
-id: SKT-0006
+id: SKT-0009
 title: Upgrade Go toolchain to 1.27
 status: Done
 assignee: []
