@@ -224,12 +224,12 @@ func TestDockerE2E(t *testing.T) {
 		t.Fatalf("decode inventory JSON: %v", err)
 	}
 	t.Logf("received: %d metrics, %d log sources, %d trace services, %d sigil kinds",
-		len(received.Metrics), len(received.LogSources), len(received.Traces), len(received.Sigil))
+		len(received.Metrics), len(received.Logs), len(received.Traces), len(received.Sigil))
 
 	// ── 4. Build the expected schema from -dump on the host ───────────────────
 	expected := dumpSchema(t)
 	t.Logf("expected (from -dump): %d metrics, %d log sources, %d trace services, %d sigil kinds",
-		len(expected.Metrics), len(expected.LogSources), len(expected.Traces), len(expected.Sigil))
+		len(expected.Metrics), len(expected.Logs), len(expected.Traces), len(expected.Sigil))
 
 	// ── 5. Correlation: every -dump-declared name must be present in received ──
 	// received is a SUPERSET (it also captures native OTLP metric names not in
@@ -240,7 +240,7 @@ func TestDockerE2E(t *testing.T) {
 			len(missing), strings.Join(missing, "\n  "))
 	}
 	t.Logf("PASS: all %d declared metrics + %d log sources + %d trace services + %d sigil kinds received",
-		len(expected.Metrics), len(expected.LogSources), len(expected.Traces), len(expected.Sigil))
+		len(expected.Metrics), len(expected.Logs), len(expected.Traces), len(expected.Sigil))
 }
 
 type generatedTLS struct {

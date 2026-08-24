@@ -38,9 +38,12 @@ type Sink struct {
 	// Observe, when non-nil, is called once per push with the outcome
 	// (self-observability seam, set only by package main when enabled).
 	Observe pushhook.Observer
+	// Capture retains dry-run series for the one-shot machine-readable inventory export.
+	Capture bool
 
-	invMu sync.Mutex
-	inv   map[string]map[string]struct{} // dry-run inventory: profile type → set of label keys
+	invMu    sync.Mutex
+	inv      map[string]map[string]struct{} // dry-run inventory: profile type → set of label keys
+	captured []Series
 }
 
 // New creates a Sink for the given Pyroscope URL, credentials, and dry-run mode.
@@ -199,6 +202,9 @@ func deterministicID(labels []LabelPair, timeNanos int64) string {
 func (s *Sink) record(batch []Series) {
 	s.invMu.Lock()
 	defer s.invMu.Unlock()
+	if s.Capture {
+		s.captured = append(s.captured, batch...)
+	}
 	if s.inv == nil {
 		s.inv = map[string]map[string]struct{}{}
 	}
@@ -211,6 +217,13 @@ func (s *Sink) record(batch []Series) {
 			s.inv[key][lp.Name] = struct{}{}
 		}
 	}
+}
+
+// Captured returns series retained while Capture was enabled in dry-run mode.
+func (s *Sink) Captured() []Series {
+	s.invMu.Lock()
+	defer s.invMu.Unlock()
+	return append([]Series(nil), s.captured...)
 }
 
 // inventoryKey returns __profile_type__ value if present, else __name__ value, else "unknown".

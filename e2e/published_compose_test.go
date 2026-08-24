@@ -171,11 +171,11 @@ func TestPublishedCompose(t *testing.T) {
 	if missing := expected.Subset(received); len(missing) != 0 {
 		t.Fatalf("published Compose image missing intended receipts (%d):\n  %s", len(missing), strings.Join(missing, "\n  "))
 	}
-	if len(received.Metrics) == 0 || len(received.LogSources) == 0 || len(received.Traces) == 0 || len(received.Sigil) == 0 {
-		t.Fatalf("receiver did not positively decode every configured telemetry lane: metrics=%d logs=%d traces=%d sigil=%d", len(received.Metrics), len(received.LogSources), len(received.Traces), len(received.Sigil))
+	if len(received.Metrics) == 0 || len(received.Logs) == 0 || len(received.Traces) == 0 || len(received.Sigil) == 0 {
+		t.Fatalf("receiver did not positively decode every configured telemetry lane: metrics=%d logs=%d traces=%d sigil=%d", len(received.Metrics), len(received.Logs), len(received.Traces), len(received.Sigil))
 	}
-	for _, protocol := range []string{"promrw", "otlp_metrics", "otlp_traces", "loki", "sigil_generations", "sigil_workflow_steps", "sigil_scores"} {
-		if received.Receipts[protocol] == 0 {
+	for _, protocol := range []string{"prometheus_remote_write_v2", "otlp_metrics", "otlp_traces", "loki", "sigil_generations", "sigil_workflow_steps", "sigil_scores"} {
+		if inventory.ReceiptCount(received, protocol) == 0 {
 			t.Fatalf("receiver has no successfully decoded non-empty %s receipt: %v", protocol, received.Receipts)
 		}
 	}

@@ -51,11 +51,14 @@ type Sink struct {
 	// sinks used for offline projection (bpsource cardinality preview) so a validate/save click
 	// doesn't spew lines into a live process log.
 	Quiet bool
+	// Capture retains dry-run resources for the one-shot machine-readable inventory export.
+	Capture bool
 
 	invMu        sync.Mutex
 	invSpanNames map[string]map[string]struct{} // dry-run: service.name → span names
 	invSpanAttrs map[string]map[string]struct{} // dry-run: service.name → span attr keys
 	invResAttrs  map[string]map[string]struct{} // dry-run: service.name → resource attr keys
+	captured     []Resource
 }
 
 // New creates an OTLP traces sink. endpoint is the base gateway URL (e.g.
@@ -77,6 +80,7 @@ func (s *Sink) Write(ctx context.Context, resources []Resource) error {
 	}
 
 	rspans := make([]*tracepb.ResourceSpans, 0, len(resources))
+	acceptedResources := make([]Resource, 0, len(resources))
 	totalSpans := 0
 
 	for _, r := range resources {
@@ -90,6 +94,13 @@ func (s *Sink) Write(ctx context.Context, resources []Resource) error {
 			log.Printf("[otlp] skipped %d span(s) with invalid trace/span IDs", skipped)
 		}
 		totalSpans += len(spans)
+		accepted := make([]Span, 0, len(spans))
+		for _, span := range r.Spans {
+			if validSpanIDs(span) {
+				accepted = append(accepted, span)
+			}
+		}
+		acceptedResources = append(acceptedResources, Resource{Attrs: r.Attrs, Scope: r.Scope, Spans: accepted})
 
 		rspans = append(rspans, &tracepb.ResourceSpans{
 			Resource: &resourcepb.Resource{
@@ -115,7 +126,7 @@ func (s *Sink) Write(ctx context.Context, resources []Resource) error {
 	}
 
 	if s.dryRun {
-		s.record(resources)
+		s.record(acceptedResources)
 		firstSvc := ""
 		if v, ok := resources[0].Attrs["service.name"]; ok {
 			firstSvc = fmt.Sprint(v)
@@ -150,11 +161,30 @@ func (s *Sink) Write(ctx context.Context, resources []Resource) error {
 	return s.eg.post(ctx, buf, totalSpans, blueprint, s.Observe)
 }
 
+func validSpanIDs(span Span) bool {
+	traceID, err := hex.DecodeString(span.TraceID)
+	if err != nil || len(traceID) != 16 {
+		return false
+	}
+	spanID, err := hex.DecodeString(span.SpanID)
+	if err != nil || len(spanID) != 8 {
+		return false
+	}
+	if span.ParentID == "" {
+		return true
+	}
+	parentID, err := hex.DecodeString(span.ParentID)
+	return err == nil && len(parentID) == 8
+}
+
 // record accumulates the dry-run inventory keyed by service.name: resource attr keys, span names,
 // and span attr keys (offline diff against signals/traces.md).
 func (s *Sink) record(resources []Resource) {
 	s.invMu.Lock()
 	defer s.invMu.Unlock()
+	if s.Capture {
+		s.captured = append(s.captured, resources...)
+	}
 	if s.invSpanNames == nil {
 		s.invSpanNames = map[string]map[string]struct{}{}
 		s.invSpanAttrs = map[string]map[string]struct{}{}
@@ -183,6 +213,13 @@ func (s *Sink) record(resources []Resource) {
 			}
 		}
 	}
+}
+
+// Captured returns resources retained while Capture was enabled in dry-run mode.
+func (s *Sink) Captured() []Resource {
+	s.invMu.Lock()
+	defer s.invMu.Unlock()
+	return append([]Resource(nil), s.captured...)
 }
 
 // Inventory returns the captured dry-run inventory per service.name.

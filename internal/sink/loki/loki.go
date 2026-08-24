@@ -51,10 +51,14 @@ type Sink struct {
 	// recorded). Set on throwaway dry sinks used for offline projection (bpsource cardinality
 	// preview) so a validate/save click doesn't spew lines into a live process log.
 	Quiet bool
+	// Capture retains dry-run batches for the one-shot machine-readable inventory export.
+	// It is never enabled on the live path.
+	Capture bool
 
 	invMu     sync.Mutex
 	invStream map[string]map[string]struct{} // dry-run: source → stream-label keys
 	invMeta   map[string]map[string]struct{} // dry-run: source → structured-metadata keys
+	captured  []Stream
 }
 
 // New creates a Loki sink. extraForbidden extends DefaultForbiddenStreamLabels so the
@@ -91,6 +95,9 @@ type pushStream struct {
 func (s *Sink) record(streams []Stream) {
 	s.invMu.Lock()
 	defer s.invMu.Unlock()
+	if s.Capture {
+		s.captured = append(s.captured, streams...)
+	}
 	if s.invStream == nil {
 		s.invStream = map[string]map[string]struct{}{}
 		s.invMeta = map[string]map[string]struct{}{}
@@ -116,6 +123,13 @@ func (s *Sink) record(streams []Stream) {
 			}
 		}
 	}
+}
+
+// Captured returns the streams retained while Capture was enabled in dry-run mode.
+func (s *Sink) Captured() []Stream {
+	s.invMu.Lock()
+	defer s.invMu.Unlock()
+	return append([]Stream(nil), s.captured...)
 }
 
 // Inventory returns the captured dry-run inventory per source: stream-label keys and metadata keys.

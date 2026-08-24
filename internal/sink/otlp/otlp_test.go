@@ -665,3 +665,27 @@ func TestConvertSpansSkipsMalformedParentID(t *testing.T) {
 		}
 	}
 }
+
+func TestCapturedInventoryExcludesInvalidSpans(t *testing.T) {
+	sink := New("", "", "", true)
+	sink.Capture = true
+	now := time.Unix(1, 0)
+	resource := Resource{
+		Attrs: map[string]any{"service.name": "checkout"},
+		Spans: []Span{
+			{Name: "invalid", TraceID: "bad", SpanID: "1111111111111111", Start: now, End: now.Add(time.Millisecond)},
+			{Name: "valid", TraceID: "0123456789abcdef0123456789abcdef", SpanID: "2222222222222222", Start: now, End: now.Add(time.Millisecond)},
+		},
+	}
+	if err := sink.Write(context.Background(), []Resource{resource}); err != nil {
+		t.Fatal(err)
+	}
+	captured := sink.Captured()
+	if len(captured) != 1 || len(captured[0].Spans) != 1 || captured[0].Spans[0].Name != "valid" {
+		t.Fatalf("captured=%+v", captured)
+	}
+	_, names, _ := sink.Inventory()
+	if got := names["checkout"]; len(got) != 1 || got[0] != "valid" {
+		t.Fatalf("inventory names=%v", got)
+	}
+}

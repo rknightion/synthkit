@@ -27,12 +27,15 @@ import (
 type MetricsSink struct {
 	eg     egress
 	dryRun bool
+	// Capture retains dry-run resources for the one-shot machine-readable inventory export.
+	Capture bool
 
 	Observe pushhook.Observer
 
 	invMu       sync.Mutex
 	invMetrics  map[string]map[string]struct{} // service.name → metric names
 	invResAttrs map[string]map[string]struct{} // service.name → resource attr keys
+	captured    []MetricResource
 }
 
 // NewMetrics builds the OTLP metrics sink. endpoint is the base gateway URL; "/v1/metrics" is
@@ -181,6 +184,9 @@ func temporality(t Temporality) metricspb.AggregationTemporality {
 func (s *MetricsSink) record(resources []MetricResource) {
 	s.invMu.Lock()
 	defer s.invMu.Unlock()
+	if s.Capture {
+		s.captured = append(s.captured, resources...)
+	}
 	if s.invMetrics == nil {
 		s.invMetrics = map[string]map[string]struct{}{}
 		s.invResAttrs = map[string]map[string]struct{}{}
@@ -205,6 +211,13 @@ func (s *MetricsSink) record(resources []MetricResource) {
 			add(s.invMetrics, svc, m.Name)
 		}
 	}
+}
+
+// Captured returns resources retained while Capture was enabled in dry-run mode.
+func (s *MetricsSink) Captured() []MetricResource {
+	s.invMu.Lock()
+	defer s.invMu.Unlock()
+	return append([]MetricResource(nil), s.captured...)
 }
 
 // Inventory returns the captured dry-run inventory per service.name.

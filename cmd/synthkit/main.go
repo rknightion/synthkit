@@ -36,6 +36,7 @@ import (
 	"github.com/rknightion/synthkit/internal/fleethook"
 	"github.com/rknightion/synthkit/internal/fleetstatus"
 	"github.com/rknightion/synthkit/internal/healthstatus"
+	"github.com/rknightion/synthkit/internal/inventory"
 	"github.com/rknightion/synthkit/internal/jsondata"
 	"github.com/rknightion/synthkit/internal/optionallane"
 	"github.com/rknightion/synthkit/internal/preflight"
@@ -85,6 +86,7 @@ func (f queueObserverFan) FlushObserved(ev queue.FlushEvent) {
 func main() {
 	once := flag.Bool("once", false, "run one full cycle and exit")
 	dump := flag.Bool("dump", false, "with -once: print the full series/label inventory (diff vs signals/)")
+	inventoryJSON := flag.Bool("inventory-json", false, "with -once in dry-run mode: write the canonical telemetry inventory as JSON")
 	preflightCheck := flag.Bool("preflight", false, "validate and probe mandatory live Grafana endpoints, then exit")
 	healthcheck := flag.Bool("healthcheck", false, "exit successfully only when the local control plane is delivery-ready")
 	showVersion := flag.Bool("version", false, "print the release version and source revision as JSON, then exit")
@@ -118,7 +120,10 @@ func main() {
 		}
 		return
 	}
-	if err := run(*once, *dump, *envPath); err != nil {
+	if *inventoryJSON && (!*once || *dump) {
+		log.Fatal("synthkit: -inventory-json requires -once and cannot be combined with -dump")
+	}
+	if err := runMode(*once, *dump, *inventoryJSON, *envPath); err != nil {
 		log.Fatalf("synthkit: %v", err)
 	}
 }
@@ -223,12 +228,19 @@ func writePreflightResults(out io.Writer, results []preflight.Result) error {
 }
 
 func run(once, dump bool, envPath string) error {
+	return runMode(once, dump, false, envPath)
+}
+
+func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	cfg, err := config.Load(envPath)
 	if err != nil {
 		return err
 	}
 	if err := cfg.ValidateLive(); err != nil {
 		return err
+	}
+	if inventoryJSON && !cfg.DryRun {
+		return fmt.Errorf("-inventory-json requires DRY_RUN=true")
 	}
 	if err := validateControlExposure(controlExposure{
 		HTTPAddr: cfg.HTTPAddr,
@@ -306,6 +318,15 @@ func run(once, dump bool, envPath string) error {
 		}
 		sigilSink = s
 		sinks.Sigil = s
+	}
+	if inventoryJSON {
+		prom.Capture = true
+		lokiSink.Capture = true
+		otlpSink.Capture = true
+		otlpMetricsSink.Capture = true
+		if profSink != nil {
+			profSink.Capture = true
+		}
 	}
 
 	reg := runner.Catalog()
@@ -551,6 +572,12 @@ func run(once, dump bool, envPath string) error {
 		}
 		if dump {
 			printInventory(prom, lokiSink, otlpSink, profSink, sigilSink)
+		}
+		if inventoryJSON {
+			schema := inventory.FromSinks(prom, lokiSink, otlpSink, otlpMetricsSink, profSink, sigilSink)
+			if err := schema.WriteJSON(os.Stdout); err != nil {
+				return fmt.Errorf("inventory JSON: %w", err)
+			}
 		}
 		return nil
 	}
