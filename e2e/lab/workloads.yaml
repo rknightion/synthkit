@@ -1,0 +1,191 @@
+# Minimal otel-demo-shaped workload deck for the k3s capture lab.
+#
+# Both application images are pinned to the immutable multi-platform BusyBox image
+# index below. The chart itself is independently pinned to k8s-monitoring 4.4.0 by
+# values.yaml and run.sh. Each pod writes stdout continuously, serves a tiny
+# Prometheus endpoint, and carries the standard prometheus.io/* annotations consumed
+# by annotationAutodiscovery.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: otel-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-catalog
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: lab-catalog
+    app.kubernetes.io/component: service
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lab-catalog
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lab-catalog
+        app.kubernetes.io/component: service
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/job: lab-catalog
+        prometheus.io/instance: lab-catalog
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
+        prometheus.io/scheme: http
+        resource.opentelemetry.io/service.name: lab-catalog
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: catalog
+          image: docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              mkdir -p /www
+              printf '%s\n' '# HELP synthkit_lab_requests_total Synthetic lab request count' '# TYPE synthkit_lab_requests_total counter' 'synthkit_lab_requests_total{service="lab-catalog"} 1' '# HELP synthkit_lab_up Synthetic lab health gauge' '# TYPE synthkit_lab_up gauge' 'synthkit_lab_up{service="lab-catalog"} 1' > /www/metrics
+              while true; do
+                echo "synthkit-lab catalog heartbeat"
+                sleep 5
+              done &
+              exec busybox httpd -f -p 8080 -h /www
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 1
+            periodSeconds: 3
+          resources:
+            requests:
+              cpu: 1m
+              memory: 8Mi
+            limits:
+              memory: 32Mi
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: lab-catalog
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-catalog
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: lab-catalog
+    app.kubernetes.io/component: service
+    app.kubernetes.io/version: "1.0.0"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/job: lab-catalog-service
+    prometheus.io/instance: lab-catalog-service
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
+    prometheus.io/scheme: http
+spec:
+  selector:
+    app.kubernetes.io/name: lab-catalog
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: metrics
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-checkout
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: lab-checkout
+    app.kubernetes.io/component: service
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lab-checkout
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lab-checkout
+        app.kubernetes.io/component: service
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/job: lab-checkout
+        prometheus.io/instance: lab-checkout
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
+        prometheus.io/scheme: http
+        resource.opentelemetry.io/service.name: lab-checkout
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: checkout
+          image: docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              mkdir -p /www
+              printf '%s\n' '# HELP synthkit_lab_requests_total Synthetic lab request count' '# TYPE synthkit_lab_requests_total counter' 'synthkit_lab_requests_total{service="lab-checkout"} 1' '# HELP synthkit_lab_up Synthetic lab health gauge' '# TYPE synthkit_lab_up gauge' 'synthkit_lab_up{service="lab-checkout"} 1' > /www/metrics
+              while true; do
+                echo "synthkit-lab checkout heartbeat"
+                sleep 5
+              done &
+              exec busybox httpd -f -p 8080 -h /www
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 1
+            periodSeconds: 3
+          resources:
+            requests:
+              cpu: 1m
+              memory: 8Mi
+            limits:
+              memory: 32Mi
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: lab-checkout
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-checkout
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: lab-checkout
+    app.kubernetes.io/component: service
+    app.kubernetes.io/version: "1.0.0"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/job: lab-checkout-service
+    prometheus.io/instance: lab-checkout-service
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
+    prometheus.io/scheme: http
+spec:
+  selector:
+    app.kubernetes.io/name: lab-checkout
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: metrics
+      protocol: TCP

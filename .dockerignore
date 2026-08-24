@@ -37,6 +37,7 @@ synthkit
 *.out
 /out/
 dist/
+artifacts/
 
 # Editor / OS cruft.
 .DS_Store
