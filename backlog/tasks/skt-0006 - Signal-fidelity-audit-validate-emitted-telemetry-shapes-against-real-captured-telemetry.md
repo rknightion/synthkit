@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-24 11:32'
+updated_date: '2026-08-24 15:12'
 labels: []
 dependencies: []
 priority: high
@@ -18,11 +19,13 @@ ordinal: 25000
 <!-- SECTION:DESCRIPTION:BEGIN -->
 synthkit emits ~9,830 lines worth of declared signal contract across signals/*.md, but the only comparison against reality is a human reading prose against `synthkit -once -dump` text output. That structurally cannot catch label-VALUE drift (`-dump` prints label keys only), instrument-type drift, or bucket-bound drift — which is where nearly all real divergence lives (CloudWatch stat suffixes, `mode` enums, `condition`/`status` pairs, `_sum` gauge-vs-rate).
 
-The outcome: a machine-readable inventory on both sides (what synthkit emits, and what real Grafana Cloud collectors actually ship), a committed provenance-stamped reality corpus, and a CI leg that reports divergence on every PR. Two corpus producers: a k3d lab that runs locally and nightly (covers the generic k8s-monitoring + application-observability surface that the "base" blueprints model and that most users will exercise), and a `gcx` read-back against the live robk EKS stack (covers the AWS/EKS-specific identity a k3d cluster cannot produce).
+The outcome: a machine-readable inventory on both sides (what synthkit emits, and what real Grafana Cloud collectors actually ship), a committed provenance-stamped reality corpus, and a CI leg that reports divergence on every PR. Two corpus producers: a k3d lab that runs locally and nightly (covers the generic k8s-monitoring + application-observability surface that the "base" blueprints model and that most users will exercise), and a `gcx` read-back against an operator-selected live EKS stack (covers the AWS/EKS-specific identity a k3d cluster cannot produce).
 
-Scope note: no Terraform/EKS lab. A real EKS cluster already runs the exact chart under audit (m7kni/rkps-awsinfra, k8s-monitoring 4.4.0); capture from it via gcx rather than rebuilding it.
+Scope note: no Terraform/EKS lab. A real EKS cluster already runs the exact chart under audit with k8s-monitoring 4.4.0; capture from it via gcx rather than rebuilding it.
 
 Existing seams to build on, not replace: `e2e/receiver/` already decodes RW2 / OTLP metrics / OTLP traces / Loki push and exposes `/__inventory`; `cmd/synthkit` `printInventory` already walks every sink; `internal/capture` is the precedent for a capture binary with zero synthkit imports.
+
+Naming constraint: this repository is public and carries a forbidden-words guard in `make hygiene`. Never name a live Grafana Cloud stack, account, or tenant in tracker text, code, docs, or commit messages — say "an operator-selected stack". A term committed here fails CI on every subsequent push until removed.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
