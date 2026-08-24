@@ -101,7 +101,7 @@ trap 'exit 143' TERM
 require_commands() {
   local command_name
   local missing=()
-  local required=(docker k3d helm kubectl curl jq openssl rg)
+  local required=(docker k3d helm kubectl curl jq openssl grep)
   for command_name in "${required[@]}"; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
       missing+=("$command_name")
@@ -133,9 +133,9 @@ check_inputs() {
   # The source is intentionally blueprint-configured. This assertion is the static
   # conformance check requested by SKT-0006.03: prove that the signal still emits
   # km.ChartVersion, then report whether a hardcoded literal exists (currently absent).
-  rg -q 'km\.ChartVersion' "$CONFORMANCE_SOURCE" \
+  grep -q 'km\.ChartVersion' "$CONFORMANCE_SOURCE" \
     || die "conformance.go no longer emits the blueprint-provided km.ChartVersion"
-  if rg -q '4\.4\.0' "$CONFORMANCE_SOURCE"; then
+  if grep -q '4\.4\.0' "$CONFORMANCE_SOURCE"; then
     CONFORMANCE_LITERAL_STATUS="A 4.4.0 literal is present in conformance.go; review whether it is intentional."
   else
     CONFORMANCE_LITERAL_STATUS="No hardcoded chart-version literal is present in conformance.go; it emits km.ChartVersion as designed."
