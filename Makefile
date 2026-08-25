@@ -1,4 +1,4 @@
-.PHONY: build test helper-tests deploy-tests cover vet gate race dump run docker skills-sync skills-check docs-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker compose-check e2e published-e2e signal-fidelity signal-fidelity-k3d ci spdx-check forbidden-words hygiene secret-scan notices sbom
+.PHONY: build test helper-tests deploy-tests cover vet gate race dump run docker skills-sync skills-check docs-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker compose-check e2e published-e2e signal-fidelity signal-fidelity-k3d signal-fidelity-eks-readback ci spdx-check forbidden-words hygiene secret-scan notices sbom
 
 GCX_CONTEXT ?= default
 
@@ -219,6 +219,12 @@ signal-fidelity: ## print report-only synth-vs-reality corpus findings; findings
 
 signal-fidelity-k3d: ## capture real k8s-monitoring 4.4.0 collector egress in a disposable k3d lab.
 	bash e2e/lab/run.sh
+
+signal-fidelity-eks-readback: ## read EKS and core CloudWatch metric shapes from an explicitly selected gcx context.
+	@test "$(origin GCX_CONTEXT)" != "file" || { echo "GCX_CONTEXT must explicitly name the operator-selected gcx context; no default is allowed" >&2; exit 1; }
+	@context='$(GCX_CONTEXT)'; \
+	  test -n "$$context" || { echo "GCX_CONTEXT must explicitly name the operator-selected gcx context" >&2; exit 1; }; \
+	  go run ./cmd/reality-corpus-gcx -context "$$context" -since "$${GCX_SINCE:-24h}" -corpus reality-corpus
 
 # Local "simulate full CI" umbrella.
 ci: ci-go ci-ui ci-docker

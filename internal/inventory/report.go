@@ -25,12 +25,33 @@ func WriteFindingsReport(w io.Writer, findings []ScopedFinding) error {
 		_, err := fmt.Fprintln(w, "\nNo findings. The loaded corpus produced no confirmed contradictions or coverage gaps.")
 		return err
 	}
+	if err := writeEvidenceLegend(w, ordered); err != nil {
+		return err
+	}
 
 	if err := writeDispositionReport(w, "Contradictions", DispositionContradiction, ordered); err != nil {
 		return err
 	}
 	if err := writeDispositionReport(w, "Coverage gaps", DispositionCoverageGap, ordered); err != nil {
 		return err
+	}
+	return nil
+}
+
+func writeEvidenceLegend(w io.Writer, findings []ScopedFinding) error {
+	kinds := make(map[string]struct{})
+	for _, finding := range findings {
+		kinds[finding.Source.Kind] = struct{}{}
+	}
+	if _, ok := kinds["gcx_live_readback"]; ok {
+		if _, err := fmt.Fprintln(w, "\nEvidence scope: `gcx_live_readback` findings are live-read-only EKS evidence that the k3d lab cannot observe."); err != nil {
+			return err
+		}
+	}
+	if _, ok := kinds["k3d_lab"]; ok {
+		if _, err := fmt.Fprintln(w, "Evidence scope: `k3d_lab` findings are k3d-covered evidence from the credential-free lab."); err != nil {
+			return err
+		}
 	}
 	return nil
 }

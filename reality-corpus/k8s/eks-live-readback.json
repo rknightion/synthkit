@@ -1,0 +1,1899 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "k8s",
+  "source": {
+    "kind": "gcx_live_readback",
+    "substrate": "eks",
+    "collector": "grafana/gcx",
+    "collector_version": "1.1.1",
+    "captured_on": "2026-08-25"
+  },
+  "authority": {
+    "substrates": [
+      "eks"
+    ]
+  },
+  "capture_volume": {
+    "runs": 1,
+    "observed_contract_counts": [
+      31
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [
+      {
+        "name": "kube_node_info",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_runtime_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "internal_ip",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-state-metrics"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "kernel_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "kubelet_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "kubeproxy_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os_image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "provider_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "system_uuid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_labels",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-state-metrics"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_beta_kubernetes_io_instance_type",
+            "values": [
+              "c7g.2xlarge",
+              "c7g.4xlarge",
+              "c7g.xlarge",
+              "c8g.xlarge",
+              "m6g.large",
+              "t4g.large"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "label_eks_amazonaws_com_nodegroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_k8s_io_cloud_provider_aws",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_karpenter_sh_nodepool",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_kubernetes_io_arch",
+            "values": [
+              "arm64"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "label_kubernetes_io_hostname",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_kubernetes_io_os",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "label_node_kubernetes_io_instance_type",
+            "values": [
+              "c7g.2xlarge",
+              "c7g.4xlarge",
+              "c7g.xlarge",
+              "c8g.xlarge",
+              "m6g.large",
+              "t4g.large"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "label_topology_kubernetes_io_region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "label_topology_kubernetes_io_zone",
+            "values": [
+              "eu-west-1a",
+              "eu-west-1b",
+              "eu-west-1c"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_info",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "created_by_kind",
+            "values": [
+              "AutoscalingListener",
+              "DaemonSet",
+              "EphemeralRunner",
+              "Job",
+              "ReplicaSet",
+              "StatefulSet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "created_by_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host_ip",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host_network",
+            "values": [
+              "false",
+              "true"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-state-metrics"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod_ip",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "priority_class",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "uid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_conntrack_reconciler_deleted_entries_total",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "IPv4"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_conntrack_reconciler_sync_duration_seconds_bucket",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "IPv4"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_conntrack_reconciler_sync_duration_seconds_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "IPv4"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_conntrack_reconciler_sync_duration_seconds_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "IPv4"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_iptables_ct_state_invalid_dropped_packets_total",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_iptables_localhost_nodeports_accepted_packets_total",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_network_programming_duration_seconds_bucket",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "IPv4"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_network_programming_duration_seconds_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "IPv4"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_network_programming_duration_seconds_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "IPv4"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_full_proxy_rules_duration_seconds_bucket",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_full_proxy_rules_duration_seconds_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_full_proxy_rules_duration_seconds_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_partial_proxy_rules_duration_seconds_bucket",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_partial_proxy_rules_duration_seconds_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_partial_proxy_rules_duration_seconds_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_duration_seconds_bucket",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_duration_seconds_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_duration_seconds_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_endpoint_changes_pending",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_endpoint_changes_total",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_iptables_last",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "table",
+            "values": [
+              "\u003caggregated\u003e",
+              "filter",
+              "nat"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_iptables_total",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "table",
+            "values": [
+              "\u003caggregated\u003e",
+              "filter",
+              "nat"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_last_queued_timestamp_seconds",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_last_timestamp_seconds",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_no_local_endpoints_total",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [
+              "\u003caggregated\u003e",
+              "IPv4",
+              "IPv6"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "traffic_policy",
+            "values": [
+              "\u003caggregated\u003e",
+              "external",
+              "internal"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_service_changes_pending",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubeproxy_sync_proxy_rules_service_changes_total",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "__aggregation__",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubernetes_build_info",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "build_date",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "compiler",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "git_commit",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "git_tree_state",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "git_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "go_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-proxy"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "major",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "minor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "platform",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      }
+    ],
+    "logs": [],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}

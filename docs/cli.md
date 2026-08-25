@@ -200,6 +200,7 @@ browser-direct POSTs use the browser's separate Basic challenge. No token is emb
 | `make pyroscope-proto` | Regenerate vendored Pyroscope pprof + push protobuf Go types. |
 | `make rw-proto-check` | Detect upstream RW2 proto drift (network; in `gate`). |
 | `make selfobs-dashboard` | Build and push the self-obs dashboard to `GCX_CONTEXT`. |
+| `GCX_CONTEXT=<operator-selected-context> make signal-fidelity-eks-readback` | Read EKS and core non-AI CloudWatch metric shapes through read-only gcx calls and cumulative-merge generic EKS corpus documents. |
 | `make ui` | Build the control-plane UI assets (runs `npm ci` + `npm run build`). |
 | `make gate-ui` | Control-plane UI test + typecheck + build. |
 | `make spdx-check` | Verify every `.go` file carries the AGPL-3.0-only SPDX header. |

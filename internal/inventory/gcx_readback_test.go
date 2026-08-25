@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package inventory
+
+import (
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func TestBuildGCXLiveReadbackScopesAreasAndElidesDeploymentIdentity(t *testing.T) {
+	t.Parallel()
+	series := []map[string]string{
+		{
+			"__name__": "kube_node_info", "cluster": "deployment-cluster", "provider_id": "aws:///region-zone/i-instance",
+			"job": "integrations/kubernetes/kube-state-metrics", "kubelet_version": "v1.35.2-eks-build", "source": "kubernetes",
+		},
+		{
+			"__name__": "kube_node_info", "cluster": "deployment-cluster", "provider_id": "aws:///region-zone/i-other",
+			"job": "deployment-specific-job", "kubelet_version": "v1.35.2-eks-build",
+		},
+		{
+			"__name__": "kube_node_labels", "cluster": "deployment-cluster", "node": "node-name",
+			"label_node_kubernetes_io_instance_type": "m6g.large", "label_topology_kubernetes_io_region": "region",
+			"label_topology_kubernetes_io_zone": "region-zone", "label_karpenter_sh_nodepool": "deployment-pool",
+		},
+		{
+			"__name__": "kube_pod_info", "cluster": "deployment-cluster", "pod": "deployment-pod", "uid": "deployment-uid",
+			"created_by_kind": "DaemonSet", "namespace": "deployment-namespace",
+		},
+		{
+			"__name__": "awscni_ipamd_action_inprogress", "cluster": "deployment-cluster",
+			"fn": "nodeIPPoolReconcile", "instance": "node-address",
+		},
+		{
+			"__name__": "kubeproxy_sync_proxy_rules_iptables_total", "cluster": "deployment-cluster",
+			"ip_family": "IPv4", "table": "nat", "instance": "node-address",
+		},
+		{
+			"__name__": "aws_ec2_cpu_credit_usage_sum", "aws_account_id": "account-id",
+			"dimension_InstanceId": "i-instance", "namespace": "AWS/EC2", "region": "region",
+			"tag_kubernetes_io_cluster_deployment_name": "owned",
+		},
+		{"__name__": "aws_bedrock_invocations_sum", "model_id": "deployment-model"},
+		{"__name__": "aws_appflow_flow_executions_sum", "flow_name": "deployment-flow"},
+		{"__name__": "kube_node_info", "cluster": "self-managed-aws", "provider_id": "aws:///region-zone/i-self", "kubelet_version": "v1.35.2"},
+		{"__name__": "kube_node_labels", "cluster": "self-managed-aws", "label_node_kubernetes_io_instance_type": "self-managed.type"},
+		{"__name__": "kube_node_info", "cluster": "other-cluster", "provider_id": "local://node", "kubelet_version": "v1.35.2"},
+		{"__name__": "kube_node_labels", "cluster": "other-cluster", "label_node_kubernetes_io_instance_type": "other.type"},
+	}
+
+	documents, err := BuildGCXLiveReadback(series, "2026-08-25", "1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := documentAreas(documents); !reflect.DeepEqual(got, []string{"cw", "k8s", "k8s-addons"}) {
+		t.Fatalf("areas=%v, want cw/k8s/k8s-addons", got)
+	}
+
+	k8s := documentForArea(t, documents, "k8s")
+	if k8s.Source.Substrate != "eks" || !reflect.DeepEqual(k8s.Authority.Substrates, []string{"eks"}) {
+		t.Fatalf("k8s substrate/authority=%q/%v, want eks singleton", k8s.Source.Substrate, k8s.Authority.Substrates)
+	}
+	if k8s.Source.CapturedOn != "2026-08-25" || k8s.Source.CollectorVersion != "1.1.1" {
+		t.Fatalf("k8s source=%+v", k8s.Source)
+	}
+	assertAttribute(t, metricForName(t, k8s, "kube_node_info"), "provider_id", nil, true)
+	// One deployment-specific observation makes the complete value set open-ended;
+	// retaining only the trusted value would falsely claim the discarded value never existed.
+	assertAttribute(t, metricForName(t, k8s, "kube_node_info"), "job", nil, true)
+	assertAttribute(t, metricForName(t, k8s, "kube_node_labels"), "label_node_kubernetes_io_instance_type", []string{"m6g.large"}, false)
+	assertAttribute(t, metricForName(t, k8s, "kube_node_labels"), "label_topology_kubernetes_io_region", []string{"region"}, false)
+	assertAttribute(t, metricForName(t, k8s, "kube_node_labels"), "label_karpenter_sh_nodepool", nil, true)
+	assertAttribute(t, metricForName(t, k8s, "kube_pod_info"), "created_by_kind", []string{"DaemonSet"}, false)
+	assertAttribute(t, metricForName(t, k8s, "kube_pod_info"), "pod", nil, true)
+	assertAttribute(t, metricForName(t, k8s, "kube_pod_info"), "namespace", nil, true)
+	assertAttribute(t, metricForName(t, k8s, "kubeproxy_sync_proxy_rules_iptables_total"), "table", []string{"nat"}, false)
+
+	addons := documentForArea(t, documents, "k8s-addons")
+	assertAttribute(t, metricForName(t, addons, "awscni_ipamd_action_inprogress"), "fn", []string{"nodeIPPoolReconcile"}, false)
+
+	cw := documentForArea(t, documents, "cw")
+	if got := metricNames(cw); !reflect.DeepEqual(got, []string{"aws_ec2_cpu_credit_usage_sum"}) {
+		t.Fatalf("cw metrics=%v; AI/LLM families must be excluded", got)
+	}
+	assertAttribute(t, metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum"), "aws_account_id", nil, true)
+	assertAttribute(t, metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum"), "dimension_InstanceId", nil, true)
+	assertAttribute(t, metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum"), "namespace", []string{"AWS/EC2"}, false)
+	assertAttribute(t, metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum"), "region", []string{"region"}, false)
+	for _, attribute := range metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum").Labels {
+		if strings.HasPrefix(attribute.Key, "tag_") {
+			t.Fatalf("identity-bearing CloudWatch tag key entered corpus: %q", attribute.Key)
+		}
+	}
+}
+
+func TestMergeCorpusDocumentFileUsesCanonicalCumulativeUnion(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cw", "eks-live-readback.json")
+	first, err := BuildGCXLiveReadback([]map[string]string{{"__name__": "aws_ec2_cpu_credit_usage_sum", "region": "a"}}, "2026-08-24", "1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := BuildGCXLiveReadback([]map[string]string{{"__name__": "aws_ec2_cpu_credit_usage_sum", "region": "b"}}, "2026-08-25", "1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MergeCorpusDocumentFile(path, documentForArea(t, first, "cw")); err != nil {
+		t.Fatal(err)
+	}
+	if err := MergeCorpusDocumentFile(path, documentForArea(t, second, "cw")); err != nil {
+		t.Fatal(err)
+	}
+	documents, err := LoadCorpusDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged := documentForArea(t, documents, "cw")
+	// The frozen cross-capture rule elides a value set as soon as a later run differs;
+	// it does not accumulate both values as an asserted finite enumeration.
+	assertAttribute(t, metricForName(t, merged, "aws_ec2_cpu_credit_usage_sum"), "region", nil, true)
+	if merged.CaptureVolume.Runs != 2 || merged.Source.CapturedOn != "2026-08-25" {
+		t.Fatalf("merged provenance=%+v volume=%+v", merged.Source, merged.CaptureVolume)
+	}
+	if !reflect.DeepEqual(merged.CaptureVolume.ObservedContractCounts, []int{1}) {
+		t.Fatalf("merged observed contract counts=%v, want sorted distinct [1]", merged.CaptureVolume.ObservedContractCounts)
+	}
+}
+
+func documentAreas(documents []CorpusDocument) []string {
+	out := make([]string, len(documents))
+	for i := range documents {
+		out[i] = documents[i].Area
+	}
+	return out
+}
+
+func documentForArea(t *testing.T, documents []CorpusDocument, area string) CorpusDocument {
+	t.Helper()
+	for _, document := range documents {
+		if document.Area == area {
+			return document
+		}
+	}
+	t.Fatalf("missing document for area %q", area)
+	return CorpusDocument{}
+}
+
+func metricForName(t *testing.T, document CorpusDocument, name string) Metric {
+	t.Helper()
+	for _, metric := range document.Inventory.Metrics {
+		if metric.Name == name {
+			return metric
+		}
+	}
+	t.Fatalf("missing metric %q in area %q", name, document.Area)
+	return Metric{}
+}
+
+func metricNames(document CorpusDocument) []string {
+	out := make([]string, len(document.Inventory.Metrics))
+	for i := range document.Inventory.Metrics {
+		out[i] = document.Inventory.Metrics[i].Name
+	}
+	return out
+}
+
+func assertAttribute(t *testing.T, metric Metric, key string, values []string, elided bool) {
+	t.Helper()
+	for _, attribute := range metric.Labels {
+		if attribute.Key == key {
+			valuesMatch := len(attribute.Values) == len(values)
+			for i := range values {
+				valuesMatch = valuesMatch && attribute.Values[i] == values[i]
+			}
+			if !valuesMatch || attribute.ValuesElided != elided {
+				t.Fatalf("metric %q attribute %q=%v elided=%v, want %v elided=%v", metric.Name, key, attribute.Values, attribute.ValuesElided, values, elided)
+			}
+			return
+		}
+	}
+	t.Fatalf("metric %q missing attribute %q", metric.Name, key)
+}

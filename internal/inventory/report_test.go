@@ -51,6 +51,27 @@ func TestWriteFindingsReportGroupsFindingsAndEmitsAreaPendingStubs(t *testing.T)
 	}
 }
 
+func TestWriteFindingsReportDistinguishesLiveReadbackFromK3D(t *testing.T) {
+	t.Parallel()
+	findings := []ScopedFinding{
+		{Area: "k8s", Source: CorpusSource{Kind: "gcx_live_readback", Substrate: "eks"}, Substrate: "eks", Finding: Finding{
+			Kind: KindExtraMetric, Disposition: DispositionCoverageGap, Signal: "kube_node_info", Field: "name",
+		}},
+		{Area: "k8s", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{
+			Kind: KindExtraMetric, Disposition: DispositionCoverageGap, Signal: "container_cpu_usage_seconds_total", Field: "name",
+		}},
+	}
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"live-read-only EKS evidence", "k3d-covered evidence"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("report missing evidence scope %q:\n%s", want, out.String())
+		}
+	}
+}
+
 func TestWriteFindingsReportIsDeterministicAndEmptyReportIsUseful(t *testing.T) {
 	first := []ScopedFinding{
 		{Area: "logs", Source: CorpusSource{Kind: "z", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{

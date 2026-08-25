@@ -1,0 +1,311 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package inventory
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+const gcxLiveReadbackSource = "gcx_live_readback"
+
+var cloudWatchMetricPrefixes = []string{
+	"aws_amazonmwaa_",
+	"aws_aoss_",
+	"aws_applicationelb_",
+	"aws_docdb_",
+	"aws_ebs_",
+	"aws_ec2_",
+	"aws_eks_",
+	"aws_elasticache_",
+	"aws_firehose_",
+	"aws_glue_",
+	"aws_mwaa_",
+	"aws_natgateway_",
+	"aws_neptune_",
+	"aws_networkelb_",
+	"aws_privatelinkendpoints_",
+	"aws_privatelinkservices_",
+	"aws_rds_",
+	"aws_s3_",
+}
+
+var retainedLiveLabelValues = map[string]struct{}{
+	"api":                                    {},
+	"created_by_kind":                        {},
+	"error":                                  {},
+	"fn":                                     {},
+	"host_network":                           {},
+	"ip_family":                              {},
+	"label_beta_kubernetes_io_arch":          {},
+	"label_beta_kubernetes_io_instance_type": {},
+	"label_beta_kubernetes_io_os":            {},
+	"label_failure_domain_beta_kubernetes_io_region": {},
+	"label_failure_domain_beta_kubernetes_io_zone":   {},
+	"label_kubernetes_io_arch":                       {},
+	"label_kubernetes_io_os":                         {},
+	"label_node_kubernetes_io_instance_type":         {},
+	"label_topology_kubernetes_io_region":            {},
+	"label_topology_kubernetes_io_zone":              {},
+	"owner_is_controller":                            {},
+	"owner_kind":                                     {},
+	"reason":                                         {},
+	"region":                                         {},
+	"source":                                         {},
+	"stat":                                           {},
+	"status":                                         {},
+	"table":                                          {},
+	"traffic_policy":                                 {},
+}
+
+var trustedLiveJobValues = map[string]struct{}{
+	"cloud/aws/amazonmwaa":                       {},
+	"cloud/aws/aoss":                             {},
+	"cloud/aws/applicationelb":                   {},
+	"cloud/aws/docdb":                            {},
+	"cloud/aws/ebs":                              {},
+	"cloud/aws/ec2":                              {},
+	"cloud/aws/eks":                              {},
+	"cloud/aws/elasticache":                      {},
+	"cloud/aws/firehose":                         {},
+	"cloud/aws/glue":                             {},
+	"cloud/aws/mwaa":                             {},
+	"cloud/aws/natgateway":                       {},
+	"cloud/aws/neptune":                          {},
+	"cloud/aws/networkelb":                       {},
+	"cloud/aws/privatelinkendpoints":             {},
+	"cloud/aws/privatelinkservices":              {},
+	"cloud/aws/rds":                              {},
+	"cloud/aws/s3":                               {},
+	"integrations/aws-vpc-cni":                   {},
+	"integrations/kubernetes/kube-proxy":         {},
+	"integrations/kubernetes/kube-state-metrics": {},
+}
+
+// BuildGCXLiveReadback converts Prometheus /series label sets returned by gcx into
+// frozen substrate-scoped corpus documents. Deployment identities remain key-presence
+// evidence only; only the small allowlist of stable enum/topology values is retained.
+func BuildGCXLiveReadback(series []map[string]string, capturedOn, collectorVersion string) ([]CorpusDocument, error) {
+	if err := validateCapturedOn(capturedOn); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(collectorVersion) == "" {
+		return nil, errors.New("collector version must not be empty")
+	}
+
+	inventories := map[string]Schema{
+		"cw":         New(),
+		"k8s":        New(),
+		"k8s-addons": New(),
+	}
+	eksClusters := observedEKSClusters(series)
+	for _, labels := range series {
+		name := labels["__name__"]
+		area, ok := liveMetricArea(name, labels)
+		if !ok {
+			continue
+		}
+		if (area == "k8s" || area == "k8s-addons") && !belongsToObservedEKS(labels, eksClusters) {
+			continue
+		}
+		metricLabels := make(map[string]string, len(labels)-1)
+		for key, value := range labels {
+			if key != "__name__" && !identityBearingLiveLabelKey(key) {
+				metricLabels[key] = value
+			}
+		}
+		schema := inventories[area]
+		schema.AddMetric(name, "", InstrumentUnknown, metricLabels, nil)
+		inventories[area] = schema
+	}
+
+	documents := make([]CorpusDocument, 0, len(inventories))
+	for area, schema := range inventories {
+		if len(schema.Metrics) == 0 {
+			continue
+		}
+		elideLiveDeploymentValues(&schema, area)
+		document := CorpusDocument{
+			CorpusVersion: CorpusVersion,
+			Area:          area,
+			Source: CorpusSource{
+				Kind:             gcxLiveReadbackSource,
+				Substrate:        "eks",
+				Collector:        "grafana/gcx",
+				CollectorVersion: collectorVersion,
+				CapturedOn:       capturedOn,
+			},
+			Authority: CorpusAuthority{Substrates: []string{"eks"}},
+			CaptureVolume: CaptureVolume{
+				Runs:                   1,
+				ObservedContractCounts: []int{len(schema.Metrics)},
+			},
+			Inventory: schema,
+		}
+		normalizeCorpusDocument(&document)
+		if err := validateCorpusDocument(document); err != nil {
+			return nil, fmt.Errorf("build %s live read-back document: %w", area, err)
+		}
+		documents = append(documents, document)
+	}
+	sort.Slice(documents, func(i, j int) bool { return documents[i].Area < documents[j].Area })
+	return documents, nil
+}
+
+func observedEKSClusters(series []map[string]string) map[string]struct{} {
+	out := make(map[string]struct{})
+	for _, labels := range series {
+		if labels["__name__"] != "kube_node_info" || !isEKSNodeInfo(labels) {
+			continue
+		}
+		for _, key := range []string{"cluster", "k8s_cluster_name"} {
+			if labels[key] != "" {
+				out[labels[key]] = struct{}{}
+			}
+		}
+	}
+	return out
+}
+
+func belongsToObservedEKS(labels map[string]string, eksClusters map[string]struct{}) bool {
+	if labels["__name__"] == "kube_node_info" {
+		return isEKSNodeInfo(labels)
+	}
+	for _, key := range []string{"cluster", "k8s_cluster_name"} {
+		if _, ok := eksClusters[labels[key]]; ok && labels[key] != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func isEKSNodeInfo(labels map[string]string) bool {
+	return strings.HasPrefix(labels["provider_id"], "aws://") &&
+		strings.Contains(labels["kubelet_version"], "-eks-")
+}
+
+func liveMetricArea(name string, labels map[string]string) (string, bool) {
+	switch {
+	case name == "kube_node_info", name == "kube_node_labels", name == "kube_pod_info", name == "kube_pod_labels":
+		return "k8s", true
+	case strings.HasPrefix(name, "kubeproxy_"):
+		return "k8s", true
+	case name == "kubernetes_build_info" && labels["job"] == "integrations/kubernetes/kube-proxy":
+		return "k8s", true
+	case strings.HasPrefix(name, "awscni_"):
+		return "k8s-addons", true
+	}
+	for _, prefix := range cloudWatchMetricPrefixes {
+		if strings.HasPrefix(name, prefix) {
+			return "cw", true
+		}
+	}
+	return "", false
+}
+
+func identityBearingLiveLabelKey(key string) bool {
+	// CloudWatch resource-tag discovery turns tag names into Prometheus label keys.
+	// Those keys can contain a live cluster, account, tenant, or workload identity;
+	// the frozen schema can elide values but not keys, so they cannot enter a public corpus.
+	return strings.HasPrefix(key, "tag_")
+}
+
+func elideLiveDeploymentValues(schema *Schema, area string) {
+	for metricIndex := range schema.Metrics {
+		for attributeIndex := range schema.Metrics[metricIndex].Labels {
+			attribute := &schema.Metrics[metricIndex].Labels[attributeIndex]
+			_, retain := retainedLiveLabelValues[attribute.Key]
+			if attribute.Key == "job" {
+				retain = allTrustedLiveValues(attribute.Values, trustedLiveJobValues)
+			}
+			if area == "cw" && attribute.Key == "namespace" {
+				retain = allOfficialCloudWatchNamespaces(attribute.Values)
+			}
+			if !retain {
+				attribute.Values = []string{}
+				attribute.ValuesElided = true
+			}
+		}
+	}
+	schema.Normalize()
+	normalizeElidedValues(schema)
+}
+
+func allTrustedLiveValues(values []string, trusted map[string]struct{}) bool {
+	if len(values) == 0 {
+		return false
+	}
+	for _, value := range values {
+		if _, ok := trusted[value]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func allOfficialCloudWatchNamespaces(values []string) bool {
+	if len(values) == 0 {
+		return false
+	}
+	for _, value := range values {
+		if !strings.HasPrefix(value, "AWS/") || strings.ContainsAny(strings.TrimPrefix(value, "AWS/"), "/ ") {
+			return false
+		}
+	}
+	return true
+}
+
+// MergeCorpusDocumentFile atomically writes candidate or cumulative-merges it into
+// an existing frozen corpus document. Absence in candidate never removes evidence.
+func MergeCorpusDocumentFile(path string, candidate CorpusDocument) error {
+	if err := validateCorpusDocument(candidate); err != nil {
+		return fmt.Errorf("candidate corpus document: %w", err)
+	}
+	normalizeCorpusDocument(&candidate)
+	document := candidate
+	if _, err := os.Stat(path); err == nil {
+		existing, loadErr := loadCorpusFile(path)
+		if loadErr != nil {
+			return loadErr
+		}
+		merged, mergeErr := CanonicalMerge(existing, candidate)
+		if mergeErr != nil {
+			return mergeErr
+		}
+		document = merged
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat corpus document %q: %w", path, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create corpus directory for %q: %w", path, err)
+	}
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".gcx-readback-*.json")
+	if err != nil {
+		return fmt.Errorf("create temporary corpus document for %q: %w", path, err)
+	}
+	temporaryPath := temporary.Name()
+	defer os.Remove(temporaryPath)
+	encoder := json.NewEncoder(temporary)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(document); err != nil {
+		temporary.Close()
+		return fmt.Errorf("encode corpus document %q: %w", path, err)
+	}
+	if err := temporary.Chmod(0o644); err != nil {
+		temporary.Close()
+		return fmt.Errorf("set corpus document permissions %q: %w", path, err)
+	}
+	if err := temporary.Close(); err != nil {
+		return fmt.Errorf("close corpus document %q: %w", path, err)
+	}
+	if err := os.Rename(temporaryPath, path); err != nil {
+		return fmt.Errorf("replace corpus document %q: %w", path, err)
+	}
+	return nil
+}

@@ -38,7 +38,7 @@ different evidence and must remain distinguishable in the envelope.
 | Producer | What it does | Authority and safety boundary |
 | --- | --- | --- |
 | Credential-free k3d capture | Runs the disposable k3d capture lab and records collector-egress inventory. Its provenance uses the generic `k3d_lab` producer kind and the `k3s` substrate. | Root-owned and exclusive. It needs no service credentials. It may establish k3s-scoped shapes, but it cannot establish claims about another substrate. |
-| Operator-selected live read-back | Reads the operator-selected live source through read-only queries and records the resulting inventory. Its provenance uses the generic `gcx_readback` producer kind and the substrate selected for that read-back. | Root-owned and exclusive. The operator chooses the target before the read-back; queries must not mutate the source. Credentials are used only by the root operation, never copied into a candidate, corpus document, or this page. |
+| Operator-selected live read-back | Reads the operator-selected live source through read-only queries and records the resulting inventory. Its provenance uses the generic `gcx_live_readback` producer kind and the substrate selected for that read-back. | Root-owned and exclusive. The operator chooses the target before the read-back; queries must not mutate the source. Credentials are used only by the root operation, never copied into a candidate, corpus document, or this page. |
 
 The producer kind, substrate, collector name, collector version, and capture date
 are part of the evidence. A source ID is a generic producer name, not a stack,
@@ -49,6 +49,43 @@ In particular, k3s and EKS evidence are not interchangeable. Evidence from k3s
 cannot correct an EKS-scoped claim, and evidence from EKS cannot correct a
 k3s-scoped claim. Keep the documents separate and let `authority.substrates`
 limit which synthetic claims each document may contradict.
+
+### EKS live read-back command
+
+The EKS producer is manual and credentialed. The root must receive the target
+selection from the operator and pass it explicitly; the target rejects the
+Makefile's unrelated default context rather than querying it:
+
+```bash
+GCX_CONTEXT=<operator-selected-context> make signal-fidelity-eks-readback
+```
+
+`GCX_SINCE` optionally changes the bounded lookback from its `24h` default.
+The command first runs `gcx config check --context <selected>` and stops with a
+clear error if the named context, its credential, connectivity, or configured
+Prometheus datasource is unavailable. It then uses only the read-only
+`gcx metrics series` endpoint. It does not change the active context and never
+calls a create, update, push, delete, apply, or other mutation command.
+
+The query scope is deliberately explicit:
+
+- EKS node and pod identity: `kube_node_info`, `kube_node_labels`,
+  `kube_pod_info`, and `kube_pod_labels`, limited to clusters proven EKS by an
+  `aws://` provider-ID observation and an EKS-marked kubelet version.
+- EKS add-ons: `awscni_*`, `kubeproxy_*`, and kube-proxy's
+  `kubernetes_build_info` series.
+- Core CloudWatch catalogue families from `signals/cw.md`, including observed
+  `_sum`, `_average`, `_maximum`, `_minimum`, and `_sample_count` names.
+
+Bedrock, AppFlow, and every other AI/LLM family are excluded by construction.
+The command writes only the generic paths `k8s/eks-live-readback.json`,
+`k8s-addons/eks-live-readback.json`, and `cw/eks-live-readback.json`. Stable
+enum, instance-type, and topology values are retained; stack, account, tenant,
+cluster, resource, pod, node, IP, UID, ARN, and other deployment identities are
+stored as key presence with sticky `values_elided: true`. CloudWatch `tag_*`
+label keys are omitted because a tag name can itself contain a live deployment
+identity, which the frozen schema cannot safely elide. The selected context is
+never written to a document or printed in the report.
 
 ## Safe refresh sequence
 
