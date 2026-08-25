@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 // FindingKind identifies the shape of a difference between a synthetic
@@ -19,15 +20,10 @@ const (
 	KindLabelValueContradiction FindingKind = "label_value_contradiction"
 	KindInstrumentMismatch      FindingKind = "instrument_mismatch"
 	KindBucketBoundMismatch     FindingKind = "bucket_bound_mismatch"
-
-	// The Finding-prefixed spellings are aliases for callers that prefer the
-	// full type name in constant references.
-	FindingMissingMetric           FindingKind = KindMissingMetric
-	FindingExtraMetric             FindingKind = KindExtraMetric
-	FindingUnexpectedLabelKey      FindingKind = KindUnexpectedLabelKey
-	FindingLabelValueContradiction FindingKind = KindLabelValueContradiction
-	FindingInstrumentMismatch      FindingKind = KindInstrumentMismatch
-	FindingBucketBoundMismatch     FindingKind = KindBucketBoundMismatch
+	KindExtraLog                FindingKind = "extra_log"
+	KindExtraTrace              FindingKind = "extra_trace"
+	KindExtraProfile            FindingKind = "extra_profile"
+	KindExtraSigil              FindingKind = "extra_sigil"
 )
 
 // Disposition says which side of the comparison is unsupported by the other
@@ -38,11 +34,6 @@ type Disposition string
 const (
 	DispositionContradiction Disposition = "contradiction"
 	DispositionCoverageGap   Disposition = "coverage_gap"
-
-	// Short spellings keep the constants convenient while retaining the typed
-	// Disposition contract.
-	Contradiction Disposition = DispositionContradiction
-	CoverageGap   Disposition = DispositionCoverageGap
 )
 
 // Finding is one typed difference between a synthetic inventory and a reality
@@ -57,63 +48,65 @@ type Finding struct {
 	RealityValues []string    `json:"reality_values"`
 }
 
-// Diff compares the metric portions of synth and reality. The inventory is a
-// structural contract for the signal catalogue, so metrics are matched by
-// logical family name, independently of their transport. It reports both
-// directions when a set has values unique to each side: the synth-only claim is
-// a contradiction and the reality-only claim is a coverage gap.
+// Diff compares every signal class carried by synth and reality. The inventory
+// is a structural contract for the signal catalogue, so families are matched
+// by their logical identity independently of transport details. The reality
+// inventory is the comparison scope: a family absent from reality is not
+// evidence of drift, while a reality-only family is a coverage gap.
 //
-// Label values marked ValuesElided are deliberately treated as open-ended. A
-// value absent from an elided set cannot prove a contradiction or a coverage
+// Attribute values marked ValuesElided are deliberately treated as open-ended.
+// A value absent from an elided set cannot prove a contradiction or a coverage
 // gap, so Diff reports only differences that remain certain after accounting
 // for the cap.
 func Diff(synth, reality Schema) []Finding {
-	synthMetrics := indexMetrics(synth.Metrics)
-	realityMetrics := indexMetrics(reality.Metrics)
-
-	names := make([]string, 0, len(synthMetrics)+len(realityMetrics))
-	seenNames := make(map[string]struct{}, len(synthMetrics)+len(realityMetrics))
-	for name := range synthMetrics {
-		seenNames[name] = struct{}{}
-		names = append(names, name)
-	}
-	for name := range realityMetrics {
-		if _, seen := seenNames[name]; !seen {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-
 	out := make([]Finding, 0)
-	for _, name := range names {
-		synthMetric, inSynth := synthMetrics[name]
-		realityMetric, inReality := realityMetrics[name]
-		switch {
-		case !inReality:
-			out = append(out, Finding{
-				Kind:          KindMissingMetric,
-				Disposition:   DispositionContradiction,
-				Signal:        name,
-				Field:         "name",
-				SynthValues:   []string{name},
-				RealityValues: []string{},
-			})
-		case !inSynth:
-			out = append(out, Finding{
-				Kind:          KindExtraMetric,
-				Disposition:   DispositionCoverageGap,
-				Signal:        name,
-				Field:         "name",
-				SynthValues:   []string{},
-				RealityValues: []string{name},
-			})
-		default:
-			diffMetric(&out, synthMetric, realityMetric)
-		}
-	}
-
+	diffMetrics(&out, synth.Metrics, reality.Metrics)
+	diffLogs(&out, synth.Logs, reality.Logs)
+	diffTraces(&out, synth.Traces, reality.Traces)
+	diffProfiles(&out, synth.Profiles, reality.Profiles)
+	diffSigil(&out, synth.Sigil, reality.Sigil)
 	sortFindings(out)
 	return out
+}
+
+func diffMetrics(out *[]Finding, synthMetrics, realityMetrics []Metric) {
+	synthIndex := indexMetrics(synthMetrics)
+	realityIndex := indexMetrics(realityMetrics)
+
+	names := sortedMetricNames(realityIndex)
+
+	for _, name := range names {
+		synthMetric, inSynth := synthIndex[name]
+		realityMetric := realityIndex[name]
+		if !inSynth {
+			appendFamilyCoverage(out, KindExtraMetric, name, "name")
+		} else {
+			diffMetric(out, synthMetric, realityMetric)
+		}
+	}
+}
+
+func sortedMetricNames(metrics map[string]metricView) []string {
+	names := make([]string, 0, len(metrics))
+	for name := range metrics {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func appendFamilyCoverage(out *[]Finding, kind FindingKind, signal, field string, values ...string) {
+	if len(values) == 0 {
+		values = []string{signal}
+	}
+	*out = append(*out, Finding{
+		Kind:          kind,
+		Disposition:   DispositionCoverageGap,
+		Signal:        signal,
+		Field:         field,
+		SynthValues:   []string{},
+		RealityValues: cloneStrings(values),
+	})
 }
 
 type metricView struct {
@@ -179,6 +172,336 @@ func indexMetrics(metrics []Metric) map[string]metricView {
 		out[metric.Name] = view
 	}
 	return out
+}
+
+type logIdentity struct {
+	// Source is deliberately absent: capture-specific source names are
+	// provenance exemplars, while transport and structural key shape define a
+	// comparable log family.
+	transport string
+	labelKeys string
+	metadata  string
+}
+
+type logView struct {
+	signal       string
+	streamLabels map[string]attributeView
+	metadata     map[string]struct{}
+}
+
+func indexLogs(logs []Log) map[logIdentity]logView {
+	out := make(map[logIdentity]logView, len(logs))
+	for _, log := range logs {
+		labels := indexAttributes(log.StreamLabels)
+		metadata := indexStrings(log.StructuredMetadataKeys)
+		key := logIdentity{
+			transport: log.Transport,
+			labelKeys: encodeKeys(sortedAttributeKeys(labels)),
+			metadata:  encodeKeys(sortedStrings(metadata)),
+		}
+		view, ok := out[key]
+		if !ok {
+			view = logView{
+				signal:       logSignal(key),
+				streamLabels: make(map[string]attributeView),
+				metadata:     make(map[string]struct{}),
+			}
+		}
+		mergeAttributeViews(view.streamLabels, labels)
+		for value := range metadata {
+			view.metadata[value] = struct{}{}
+		}
+		out[key] = view
+	}
+	return out
+}
+
+// logSignal is the readable identity used in findings. Empty structural
+// shapes retain the transport-only signal; populated shapes add their sorted
+// schema field keys so two families sharing a transport remain distinguishable.
+func logSignal(key logIdentity) string {
+	parts := make([]string, 0, 2)
+	if key.labelKeys != "" {
+		parts = append(parts, "stream_labels="+strings.ReplaceAll(key.labelKeys, "\x00", ","))
+	}
+	if key.metadata != "" {
+		parts = append(parts, "structured_metadata_keys="+strings.ReplaceAll(key.metadata, "\x00", ","))
+	}
+	if len(parts) == 0 {
+		return key.transport
+	}
+	return key.transport + "[" + strings.Join(parts, ";") + "]"
+}
+
+type traceView struct {
+	signal            string
+	resourceAttrs     map[string]attributeView
+	spanNames         map[string]struct{}
+	spanAttributeKeys map[string]struct{}
+}
+
+func indexTraces(traces []Trace) map[string]traceView {
+	out := make(map[string]traceView, len(traces))
+	for _, trace := range traces {
+		view, ok := out[trace.Service]
+		if !ok {
+			view = traceView{
+				signal:            trace.Service,
+				resourceAttrs:     make(map[string]attributeView),
+				spanNames:         make(map[string]struct{}),
+				spanAttributeKeys: make(map[string]struct{}),
+			}
+		}
+		mergeAttributeViews(view.resourceAttrs, indexAttributes(trace.ResourceAttributes))
+		mergeStringSet(view.spanNames, trace.SpanNames)
+		mergeStringSet(view.spanAttributeKeys, trace.SpanAttributeKeys)
+		out[trace.Service] = view
+	}
+	return out
+}
+
+type profileView struct {
+	signal string
+	labels map[string]attributeView
+}
+
+func indexProfiles(profiles []Profile) map[string]profileView {
+	out := make(map[string]profileView, len(profiles))
+	for _, profile := range profiles {
+		view, ok := out[profile.ProfileType]
+		if !ok {
+			view = profileView{signal: profile.ProfileType, labels: make(map[string]attributeView)}
+		}
+		mergeAttributeViews(view.labels, indexAttributes(profile.Labels))
+		out[profile.ProfileType] = view
+	}
+	return out
+}
+
+type sigilView struct {
+	signal         string
+	operationNames map[string]struct{}
+}
+
+func indexSigil(sigil []Sigil) map[string]sigilView {
+	out := make(map[string]sigilView, len(sigil))
+	for _, value := range sigil {
+		view, ok := out[value.IngestKind]
+		if !ok {
+			view = sigilView{signal: value.IngestKind, operationNames: make(map[string]struct{})}
+		}
+		mergeStringSet(view.operationNames, value.OperationNames)
+		out[value.IngestKind] = view
+	}
+	return out
+}
+
+func diffLogs(out *[]Finding, synthLogs, realityLogs []Log) {
+	synthIndex := indexLogs(synthLogs)
+	realityIndex := indexLogs(realityLogs)
+	keys := sortedLogIdentities(realityIndex)
+	for _, key := range keys {
+		reality := realityIndex[key]
+		synth, ok := synthIndex[key]
+		if !ok {
+			appendFamilyCoverage(out, KindExtraLog, reality.signal, "transport")
+			continue
+		}
+		diffAttributes(out, reality.signal, "stream_labels", synth.streamLabels, reality.streamLabels)
+		appendDirectional(
+			out,
+			KindUnexpectedLabelKey,
+			reality.signal,
+			"structured_metadata_keys",
+			sortedStrings(synth.metadata),
+			sortedStrings(reality.metadata),
+			true,
+			true,
+		)
+	}
+}
+
+func diffTraces(out *[]Finding, synthTraces, realityTraces []Trace) {
+	synthIndex := indexTraces(synthTraces)
+	realityIndex := indexTraces(realityTraces)
+	for _, signal := range sortedTraceSignals(realityIndex) {
+		reality := realityIndex[signal]
+		synth, ok := synthIndex[signal]
+		if !ok {
+			appendFamilyCoverage(out, KindExtraTrace, reality.signal, "service")
+			continue
+		}
+		diffAttributes(out, reality.signal, "resource_attributes", synth.resourceAttrs, reality.resourceAttrs)
+		appendDirectional(
+			out,
+			KindInstrumentMismatch,
+			reality.signal,
+			"span_names",
+			sortedStrings(synth.spanNames),
+			sortedStrings(reality.spanNames),
+			true,
+			true,
+		)
+		appendDirectional(
+			out,
+			KindUnexpectedLabelKey,
+			reality.signal,
+			"span_attribute_keys",
+			sortedStrings(synth.spanAttributeKeys),
+			sortedStrings(reality.spanAttributeKeys),
+			true,
+			true,
+		)
+	}
+}
+
+func diffProfiles(out *[]Finding, synthProfiles, realityProfiles []Profile) {
+	synthIndex := indexProfiles(synthProfiles)
+	realityIndex := indexProfiles(realityProfiles)
+	for _, signal := range sortedProfileSignals(realityIndex) {
+		reality := realityIndex[signal]
+		synth, ok := synthIndex[signal]
+		if !ok {
+			appendFamilyCoverage(out, KindExtraProfile, reality.signal, "profile_type")
+			continue
+		}
+		diffAttributes(out, reality.signal, "labels", synth.labels, reality.labels)
+	}
+}
+
+func diffSigil(out *[]Finding, synthSigil, realitySigil []Sigil) {
+	synthIndex := indexSigil(synthSigil)
+	realityIndex := indexSigil(realitySigil)
+	for _, signal := range sortedSigilSignals(realityIndex) {
+		reality := realityIndex[signal]
+		synth, ok := synthIndex[signal]
+		if !ok {
+			appendFamilyCoverage(out, KindExtraSigil, reality.signal, "ingest_kind")
+			continue
+		}
+		appendDirectional(
+			out,
+			KindInstrumentMismatch,
+			reality.signal,
+			"operation_names",
+			sortedStrings(synth.operationNames),
+			sortedStrings(reality.operationNames),
+			true,
+			true,
+		)
+	}
+}
+
+func diffAttributes(out *[]Finding, signal, field string, synth, reality map[string]attributeView) {
+	synthKeys := sortedAttributeKeys(synth)
+	realityKeys := sortedAttributeKeys(reality)
+	appendDirectional(out, KindUnexpectedLabelKey, signal, field, synthKeys, realityKeys, true, true)
+	for _, key := range intersection(synthKeys, realityKeys) {
+		synthAttribute := synth[key]
+		realityAttribute := reality[key]
+		appendDirectional(
+			out,
+			KindLabelValueContradiction,
+			signal,
+			field+"."+key,
+			sortedStrings(synthAttribute.values),
+			sortedStrings(realityAttribute.values),
+			!realityAttribute.elided,
+			!synthAttribute.elided,
+		)
+	}
+}
+
+func indexAttributes(attributes []Attribute) map[string]attributeView {
+	out := make(map[string]attributeView, len(attributes))
+	for _, attribute := range attributes {
+		view, ok := out[attribute.Key]
+		if !ok {
+			view = attributeView{values: make(map[string]struct{})}
+		}
+		for _, value := range attribute.Values {
+			view.values[value] = struct{}{}
+		}
+		view.elided = view.elided || attribute.ValuesElided
+		out[attribute.Key] = view
+	}
+	return out
+}
+
+func mergeAttributeViews(dst, src map[string]attributeView) {
+	for key, source := range src {
+		target, ok := dst[key]
+		if !ok {
+			target = attributeView{values: make(map[string]struct{})}
+		}
+		for value := range source.values {
+			target.values[value] = struct{}{}
+		}
+		target.elided = target.elided || source.elided
+		dst[key] = target
+	}
+}
+
+func indexStrings(values []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		out[value] = struct{}{}
+	}
+	return out
+}
+
+func mergeStringSet(dst map[string]struct{}, values []string) {
+	for _, value := range values {
+		dst[value] = struct{}{}
+	}
+}
+
+func encodeKeys(values []string) string {
+	return strings.Join(values, "\x00")
+}
+
+func sortedLogIdentities(logs map[logIdentity]logView) []logIdentity {
+	keys := make([]logIdentity, 0, len(logs))
+	for key := range logs {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].transport != keys[j].transport {
+			return keys[i].transport < keys[j].transport
+		}
+		if keys[i].labelKeys != keys[j].labelKeys {
+			return keys[i].labelKeys < keys[j].labelKeys
+		}
+		return keys[i].metadata < keys[j].metadata
+	})
+	return keys
+}
+
+func sortedTraceSignals(traces map[string]traceView) []string {
+	signals := make([]string, 0, len(traces))
+	for signal := range traces {
+		signals = append(signals, signal)
+	}
+	sort.Strings(signals)
+	return signals
+}
+
+func sortedProfileSignals(profiles map[string]profileView) []string {
+	signals := make([]string, 0, len(profiles))
+	for signal := range profiles {
+		signals = append(signals, signal)
+	}
+	sort.Strings(signals)
+	return signals
+}
+
+func sortedSigilSignals(sigil map[string]sigilView) []string {
+	signals := make([]string, 0, len(sigil))
+	for signal := range sigil {
+		signals = append(signals, signal)
+	}
+	sort.Strings(signals)
+	return signals
 }
 
 func diffMetric(out *[]Finding, synth, reality metricView) {

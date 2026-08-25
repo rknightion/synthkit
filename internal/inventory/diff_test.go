@@ -5,6 +5,7 @@ package inventory
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -18,16 +19,13 @@ func TestDiffMissingAndExtraMetricDispositions(t *testing.T) {
 		signal      string
 		synthVals   []string
 		realityVals []string
+		wantCount   int
 	}{
 		{
-			name:        "synth metric absent from reality is contradiction",
-			synth:       metricSchema(Metric{Name: "synth_only"}),
-			reality:     New(),
-			kind:        KindMissingMetric,
-			disposition: DispositionContradiction,
-			signal:      "synth_only",
-			synthVals:   []string{"synth_only"},
-			realityVals: []string{},
+			name:      "synth metric absent from reality is outside corpus scope",
+			synth:     metricSchema(Metric{Name: "synth_only"}),
+			reality:   New(),
+			wantCount: 0,
 		},
 		{
 			name:        "reality metric absent from synth is coverage gap",
@@ -38,14 +36,18 @@ func TestDiffMissingAndExtraMetricDispositions(t *testing.T) {
 			signal:      "reality_only",
 			synthVals:   []string{},
 			realityVals: []string{"reality_only"},
+			wantCount:   1,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			findings := Diff(test.synth, test.reality)
-			if len(findings) != 1 {
-				t.Fatalf("findings=%+v, want one finding", findings)
+			if len(findings) != test.wantCount {
+				t.Fatalf("findings=%+v, want %d finding(s)", findings, test.wantCount)
+			}
+			if test.wantCount == 0 {
+				return
 			}
 			got := findings[0]
 			if got.Kind != test.kind || got.Disposition != test.disposition || got.Signal != test.signal {
@@ -199,6 +201,207 @@ func TestDiffHonorsElidedLabelValues(t *testing.T) {
 
 	if findings := Diff(synth, reality); len(findings) != 0 {
 		t.Fatalf("findings=%+v, elided sets must not imply either side is absent", findings)
+	}
+}
+
+func TestDiffLogs(t *testing.T) {
+	synth := Schema{
+		Logs: []Log{{
+			Source:                 "pod-a",
+			Transport:              TransportLoki,
+			StreamLabels:           []Attribute{{Key: "cluster", Values: []string{"synthetic"}}},
+			StructuredMetadataKeys: []string{"trace_id"},
+		}},
+	}
+	reality := Schema{
+		Logs: []Log{{
+			Source:                 "pod-b",
+			Transport:              TransportLoki,
+			StreamLabels:           []Attribute{{Key: "cluster", Values: []string{"real"}}},
+			StructuredMetadataKeys: []string{"trace_id"},
+		}},
+	}
+
+	findings := Diff(synth, reality)
+	if len(findings) != 2 {
+		t.Fatalf("findings=%+v, want log value contradiction and coverage gap", findings)
+	}
+	signal := "loki[stream_labels=cluster;structured_metadata_keys=trace_id]"
+	assertFinding(t, findings, KindLabelValueContradiction, DispositionContradiction, signal, "stream_labels.cluster")
+	assertFinding(t, findings, KindLabelValueContradiction, DispositionCoverageGap, signal, "stream_labels.cluster")
+}
+
+func TestDiffLogSignalsIdentifyStructuralShapes(t *testing.T) {
+	reality := Schema{
+		Logs: []Log{
+			{Transport: TransportLoki},
+			{Transport: TransportLoki, StreamLabels: []Attribute{{Key: "pod"}}},
+			{Transport: TransportLoki, StructuredMetadataKeys: []string{"trace_id"}},
+			{
+				Transport:              TransportLoki,
+				StreamLabels:           []Attribute{{Key: "cluster"}},
+				StructuredMetadataKeys: []string{"severity", "trace_id"},
+			},
+		},
+	}
+
+	findings := Diff(New(), reality)
+	wantSignals := map[string]struct{}{
+		TransportLoki:                             {},
+		"loki[stream_labels=pod]":                 {},
+		"loki[structured_metadata_keys=trace_id]": {},
+		"loki[stream_labels=cluster;structured_metadata_keys=severity,trace_id]": {},
+	}
+	if len(findings) != len(wantSignals) {
+		t.Fatalf("findings=%+v, want one finding per structural log shape", findings)
+	}
+	for _, finding := range findings {
+		if finding.Kind != KindExtraLog || finding.Disposition != DispositionCoverageGap {
+			t.Fatalf("finding=%+v, want extra_log coverage gap", finding)
+		}
+		if _, ok := wantSignals[finding.Signal]; !ok {
+			t.Fatalf("finding signal=%q, want one of %v", finding.Signal, wantSignals)
+		}
+		delete(wantSignals, finding.Signal)
+	}
+	if len(wantSignals) != 0 {
+		t.Fatalf("missing structural log signals: %v", wantSignals)
+	}
+}
+
+func TestDiffTraces(t *testing.T) {
+	synth := Schema{
+		Traces: []Trace{{
+			Service:   "api",
+			SpanNames: []string{"GET /items"},
+		}},
+	}
+	reality := Schema{
+		Traces: []Trace{{
+			Service:   "api",
+			SpanNames: []string{"POST /items"},
+		}},
+	}
+
+	findings := Diff(synth, reality)
+	assertFinding(t, findings, KindInstrumentMismatch, DispositionContradiction, "api", "span_names")
+	assertFinding(t, findings, KindInstrumentMismatch, DispositionCoverageGap, "api", "span_names")
+}
+
+func TestDiffProfiles(t *testing.T) {
+	synth := Schema{
+		Profiles: []Profile{{
+			ProfileType: "cpu",
+			Labels:      []Attribute{{Key: "service", Values: []string{"api"}}},
+		}},
+	}
+	reality := Schema{
+		Profiles: []Profile{{
+			ProfileType: "cpu",
+			Labels:      []Attribute{{Key: "pod", Values: []string{"api-1"}}},
+		}},
+	}
+
+	findings := Diff(synth, reality)
+	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionContradiction, "cpu", "labels")
+	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionCoverageGap, "cpu", "labels")
+}
+
+func TestDiffSigil(t *testing.T) {
+	synth := Schema{
+		Sigil: []Sigil{{
+			IngestKind:     "generation",
+			OperationNames: []string{"chat"},
+		}},
+	}
+	reality := Schema{
+		Sigil: []Sigil{{
+			IngestKind:     "generation",
+			OperationNames: []string{"completion"},
+		}},
+	}
+
+	findings := Diff(synth, reality)
+	assertFinding(t, findings, KindInstrumentMismatch, DispositionContradiction, "generation", "operation_names")
+	assertFinding(t, findings, KindInstrumentMismatch, DispositionCoverageGap, "generation", "operation_names")
+}
+
+func TestDiffScopesFamiliesToRealityCorpus(t *testing.T) {
+	synth := Schema{
+		Metrics: []Metric{{Name: "uncovered_metric"}},
+		Logs:    []Log{{Source: "synth", Transport: TransportLoki}},
+		Traces:  []Trace{{Service: "uncovered-service"}},
+		Profiles: []Profile{{
+			ProfileType: "uncovered-profile",
+		}},
+		Sigil: []Sigil{{IngestKind: "uncovered-ingest"}},
+	}
+	reality := Schema{
+		Metrics: []Metric{{Name: "covered_metric"}},
+		Logs:    []Log{{Source: "reality", Transport: TransportOTLPLogs}},
+		Traces:  []Trace{{Service: "covered-service"}},
+		Profiles: []Profile{{
+			ProfileType: "covered-profile",
+		}},
+		Sigil: []Sigil{{IngestKind: "covered-ingest"}},
+	}
+
+	findings := Diff(synth, reality)
+	if len(findings) != 5 {
+		t.Fatalf("findings=%+v, want one reality-only coverage gap per class", findings)
+	}
+	wantKinds := map[string]FindingKind{
+		"covered_metric":  KindExtraMetric,
+		TransportOTLPLogs: KindExtraLog,
+		"covered-service": KindExtraTrace,
+		"covered-profile": KindExtraProfile,
+		"covered-ingest":  KindExtraSigil,
+	}
+	for _, finding := range findings {
+		if finding.Disposition != DispositionCoverageGap {
+			t.Fatalf("finding=%+v, want coverage gap", finding)
+		}
+		if strings.HasPrefix(finding.Signal, "uncovered") || finding.Signal == "synth" {
+			t.Fatalf("synth-only family leaked into corpus-scoped diff: %+v", finding)
+		}
+		if want, ok := wantKinds[finding.Signal]; !ok || finding.Kind != want {
+			t.Fatalf("finding=%+v, want class-specific kind %q", finding, want)
+		}
+	}
+}
+
+func TestDiffHonorsElidedValuesAcrossSignalClasses(t *testing.T) {
+	synth := Schema{
+		Logs: []Log{{
+			Transport:    TransportLoki,
+			StreamLabels: []Attribute{{Key: "cluster", Values: []string{"synth"}, ValuesElided: true}},
+		}},
+		Traces: []Trace{{
+			Service:            "api",
+			ResourceAttributes: []Attribute{{Key: "cluster", Values: []string{"synth"}, ValuesElided: true}},
+		}},
+		Profiles: []Profile{{
+			ProfileType: "cpu",
+			Labels:      []Attribute{{Key: "cluster", Values: []string{"synth"}, ValuesElided: true}},
+		}},
+	}
+	reality := Schema{
+		Logs: []Log{{
+			Transport:    TransportLoki,
+			StreamLabels: []Attribute{{Key: "cluster", Values: []string{"reality"}, ValuesElided: true}},
+		}},
+		Traces: []Trace{{
+			Service:            "api",
+			ResourceAttributes: []Attribute{{Key: "cluster", Values: []string{"reality"}, ValuesElided: true}},
+		}},
+		Profiles: []Profile{{
+			ProfileType: "cpu",
+			Labels:      []Attribute{{Key: "cluster", Values: []string{"reality"}, ValuesElided: true}},
+		}},
+	}
+
+	if findings := Diff(synth, reality); len(findings) != 0 {
+		t.Fatalf("findings=%+v, elided values must remain open-ended for all classes", findings)
 	}
 }
 

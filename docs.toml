@@ -52,6 +52,7 @@ Home = "index.md"
 "Signal Catalogue" = [
     { "Reading the Catalogue" = "signals.md" },
     { "Signal Areas" = "signal-areas.md" },
+    { "Reality Corpus" = "reality-corpus.md" },
 ]
 
 [[site.nav]]

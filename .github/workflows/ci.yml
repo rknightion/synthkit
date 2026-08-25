@@ -79,6 +79,18 @@ jobs:
           cache: true
       - run: make e2e
 
+  # Credential-free, report-only comparison of the complete synthetic inventory with the
+  # committed substrate-scoped reality corpus. Findings are evidence and do not fail this wave.
+  signal-fidelity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make signal-fidelity
+
   # Single aggregator the branch ruleset gates on (`ci-success` required status check). Keeping the
   # ruleset pinned to one check means the job list above can change without touching branch
   # protection. GitHub-only — not mirrored to .forgejo (no fleet ruleset there; documented divergence).
@@ -86,7 +98,7 @@ jobs:
     name: ci-success
     runs-on: ubuntu-latest
     if: always()
-    needs: [go, hygiene, secret-scan, ui, docker, e2e]
+    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity]
     steps:
       - name: Fail if any required job did not pass
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}

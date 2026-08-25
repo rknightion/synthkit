@@ -1,0 +1,2493 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "k8s-addons",
+  "source": {
+    "kind": "k3d_lab",
+    "substrate": "k3s",
+    "collector": "grafana/k8s-monitoring",
+    "collector_version": "4.4.0",
+    "captured_on": "2026-08-25"
+  },
+  "authority": {
+    "substrates": [
+      "k3s"
+    ]
+  },
+  "capture_volume": {
+    "runs": 2,
+    "observed_contract_counts": [
+      39,
+      103
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [
+      {
+        "name": "coredns_build_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "goversion",
+            "values": [
+              "go1.26.2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "revision",
+            "values": [
+              "17fceec"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "version",
+            "values": [
+              "1.14.3"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_cache_entries",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "type",
+            "values": [
+              "denial",
+              "success"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zones",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "coredns_cache_hits_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "type",
+            "values": [
+              "denial",
+              "success"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zones",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "coredns_cache_misses_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zones",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "coredns_cache_requests_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zones",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "coredns_dns_request_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.00025",
+              "0.0005",
+              "0.001",
+              "0.002",
+              "0.004",
+              "0.008",
+              "0.016",
+              "0.032",
+              "0.064",
+              "0.128",
+              "0.256",
+              "0.512",
+              "1.024",
+              "2.048",
+              "4.096",
+              "8.192"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zone",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.00025,
+            0.0005,
+            0.001,
+            0.002,
+            0.004,
+            0.008,
+            0.016,
+            0.032,
+            0.064,
+            0.128,
+            0.256,
+            0.512,
+            1.024,
+            2.048,
+            4.096,
+            8.192
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "coredns_dns_request_size_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.0",
+              "100.0",
+              "1023.0",
+              "16000.0",
+              "200.0",
+              "2047.0",
+              "300.0",
+              "32000.0",
+              "400.0",
+              "4095.0",
+              "48000.0",
+              "511.0",
+              "64000.0",
+              "8291.0"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "proto",
+            "values": [
+              "udp"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zone",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0,
+            100,
+            200,
+            300,
+            400,
+            511,
+            1023,
+            2047,
+            4095,
+            8291,
+            16000,
+            32000,
+            48000,
+            64000
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "coredns_dns_requests_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "family",
+            "values": [
+              "1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "proto",
+            "values": [
+              "udp"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "type",
+            "values": [
+              "A",
+              "AAAA",
+              "SRV",
+              "other"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zone",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "coredns_dns_response_size_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.0",
+              "100.0",
+              "1023.0",
+              "16000.0",
+              "200.0",
+              "2047.0",
+              "300.0",
+              "32000.0",
+              "400.0",
+              "4095.0",
+              "48000.0",
+              "511.0",
+              "64000.0",
+              "8291.0"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "proto",
+            "values": [
+              "udp"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zone",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0,
+            100,
+            200,
+            300,
+            400,
+            511,
+            1023,
+            2047,
+            4095,
+            8291,
+            16000,
+            32000,
+            48000,
+            64000
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "coredns_dns_responses_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "plugin",
+            "values": [
+              "errors"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "rcode",
+            "values": [
+              "NOERROR",
+              "NXDOMAIN"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zone",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "coredns_forward_healthcheck_broken_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_forward_max_concurrent_rejects_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_health_request_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.00025",
+              "0.0025",
+              "0.025",
+              "0.25",
+              "2.5"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.00025,
+            0.0025,
+            0.025,
+            0.25,
+            2.5
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "coredns_health_request_failures_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_hosts_entries",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "hostsfile",
+            "values": [
+              "/etc/coredns/NodeHosts"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_hosts_reload_timestamp_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_kubernetes_dns_programming_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.001",
+              "0.002",
+              "0.004",
+              "0.008",
+              "0.016",
+              "0.032",
+              "0.064",
+              "0.128",
+              "0.256",
+              "0.512",
+              "1.024",
+              "131.072",
+              "16.384",
+              "2.048",
+              "262.144",
+              "32.768",
+              "4.096",
+              "524.288",
+              "65.536",
+              "8.192"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service_kind",
+            "values": [
+              "cluster_ip",
+              "headless_with_selector"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.001,
+            0.002,
+            0.004,
+            0.008,
+            0.016,
+            0.032,
+            0.064,
+            0.128,
+            0.256,
+            0.512,
+            1.024,
+            2.048,
+            4.096,
+            8.192,
+            16.384,
+            32.768,
+            65.536,
+            131.072,
+            262.144,
+            524.288
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "coredns_kubernetes_rest_client_requests_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "code",
+            "values": [
+              "200"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "method",
+            "values": [
+              "GET"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_local_localhost_requests_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_panics_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_plugin_enabled",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "zone",
+            "values": [
+              "."
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "coredns_proxy_conn_cache_hits_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "proto",
+            "values": [
+              "udp"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "proxy_name",
+            "values": [
+              "forward"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "to",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_proxy_conn_cache_misses_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "proto",
+            "values": [
+              "udp"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "proxy_name",
+            "values": [
+              "forward"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "to",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "coredns_proxy_request_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.00025",
+              "0.0005",
+              "0.001",
+              "0.002",
+              "0.004",
+              "0.008",
+              "0.016",
+              "0.032",
+              "0.064",
+              "0.128",
+              "0.256",
+              "0.512",
+              "1.024",
+              "2.048",
+              "4.096",
+              "8.192"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "proxy_name",
+            "values": [
+              "forward"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "rcode",
+            "values": [
+              "NXDOMAIN"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "to",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.00025,
+            0.0005,
+            0.001,
+            0.002,
+            0.004,
+            0.008,
+            0.016,
+            0.032,
+            0.064,
+            0.128,
+            0.256,
+            0.512,
+            1.024,
+            2.048,
+            4.096,
+            8.192
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "coredns_reload_failed_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [
+              "kube-dns"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      }
+    ],
+    "logs": [],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}

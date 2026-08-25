@@ -1,0 +1,2508 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "k8s",
+  "source": {
+    "kind": "k3d_lab",
+    "substrate": "k3s",
+    "collector": "grafana/k8s-monitoring",
+    "collector_version": "4.4.0",
+    "captured_on": "2026-08-25"
+  },
+  "authority": {
+    "substrates": [
+      "k3s"
+    ]
+  },
+  "capture_volume": {
+    "runs": 2,
+    "observed_contract_counts": [
+      39,
+      103
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [
+      {
+        "name": "container_cpu_usage_seconds_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [
+              "total"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_fs_reads_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_fs_reads_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_fs_writes_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_fs_writes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_memory_cache",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_memory_rss",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_memory_swap",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_memory_usage_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_memory_working_set_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_network_receive_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_network_receive_packets_dropped_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_network_receive_packets_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_network_transmit_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_network_transmit_packets_dropped_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "container_network_transmit_packets_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "kube-system",
+              "monitoring"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kubelet_cgroup_manager_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.005",
+              "0.01",
+              "0.025",
+              "0.05",
+              "0.1",
+              "0.25",
+              "0.5",
+              "1.0",
+              "10.0",
+              "2.5",
+              "5.0"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "operation_type",
+            "values": [
+              "create",
+              "update"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "kubelet_node_name",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "exported_node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kubelet_pleg_relist_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.005",
+              "0.01",
+              "0.025",
+              "0.05",
+              "0.1",
+              "0.25",
+              "0.5",
+              "1.0",
+              "10.0",
+              "2.5",
+              "5.0"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "kubelet_pleg_relist_interval_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.005",
+              "0.01",
+              "0.025",
+              "0.05",
+              "0.1",
+              "0.25",
+              "0.5",
+              "1.0",
+              "10.0",
+              "2.5",
+              "5.0"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "kubelet_pod_start_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.5",
+              "1.0",
+              "10.0",
+              "120.0",
+              "1200.0",
+              "180.0",
+              "1800.0",
+              "2.0",
+              "20.0",
+              "240.0",
+              "2700.0",
+              "3.0",
+              "30.0",
+              "300.0",
+              "360.0",
+              "3600.0",
+              "4.0",
+              "45.0",
+              "480.0",
+              "5.0",
+              "6.0",
+              "60.0",
+              "600.0",
+              "8.0",
+              "900.0"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.5,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            8,
+            10,
+            20,
+            30,
+            45,
+            60,
+            120,
+            180,
+            240,
+            300,
+            360,
+            480,
+            600,
+            900,
+            1200,
+            1800,
+            2700,
+            3600
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "kubelet_pod_worker_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.005",
+              "0.01",
+              "0.025",
+              "0.05",
+              "0.1",
+              "0.25",
+              "0.5",
+              "1.0",
+              "10.0",
+              "2.5",
+              "5.0"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "operation_type",
+            "values": [
+              "create",
+              "sync"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "kubelet_running_containers",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_state",
+            "values": [
+              "created",
+              "running"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kubelet_running_pods",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kubelet_runtime_operations_errors_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "operation_type",
+            "values": [
+              "run_podsandbox"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kubelet_runtime_operations_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "operation_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "kubernetes_build_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "build_date",
+            "values": [
+              "2026-05-20T11:15:10Z"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "compiler",
+            "values": [
+              "gc"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "git_commit",
+            "values": [
+              "6a4781ad53ee5cad273bedcd9462ae36ac97d798"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "git_tree_state",
+            "values": [
+              "clean"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "git_version",
+            "values": [
+              "v1.35.5+k3s1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "go_version",
+            "values": [
+              "go1.25.9"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "major",
+            "values": [
+              "1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "minor",
+            "values": [
+              "35"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "platform",
+            "values": [
+              "linux/arm64"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "machine_memory_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "boot_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/cadvisor"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "system_uuid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_usage_seconds_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/resources"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "node_memory_working_set_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/resources"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "storage_operation_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "migrated",
+            "values": [
+              "false"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "operation_name",
+            "values": [
+              "verify_controller_attached_volume",
+              "volume_mount"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "status",
+            "values": [
+              "success"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "volume_plugin",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "volume_manager_total_volumes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "integrations/kubernetes/kubelet"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "plugin_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [
+              "kubernetes"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "state",
+            "values": [
+              "actual_state_of_world",
+              "desired_state_of_world"
+            ],
+            "values_elided": false
+          }
+        ]
+      }
+    ],
+    "logs": [
+      {
+        "source": "k8s_pod_logs",
+        "transport": "otlp_logs",
+        "stream_labels": [
+          {
+            "key": "app_kubernetes_io_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "structured_metadata_keys": [
+          "log.iostream",
+          "logtag"
+        ]
+      },
+      {
+        "source": "k8s_pod_logs",
+        "transport": "otlp_logs",
+        "stream_labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "structured_metadata_keys": [
+          "log.iostream",
+          "logtag"
+        ]
+      }
+    ],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}

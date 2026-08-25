@@ -1,4 +1,4 @@
-.PHONY: build test helper-tests deploy-tests cover vet gate race dump run docker skills-sync skills-check docs-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker compose-check e2e published-e2e signal-fidelity-k3d ci spdx-check forbidden-words hygiene secret-scan notices sbom
+.PHONY: build test helper-tests deploy-tests cover vet gate race dump run docker skills-sync skills-check docs-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker compose-check e2e published-e2e signal-fidelity signal-fidelity-k3d ci spdx-check forbidden-words hygiene secret-scan notices sbom
 
 GCX_CONTEXT ?= default
 
@@ -211,6 +211,11 @@ published-e2e: ## exact published digest through committed Compose; requires SYN
 	@test -n "$${SYNTHKIT_EXPECTED_REVISION:-}" || { echo "SYNTHKIT_EXPECTED_REVISION is required" >&2; exit 1; }
 	@DH="$${DOCKER_HOST:-$$(docker context inspect --format '{{.Endpoints.docker.Host}}' "$$(docker context show)" 2>/dev/null)}"; \
 	  DOCKER_HOST="$$DH" go test -tags e2e -run '^TestPublishedCompose$$' -v -timeout 15m ./e2e/
+
+signal-fidelity: ## print report-only synth-vs-reality corpus findings; findings exit successfully.
+	@set -e; tmp=$$(mktemp); trap 'rm -f "$$tmp"' 0; \
+	  DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -inventory-json >"$$tmp"; \
+	  go run ./cmd/signal-fidelity -synth "$$tmp" -corpus reality-corpus
 
 signal-fidelity-k3d: ## capture real k8s-monitoring 4.4.0 collector egress in a disposable k3d lab.
 	bash e2e/lab/run.sh
