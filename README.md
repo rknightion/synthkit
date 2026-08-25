@@ -21,6 +21,23 @@ spans via a telemetry DSL) — sharing one end-to-end correlation ID per request
 - **Composition**: a blueprint is one deletable YAML file; constructs know nothing about it.
   See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
+## The runtime control plane
+
+Every deployment serves an operator UI at `/control/ui` — live per-blueprint emission rates, a
+per-construct cardinality inventory, and on-demand failure injection.
+
+![synthkit control plane overview: six blueprints emitting, with live per-lane delivery rates](docs/assets/screenshots/control-plane-overview.png)
+
+Curated incident scenarios fire correlated failures across constructs — a bad deploy, a node-failure
+cascade, a retrieval meltdown — so a dashboard or alert can be demonstrated against a real signal.
+
+![Incident scenarios: curated cross-construct failure bundles with per-target intensities](docs/assets/screenshots/incident-scenarios.png)
+
+The X-ray view accounts for every series before it leaves the process: metric names, label keys and
+cardinality per construct.
+
+![X-ray view: per-construct emission inventory showing series counts, metric names and label keys](docs/assets/screenshots/emission-xray.png)
+
 ## Quick start
 
 ```bash
