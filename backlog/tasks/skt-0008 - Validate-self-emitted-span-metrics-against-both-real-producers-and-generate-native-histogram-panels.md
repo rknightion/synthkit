@@ -3,10 +3,10 @@ id: SKT-0008
 title: >-
   Validate self-emitted span metrics against both real producers, and generate
   native histogram panels
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-24 12:06'
-updated_date: '2026-08-27 07:32'
+updated_date: '2026-08-27 08:09'
 labels: []
 dependencies: []
 priority: medium
@@ -34,20 +34,20 @@ The SKT-0006 reality corpus supplies the evidence for the validation half, so se
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The real shape of span-derived metrics is captured and recorded for BOTH producers, with provenance, including where they disagree
-- [ ] #2 Divergences between synthkit self-emission and each real producer are enumerated, and each is either corrected in the emitter or recorded as a deliberate, reasoned difference
-- [ ] #3 Dimension sets, excluded dimensions, and cardinality-limit behaviour are addressed explicitly, not just metric names
-- [ ] #4 The default-off behaviour is preserved and covered by a test, so deferring to the metrics-generator remains the out-of-the-box path
-- [ ] #5 Generated dashboard panels for the latency and service-graph histogram families query native histograms via dashboard.HistogramNative
-- [ ] #6 A family that exists only as a classic histogram still generates a working classic panel
-- [ ] #7 signals/apm.md records both producer shapes and which one synthkit models
+- [x] #1 The real shape of span-derived metrics is captured and recorded for BOTH producers, with provenance, including where they disagree
+- [x] #2 Divergences between synthkit self-emission and each real producer are enumerated, and each is either corrected in the emitter or recorded as a deliberate, reasoned difference
+- [x] #3 Dimension sets, excluded dimensions, and cardinality-limit behaviour are addressed explicitly, not just metric names
+- [x] #4 The default-off behaviour is preserved and covered by a test, so deferring to the metrics-generator remains the out-of-the-box path
+- [x] #5 Generated dashboard panels for the latency and service-graph histogram families query native histograms via dashboard.HistogramNative
+- [x] #6 A family that exists only as a classic histogram still generates a working classic panel
+- [x] #7 signals/apm.md records both producer shapes and which one synthkit models
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -98,3 +98,17 @@ SKT-0008.01 status_code derivation (root decision: derive from the trace lane, n
 
 cantfind SK-96 and SK-97 filed. signals/apm.md gained [slug: apm-producers] plus a corrected connection_type enum and real bucket provenance.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The central question is answered: synthkit models the Tempo metrics-generator, not the collector-side spanmetrics connector — provable from the family names rather than by judgement. traces_spanmetrics_* and the four service-graph families are generator-only; the connector publishes traces.span.metrics.*, has no size family, and the reference chart ships no service-graph connector at all.
+
+The corollary matters more than the label: on a connector-configured deployment, synthkit self-emission is not a substitute for the real telemetry — it produces a family set that stack does not contain and omits the one it does. So default-off is not merely conservative, it is the only correct out-of-the-box behaviour, and it is now covered by a test that ticks a ZERO-VALUE World, asserts all twelve wire forms are absent, and asserts the node own metric still emits so a future refactor cannot pass by breaking emission entirely.
+
+Five real divergences corrected, two of them serious. span_name on server rows was the NODE name while the trace lane names those spans from declared ROUTES, so synthkit own span metrics could never overlay its own traces. Latency was observed ONCE PER TICK while calls_total added hundreds, making histogram_quantile a step function of a single random draw — every p99 panel was meaningless. Plus: no latency series for errors at all, entry rows always SPAN_KIND_SERVER when a browser entry has no server span, and client edges never carrying errors.
+
+AC #3 answered explicitly: excludeDimensions [span.name] is connector-only and correctly absent from synthkit, but it means a panel doing by (span_name) SILENTLY MATCHES NOTHING on such a stack — now recorded in signals/apm.md rather than living in someone head. The cardinality limit does not drop, it folds overflow into one marked entry, so an aggregate series can look real.
+
+Six differences are recorded as deliberate with reasons rather than papered over. AC #5/#6 turned out already satisfied — dashgen routes on the observed natives map, verified against the source rather than taken on trust — and tests now pin all three families by name. Three follow-ups created (SKT-0008.01 to .03) for work outside these ACs. make gate green.
+<!-- SECTION:FINAL_SUMMARY:END -->

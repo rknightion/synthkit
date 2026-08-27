@@ -3,10 +3,10 @@ id: SKT-0004
 title: >-
   sigil: -once -dump generation/score COUNTS vary run-to-run — decide whether
   that is by design or a determinism defect
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-19 07:34'
-updated_date: '2026-08-27 07:19'
+updated_date: '2026-08-27 08:07'
 labels:
   - needs-triage
 dependencies: []
@@ -44,17 +44,17 @@ Several sigil tasks carry an acceptance criterion of the form 'output stays dete
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A decision is recorded on whether run-to-run variance in the -once -dump generation/score counts is by design (wall-clock-dependent in-flight request set) or a determinism defect, with the specific code path that produces the variance named at file:line as the evidence.
+- [x] #1 A decision is recorded on whether run-to-run variance in the -once -dump generation/score counts is by design (wall-clock-dependent in-flight request set) or a determinism defect, with the specific code path that produces the variance named at file:line as the evidence.
 - [ ] #2 If it is a defect, the offending draw is changed to derive from a seed unit and two consecutive -once -dump runs then report identical counts.
-- [ ] #3 If it is by design, the structural-inventory projection (sink, metric name, sorted label keys) is what gets compared, and the determinism wording used in sigil task acceptance criteria is corrected to say so rather than implying the count lines must match.
-- [ ] #4 The exemplar-sampling behaviour of the [dry-run] lines is documented wherever the -once -dump inventory check is described, so nobody diffs two raw dumps again and reads sampling noise as drift.
+- [x] #3 If it is by design, the structural-inventory projection (sink, metric name, sorted label keys) is what gets compared, and the determinism wording used in sigil task acceptance criteria is corrected to say so rather than implying the count lines must match.
+- [x] #4 The exemplar-sampling behaviour of the [dry-run] lines is documented wherever the -once -dump inventory check is described, so nobody diffs two raw dumps again and reads sampling noise as drift.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -98,3 +98,15 @@ The default blueprint selection emits no sigil traffic at all, so the reproducti
 
 Exactly the pattern this task recorded: workflow_steps pinned, generations/scores moving.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Verdict: BY DESIGN, not a determinism defect, with the code path named. Correlation IDs are minted from crypto/rand (internal/ledger/request.go:190, invariant I9 — nothing outside the ledger mints request-scoped IDs), so every conversation gets a run-unique SessionID; minter.go:88 derives TurnCount by hashing THAT id, so the turn-count population reshuffles while staying deterministic per identity. workflow_steps stays pinned at 50 because one WorkflowStep is emitted per conversation and the conversation count draws from the fixed-seed shape engine. I12 governs shape-given-identity and holds; wall-clock and map-iteration order were ruled out across shape.New, ledger.Mint and runner.RunOnce.
+
+AC #2 is deliberately unchecked and not applicable: it is conditional on the defect reading, which lost. Forcing a wall-clock-independent in-flight set would make the generator less realistic in order to satisfy a mis-worded check.
+
+The real deliverable was AC #3 — the acceptance wording, now corrected so future sigil tasks compare the STRUCTURAL inventory rather than the count summary. The old wording was literally unsatisfiable for any change, so lanes were being handed a check they could not meet. AC #4 is documented in docs/cli.md and covers all three points: the inventory block is byte-identical run to run, the [dry-run] lines sample one random exemplar per batch and must never be raw-diffed, and the sigil counts vary by design.
+
+Verified: two consecutive DRY_RUN=true BLUEPRINT_NAMES=otlp-native -once -dump runs reproduce the pattern exactly (generations 176 then 194, workflow_steps 50 both). make gate green. No code change was needed, which is the correct outcome here rather than a shortfall.
+<!-- SECTION:FINAL_SUMMARY:END -->
