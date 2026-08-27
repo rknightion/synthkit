@@ -51,10 +51,8 @@
           },
           {
             "key": "goversion",
-            "values": [
-              "go1.26.2"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "instance",
@@ -87,10 +85,8 @@
           },
           {
             "key": "revision",
-            "values": [
-              "17fceec"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "service",
@@ -108,10 +104,8 @@
           },
           {
             "key": "version",
-            "values": [
-              "1.14.3"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "workload",

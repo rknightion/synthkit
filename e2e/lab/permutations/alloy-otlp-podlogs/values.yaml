@@ -1,0 +1,18 @@
+# Permutation overlay: pod logs via OpenTelemetry.
+#
+# Layered on top of ../../k8s-monitoring-values.yaml. Both pod-log lanes are named here, one
+# enabled and one explicitly disabled, so reading this file alone tells you which lane is
+# under capture.
+podLogsViaOpenTelemetry:
+  enabled: true
+  collector: alloy-daemon
+  destinations:
+    - capture-otlp
+  namespaces:
+    - otel-demo
+  # The workload deck is installed before the collector; retain its initial stdout lines and
+  # the continuing heartbeat lines so the receiver positively observes OTLP logs.
+  onlyGatherNewLogLines: false
+
+podLogsViaLoki:
+  enabled: false

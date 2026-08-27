@@ -1,7 +1,12 @@
-# Synthkit SKT-0006.03 capture-lab values.
+# Synthkit capture-lab BASE values for every grafana/k8s-monitoring permutation.
+#
+# This file holds what every Alloy permutation shares. What makes one permutation
+# different from another lives in permutations/<slug>/values.yaml and is layered on top
+# with a second --values, so a permutation is selected explicitly rather than by editing
+# this file in place.
 #
 # Chart pin: grafana/k8s-monitoring 4.4.0 from https://grafana.github.io/helm-charts.
-# The run script passes --version 4.4.0 as a second, executable pin. Every enabled
+# Each permutation's deploy.sh passes --version as a second, executable pin. Every enabled
 # destination below is the in-cluster capture receiver; no hosted destination or
 # credential is valid in this file.
 #
@@ -137,16 +142,10 @@ nodeLogs:
   destinations:
     - capture-loki
 
-podLogsViaOpenTelemetry:
-  enabled: true
-  collector: alloy-daemon
-  destinations:
-    - capture-otlp
-  namespaces:
-    - otel-demo
-  # The workload is installed before the chart; retain its initial stdout lines and
-  # the continuing heartbeat lines so the receiver positively observes OTLP logs.
-  onlyGatherNewLogLines: false
+# The pod-log lane is deliberately absent here. It is the axis the Alloy permutations
+# differ on: podLogsViaLoki (Loki-native, the documented default) versus
+# podLogsViaOpenTelemetry (pod logs leave as OTLP). Each permutation's overlay enables
+# exactly one and explicitly disables the other.
 
 applicationObservability:
   enabled: true

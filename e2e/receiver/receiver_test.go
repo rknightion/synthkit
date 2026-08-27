@@ -682,3 +682,135 @@ func TestReceiverReportsRemoteWriteV2WrittenCounts(t *testing.T) {
 		t.Errorf("empty request samples-written = %q, want 0", got)
 	}
 }
+
+// lokiProtobufPush builds a snappy-compressed logproto.PushRequest by hand, the way a real
+// Grafana Alloy loki.write component sends one.
+func lokiProtobufPush(labelSet string, metadataKeys []string) []byte {
+	entry := protowire.AppendTag(nil, 2, protowire.BytesType)
+	entry = protowire.AppendString(entry, "a log line")
+	for _, key := range metadataKeys {
+		pair := protowire.AppendTag(nil, 1, protowire.BytesType)
+		pair = protowire.AppendString(pair, key)
+		pair = protowire.AppendTag(pair, 2, protowire.BytesType)
+		pair = protowire.AppendString(pair, "value")
+		entry = protowire.AppendTag(entry, 3, protowire.BytesType)
+		entry = protowire.AppendBytes(entry, pair)
+	}
+
+	stream := protowire.AppendTag(nil, 1, protowire.BytesType)
+	stream = protowire.AppendString(stream, labelSet)
+	stream = protowire.AppendTag(stream, 2, protowire.BytesType)
+	stream = protowire.AppendBytes(stream, entry)
+	stream = protowire.AppendTag(stream, 3, protowire.VarintType)
+	stream = protowire.AppendVarint(stream, 42)
+
+	push := protowire.AppendTag(nil, 1, protowire.BytesType)
+	push = protowire.AppendBytes(push, stream)
+	return snappy.Encode(nil, push)
+}
+
+// A real Alloy loki.write sends snappy+protobuf, not gzip+JSON. Decoding only the JSON form
+// made the entire Loki-native lane invisible to the k3d capture lab.
+func TestReceiverDecodesAlloyProtobufLokiPush(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	body := lokiProtobufPush(`{cluster="lab", source="kubernetes", service_name="kube-dns"}`, []string{"pod", "trace_id"})
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/loki/api/v1/push", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-protobuf")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", resp.StatusCode)
+	}
+
+	inv := rec.Snapshot()
+	var receipt int
+	for _, r := range inv.Receipts {
+		if r.Protocol == inventory.TransportLoki {
+			receipt = r.Count
+		}
+	}
+	if receipt != 1 {
+		t.Fatalf("loki receipt = %d, want 1", receipt)
+	}
+	if len(inv.Logs) != 1 {
+		t.Fatalf("logs = %d, want 1", len(inv.Logs))
+	}
+	log := inv.Logs[0]
+	// Keyed strictly on the "source" label, exactly as the JSON path is.
+	if log.Source != "kubernetes" {
+		t.Errorf("source = %q, want %q", log.Source, "kubernetes")
+	}
+	if log.Transport != inventory.TransportLoki {
+		t.Errorf("transport = %q", log.Transport)
+	}
+	keys := map[string]bool{}
+	for _, label := range log.StreamLabels {
+		keys[label.Key] = true
+	}
+	for _, want := range []string{"cluster", "source", "service_name"} {
+		if !keys[want] {
+			t.Errorf("stream label %q missing; got %v", want, keys)
+		}
+	}
+	metadata := map[string]bool{}
+	for _, key := range log.StructuredMetadataKeys {
+		metadata[key] = true
+	}
+	for _, want := range []string{"pod", "trace_id"} {
+		if !metadata[want] {
+			t.Errorf("structured metadata key %q missing; got %v", want, log.StructuredMetadataKeys)
+		}
+	}
+}
+
+func TestParseLokiLabelSetHandlesEscapesAndCommas(t *testing.T) {
+	got := parseLokiLabelSet(`{a="1", b="has, comma", c="has \"quote\"", d="tab\there"}`)
+	want := map[string]string{
+		"a": "1",
+		"b": "has, comma",
+		"c": `has "quote"`,
+		"d": "tab\there",
+	}
+	for key, value := range want {
+		if got[key] != value {
+			t.Errorf("label %q = %q, want %q", key, got[key], value)
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("parsed %d labels, want %d: %v", len(got), len(want), got)
+	}
+}
+
+// A body that will not decode is a decode failure, not an empty push: the lab must be able to
+// tell "the collector sent nothing" from "the receiver could not read what it sent".
+func TestReceiverRejectsUndecodableProtobufLokiPush(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/loki/api/v1/push", bytes.NewReader([]byte("not snappy")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-protobuf")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	}
+	if len(rec.Snapshot().Logs) != 0 {
+		t.Error("an undecodable push must not record a log shape")
+	}
+}

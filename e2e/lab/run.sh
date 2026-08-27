@@ -1,13 +1,26 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# One-shot k3d capture lab for SKT-0006.03.
+# k3d capture-lab permutation matrix (SKT-0013.04).
 #
-# This script is intentionally the only owner of the lab's mutable orchestration. It
-# creates one fixed, reserved cluster name, deploys the existing e2e receiver, points
-# grafana/k8s-monitoring 4.4.0 at that receiver, waits for positive collector-egress
-# receipts, writes a provenance-stamped inventory candidate and findings report, then
-# tears down only the exact cluster/container names reserved below.
+# This is the MATRIX ENTRYPOINT. It selects permutations, runs each as an independent job under
+# a stated concurrency bound, and ends the run in ONE combined report covering all of them.
+# Per-permutation orchestration lives in permutation.sh; every decision with logic in it lives
+# in the unit-tested Go tool under cmd/lab-matrix.
+#
+# Three properties this file exists to protect:
+#
+#   1. A FAILED permutation is distinguishable from one that CAPTURED NOTHING. Both leave an
+#      empty corpus entry and they mean opposite things, so every worker always writes a result
+#      record that classifies which it was, and the report renders them differently.
+#   2. PARTIAL SUCCESS NEVER READS AS SUCCESS. The run's verdict is CAPTURED only when every
+#      selected permutation captured; anything else exits non-zero and says so in the headline.
+#   3. PARALLEL JOBS CANNOT COLLIDE ON THE CORPUS. Each job owns a fixed cluster name, a
+#      distinct local port and its own output directory, and no job writes to reality-corpus at
+#      all. Promotion is a separate, deliberate step taken after reading the report.
+#
+# Docker is an exclusive resource, so the parallelism is bounded and the bound is stated rather
+# than discovered by exhausting the host. See MAX_PARALLEL below.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -16,97 +29,55 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 readonly REPO_ROOT
-readonly VALUES_FILE="$SCRIPT_DIR/k8s-monitoring-values.yaml"
-readonly WORKLOAD_MANIFEST="$SCRIPT_DIR/workloads.yaml"
-readonly RECEIVER_MANIFEST="$SCRIPT_DIR/receiver.yaml"
-readonly CONFORMANCE_SOURCE="$REPO_ROOT/internal/construct/k8scluster/conformance.go"
-
-# These names are deliberately fixed and scoped to this task. Cleanup never uses a
-# wildcard, --all, or a user-provided resource name.
-readonly LAB_CLUSTER_NAME="synthkit-skt000603-k3d"
-readonly AUX_CONTAINER_NAME="synthkit-skt000603-receiver"
-readonly RECEIVER_IMAGE="synthkit-skt000603/receiver:4.4.0-lab"
-readonly WORKLOAD_IMAGE="docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"
-readonly CHART_REPO_NAME="grafana"
-readonly CHART_REPO_URL="https://grafana.github.io/helm-charts"
-readonly CHART_REF="grafana/k8s-monitoring"
-readonly CHART_VERSION="4.4.0"
-readonly HELM_RELEASE="synthkit-k8s-monitoring"
-readonly RECEIVER_SERVICE="synthkit-skt000603-receiver"
-readonly RECEIVER_NAMESPACE="monitoring"
-readonly CAPTURE_SUBSTRATE="k3s"
+readonly PERMUTATIONS_DIR="$SCRIPT_DIR/permutations"
+readonly WORKER="$SCRIPT_DIR/permutation.sh"
 
 readonly LAB_OUTPUT_DIR="${LAB_OUTPUT_DIR:-$REPO_ROOT/artifacts/signal-fidelity-k3d}"
 readonly RUN_ID="${LAB_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 readonly CAPTURED_AT="${LAB_CAPTURED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
-readonly RECEIVER_LOCAL_PORT="${LAB_RECEIVER_LOCAL_PORT:-19099}"
-readonly CAPTURE_TIMEOUT_SECONDS="${LAB_CAPTURE_TIMEOUT_SECONDS:-300}"
-# Remote-write v1 carries metric metadata in its own write requests on the producer's metadata
-# cadence rather than alongside the samples, so the declared instrument types land after the
-# first samples do. This is the bounded extra wait for them.
-readonly INSTRUMENT_GRACE_SECONDS="${LAB_INSTRUMENT_GRACE_SECONDS:-180}"
+readonly RESULTS_DIR="$LAB_OUTPUT_DIR/results-$RUN_ID"
+readonly REPORT_MD="$LAB_OUTPUT_DIR/matrix-report-$RUN_ID.md"
+readonly REPORT_JSON="$LAB_OUTPUT_DIR/matrix-report-$RUN_ID.json"
+readonly RECEIVER_IMAGE="synthkit-skt000603/receiver:4.4.0-lab"
+readonly WORKLOAD_IMAGE="docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"
+readonly PORT_BASE="${LAB_RECEIVER_PORT_BASE:-19099}"
 
-LAB_TMP=""
-PORT_FORWARD_PID=""
-LATEST_INVENTORY=""
-RAW_INVENTORY=""
-CANDIDATE_JSON=""
-FINDINGS_REPORT=""
-CAPTURE_STATUS="NOT RUN"
-CAPTURE_FAILURE_REASON=""
-INSTRUMENT_STATUS="NOT RUN"
-CONFORMANCE_LITERAL_STATUS=""
+# THE CONCURRENCY BOUND.
+#
+# One permutation is one whole k3d cluster: a server container, an agent container and a
+# loadbalancer container, running the capture receiver, the pinned workload deck and that
+# permutation's full collector set. MEASURED on this lab's Alloy permutations, running two
+# concurrently: 767 MiB server + 499 MiB agent + 12 MiB loadbalancer, so about 1.3 GiB resident
+# per permutation at its peak, with each cluster taking roughly one core steady and spiking
+# during chart install.
+#
+# The default is 2. Memory is not the binding constraint at that number and is not the reason:
+# the capture window is a FIXED wall-clock deadline, so a permutation starved of CPU reports
+# `partial` for a harness reason rather than a deployment one, which is precisely the confusion
+# this task exists to prevent. Two clusters install their charts without contending on a
+# 4-core host, which is the floor worth supporting.
+#
+# The hard cap is 4. Past that the k3d clusters contend for the Docker daemon's own API and
+# image store during `k3d image import`, and cluster creation starts failing for reasons that
+# belong to the host rather than to any permutation. Raising it is a deliberate edit here, not
+# an environment variable, so nobody discovers the ceiling by exhausting the host.
+readonly MAX_PARALLEL_CAP=4
+MAX_PARALLEL="${LAB_MAX_PARALLEL:-2}"
+readonly PARALLELISM_NOTE="one 2-node k3d cluster plus a full collector set per permutation, measured at about 1.3 GiB resident and roughly one core each; the default of 2 keeps chart installs from contending for CPU, because the capture window is a fixed wall-clock deadline and a starved job would report partial for a harness reason. The bound is a declared constant with a hard cap of 4, never discovered by exhausting the Docker host."
 
 log() {
-  printf '[skt-0006.03] %s\n' "$*" >&2
+  printf '[matrix] %s\n' "$*" >&2
 }
 
 die() {
-  log "ERROR: $*"
-  exit 1
+  printf '[matrix] ERROR: %s\n' "$*" >&2
+  exit 2
 }
-
-cleanup() {
-  local status=$?
-  trap - EXIT
-
-  if [[ "$PORT_FORWARD_PID" =~ ^[0-9]+$ ]]; then
-    kill "$PORT_FORWARD_PID" >/dev/null 2>&1 || true
-    wait "$PORT_FORWARD_PID" >/dev/null 2>&1 || true
-  fi
-
-  # Delete only the exact reserved auxiliary container name. The normal receiver is
-  # deployed inside the lab cluster; this removes a stale helper from an interrupted
-  # development iteration without touching any other Docker object.
-  if command -v docker >/dev/null 2>&1; then
-    docker rm -f "$AUX_CONTAINER_NAME" >/dev/null 2>&1 || true
-  fi
-
-  # Delete only the exact fixed lab cluster. Never broaden this to --all.
-  if command -v k3d >/dev/null 2>&1; then
-    k3d cluster delete "$LAB_CLUSTER_NAME" >/dev/null 2>&1 || true
-  fi
-
-  if [[ -n "$LAB_TMP" && -d "$LAB_TMP" ]]; then
-    rm -rf -- "$LAB_TMP"
-  fi
-
-  if ((status != 0)); then
-    log "teardown completed after failure (status $status)"
-  else
-    log "teardown completed"
-  fi
-  exit "$status"
-}
-
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
 
 require_commands() {
   local command_name
   local missing=()
-  local required=(docker k3d helm kubectl curl jq openssl grep)
+  local required=(docker k3d helm kubectl curl jq openssl grep go)
   for command_name in "${required[@]}"; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
       missing+=("$command_name")
@@ -115,449 +86,232 @@ require_commands() {
   if ((${#missing[@]} > 0)); then
     die "missing required command(s): ${missing[*]}"
   fi
-  if ! docker info >/dev/null 2>&1; then
-    die "Docker daemon is unavailable; start Docker and retry"
+  docker info >/dev/null 2>&1 || die "Docker daemon is unavailable; start Docker and retry"
+  if ! [[ "$MAX_PARALLEL" =~ ^[0-9]+$ ]] || ((MAX_PARALLEL < 1)); then
+    die "LAB_MAX_PARALLEL must be an integer >= 1"
   fi
-  if ! [[ "$RECEIVER_LOCAL_PORT" =~ ^[0-9]+$ ]] || ((RECEIVER_LOCAL_PORT < 1024 || RECEIVER_LOCAL_PORT > 65535)); then
-    die "LAB_RECEIVER_LOCAL_PORT must be an integer in 1024..65535"
-  fi
-  if ! [[ "$CAPTURE_TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] || ((CAPTURE_TIMEOUT_SECONDS < 30)); then
-    die "LAB_CAPTURE_TIMEOUT_SECONDS must be an integer >= 30"
+  if ((MAX_PARALLEL > MAX_PARALLEL_CAP)); then
+    die "LAB_MAX_PARALLEL=$MAX_PARALLEL exceeds the stated hard cap of $MAX_PARALLEL_CAP; raise the cap in run.sh deliberately if the host really supports it"
   fi
   if ! [[ "$RUN_ID" =~ ^[A-Za-z0-9_.-]+$ ]]; then
     die "LAB_RUN_ID contains unsupported characters: $RUN_ID"
   fi
 }
 
-check_inputs() {
-  local path
-  for path in "$VALUES_FILE" "$WORKLOAD_MANIFEST" "$RECEIVER_MANIFEST" "$CONFORMANCE_SOURCE" "$REPO_ROOT/e2e/receiver/Dockerfile"; do
-    [[ -f "$path" ]] || die "required lab input is missing: $path"
-  done
-
-  # The source is intentionally blueprint-configured. This assertion is the static
-  # conformance check requested by SKT-0006.03: prove that the signal still emits
-  # km.ChartVersion, then report whether a hardcoded literal exists (currently absent).
-  grep -q 'km\.ChartVersion' "$CONFORMANCE_SOURCE" \
-    || die "conformance.go no longer emits the blueprint-provided km.ChartVersion"
-  if grep -q '4\.4\.0' "$CONFORMANCE_SOURCE"; then
-    CONFORMANCE_LITERAL_STATUS="A 4.4.0 literal is present in conformance.go; review whether it is intentional."
-  else
-    CONFORMANCE_LITERAL_STATUS="No hardcoded chart-version literal is present in conformance.go; it emits km.ChartVersion as designed."
-  fi
+all_permutations() {
+  local dir
+  for dir in "$PERMUTATIONS_DIR"/*/; do
+    [[ -f "$dir/meta.env" ]] || continue
+    basename "$dir"
+  done | sort
 }
 
-generate_tls() {
-  local tls_config="$LAB_TMP/receiver-openssl.cnf"
-  TLS_CERT="$LAB_TMP/receiver.crt"
-  TLS_KEY="$LAB_TMP/receiver.key"
-
-  # Keep the certificate in LAB_TMP only. The SANs cover the in-cluster service DNS
-  # name and the local port-forward address used to fetch /__inventory.
-  cat >"$tls_config" <<EOF
-[req]
-distinguished_name = req_distinguished_name
-x509_extensions = v3_req
-prompt = no
-
-[req_distinguished_name]
-CN = $RECEIVER_SERVICE
-
-[v3_req]
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = $RECEIVER_SERVICE
-DNS.2 = $RECEIVER_SERVICE.$RECEIVER_NAMESPACE.svc
-DNS.3 = $RECEIVER_SERVICE.$RECEIVER_NAMESPACE.svc.cluster.local
-DNS.4 = localhost
-IP.1 = 127.0.0.1
-EOF
-
-  openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 \
-    -keyout "$TLS_KEY" -out "$TLS_CERT" -config "$tls_config" >/dev/null 2>&1 \
-    || die "could not generate temporary receiver TLS material"
-  chmod 600 "$TLS_KEY"
-  chmod 644 "$TLS_CERT"
+permutation_capture_status() {
+  # Reads one declared field without sourcing the file into this shell.
+  sed -n 's/^PERMUTATION_CAPTURE_STATUS="\{0,1\}\([a-z]*\)"\{0,1\}$/\1/p' \
+    "$PERMUTATIONS_DIR/$1/meta.env" | head -1
 }
 
-delete_stale_exact_resources() {
-  log "removing any stale exact lab resources before creation"
-  docker rm -f "$AUX_CONTAINER_NAME" >/dev/null 2>&1 || true
-  k3d cluster delete "$LAB_CLUSTER_NAME" >/dev/null 2>&1 || true
+permutation_field() {
+  sed -n "s/^$2=\"\(.*\)\"$/\1/p" "$PERMUTATIONS_DIR/$1/meta.env" | head -1
 }
 
-build_receiver() {
-  log "building existing e2e receiver image: $RECEIVER_IMAGE"
+# A permutation the run did not select is still part of the matrix. It is recorded as skipped so
+# the combined report always shows the whole estate, and an unproven permutation is never
+# quietly missing from the table.
+write_skipped_result() {
+  local permutation=$1
+  mkdir -p -- "$RESULTS_DIR"
+  jq -n \
+    --arg result_version "synthkit.lab.permutation-result/v1alpha1" \
+    --arg permutation "$permutation" \
+    --arg title "$(permutation_field "$permutation" PERMUTATION_TITLE)" \
+    --arg summary "$(permutation_field "$permutation" PERMUTATION_SUMMARY)" \
+    --arg collector "$(permutation_field "$permutation" PERMUTATION_COLLECTOR)" \
+    --arg collector_version "$(permutation_field "$permutation" PERMUTATION_COLLECTOR_VERSION)" \
+    --arg capture_status "$(permutation_capture_status "$permutation")" \
+    --arg run_id "$RUN_ID" \
+    '{
+      result_version: $result_version,
+      permutation: $permutation,
+      title: $title,
+      summary: $summary,
+      collector: $collector,
+      collector_version: $collector_version,
+      substrate: "k3s",
+      cluster: "",
+      capture_status: $capture_status,
+      run_id: $run_id,
+      outcome: "skipped",
+      phase: "not selected",
+      exit_code: 0,
+      capture_window_seconds: 0,
+      counts: {metrics: 0, logs: 0, traces: 0}
+    }' >"$RESULTS_DIR/$permutation.json"
+}
+
+# A selected permutation that dies before its worker can write anything would otherwise vanish
+# from the matrix entirely, and a missing row is the most dangerous shape of all: it reads as
+# though the permutation was never part of the run. The dispatcher therefore stakes a claim
+# before launching, pre-classified as failed. The worker overwrites it on every exit path, so
+# this record survives only if the worker never ran its own teardown.
+write_launched_placeholder() {
+  local permutation=$1
+  mkdir -p -- "$RESULTS_DIR"
+  jq -n \
+    --arg result_version "synthkit.lab.permutation-result/v1alpha1" \
+    --arg permutation "$permutation" \
+    --arg title "$(permutation_field "$permutation" PERMUTATION_TITLE)" \
+    --arg summary "$(permutation_field "$permutation" PERMUTATION_SUMMARY)" \
+    --arg collector "$(permutation_field "$permutation" PERMUTATION_COLLECTOR)" \
+    --arg collector_version "$(permutation_field "$permutation" PERMUTATION_COLLECTOR_VERSION)" \
+    --arg capture_status "$(permutation_capture_status "$permutation")" \
+    --arg run_id "$RUN_ID" \
+    '{
+      result_version: $result_version,
+      permutation: $permutation,
+      title: $title,
+      summary: $summary,
+      collector: $collector,
+      collector_version: $collector_version,
+      substrate: "k3s",
+      cluster: "",
+      capture_status: $capture_status,
+      run_id: $run_id,
+      outcome: "failed",
+      phase: "launch",
+      failure_reason: "The worker never wrote a result record, so it died before its own teardown ran. Read this permutation'"'"'s worker log.",
+      exit_code: 0,
+      capture_window_seconds: 0,
+      counts: {metrics: 0, logs: 0, traces: 0}
+    }' >"$RESULTS_DIR/$permutation.json"
+}
+
+build_shared_images() {
+  # Built ONCE, here, rather than in every worker: parallel workers writing the same image tag
+  # would race the Docker image store, and a failure there is a harness failure that would
+  # otherwise be charged to whichever permutation lost.
+  log "building the shared capture receiver image: $RECEIVER_IMAGE"
   docker build --pull=false --file "$REPO_ROOT/e2e/receiver/Dockerfile" \
-    --tag "$RECEIVER_IMAGE" "$REPO_ROOT"
+    --tag "$RECEIVER_IMAGE" "$REPO_ROOT" >"$LAB_OUTPUT_DIR/receiver-build-$RUN_ID.log" 2>&1 \
+    || die "receiver image build failed; see $LAB_OUTPUT_DIR/receiver-build-$RUN_ID.log"
+  log "resolving the pinned workload image digest"
+  docker pull "$WORKLOAD_IMAGE" >/dev/null 2>&1 \
+    || die "could not resolve the pinned workload image digest"
 }
 
-create_cluster() {
-  log "creating fixed lab cluster: $LAB_CLUSTER_NAME"
-  k3d cluster create "$LAB_CLUSTER_NAME" \
-    --servers 1 \
-    --agents 1 \
-    --wait \
-    --k3s-arg "--disable=traefik@server:*"
-
-  export KUBECONFIG="$LAB_TMP/kubeconfig"
-  k3d kubeconfig get "$LAB_CLUSTER_NAME" >"$KUBECONFIG"
-  chmod 600 "$KUBECONFIG"
-  kubectl cluster-info >/dev/null
-}
-
-import_images() {
-  log "pulling immutable workload image and importing local receiver image"
-  # Pulling proves the digest is resolvable. k3d cannot import an image addressed by
-  # digest from Docker's local store, so k3s pulls this immutable reference directly.
-  docker pull "$WORKLOAD_IMAGE"
-  k3d image import "$RECEIVER_IMAGE" --cluster "$LAB_CLUSTER_NAME"
-}
-
-deploy_receiver() {
-  log "deploying capture receiver with temporary TLS"
-  kubectl apply --filename "$RECEIVER_MANIFEST" >/dev/null
-  kubectl --namespace "$RECEIVER_NAMESPACE" create secret tls synthkit-skt000603-receiver-tls \
-    --cert="$TLS_CERT" --key="$TLS_KEY" --dry-run=client --output=yaml \
-    | kubectl apply --filename=- >/dev/null
-  kubectl --namespace "$RECEIVER_NAMESPACE" rollout status \
-    deployment/synthkit-skt000603-receiver --timeout=180s
-}
-
-deploy_workloads() {
-  log "deploying pinned two-service workload deck"
-  kubectl apply --filename "$WORKLOAD_MANIFEST" >/dev/null
-  kubectl --namespace otel-demo rollout status deployment/lab-catalog --timeout=180s
-  kubectl --namespace otel-demo rollout status deployment/lab-checkout --timeout=180s
-}
-
-start_port_forward() {
-  log "starting local receiver port-forward on 127.0.0.1:$RECEIVER_LOCAL_PORT"
-  kubectl --namespace "$RECEIVER_NAMESPACE" port-forward \
-    --address 127.0.0.1 \
-    "service/$RECEIVER_SERVICE" "$RECEIVER_LOCAL_PORT:9099" \
-    >"$LAB_TMP/port-forward.log" 2>&1 &
-  PORT_FORWARD_PID=$!
-
-  local attempts=0
-  while ((attempts < 30)); do
-    attempts=$((attempts + 1))
-    if curl --fail --silent --show-error --cacert "$TLS_CERT" \
-      "https://127.0.0.1:$RECEIVER_LOCAL_PORT/__inventory" >/dev/null 2>&1; then
-      return 0
+running_count() {
+  local pid
+  local count=0
+  for pid in "${JOB_PIDS[@]:-}"; do
+    [[ -n "$pid" ]] || continue
+    if kill -0 "$pid" >/dev/null 2>&1; then
+      count=$((count + 1))
     fi
-    if ! kill -0 "$PORT_FORWARD_PID" >/dev/null 2>&1; then
-      sed -n '1,120p' "$LAB_TMP/port-forward.log" >&2 || true
-      die "receiver port-forward exited before becoming ready"
-    fi
-    sleep 1
   done
-  sed -n '1,120p' "$LAB_TMP/port-forward.log" >&2 || true
-  die "receiver port-forward did not become ready"
-}
-
-install_chart() {
-  log "installing $CHART_REF version $CHART_VERSION"
-  helm repo add "$CHART_REPO_NAME" "$CHART_REPO_URL" >/dev/null
-  helm repo update >/dev/null
-  helm upgrade --install "$HELM_RELEASE" "$CHART_REF" \
-    --version "$CHART_VERSION" \
-    --namespace "$RECEIVER_NAMESPACE" \
-    --values "$VALUES_FILE" \
-    --wait \
-    --timeout 15m
-}
-
-fetch_inventory() {
-  local temporary="$LAB_TMP/inventory.json.tmp"
-  if curl --fail --silent --show-error --cacert "$TLS_CERT" \
-    "https://127.0.0.1:$RECEIVER_LOCAL_PORT/__inventory" >"$temporary"; then
-    mv -- "$temporary" "$LATEST_INVENTORY"
-    return 0
-  fi
-  return 1
-}
-
-inventory_meets_acceptance() {
-  jq -e '
-    def receipt($protocol): any(.receipts[]?; .protocol == $protocol and (.count // 0) > 0);
-    def metric_label($key): any(.metrics[]?.labels[]?; .key == $key and ((.values // []) | length) > 0);
-    def label_value($key; $value): any(.metrics[]?.labels[]?; .key == $key and (((.values // []) | index($value)) != null));
-    (.schema_version == "synthkit.telemetry.inventory/v1alpha1")
-      and receipt("prometheus_remote_write_v1")
-      and receipt("otlp_logs")
-      and metric_label("cluster")
-      and metric_label("k8s_cluster_name")
-      and metric_label("job")
-      and metric_label("instance")
-      and label_value("source"; "kubernetes")
-  ' "$LATEST_INVENTORY" >/dev/null 2>&1
-}
-
-inventory_declares_instrument_types() {
-  jq -e 'any(.metrics[]?; any(.instrument_types[]?; . != "unknown"))' "$LATEST_INVENTORY" >/dev/null 2>&1
-}
-
-# wait_for_declared_instruments never fails the run. Whether the pinned collector sends
-# remote-write metadata at all is one of the things this lab measures, so an absent
-# declaration is a recorded finding, not a broken capture.
-wait_for_declared_instruments() {
-  local deadline=$((SECONDS + INSTRUMENT_GRACE_SECONDS))
-  local remaining
-  log "waiting for producer-declared instrument types (remote-write v1 metadata)"
-  while ((SECONDS < deadline)); do
-    if inventory_declares_instrument_types; then
-      cp -- "$LATEST_INVENTORY" "$RAW_INVENTORY"
-      INSTRUMENT_STATUS="PASS"
-      return 0
-    fi
-    if ! kill -0 "$PORT_FORWARD_PID" >/dev/null 2>&1; then
-      break
-    fi
-    remaining=$((deadline - SECONDS))
-    log "no declared instrument type yet; retrying (${remaining}s remaining)"
-    sleep 5
-    fetch_inventory || true
-  done
-  if [[ -s "$LATEST_INVENTORY" ]]; then
-    cp -- "$LATEST_INVENTORY" "$RAW_INVENTORY"
-  fi
-  INSTRUMENT_STATUS="FAIL"
-  return 0
-}
-
-wait_for_capture() {
-  local deadline=$((SECONDS + CAPTURE_TIMEOUT_SECONDS))
-  local remaining
-  log "waiting for real collector egress (RW1, OTLP logs, ambient labels)"
-  while ((SECONDS < deadline)); do
-    if ! kill -0 "$PORT_FORWARD_PID" >/dev/null 2>&1; then
-      CAPTURE_STATUS="FAIL"
-      CAPTURE_FAILURE_REASON="The receiver port-forward exited during capture; see $LAB_TMP/port-forward.log."
-      sed -n '1,120p' "$LAB_TMP/port-forward.log" >&2 || true
-      return 1
-    fi
-    if fetch_inventory && inventory_meets_acceptance; then
-      cp -- "$LATEST_INVENTORY" "$RAW_INVENTORY"
-      CAPTURE_STATUS="PASS"
-      return 0
-    fi
-    remaining=$((deadline - SECONDS))
-    log "capture not complete; retrying (${remaining}s remaining)"
-    sleep 5
-  done
-  if [[ -s "$LATEST_INVENTORY" ]]; then
-    cp -- "$LATEST_INVENTORY" "$RAW_INVENTORY"
-  fi
-  CAPTURE_STATUS="FAIL"
-  CAPTURE_FAILURE_REASON="Timed out after ${CAPTURE_TIMEOUT_SECONDS}s waiting for RW1, OTLP-log, and ambient-label evidence."
-  return 1
-}
-
-normalize_candidate() {
-  [[ -s "$RAW_INVENTORY" ]] || return 1
-  jq -S \
-    --arg substrate "$CAPTURE_SUBSTRATE" \
-    --arg chart_version "$CHART_VERSION" \
-    --arg captured_at "$CAPTURED_AT" '
-      def strings: ((. // []) | unique | sort);
-      def attributes: map(.values |= strings) | sort_by(.key);
-      .schema_version = "synthkit.telemetry.inventory/v1alpha1"
-      | .provenance = {
-          substrate: $substrate,
-          chart_version: $chart_version,
-          captured_at: $captured_at
-        }
-      | .metrics = ((.metrics // []) | map(
-          .transports |= strings
-          | .instrument_types |= strings
-          | .labels = ((.labels // []) | attributes)
-          | if .histogram then
-              .histogram.bucket_bounds = ((.histogram.bucket_bounds // []) | unique | sort)
-              | .histogram.native_schemas = ((.histogram.native_schemas // []) | unique | sort)
-            else . end
-        ) | sort_by(.name))
-      | .logs = ((.logs // []) | map(
-          .stream_labels = ((.stream_labels // []) | attributes)
-          | .structured_metadata_keys |= strings
-        ) | sort_by(.transport, .source))
-      | .traces = ((.traces // []) | map(
-          .resource_attributes = ((.resource_attributes // []) | attributes)
-          | .span_names |= strings
-          | .span_attribute_keys |= strings
-        ) | sort_by(.service))
-      | .profiles = ((.profiles // []) | map(.labels = ((.labels // []) | attributes)) | sort_by(.profile_type))
-      | .sigil = ((.sigil // []) | map(.operation_names |= strings) | sort_by(.ingest_kind))
-      | .receipts = ((.receipts // []) | sort_by(.protocol))
-    ' "$RAW_INVENTORY" >"$CANDIDATE_JSON"
-}
-
-inventory_value_summary() {
-  if [[ ! -s "$RAW_INVENTORY" ]]; then
-    printf '%s' '(inventory unavailable)'
-    return 0
-  fi
-  jq -r '
-    . as $root
-    | reduce ["cluster", "k8s_cluster_name", "job", "instance", "source"][] as $key
-      ({}; .[$key] = ([$root.metrics[]?.labels[]? | select(.key == $key) | .values[]?] | unique | sort))
-    | to_entries
-    | map("- \(.key): \(.value | if length == 0 then "(none)" else join(", ") end)")
-    | join("\n")
-  ' "$RAW_INVENTORY" 2>/dev/null || printf '%s' '(inventory unavailable)'
-}
-
-write_findings_report() {
-  local metrics logs traces receipts ambient_values
-  metrics='(unavailable)'
-  logs='(unavailable)'
-  traces='(unavailable)'
-  receipts='(unavailable)'
-  if [[ -s "$RAW_INVENTORY" ]]; then
-    metrics="$(jq -r '.metrics | length' "$RAW_INVENTORY")"
-    logs="$(jq -r '.logs | length' "$RAW_INVENTORY")"
-    traces="$(jq -r '.traces | length' "$RAW_INVENTORY")"
-    receipts="$(jq -r '[.receipts[]? | "\(.protocol)=\(.count)"] | if length == 0 then "(none)" else join(", ") end' "$RAW_INVENTORY")"
-  fi
-  ambient_values="$(inventory_value_summary)"
-
-  local declared_metrics="(unavailable)"
-  local unknown_metrics="(unavailable)"
-  local declared_types="(unavailable)"
-  local metadata_records="(unavailable)"
-  if [[ -s "$RAW_INVENTORY" ]]; then
-    declared_metrics="$(jq -r '[.metrics[]? | select(any(.instrument_types[]?; . != "unknown"))] | length' "$RAW_INVENTORY")"
-    unknown_metrics="$(jq -r '[.metrics[]? | select(all(.instrument_types[]?; . == "unknown"))] | length' "$RAW_INVENTORY")"
-    declared_types="$(jq -r '[.metrics[]?.instrument_types[]? | select(. != "unknown")] | unique | if length == 0 then "(none)" else join(", ") end' "$RAW_INVENTORY")"
-    metadata_records="$(jq -r '[.receipts[]? | select(.protocol == "prometheus_remote_write_v1_metadata") | .count] | add // 0' "$RAW_INVENTORY")"
-  fi
-
-  local rw1_status="FAIL"
-  local otlp_logs_status="FAIL"
-  local ambient_status="FAIL"
-  if [[ -s "$RAW_INVENTORY" ]] && jq -e 'any(.receipts[]?; .protocol == "prometheus_remote_write_v1" and (.count // 0) > 0)' "$RAW_INVENTORY" >/dev/null 2>&1; then
-    rw1_status="PASS"
-  fi
-  if [[ -s "$RAW_INVENTORY" ]] && jq -e 'any(.receipts[]?; .protocol == "otlp_logs" and (.count // 0) > 0)' "$RAW_INVENTORY" >/dev/null 2>&1; then
-    otlp_logs_status="PASS"
-  fi
-  if [[ -s "$RAW_INVENTORY" ]] && jq -e '
-    def metric_label($key): any(.metrics[]?.labels[]?; .key == $key and ((.values // []) | length) > 0);
-    def source: any(.metrics[]?.labels[]?; .key == "source" and (((.values // []) | index("kubernetes")) != null));
-    metric_label("cluster") and metric_label("k8s_cluster_name") and metric_label("job") and metric_label("instance") and source
-  ' "$RAW_INVENTORY" >/dev/null 2>&1; then
-    ambient_status="PASS"
-  fi
-
-  cat >"$FINDINGS_REPORT" <<EOF
-# SKT-0006.03 k3s capture-lab findings
-
-- run_id: $RUN_ID
-- captured_at: $CAPTURED_AT
-- substrate: $CAPTURE_SUBSTRATE
-- chart: $CHART_REF@$CHART_VERSION
-- cluster: $LAB_CLUSTER_NAME
-- receiver: https://$RECEIVER_SERVICE.$RECEIVER_NAMESPACE.svc.cluster.local:9099
-
-## Capture checks
-
-- collector egress candidate: $CAPTURE_STATUS
-- Prometheus Remote-Write v1 receipt: $rw1_status
-- OTLP logs receipt: $otlp_logs_status
-- ambient metric labels (cluster, k8s_cluster_name, job, instance, source=kubernetes): $ambient_status
-- inventory counts: metrics=$metrics, logs=$logs, traces=$traces
-- receipts: $receipts
-
-Ambient label values observed:
-$ambient_values
-
-## Instrument types
-
-The capture receiver reads the instrument type from two mechanisms, both evidence, neither a
-name:
-
-1. prompb.WriteRequest.metadata (field 3), where the producer declares one MetricType per
-   metric family. This is authoritative when present, and applies to the family of exactly
-   that name.
-2. The reserved label names of the exposition contract: `le` on a classic histogram bucket
-   series, `quantile` on a summary quantile series, and a native histogram sample.
-
-- instrument-type evidence observed: $INSTRUMENT_STATUS
-- metric families carrying an observed type: $declared_metrics
-- metric families still carrying the unknown sentinel: $unknown_metrics
-- observed types: $declared_types
-- remote-write v1 metadata records decoded: $metadata_records
-
-A family keeps the unknown sentinel when neither mechanism reached it: no metadata record named
-it, it declared MetricType UNKNOWN, and none of its captured series carried a reserved label.
-That is absent evidence, not a claim that the metric is untyped. A counter is the common case:
-nothing in a remote-write v1 sample distinguishes one from a gauge, and the `_total` suffix is
-a naming convention, not a declaration.
-
-## Conformance audit
-
-- chart pin in this lab: $CHART_VERSION
-- source assertion: internal/construct/k8scluster/conformance.go emits km.ChartVersion
-- literal-version audit: $CONFORMANCE_LITERAL_STATUS
-
-## Scope and limitations
-
-- The existing e2e receiver is deployed as the sole collector egress destination.
-- Profiling and profilesReceiver are disabled because this receiver has no profile HTTP route;
-  this lab makes no profile-shape claim.
-- autoInstrumentation is disabled because the pinned two-service BusyBox deck has no viable
-  eBPF/Beyla workload shape; applicationObservability remains enabled for OTLP receiver parity.
-- k3s substrate evidence must not be applied to EKS-only identity claims.
-EOF
-}
-
-write_failure_context() {
-  kubectl --namespace "$RECEIVER_NAMESPACE" get pods --output=wide \
-    >"$LAB_OUTPUT_DIR/pods-$RUN_ID.txt" 2>&1 || true
-  kubectl --namespace "$RECEIVER_NAMESPACE" get events --sort-by=.lastTimestamp \
-    >"$LAB_OUTPUT_DIR/events-$RUN_ID.txt" 2>&1 || true
-  helm status "$HELM_RELEASE" --namespace "$RECEIVER_NAMESPACE" \
-    >"$LAB_OUTPUT_DIR/helm-$RUN_ID.txt" 2>&1 || true
+  printf '%d' "$count"
 }
 
 main() {
   require_commands
-  mkdir -p -- "$LAB_OUTPUT_DIR"
-  check_inputs
+  mkdir -p -- "$LAB_OUTPUT_DIR" "$RESULTS_DIR"
+  [[ -x "$WORKER" || -f "$WORKER" ]] || die "worker script is missing: $WORKER"
 
-  RAW_INVENTORY="$LAB_OUTPUT_DIR/inventory-$RUN_ID.json"
-  CANDIDATE_JSON="$LAB_OUTPUT_DIR/candidate-$RUN_ID.json"
-  FINDINGS_REPORT="$LAB_OUTPUT_DIR/findings-$RUN_ID.md"
+  local available selected candidate status
+  available=()
+  while IFS= read -r candidate; do
+    available+=("$candidate")
+  done < <(all_permutations)
+  ((${#available[@]} > 0)) || die "no permutation is defined under $PERMUTATIONS_DIR"
 
-  LAB_TMP="$(mktemp -d "${TMPDIR:-/tmp}/synthkit-skt000603.XXXXXX")"
-  chmod 700 "$LAB_TMP"
-
-  delete_stale_exact_resources
-  generate_tls
-  build_receiver
-  create_cluster
-  import_images
-  deploy_receiver
-  deploy_workloads
-  start_port_forward
-  install_chart
-
-  LATEST_INVENTORY="$LAB_TMP/latest-inventory.json"
-  if ! wait_for_capture; then
-    normalize_candidate || true
-    write_findings_report
-    write_failure_context
-    die "$CAPTURE_FAILURE_REASON See $FINDINGS_REPORT and the exact-name diagnostics in $LAB_OUTPUT_DIR."
+  selected=()
+  if (($# > 0)); then
+    for candidate in "$@"; do
+      [[ -f "$PERMUTATIONS_DIR/$candidate/meta.env" ]] \
+        || die "unknown permutation: $candidate (available: ${available[*]})"
+      selected+=("$candidate")
+    done
+  elif [[ -n "${LAB_PERMUTATIONS:-}" ]]; then
+    for candidate in $(printf '%s' "$LAB_PERMUTATIONS" | tr ',' ' '); do
+      [[ -f "$PERMUTATIONS_DIR/$candidate/meta.env" ]] \
+        || die "unknown permutation: $candidate (available: ${available[*]})"
+      selected+=("$candidate")
+    done
+  else
+    # Default selection is the permutations whose capture has been proven end to end. An
+    # unproven permutation is a real part of the matrix but running it by default would make
+    # every default run report PARTIAL for a reason that is not a regression.
+    for candidate in "${available[@]}"; do
+      status="$(permutation_capture_status "$candidate")"
+      if [[ "$status" == "proven" ]]; then
+        selected+=("$candidate")
+      fi
+    done
+    ((${#selected[@]} > 0)) || die "no proven permutation is defined; select one explicitly"
   fi
 
-  wait_for_declared_instruments
+  log "run_id=$RUN_ID"
+  log "available permutations: $(printf '%s ' "${available[@]}")"
+  log "selected permutations: $(printf '%s ' "${selected[@]}")"
+  log "concurrency bound: $MAX_PARALLEL (hard cap $MAX_PARALLEL_CAP)"
+  log "output: $LAB_OUTPUT_DIR"
 
-  normalize_candidate || die "could not normalize the receiver inventory into a candidate"
-  write_findings_report
-  log "candidate: $CANDIDATE_JSON"
-  log "findings: $FINDINGS_REPORT"
-  log "raw inventory: $RAW_INVENTORY"
+  for candidate in "${available[@]}"; do
+    if ! printf '%s\n' "${selected[@]}" | grep -Fxq "$candidate"; then
+      log "not selected this run: $candidate (run it with: bash e2e/lab/run.sh $candidate)"
+      write_skipped_result "$candidate"
+    fi
+  done
+
+  build_shared_images
+
+  JOB_PIDS=()
+  local index=0
+  local port
+  for candidate in "${selected[@]}"; do
+    while (($(running_count) >= MAX_PARALLEL)); do
+      sleep 2
+    done
+    port=$((PORT_BASE + index))
+    index=$((index + 1))
+    log "starting $candidate (local receiver port $port)"
+    write_launched_placeholder "$candidate"
+    (
+      env \
+        LAB_OUTPUT_DIR="$LAB_OUTPUT_DIR" \
+        LAB_RESULTS_DIR="$RESULTS_DIR" \
+        LAB_RUN_ID="$RUN_ID" \
+        LAB_CAPTURED_AT="$CAPTURED_AT" \
+        LAB_RECEIVER_LOCAL_PORT="$port" \
+        LAB_RECEIVER_IMAGE="$RECEIVER_IMAGE" \
+        LAB_SKIP_IMAGE_BUILD=true \
+        bash "$WORKER" "$candidate" >"$LAB_OUTPUT_DIR/worker-$candidate-$RUN_ID.log" 2>&1
+    ) &
+    JOB_PIDS+=($!)
+  done
+
+  # A worker's non-zero exit is expected and already recorded in its own result record, so the
+  # matrix waits for every job and never lets one job's failure abort the others.
+  local pid
+  for pid in "${JOB_PIDS[@]:-}"; do
+    wait "$pid" || true
+  done
+
+  log "all jobs finished; building the combined report"
+  local report_status=0
+  go run "$REPO_ROOT/e2e/lab/cmd/lab-matrix" report \
+    -results "$RESULTS_DIR" \
+    -out "$REPORT_MD" \
+    -json "$REPORT_JSON" \
+    -run-id "$RUN_ID" \
+    -generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    -max-parallel "$MAX_PARALLEL" \
+    -parallelism-note "$PARALLELISM_NOTE" || report_status=$?
+
+  log "combined report: $REPORT_MD"
+  log "machine-readable report: $REPORT_JSON"
+  log "per-permutation worker logs: $LAB_OUTPUT_DIR/worker-*-$RUN_ID.log"
+  exit "$report_status"
 }
 
 main "$@"

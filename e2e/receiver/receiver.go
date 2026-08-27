@@ -806,8 +806,20 @@ func (r *Receiver) handleOTLPLogs(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// handleLoki decodes a gzip+JSON Loki push body.
+// handleLoki decodes a Loki push body in either wire form.
+//
+// synthkit's own loki sink sends gzip+JSON. A real Grafana Alloy `loki.write` component does
+// NOT: it sends a snappy-compressed logproto.PushRequest with Content-Type
+// application/x-protobuf, which is the only form the k3d capture lab's Loki-native pod-log
+// permutation ever produces. Decoding one form only made the whole Loki lane invisible to the
+// lab while every other lane worked, so a capture recorded zero Loki evidence and there was
+// nothing to say whether that meant the collector sent nothing or the receiver could not read
+// it. Both forms are decoded, and which one arrived is decided by the request, never guessed.
 func (r *Receiver) handleLoki(w http.ResponseWriter, req *http.Request) {
+	if lokiPushIsProtobuf(req) {
+		r.handleLokiProtobuf(w, req)
+		return
+	}
 	raw, err := gunzip(req)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -850,6 +862,203 @@ func (r *Receiver) handleLoki(w http.ResponseWriter, req *http.Request) {
 	}
 	r.inv.AddReceipt(inventory.TransportLoki, len(push.Streams))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// lokiPushIsProtobuf decides the wire form from the request rather than by sniffing the body.
+// Alloy declares application/x-protobuf; synthkit's own sink declares application/json.
+func lokiPushIsProtobuf(req *http.Request) bool {
+	contentType := strings.ToLower(req.Header.Get("Content-Type"))
+	return strings.Contains(contentType, "protobuf") || strings.Contains(contentType, "x-proto")
+}
+
+// handleLokiProtobuf decodes a snappy-compressed logproto.PushRequest by walking the protobuf
+// wire format directly, the same way decodeRW1 walks prompb.WriteRequest. The field numbers are
+// those of logproto.PushRequest: streams = 1, and inside StreamAdapter labels = 1,
+// entries = 2, hash = 3; inside EntryAdapter timestamp = 1, line = 2, structuredMetadata = 3;
+// inside LabelPairAdapter name = 1, value = 2.
+func (r *Receiver) handleLokiProtobuf(w http.ResponseWriter, req *http.Request) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	raw, err := snappy.Decode(nil, body)
+	if err != nil {
+		// A snappy block that will not decode is a decode failure, not an empty push: reply 400
+		// so the producer's own error metrics show it rather than the lab silently recording
+		// nothing.
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	streams := 0
+	b := raw
+	for len(b) > 0 {
+		num, typ, n := protowire.ConsumeTag(b)
+		if n < 0 {
+			break
+		}
+		b = b[n:]
+		if num != 1 || typ != protowire.BytesType {
+			skip := protowire.ConsumeFieldValue(num, typ, b)
+			if skip < 0 {
+				break
+			}
+			b = b[skip:]
+			continue
+		}
+		record, n := protowire.ConsumeBytes(b)
+		if n < 0 {
+			break
+		}
+		b = b[n:]
+		labels, metadata := decodeLokiStream(record)
+		if len(labels) == 0 {
+			continue
+		}
+		// Keyed EXACTLY as the JSON path is, and as the loki sink's dry-run inventory is:
+		// strictly the "source" label, with "" when absent.
+		r.inv.AddLog(labels["source"], inventory.TransportLoki, labels, metadata)
+		streams++
+	}
+	r.inv.AddReceipt(inventory.TransportLoki, streams)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// decodeLokiStream returns one StreamAdapter's stream labels and the union of the structured
+// metadata keys carried by its entries.
+func decodeLokiStream(raw []byte) (map[string]string, []string) {
+	labels := map[string]string{}
+	metadata := make([]string, 0)
+	seen := map[string]struct{}{}
+	b := raw
+	for len(b) > 0 {
+		num, typ, n := protowire.ConsumeTag(b)
+		if n < 0 {
+			break
+		}
+		b = b[n:]
+		if typ != protowire.BytesType || (num != 1 && num != 2) {
+			skip := protowire.ConsumeFieldValue(num, typ, b)
+			if skip < 0 {
+				break
+			}
+			b = b[skip:]
+			continue
+		}
+		record, n := protowire.ConsumeBytes(b)
+		if n < 0 {
+			break
+		}
+		b = b[n:]
+		switch num {
+		case 1:
+			for key, value := range parseLokiLabelSet(string(record)) {
+				labels[key] = value
+			}
+		case 2:
+			for _, key := range decodeLokiEntryMetadataKeys(record) {
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				metadata = append(metadata, key)
+			}
+		}
+	}
+	return labels, metadata
+}
+
+// decodeLokiEntryMetadataKeys returns the structured-metadata label names on one EntryAdapter.
+func decodeLokiEntryMetadataKeys(raw []byte) []string {
+	keys := make([]string, 0)
+	b := raw
+	for len(b) > 0 {
+		num, typ, n := protowire.ConsumeTag(b)
+		if n < 0 {
+			break
+		}
+		b = b[n:]
+		if num != 3 || typ != protowire.BytesType {
+			skip := protowire.ConsumeFieldValue(num, typ, b)
+			if skip < 0 {
+				break
+			}
+			b = b[skip:]
+			continue
+		}
+		record, n := protowire.ConsumeBytes(b)
+		if n < 0 {
+			break
+		}
+		b = b[n:]
+		if key, _ := decodeRW1Label(record); key != "" {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+// parseLokiLabelSet parses the Prometheus label-set text a StreamAdapter carries, for example
+// `{cluster="lab", source="kubernetes"}`. It is deliberately a small parser rather than a
+// regular expression: a label value may contain a comma or an escaped quote, and splitting on
+// commas would silently truncate one.
+func parseLokiLabelSet(text string) map[string]string {
+	out := map[string]string{}
+	text = strings.TrimSpace(text)
+	text = strings.TrimPrefix(text, "{")
+	text = strings.TrimSuffix(text, "}")
+	for len(text) > 0 {
+		text = strings.TrimLeft(text, ", \t")
+		equals := strings.IndexByte(text, '=')
+		if equals < 0 {
+			break
+		}
+		key := strings.TrimSpace(text[:equals])
+		text = text[equals+1:]
+		if len(text) == 0 || text[0] != '"' {
+			break
+		}
+		value, rest, ok := scanQuoted(text)
+		if !ok {
+			break
+		}
+		if key != "" {
+			out[key] = value
+		}
+		text = rest
+	}
+	return out
+}
+
+// scanQuoted reads one double-quoted, backslash-escaped string starting at text[0] and returns
+// its unescaped value plus whatever follows it.
+func scanQuoted(text string) (string, string, bool) {
+	var value strings.Builder
+	for i := 1; i < len(text); i++ {
+		switch text[i] {
+		case '\\':
+			if i+1 >= len(text) {
+				return "", "", false
+			}
+			i++
+			switch text[i] {
+			case 'n':
+				value.WriteByte('\n')
+			case 't':
+				value.WriteByte('\t')
+			default:
+				value.WriteByte(text[i])
+			}
+		case '"':
+			return value.String(), text[i+1:], true
+		default:
+			value.WriteByte(text[i])
+		}
+	}
+	return "", "", false
 }
 
 // handleSigilGenerations decodes a plain protojson ExportGenerationsRequest.

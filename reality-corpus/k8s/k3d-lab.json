@@ -2005,10 +2005,8 @@
         "labels": [
           {
             "key": "build_date",
-            "values": [
-              "2026-05-20T11:15:10Z"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "cluster",
@@ -2024,10 +2022,8 @@
           },
           {
             "key": "git_commit",
-            "values": [
-              "6a4781ad53ee5cad273bedcd9462ae36ac97d798"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "git_tree_state",
@@ -2038,17 +2034,13 @@
           },
           {
             "key": "git_version",
-            "values": [
-              "v1.35.5+k3s1"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "go_version",
-            "values": [
-              "go1.25.9"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "instance",
@@ -2069,17 +2061,13 @@
           },
           {
             "key": "major",
-            "values": [
-              "1"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "minor",
-            "values": [
-              "35"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",

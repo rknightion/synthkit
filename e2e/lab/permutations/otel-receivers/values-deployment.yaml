@@ -1,0 +1,112 @@
+# Deployment half of the OTel Collector native-receivers permutation.
+#
+# Transcribed from the Grafana Cloud kubernetes-monitoring documentation
+# (configuration/config-other-methods/otel-collector-receivers), with the same single class of
+# change as the DaemonSet half: the hosted destination and its basicauth extension become the
+# in-cluster capture receiver.
+image:
+  repository: grafana/alloy
+  tag: 'v1.18.0'
+command:
+  name: 'bin/otelcol'
+
+mode: deployment
+replicaCount: 1
+rollout:
+  strategy: Recreate
+
+resources:
+  limits: { memory: 200Mi, cpu: 200m }
+  requests: { memory: 150Mi, cpu: 50m }
+
+presets:
+  kubernetesAttributes:
+    enabled: true
+  clusterMetrics:
+    enabled: true
+
+ports:
+  prometheus:
+    enabled: true
+    containerPort: 8889
+    servicePort: 8889
+    protocol: TCP
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+    k8s_cluster:
+      metrics:
+        k8s.container.status.reason:
+          enabled: true
+    k8sobjects:
+      objects:
+        - name: events
+          mode: watch
+
+  processors:
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 160
+      spike_limit_mib: 32
+    k8sattributes:
+      extract:
+        otel_annotations: true
+    resource/k8sclustername:
+      attributes:
+        - key: k8s.cluster.name
+          action: upsert
+          value: synthkit-k3s-lab
+    resource/hostname:
+      attributes:
+        - key: host.name
+          action: upsert
+          from_attribute: k8s.node.name
+    resource/eventservicename:
+      attributes:
+        - key: service.name
+          action: upsert
+          value: 'integrations/kubernetes/eventhandler'
+    transform/copy_node_name:
+      metric_statements:
+        - context: datapoint
+          statements:
+            - set(attributes["k8s.node.name"], resource.attributes["k8s.node.name"]) where resource.attributes["k8s.node.name"] != nil
+            - set(attributes["host.name"], resource.attributes["host.name"]) where resource.attributes["host.name"] != nil
+    batch: {}
+
+  exporters:
+    otlphttp/capture:
+      endpoint: https://synthkit-skt000603-receiver.monitoring.svc.cluster.local:9099/otlp
+      tls:
+        insecure_skip_verify: true
+    prometheus:
+      endpoint: '0.0.0.0:8889'
+      resource_to_telemetry_conversion:
+        enabled: true
+
+  service:
+    extensions:
+      - health_check
+    pipelines:
+      logs:
+        receivers: [otlp]
+        processors: [memory_limiter, k8sattributes, resource/k8sclustername, batch]
+        exporters: [otlphttp/capture]
+      logs/events:
+        receivers: [k8sobjects]
+        processors: [memory_limiter, k8sattributes, resource/k8sclustername, resource/eventservicename, batch]
+        exporters: [otlphttp/capture]
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, k8sattributes, resource/k8sclustername, batch]
+        exporters: [otlphttp/capture]
+      metrics:
+        receivers: [otlp, k8s_cluster]
+        processors: [memory_limiter, k8sattributes, resource/k8sclustername, resource/hostname, transform/copy_node_name, batch]
+        exporters: [otlphttp/capture, prometheus]
