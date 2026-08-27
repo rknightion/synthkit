@@ -556,16 +556,33 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 	realityInstruments := sortedStrings(reality.instruments)
 	instrumentEvidence := !instrumentEvidenceAbsent(synthInstruments) && !instrumentEvidenceAbsent(realityInstruments)
 	appendDirectional(out, KindInstrumentMismatch, synth.name, "instrument_types", synthInstruments, realityInstruments, instrumentEvidence, true)
+	// An EMPTY representation set is absent evidence, not a claim that the family has no
+	// representation — the same reading instrumentEvidenceAbsent already gives the unknown
+	// instrument sentinel. A capture records a representation only where it observed one: `le`
+	// proves classic and a native sample proves native, while a family whose only captured
+	// component was `_count` proves neither. Gating only the synth direction is what makes that
+	// safe. If reality observed no representation, synth's legitimate classic claim must not
+	// become a contradiction; if SYNTH has no representation, reality's is still a real coverage
+	// gap and is still reported. This also settles the case histogramView cannot distinguish:
+	// "no histogram block at all" and "classic: false" both mean no representation evidence, so
+	// they need not be told apart.
+	synthRepresentations := histogramRepresentations(synth.histogram)
+	realityRepresentations := histogramRepresentations(reality.histogram)
 	appendDirectional(
 		out,
 		KindInstrumentMismatch,
 		synth.name,
 		"histogram.representations",
-		histogramRepresentations(synth.histogram),
-		histogramRepresentations(reality.histogram),
-		true,
+		synthRepresentations,
+		realityRepresentations,
+		len(realityRepresentations) > 0,
 		true,
 	)
+	// Gated on the SAME condition as representations, and deliberately not on the native-schema
+	// set being empty. An empty reality schema set has two meanings: "observed, and it is a
+	// classic histogram" — where a synth native claim IS a contradiction worth firing — and
+	// "observed no representation at all", where it is absent evidence. Only the second must be
+	// suppressed, and reality's representation set is what tells them apart.
 	appendDirectional(
 		out,
 		KindInstrumentMismatch,
@@ -573,7 +590,7 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 		"histogram.native_schemas",
 		formatInt32s(synth.histogram.nativeSchemas),
 		formatInt32s(reality.histogram.nativeSchemas),
-		true,
+		len(realityRepresentations) > 0,
 		true,
 	)
 

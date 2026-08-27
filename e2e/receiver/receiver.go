@@ -59,11 +59,20 @@ type Receiver struct {
 	// write requests from the samples, so the declaration is held here and applied to the
 	// inventory on Snapshot rather than at sample-decode time.
 	declaredInstruments map[string]string
+	// histogramProof accumulates the families this capture has PROVED are classic histograms,
+	// from an observed `le` bucket series or the producer's own metadata. Snapshot folds
+	// component series into their family against it; a family that never proved stays as the
+	// component names the capture actually saw.
+	histogramProof inventory.ClassicHistogramProof
 }
 
 // New returns a zero-state Receiver ready to use.
 func New() *Receiver {
-	return &Receiver{inv: inventory.New(), declaredInstruments: map[string]string{}}
+	return &Receiver{
+		inv:                 inventory.New(),
+		declaredInstruments: map[string]string{},
+		histogramProof:      inventory.ClassicHistogramProof{},
+	}
 }
 
 // Handler returns an http.Handler routing all synthkit egress paths.
@@ -174,16 +183,22 @@ func (r *Receiver) decodeRW2(raw []byte) (int, int) {
 		// native histogram sample, and never from the series name. A classic-histogram
 		// suffix establishes the family's bucket shape but declares no type.
 		instrument := rw2Instrument(ts)
-		histogram := rw2Histogram(name, labels, ts)
+		histogram := rw2Histogram(labels, ts)
 		if instrument == inventory.InstrumentUnknown {
 			instrument = seriesInstrument(labels, histogram)
 		}
-		if histogram == nil && instrument == inventory.InstrumentHistogram {
-			// RW2 metadata can describe a classic histogram family even when this
-			// particular series carries no histogram sample. Keep the family shape.
-			histogram = &inventory.Histogram{Classic: true, BucketBounds: []float64{}, NativeSchemas: []int32{}}
+		_, hasBound := labels[inventory.BucketBoundLabel]
+		r.histogramProof.Observe(name, hasBound)
+		if instrument == inventory.InstrumentHistogram && histogram == nil {
+			// RW2 metadata declaring HISTOGRAM is the PRODUCER saying this series belongs to a
+			// histogram family, which is a declaration rather than a reading of its name. It
+			// proves the family without carrying bucket evidence of its own.
+			if family, suffixed := inventory.ClassicHistogramFamily(name); suffixed {
+				r.histogramProof.Prove(family)
+			} else {
+				r.histogramProof.Prove(name)
+			}
 		}
-		name = normalizedHistogramName(name, histogram != nil)
 		r.inv.AddMetric(name, inventory.TransportPrometheusRW2, instrument, labels, histogram)
 		decoded++
 		if len(ts.Histograms) > 0 {
@@ -230,14 +245,27 @@ func rw2Instrument(ts *writev2.TimeSeries) string {
 	}
 }
 
-func rw2Histogram(name string, labels map[string]string, ts *writev2.TimeSeries) *inventory.Histogram {
-	classic := strings.HasSuffix(name, "_bucket") || strings.HasSuffix(name, "_sum") || strings.HasSuffix(name, "_count")
+// rw2Histogram returns the histogram evidence ONE series carries, and a `_sum` or `_count`
+// suffix carries none.
+//
+// The suffix was previously enough to record `classic: true`, which meant a family whose only
+// captured component was `_count` entered the corpus as "reality publishes a classic histogram"
+// with an empty bucket-bound set. That is an inference recorded as an observation, and it very
+// nearly caused a lane to emit `_bucket{le=...}` series for a family the capture never contained.
+// A histogram and a summary expose identically named component series, and CloudWatch's five-stat
+// expansion emits a genuine `<metric>_sum` GAUGE, so the suffix is not even weak evidence.
+//
+// `le` is the proof: Prometheus reserves it for classic-histogram bucket series and nothing else
+// carries it. A native histogram sample is equally direct. Folding the components into the family
+// they belong to is done later, in Snapshot, against the proof this capture actually accumulated.
+func rw2Histogram(labels map[string]string, ts *writev2.TimeSeries) *inventory.Histogram {
+	_, classic := labels[inventory.BucketBoundLabel]
 	if len(ts.Histograms) == 0 && !classic {
 		return nil
 	}
 	out := &inventory.Histogram{Classic: classic, Native: len(ts.Histograms) > 0, BucketBounds: []float64{}, NativeSchemas: []int32{}}
 	if classic {
-		if rawBound := labels["le"]; rawBound != "" && rawBound != "+Inf" {
+		if rawBound := labels[inventory.BucketBoundLabel]; rawBound != "" && rawBound != "+Inf" {
 			if bound, err := strconv.ParseFloat(rawBound, 64); err == nil && !math.IsInf(bound, 0) && !math.IsNaN(bound) {
 				out.BucketBounds = append(out.BucketBounds, bound)
 			}
@@ -249,18 +277,6 @@ func rw2Histogram(name string, labels map[string]string, ts *writev2.TimeSeries)
 		}
 	}
 	return out
-}
-
-func normalizedHistogramName(name string, histogram bool) string {
-	if !histogram {
-		return name
-	}
-	for _, suffix := range []string{"_bucket", "_sum", "_count"} {
-		if strings.HasSuffix(name, suffix) {
-			return strings.TrimSuffix(name, suffix)
-		}
-	}
-	return name
 }
 
 // decodeRW1 walks a Prometheus remote-write v1 WriteRequest. Field numbers are those of
@@ -297,6 +313,14 @@ func (r *Receiver) decodeRW1(raw []byte) (int, int) {
 				continue
 			}
 			r.declaredInstruments[family] = instrument
+			if instrument == inventory.InstrumentHistogram {
+				// Symmetric with the RW2 path: metadata declaring HISTOGRAM is the producer
+				// saying the family IS one, so it proves the family even though this record
+				// carries no bucket series. Latent on the protocol this lab pins —
+				// k8s-monitoring 4.4.0 sends zero RW1 metadata — but a producer that does send
+				// it would otherwise leave its components unfolded on v1 and folded on v2.
+				r.histogramProof.Prove(family)
+			}
 			metadata++
 			continue
 		}
@@ -305,9 +329,8 @@ func (r *Receiver) decodeRW1(raw []byte) (int, int) {
 			continue
 		}
 		instrument := seriesInstrument(labels, histogram)
-		if histogram != nil {
-			name = normalizedHistogramName(name, true)
-		}
+		_, hasBound := labels[inventory.BucketBoundLabel]
+		r.histogramProof.Observe(name, hasBound)
 		r.inv.AddMetric(name, inventory.TransportPrometheusRW1, instrument, labels, histogram)
 		decoded++
 	}
@@ -441,11 +464,13 @@ func decodeRW1TimeSeries(raw []byte) (string, map[string]string, *inventory.Hist
 	name := labels["__name__"]
 	delete(labels, "__name__")
 	var histogram *inventory.Histogram
-	classic := strings.HasSuffix(name, "_bucket") || strings.HasSuffix(name, "_sum") || strings.HasSuffix(name, "_count")
+	// `le` is the proof a series is a classic-histogram bucket. A `_sum` or `_count` suffix is
+	// not — see rw2Histogram for why that distinction is load-bearing.
+	_, classic := labels[inventory.BucketBoundLabel]
 	if classic || len(nativeSchemas) > 0 {
 		histogram = &inventory.Histogram{Classic: classic, Native: len(nativeSchemas) > 0, BucketBounds: []float64{}, NativeSchemas: nativeSchemas}
 		if classic {
-			if rawBound := labels["le"]; rawBound != "" && rawBound != "+Inf" {
+			if rawBound := labels[inventory.BucketBoundLabel]; rawBound != "" && rawBound != "+Inf" {
 				if bound, err := strconv.ParseFloat(rawBound, 64); err == nil && !math.IsInf(bound, 0) && !math.IsNaN(bound) {
 					histogram.BucketBounds = append(histogram.BucketBounds, bound)
 				}
@@ -776,7 +801,15 @@ func (r *Receiver) handleOTLPLogs(w http.ResponseWriter, req *http.Request) {
 			continue
 		}
 		resourceAttrs := attributeStrings(resourceLogs.GetResource().GetAttributes())
-		source := resourceIdentity(resourceAttrs)
+		// The SHARED classifier, not service.name: a captured pod-log stream otherwise files
+		// under whichever workload wrote a line, disagreeing with the family name every other
+		// producer records for the same shape. The classifier recognises no shape in an
+		// ordinary application's OTLP logs and names no lane, so the resource identity stays
+		// as the provenance exemplar there rather than leaving the entry unnamed.
+		source := inventory.ClassifyLogSource(resourceAttrs)
+		if source == "" {
+			source = resourceIdentity(resourceAttrs)
+		}
 		for _, scopeLogs := range resourceLogs.GetScopeLogs() {
 			if scopeLogs == nil {
 				continue
@@ -838,13 +871,14 @@ func (r *Receiver) handleLoki(w http.ResponseWriter, req *http.Request) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, s := range push.Streams {
-		// Key EXACTLY as the loki sink's dry-run inventory does (loki.go: src :=
-		// st.Labels["source"]) — strictly the "source" label, with "" when absent.
-		// No service_name/job/"stream" fallback: a fallback would re-key the
-		// source-less manifests stream (job=integrations/kubernetes/manifests) under
-		// its service_name on this side while -dump keys it under "", so the two
-		// inventories would never correlate. Mirroring the sink keeps both sides aligned.
-		src := s.Stream["source"]
+		// The SHARED classifier, which is now what the synth side uses too
+		// (internal/inventory/synth.go). Keying strictly on the `source` label — as this did
+		// while the Loki decode was broken and nobody could see the result — files every
+		// source-less lane under "" and FUSES them into one entry whose union label set
+		// matches no real stream. The first working Loki capture showed exactly that: the
+		// pod-log stream and the manifests stream merged, producing an entry carrying both
+		// `container` and `k8s_kind`. Shape names the pod-log family; `source` still names
+		// the lanes that declare one.
 		metadata := make([]string, 0)
 		for _, value := range s.Values {
 			if len(value) < 3 {
@@ -858,7 +892,7 @@ func (r *Receiver) handleLoki(w http.ResponseWriter, req *http.Request) {
 				metadata = append(metadata, key)
 			}
 		}
-		r.inv.AddLog(src, inventory.TransportLoki, s.Stream, metadata)
+		r.inv.AddLog(inventory.ClassifyLogStream(s.Stream, metadata), inventory.TransportLoki, s.Stream, metadata)
 	}
 	r.inv.AddReceipt(inventory.TransportLoki, len(push.Streams))
 	w.WriteHeader(http.StatusNoContent)
@@ -918,9 +952,8 @@ func (r *Receiver) handleLokiProtobuf(w http.ResponseWriter, req *http.Request) 
 		if len(labels) == 0 {
 			continue
 		}
-		// Keyed EXACTLY as the JSON path is, and as the loki sink's dry-run inventory is:
-		// strictly the "source" label, with "" when absent.
-		r.inv.AddLog(labels["source"], inventory.TransportLoki, labels, metadata)
+		// Classified exactly as the JSON path is, and as the synth side is.
+		r.inv.AddLog(inventory.ClassifyLogStream(labels, metadata), inventory.TransportLoki, labels, metadata)
 		streams++
 	}
 	r.inv.AddReceipt(inventory.TransportLoki, streams)
@@ -1131,7 +1164,16 @@ func (r *Receiver) handleSigilScores(w http.ResponseWriter, req *http.Request) {
 func (r *Receiver) Snapshot() inventory.Schema {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	snapshot := cloneSchema(r.inv)
+	// Folded HERE rather than as each series arrives: a component series cannot know whether
+	// its family's bucket series will turn up later in the capture, so proof is only complete
+	// once the window is. An unproven component keeps its own name and no histogram block,
+	// which is the honest record of "reality published a _count and nothing more".
+	//
+	// It must run BEFORE applyDeclaredInstruments, not after: the fold merges a bucket series
+	// that proved `histogram` with the `_sum` and `_count` series that could prove nothing and
+	// contributed the unknown sentinel, and dropping that superseded sentinel is exactly what
+	// applyDeclaredInstruments does last. Folding afterwards leaves it in the family's set.
+	snapshot := inventory.FoldClassicHistogramMetricsWithProof(cloneSchema(r.inv), r.histogramProof)
 	applyDeclaredInstruments(&snapshot, r.declaredInstruments)
 	return snapshot
 }

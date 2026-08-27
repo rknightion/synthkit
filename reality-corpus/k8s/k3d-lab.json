@@ -8,7 +8,7 @@
     "collector_role": "audited",
     "collector_version": "4.4.0",
     "captured_on": "2026-08-27",
-    "instrument_type_source": "Two mechanisms at the capture point, neither a metric name. (1) The producer's own Remote-Write v2 symbol-table metadata, decoded at the receiver with field numbers verified against the pinned Prometheus 3.12.0 prompb protos. (2) The reserved label names of the Prometheus exposition contract: `le` is reserved for classic histogram buckets and `quantile` for summary quantiles, so a series carrying one IS that instrument, and a native histogram sample counts equally. A series carrying neither, sent on a protocol whose metadata the producer does not emit, keeps the unknown sentinel. grafana/k8s-monitoring 4.4.0 sends ZERO Remote-Write v1 metadata: 12,651 series decoded, 0 MetricMetadata records, so on protocol 1 mechanism (2) is the only one available."
+    "instrument_type_source": "Decoded at the capture receiver from the producer own evidence, never a metric name: Remote-Write v2 symbol-table metadata where the producer sends it, and otherwise the reserved label names of the Prometheus exposition contract \u2014 `le` for a classic-histogram bucket series and `quantile` for a summary quantile series. grafana/k8s-monitoring 4.4.0 sends ZERO Remote-Write v1 metadata (12,651 series decoded, 0 MetricMetadata records), so on the protocol this lab pins the reserved-label mechanism is the only one available and a series carrying neither keeps the unknown sentinel."
   },
   "authority": {
     "substrates": [
@@ -16,8 +16,9 @@
     ]
   },
   "capture_volume": {
-    "runs": 3,
+    "runs": 4,
     "observed_contract_counts": [
+      3,
       39,
       103,
       105
@@ -2238,7 +2239,7 @@
         ]
       },
       {
-        "name": "storage_operation_duration_seconds",
+        "name": "storage_operation_duration_seconds_count",
         "transports": [
           "prometheus_remote_write_v1"
         ],
@@ -2284,7 +2285,8 @@
             "key": "operation_name",
             "values": [
               "verify_controller_attached_volume",
-              "volume_mount"
+              "volume_mount",
+              "volume_unmount"
             ],
             "values_elided": false
           },
@@ -2307,13 +2309,7 @@
             "values": [],
             "values_elided": true
           }
-        ],
-        "histogram": {
-          "classic": true,
-          "native": false,
-          "bucket_bounds": [],
-          "native_schemas": []
-        }
+        ]
       },
       {
         "name": "volume_manager_total_volumes",
@@ -2375,6 +2371,167 @@
       }
     ],
     "logs": [
+      {
+        "source": "",
+        "transport": "loki",
+        "stream_labels": [
+          {
+            "key": "action",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_kind",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_namespace_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "structured_metadata_keys": [
+          "k8s_daemonset_name",
+          "k8s_deployment_name",
+          "k8s_pod_name"
+        ]
+      },
+      {
+        "source": "k8s_pod_logs",
+        "transport": "loki",
+        "stream_labels": [
+          {
+            "key": "app_kubernetes_io_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "flags",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "stream",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "structured_metadata_keys": [
+          "pod",
+          "service_instance_id"
+        ]
+      },
+      {
+        "source": "kubernetes-events",
+        "transport": "loki",
+        "stream_labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "level",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "reason",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "structured_metadata_keys": [
+          "name",
+          "node"
+        ]
+      },
       {
         "source": "k8s_pod_logs",
         "transport": "otlp_logs",

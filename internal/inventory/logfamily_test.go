@@ -74,3 +74,49 @@ func logWithKeys(source string, keys []string) Log {
 	}
 	return log
 }
+
+// The exact stream shape k8s-monitoring 4.4.0 `podLogsViaLoki` was captured emitting at
+// collector egress on 2026-08-27: `namespace` and `container` are stream labels and `pod` is
+// STRUCTURED METADATA. While the rule read stream labels only it recognised nothing here, so
+// the stream filed under the empty source and fused with the equally source-less manifests
+// lane into one entry whose union label set matches no real stream.
+func TestClassifyLogStreamRecognisesCapturedPodLogsViaLokiShape(t *testing.T) {
+	podLogs := map[string]string{
+		"app_kubernetes_io_name": "lab-catalog",
+		"cluster":                "synthkit-k3s-lab",
+		"container":              "catalog",
+		"flags":                  "F",
+		"job":                    "otel-demo/catalog",
+		"k8s_cluster_name":       "synthkit-k3s-lab",
+		"namespace":              "otel-demo",
+		"service_name":           "lab-catalog",
+		"service_namespace":      "otel-demo",
+		"stream":                 "stdout",
+	}
+	podLogsMetadata := []string{"pod", "service_instance_id"}
+
+	if got := ClassifyLogStream(podLogs, podLogsMetadata); got != LogFamilyPodLogs {
+		t.Fatalf("ClassifyLogStream = %q, want %q", got, LogFamilyPodLogs)
+	}
+	if got := ClassifyLogSource(podLogs); got == LogFamilyPodLogs {
+		t.Fatal("the stream-labels-only rule now matches, so this test no longer pins why the metadata half is needed")
+	}
+
+	// The manifests lane is the one that fused with it, and it must still NOT match: it carries
+	// the namespace and pod halves but identifies no container.
+	manifests := map[string]string{
+		"action": "manifest", "cluster": "synthkit-k3s-lab", "instance": "alloy",
+		"job": "integrations/kubernetes/manifests", "k8s_cluster_name": "synthkit-k3s-lab",
+		"k8s_kind": "Pod", "k8s_namespace_name": "otel-demo",
+	}
+	manifestsMetadata := []string{"k8s_daemonset_name", "k8s_deployment_name", "k8s_pod_name"}
+	if got := ClassifyLogStream(manifests, manifestsMetadata); got == LogFamilyPodLogs {
+		t.Fatal("the manifests lane classified as pod logs, so the two would fuse again")
+	}
+
+	// A lane that declares its own source keeps naming itself.
+	events := map[string]string{"cluster": "c", "namespace": "otel-demo", "source": "kubernetes-events"}
+	if got := ClassifyLogStream(events, []string{"name", "node"}); got != "kubernetes-events" {
+		t.Fatalf("declared source lost: %q", got)
+	}
+}

@@ -213,8 +213,19 @@ go run ./e2e/lab/cmd/lab-matrix promote \
 ```
 
 One invocation writes one document, because a document is one area. Repeat per
-area, selecting that area's families with `-metric-prefix`, and add
-`-fold-pod-logs` on the `logs` document.
+area, selecting that area's families with `-metric-prefix`. Add `-logs` to
+promote the captured log entries as the capture classified them, one per family.
+`-merge` canonically merges into an existing document instead of replacing it,
+which is the cumulative union — it never removes established evidence, so a
+correction that must REMOVE something is a deliberate, reasoned edit and not a
+merge.
+
+`-fold-pod-logs` is the narrow alternative to `-logs`: it collapses every
+captured stream into the canonical pod-log source, and is correct only for a
+capture whose every stream IS a pod log and whose recorded source is a workload
+name the classifier could not resolve. Once the capture classifies its own
+streams, folding would destroy the distinction between the pod-log,
+cluster-events and manifests lanes.
 
 **The retention rule.** An attribute's observed values are kept only when the
 value set is fixed by the producing software's own contract — a semantic-

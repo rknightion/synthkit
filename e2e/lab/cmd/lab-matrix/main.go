@@ -53,7 +53,8 @@ func usage() {
   lab-matrix elide-corpus -file CORPUS.json [-file ...]
   lab-matrix promote -in CANDIDATE.json -out DOC.json -area A -permutation P -kind K
                      -substrate S -collector C -collector-version V -captured-on YYYY-MM-DD
-                     -instrument-type-source TEXT [-metric-prefix P ...] [-fold-pod-logs]
+                     -instrument-type-source TEXT [-metric-prefix P ...]
+                     [-logs] [-fold-pod-logs] [-merge]
 `)
 }
 
@@ -100,6 +101,8 @@ func runPromote(args []string) error {
 	var metricPrefixes fileList
 	flags.Var(&metricPrefixes, "metric-prefix", "select captured metric families by name prefix (repeatable)")
 	foldPodLogs := flags.Bool("fold-pod-logs", false, "fold captured log streams into the canonical pod-log source")
+	logs := flags.Bool("logs", false, "promote the captured log entries as classified, one per family")
+	merge := flags.Bool("merge", false, "canonically merge into an existing document at -out instead of replacing it")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -113,6 +116,7 @@ func runPromote(args []string) error {
 	promoted, err := matrix.PromoteCandidate(candidate, matrix.PromoteOptions{
 		MetricPrefixes: metricPrefixes,
 		FoldPodLogs:    *foldPodLogs,
+		Logs:           *logs,
 	})
 	if err != nil {
 		return err
@@ -143,6 +147,11 @@ func runPromote(args []string) error {
 	// because the whole corpus fails to load and every finding silently disappears.
 	if err := inventory.ValidateCorpusDocument(document); err != nil {
 		return fmt.Errorf("%s: %w", *out, err)
+	}
+	if *merge {
+		// The cumulative union, which never removes established evidence. A correction that
+		// must REMOVE something is not a merge and stays a deliberate, reasoned edit.
+		return inventory.MergeCorpusDocumentFile(*out, document)
 	}
 	encoded, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {

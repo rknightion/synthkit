@@ -64,9 +64,15 @@ const canonicalPodLogSource = "k8s_pod_logs"
 type PromoteOptions struct {
 	// MetricPrefixes selects metric families by name prefix. Empty selects no metric.
 	MetricPrefixes []string
-	// FoldPodLogs folds every captured log stream into the canonical pod-log source. False
-	// leaves logs out of the document entirely.
+	// FoldPodLogs folds every captured log stream into the canonical pod-log source. Use it
+	// only for a capture whose every stream IS a pod log and whose recorded source is a
+	// workload name the classifier could not resolve.
 	FoldPodLogs bool
+	// Logs promotes the captured log entries AS CLASSIFIED, one per family, with every stream
+	// label value elided. This is the right mode once the capture classifies its own streams:
+	// folding would then destroy the distinction between the pod-log, cluster-events and
+	// manifests lanes that the classifier just established.
+	Logs bool
 }
 
 // PromoteCandidate reduces a capture candidate to the structural evidence one corpus document
@@ -93,6 +99,30 @@ func PromoteCandidate(candidate inventory.Schema, options PromoteOptions) (inven
 			promoted.Labels = append(promoted.Labels, kept)
 		}
 		out.Metrics = append(out.Metrics, promoted)
+	}
+
+	if options.Logs {
+		for _, log := range candidate.Logs {
+			promoted := inventory.Log{
+				Source:                 log.Source,
+				Transport:              log.Transport,
+				StructuredMetadataKeys: append([]string{}, log.StructuredMetadataKeys...),
+			}
+			for _, label := range log.StreamLabels {
+				// Every stream label of a real log lane names the deployment that produced the
+				// line — its cluster, namespace, workload and container. The KEY set is the
+				// contract and compares; the values are one lab's, matching the convention the
+				// committed pod-log entries already follow.
+				promoted.StreamLabels = append(promoted.StreamLabels, inventory.Attribute{
+					Key: label.Key, Values: []string{}, ValuesElided: true,
+				})
+			}
+			sort.Slice(promoted.StreamLabels, func(i, j int) bool {
+				return promoted.StreamLabels[i].Key < promoted.StreamLabels[j].Key
+			})
+			sort.Strings(promoted.StructuredMetadataKeys)
+			out.Logs = append(out.Logs, promoted)
+		}
 	}
 
 	if options.FoldPodLogs && len(candidate.Logs) > 0 {

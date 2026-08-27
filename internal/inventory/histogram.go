@@ -21,9 +21,12 @@ import (
 // the match order does not matter.
 var classicHistogramSuffixes = []string{"_bucket", "_sum", "_count"}
 
-// bucketBoundLabel is the Prometheus label a classic-histogram bucket series carries. No other
-// series kind carries it, which is what makes it the proof a family is a classic histogram.
-const bucketBoundLabel = "le"
+// BucketBoundLabel is the Prometheus label a classic-histogram bucket series carries. No other
+// series kind carries it, which is what makes it the proof a family is a classic histogram, and
+// it is exported so a capturing producer tests for the same label this package folds on.
+const BucketBoundLabel = "le"
+
+const bucketBoundLabel = BucketBoundLabel
 
 // ClassicHistogramFamily returns the family base name a classic-histogram component series
 // name belongs to. The second result reports whether the name carried a component suffix at
@@ -69,6 +72,15 @@ func classicHistogramBucketBound(labels map[string]string) (float64, bool) {
 // proof the components keep their own names, which is what stops the fold from masking a real
 // coverage gap — a family synthkit genuinely does not emit is never folded into one it does.
 type ClassicHistogramProof map[string]struct{}
+
+// Prove records a family proved by evidence that is not a bucket series — a producer's own
+// metadata declaring the family a histogram. It is a declaration by the producer, never an
+// inference from the name, and a caller with only a name must use Observe instead.
+func (p ClassicHistogramProof) Prove(family string) {
+	if family != "" {
+		p[family] = struct{}{}
+	}
+}
 
 // Observe records one raw series. hasBucketBound reports whether it carries an `le` label.
 func (p ClassicHistogramProof) Observe(name string, hasBucketBound bool) {
@@ -127,7 +139,14 @@ func ProveClassicHistogramsFromSchema(schema Schema) ClassicHistogramProof {
 // an earlier producer into the canonical family shape; a producer building a fresh inventory
 // folds at the series level instead, so the components never become entries.
 func FoldClassicHistogramMetrics(schema Schema) Schema {
-	proof := ProveClassicHistogramsFromSchema(schema)
+	return FoldClassicHistogramMetricsWithProof(schema, ProveClassicHistogramsFromSchema(schema))
+}
+
+// FoldClassicHistogramMetricsWithProof is FoldClassicHistogramMetrics for a producer that
+// already holds its own proof. A streaming capture proves a family from evidence its recorded
+// entries no longer show — the producer's own remote-write metadata declaring the family a
+// histogram, for one — so re-deriving the proof from the schema would silently discard it.
+func FoldClassicHistogramMetricsWithProof(schema Schema, proof ClassicHistogramProof) Schema {
 	out := cloneSchema(schema)
 	out.Metrics = make([]Metric, 0, len(schema.Metrics))
 	for _, metric := range schema.Metrics {

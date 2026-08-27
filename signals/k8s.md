@@ -893,11 +893,17 @@ body_fields:
 
 ## k8s pod logs (two transports) — ScopeSubstrate [slug: k8s-pod-logs]
 
-*Provenance: OTLP transport live-captured at COLLECTOR EGRESS — k3d lab, k8s-monitoring 4.4.0 with
-`podLogsViaOpenTelemetry.enabled: true`, 2026-08-25 (`reality-corpus/k8s/k3d-lab.json`,
-`inventory.logs[]`, `source: k8s_pod_logs`, `transport: otlp_logs`). DESTINATION-side stream labels
-for the same transport live-verified on the staff stack 2026-06-15 (SK-20). Loki-native (classic)
-shape doc-sourced. The resource-vs-record split is established from the collector-contrib `container`
+*Provenance: BOTH transports now live-captured at COLLECTOR EGRESS in the k3d lab, k8s-monitoring
+4.4.0 — OTLP with `podLogsViaOpenTelemetry.enabled: true` 2026-08-25, and Loki-native with
+`podLogsViaLoki.enabled: true` 2026-08-27 (`reality-corpus/k8s/k3d-lab.json`, `inventory.logs[]`,
+`source: k8s_pod_logs`). DESTINATION-side stream labels for the OTLP transport live-verified on the
+staff stack 2026-06-15 (SK-20).*
+
+*The Loki-native block below was DOC-SOURCED until 2026-08-27 and the capture contradicted it in
+four places — see "What the first working Loki capture changed" below. The capture receiver could
+not decode Alloy's Loki wire form at all until SKT-0013.04 (it understood gzip+JSON, and a real
+`loki.write` sends a snappy-compressed `logproto.PushRequest`), so for the entire prior life of the
+k3d lab this transport was structurally invisible and its shape was never observed once.* The resource-vs-record split is established from the collector-contrib `container`
 operator contract (`pkg/stanza/docs/operators/container.md`, read 2026-08-27), which puts the k8s
 identity on the RESOURCE and `log.iostream`/`logtag` on the RECORD; the corpus schema flattens both
 into one list and cannot express the split on its own.*
@@ -927,6 +933,29 @@ gateway verbatim. An absent dimension is OMITTED, never `""` — the corpus cont
 `container` parser with no severity parser, and Loki derives `detected_level` from the body.
 `v: PENDING` — the corpus log schema has no severity field, so absence is inferred from the pipeline
 contract, not observed (cantfind SK-98).
+
+### What the first working Loki capture changed
+
+Four corrections to the previously doc-sourced Loki block, each observed at egress on 2026-08-27:
+
+| | Was documented | Captured reality |
+|---|---|---|
+| `pod` | a stream label (and metadata) | **structured metadata only** — an index-cardinality choice, since a pod name churns on every restart |
+| `service_instance_id` | a stream label (and metadata) | **structured metadata only** |
+| `detected_level` | a stream label | **absent at egress** — Loki derives it destination-side, exactly as the OTLP block already said |
+| `flags` | absent | **present** — the CRI partial/full marker, the Loki-path spelling of `logtag` |
+
+`k8s_cluster_name` is also on the wire and the doc block omitted it, and the documented metadata
+key `k8s_pod_name` does not exist on this transport — the key is `pod`.
+
+**synthkit's Loki pod-log lane does not match any of this.** It emits `k8s_namespace_name`,
+`k8s_pod_name`, `k8s_container_name` and `log_iostream` as stream labels where the collector emits
+`namespace`, `container` and `stream`; it emits `detected_level` and `service_instance_id` as stream
+labels, which the collector does not; it emits no `job` and no `flags`; and it emits no structured
+metadata at all. That is a real emission defect, not a permutation difference — synthkit models this
+exact lane behind `pod_logs_method` — and it was invisible for the whole prior life of the k3d lab
+because nothing could decode the transport. It is now the one new contradiction the fidelity gate
+reports, and it is tracked as SKT-0013.08.
 
 **Instrumentation scope.** EMPTY. A non-empty scope name would surface as a `scope_name`
 structured-metadata key at Loki, and the capture has none — so the synth does NOT apply the
@@ -983,6 +1012,9 @@ transport_otlp:
     # No `job` label on this path.
 
 # -- Transport B: Loki-native push (pod_logs_method: kubernetes_api|loki; chart podLogsViaLoki) --
+# LIVE-CAPTURED at collector egress, k3d lab, k8s-monitoring 4.4.0, 2026-08-27. This block was
+# doc-sourced before that capture and was wrong in four places; the deltas are listed under
+# "What the first working Loki capture changed".
 transport_loki:
   sink: loki
   path: /loki/api/v1/push
@@ -990,19 +1022,17 @@ transport_loki:
     cluster: <cluster-name>
     k8s_cluster_name: <cluster-name>
     namespace: <namespace>
-    pod: <pod-name>
     container: <container-name>
     job: "<namespace>/<container>"
     app_kubernetes_io_name: <deploy-name>   # omitted when the pod has no Deployment owner
     service_name: <deploy-name>             # omitted when the pod has no Deployment owner
     service_namespace: <namespace>
-    service_instance_id: "<ns>.<pod-name>.<container>"
-    stream: stdout
-    detected_level: info
+    stream: stdout|stderr
+    flags: F|P                              # the CRI partial/full marker, `logtag` on the OTLP path
   structured_metadata:
-    k8s_pod_name: <pod-name>
-    pod: <pod-name>
+    pod: <pod-name>                         # NOT a stream label: pod name churns on every restart
     service_instance_id: "<ns>.<pod-name>.<container>"
+  # detected_level is DESTINATION-derived and is NOT on the wire, exactly as on the OTLP path.
 
 body: '<RFC3339> level=info msg="request handled" path=/healthz status=200'
 note: >

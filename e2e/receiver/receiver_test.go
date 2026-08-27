@@ -617,7 +617,11 @@ func TestReceiverTypesFromSeriesEvidenceNotNames(t *testing.T) {
 		{"evidence_latency_seconds", inventory.InstrumentHistogram},
 		{"evidence_gc_pause_seconds", instrumentSummary},
 		{"evidence_requests_total", inventory.InstrumentUnknown},
-		{"evidence_pool_bytes", inventory.InstrumentUnknown},
+		// evidence_pool_bytes_sum keeps its OWN name. Nothing in the capture proved a family
+		// called evidence_pool_bytes exists: no bucket series carried `le` and no metadata
+		// declared a type. Folding it on the `_sum` suffix alone would record a histogram
+		// family reality never published, which is what SKT-0013.06 fixed.
+		{"evidence_pool_bytes_sum", inventory.InstrumentUnknown},
 	} {
 		metric := findMetric(got, want.metric)
 		if metric == nil {
@@ -630,6 +634,12 @@ func TestReceiverTypesFromSeriesEvidenceNotNames(t *testing.T) {
 	histogram := findMetric(got, "evidence_latency_seconds")
 	if histogram.Histogram == nil || !contains2point5(histogram.Histogram.BucketBounds) {
 		t.Errorf("bucket shape lost: %#v", histogram.Histogram)
+	}
+	if folded := findMetric(got, "evidence_pool_bytes"); folded != nil {
+		t.Errorf("a family was invented from a _sum suffix with no bucket series behind it: %#v", folded)
+	}
+	if unproven := findMetric(got, "evidence_pool_bytes_sum"); unproven == nil || unproven.Histogram != nil {
+		t.Errorf("an unproven component must record no histogram evidence at all: %#v", unproven)
 	}
 }
 
@@ -812,5 +822,36 @@ func TestReceiverRejectsUndecodableProtobufLokiPush(t *testing.T) {
 	}
 	if len(rec.Snapshot().Logs) != 0 {
 		t.Error("an undecodable push must not record a log shape")
+	}
+}
+
+// The RW1 metadata path must prove a histogram family exactly as the RW2 path does. A producer
+// that declares HISTOGRAM in metadata but whose captured series are only `_sum` and `_count`
+// would otherwise fold on v2 and not on v1 — the same family recorded under two different names
+// depending on which protocol the lab happened to pin.
+func TestReceiverRW1MetadataProvesAHistogramFamily(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	var body []byte
+	body = protowire.AppendTag(body, 3, protowire.BytesType)
+	body = protowire.AppendBytes(body, rw1MetadataRecord("declared_latency_seconds", 3))
+	for _, labels := range []map[string]string{
+		{"__name__": "declared_latency_seconds_sum", "job": "lab"},
+		{"__name__": "declared_latency_seconds_count", "job": "lab"},
+	} {
+		body = protowire.AppendTag(body, 1, protowire.BytesType)
+		body = protowire.AppendBytes(body, rw1Series(t, labels))
+	}
+	postRW1(t, srv.URL, body)
+
+	got := rec.Snapshot()
+	folded := findMetric(got, "declared_latency_seconds")
+	if folded == nil {
+		t.Fatalf("declared metadata did not prove the family: %#v", got.Metrics)
+	}
+	if findMetric(got, "declared_latency_seconds_sum") != nil {
+		t.Error("the component series survived beside its proven family")
 	}
 }

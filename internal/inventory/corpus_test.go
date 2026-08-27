@@ -824,3 +824,80 @@ func TestPermutationDocumentNeverContradictsButStillReportsCoverage(t *testing.T
 		t.Fatal("an untagged document produced no contradiction, so the permutation rule is suppressing drift everywhere")
 	}
 }
+
+// The paired half of SKT-0013.06. Once the capture receiver stopped asserting `classic` from a
+// `_count` suffix, a reality entry can legitimately carry NO representation. Left ungated, that
+// turned synthkit's correct classic claim into a brand-new contradiction — trading a false
+// positive for a false negative, which is worse because it is invisible.
+func synthNative() Schema {
+	out := New()
+	out.AddMetric("observed_latency_seconds", TransportPrometheusRW2, InstrumentHistogram,
+		map[string]string{"job": "lab"}, &Histogram{Native: true, BucketBounds: []float64{}, NativeSchemas: []int32{3}})
+	return out
+}
+
+func TestHistogramRepresentationIsAbsentEvidenceNotAClaim(t *testing.T) {
+	synth := New()
+	synth.AddMetric("observed_latency_seconds", TransportPrometheusRW2, InstrumentHistogram,
+		map[string]string{"job": "lab"}, &Histogram{Classic: true, BucketBounds: []float64{}, NativeSchemas: []int32{}})
+
+	// Reality recorded the family but observed no bucket series, so it proves no representation.
+	realityWithoutEvidence := New()
+	realityWithoutEvidence.AddMetric("observed_latency_seconds", TransportPrometheusRW2, InstrumentUnknown,
+		map[string]string{"job": "lab"}, nil)
+	for _, finding := range Diff(synth, realityWithoutEvidence) {
+		if finding.Field == "histogram.representations" && finding.Disposition == DispositionContradiction {
+			t.Fatalf("absent representation evidence contradicted synth: %+v", finding)
+		}
+	}
+
+	// Reality that DID observe a representation still contradicts a synth claim that differs.
+	realityWithEvidence := New()
+	realityWithEvidence.AddMetric("observed_latency_seconds", TransportPrometheusRW2, InstrumentHistogram,
+		map[string]string{"job": "lab"}, &Histogram{Native: true, BucketBounds: []float64{}, NativeSchemas: []int32{3}})
+	contradicted := false
+	for _, finding := range Diff(synth, realityWithEvidence) {
+		if finding.Field == "histogram.representations" && finding.Disposition == DispositionContradiction {
+			contradicted = true
+		}
+	}
+	if !contradicted {
+		t.Fatal("real representation evidence no longer contradicts a differing synth claim, so the gate lost its teeth")
+	}
+
+	// native_schemas takes the SAME gate. Synth claiming a native schema against reality that
+	// observed no representation must not contradict...
+	for _, finding := range Diff(synthNative(), realityWithoutEvidence) {
+		if finding.Field == "histogram.native_schemas" && finding.Disposition == DispositionContradiction {
+			t.Fatalf("absent representation evidence contradicted a synth native schema: %+v", finding)
+		}
+	}
+	// ...but against reality that observed a CLASSIC representation, an empty reality schema set
+	// is real evidence of "not native" and must still contradict.
+	realityClassic := New()
+	realityClassic.AddMetric("observed_latency_seconds", TransportPrometheusRW2, InstrumentHistogram,
+		map[string]string{"job": "lab"}, &Histogram{Classic: true, BucketBounds: []float64{0.5}, NativeSchemas: []int32{}})
+	schemaContradicted := false
+	for _, finding := range Diff(synthNative(), realityClassic) {
+		if finding.Field == "histogram.native_schemas" && finding.Disposition == DispositionContradiction {
+			schemaContradicted = true
+		}
+	}
+	if !schemaContradicted {
+		t.Fatal("a synth native schema no longer contradicts an observed classic reality, so the gate over-suppressed")
+	}
+
+	// Synth with no representation must still see reality's as a coverage gap.
+	synthWithout := New()
+	synthWithout.AddMetric("observed_latency_seconds", TransportPrometheusRW2, InstrumentUnknown,
+		map[string]string{"job": "lab"}, nil)
+	gap := false
+	for _, finding := range Diff(synthWithout, realityWithEvidence) {
+		if finding.Field == "histogram.representations" && finding.Disposition == DispositionCoverageGap {
+			gap = true
+		}
+	}
+	if !gap {
+		t.Fatal("a representation only reality has stopped being reported as a coverage gap")
+	}
+}
