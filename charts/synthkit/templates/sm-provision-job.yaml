@@ -1,0 +1,80 @@
+{{- if .Values.smProvision.enabled -}}
+{{- include "synthkit.validate" . -}}
+{{/*
+One-shot Synthetic Monitoring provisioner — the Kubernetes form of the Compose sm-provision
+profile. Same image as the emitter so snapshot/source-version binding cannot drift.
+
+LEAST PRIVILEGE: it receives GC_SM_URL and GC_SM_TOKEN and nothing else. No synthetic-sink,
+self-observability, Fleet, Sigil, git or control credentials reach it.
+
+Preview by default (smProvision.apply=false). Read the Job's log, then set apply=true, bump runId,
+and upgrade. It is NOT a Helm hook: hooks would run it automatically on install, which would
+destroy the preview-then-apply sequence the provisioner is built around.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-sm-provision-%s" (include "synthkit.fullname" .) .Values.smProvision.runId | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sm-provision
+spec:
+  ttlSecondsAfterFinished: {{ .Values.smProvision.ttlSecondsAfterFinished }}
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "synthkit.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: sm-provision
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "synthkit.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      # The Job writes the ownership ledger on the emitter's ReadWriteOnce claim, so it has to land
+      # on the node already holding that claim.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  {{- include "synthkit.selectorLabels" . | nindent 18 }}
+      containers:
+        - name: sm-provision
+          image: {{ include "synthkit.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/app/sm-provision"]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: CONFIG_SNAPSHOT_PATH
+              value: /data/control-state.json
+            - name: SM_PROVISION_APPLY
+              value: {{ .Values.smProvision.apply | quote }}
+            - name: SM_PROVISION_ADOPT_LEGACY
+              value: {{ .Values.smProvision.adoptLegacy | quote }}
+            - name: SM_PROVISION_MIGRATE_TARGET
+              value: {{ .Values.smProvision.migrateTarget | quote }}
+            {{- with (include "synthkit.credentialEnv" (dict "root" $ "group" "sm") | trim) }}
+            {{- . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.smProvision.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "synthkit.pvcName" . }}
+        - name: tmp
+          emptyDir: {}
+{{- end }}

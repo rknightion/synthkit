@@ -1,0 +1,4 @@
+# MUST FAIL: the container hint decides which bind the exposure gate validates.
+extraEnv:
+  - name: SYNTHKIT_IN_CONTAINER
+    value: "1"

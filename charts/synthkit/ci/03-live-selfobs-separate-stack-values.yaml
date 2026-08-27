@@ -1,0 +1,21 @@
+# Live push PLUS self-observability. The two stacks are different Secrets by construction — the
+# render refuses to proceed if they are the same object.
+config:
+  dryRun: false
+  blueprintNames: otlp-native
+selfObs:
+  enabled: true
+  tags: deployment=lab
+credentials:
+  data:
+    existingSecret: synthkit-data
+  selfObs:
+    existingSecret: synthkit-selfobs
+    keys:
+      GC_SELF_OTLP_ENDPOINT: GC_SELF_OTLP_ENDPOINT
+      GC_SELF_OTLP_USER: GC_SELF_OTLP_USER
+      GC_SELF_OTLP_PASSWORD: GC_SELF_OTLP_PASSWORD
+      GC_PYROSCOPE_URL: GC_PYROSCOPE_URL
+      GC_PYROSCOPE_USER: GC_PYROSCOPE_USER
+      GC_PYROSCOPE_PASSWORD: GC_PYROSCOPE_PASSWORD
+      GC_SELF_GRAFANA_URL: GC_SELF_GRAFANA_URL

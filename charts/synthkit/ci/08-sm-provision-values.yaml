@@ -1,0 +1,16 @@
+# Opt-in Synthetic Monitoring provisioner, in preview. It receives GC_SM_* and nothing else.
+config:
+  dryRun: false
+  blueprintNames: synthetic-checks
+credentials:
+  data:
+    existingSecret: synthkit-data
+  sm:
+    existingSecret: synthkit-sm
+    keys:
+      GC_SM_URL: GC_SM_URL
+      GC_SM_TOKEN: GC_SM_TOKEN
+smProvision:
+  enabled: true
+  runId: "1"
+  apply: false

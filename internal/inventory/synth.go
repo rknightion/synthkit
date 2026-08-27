@@ -4,8 +4,6 @@ package inventory
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/rknightion/synthkit/internal/sink/loki"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
@@ -39,7 +37,7 @@ func FromSinks(prom *promrw.Sink, lokiSink *loki.Sink, traceSink *otlp.Sink, met
 			for key := range metadata {
 				keys = append(keys, key)
 			}
-			out.AddLog(stream.Labels["source"], TransportLoki, stream.Labels, keys)
+			out.AddLog(ClassifyLogSource(stream.Labels), TransportLoki, stream.Labels, keys)
 		}
 	}
 	if otlpLogsSink != nil {
@@ -57,7 +55,7 @@ func FromSinks(prom *promrw.Sink, lokiSink *loki.Sink, traceSink *otlp.Sink, met
 			}
 			// Resource attributes are the destination's promotion candidates (they become stream
 			// labels); record attributes always land as structured metadata.
-			out.AddLog(attrs["source"], TransportOTLPLogs, attrs, keys)
+			out.AddLog(ClassifyLogSource(attrs), TransportOTLPLogs, attrs, keys)
 		}
 	}
 	if traceSink != nil {
@@ -107,32 +105,22 @@ func FromSinks(prom *promrw.Sink, lokiSink *loki.Sink, traceSink *otlp.Sink, met
 func addPromSeries(out *Schema, series promrw.Series) {
 	name := series.Name
 	instrument := InstrumentGauge
+	var histogram *Histogram
 	switch series.Kind {
 	case promrw.KindCounter:
 		instrument = InstrumentCounter
 	case promrw.KindHistogram:
 		instrument = InstrumentHistogram
 		if series.Native == nil {
-			switch {
-			case strings.HasSuffix(name, "_bucket"):
-				name = strings.TrimSuffix(name, "_bucket")
-			case strings.HasSuffix(name, "_sum"):
-				name = strings.TrimSuffix(name, "_sum")
-			case strings.HasSuffix(name, "_count"):
-				name = strings.TrimSuffix(name, "_count")
+			// The sink has already declared this series a classic histogram, so the component
+			// suffix needs no further proof here. The fold itself comes from the shared rule so
+			// every inventory producer agrees on what a family is.
+			if family, folded := ClassicHistogramFamily(name); folded {
+				name = family
 			}
-		}
-	}
-	var histogram *Histogram
-	if series.Kind == promrw.KindHistogram {
-		histogram = &Histogram{Classic: series.Native == nil, Native: series.Native != nil}
-		if le, ok := series.Labels["le"]; ok && le != "+Inf" {
-			if bound, err := strconv.ParseFloat(le, 64); err == nil {
-				histogram.BucketBounds = []float64{bound}
-			}
-		}
-		if series.Native != nil {
-			histogram.NativeSchemas = []int32{series.Native.Schema}
+			histogram = ClassicHistogramEvidence(series.Labels)
+		} else {
+			histogram = &Histogram{Native: true, BucketBounds: []float64{}, NativeSchemas: []int32{series.Native.Schema}}
 		}
 	}
 	out.AddMetric(name, TransportPrometheusRW2, instrument, series.Labels, histogram)

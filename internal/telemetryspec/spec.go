@@ -16,8 +16,15 @@ const (
 )
 
 // le_style values — how a histogram's `le` bucket-bound label is rendered. They map to
-// state.LEStyle at emit time (the workload, F4): "bare" → state.LEBare (Prometheus-native scrape),
-// "dotzero" → state.LEDotZero (OTLP→Prometheus span-metric translation). Default "" ⇒ bare.
+// state.LEStyle at emit time (the workload, F4): "bare" → state.LEBare (a producer that
+// remote-writes its own series with NO scrape in between — this stopped being the Prometheus
+// scrape convention at v3, which normalises `le` on ingestion), "dotzero" → state.LEDotZero
+// (OTLP→Prometheus span-metric translation). Default "" ⇒ bare.
+//
+// A family modelling an Alloy / Prometheus-v3 scrape wants state.LEPromV3, which this spec
+// surface cannot yet express — see SKT-0010.11. Adding a "promv3" token is the natural
+// follow-up; until then a blueprint-declared histogram on a scraped surface renders the
+// pre-v3 form.
 const (
 	LEStyleBare    = "bare"
 	LEStyleDotZero = "dotzero"

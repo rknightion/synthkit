@@ -1,0 +1,28 @@
+{{- if .Values.controlPlane.service.enabled -}}
+{{- include "synthkit.validate" . -}}
+{{/*
+Rendered ONLY when controlPlane.exposure.ack names an exact acknowledgement and a control-token
+Secret is configured — validate() refuses every other combination. The binary independently
+refuses to start on the resulting non-loopback bind without both, so removing this guard would not
+quietly produce an open control plane; it would produce a pod that fails closed.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "synthkit.fullname" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+  {{- with .Values.controlPlane.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.controlPlane.service.type }}
+  ports:
+    - name: control
+      port: {{ .Values.controlPlane.service.port }}
+      targetPort: control
+      protocol: TCP
+  selector:
+    {{- include "synthkit.selectorLabels" . | nindent 4 }}
+{{- end }}

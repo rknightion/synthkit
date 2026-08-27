@@ -85,13 +85,13 @@ func ParseDump(r io.Reader) (Schema, error) {
 			labels := keyMap(bracketList(strings.TrimSuffix(strings.TrimPrefix(line[i:], "  {"), "}")))
 			instrument := canonical.InstrumentUnknown
 			var histogram *canonical.Histogram
-			for _, suffix := range []string{"_bucket", "_sum", "_count"} {
-				if strings.HasSuffix(name, suffix) {
-					name = strings.TrimSuffix(name, suffix)
-					instrument = canonical.InstrumentHistogram
-					histogram = &canonical.Histogram{Classic: true}
-					break
-				}
+			// The text dump carries no instrument kind, so a component suffix is the only
+			// classic-histogram signal it has. The fold rule itself is the shared one, so this
+			// adapter cannot drift from the other inventory producers.
+			if family, folded := canonical.ClassicHistogramFamily(name); folded {
+				name = family
+				instrument = canonical.InstrumentHistogram
+				histogram = &canonical.Histogram{Classic: true}
 			}
 			out.AddMetric(name, canonical.TransportPrometheusRW2, instrument, labels, histogram)
 		case "logs":

@@ -1,0 +1,22 @@
+# Control plane opened onto a trusted path: acknowledgement, control-token Secret, Service.
+config:
+  dryRun: false
+  blueprintNames: otlp-native
+credentials:
+  data:
+    existingSecret: synthkit-data
+  control:
+    existingSecret: synthkit-control
+    keys:
+      CONTROL_TOKEN: CONTROL_TOKEN
+controlPlane:
+  exposure:
+    ack: trusted-network
+  service:
+    enabled: true
+networkPolicy:
+  enabled: true
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: observability

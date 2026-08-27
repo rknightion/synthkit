@@ -59,6 +59,7 @@ Home = "index.md"
 "Configuration & Operations" = [
     { Configuration = "configuration.md" },
     { Deployment = "deployment.md" },
+    { Kubernetes = "kubernetes.md" },
     { Runbook = "RUNBOOK.md" },
     { "Control Plane" = "control-plane.md" },
     { "Synthetic Monitoring" = "synthetic-monitoring.md" },

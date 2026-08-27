@@ -1,0 +1,30 @@
+{{- include "synthkit.validate" . -}}
+{{/*
+Non-secret runtime configuration. Deliberately does NOT carry the identity-critical variables
+(JSON_HTTP_ADDR, SYNTHKIT_BIND, CONTROL_EXPOSURE_ACK, the /data paths): those are set directly on
+the container, where an explicit `env` entry outranks anything envFrom supplies, so hand-editing
+this ConfigMap cannot move the control plane off its bind or relocate the state file.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "synthkit.fullname" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+data:
+  DRY_RUN: {{ .Values.config.dryRun | quote }}
+  TICK_DEFAULT: {{ .Values.config.tickDefault | quote }}
+  SERIES_CAP: {{ .Values.config.seriesCap | quote }}
+  TICK_TIMEOUT: {{ .Values.config.tickTimeout | quote }}
+  GIT_POLL_INTERVAL: {{ .Values.config.gitPollInterval | quote }}
+  SEND_SHARDS: {{ .Values.config.sendShards | quote }}
+  SEND_BATCH_MAX: {{ .Values.config.sendBatchMax | quote }}
+  SEND_BATCH_DEADLINE: {{ .Values.config.sendBatchDeadline | quote }}
+  SEND_QUEUE_CAPACITY: {{ .Values.config.sendQueueCapacity | quote }}
+  SEND_DRAIN_DEADLINE: {{ .Values.config.sendDrainDeadline | quote }}
+  SELFOBS_ENABLED: {{ .Values.selfObs.enabled | quote }}
+  SELFOBS_TAGS: {{ .Values.selfObs.tags | quote }}
+  SELFOBS_METRIC_INTERVAL: {{ .Values.selfObs.metricInterval | quote }}
+  PYROSCOPE_TAGS: {{ .Values.selfObs.pyroscopeTags | quote }}
+  PYROSCOPE_MUTEX_FRACTION: {{ .Values.selfObs.pyroscopeMutexFraction | quote }}
+  PYROSCOPE_BLOCK_RATE: {{ .Values.selfObs.pyroscopeBlockRate | quote }}

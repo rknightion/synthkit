@@ -1,0 +1,6 @@
+# No claim: an emptyDir. Legitimate for a throwaway lab, and it loses control-plane state on
+# reschedule.
+persistence:
+  enabled: false
+config:
+  blueprintNames: k8s-minimal

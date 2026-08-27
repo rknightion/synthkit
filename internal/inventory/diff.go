@@ -177,12 +177,33 @@ func indexMetrics(metrics []Metric) map[string]metricView {
 }
 
 type logIdentity struct {
-	// Source is deliberately absent: capture-specific source names are
-	// provenance exemplars, while transport and structural key shape define a
-	// comparable log family.
+	// A recorded Source is deliberately absent: capture-specific source names are
+	// provenance exemplars.
+	//
+	// family is the SHAPE-derived family name, and it is the identity whenever a shape rule
+	// recognises the entry. It has to be, because the raw key set cannot both identify a
+	// family and be compared within one: while it was the identity, two recorded shapes of
+	// one family — a pod with a Deployment owner and a pod without — were two families, so a
+	// pod-log entry could never contradict and could never be confirmed, and the label-key and
+	// metadata-key comparisons below were unreachable for it.
+	//
+	// transport and structural key shape still identify every entry no shape rule recognises,
+	// so an unclassified lane behaves exactly as before.
 	transport string
+	family    string
 	labelKeys string
 	metadata  string
+}
+
+func identifyLog(log Log, labels map[string]attributeView, metadata map[string]struct{}) logIdentity {
+	if family, ok := ShapeLogFamily(log); ok {
+		return logIdentity{transport: log.Transport, family: family}
+	}
+	return logIdentity{
+		transport: log.Transport,
+		labelKeys: encodeKeys(sortedAttributeKeys(labels)),
+		metadata:  encodeKeys(sortedStrings(metadata)),
+	}
 }
 
 type logView struct {
@@ -196,11 +217,7 @@ func indexLogs(logs []Log) map[logIdentity]logView {
 	for _, log := range logs {
 		labels := indexAttributes(log.StreamLabels)
 		metadata := indexStrings(log.StructuredMetadataKeys)
-		key := logIdentity{
-			transport: log.Transport,
-			labelKeys: encodeKeys(sortedAttributeKeys(labels)),
-			metadata:  encodeKeys(sortedStrings(metadata)),
-		}
+		key := identifyLog(log, labels, metadata)
 		view, ok := out[key]
 		if !ok {
 			view = logView{
@@ -218,10 +235,14 @@ func indexLogs(logs []Log) map[logIdentity]logView {
 	return out
 }
 
-// logSignal is the readable identity used in findings. Empty structural
-// shapes retain the transport-only signal; populated shapes add their sorted
-// schema field keys so two families sharing a transport remain distinguishable.
+// logSignal is the readable identity used in findings. A shape-recognised family reads by
+// name; otherwise empty structural shapes retain the transport-only signal and populated
+// shapes add their sorted schema field keys so two families sharing a transport remain
+// distinguishable.
 func logSignal(key logIdentity) string {
+	if key.family != "" {
+		return key.transport + "[family=" + key.family + "]"
+	}
 	parts := make([]string, 0, 2)
 	if key.labelKeys != "" {
 		parts = append(parts, "stream_labels="+strings.ReplaceAll(key.labelKeys, "\x00", ","))
@@ -492,6 +513,9 @@ func sortedLogIdentities(logs map[logIdentity]logView) []logIdentity {
 		if keys[i].transport != keys[j].transport {
 			return keys[i].transport < keys[j].transport
 		}
+		if keys[i].family != keys[j].family {
+			return keys[i].family < keys[j].family
+		}
 		if keys[i].labelKeys != keys[j].labelKeys {
 			return keys[i].labelKeys < keys[j].labelKeys
 		}
@@ -561,9 +585,15 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 		appendLabelValueSubset(out, synth.name, "labels."+key, synth.labels[key], reality.labels[key])
 	}
 
+	// An empty bucket-bound set on either side is absent evidence, not a claim: a classic
+	// histogram always has bounds, so recording none means the producer could not observe them.
+	// A corpus document elides the `le` label values, so a family folded out of already-recorded
+	// component series proves the classic representation and carries no bounds at all.
 	synthBounds := sortedBounds(synth.histogram.bounds)
 	realityBounds := sortedBounds(reality.histogram.bounds)
-	appendDirectional(out, KindBucketBoundMismatch, synth.name, "histogram.bucket_bounds", formatBounds(synthBounds), formatBounds(realityBounds), true, true)
+	if len(synthBounds) > 0 && len(realityBounds) > 0 {
+		appendDirectional(out, KindBucketBoundMismatch, synth.name, "histogram.bucket_bounds", formatBounds(synthBounds), formatBounds(realityBounds), true, true)
+	}
 }
 
 func histogramRepresentations(histogram histogramView) []string {

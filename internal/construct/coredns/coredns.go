@@ -46,7 +46,6 @@
 //	coredns_proxy_healthcheck_failures_total        C  (core pod labels only)
 //	coredns_health_request_duration_seconds         H  (core pod labels only, 6-bucket)
 //	coredns_health_request_failures_total           C  (core pod labels only)
-//	coredns_hosts_reload_timestamp_seconds          G  (core pod labels only; 0 = never)
 //	coredns_kubernetes_dns_programming_duration_seconds H  service_kind  (21-bucket)
 //	coredns_kubernetes_rest_client_requests_total   C  code,host,method
 //	coredns_local_localhost_requests_total          C  (core pod labels only)
@@ -304,7 +303,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		samples := 5 + w.Shape.IntN(20)
 		for s := 0; s < samples; s++ {
 			c.st.Observe("coredns_dns_request_duration_seconds", lbls,
-				coreDNSDurationBuckets, state.LEBare,
+				coreDNSDurationBuckets, state.LEPromV3,
 				0.0002+factor*0.001*w.Shape.Noise(0.5))
 		}
 	})
@@ -317,7 +316,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		withEach(extra, func(lbls map[string]string) {
 			for s := 0; s < 5; s++ {
 				c.st.Observe("coredns_dns_request_size_bytes", lbls,
-					coreDNSSizeBuckets, state.LEBare,
+					coreDNSSizeBuckets, state.LEPromV3,
 					40+w.Shape.Float64()*60) // most requests ≤ 100 bytes
 			}
 		})
@@ -331,7 +330,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		withEach(extra, func(lbls map[string]string) {
 			for s := 0; s < 5; s++ {
 				c.st.Observe("coredns_dns_response_size_bytes", lbls,
-					coreDNSSizeBuckets, state.LEBare,
+					coreDNSSizeBuckets, state.LEPromV3,
 					80+w.Shape.Float64()*220) // broader spread, some large AAAA responses
 			}
 		})
@@ -392,7 +391,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		withEach(proxyExtra, func(lbls map[string]string) {
 			for s := 0; s < 3; s++ {
 				c.st.Observe("coredns_proxy_request_duration_seconds", lbls,
-					coreDNSProxyDurationBuckets, state.LEBare,
+					coreDNSProxyDurationBuckets, state.LEPromV3,
 					0.001+factor*0.005*w.Shape.Noise(0.4)) // VPC DNS latency ~1-2ms
 			}
 		})
@@ -417,19 +416,13 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// No server/zone labels on the health endpoint (recon §A3).
 	withEach(nil, func(lbls map[string]string) {
 		c.st.Observe("coredns_health_request_duration_seconds", lbls,
-			coreDNSHealthDurationBuckets, state.LEBare,
+			coreDNSHealthDurationBuckets, state.LEPromV3,
 			0.001+w.Shape.Noise(0.3)*0.001) // recon: 98.4% ≤ 2.5ms
 	})
 
 	// ── coredns_health_request_failures_total (C; core labels only) ──────────────
 	withEach(nil, func(lbls map[string]string) {
 		c.st.Add("coredns_health_request_failures_total", lbls, 0)
-	})
-
-	// ── coredns_hosts_reload_timestamp_seconds (G; core labels only) ─────────────
-	// 0 = no /etc/hosts-style reload has occurred (recon §A2: "hosts" plugin not used).
-	withEach(nil, func(lbls map[string]string) {
-		c.st.Set("coredns_hosts_reload_timestamp_seconds", lbls, 0)
 	})
 
 	// ── coredns_kubernetes_dns_programming_duration_seconds (H; service_kind) ─────
@@ -439,7 +432,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		withEach(skExtra, func(lbls map[string]string) {
 			// Programming latency peaks in 0.1–1s range (recon §A3 example).
 			c.st.Observe("coredns_kubernetes_dns_programming_duration_seconds", lbls,
-				coreDNSK8sDurationBuckets, state.LEBare,
+				coreDNSK8sDurationBuckets, state.LEPromV3,
 				0.3+w.Shape.Noise(0.4)*0.5)
 		})
 	}

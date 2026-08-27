@@ -144,7 +144,7 @@ func (c *Construct) buildHealth(now time.Time, eng *shape.Engine) {
 	c.st.Observe("network_topology_discovery_cycle_duration_seconds",
 		base,
 		expBuckets(0.5, 2, 10),
-		state.LEBare,
+		state.LEPromV3,
 		cycleDur)
 
 	// network_topology_discovery_module_duration_seconds — one Observe per module.
@@ -153,7 +153,7 @@ func (c *Construct) buildHealth(now time.Time, eng *shape.Engine) {
 		c.st.Observe("network_topology_discovery_module_duration_seconds",
 			lbls(base, "module", mod),
 			expBuckets(0.05, 2, 10),
-			state.LEBare,
+			state.LEPromV3,
 			modDur)
 	}
 
@@ -319,7 +319,7 @@ func (c *Construct) buildHealth(now time.Time, eng *shape.Engine) {
 	c.st.Observe("network_topology_snmp_rate_limit_wait_seconds",
 		base,
 		expBuckets(0.001, 2, 12),
-		state.LEBare,
+		state.LEPromV3,
 		snmpRLVal)
 
 	// ── graph freshness ────────────────────────────────────────────────────────
@@ -347,7 +347,7 @@ func (c *Construct) buildHealth(now time.Time, eng *shape.Engine) {
 	c.st.Observe("network_topology_metrics_render_duration_seconds",
 		base,
 		expBuckets(0.001, 2, 16),
-		state.LEBare,
+		state.LEPromV3,
 		renderDur)
 
 	// network_topology_metrics_payload_bytes.
@@ -355,7 +355,7 @@ func (c *Construct) buildHealth(now time.Time, eng *shape.Engine) {
 	c.st.Observe("network_topology_metrics_payload_bytes",
 		base,
 		expBuckets(1024, 4, 9),
-		state.LEBare,
+		state.LEPromV3,
 		payloadBytes*c.seriesVar(eng, now, "payload_bytes", 0.1))
 
 	// network_topology_last_scrape_duration_seconds — small living gauge.

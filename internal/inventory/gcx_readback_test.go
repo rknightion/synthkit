@@ -259,3 +259,95 @@ func TestMergeCorpusDocumentFileDropsSupersededInstrumentSentinel(t *testing.T) 
 		t.Fatalf("merged instrument types=%v, want [gauge] with the sentinel dropped", got)
 	}
 }
+
+func TestBuildGCXLiveReadbackFoldsClassicHistogramComponents(t *testing.T) {
+	t.Parallel()
+	node := map[string]string{
+		"__name__": "kube_node_info", "cluster": "c", "provider_id": "aws:///r-z/i-1",
+		"kubelet_version": "v1.35.2-eks-build",
+	}
+	series := []map[string]string{
+		node,
+		{"__name__": "kubeproxy_sync_proxy_rules_duration_seconds_bucket", "cluster": "c", "ip_family": "IPv4", "le": "0.001"},
+		{"__name__": "kubeproxy_sync_proxy_rules_duration_seconds_bucket", "cluster": "c", "ip_family": "IPv4", "le": "+Inf"},
+		{"__name__": "kubeproxy_sync_proxy_rules_duration_seconds_sum", "cluster": "c", "ip_family": "IPv4"},
+		{"__name__": "kubeproxy_sync_proxy_rules_duration_seconds_count", "cluster": "c", "ip_family": "IPv4"},
+	}
+	documents, err := BuildGCXLiveReadback(series, DeclaredInstrumentTypes(map[string][]string{
+		"kubeproxy_sync_proxy_rules_duration_seconds": {"histogram"},
+	}), "2026-08-27", "1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k8s := documentForArea(t, documents, "k8s")
+	if got := metricNames(k8s); !reflect.DeepEqual(got, []string{
+		"kube_node_info", "kubeproxy_sync_proxy_rules_duration_seconds",
+	}) {
+		t.Fatalf("metric names=%v, want the three components folded into one family", got)
+	}
+	family := metricForName(t, k8s, "kubeproxy_sync_proxy_rules_duration_seconds")
+	if !reflect.DeepEqual(family.InstrumentTypes, []string{InstrumentHistogram}) {
+		t.Fatalf("instrument types=%v, want the type the metadata API declares for the family", family.InstrumentTypes)
+	}
+	if family.Histogram == nil || !family.Histogram.Classic ||
+		!reflect.DeepEqual(family.Histogram.BucketBounds, []float64{0.001}) {
+		t.Fatalf("histogram=%+v, want the classic representation with the finite observed bound", family.Histogram)
+	}
+	assertAttribute(t, family, "le", []string{}, true)
+}
+
+func TestBuildGCXLiveReadbackKeepsCloudWatchStatSuffixesUnfolded(t *testing.T) {
+	t.Parallel()
+	series := []map[string]string{
+		{"__name__": "aws_rds_cpuutilization_sum", "namespace": "AWS/RDS", "region": "r"},
+		{"__name__": "aws_rds_cpuutilization_sample_count", "namespace": "AWS/RDS", "region": "r"},
+		{"__name__": "aws_rds_cpuutilization_average", "namespace": "AWS/RDS", "region": "r"},
+	}
+	documents, err := BuildGCXLiveReadback(series, nil, "2026-08-27", "1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cw := documentForArea(t, documents, "cw")
+	want := []string{"aws_rds_cpuutilization_average", "aws_rds_cpuutilization_sample_count", "aws_rds_cpuutilization_sum"}
+	if got := metricNames(cw); !reflect.DeepEqual(got, want) {
+		t.Fatalf("metric names=%v, want %v; the CloudWatch stat suffixes are not histogram components "+
+			"and folding them would hide a family synthkit does not emit", got, want)
+	}
+}
+
+func TestMergeCorpusDocumentFileFoldsAComponentShapedDocument(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "k8s", "eks-live-readback.json")
+	// A document recorded before the producer folded: three component entries, `le` elided.
+	legacy := CorpusDocument{
+		CorpusVersion: CorpusVersion,
+		Area:          "k8s",
+		Source: CorpusSource{
+			Kind: gcxLiveReadbackSource, Substrate: "eks", Collector: "grafana/gcx",
+			CollectorVersion: "1.1.1", CapturedOn: "2026-08-26",
+		},
+		Authority:     CorpusAuthority{Substrates: []string{"eks"}},
+		CaptureVolume: CaptureVolume{Runs: 1, ObservedContractCounts: []int{3}},
+		Inventory:     New(),
+	}
+	legacy.Inventory.AddMetric("kubeproxy_network_programming_duration_seconds_bucket", "", InstrumentUnknown, map[string]string{"cluster": "", "le": ""}, nil)
+	legacy.Inventory.AddMetric("kubeproxy_network_programming_duration_seconds_sum", "", InstrumentUnknown, map[string]string{"cluster": ""}, nil)
+	legacy.Inventory.AddMetric("kubeproxy_network_programming_duration_seconds_count", "", InstrumentUnknown, map[string]string{"cluster": ""}, nil)
+	if err := MergeCorpusDocumentFile(path, legacy); err != nil {
+		t.Fatal(err)
+	}
+	documents, err := LoadCorpusDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged := documentForArea(t, documents, "k8s")
+	if got := metricNames(merged); !reflect.DeepEqual(got, []string{"kubeproxy_network_programming_duration_seconds"}) {
+		t.Fatalf("metric names=%v, want the stale component entries folded into the family; the "+
+			"cumulative merge never removes evidence, so a refresh alone would keep them forever", got)
+	}
+	family := metricForName(t, merged, "kubeproxy_network_programming_duration_seconds")
+	if family.Histogram == nil || !family.Histogram.Classic || len(family.Histogram.BucketBounds) != 0 {
+		t.Fatalf("histogram=%+v, want classic with no bounds: a recorded document elides the `le` values", family.Histogram)
+	}
+}

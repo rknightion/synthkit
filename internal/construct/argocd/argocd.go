@@ -256,7 +256,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	extra := map[string]string{"dest_server": "https://kubernetes.default.svc"}
 	forEach(appCtrlMaps, "argocd-metrics", extra, func(lbls map[string]string) {
 		for range 5 {
-			c.st.Observe("argocd_app_reconcile", lbls, appReconcileBuckets, state.LEBare, 0.5+w.Shape.Noise(0.3))
+			c.st.Observe("argocd_app_reconcile", lbls, appReconcileBuckets, state.LEPromV3, 0.5+w.Shape.Noise(0.3))
 		}
 	})
 
@@ -343,7 +343,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	kubectlDurationBuckets := []float64{0.005, 0.1, 0.5, 2.0, 8.0, 30.0}
 	forEach(appCtrlMaps, "argocd-metrics", nil, func(lbls map[string]string) {
 		for range 3 {
-			c.st.Observe("argocd_kubectl_rate_limiter_duration_seconds", lbls, kubectlDurationBuckets, state.LEBare, 0.01+w.Shape.Noise(0.02))
+			c.st.Observe("argocd_kubectl_rate_limiter_duration_seconds", lbls, kubectlDurationBuckets, state.LEPromV3, 0.01+w.Shape.Noise(0.02))
 		}
 	})
 
@@ -355,7 +355,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		}
 		forEach(appCtrlMaps, "argocd-metrics", extra, func(lbls map[string]string) {
 			for range 3 {
-				c.st.Observe("argocd_kubectl_request_duration_seconds", lbls, kubectlDurationBuckets, state.LEBare, 0.05+w.Shape.Noise(0.1))
+				c.st.Observe("argocd_kubectl_request_duration_seconds", lbls, kubectlDurationBuckets, state.LEPromV3, 0.05+w.Shape.Noise(0.1))
 			}
 		})
 	}
@@ -371,7 +371,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		extra := map[string]string{"host": "172.20.0.1:443", "verb": verb}
 		forEach(appCtrlMaps, "argocd-metrics", extra, func(lbls map[string]string) {
 			for range 3 {
-				c.st.Observe("argocd_kubectl_request_size_bytes", lbls, reqSizeBuckets, state.LEBare, float64(100+w.Shape.IntN(5000)))
+				c.st.Observe("argocd_kubectl_request_size_bytes", lbls, reqSizeBuckets, state.LEPromV3, float64(100+w.Shape.IntN(5000)))
 			}
 		})
 	}
@@ -400,7 +400,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		extra := map[string]string{"host": "172.20.0.1:443", "verb": verb}
 		forEach(appCtrlMaps, "argocd-metrics", extra, func(lbls map[string]string) {
 			for range 3 {
-				c.st.Observe("argocd_kubectl_response_size_bytes", lbls, respSizeBuckets, state.LEBare, float64(500+w.Shape.IntN(50000)))
+				c.st.Observe("argocd_kubectl_response_size_bytes", lbls, respSizeBuckets, state.LEPromV3, float64(500+w.Shape.IntN(50000)))
 			}
 		})
 	}
@@ -427,7 +427,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	}
 	forEach(appCtrlMaps, "argocd-metrics", redisHostnameExtra, func(lbls map[string]string) {
 		for range 5 {
-			c.st.Observe("argocd_redis_request_duration", lbls, redisDurationBuckets, state.LEBare, 0.02+w.Shape.Noise(0.05))
+			c.st.Observe("argocd_redis_request_duration", lbls, redisDurationBuckets, state.LEPromV3, 0.02+w.Shape.Noise(0.05))
 		}
 	})
 
@@ -438,7 +438,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		"initiator": "argocd-repo-server",
 	}, func(lbls map[string]string) {
 		for range 5 {
-			c.st.Observe("argocd_redis_request_duration_seconds", lbls, redisDurationSecondsBuckets, state.LEBare, 0.03+w.Shape.Noise(0.05))
+			c.st.Observe("argocd_redis_request_duration_seconds", lbls, redisDurationSecondsBuckets, state.LEPromV3, 0.03+w.Shape.Noise(0.05))
 		}
 	})
 
@@ -481,7 +481,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	resourceEventBuckets := []float64{0.01, 0.05, 0.1, 0.5, 1.0, 5.0}
 	forEach(appCtrlMaps, "argocd-metrics", nil, func(lbls map[string]string) {
 		for range 5 {
-			c.st.Observe("argocd_resource_events_processing", lbls, resourceEventBuckets, state.LEBare, 0.05+w.Shape.Noise(0.1))
+			c.st.Observe("argocd_resource_events_processing", lbls, resourceEventBuckets, state.LEPromV3, 0.05+w.Shape.Noise(0.1))
 		}
 	})
 
@@ -505,7 +505,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		}
 		forEach(repoMaps, "argocd-repo-server-metrics", extra, func(lbls map[string]string) {
 			for range 3 {
-				c.st.Observe("argocd_git_request_duration_seconds", lbls, gitDurationBuckets, state.LEBare, 0.3+w.Shape.Noise(0.5))
+				c.st.Observe("argocd_git_request_duration_seconds", lbls, gitDurationBuckets, state.LEPromV3, 0.3+w.Shape.Noise(0.5))
 			}
 		})
 	}
@@ -533,8 +533,8 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			c.st.Set("workqueue_unfinished_work_seconds", lbls, 0)
 		})
 		forEach(appCtrlMaps, "argocd-metrics", extra, func(lbls map[string]string) {
-			c.st.Observe("workqueue_queue_duration_seconds", lbls, []float64{0.001, 0.01, 0.1, 1.0}, state.LEBare, 0.005+w.Shape.Noise(0.005))
-			c.st.Observe("workqueue_work_duration_seconds", lbls, []float64{0.001, 0.01, 0.1, 1.0}, state.LEBare, 0.01+w.Shape.Noise(0.01))
+			c.st.Observe("workqueue_queue_duration_seconds", lbls, []float64{0.001, 0.01, 0.1, 1.0}, state.LEPromV3, 0.005+w.Shape.Noise(0.005))
+			c.st.Observe("workqueue_work_duration_seconds", lbls, []float64{0.001, 0.01, 0.1, 1.0}, state.LEPromV3, 0.01+w.Shape.Noise(0.01))
 		})
 	}
 
@@ -550,8 +550,8 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		c.st.Set("workqueue_longest_running_processor_seconds", lbls, 0)
 		c.st.Add("workqueue_retries_total", lbls, 0)
 		c.st.Set("workqueue_unfinished_work_seconds", lbls, 0)
-		c.st.Observe("workqueue_queue_duration_seconds", lbls, []float64{0.001, 0.01, 0.1, 1.0}, state.LEBare, 0.005+w.Shape.Noise(0.005))
-		c.st.Observe("workqueue_work_duration_seconds", lbls, []float64{0.001, 0.01, 0.1, 1.0}, state.LEBare, 0.01+w.Shape.Noise(0.01))
+		c.st.Observe("workqueue_queue_duration_seconds", lbls, []float64{0.001, 0.01, 0.1, 1.0}, state.LEPromV3, 0.005+w.Shape.Noise(0.005))
+		c.st.Observe("workqueue_work_duration_seconds", lbls, []float64{0.001, 0.01, 0.1, 1.0}, state.LEPromV3, 0.01+w.Shape.Noise(0.01))
 	})
 
 	// redis_exporter metrics (via sidecar container=redis_exporter)

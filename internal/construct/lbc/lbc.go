@@ -239,7 +239,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			name := ctrl + "-obj"
 			withLeader(map[string]string{"namespace": "kube-system", "name": name, "controller": ctrl},
 				func(lbls map[string]string) {
-					c.st.Observe("awslbc_readiness_gate_ready_seconds", lbls, hb, state.LEBare,
+					c.st.Observe("awslbc_readiness_gate_ready_seconds", lbls, hb, state.LEPromV3,
 						0.05+factor*0.3*w.Shape.Noise(0.4))
 				})
 		}
@@ -267,7 +267,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 				withLeader(map[string]string{"controller": ctrl, "reconcile_stage": stage},
 					func(lbls map[string]string) {
 						c.st.Observe("awslbc_controller_reconcile_stage_duration", lbls, hb,
-							state.LEBare, 0.01+factor*0.08*w.Shape.Noise(0.3))
+							state.LEPromV3, 0.01+factor*0.08*w.Shape.Noise(0.3))
 					})
 			}
 		}
@@ -335,11 +335,11 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 		withLeader(map[string]string{"exported_service": svc.service, "operation": svc.operation},
 			func(lbls map[string]string) {
-				c.st.Observe("aws_api_call_duration_seconds", lbls, hb, state.LEBare,
+				c.st.Observe("aws_api_call_duration_seconds", lbls, hb, state.LEPromV3,
 					0.05+factor*0.15*w.Shape.Noise(0.3))
-				c.st.Observe("aws_api_call_retries", lbls, retriesBuckets, state.LEBare, 0)
+				c.st.Observe("aws_api_call_retries", lbls, retriesBuckets, state.LEPromV3, 0)
 				c.st.Add("aws_api_requests_total", lbls, (2+factor*8)*scale)
-				c.st.Observe("aws_api_request_duration_seconds", lbls, hb, state.LEBare,
+				c.st.Observe("aws_api_request_duration_seconds", lbls, hb, state.LEPromV3,
 					0.05+factor*0.1*w.Shape.Noise(0.2))
 				c.st.Add("aws_api_call_permission_errors_total", lbls, 0)
 				c.st.Add("aws_api_call_service_limit_exceeded_errors_total", lbls, 0)
@@ -383,7 +383,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			func(lbls map[string]string) {
 				c.st.Add("controller_runtime_reconcile_errors_total", lbls, 0)
 				c.st.Observe("controller_runtime_reconcile_time_seconds", lbls, fineTimeBuckets,
-					state.LEBare, 0.02+factor*0.1*w.Shape.Noise(0.3))
+					state.LEPromV3, 0.02+factor*0.1*w.Shape.Noise(0.3))
 				c.st.Set("controller_runtime_active_workers", lbls, 1+factor*2)
 				c.st.Set("controller_runtime_max_concurrent_reconciles", lbls, 3)
 			})
@@ -409,7 +409,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		withAllPods(map[string]string{"webhook": wh},
 			func(lbls map[string]string) {
 				c.st.Observe("controller_runtime_webhook_latency_seconds", lbls, webhookLatencyBuckets,
-					state.LEBare, 0.005+factor*0.02*w.Shape.Noise(0.3))
+					state.LEPromV3, 0.005+factor*0.02*w.Shape.Noise(0.3))
 			})
 	}
 
@@ -431,9 +431,9 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			func(lbls map[string]string) {
 				c.st.Set("workqueue_depth", lbls, factor*3)
 				c.st.Add("workqueue_adds_total", lbls, (3+factor*15)*scale)
-				c.st.Observe("workqueue_queue_duration_seconds", lbls, hb, state.LEBare,
+				c.st.Observe("workqueue_queue_duration_seconds", lbls, hb, state.LEPromV3,
 					0.005+factor*0.05*w.Shape.Noise(0.3))
-				c.st.Observe("workqueue_work_duration_seconds", lbls, hb, state.LEBare,
+				c.st.Observe("workqueue_work_duration_seconds", lbls, hb, state.LEPromV3,
 					0.01+factor*0.1*w.Shape.Noise(0.3))
 				c.st.Add("workqueue_retries_total", lbls, factor*0.5*scale)
 			})

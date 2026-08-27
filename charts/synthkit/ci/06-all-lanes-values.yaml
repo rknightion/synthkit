@@ -1,0 +1,66 @@
+# Every optional lane configured, each from its own Secret. Proves the groups stay separate rather
+# than collapsing into one credential object.
+config:
+  dryRun: false
+  blueprintNames: "*"
+selfObs:
+  enabled: true
+# Sized for the whole catalogue from the measurement in the chart README: peak heap 3135 MiB,
+# peak RSS 3615 MiB, 24.5% of one core.
+resources:
+  requests:
+    cpu: 500m
+    memory: 3584Mi
+  limits:
+    memory: 5Gi
+credentials:
+  data:
+    existingSecret: synthkit-data
+    keys:
+      GC_TOKEN: GC_TOKEN
+      GC_PROM_RW: GC_PROM_RW
+      GC_PROM_USER: GC_PROM_USER
+      GC_OTLP_ENDPOINT: GC_OTLP_ENDPOINT
+      GC_OTLP_USER: GC_OTLP_USER
+      GC_LOKI: GC_LOKI
+      GC_LOKI_USER: GC_LOKI_USER
+      GC_PROFILES_URL: GC_PROFILES_URL
+      GC_PROFILES_USER: GC_PROFILES_USER
+  selfObs:
+    existingSecret: synthkit-selfobs
+    keys:
+      GC_SELF_OTLP_ENDPOINT: GC_SELF_OTLP_ENDPOINT
+      GC_SELF_OTLP_USER: GC_SELF_OTLP_USER
+      GC_SELF_OTLP_PASSWORD: GC_SELF_OTLP_PASSWORD
+  rum:
+    existingSecret: synthkit-rum
+    keys:
+      GC_FARO_COLLECTOR: GC_FARO_COLLECTOR
+      GC_FARO_APP_KEY: GC_FARO_APP_KEY
+  sm:
+    existingSecret: synthkit-sm
+    keys:
+      GC_SM_URL: GC_SM_URL
+      GC_SM_TOKEN: GC_SM_TOKEN
+  fm:
+    existingSecret: synthkit-fm
+    keys:
+      GC_FM_URL: GC_FM_URL
+      GC_FM_STACK_ID: GC_FM_STACK_ID
+      GC_FM_TOKEN: GC_FM_TOKEN
+  sigil:
+    existingSecret: synthkit-sigil
+    keys:
+      GC_SIGIL_ENDPOINT: GC_SIGIL_ENDPOINT
+      GC_SIGIL_TENANT_ID: GC_SIGIL_TENANT_ID
+      GC_SIGIL_TOKEN: GC_SIGIL_TOKEN
+  git:
+    existingSecret: synthkit-git
+    keys:
+      GIT_TOKEN: GIT_TOKEN
+extraEnv:
+  - name: MY_PRIVATE_SOURCE_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: synthkit-git
+        key: MY_PRIVATE_SOURCE_TOKEN

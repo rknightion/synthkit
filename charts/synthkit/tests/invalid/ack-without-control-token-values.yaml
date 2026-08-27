@@ -1,0 +1,6 @@
+# MUST FAIL: exposing the control plane requires CONTROL_TOKEN.
+controlPlane:
+  exposure:
+    ack: trusted-network
+  service:
+    enabled: true

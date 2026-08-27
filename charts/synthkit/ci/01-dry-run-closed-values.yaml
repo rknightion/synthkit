@@ -1,0 +1,4 @@
+# The shipped default, stated explicitly: dry run, control plane closed, nothing exposed.
+config:
+  dryRun: true
+  blueprintNames: otlp-native

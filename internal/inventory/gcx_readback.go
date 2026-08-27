@@ -144,8 +144,19 @@ func BuildGCXLiveReadback(series []map[string]string, declaredInstruments map[st
 		"k8s-addons": New(),
 	}
 	eksClusters := observedEKSClusters(series)
+	// A classic histogram arrives as three component series. The synth and e2e inventories both
+	// record the family, so this producer must too or every histogram family the read-back covers
+	// contradicts on its name, instrument, label keys and bucket bounds at once. The proof gate
+	// is what keeps CloudWatch's `<metric>_sum` GAUGE — a stat, not a histogram component —
+	// under its own name, so a family synthkit really does not emit stays a coverage gap.
+	histograms := ProveClassicHistogramsFromSeries(series)
 	for _, labels := range series {
 		name := labels["__name__"]
+		var histogram *Histogram
+		if family, folded := histograms.Family(name); folded {
+			histogram = ClassicHistogramEvidence(labels)
+			name = family
+		}
 		area, ok := liveMetricArea(name, labels)
 		if !ok {
 			continue
@@ -165,7 +176,7 @@ func BuildGCXLiveReadback(series []map[string]string, declaredInstruments map[st
 			instruments = []string{InstrumentUnknown}
 		}
 		for _, instrument := range instruments {
-			schema.AddMetric(name, "", instrument, metricLabels, nil)
+			schema.AddMetric(name, "", instrument, metricLabels, histogram)
 		}
 		inventories[area] = schema
 	}
@@ -327,6 +338,11 @@ func MergeCorpusDocumentFile(path string, candidate CorpusDocument) error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("stat corpus document %q: %w", path, err)
 	}
+	// A document written before this producer folded classic histograms carries the three
+	// component series as three metric entries, and the cumulative merge never removes evidence,
+	// so a refresh alone would keep them forever. Folding the written document brings that
+	// history into the one family shape every producer now records.
+	document.Inventory = FoldClassicHistogramMetrics(document.Inventory)
 	dropSupersededInstrumentSentinel(&document.Inventory)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

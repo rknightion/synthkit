@@ -158,10 +158,11 @@ func TestHistogramPinnedBounds(t *testing.T) {
 	}
 }
 
-// TestHistogramLEStyles pins the two `le` rendering conventions against the contract (I4).
+// TestHistogramLEStyles pins the three `le` rendering conventions against the contract (I4).
 // LEDotZero must force a trailing ".0" on integer bounds (the OTLP→Prometheus translation:
-// 0.0, 1.0, 7.5, 10.0) while fractional bounds stay minimal; LEBare must NOT add ".0" and
-// must avoid scientific notation for large bounds (prom-client: le="10000000", never 1e+07).
+// 0.0, 1.0, 7.5, 10.0) while fractional bounds stay minimal; LEBare (a producer that
+// remote-writes with no scrape in between) must NOT add ".0" and must avoid scientific
+// notation for large bounds; LEPromV3 must match what a Prometheus-v3 scrape stores.
 func TestHistogramLEStyles(t *testing.T) {
 	now := time.Now()
 
@@ -176,21 +177,35 @@ func TestHistogramLEStyles(t *testing.T) {
 		}
 	}
 
-	// LEBare — native scrape: bare integers, no scientific notation on 10000000.
+	// LEBare — direct remote-write producer, nothing normalises the label: bare integers,
+	// no scientific notation on 10000000.
 	bare := NewState()
 	bareBounds := []float64{0.1, 1, 3000, 10000000}
 	bare.Observe("request_duration_milliseconds", map[string]string{"endpoint": "/v1"}, bareBounds, LEBare, 5)
 	gotbare := collect(bare, now)
 	for _, want := range []string{"0.1", "1", "3000", "10000000", "+Inf"} {
 		if _, ok := seriesByNameLE(gotbare, "request_duration_milliseconds_bucket", want); !ok {
-			t.Fatalf("LEBare must emit le=%q (prom-client form); have %v", want, leSet(gotbare))
+			t.Fatalf("LEBare must emit le=%q (unnormalised push form); have %v", want, leSet(gotbare))
+		}
+	}
+
+	// LEPromV3 — the Prometheus-v3 scrape normalises le on ingestion: integral bounds gain
+	// ".0" and bounds past general notation's switch points go scientific.
+	scr := NewState()
+	scrBounds := []float64{0.1, 1, 3000, 10000000}
+	scr.Observe("kubelet_runtime_operations_duration_seconds", map[string]string{"op": "x"}, scrBounds, LEPromV3, 5)
+	gotscr := collect(scr, now)
+	for _, want := range []string{"0.1", "1.0", "3000.0", "1e+07", "+Inf"} {
+		if _, ok := seriesByNameLE(gotscr, "kubelet_runtime_operations_duration_seconds_bucket", want); !ok {
+			t.Fatalf("LEPromV3 must emit le=%q; have %v", want, leSet(gotscr))
 		}
 	}
 }
 
 // TestFormatLETrapCases pins formatLE directly on the documented trap cases: LEBare never
 // produces scientific notation (le="10000000", not "1e+07"); LEDotZero forces ".0" on
-// integer bounds (10.0, 1.0, 0.0) but leaves fractional bounds minimal.
+// integer bounds (10.0, 1.0, 0.0) but leaves fractional bounds minimal; LEPromV3 diverges
+// from LEDotZero at exactly the notation extremes and nowhere else.
 func TestFormatLETrapCases(t *testing.T) {
 	cases := []struct {
 		bound float64
@@ -208,6 +223,13 @@ func TestFormatLETrapCases(t *testing.T) {
 		{0.005, LEDotZero, "0.005"}, // fractional stays minimal under DotZero
 		{0.005, LEBare, "0.005"},
 		{0.1, LEBare, "0.1"},
+		// LEPromV3 — general notation, so a big integer bound is NOT the DotZero form.
+		{10000000, LEPromV3, "1e+07"},
+		{10, LEPromV3, "10.0"},
+		{1, LEPromV3, "1.0"},
+		{0, LEPromV3, "0.0"},
+		{0.005, LEPromV3, "0.005"},
+		{0.1, LEPromV3, "0.1"},
 	}
 	for _, c := range cases {
 		if got := formatLE(c.bound, c.style); got != c.want {
@@ -221,6 +243,70 @@ func TestFormatLETrapCases(t *testing.T) {
 func TestFormatLEBigIntegerDotZero(t *testing.T) {
 	if got := formatLE(10000000, LEDotZero); got != "10000000.0" {
 		t.Fatalf("LEDotZero big integer: got %q want %q (no scientific notation, forced .0)", got, "10000000.0")
+	}
+}
+
+// TestFormatLEPromV3MatchesOpenMetricsFloat pins formatLE(_, LEPromV3) byte-for-byte against
+// prometheus/prometheus model/labels.FormatOpenMetricsFloat (read at v0.310.0, 2026-08-27),
+// which is what every Prometheus-v3 parser — text, OpenMetrics and protobuf — runs the `le`
+// and `quantile` label values through on ingestion.
+//
+// The cases that matter are the notation extremes, because that is where LEPromV3's general
+// notation and LEDotZero's fixed notation disagree. Two live bucket sets in the catalogue
+// reach them: karpenter's nodes_lifetime_duration_seconds (1.296e6…2.592e6) and nettopo's
+// metrics_payload_bytes (expBuckets(1024, 4, 9) tops out at 67108864).
+func TestFormatLEPromV3MatchesOpenMetricsFloat(t *testing.T) {
+	cases := []struct {
+		bound float64
+		want  string
+	}{
+		// Hardcoded cases in the upstream function.
+		{0, "0.0"},
+		{1, "1.0"},
+		{-1, "-1.0"},
+		// General notation goes scientific at exponent >= 6 …
+		{999999, "999999.0"},
+		{1000000, "1e+06"},
+		{1296000, "1.296e+06"},
+		{2592000, "2.592e+06"},
+		{1048576, "1.048576e+06"},
+		{16777216, "1.6777216e+07"},
+		{67108864, "6.7108864e+07"},
+		// … and at exponent < -4.
+		{0.00025, "0.00025"},
+		{0.0001, "0.0001"},
+		{0.00001, "1e-05"},
+		// Everything the reality corpus actually contains stays in fixed notation.
+		{0.005, "0.005"},
+		{2.5, "2.5"},
+		{10, "10.0"},
+		{64000, "64000.0"},
+		{524.288, "524.288"},
+	}
+	for _, c := range cases {
+		if got := formatLE(c.bound, LEPromV3); got != c.want {
+			t.Errorf("formatLE(%v, LEPromV3) = %q, want %q", c.bound, got, c.want)
+		}
+	}
+}
+
+// TestFormatLEPromV3DivergesFromDotZeroOnlyAtExtremes proves the two conventions are not
+// interchangeable: they agree across the whole corpus range and disagree past the general
+// notation switch points, so collapsing them would introduce the mirror-image defect.
+func TestFormatLEPromV3DivergesFromDotZeroOnlyAtExtremes(t *testing.T) {
+	agree := []float64{0, 0.00025, 0.005, 0.1, 1, 2.5, 10, 524.288, 64000, 999999}
+	for _, b := range agree {
+		if formatLE(b, LEPromV3) != formatLE(b, LEDotZero) {
+			t.Errorf("bound %v: LEPromV3=%q LEDotZero=%q — expected agreement inside the corpus range",
+				b, formatLE(b, LEPromV3), formatLE(b, LEDotZero))
+		}
+	}
+	diverge := []float64{1000000, 2592000, 67108864, 0.00001}
+	for _, b := range diverge {
+		if formatLE(b, LEPromV3) == formatLE(b, LEDotZero) {
+			t.Errorf("bound %v: LEPromV3 and LEDotZero must diverge at the notation extremes, both = %q",
+				b, formatLE(b, LEPromV3))
+		}
 	}
 }
 

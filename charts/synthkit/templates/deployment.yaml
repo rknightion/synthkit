@@ -1,0 +1,161 @@
+{{- include "synthkit.validate" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "synthkit.fullname" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+spec:
+  # ONE replica, not configurable. Two emitters generate the SAME series identities against the
+  # same backend — duplicate samples and out-of-order writes, not more throughput — and each keeps
+  # its own cumulative counter state.
+  replicas: 1
+  # Recreate, not RollingUpdate: a ReadWriteOnce claim cannot be mounted by the incoming pod while
+  # the outgoing one still holds it, so a rolling upgrade would deadlock.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "synthkit.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "synthkit.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "synthkit.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      # synthkit is configured entirely through environment variables, so the kubelet's per-Service
+      # env injection is both noise and a collision surface. It reads no Service address either way.
+      enableServiceLinks: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      # Counters reset on restart, which is a clean rate() window rather than a fault; the drain
+      # budget below is about flushing the delivery queue, not about preserving counters.
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      containers:
+        - name: synthkit
+          image: {{ include "synthkit.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "synthkit.fullname" . }}
+          env:
+            # Identity-critical values, set directly so they outrank the ConfigMap.
+            - name: BLUEPRINTS
+              value: /app/blueprints
+            - name: BLUEPRINT_NAMES
+              value: {{ .Values.config.blueprintNames | quote }}
+            # State lives on the mounted volume. The image's rootfs is read-only, so the relative
+            # ./control-state.json default would fail every save.
+            - name: CONFIG_SNAPSHOT_PATH
+              value: /data/control-state.json
+            - name: BLUEPRINT_DATA_DIR
+              value: /data/blueprints
+            # Closed by default: 127.0.0.1:8088, reachable only through kubectl port-forward.
+            - name: JSON_HTTP_ADDR
+              value: {{ include "synthkit.httpAddr" . | quote }}
+            # Mirrors the host portion of JSON_HTTP_ADDR so the binary's exposure gate reaches the
+            # same verdict on either of its two branches; see _helpers.tpl.
+            - name: SYNTHKIT_BIND
+              value: {{ include "synthkit.hostBind" . | quote }}
+            {{- with .Values.controlPlane.exposure.ack }}
+            - name: CONTROL_EXPOSURE_ACK
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with (include "synthkit.allCredentialEnv" . | trim) }}
+            {{- . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: control
+              containerPort: 8088
+              protocol: TCP
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            exec:
+              command: ["/app/synthkit", "-healthcheck"]
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
+          # Delivery-aware: NotReady while any intended lane has no current successful push.
+          readinessProbe:
+            exec:
+              command: ["/app/synthkit", "-healthcheck"]
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          # Off by default. The same delivery-aware check used as liveness turns a backend outage
+          # into a crash-loop; enable only if you accept that.
+          livenessProbe:
+            exec:
+              command: ["/app/synthkit", "-healthcheck"]
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            # readOnlyRootFilesystem leaves no writable temp dir; the Go runtime and TLS stack
+            # expect one.
+            - name: tmp
+              mountPath: /tmp
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "synthkit.pvcName" . }}
+          {{- else }}
+          # Survives a container restart but NOT a reschedule. Control-plane selections and any
+          # Synthetic Monitoring ownership ledger are lost with the node.
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir: {}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

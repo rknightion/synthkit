@@ -82,12 +82,12 @@ func emitKubeProxy(
 				{"kubeproxy_sync_partial_proxy_rules_duration_seconds", 0.02},
 				{"kubeproxy_network_programming_duration_seconds", 0.08},
 			} {
-				st.Observe(h.name, ipLbls, kubeProxyHistoBounds, statelib.LEBare, h.mean*(0.5+float64(fnv1a32(instance+h.name)%100)/100.0))
+				st.Observe(h.name, ipLbls, kubeProxyHistoBounds, statelib.LEPromV3, h.mean*(0.5+float64(fnv1a32(instance+h.name)%100)/100.0))
 			}
 		}
 
 		// conntrack_reconciler_sync_duration_seconds — NO ip_family.
-		st.Observe("kubeproxy_conntrack_reconciler_sync_duration_seconds", base, kubeProxyHistoBounds, statelib.LEBare, 0.03)
+		st.Observe("kubeproxy_conntrack_reconciler_sync_duration_seconds", base, kubeProxyHistoBounds, statelib.LEPromV3, 0.03)
 
 		// ── Gauges ────────────────────────────────────────────────────────────────
 

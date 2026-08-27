@@ -1,11 +1,23 @@
 ---
 title: Deployment
-description: How to deploy synthkit with Docker Compose, including volume setup, networking, and the published container image.
+description: How to deploy synthkit with Docker Compose or the Helm chart, including volume setup, networking, and the published container image.
 ---
 
 # Deployment
 
-The canonical deployment is Docker Compose on a persistent host. The committed `docker-compose.yml` is secret-free — all credentials and configuration come from a gitignored `.env` file you provision on the host.
+There are two supported deployments, both running the same published image with the same
+environment surface:
+
+- **Docker Compose** on a persistent host — the canonical deployment, and the subject of this page.
+  The committed `docker-compose.yml` is secret-free; all credentials and configuration come from a
+  gitignored `.env` file you provision on the host.
+- **Kubernetes**, via the Helm chart in `charts/synthkit/` — see [Kubernetes](kubernetes.md). The
+  chart supplies credentials from existing Secrets grouped by destination stack, keeps the control
+  plane closed by default, and holds `/data` on a PersistentVolumeClaim.
+
+Everything on this page about the `/data` contract, queue memory, image verification and counter
+resets applies to both. The two pages differ only in how values are supplied and what is reachable
+from outside the process.
 
 ---
 
@@ -38,6 +50,27 @@ The canonical deployment is Docker Compose on a persistent host. The committed `
     curl -s -u control http://127.0.0.1:8088/control/status | jq
     ```
 
+=== "Kubernetes (Helm)"
+
+    ```bash
+    git clone https://github.com/rknightion/synthkit.git
+    cd synthkit
+
+    # Dry run first — renders every estate, pushes nothing, needs no credentials.
+    helm install synthkit ./charts/synthkit \
+      --namespace synthkit --create-namespace \
+      --set config.blueprintNames=otlp-native
+
+    kubectl -n synthkit rollout status deploy/synthkit
+
+    # The control plane is closed by default; reach it without exposing anything.
+    kubectl -n synthkit port-forward deploy/synthkit 8088:8088
+    open http://127.0.0.1:8088/control/ui
+    ```
+
+    Credentials, the exposure acknowledgement, the state claim and resource sizing are all
+    covered in [Kubernetes](kubernetes.md).
+
 === "Local binary"
 
     ```bash
@@ -57,6 +90,9 @@ The canonical deployment is Docker Compose on a persistent host. The committed `
 
 !!! warning "Must be a DIRECTORY — not a single-file bind mount"
     The control plane saves state atomically (write → rename). A single-file bind mount breaks the rename step and silently wipes state on every tick. Mount a **directory** and let synthkit manage the files inside it.
+
+The Helm chart mounts the same `/data` on a PersistentVolumeClaim and sets `fsGroup: 65532` so
+the same ownership requirement is met without a manual `install -d`; see [Kubernetes](kubernetes.md).
 
 The `/data` directory holds:
 
@@ -102,6 +138,11 @@ By default `SYNTHKIT_BIND=127.0.0.1` — the control plane is loopback-only and 
 
 The compose file uses the same interpolated `${SYNTHKIT_BIND:-127.0.0.1}` for port publication and
 inside the container's exposure check. The binary itself binds `0.0.0.0:8088` inside the container.
+
+On Kubernetes the equivalent gate is `controlPlane.exposure.ack`, which takes the same two exact
+values and additionally requires a control-token Secret before any Service is rendered. The closed
+default binds loopback inside the pod and is reached with `kubectl port-forward`, which enters the
+pod's network namespace. See [Kubernetes](kubernetes.md#the-control-plane-is-closed-by-default).
 
 ---
 
@@ -410,6 +451,7 @@ Container restart = counter reset = a clean `rate()` window in Grafana. This is 
 
 ## See also
 
+- [kubernetes.md](kubernetes.md) — the Helm chart: credential groups, exposure gate, state claim
 - [configuration.md](configuration.md) — all environment variables
 - [RUNBOOK.md](RUNBOOK.md) — credentials → telemetry end-to-end walkthrough
 - [control-plane.md](control-plane.md) — operator UI and HTTP API

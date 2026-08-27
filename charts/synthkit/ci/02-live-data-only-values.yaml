@@ -1,0 +1,7 @@
+# Live push to the synthetic-data stack. No self-observability, control plane still closed.
+config:
+  dryRun: false
+  blueprintNames: otlp-native,k8s-minimal
+credentials:
+  data:
+    existingSecret: synthkit-data

@@ -1,0 +1,11 @@
+# Patterns to ignore when packaging the chart.
+.DS_Store
+.git/
+.gitignore
+*.swp
+*.tmp
+*.orig
+*.bak
+# Render-permutation inputs and the render test harness are development artifacts, not chart content.
+ci/
+tests/

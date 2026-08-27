@@ -59,7 +59,8 @@ const (
 // Real Stackdriver DISTRIBUTION metrics use per-metric exponentialBuckets params
 // (scale, growthFactor, numFiniteBuckets); synthkit reproduces the shape so le values
 // match what the GCP integration dashboard expects. Unit is per-metric (e.g. Cloud Run
-// latency = ms, LB latency = ms). Rendered LEBare (native Prometheus scrape path).
+// latency = ms, LB latency = ms). Rendered LEPromV3: Alloy's prometheus.exporter.gcp is
+// scraped by the Prometheus-v3 scrape loop, which normalises `le` (le="1.0", not "1").
 func expBuckets(scale, growth float64, n int) []float64 {
 	bs := make([]float64, n)
 	v := scale
@@ -754,11 +755,11 @@ func (c *Construct) emitLoadBalancing(w *core.World, proj gcpProject, bf float64
 			// gcpLBLatencyBuckets: exponential bounds, unit ms, captured from live Stackdriver.
 			obsVal := 50.0 * bf * w.Shape.Noise(0.3)
 			c.st.Observe("stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_total_latencies",
-				msLbls, gcpLBLatencyBuckets, state.LEBare, obsVal)
+				msLbls, gcpLBLatencyBuckets, state.LEPromV3, obsVal)
 			c.st.Observe("stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_frontend_tcp_rtt",
-				msLbls, gcpLBLatencyBuckets, state.LEBare, obsVal*0.3)
+				msLbls, gcpLBLatencyBuckets, state.LEPromV3, obsVal*0.3)
 			c.st.Observe("stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_backend_latencies",
-				msLbls, gcpLBLatencyBuckets, state.LEBare, obsVal*0.7)
+				msLbls, gcpLBLatencyBuckets, state.LEPromV3, obsVal*0.7)
 		}
 	}
 }
@@ -813,7 +814,7 @@ func (c *Construct) emitPubSub(w *core.World, proj gcpProject, bf float64) {
 		// DISTRIBUTION histogram — pass BASE name (§K.2)
 		// gcpLBLatencyBuckets: ms latency, exponential bounds.
 		c.st.Observe("stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_push_request_latencies",
-			msLbls, gcpLBLatencyBuckets, state.LEBare, 30.0*bf*w.Shape.Noise(0.3))
+			msLbls, gcpLBLatencyBuckets, state.LEPromV3, 30.0*bf*w.Shape.Noise(0.3))
 	}
 }
 
@@ -875,13 +876,13 @@ func (c *Construct) emitCloudRun(w *core.World, proj gcpProject, bf float64) {
 			// cpu/memory/concurrency: gcpDistBuckets (not latency).
 			// startup/probe latencies: gcpRunLatencyBuckets (ms, exponential).
 			c.st.Observe("stackdriver_cloud_run_revision_run_googleapis_com_container_cpu_usage",
-				cpuLbls, gcpDistBuckets, state.LEBare, 0.05*bf*w.Shape.Noise(0.2))
+				cpuLbls, gcpDistBuckets, state.LEPromV3, 0.05*bf*w.Shape.Noise(0.2))
 			c.st.Observe("stackdriver_cloud_run_revision_run_googleapis_com_container_memory_usage",
-				byLbls, gcpDistBuckets, state.LEBare, 128.0*1024*1024*bf*w.Shape.Noise(0.15))
+				byLbls, gcpDistBuckets, state.LEPromV3, 128.0*1024*1024*bf*w.Shape.Noise(0.15))
 			c.st.Observe("stackdriver_cloud_run_revision_run_googleapis_com_container_max_request_concurrencies",
-				lbls, gcpDistBuckets, state.LEBare, 5.0*bf*w.Shape.Noise(0.3))
+				lbls, gcpDistBuckets, state.LEPromV3, 5.0*bf*w.Shape.Noise(0.3))
 			c.st.Observe("stackdriver_cloud_run_revision_run_googleapis_com_container_startup_latencies",
-				msLbls, gcpRunLatencyBuckets, state.LEBare, 200.0*bf*w.Shape.Noise(0.4))
+				msLbls, gcpRunLatencyBuckets, state.LEPromV3, 200.0*bf*w.Shape.Noise(0.4))
 
 			// Probe latency histograms
 			for _, probeType := range []string{"liveness", "readiness"} {
@@ -891,9 +892,9 @@ func (c *Construct) emitCloudRun(w *core.World, proj gcpProject, bf float64) {
 					"is_healthy":   "true",
 				}))
 				c.st.Observe("stackdriver_cloud_run_revision_run_googleapis_com_container_probe_attempt_latencies",
-					probeLbls, gcpRunLatencyBuckets, state.LEBare, 5.0*bf)
+					probeLbls, gcpRunLatencyBuckets, state.LEPromV3, 5.0*bf)
 				c.st.Observe("stackdriver_cloud_run_revision_run_googleapis_com_container_probe_latencies",
-					probeLbls, gcpRunLatencyBuckets, state.LEBare, 4.0*bf)
+					probeLbls, gcpRunLatencyBuckets, state.LEPromV3, 4.0*bf)
 			}
 		}
 	}
@@ -999,11 +1000,11 @@ func (c *Construct) emitBigtable(w *core.World, proj gcpProject, bf float64) {
 		"exported_instance": instanceName, "cluster": clusterName, "table": tableName,
 	})
 	c.st.Observe("stackdriver_bigtable_table_bigtable_googleapis_com_server_latencies",
-		msLbls, gcpLBLatencyBuckets, state.LEBare, 5.0*bf*w.Shape.Noise(0.3))
+		msLbls, gcpLBLatencyBuckets, state.LEPromV3, 5.0*bf*w.Shape.Noise(0.3))
 	c.st.Observe("stackdriver_bigtable_table_bigtable_googleapis_com_client_operation_latencies",
-		msLbls, gcpLBLatencyBuckets, state.LEBare, 6.0*bf*w.Shape.Noise(0.3))
+		msLbls, gcpLBLatencyBuckets, state.LEPromV3, 6.0*bf*w.Shape.Noise(0.3))
 	c.st.Observe("stackdriver_bigtable_table_bigtable_googleapis_com_client_attempt_latencies",
-		msLbls, gcpLBLatencyBuckets, state.LEBare, 4.5*bf*w.Shape.Noise(0.3))
+		msLbls, gcpLBLatencyBuckets, state.LEPromV3, 4.5*bf*w.Shape.Noise(0.3))
 }
 
 // ── Vertex AI ────────────────────────────────────────────────────────────────
@@ -1109,7 +1110,7 @@ func (c *Construct) emitVertex(now time.Time, w *core.World, proj gcpProject, bf
 		c.st.Observe(
 			"stackdriver_aiplatform_googleapis_com_endpoint_aiplatform_googleapis_com_prediction_online_response_latencies",
 			gcpLabels(proj.projectID, "ms", mapMerge(endpointBase, envExtra)),
-			gcpLBLatencyBuckets, state.LEBare, 80.0*vf*w.Shape.Noise(0.3))
+			gcpLBLatencyBuckets, state.LEPromV3, 80.0*vf*w.Shape.Noise(0.3))
 	}
 
 	// ── Location-scoped metrics (prediction/model_invocation/*) ─────────────
@@ -1159,7 +1160,7 @@ func (c *Construct) emitVertex(now time.Time, w *core.World, proj gcpProject, bf
 		c.st.Observe(
 			"stackdriver_aiplatform_googleapis_com_location_aiplatform_googleapis_com_prediction_model_invocation_latencies",
 			gcpLabels(proj.projectID, "ms", mapMerge(invocBase, envExtra)),
-			gcpLBLatencyBuckets, state.LEBare, 500.0*vf*mw*w.Shape.Noise(0.4))
+			gcpLBLatencyBuckets, state.LEPromV3, 500.0*vf*mw*w.Shape.Noise(0.4))
 	}
 }
 

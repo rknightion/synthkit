@@ -1,0 +1,365 @@
+# Default values for the synthkit chart.
+#
+# TWO RULES THIS FILE ENFORCES, BOTH AT RENDER TIME:
+#
+#   1. CREDENTIALS NEVER COME FROM VALUES. Every credential is projected from an existing
+#      Secret you create in the release namespace. There is no `password:` field anywhere in
+#      this chart, and adding one to a values file has no effect. Credentials are grouped by
+#      DESTINATION STACK, and an environment variable can only be projected from the group
+#      that owns it — so the self-observability stack's credentials can never be sourced from
+#      the synthetic-data Secret, and the two Secrets may not be the same object.
+#
+#   2. THE CONTROL PLANE IS CLOSED BY DEFAULT. The process binds loopback inside the pod, no
+#      Service is rendered, and reaching the operator UI needs `kubectl port-forward`. Opening
+#      it takes three deliberate acts (an exact acknowledgement string, a control-token Secret,
+#      and enabling the Service) and the binary re-checks all of it at startup.
+
+# ── Image ────────────────────────────────────────────────────────────────────────────────────
+image:
+  repository: ghcr.io/rknightion/synthkit
+  # Empty tag falls back to Chart.appVersion. Image tags are bare X.Y.Z; Git release tags carry
+  # the leading v.
+  tag: ""
+  # PREFERRED for standing deployments: the verified multi-platform index digest, e.g.
+  # "sha256:0000…". When set it wins over tag and the reference becomes repository@digest.
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# ── Naming ───────────────────────────────────────────────────────────────────────────────────
+nameOverride: ""
+fullnameOverride: ""
+
+# ── Runtime behaviour (non-secret; rendered into a ConfigMap) ────────────────────────────────
+# Every key below maps to an environment variable that internal/config reads with a literal key.
+config:
+  # DRY_RUN. TRUE by default: pushing live is always an explicit opt-in, exactly as it is for
+  # the binary and for Compose. Setting this false requires credentials.data.existingSecret.
+  dryRun: true
+  # BLUEPRINT_NAMES. Empty starts setup mode and emits NOTHING — the safe default. Set exact
+  # comma-separated blueprint names, or "*" to load the complete bundled catalogue.
+  blueprintNames: ""
+  # TICK_DEFAULT — master-clock cadence (Go duration).
+  tickDefault: 5s
+  # SERIES_CAP — optional global per-push series backstop. Empty = unlimited.
+  seriesCap: ""
+  # TICK_TIMEOUT — optional per-blueprint per-tick backstop, in SECONDS. Empty/0 = disabled.
+  tickTimeout: ""
+  # GIT_POLL_INTERVAL — seconds between "update available" polls for git blueprint sources.
+  # 0 = detection off.
+  gitPollInterval: "0"
+
+  # Decoupled delivery queue (internal/sink/queue). These drive the queue memory budget; see
+  # the resources section below before raising sendQueueCapacity.
+  sendShards: "8"
+  sendBatchMax: "5000"
+  sendBatchDeadline: 5s
+  sendQueueCapacity: "500000"
+  sendDrainDeadline: 30s
+
+# ── Self-observability: a SEPARATE stack, with its own Secret ────────────────────────────────
+# synthkit's own process telemetry (RED metrics, traces, operational logs, continuous profiles).
+# It is independent of config.dryRun and it must NEVER borrow the synthetic-data token. Enabling
+# it requires credentials.selfObs.existingSecret, and that Secret may not be any of the
+# synthetic-data Secrets.
+selfObs:
+  # SELFOBS_ENABLED.
+  enabled: false
+  # SELFOBS_TAGS — CSV of k=v resource attributes.
+  tags: ""
+  # SELFOBS_METRIC_INTERVAL — self-obs metric flush cadence (metrics only).
+  metricInterval: 15s
+  # PYROSCOPE_TAGS — CSV of k=v tags on the process profiles.
+  pyroscopeTags: ""
+  # PYROSCOPE_MUTEX_FRACTION / PYROSCOPE_BLOCK_RATE. 0 = off; 5 = high fidelity.
+  pyroscopeMutexFraction: "5"
+  pyroscopeBlockRate: "5"
+
+# ── Credentials ──────────────────────────────────────────────────────────────────────────────
+# Each block names an EXISTING Secret in the release namespace and lists the environment
+# variables projected from it, as ENV_VAR: secretKey. The default maps are identity mappings, so
+# a Secret whose keys are named exactly like the environment variables needs no `keys:` block at
+# all. An empty existingSecret means the group is simply not configured and its keys are inert.
+#
+# A projected key that the Secret does not actually carry holds the pod in
+# CreateContainerConfigError rather than starting synthkit with a blank credential — deliberate, so
+# a typo cannot become a silently unauthenticated lane. Helm DEEP-MERGES maps, so dropping one of
+# the defaults below needs an explicit `KEY: null` in your own values file; omitting it merely
+# leaves the default in place.
+#
+# Group ownership is FIXED by the chart. Listing an environment variable under a group that does
+# not own it fails the render, which is what keeps the self-obs separation structural rather than
+# conventional.
+credentials:
+  # Synthetic-data stack: where the fake telemetry lands. One CAP token covers all four sinks.
+  # Required whenever config.dryRun is false.
+  data:
+    existingSecret: ""
+    keys:
+      GC_TOKEN: GC_TOKEN
+      GC_PROM_RW: GC_PROM_RW
+      GC_PROM_USER: GC_PROM_USER
+      GC_OTLP_ENDPOINT: GC_OTLP_ENDPOINT
+      GC_OTLP_USER: GC_OTLP_USER
+      GC_LOKI: GC_LOKI
+      GC_LOKI_USER: GC_LOKI_USER
+      # Optional synthetic-profiles sink — add these two entries when the Secret carries them.
+      # GC_PROFILES_URL: GC_PROFILES_URL
+      # GC_PROFILES_USER: GC_PROFILES_USER
+
+  # Self-observability stack — a DIFFERENT Grafana Cloud stack, its own token, never GC_TOKEN.
+  # The render fails if this Secret is also used by any synthetic-data group.
+  selfObs:
+    existingSecret: ""
+    keys:
+      GC_SELF_OTLP_ENDPOINT: GC_SELF_OTLP_ENDPOINT
+      GC_SELF_OTLP_USER: GC_SELF_OTLP_USER
+      GC_SELF_OTLP_PASSWORD: GC_SELF_OTLP_PASSWORD
+      # Continuous profiling of the synthkit process — same separate stack, own triplet.
+      # GC_PYROSCOPE_URL: GC_PYROSCOPE_URL
+      # GC_PYROSCOPE_USER: GC_PYROSCOPE_USER
+      # GC_PYROSCOPE_PASSWORD: GC_PYROSCOPE_PASSWORD
+      # Staff Grafana base URL for control-UI deep-links (non-secret, but it identifies the
+      # self-obs stack, so it lives with that stack's Secret).
+      # GC_SELF_GRAFANA_URL: GC_SELF_GRAFANA_URL
+
+  # RUM / Faro. The collector URL embeds the application key, so the whole pair is a credential.
+  rum:
+    existingSecret: ""
+    keys: {}
+    # keys:
+    #   GC_FARO_COLLECTOR: GC_FARO_COLLECTOR
+    #   GC_FARO_APP_KEY: GC_FARO_APP_KEY
+
+  # Synthetic Monitoring control plane. Consumed by the opt-in one-shot provisioner Job, and by
+  # the emitter only as a presence signal. The SM token is a separate bearer token, not GC_TOKEN.
+  sm:
+    existingSecret: ""
+    keys: {}
+    # keys:
+    #   GC_SM_URL: GC_SM_URL
+    #   GC_SM_TOKEN: GC_SM_TOKEN
+
+  # Fleet Management registration. GC_FM_STACK_ID is the basic-auth username (the stack ID, NOT
+  # GC_PROM_USER) and GC_FM_TOKEN is a CAP with fleet-management:write, so both live in a Secret.
+  fm:
+    existingSecret: ""
+    keys: {}
+    # keys:
+    #   GC_FM_URL: GC_FM_URL
+    #   GC_FM_STACK_ID: GC_FM_STACK_ID
+    #   GC_FM_TOKEN: GC_FM_TOKEN
+
+  # Sigil AI-observability ingest. Basic auth is base64(tenant:token); the tenant ID is not
+  # GC_PROM_USER and the token is not GC_TOKEN.
+  sigil:
+    existingSecret: ""
+    keys: {}
+    # keys:
+    #   GC_SIGIL_ENDPOINT: GC_SIGIL_ENDPOINT
+    #   GC_SIGIL_TENANT_ID: GC_SIGIL_TENANT_ID
+    #   GC_SIGIL_TOKEN: GC_SIGIL_TOKEN
+
+  # Control-plane HTTP Basic password (username "control"). REQUIRED to expose the control plane
+  # beyond the pod; optional while the default loopback bind stands.
+  control:
+    existingSecret: ""
+    keys: {}
+    # keys:
+    #   CONTROL_TOKEN: CONTROL_TOKEN
+
+  # Default HTTPS PAT for private git blueprint sources whose source config leaves token_env_var
+  # empty. Per-source token variable names are operator-defined; project those through extraEnv.
+  git:
+    existingSecret: ""
+    keys: {}
+    # keys:
+    #   GIT_TOKEN: GIT_TOKEN
+
+# ── Control-plane exposure ───────────────────────────────────────────────────────────────────
+# CLOSED BY DEFAULT. With ack empty the container binds 127.0.0.1:8088, no Service or Ingress is
+# rendered, and the only route in is `kubectl port-forward` — which enters the pod's network
+# namespace, so it reaches a loopback listener without opening the pod to the cluster network.
+#
+# Opening it requires ALL of:
+#   controlPlane.exposure.ack   set to exactly "trusted-network" or "tls-proxy"
+#   credentials.control.existingSecret  carrying CONTROL_TOKEN
+#   controlPlane.service.enabled  true
+# Any subset fails the render, and the binary independently refuses to start on a non-loopback
+# bind without both the token and the acknowledgement.
+controlPlane:
+  exposure:
+    # "" = closed. "trusted-network" = plaintext HTTP stays on an isolated trusted path.
+    # "tls-proxy" = a trusted proxy terminates TLS in front of it. No other value is accepted.
+    ack: ""
+  service:
+    enabled: false
+    type: ClusterIP
+    port: 8088
+    annotations: {}
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts: []
+    #  - host: synthkit.example.internal
+    #    paths:
+    #      - path: /
+    #        pathType: Prefix
+    tls: []
+
+# NetworkPolicy. Default-deny ingress to the pod, which matches the closed default and does not
+# constrain egress to the telemetry backends. Enforcement needs a policy-capable CNI; where none
+# is installed the policy is inert and the loopback bind is still the real control.
+networkPolicy:
+  enabled: true
+  # Peers allowed to reach the control-plane port once exposure is acknowledged. Empty with
+  # exposure on means "any pod in the cluster", which is what a bare ClusterIP Service implies.
+  ingressFrom: []
+  #  - namespaceSelector:
+  #      matchLabels:
+  #        kubernetes.io/metadata.name: grafana
+
+# ── Persistence ──────────────────────────────────────────────────────────────────────────────
+# /data holds control-state.json (control-plane selections), blueprints/ (custom + git-sourced
+# blueprints), and runtime/ (Synthetic Monitoring ownership ledger, registration, journal).
+# Disabling this swaps in an emptyDir, which survives a container restart but NOT a reschedule —
+# an SM-provisioned deployment would lose its ownership ledger.
+persistence:
+  enabled: true
+  # Bind an existing claim instead of creating one. Mutually exclusive with size/storageClass.
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+  annotations: {}
+  # Retain the PVC when the release is uninstalled. State is expensive to recreate and the SM
+  # ownership ledger cannot be recreated at all.
+  retain: true
+
+# ── Resources ────────────────────────────────────────────────────────────────────────────────
+# DERIVED FROM MEASUREMENT, not habit. Method, samples and how to re-run it for your own selection
+# are in charts/synthkit/README.md. Measured 2026-08-27 at TICK_DEFAULT=5s over 10-minute runs:
+#
+#   1 blueprint  (otlp-native)   heap floor 253 MiB, peak 461 MiB, RSS peak 534 MiB, 0.43% of a core
+#   4 blueprints (k8s-full-stack, otlp-native, aws-cloudwatch-infra, hostfleet)
+#                                heap floor 289 MiB, peak 522 MiB, RSS peak 603 MiB, 0.77% of a core
+#   26 blueprints ("*")          heap floor 1716 MiB, peak 3135 MiB, RSS peak 3615 MiB, 24.5% of a core
+#
+# The defaults below cover a SMALL EXPLICIT SELECTION — roughly the four-blueprint case. The
+# request sits above its measured peak RSS so the pod is not chronically over request and first in
+# line for eviction; the limit is about twice the measured peak heap, because Go's collector targets
+# roughly twice the live set and it is the sawtooth peak a limit has to absorb.
+#
+# "*" does NOT fit these. The whole catalogue measured about 3.5 GiB resident: budget
+# requests {cpu: 500m, memory: 3584Mi} and limits {memory: 5Gi}, and measure your own selection
+# rather than interpolating.
+resources:
+  requests:
+    # Measured average was 4-8 millicores. 100m is not that average; it is headroom for the burst
+    # at each tick boundary, where the whole estate is rendered at once.
+    cpu: 100m
+    memory: 768Mi
+  limits:
+    # No CPU limit: synthkit is a fixed-cadence tick loop, so throttling it lengthens ticks and
+    # applies queue backpressure rather than saving anything. Set one only if your cluster policy
+    # demands it.
+    memory: 1Gi
+
+# ── Scheduling and pod shape ─────────────────────────────────────────────────────────────────
+# NOTE: replica count is deliberately not a value. Two emitters push the SAME series identities
+# to the same backend, which produces duplicate samples and out-of-order writes rather than more
+# throughput, and each holds its own cumulative counter state. The Deployment is pinned to one
+# replica with the Recreate strategy so a ReadWriteOnce claim does not deadlock on upgrade.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+priorityClassName: ""
+podAnnotations: {}
+podLabels: {}
+terminationGracePeriodSeconds: 60
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  # The image is distroless nonroot (uid 65532). fsGroup makes the mounted claim group-writable
+  # so control-state saves succeed; without it saves fail with permission denied and the control
+  # plane silently loses every selection on restart.
+  fsGroup: 65532
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  # synthkit calls no Kubernetes API. It does not need a projected token.
+  automountServiceAccountToken: false
+
+# ── Probes ───────────────────────────────────────────────────────────────────────────────────
+# `synthkit -healthcheck` is DELIVERY-aware: it succeeds only once every intended lane has
+# completed a current successful push and the state volume has passed a write probe. That is the
+# right readiness signal and the WRONG liveness signal — wiring it to liveness turns a Grafana
+# Cloud outage into a crash-loop. livenessProbe is therefore off by default.
+probes:
+  startup:
+    enabled: true
+    periodSeconds: 10
+    timeoutSeconds: 5
+    # 12 x 10s = 120s, covering the 60s construct/workload interval plus queue flush.
+    failureThreshold: 12
+  readiness:
+    enabled: true
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    enabled: false
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# ── Synthetic Monitoring provisioner (opt-in one-shot Job) ───────────────────────────────────
+# Mirrors the Compose sm-provision profile: the same image, no synthetic-sink credentials, and a
+# preview-by-default apply flag. It writes to the same /data claim as the emitter, so it is
+# co-scheduled onto the emitter's node. Bump runId to re-run it on a later `helm upgrade`.
+smProvision:
+  enabled: false
+  runId: "1"
+  # Preview by default. Review the Job's log, then set true and upgrade to write.
+  apply: false
+  adoptLegacy: false
+  migrateTarget: false
+  ttlSecondsAfterFinished: 600
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# ── Escape hatch ─────────────────────────────────────────────────────────────────────────────
+# Extra environment variables for names synthkit does not own — proxy settings, or the
+# operator-defined per-source token variables a private git blueprint source names in its
+# token_env_var. Using a name synthkit's own configuration owns fails the render, so this cannot
+# be used to route a credential around the group ownership above.
+extraEnv: []
+#  - name: MY_GIT_SOURCE_TOKEN
+#    valueFrom:
+#      secretKeyRef:
+#        name: my-git-source
+#        key: token
+
+extraVolumes: []
+extraVolumeMounts: []

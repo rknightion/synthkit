@@ -196,7 +196,7 @@ func emitKubelet(
 		} {
 			samples := 3 + w.Shape.IntN(5)
 			for s := 0; s < samples; s++ {
-				st.Observe(h.name, kubBase, h.bounds, statelib.LEBare, h.mean*(0.5+w.Shape.Float64()))
+				st.Observe(h.name, kubBase, h.bounds, statelib.LEPromV3, h.mean*(0.5+w.Shape.Float64()))
 			}
 		}
 		// operation_type-fanned histograms.
@@ -212,7 +212,7 @@ func emitKubelet(
 				opLbls := merge(kubBase, map[string]string{"operation_type": op})
 				samples := 3 + w.Shape.IntN(5)
 				for s := 0; s < samples; s++ {
-					st.Observe(h.name, opLbls, hb, statelib.LEBare, h.mean*(0.5+w.Shape.Float64()))
+					st.Observe(h.name, opLbls, hb, statelib.LEPromV3, h.mean*(0.5+w.Shape.Float64()))
 				}
 			}
 		}
@@ -372,7 +372,7 @@ func emitProberMetrics(
 					st.Add("prober_probe_total", totalLbls, float64(1+w.Shape.IntN(3)))
 
 					// prober_probe_duration_seconds histogram (bucket + count + sum)
-					st.Observe("prober_probe_duration_seconds", podLbls, proberHistoBounds, statelib.LEBare, 0.02*(0.5+w.Shape.Float64()))
+					st.Observe("prober_probe_duration_seconds", podLbls, proberHistoBounds, statelib.LEPromV3, 0.02*(0.5+w.Shape.Float64()))
 				}
 			}
 		}

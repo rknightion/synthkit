@@ -74,7 +74,7 @@ func emitApiServer(st *statelib.State, cluster string, tickSec, scale float64) {
 		case "POST":
 			latency = 0.04
 		}
-		st.Observe("apiserver_request_duration_seconds", lbls, cpHistoBounds, statelib.LEBare, latency)
+		st.Observe("apiserver_request_duration_seconds", lbls, cpHistoBounds, statelib.LEPromV3, latency)
 	}
 
 	// apiserver_current_inflight_requests — gauge, label request_kind
@@ -93,8 +93,8 @@ func emitApiServer(st *statelib.State, cluster string, tickSec, scale float64) {
 	wqLbls := merge(base, map[string]string{"name": wqName})
 	st.Add("workqueue_adds_total", wqLbls, scale*3)
 	st.Set("workqueue_depth", wqLbls, 0)
-	st.Observe("workqueue_queue_duration_seconds", wqLbls, cpHistoBounds, statelib.LEBare, 0.001)
-	st.Observe("workqueue_work_duration_seconds", wqLbls, cpHistoBounds, statelib.LEBare, 0.005)
+	st.Observe("workqueue_queue_duration_seconds", wqLbls, cpHistoBounds, statelib.LEPromV3, 0.001)
+	st.Observe("workqueue_work_duration_seconds", wqLbls, cpHistoBounds, statelib.LEPromV3, 0.005)
 
 	// rest_client_requests_total — counter, labels code/method/host
 	st.Add("rest_client_requests_total", merge(base, map[string]string{
@@ -119,7 +119,7 @@ func emitApiServer(st *statelib.State, cluster string, tickSec, scale float64) {
 		if c.op == "list" {
 			latency = 0.01
 		}
-		st.Observe("etcd_request_duration_seconds", lbls, cpHistoBounds, statelib.LEBare, latency)
+		st.Observe("etcd_request_duration_seconds", lbls, cpHistoBounds, statelib.LEPromV3, latency)
 	}
 }
 
@@ -153,7 +153,7 @@ func emitScheduler(st *statelib.State, cluster string, tickSec, scale float64) {
 			"profile": "default-scheduler",
 			"result":  c.result,
 		})
-		st.Observe("scheduler_scheduling_attempt_duration_seconds", lbls, cpHistoBounds, statelib.LEBare, c.latency)
+		st.Observe("scheduler_scheduling_attempt_duration_seconds", lbls, cpHistoBounds, statelib.LEPromV3, c.latency)
 	}
 
 	// scheduler_pending_pods — gauge, label queue
@@ -211,8 +211,8 @@ func emitControllerManager(st *statelib.State, cluster string, tickSec, scale fl
 		wqLbls := merge(base, map[string]string{"name": name})
 		st.Add("workqueue_adds_total", wqLbls, scale*(1+float64(len(name)%3)))
 		st.Set("workqueue_depth", wqLbls, 0)
-		st.Observe("workqueue_queue_duration_seconds", wqLbls, cpHistoBounds, statelib.LEBare, 0.002)
-		st.Observe("workqueue_work_duration_seconds", wqLbls, cpHistoBounds, statelib.LEBare, 0.01)
+		st.Observe("workqueue_queue_duration_seconds", wqLbls, cpHistoBounds, statelib.LEPromV3, 0.002)
+		st.Observe("workqueue_work_duration_seconds", wqLbls, cpHistoBounds, statelib.LEPromV3, 0.01)
 		st.Add("workqueue_retries_total", wqLbls, 0)
 	}
 

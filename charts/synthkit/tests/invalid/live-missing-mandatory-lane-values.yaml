@@ -1,0 +1,13 @@
+# MUST FAIL: a live push whose Secret does not project the Loki lane.
+#
+# Helm DEEP-MERGES maps, so a key present in the chart's default `keys` map cannot be dropped by
+# omitting it from an override — it has to be set to null explicitly. That merge behaviour is the
+# reason this fixture looks the way it does.
+config:
+  dryRun: false
+credentials:
+  data:
+    existingSecret: synthkit-data
+    keys:
+      GC_LOKI: null
+      GC_LOKI_USER: null

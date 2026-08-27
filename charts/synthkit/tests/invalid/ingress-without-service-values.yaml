@@ -1,0 +1,16 @@
+# MUST FAIL: an Ingress with no Service behind it.
+credentials:
+  control:
+    existingSecret: synthkit-control
+    keys:
+      CONTROL_TOKEN: CONTROL_TOKEN
+controlPlane:
+  exposure:
+    ack: tls-proxy
+  ingress:
+    enabled: true
+    hosts:
+      - host: synthkit.example.internal
+        paths:
+          - path: /
+            pathType: Prefix

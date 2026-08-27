@@ -102,6 +102,22 @@ in this series — they are not long-lived workloads).
 
 ---
 
+> ⚠ **`le` rendering — Prometheus-v3 float normalisation.** Every family in this file reaches Mimir
+> through an Alloy scrape, and Alloy 1.x embeds the Prometheus v3 scrape loop. Prometheus v3
+> normalises the `le` label of classic histograms (and `quantile` on summaries) on ingestion via
+> `labels.FormatOpenMetricsFloat`, so what the exporter prints is NOT what is stored: an integral
+> bound arrives as `le="1.0"` / `le="10.0"`, never `le="1"` / `le="10"`. A dashboard or recording
+> rule selecting `le="1"` matches nothing against real Grafana Cloud data while working perfectly
+> against synthkit. The `buckets:` lists in the `signals:` blocks below are NUMERIC bound sets; the
+> stored label form is `FormatOpenMetricsFloat(bound)` — GENERAL notation, so a bound at or past
+> 1e6 renders scientific (`2.592e+06`), `0` and `1` render `0.0` and `1.0`, and non-integral bounds
+> are unchanged. Emitted via `state.LEPromV3`.
+>
+> *Provenance: reality-corpus captures carry 154 `le` values and zero bare integers; cross-checked
+> against prometheus/prometheus `model/textparse/openmetricsparse.go` (`normalizeFloatsInLabelValues`)
+> and `model/labels/float.go` (`FormatOpenMetricsFloat`) at v0.310.0, read 2026-08-27. SKT-0010.11.*
+
+
 ## The label-pair TYPES (read first) [slug: k8s-label-types]
 
 Every series is a `metric{labelset} value` pair. Five DISTINCT label patterns recur across the five

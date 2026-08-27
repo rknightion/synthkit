@@ -123,7 +123,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		for range samples {
 			c.st.Observe("aws_ebs_csi_api_request_duration_seconds",
 				withExtra(map[string]string{"request": req}),
-				defaultSecondsBuckets, state.LEBare,
+				defaultSecondsBuckets, state.LEPromV3,
 				0.05+factor*0.3*w.Shape.Noise(0.4))
 		}
 	}
@@ -135,7 +135,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	for range collectorObs {
 		c.st.Observe("aws_ebs_csi_ec2_collector_duration_seconds",
 			base,
-			defaultSecondsBuckets, state.LEBare,
+			defaultSecondsBuckets, state.LEPromV3,
 			0.01+factor*0.05*w.Shape.Noise(0.3))
 	}
 

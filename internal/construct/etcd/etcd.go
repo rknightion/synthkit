@@ -177,13 +177,13 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		// Fast NVMe: typical sync 1-4ms.
 		for range 3 {
 			c.st.Observe("etcd_disk_wal_fsync_duration_seconds", instLbls,
-				etcdWALBounds, state.LEBare, 0.001+0.002*float64(i+1)*0.3)
+				etcdWALBounds, state.LEPromV3, 0.001+0.002*float64(i+1)*0.3)
 		}
 
 		// ── etcd_disk_backend_commit_duration_seconds (H; per instance) ──────
 		for range 3 {
 			c.st.Observe("etcd_disk_backend_commit_duration_seconds", instLbls,
-				etcdBackendBounds, state.LEBare, 0.002+0.001*float64(i+1)*0.5)
+				etcdBackendBounds, state.LEPromV3, 0.002+0.001*float64(i+1)*0.5)
 		}
 
 		// ── etcd_mvcc_db_total_size_in_bytes (G; per instance) — ~100MB ───────
@@ -213,7 +213,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 			// ── etcd_network_peer_round_trip_time_seconds (H; instance,To) ────
 			c.st.Observe("etcd_network_peer_round_trip_time_seconds", peerLbls,
-				etcdRTTBounds, state.LEBare, 0.001+float64(j)*0.0005)
+				etcdRTTBounds, state.LEPromV3, 0.001+float64(j)*0.0005)
 
 			_ = peer // suppress unused warning
 		}
@@ -239,7 +239,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			})
 			for range 5 {
 				c.st.Observe("grpc_server_handling_seconds", histoLbls,
-					grpcHandlingBounds, state.LEBare, 0.001+0.002*float64(i)*0.4)
+					grpcHandlingBounds, state.LEPromV3, 0.001+0.002*float64(i)*0.4)
 			}
 		}
 

@@ -91,6 +91,15 @@ jobs:
           cache: true
       - run: make signal-fidelity
 
+  # Helm chart: lint plus the credential and exposure render permutations. helm is preinstalled on
+  # GitHub's ubuntu images, so no third-party action is needed — which also keeps this mirror-safe.
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - run: helm version
+      - run: make helm-test
+
   # Single aggregator the branch ruleset gates on (`ci-success` required status check). Keeping the
   # ruleset pinned to one check means the job list above can change without touching branch
   # protection. GitHub-only — not mirrored to .forgejo (no fleet ruleset there; documented divergence).
@@ -98,7 +107,7 @@ jobs:
     name: ci-success
     runs-on: ubuntu-latest
     if: always()
-    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity]
+    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm]
     steps:
       - name: Fail if any required job did not pass
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}

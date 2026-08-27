@@ -1,0 +1,8 @@
+# MUST FAIL: the synthetic-data token projected from the self-obs group.
+selfObs:
+  enabled: true
+credentials:
+  selfObs:
+    existingSecret: synthkit-selfobs
+    keys:
+      GC_TOKEN: GC_TOKEN

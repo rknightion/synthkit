@@ -1,0 +1,36 @@
+{{- if .Values.networkPolicy.enabled -}}
+{{- include "synthkit.validate" . -}}
+{{/*
+Ingress-only policy, so egress to the telemetry backends is untouched.
+
+Closed default: no ingress rules at all, which is default-deny for this pod. That is belt and
+braces rather than the primary control — the primary control is the loopback bind, which holds even
+where no policy-capable CNI is installed to enforce this object.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "synthkit.fullname" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "synthkit.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  {{- if .Values.controlPlane.exposure.ack }}
+  ingress:
+    - ports:
+        - port: 8088
+          protocol: TCP
+      {{- with .Values.networkPolicy.ingressFrom }}
+      from:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- else }}
+  # No ingress rules: nothing may reach this pod over the cluster network. kubectl port-forward is
+  # unaffected — it runs inside the pod's own network namespace.
+  ingress: []
+  {{- end }}
+{{- end }}

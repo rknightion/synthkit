@@ -41,7 +41,7 @@
 //
 // ARCHITECTURE invariants honoured:
 //   - I3:  counters via state.Add (cumulative); gauges via state.Set
-//   - I4:  histograms via state.Observe with LEBare (prom-native scrape style)
+//   - I4:  histograms via state.Observe with LEPromV3 (Prometheus-v3 scrape normalises `le`)
 //   - I13: no empty/sentinel labels
 //   - I21: ScopeSubstrate — no blueprint label
 package clusterautoscaler
@@ -114,7 +114,7 @@ var caUnremovableReasons = []string{
 var caAWSEndpoints = []string{"autoscaling.amazonaws.com", "ec2.amazonaws.com"}
 
 // prometheusDefaultSecondsBuckets mirrors the Prometheus client_golang default histogram
-// bounds used by real cluster-autoscaler (LEBare style — prom-native scrape).
+// bounds used by real cluster-autoscaler (LEPromV3 — the scraper normalises `le`).
 var prometheusDefaultSecondsBuckets = []float64{
 	0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
 }
@@ -316,7 +316,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		fnCopy := fn
 		obs := 0.01 + factor*0.2*w.Shape.Noise(0.4)
 		withPod(map[string]string{"function": fnCopy}, func(lbls map[string]string) {
-			c.st.Observe("cluster_autoscaler_function_duration_seconds", lbls, hb, state.LEBare, obs)
+			c.st.Observe("cluster_autoscaler_function_duration_seconds", lbls, hb, state.LEPromV3, obs)
 		})
 	}
 
@@ -380,7 +380,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		epCopy := ep
 		obs := 0.05 + factor*0.1*w.Shape.Noise(0.3)
 		withPod(map[string]string{"endpoint": epCopy, "status": "200"}, func(lbls map[string]string) {
-			c.st.Observe("cluster_autoscaler_aws_request_duration_seconds", lbls, hb, state.LEBare, obs)
+			c.st.Observe("cluster_autoscaler_aws_request_duration_seconds", lbls, hb, state.LEPromV3, obs)
 		})
 	}
 

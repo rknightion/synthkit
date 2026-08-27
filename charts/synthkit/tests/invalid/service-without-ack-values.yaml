@@ -1,0 +1,4 @@
+# MUST FAIL: a Service is a network surface and no exposure was acknowledged.
+controlPlane:
+  service:
+    enabled: true

@@ -1,0 +1,7 @@
+# MUST FAIL: a self-obs variable projected from the synthetic-data group.
+credentials:
+  data:
+    existingSecret: synthkit-data
+    keys:
+      GC_TOKEN: GC_TOKEN
+      GC_SELF_OTLP_PASSWORD: GC_TOKEN

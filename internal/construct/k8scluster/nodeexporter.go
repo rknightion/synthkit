@@ -26,7 +26,8 @@ import (
 	"github.com/rknightion/synthkit/internal/state"
 )
 
-// kubeletHistoBounds are the prom-client default seconds histogram bounds (LEBare style).
+// kubeletHistoBounds are the prom-client default seconds histogram bounds. Rendered
+// LEPromV3 — the exporter prints le="1", the Prometheus-v3 scrape stores le="1.0".
 // Defined here (alongside the node lane) and consumed by kubelet.go.
 var kubeletHistoBounds = []float64{
 	0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,

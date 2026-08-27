@@ -28,6 +28,7 @@ package state
 
 import (
 	"maps"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -37,17 +38,38 @@ import (
 )
 
 // LEStyle selects how a histogram's `le` bucket-bound label is rendered — a real fidelity
-// split between the two ingestion paths (I4):
+// split between the three ingestion paths (I4). Pick the one that matches how the modelled
+// series actually reaches Mimir, not how the exporter prints it:
 //
-//   - LEBare: Prometheus-native /metrics scrapes (prom-client) render minimal decimals with
-//     NO forced ".0" and NO scientific notation: "1", "10", "10000000", "0.005".
-//   - LEDotZero: the OTLP→Prometheus translation (APM span-metrics) forces a trailing ".0"
-//     on integer-valued bounds: le ∈ {0.0, 0.005, …, 1.0, 2.5, 5.0, 7.5, 10.0, +Inf}.
+//   - LEPromV3: anything a Prometheus-v3 scraper ingests — which, in practice, is every
+//     family Alloy scrapes off a /metrics endpoint. Prometheus v3 NORMALISES the `le` label
+//     of classic histograms (and `quantile` on summaries) on ingestion, so what the exporter
+//     printed is irrelevant: le="1" on the wire is stored as le="1.0". Alloy 1.x embeds the
+//     Prometheus v3 scrape loop, so this covers kubelet, kube-proxy, the control plane, every
+//     k8s addon, and every prometheus.exporter.* component. Rendering is byte-identical to
+//     Prometheus' own labels.FormatOpenMetricsFloat: general notation, a forced ".0" when
+//     that produced no "." or "e", and hardcoded "0.0"/"1.0"/"-1.0". Note the general
+//     notation — a 2.592e6 bound renders "2.592e+06", NOT "2592000.0".
+//   - LEDotZero: the OTLP→Prometheus translation (APM span-metrics, gen_ai client metrics).
+//     Forces a trailing ".0" on integer-valued bounds but keeps FIXED notation at every
+//     magnitude, so a 10000000 bound renders "10000000.0", never "1e+07". This differs from
+//     LEPromV3 only at the notation extremes (|exponent| beyond general notation's switch
+//     points) and the two must not be conflated there.
+//   - LEBare: a producer that remote-writes its own series with NO scrape in between, so
+//     nothing ever normalises the label — minimal decimals, no forced ".0", no scientific
+//     notation: "1", "10", "10000000", "0.005". This is the EXCEPTION, not the default; it
+//     was the Prometheus-native scrape convention only before Prometheus v3.
+//
+// Provenance: prometheus/prometheus model/textparse (promparse.go, openmetricsparse.go,
+// protobufparse.go) all route bucket/quantile label values through
+// labels.FormatOpenMetricsFloat (model/labels/float.go), read at v0.310.0, 2026-08-27.
+// Corroborated by the reality corpus: 165 captured `le` values, zero bare integers.
 type LEStyle int
 
 const (
 	LEBare LEStyle = iota
 	LEDotZero
+	LEPromV3
 )
 
 // MaxExemplarsPerSeries caps exemplars retained per series per emit. Mimir keeps a bounded
@@ -404,13 +426,48 @@ func withLE(base map[string]string, le string) map[string]string {
 }
 
 // formatLE renders a bucket upper bound as the `le` label string per the metric's ingestion
-// style. 'f',-1 gives minimal decimals with NO scientific notation — matching prom-client
-// (le="10000000", never "1e+07"). LEDotZero then forces a trailing ".0" on integer-valued
-// bounds to match the OTLP→Prometheus translation (le="0.0"/"1.0"/"5.0"/"10.0").
+// style (see LEStyle).
+//
+// LEPromV3 reproduces prometheus/prometheus labels.FormatOpenMetricsFloat byte for byte:
+// the three hardcoded cases, then 'g',-1 (GENERAL notation — scientific past the switch
+// points), then a ".0" suffix only when that output contains neither "." nor "e".
+//
+// LEBare and LEDotZero share 'f',-1 — minimal decimals with NO scientific notation at any
+// magnitude (le="10000000", never "1e+07") — and LEDotZero then forces a trailing ".0" on
+// integer-valued bounds. Do not "unify" these with LEPromV3: they agree on every bound in
+// the current corpus and diverge deliberately at the notation extremes.
 func formatLE(b float64, style LEStyle) string {
+	if style == LEPromV3 {
+		return formatOpenMetricsFloat(b)
+	}
 	s := strconv.FormatFloat(b, 'f', -1, 64)
 	if style == LEDotZero && !strings.Contains(s, ".") {
 		s += ".0"
 	}
 	return s
+}
+
+// formatOpenMetricsFloat mirrors prometheus/prometheus model/labels.FormatOpenMetricsFloat
+// (v0.310.0). +Inf/-Inf/NaN are handled for completeness; State.Collect emits the overflow
+// bucket as the literal "+Inf" and never reaches this path with an infinity.
+func formatOpenMetricsFloat(f float64) string {
+	switch {
+	case f == 1:
+		return "1.0"
+	case f == 0:
+		return "0.0"
+	case f == -1:
+		return "-1.0"
+	case math.IsNaN(f):
+		return "NaN"
+	case math.IsInf(f, +1):
+		return "+Inf"
+	case math.IsInf(f, -1):
+		return "-Inf"
+	}
+	s := strconv.FormatFloat(f, 'g', -1, 64)
+	if strings.ContainsAny(s, "e.") {
+		return s
+	}
+	return s + ".0"
 }

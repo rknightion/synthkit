@@ -1,0 +1,33 @@
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) -}}
+{{- include "synthkit.validate" . -}}
+{{/*
+/data holds control-state.json (the control plane's selections and overrides), blueprints/ (custom
+and git-sourced blueprints), and runtime/ (the Synthetic Monitoring ownership ledger, registration,
+adoption marker, lock and pending journal). The ledger in particular cannot be recreated: losing it
+makes already-provisioned remote resources foreign until they are explicitly previewed and adopted.
+*/}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "synthkit.pvcName" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.persistence.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if .Values.persistence.retain }}
+    # Survive `helm uninstall`. Deleting this claim discards control-plane state and the SM
+    # ownership ledger; remove the claim deliberately, not as a side effect of an uninstall.
+    helm.sh/resource-policy: keep
+    {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  {{- with .Values.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | quote }}
+{{- end }}

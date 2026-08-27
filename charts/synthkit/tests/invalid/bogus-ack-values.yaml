@@ -1,0 +1,4 @@
+# MUST FAIL: the acknowledgement must be one of exactly two strings.
+controlPlane:
+  exposure:
+    ack: "yes"

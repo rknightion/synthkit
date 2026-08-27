@@ -17,7 +17,7 @@
 // llm_token_sum and llm_cost_sum are cumulative gauges that GROW monotonically across ticks
 // (state.Add — they accumulate; query with delta(), never rate()/increase()). request_count is a
 // true Counter (state.Add) emitted across a realistic status-code distribution (heavy 2xx).
-// All *_duration_*/_time_*/_ms names are histograms (state.Observe, state.LEBare).
+// All *_duration_*/_time_*/_ms names are histograms (state.Observe, state.LEPromV3).
 //
 // node_* runtime subset: gated by sub_signals=["runtime"]; custom metrics: sub_signals=["gateway"].
 // Empty sub_signals ⇒ both families.
@@ -352,37 +352,37 @@ func (c *Construct) emitGateway(now time.Time, bf float64, w *core.World) {
 			lj := latencyJitter
 
 			// http_request_duration_seconds: explicit buckets from signals/portkey.md. Unit: seconds.
-			c.st.Observe("http_request_duration_seconds", lbls, httpRequestDurationBuckets, state.LEBare, bf*0.5*lj)
+			c.st.Observe("http_request_duration_seconds", lbls, httpRequestDurationBuckets, state.LEPromV3, bf*0.5*lj)
 
 			// llm_request_duration_milliseconds: explicit buckets from signals/portkey.md. Unit: ms.
-			c.st.Observe("llm_request_duration_milliseconds", lbls, llmRequestDurationBuckets, state.LEBare, bf*800*lj)
+			c.st.Observe("llm_request_duration_milliseconds", lbls, llmRequestDurationBuckets, state.LEPromV3, bf*800*lj)
 
 			// portkey_request_duration_milliseconds: buckets assumed (SK-38)
-			c.st.Observe("portkey_request_duration_milliseconds", lbls, assumedMsBuckets, state.LEBare, bf*600*lj)
+			c.st.Observe("portkey_request_duration_milliseconds", lbls, assumedMsBuckets, state.LEPromV3, bf*600*lj)
 
 			// portkey_processing_time_excluding_last_byte_ms: buckets assumed (SK-38)
-			c.st.Observe("portkey_processing_time_excluding_last_byte_ms", lbls, assumedMsBuckets, state.LEBare, bf*200*lj)
+			c.st.Observe("portkey_processing_time_excluding_last_byte_ms", lbls, assumedMsBuckets, state.LEPromV3, bf*200*lj)
 
 			// llm_last_byte_diff_duration_milliseconds: buckets assumed (SK-38)
-			c.st.Observe("llm_last_byte_diff_duration_milliseconds", lbls, assumedMsBuckets, state.LEBare, bf*150*lj)
+			c.st.Observe("llm_last_byte_diff_duration_milliseconds", lbls, assumedMsBuckets, state.LEPromV3, bf*150*lj)
 
 			// authentication_duration_milliseconds: buckets assumed (SK-38)
-			c.st.Observe("authentication_duration_milliseconds", lbls, assumedMsBuckets, state.LEBare, bf*5*lj)
+			c.st.Observe("authentication_duration_milliseconds", lbls, assumedMsBuckets, state.LEPromV3, bf*5*lj)
 
 			// api_key_rate_limit_check_duration_milliseconds: buckets assumed (SK-38)
-			c.st.Observe("api_key_rate_limit_check_duration_milliseconds", lbls, assumedMsBuckets, state.LEBare, bf*2*lj)
+			c.st.Observe("api_key_rate_limit_check_duration_milliseconds", lbls, assumedMsBuckets, state.LEPromV3, bf*2*lj)
 
 			// pre_request_processing_duration_milliseconds: buckets assumed (SK-38)
-			c.st.Observe("pre_request_processing_duration_milliseconds", lbls, assumedMsBuckets, state.LEBare, bf*10*lj)
+			c.st.Observe("pre_request_processing_duration_milliseconds", lbls, assumedMsBuckets, state.LEPromV3, bf*10*lj)
 
 			// post_request_processing_duration_milliseconds: buckets assumed (SK-38)
-			c.st.Observe("post_request_processing_duration_milliseconds", lbls, assumedMsBuckets, state.LEBare, bf*8*lj)
+			c.st.Observe("post_request_processing_duration_milliseconds", lbls, assumedMsBuckets, state.LEPromV3, bf*8*lj)
 
 			// llm_cache_processing_duration_milliseconds: buckets assumed (SK-38)
-			c.st.Observe("llm_cache_processing_duration_milliseconds", lbls, assumedMsBuckets, state.LEBare, bf*3*lj)
+			c.st.Observe("llm_cache_processing_duration_milliseconds", lbls, assumedMsBuckets, state.LEPromV3, bf*3*lj)
 
 			// grpc_req_conversion_duration_milliseconds: explicit buckets from signals/portkey.md. Unit: ms.
-			c.st.Observe("grpc_req_conversion_duration_milliseconds", lbls, grpcConversionDurationBuckets, state.LEBare, bf*0.5*lj)
+			c.st.Observe("grpc_req_conversion_duration_milliseconds", lbls, grpcConversionDurationBuckets, state.LEPromV3, bf*0.5*lj)
 
 			// ── Cumulative gauges (GROW monotonically across ticks — delta(), never rate()) ──
 			// state.Add accumulates a running total (counters map); state.Set would overwrite each
@@ -432,12 +432,12 @@ func (c *Construct) emitRuntime(bf float64) {
 	// node_eventloop_lag_seconds: gauge (state.Set); event-loop lag in seconds.
 	c.st.Set("node_eventloop_lag_seconds", lbls, bf*0.005)
 
-	// node_gc_duration_seconds: histogram (state.Observe, LEBare).
+	// node_gc_duration_seconds: histogram (state.Observe, LEPromV3).
 	// buckets assumed (SK-38)
 	gcLbls := map[string]string{
 		"app":  c.app,
 		"env":  c.env,
 		"kind": "minor",
 	}
-	c.st.Observe("node_gc_duration_seconds", gcLbls, nodeGCDurationBuckets, state.LEBare, bf*0.008)
+	c.st.Observe("node_gc_duration_seconds", gcLbls, nodeGCDurationBuckets, state.LEPromV3, bf*0.008)
 }

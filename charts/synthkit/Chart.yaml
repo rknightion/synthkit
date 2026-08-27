@@ -1,0 +1,24 @@
+apiVersion: v2
+name: synthkit
+description: Composable synthetic-telemetry generator — emits structurally correct metrics, traces, logs, profiles, and RUM from YAML blueprints.
+type: application
+
+# Chart version is independent of the application version and follows SemVer for the CHART.
+version: 0.1.0
+# The synthkit release this chart defaults to. Bumped with each synthkit release; overridden
+# per-install by image.tag or (preferred) image.digest.
+appVersion: "1.3.1"
+
+home: https://m7kni.io/synthkit
+sources:
+  - https://github.com/rknightion/synthkit
+keywords:
+  - observability
+  - telemetry
+  - synthetic-data
+  - grafana
+  - prometheus
+  - opentelemetry
+annotations:
+  # Reported by `helm show chart`; the chart itself carries the project's licence.
+  licenses: AGPL-3.0-only

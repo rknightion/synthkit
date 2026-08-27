@@ -1,0 +1,28 @@
+# Control plane behind a TLS-terminating Ingress.
+config:
+  dryRun: false
+  blueprintNames: otlp-native
+credentials:
+  data:
+    existingSecret: synthkit-data
+  control:
+    existingSecret: synthkit-control
+    keys:
+      CONTROL_TOKEN: CONTROL_TOKEN
+controlPlane:
+  exposure:
+    ack: tls-proxy
+  service:
+    enabled: true
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: synthkit.example.internal
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - synthkit.example.internal
+        secretName: synthkit-tls

@@ -537,3 +537,94 @@ func assertFinding(t *testing.T, findings []Finding, kind FindingKind, dispositi
 	}
 	t.Fatalf("findings=%+v, missing kind=%q disposition=%q signal=%q field=%q", findings, kind, disposition, signal, field)
 }
+
+// podLogKeys is the OTLP pod-log resource shape captured at collector egress.
+var podLogKeys = []string{
+	"cluster", "k8s.cluster.name", "k8s.namespace.name", "k8s.pod.name", "k8s.container.name",
+	"service.instance.id", "service.name", "service.namespace",
+}
+
+func podLogEntry(extra ...string) Log {
+	log := Log{
+		Source:                 LogFamilyPodLogs,
+		Transport:              TransportOTLPLogs,
+		StreamLabels:           []Attribute{},
+		StructuredMetadataKeys: []string{"log.iostream", "logtag"},
+	}
+	for _, key := range append(append([]string{}, podLogKeys...), extra...) {
+		log.StreamLabels = append(log.StreamLabels, Attribute{Key: key, Values: []string{}})
+	}
+	return log
+}
+
+func logSchema(logs ...Log) Schema {
+	schema := New()
+	schema.Logs = logs
+	schema.Normalize()
+	return schema
+}
+
+func TestDiffJoinsPodLogShapeVariantsIntoOneFamily(t *testing.T) {
+	// The capture records two shapes of the same family: a pod with a Deployment owner and a
+	// node, and a pod with neither. Keying the family on its raw label set makes the second one
+	// a whole missing log family, which synthkit is then reported as not emitting at all.
+	reality := logSchema(
+		podLogEntry("k8s.deployment.name", "k8s.node.name", "app_kubernetes_io_name"),
+		podLogEntry(),
+	)
+	synth := logSchema(podLogEntry("k8s.deployment.name", "k8s.node.name", "app_kubernetes_io_name"))
+
+	findings := Diff(synth, reality)
+	for _, finding := range findings {
+		if finding.Kind == KindExtraLog {
+			t.Fatalf("findings=%+v, want no extra_log: both shapes are the %s family", findings, LogFamilyPodLogs)
+		}
+	}
+}
+
+func TestDiffComparesPodLogLabelKeysOnceTheFamilyJoins(t *testing.T) {
+	// Keys can only be compared across a family that joins; while the raw label set WAS the
+	// identity, a key difference made a separate family instead of a finding.
+	reality := logSchema(podLogEntry("k8s.node.name"))
+	synth := logSchema(podLogEntry("k8s.deployment.name"))
+
+	findings := Diff(synth, reality)
+	signal := TransportOTLPLogs + "[family=" + LogFamilyPodLogs + "]"
+	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionContradiction, signal, "stream_labels")
+	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionCoverageGap, signal, "stream_labels")
+}
+
+func TestDiffKeepsStructuralIdentityForUnclassifiedLogFamilies(t *testing.T) {
+	// A lane whose shape no rule recognises keeps the structural identity, so an unrelated
+	// source-less lane never merges into another one.
+	reality := logSchema(
+		Log{Source: "journal", Transport: TransportLoki, StreamLabels: []Attribute{{Key: "unit", Values: []string{}}}, StructuredMetadataKeys: []string{}},
+		Log{Source: "", Transport: TransportLoki, StreamLabels: []Attribute{{Key: "topic", Values: []string{}}}, StructuredMetadataKeys: []string{}},
+	)
+	synth := logSchema(
+		Log{Source: "journal", Transport: TransportLoki, StreamLabels: []Attribute{{Key: "unit", Values: []string{}}}, StructuredMetadataKeys: []string{}},
+	)
+
+	findings := Diff(synth, reality)
+	count := 0
+	for _, finding := range findings {
+		if finding.Kind == KindExtraLog {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("findings=%+v, want exactly one extra_log for the unmatched lane", findings)
+	}
+}
+
+func TestDiffTreatsAnEmptyBucketBoundSetAsAbsentEvidence(t *testing.T) {
+	// A producer that recorded the classic representation but no bounds did not observe them;
+	// a classic histogram always has bounds, so an empty set is absent evidence, never a claim.
+	findings := Diff(
+		metricSchema(Metric{Name: "latency_seconds", InstrumentTypes: []string{InstrumentHistogram}, Histogram: &Histogram{Classic: true, BucketBounds: []float64{0.5, 1}}}),
+		metricSchema(Metric{Name: "latency_seconds", InstrumentTypes: []string{InstrumentHistogram}, Histogram: &Histogram{Classic: true}}),
+	)
+	if len(findings) != 0 {
+		t.Fatalf("findings=%+v, want none: reality recorded no bucket bounds to compare", findings)
+	}
+}

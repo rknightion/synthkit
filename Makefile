@@ -1,4 +1,4 @@
-.PHONY: build test helper-tests deploy-tests cover vet gate race dump run docker skills-sync skills-check docs-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker compose-check e2e published-e2e signal-fidelity signal-fidelity-k3d signal-fidelity-eks-readback ci spdx-check forbidden-words hygiene secret-scan notices sbom
+.PHONY: build test helper-tests deploy-tests cover vet gate race dump run docker skills-sync skills-check docs-check proto rw-proto-check pyroscope-proto sigil-proto selfobs-dashboard ui ui-install gate-ui ci-go ci-ui ci-docker compose-check e2e published-e2e signal-fidelity signal-fidelity-k3d signal-fidelity-eks-readback ci spdx-check forbidden-words hygiene secret-scan notices sbom helm-test
 
 GCX_CONTEXT ?= default
 
@@ -227,4 +227,10 @@ signal-fidelity-eks-readback: ## read EKS and core CloudWatch metric shapes from
 	  go run ./cmd/reality-corpus-gcx -context "$$context" -since "$${GCX_SINCE:-24h}" -corpus reality-corpus
 
 # Local "simulate full CI" umbrella.
-ci: ci-go ci-ui ci-docker
+# Helm chart: lint plus the credential and exposure render permutations. Requires helm on PATH;
+# kubeconform is an optional extra leg the script skips when absent.
+helm-test: ## lint the chart and assert the credential + exposure render permutations
+	helm lint charts/synthkit
+	bash charts/synthkit/tests/render_test.sh
+
+ci: ci-go ci-ui ci-docker helm-test

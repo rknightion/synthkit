@@ -160,10 +160,10 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 	// xds_stream_duration_seconds histogram (seconds — NOT ms, controller-runtime scale)
 	for _, pm := range controlMaps {
-		c.st.Observe("xds_stream_duration_seconds", pm, secondsBuckets, state.LEBare, 0.1+factor*0.1*w.Shape.Noise(0.3))
+		c.st.Observe("xds_stream_duration_seconds", pm, secondsBuckets, state.LEPromV3, 0.1+factor*0.1*w.Shape.Noise(0.3))
 	}
 	if len(controlMaps) == 0 {
-		c.st.Observe("xds_stream_duration_seconds", controlBase, secondsBuckets, state.LEBare, 0.1+factor*0.05*w.Shape.Noise(0.3))
+		c.st.Observe("xds_stream_duration_seconds", controlBase, secondsBuckets, state.LEPromV3, 0.1+factor*0.05*w.Shape.Noise(0.3))
 	}
 
 	// watchable_*: depth (gauge) + events (counter per runner × event_type)
@@ -186,7 +186,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			c.st.Add("resource_apply_total", lbls, scale)
 		})
 		emitControl(map[string]string{"kind": k, "name": k + "-resource"}, func(lbls map[string]string) {
-			c.st.Observe("resource_apply_duration_seconds", lbls, secondsBuckets, state.LEBare, 0.05+factor*0.05*w.Shape.Noise(0.4))
+			c.st.Observe("resource_apply_duration_seconds", lbls, secondsBuckets, state.LEPromV3, 0.05+factor*0.05*w.Shape.Noise(0.4))
 			c.st.Add("resource_delete_total", lbls, 0)
 		})
 	}
@@ -208,7 +208,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		})
 	}
 	emitControl(map[string]string{"controller": "gatewayapi-1781111929"}, func(lbls map[string]string) {
-		c.st.Observe("controller_runtime_reconcile_time_seconds", lbls, secondsBuckets, state.LEBare, 0.01+factor*0.02*w.Shape.Noise(0.4))
+		c.st.Observe("controller_runtime_reconcile_time_seconds", lbls, secondsBuckets, state.LEPromV3, 0.01+factor*0.02*w.Shape.Noise(0.4))
 		c.st.Set("controller_runtime_active_workers", lbls, 1)
 		c.st.Set("controller_runtime_max_concurrent_reconciles", lbls, 1)
 	})
@@ -263,7 +263,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// envoy_cluster_upstream_rq_time histogram (milliseconds)
 	for _, clName := range envoyClusterNames {
 		emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
-			c.st.Observe("envoy_cluster_upstream_rq_time", lbls, envoyMsBuckets, state.LEBare, 10.0+factor*15.0*w.Shape.Noise(0.4))
+			c.st.Observe("envoy_cluster_upstream_rq_time", lbls, envoyMsBuckets, state.LEPromV3, 10.0+factor*15.0*w.Shape.Noise(0.4))
 		})
 	}
 
@@ -293,7 +293,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// envoy_http_downstream_rq_time histogram (milliseconds, per conn-manager)
 	for _, mgr := range httpConnManagers {
 		emitData(map[string]string{"envoy_http_conn_manager_prefix": mgr}, func(lbls map[string]string) {
-			c.st.Observe("envoy_http_downstream_rq_time", lbls, envoyMsBuckets, state.LEBare, 15.0+factor*20.0*w.Shape.Noise(0.4))
+			c.st.Observe("envoy_http_downstream_rq_time", lbls, envoyMsBuckets, state.LEPromV3, 15.0+factor*20.0*w.Shape.Noise(0.4))
 		})
 	}
 

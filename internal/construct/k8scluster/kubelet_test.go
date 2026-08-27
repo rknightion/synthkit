@@ -358,3 +358,54 @@ func TestNewFamiliesCarryKubeletJob(t *testing.T) {
 		}
 	}
 }
+
+// TestKubeletLERenderingMatchesReality pins the `le` label STRINGS of the kubelet histogram
+// families the reality corpus proved wrong (SKT-0010.11). The kubelet is scraped by Alloy,
+// Alloy 1.x embeds the Prometheus-v3 scrape loop, and Prometheus v3 normalises `le` on
+// ingestion — so an integral bound reaches Mimir as "1.0"/"10.0", never "1"/"10". A dashboard
+// or recording rule selecting le="1" matches nothing against real Grafana Cloud data.
+//
+// Expected values are transcribed verbatim from reality-corpus/k8s/k3d-lab.json
+// (kubelet_cgroup_manager_duration_seconds, kubelet_pod_start_duration_seconds).
+func TestKubeletLERenderingMatchesReality(t *testing.T) {
+	cl := coretest.Cluster()
+	cl.K8sMonitoring.ControlPlane.KubeletProbes = true
+	c := buildConstruct(t, cl)
+	mc := &coretest.MetricCapture{}
+	lc := &coretest.LogCapture{}
+	tick(t, c, mc, lc)
+
+	want := map[string][]string{
+		// prom-client default seconds set — shared by cgroup_manager, pod_worker,
+		// pleg_relist_{duration,interval} and prober_probe_duration.
+		"kubelet_cgroup_manager_duration_seconds_bucket": {
+			"0.005", "0.01", "0.025", "0.05", "0.1", "0.25", "0.5", "1.0", "2.5", "5.0", "10.0", "+Inf",
+		},
+		"prober_probe_duration_seconds_bucket": {
+			"0.005", "0.01", "0.025", "0.05", "0.1", "0.25", "0.5", "1.0", "2.5", "5.0", "10.0", "+Inf",
+		},
+		// kubelet's own custom pod-start scheme — every bound is integral bar the first.
+		"kubelet_pod_start_duration_seconds_bucket": {
+			"0.5", "1.0", "2.0", "3.0", "4.0", "5.0", "6.0", "8.0", "10.0", "20.0", "30.0", "45.0",
+			"60.0", "120.0", "180.0", "240.0", "300.0", "360.0", "480.0", "600.0", "900.0",
+			"1200.0", "1800.0", "2700.0", "3600.0", "+Inf",
+		},
+	}
+	for name, wantLE := range want {
+		seen := map[string]bool{}
+		for _, s := range findSeries(mc, name) {
+			seen[s.Labels["le"]] = true
+		}
+		if len(seen) == 0 {
+			t.Fatalf("%s: no series emitted", name)
+		}
+		for _, le := range wantLE {
+			if !seen[le] {
+				t.Errorf("%s: missing le=%q (Prometheus-v3 normalised form); have %v", name, le, seen)
+			}
+		}
+		if len(seen) != len(wantLE) {
+			t.Errorf("%s: emitted %d distinct le values, corpus has %d", name, len(seen), len(wantLE))
+		}
+	}
+}

@@ -305,7 +305,7 @@ func (c *Construct) BuildWith(now time.Time, w *core.World) []promrw.Series {
 		// Evaluation latency varies per collector (resource-shaped, amp 0.18).
 		evalSec := fmEvalSecPerTick * seriesVar(w, now, "alloy_eval/"+spec.id, 0.18)
 		for range fmComponentCount {
-			c.st.Observe("alloy_component_evaluation_seconds", base, fmEvalBuckets, state.LEBare, evalSec)
+			c.st.Observe("alloy_component_evaluation_seconds", base, fmEvalBuckets, state.LEPromV3, evalSec)
 		}
 
 		// Resource counters — increment varies per collector (volume-shaped, amp 0.30).

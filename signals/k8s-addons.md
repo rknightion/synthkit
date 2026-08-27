@@ -23,6 +23,22 @@ Global rules: see [`00-canon.md`](00-canon.md) — `[slug: scoping]`, `[slug: ca
 
 ---
 
+> ⚠ **`le` rendering — Prometheus-v3 float normalisation.** Every family in this file reaches Mimir
+> through an Alloy scrape, and Alloy 1.x embeds the Prometheus v3 scrape loop. Prometheus v3
+> normalises the `le` label of classic histograms (and `quantile` on summaries) on ingestion via
+> `labels.FormatOpenMetricsFloat`, so what the exporter prints is NOT what is stored: an integral
+> bound arrives as `le="1.0"` / `le="10.0"`, never `le="1"` / `le="10"`. A dashboard or recording
+> rule selecting `le="1"` matches nothing against real Grafana Cloud data while working perfectly
+> against synthkit. The `buckets:` lists in the `signals:` blocks below are NUMERIC bound sets; the
+> stored label form is `FormatOpenMetricsFloat(bound)` — GENERAL notation, so a bound at or past
+> 1e6 renders scientific (`2.592e+06`), `0` and `1` render `0.0` and `1.0`, and non-integral bounds
+> are unchanged. Emitted via `state.LEPromV3`.
+>
+> *Provenance: reality-corpus captures carry 154 `le` values and zero bare integers; cross-checked
+> against prometheus/prometheus `model/textparse/openmetricsparse.go` (`normalizeFloatsInLabelValues`)
+> and `model/labels/float.go` (`FormatOpenMetricsFloat`) at v0.310.0, read 2026-08-27. SKT-0010.11.*
+
+
 ## AWS Load Balancer Controller (`job="aws-load-balancer-controller"`, ns `kube-system` — SK-10 live-confirmed 2026-06-14) [slug: k8s-lbc]
 
 `awslbc_readiness_gate_ready_seconds` (H), `awslbc_controller_reconcile_errors_total` (C;
@@ -167,6 +183,13 @@ note: "⚠ no controller-runtime / no rest_client_*"
 `coredns_panics_total` (C; =0 always), `coredns_plugin_enabled` (G). Enums: `rcode` ∈ {NOERROR(93%),
 NXDOMAIN(6%),SERVFAIL(1%)}, `proto` ∈ {udp(90%),tcp(10%)}, query `type` ∈ {A,AAAA,PTR,SRV,HTTPS},
 `family="1"`, upstream `to` ∈ {8.8.8.8:53, 8.8.4.4:53}.
+
+> ⚠ **`coredns_hosts_*` is NOT emitted.** synthkit models a Corefile that does not load the
+> `hosts` plugin, and a real CoreDNS registers that plugin's metrics only when the plugin loads.
+> Emitting `coredns_hosts_reload_timestamp_seconds` pinned at 0 invented a third state matching
+> neither a plugin-loaded nor a plugin-absent CoreDNS. Both `coredns_hosts_entries` and
+> `coredns_hosts_reload_timestamp_seconds` are present in the k3d capture (k3s ships a NodeHosts
+> hostsfile) and are accepted coverage gaps, per SKT-0010.04. SKT-0010.07.
 
 ```yaml signals
 family: coredns
@@ -474,7 +497,7 @@ note: "⚠ cluster injection MANDATORY (I16): default kube_ingress_* only carrie
 
 > ⚠ **Cardinality cap — offering price.** `karpenter_cloudprovider_instance_type_offering_price_estimate` is ~9261 series live (1034 instance types × ~3 AZs × 3 capacity types). Synthkit emits a BOUNDED representative subset: 10 instance types × 3 AZs × 3 capacity types = 90 series. `capacity_type` ∈ {on-demand, spot, reserved} (the reference cluster recon 2026-06-16 — Karpenter v1.x always emits all three; `reserved` carries `offering_available=0` when no capacity reservation is configured). Dashboards that topk-filter on this metric still work.
 
-> ⚠ **Two SUMMARY metrics** (not histograms): `karpenter_nodes_termination_duration_seconds` and `karpenter_pods_startup_duration_seconds` emit quantile series (quantile ∈ {0,0.5,0.9,0.99,1}) + _count/_sum with NO _bucket. All other duration/scheduling families are histograms.
+> ⚠ **Two SUMMARY metrics** (not histograms): `karpenter_nodes_termination_duration_seconds` and `karpenter_pods_startup_duration_seconds` emit quantile series (quantile ∈ {0.0,0.5,0.9,0.99,1.0} as STORED — the exporter prints 0 and 1; Prometheus v3 normalises them) + _count/_sum with NO _bucket. All other duration/scheduling families are histograms.
 
 > ⚠ **`nodepools_allowed_disruptions` reason is PascalCase** (Empty|Underutilized) — ALL other karpenter reason labels are lowercase. Live-confirmed quirk.
 
@@ -484,13 +507,13 @@ Key families (leader-only unless noted): `karpenter_build_info` (G=1; BOTH repli
 
 Rich `karpenter_nodes_allocatable` labels (live recon): `arch,capacity_type,instance_category,instance_cpu,instance_cpu_manufacturer,instance_ebs_bandwidth,instance_family,instance_generation,instance_hypervisor,instance_memory,instance_network_bandwidth,instance_size,instance_tenancy,instance_type,node_name,nodepool,os,region,resource_type,zone,zone_id` (plus `instance_capability_flex,instance_cpu_sustained_clock_speed_mhz,instance_encryption_in_transit_supported`).
 
-All-pods families: `controller_runtime_reconcile_total` (C; `controller,result`; controllers: node.termination,node.drift,nodeclaim.disruption,nodeclaim.lifecycle,disruption,provisioner), `controller_runtime_active_workers` (G), `controller_runtime_max_concurrent_reconciles` (G), `go_goroutines`, `go_threads`, `go_gc_duration_seconds` (SUMMARY quantile 0/0.25/0.5/0.75/1), `go_memstats_{alloc_bytes,heap_alloc_bytes,heap_inuse_bytes}`, `process_{cpu_seconds_total,resident_memory_bytes,open_fds,max_fds}`.
+All-pods families: `controller_runtime_reconcile_total` (C; `controller,result`; controllers: node.termination,node.drift,nodeclaim.disruption,nodeclaim.lifecycle,disruption,provisioner), `controller_runtime_active_workers` (G), `controller_runtime_max_concurrent_reconciles` (G), `go_goroutines`, `go_threads`, `go_gc_duration_seconds` (SUMMARY quantile 0.0/0.25/0.5/0.75/1.0 as STORED), `go_memstats_{alloc_bytes,heap_alloc_bytes,heap_inuse_bytes}`, `process_{cpu_seconds_total,resident_memory_bytes,open_fds,max_fds}`.
 
 Scheduling histogram bucket sets (live recon svc-group-b.md §1.A):
 - `cloudprovider_duration_seconds` / `batcher_batch_time_seconds`: le = `0.005,0.01,0.025,0.05,0.1,0.25,0.5,1.0,2.5,5.0,10.0,+Inf` (12 buckets)
 - `scheduler_scheduling_duration_seconds` / `pods_scheduling_decision_duration_seconds` / `interruption_message_queue_duration_seconds` / `voluntary_disruption_decision_evaluation_duration_seconds` / `pods_bound_duration_seconds` / `pods_provisioning_bound_duration_seconds` / `pods_provisioning_startup_duration_seconds` / `nodeclaims_instance_termination_duration_seconds` / `nodeclaims_termination_duration_seconds` (histogram variant): le = `0.005,0.01,0.025,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.6,0.7,0.8,0.9,1.0,1.25,1.5,1.75,2.0,2.5,3.0,3.5,4.0,4.5,5.0,6.0,7.0,8.0,9.0,10.0,15.0,20.0,25.0,30.0,40.0,50.0,60.0,120.0,150.0,300.0,450.0,600.0,+Inf` (46 buckets)
-- `batcher_batch_size`: le = `1,2,4,5,10,15,20,25,30,40,50,60,70,80,90,100,125,150,175,200,225,250,275,300,350,400,450,500,550,600,700,800,900,1000,+Inf` (35 buckets)
-- `nodes_lifetime_duration_seconds`: le = `900,1800,2700,3600,7200,14400,21600,28800,36000,43200,57600,72000,86400,172800,259200,432000,864000,1.296e6,1.728e6,2.16e6,2.592e6,+Inf` (22 buckets)
+- `batcher_batch_size`: le (STORED form) = `1.0,2.0,4.0,5.0,10.0,15.0,20.0,25.0,30.0,40.0,50.0,60.0,70.0,80.0,90.0,100.0,125.0,150.0,175.0,200.0,225.0,250.0,275.0,300.0,350.0,400.0,450.0,500.0,550.0,600.0,700.0,800.0,900.0,1000.0,+Inf` (35 buckets) (35 buckets)
+- `nodes_lifetime_duration_seconds`: le (STORED form) = `900.0,1800.0,2700.0,3600.0,7200.0,14400.0,21600.0,28800.0,36000.0,43200.0,57600.0,72000.0,86400.0,172800.0,259200.0,432000.0,864000.0,1.296e+06,1.728e+06,2.16e+06,2.592e+06,+Inf` (22 buckets — ⚠ the four largest cross general notation's exponent-6 switch point and are STORED in scientific form, not as `1296000.0`)
 
 ```yaml signals
 family: karpenter

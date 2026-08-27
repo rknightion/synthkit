@@ -1,0 +1,41 @@
+{{- if .Values.controlPlane.ingress.enabled -}}
+{{- include "synthkit.validate" . -}}
+{{/*
+The control plane speaks plain HTTP and its only authentication is HTTP Basic, which protects
+sensitive reads and mutations but encrypts nothing. An Ingress in front of it should terminate TLS,
+which is what controlPlane.exposure.ack=tls-proxy declares.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "synthkit.fullname" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+  {{- with .Values.controlPlane.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.controlPlane.ingress.className }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.controlPlane.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.controlPlane.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "synthkit.fullname" $ }}
+                port:
+                  number: {{ $.Values.controlPlane.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

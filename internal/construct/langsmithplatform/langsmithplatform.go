@@ -259,13 +259,13 @@ func (c *Construct) emitPython(now time.Time, svc string, bf float64, w *core.Wo
 
 	// http_* family — counter + histogram
 	c.st.Add("http_requests_total", lbls, 50*bf*vf("http_req", volAmp))
-	// http_request_duration_seconds — histogram (LEBare, seconds buckets)
+	// http_request_duration_seconds — histogram (LEPromV3, seconds buckets)
 	// Noise() is IID per-tick texture on top of the per-series spread.
 	noiseF := 1.0
 	if w.Shape != nil {
 		noiseF = w.Shape.Noise(0.3)
 	}
-	c.st.Observe("http_request_duration_seconds", lbls, httpBuckets, state.LEBare, 0.12*bf*vf("http_dur", volAmp)*noiseF)
+	c.st.Observe("http_request_duration_seconds", lbls, httpBuckets, state.LEPromV3, 0.12*bf*vf("http_dur", volAmp)*noiseF)
 }
 
 // ── ClickHouse :9363 ─────────────────────────────────────────────────────────

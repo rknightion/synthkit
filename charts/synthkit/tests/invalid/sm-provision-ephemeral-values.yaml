@@ -1,0 +1,11 @@
+# MUST FAIL: the ownership ledger it writes must outlive a reschedule.
+persistence:
+  enabled: false
+smProvision:
+  enabled: true
+credentials:
+  sm:
+    existingSecret: synthkit-sm
+    keys:
+      GC_SM_URL: GC_SM_URL
+      GC_SM_TOKEN: GC_SM_TOKEN

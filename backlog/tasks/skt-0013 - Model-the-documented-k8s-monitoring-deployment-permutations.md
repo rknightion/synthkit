@@ -1,9 +1,10 @@
 ---
 id: SKT-0013
 title: Model the documented k8s-monitoring deployment permutations
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-27 08:29'
+updated_date: '2026-08-27 08:35'
 labels: []
 dependencies: []
 priority: high

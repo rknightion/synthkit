@@ -49,7 +49,9 @@
 //
 // ARCHITECTURE invariants honoured:
 //   - I3:  counters via state.Add (cumulative); gauges via state.Set
-//   - I4:  histograms via state.Observe with LEBare (prom-native scrape style)
+//   - I4:  histograms via state.Observe with LEPromV3 (a Prometheus-v3 scrape normalises
+//     `le`; note lifetimeBuckets' 1.296e6…2.592e6 bounds render in GENERAL notation,
+//     e.g. "2.592e+06")
 //   - I13: absent dimensions are OMITTED — never "" or "NA"
 //   - I21: ScopeSubstrate — no blueprint label
 package karpenter
@@ -117,7 +119,13 @@ var lifetimeBuckets = []float64{
 
 // summaryQuantiles are the quantile label values for the two SUMMARY metrics
 // (live recon §1.A: nodes_termination_duration_seconds, pods_startup_duration_seconds).
-var summaryQuantiles = []string{"0", "0.5", "0.9", "0.99", "1"}
+//
+// Rendered in the Prometheus-v3 normalised form for the same reason as LEPromV3 on `le`:
+// prometheus/prometheus normalizeFloatsInLabelValues runs BOTH the `le` label of classic
+// histograms and the `quantile` label of summaries through labels.FormatOpenMetricsFloat on
+// ingestion, so an Alloy-scraped summary reaches Mimir with quantile="0.0"/"1.0", never
+// "0"/"1". The recon transcription recorded the exporter's printed form (SKT-0010.11).
+var summaryQuantiles = []string{"0.0", "0.5", "0.9", "0.99", "1.0"}
 
 // cloudproviderControllers are the controller label values for cloudprovider_duration_seconds
 // (live recon §1.A — "controller" may be absent for some combinations; that dim is
@@ -382,7 +390,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			}
 			emitDomain(extra, func(lbls map[string]string) {
 				c.st.Observe("karpenter_cloudprovider_duration_seconds", lbls,
-					cloudproviderSmallBuckets, state.LEBare,
+					cloudproviderSmallBuckets, state.LEPromV3,
 					0.05+factor*0.5*w.Shape.Noise(0.3))
 			})
 		}
@@ -391,14 +399,14 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// ── karpenter_cloudprovider_batcher_batch_size (H; leader) ──────────────────
 	emitDomain(nil, func(lbls map[string]string) {
 		c.st.Observe("karpenter_cloudprovider_batcher_batch_size", lbls,
-			batcherBuckets, state.LEBare,
+			batcherBuckets, state.LEPromV3,
 			1+factor*5*w.Shape.Noise(0.4))
 	})
 
 	// ── karpenter_cloudprovider_batcher_batch_time_seconds (H; leader) ──────────
 	emitDomain(nil, func(lbls map[string]string) {
 		c.st.Observe("karpenter_cloudprovider_batcher_batch_time_seconds", lbls,
-			cloudproviderSmallBuckets, state.LEBare,
+			cloudproviderSmallBuckets, state.LEPromV3,
 			0.001+factor*0.01*w.Shape.Noise(0.4))
 	})
 
@@ -507,7 +515,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// ── karpenter_nodeclaims_instance_termination_duration_seconds (H; leader) ───
 	emitDomain(map[string]string{"nodepool": "default"}, func(lbls map[string]string) {
 		c.st.Observe("karpenter_nodeclaims_instance_termination_duration_seconds", lbls,
-			schedulingBuckets, state.LEBare,
+			schedulingBuckets, state.LEPromV3,
 			5+factor*10*w.Shape.Noise(0.4))
 	})
 
@@ -519,7 +527,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// ── karpenter_nodeclaims_termination_duration_seconds (H; leader) ────────────
 	emitDomain(map[string]string{"nodepool": "default"}, func(lbls map[string]string) {
 		c.st.Observe("karpenter_nodeclaims_termination_duration_seconds", lbls,
-			schedulingBuckets, state.LEBare,
+			schedulingBuckets, state.LEPromV3,
 			3+factor*8*w.Shape.Noise(0.4))
 	})
 
@@ -672,7 +680,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// ── karpenter_nodes_lifetime_duration_seconds (H; leader; terminated nodes) ──
 	emitDomain(map[string]string{"nodepool": "default"}, func(lbls map[string]string) {
 		c.st.Observe("karpenter_nodes_lifetime_duration_seconds", lbls,
-			lifetimeBuckets, state.LEBare,
+			lifetimeBuckets, state.LEPromV3,
 			3600+factor*7200*w.Shape.Noise(0.5))
 	})
 
@@ -689,9 +697,10 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 	// ── karpenter_nodes_termination_duration_seconds (SUMMARY; leader) ───────────
 	// This is a Prometheus SUMMARY — emit quantile series + _sum + _count; NO _bucket.
-	// live recon: quantile ∈ {0, 0.5, 0.9, 0.99, 1}, labels: nodepool.
+	// live recon: quantile ∈ {0, 0.5, 0.9, 0.99, 1}, labels: nodepool — stored by a
+	// Prometheus-v3 scrape as {0.0, 0.5, 0.9, 0.99, 1.0}.
 	summaryDurationValues := map[string]float64{
-		"0": 1.0, "0.5": 5.0, "0.9": 15.0, "0.99": 30.0, "1": 60.0,
+		"0.0": 1.0, "0.5": 5.0, "0.9": 15.0, "0.99": 30.0, "1.0": 60.0,
 	}
 	for _, q := range summaryQuantiles {
 		q := q
@@ -717,7 +726,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// ── karpenter_interruption_message_queue_duration_seconds (H; leader) ────────
 	emitDomain(nil, func(lbls map[string]string) {
 		c.st.Observe("karpenter_interruption_message_queue_duration_seconds", lbls,
-			schedulingBuckets, state.LEBare,
+			schedulingBuckets, state.LEPromV3,
 			0.1+factor*1.0*w.Shape.Noise(0.4))
 	})
 
@@ -736,7 +745,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// ── karpenter_pods_bound_duration_seconds (H; leader) ────────────────────────
 	emitDomain(nil, func(lbls map[string]string) {
 		c.st.Observe("karpenter_pods_bound_duration_seconds", lbls,
-			schedulingBuckets, state.LEBare,
+			schedulingBuckets, state.LEPromV3,
 			0.5+factor*2*w.Shape.Noise(0.3))
 	})
 
@@ -753,28 +762,28 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// ── karpenter_pods_provisioning_bound_duration_seconds (H; leader) ───────────
 	emitDomain(nil, func(lbls map[string]string) {
 		c.st.Observe("karpenter_pods_provisioning_bound_duration_seconds", lbls,
-			schedulingBuckets, state.LEBare,
+			schedulingBuckets, state.LEPromV3,
 			1+factor*5*w.Shape.Noise(0.4))
 	})
 
 	// ── karpenter_pods_provisioning_startup_duration_seconds (H; leader) ─────────
 	emitDomain(nil, func(lbls map[string]string) {
 		c.st.Observe("karpenter_pods_provisioning_startup_duration_seconds", lbls,
-			schedulingBuckets, state.LEBare,
+			schedulingBuckets, state.LEPromV3,
 			10+factor*20*w.Shape.Noise(0.4))
 	})
 
 	// ── karpenter_pods_scheduling_decision_duration_seconds (H; leader) ──────────
 	emitDomain(nil, func(lbls map[string]string) {
 		c.st.Observe("karpenter_pods_scheduling_decision_duration_seconds", lbls,
-			schedulingBuckets, state.LEBare,
+			schedulingBuckets, state.LEPromV3,
 			0.01+factor*0.1*w.Shape.Noise(0.3))
 	})
 
 	// ── karpenter_pods_startup_duration_seconds (SUMMARY; leader) ────────────────
 	// This is a Prometheus SUMMARY — quantile series + _sum + _count; NO _bucket.
 	startupValues := map[string]float64{
-		"0": 5.0, "0.5": 15.0, "0.9": 30.0, "0.99": 60.0, "1": 120.0,
+		"0.0": 5.0, "0.5": 15.0, "0.9": 30.0, "0.99": 60.0, "1.0": 120.0,
 	}
 	for _, q := range summaryQuantiles {
 		q := q
@@ -827,7 +836,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// ── karpenter_scheduler_scheduling_duration_seconds (H; leader) ──────────────
 	emitDomain(nil, func(lbls map[string]string) {
 		c.st.Observe("karpenter_scheduler_scheduling_duration_seconds", lbls,
-			schedulingBuckets, state.LEBare,
+			schedulingBuckets, state.LEPromV3,
 			0.005+factor*0.05*w.Shape.Noise(0.3))
 	})
 
@@ -847,7 +856,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		ct := ct
 		emitDomain(map[string]string{"consolidation_type": ct}, func(lbls map[string]string) {
 			c.st.Observe("karpenter_voluntary_disruption_decision_evaluation_duration_seconds", lbls,
-				schedulingBuckets, state.LEBare,
+				schedulingBuckets, state.LEPromV3,
 				0.1+factor*1*w.Shape.Noise(0.4))
 		})
 	}
@@ -941,9 +950,11 @@ func (c *Construct) emitGoProcMetrics(
 	})
 
 	// ── go_gc_duration_seconds (SUMMARY; all pods) ────────────────────────────────
-	for _, q := range []string{"0", "0.25", "0.5", "0.75", "1"} {
+	// The Go client's built-in summary. Quantile values take the Prometheus-v3 normalised
+	// form: 0.25/0.5/0.75 are unchanged, 0 and 1 become "0.0" and "1.0".
+	for _, q := range []string{"0.0", "0.25", "0.5", "0.75", "1.0"} {
 		q := q
-		v := map[string]float64{"0": 0.0001, "0.25": 0.0002, "0.5": 0.0005, "0.75": 0.001, "1": 0.005}[q]
+		v := map[string]float64{"0.0": 0.0001, "0.25": 0.0002, "0.5": 0.0005, "0.75": 0.001, "1.0": 0.005}[q]
 		emit(map[string]string{"quantile": q}, func(lbls map[string]string) {
 			c.st.Set("go_gc_duration_seconds", lbls, v)
 		})

@@ -1,0 +1,71 @@
+synthkit {{ .Chart.AppVersion }} is installed as {{ include "synthkit.fullname" . }}.
+
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "synthkit.fullname" . }}
+
+{{ if .Values.config.dryRun -}}
+DRY RUN — nothing is being pushed anywhere. Estates are built and rendered, then discarded.
+Set config.dryRun=false and supply credentials.data.existingSecret to push live.
+{{- else -}}
+LIVE — pushing to the synthetic-data stack named by Secret {{ .Values.credentials.data.existingSecret }}.
+{{- end }}
+
+{{ if not .Values.config.blueprintNames -}}
+SETUP MODE — config.blueprintNames is empty, so no blueprint is loaded and NOTHING is emitted.
+Set it to exact comma-separated blueprint names, or "*" for the whole bundled catalogue. The
+catalogue does not fit the chart's default memory limit; re-measure before selecting it.
+{{- else -}}
+Selected blueprints: {{ .Values.config.blueprintNames }}
+{{- end }}
+
+Control plane:
+{{- if .Values.controlPlane.exposure.ack }}
+  EXPOSED, acknowledged as {{ .Values.controlPlane.exposure.ack | quote }}. The container binds all
+  interfaces and HTTP Basic (user "control") protects sensitive reads and mutations. Basic auth
+  does not encrypt anything.
+  {{- if .Values.controlPlane.ingress.enabled }}
+    {{- if eq .Values.controlPlane.exposure.ack "trusted-network" }}
+  WARNING: an Ingress normally terminates TLS in front of the pod, which is what "tls-proxy"
+  declares. You acknowledged "trusted-network", which asserts the whole path is trusted plaintext.
+    {{- end }}
+  {{- else if .Values.controlPlane.service.enabled }}
+  Reachable in-cluster at http://{{ include "synthkit.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.controlPlane.service.port }}
+  {{- else }}
+  No Service is rendered, so it is reachable only on the pod IP.
+  {{- end }}
+{{- else }}
+  CLOSED. The container binds 127.0.0.1:8088, no Service or Ingress exists, and the NetworkPolicy
+  denies ingress. Reach the operator UI without opening anything:
+
+    kubectl -n {{ .Release.Namespace }} port-forward deploy/{{ include "synthkit.fullname" . }} 8088:8088
+    open http://127.0.0.1:8088/control/ui
+
+  Port-forwarding runs inside the pod's own network namespace, so it reaches the loopback listener.
+  Opening it properly takes three deliberate steps: create a Secret holding CONTROL_TOKEN and name
+  it in credentials.control, set controlPlane.exposure.ack to exactly "trusted-network" or
+  "tls-proxy", and set controlPlane.service.enabled=true.
+{{- end }}
+
+Self-observability:
+{{- if .Values.selfObs.enabled }}
+  ON, shipping to the SEPARATE stack held in Secret {{ .Values.credentials.selfObs.existingSecret }}.
+{{- else }}
+  OFF. It ships synthkit's own metrics, traces, logs and profiles to a stack that is NOT the
+  synthetic-data stack, and needs its own Secret; it never borrows GC_TOKEN.
+{{- end }}
+
+State:
+{{- if .Values.persistence.enabled }}
+  /data on claim {{ include "synthkit.pvcName" . }}{{ if .Values.persistence.retain }} (retained on uninstall){{ end }}.
+{{- else }}
+  EPHEMERAL emptyDir. Control-plane selections survive a container restart but not a reschedule.
+{{- end }}
+{{ if .Values.smProvision.enabled }}
+Synthetic Monitoring provisioner Job {{ printf "%s-sm-provision-%s" (include "synthkit.fullname" .) .Values.smProvision.runId }} is {{ if .Values.smProvision.apply }}APPLYING{{ else }}in PREVIEW (no remote writes){{ end }}:
+
+    kubectl -n {{ .Release.Namespace }} logs job/{{ printf "%s-sm-provision-%s" (include "synthkit.fullname" .) .Values.smProvision.runId }}
+{{- if .Values.smProvision.apply }}
+  After a successful apply, restart the emitter so the matching registration activates the lane:
+
+    kubectl -n {{ .Release.Namespace }} rollout restart deploy/{{ include "synthkit.fullname" . }}
+{{- end }}
+{{- end }}

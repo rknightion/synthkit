@@ -107,15 +107,16 @@ func labelsFor(series []promrw.Series, name string) []map[string]string {
 // coredns_cache_evictions_total is NOT in recon metric inventory — removed.
 // Families added from live capture: build_info, cache_requests_total,
 // forward_max_concurrent_rejects_total, health_request_failures_total,
-// hosts_reload_timestamp_seconds, kubernetes_dns_programming_duration_seconds,
+// kubernetes_dns_programming_duration_seconds,
 // kubernetes_rest_client_requests_total, local_localhost_requests_total,
 // proxy_conn_cache_hits_total, proxy_conn_cache_misses_total, reload_failed_total.
+// coredns_hosts_* are NOT emitted: synthkit models a Corefile with no hosts plugin, and a
+// real CoreDNS registers the hosts-plugin metrics only when that plugin loads (SKT-0010.07).
 var expectedNames = func() []string {
 	names := []string{
 		// gauges
 		"coredns_build_info",
 		"coredns_cache_entries",
-		"coredns_hosts_reload_timestamp_seconds",
 		"coredns_plugin_enabled",
 		// counters
 		"coredns_dns_requests_total",
@@ -630,6 +631,72 @@ func TestCacheZonesLabel(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("series %s not emitted", name)
+		}
+	}
+}
+
+// ─── (l) le rendering: Prometheus-v3 float normalisation ─────────────────────
+
+// TestCoreDNSLERenderingMatchesReality pins the `le` label STRINGS of the two families the
+// reality corpus proved wrong (SKT-0010.11). CoreDNS is scraped by Alloy, Alloy 1.x embeds
+// the Prometheus-v3 scrape loop, and Prometheus v3 normalises `le` on ingestion — so an
+// integral bound reaches Mimir as "0.0"/"100.0"/"64000.0", never "0"/"100"/"64000".
+// A dashboard or recording rule selecting le="1" matches nothing against real data.
+//
+// Expected values are transcribed verbatim from reality-corpus/k8s-addons/k3d-lab.json
+// (coredns_dns_request_size_bytes / coredns_dns_response_size_bytes /
+// coredns_dns_request_duration_seconds), captured 2026-08.
+func TestCoreDNSLERenderingMatchesReality(t *testing.T) {
+	got := tickOnce(t, buildDefault(t)).All()
+
+	want := map[string][]string{
+		"coredns_dns_request_size_bytes_bucket": {
+			"0.0", "100.0", "200.0", "300.0", "400.0", "511.0", "1023.0", "2047.0",
+			"4095.0", "8291.0", "16000.0", "32000.0", "48000.0", "64000.0", "+Inf",
+		},
+		"coredns_dns_response_size_bytes_bucket": {
+			"0.0", "100.0", "200.0", "300.0", "400.0", "511.0", "1023.0", "2047.0",
+			"4095.0", "8291.0", "16000.0", "32000.0", "48000.0", "64000.0", "+Inf",
+		},
+		"coredns_dns_request_duration_seconds_bucket": {
+			"0.00025", "0.0005", "0.001", "0.002", "0.004", "0.008", "0.016", "0.032",
+			"0.064", "0.128", "0.256", "0.512", "1.024", "2.048", "4.096", "8.192", "+Inf",
+		},
+	}
+	for name, wantLE := range want {
+		seen := map[string]bool{}
+		for _, s := range got {
+			if s.Name == name {
+				seen[s.Labels["le"]] = true
+			}
+		}
+		if len(seen) == 0 {
+			t.Fatalf("%s: no series emitted", name)
+		}
+		for _, le := range wantLE {
+			if !seen[le] {
+				keys := make([]string, 0, len(seen))
+				for k := range seen {
+					keys = append(keys, k)
+				}
+				sort.Strings(keys)
+				t.Errorf("%s: missing le=%q (Prometheus-v3 normalised form); have %v", name, le, keys)
+			}
+		}
+		if len(seen) != len(wantLE) {
+			t.Errorf("%s: emitted %d distinct le values, corpus has %d", name, len(seen), len(wantLE))
+		}
+	}
+}
+
+// TestCoreDNSHostsFamiliesNotEmitted pins SKT-0010.07: synthkit models a Corefile that does
+// not load the hosts plugin, and a real CoreDNS registers the hosts-plugin metrics only when
+// that plugin loads. Emitting coredns_hosts_reload_timestamp_seconds at 0 invented a third
+// state that matches neither a plugin-loaded nor a plugin-absent CoreDNS.
+func TestCoreDNSHostsFamiliesNotEmitted(t *testing.T) {
+	for _, s := range tickOnce(t, buildWithPods(t)).All() {
+		if strings.HasPrefix(s.Name, "coredns_hosts_") {
+			t.Errorf("coredns_hosts_* must not be emitted (no hosts plugin in the modelled Corefile); got %q", s.Name)
 		}
 	}
 }

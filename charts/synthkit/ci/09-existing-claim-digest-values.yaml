@@ -1,0 +1,7 @@
+# Digest-pinned image against an operator-managed claim.
+image:
+  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+persistence:
+  existingClaim: my-synthkit-state
+config:
+  blueprintNames: otlp-native
