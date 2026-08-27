@@ -283,6 +283,7 @@ func validCorpusDocument(area, source, substrate string) CorpusDocument {
 			Kind:             source,
 			Substrate:        substrate,
 			Collector:        "grafana/k8s-monitoring",
+			CollectorRole:    CollectorRoleAudited,
 			CollectorVersion: "4.4.0",
 			CapturedOn:       "2026-08-25",
 		},
@@ -680,5 +681,146 @@ func TestLoadCorpusDirIgnoresNonAreaDirectories(t *testing.T) {
 	}
 	if len(documents) != 1 || documents[0].Area != "k8s" {
 		t.Fatalf("documents=%+v, want only the area-directory document", documents)
+	}
+}
+
+// A reader producer's collector_version tracks the CLI build that read the store back, not
+// anything about the telemetry. It moved 1.1.1 to 1.2.0 between a committed corpus and a
+// routine refresh, and with the version in the merge identity the merge was REJECTED —
+// leaving overwrite as the only route, which would have silently deleted every family the
+// newer read-back window did not return. This test exists because that failed in the
+// direction of data loss.
+func TestCanonicalMergeSurvivesReadingToolVersionBumpWithoutLosingEvidence(t *testing.T) {
+	existing := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	existing.Source.Collector = "grafana/gcx"
+	existing.Source.CollectorRole = CollectorRoleReader
+	existing.Source.CollectorVersion = "1.1.1"
+	existing.Source.InstrumentTypeSource = "the mechanism as first recorded"
+	existing.Inventory.AddMetric("only_in_the_committed_window", "", InstrumentCounter, map[string]string{"cluster": "a"}, nil)
+	existing.Inventory.AddMetric("in_both_windows", "", InstrumentCounter, map[string]string{"cluster": "a"}, nil)
+
+	refreshed := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	refreshed.Source.Collector = "grafana/gcx"
+	refreshed.Source.CollectorRole = CollectorRoleReader
+	refreshed.Source.CollectorVersion = "1.2.0"
+	refreshed.Source.CapturedOn = "2026-08-27"
+	refreshed.Source.InstrumentTypeSource = "the corrected mechanism"
+	refreshed.Inventory.AddMetric("in_both_windows", "", InstrumentCounter, map[string]string{"cluster": "a"}, nil)
+	refreshed.Inventory.AddMetric("only_in_the_refresh", "", InstrumentCounter, map[string]string{"cluster": "a"}, nil)
+
+	merged, err := CanonicalMerge(existing, refreshed)
+	if err != nil {
+		t.Fatalf("merge across a reading-tool version bump: %v", err)
+	}
+	if got := metricNames(merged); !reflect.DeepEqual(got, []string{"in_both_windows", "only_in_the_committed_window", "only_in_the_refresh"}) {
+		t.Fatalf("metrics=%v, want the cumulative union with nothing dropped", got)
+	}
+	if merged.Source.CollectorVersion != "1.2.0" {
+		t.Fatalf("collector_version=%q, want the refreshed tool version recorded as provenance", merged.Source.CollectorVersion)
+	}
+	if merged.Source.InstrumentTypeSource != "the corrected mechanism" {
+		t.Fatalf("instrument_type_source=%q, want the refresh to be able to correct the mechanism", merged.Source.InstrumentTypeSource)
+	}
+}
+
+// The mirror case: for an AUDITED collector the version names the configuration the evidence
+// came from, so two versions are two producers and fusing them would invent a document no
+// single deployment ever produced.
+func TestCanonicalMergeStillRejectsAnAuditedCollectorVersionChange(t *testing.T) {
+	existing := validCorpusDocument("k8s", "k3d_lab", "k3s")
+	candidate := validCorpusDocument("k8s", "k3d_lab", "k3s")
+	candidate.Source.CollectorVersion = "4.5.0"
+	if _, err := CanonicalMerge(existing, candidate); err == nil {
+		t.Fatal("merged two audited collector versions, want a rejection")
+	}
+}
+
+// Two permutations of the same producer on the same substrate are deliberately different
+// collector configurations. They must stay separate documents, not fuse.
+func TestPermutationSeparatesOtherwiseIdenticalCorpusIdentities(t *testing.T) {
+	root := t.TempDir()
+	first := validCorpusDocument("k8s", "k3d_lab", "k3s")
+	second := validCorpusDocument("k8s", "k3d_lab", "k3s")
+	second.Source.Permutation = "otel-receivers"
+	writeCorpusJSON(t, root, "k8s", "default", first)
+	writeCorpusJSON(t, root, "k8s", "otel-receivers", second)
+
+	documents, err := LoadCorpusDir(root)
+	if err != nil {
+		t.Fatalf("load two permutations of one producer: %v", err)
+	}
+	if len(documents) != 2 {
+		t.Fatalf("documents=%d, want both permutations kept", len(documents))
+	}
+	if _, err := CanonicalMerge(first, second); err == nil {
+		t.Fatal("merged two permutations into one document, want a rejection")
+	}
+}
+
+// An absent permutation keeps its pre-permutation identity, so every committed corpus file
+// stays valid and keeps colliding with itself exactly as before.
+func TestAbsentPermutationKeepsTheSingleDocumentIdentity(t *testing.T) {
+	root := t.TempDir()
+	writeCorpusJSON(t, root, "k8s", "one", validCorpusDocument("k8s", "k3d_lab", "k3s"))
+	writeCorpusJSON(t, root, "k8s", "two", validCorpusDocument("k8s", "k3d_lab", "k3s"))
+	if _, err := LoadCorpusDir(root); err == nil {
+		t.Fatal("accepted two permutation-less documents of one producer, want a duplicate-identity rejection")
+	}
+}
+
+func TestCorpusRejectsUndeclaredCollectorRole(t *testing.T) {
+	document := validCorpusDocument("k8s", "k3d_lab", "k3s")
+	document.Source.CollectorRole = ""
+	if err := validateCorpusDocument(document); err == nil {
+		t.Fatal("accepted a document that does not say what its collector version names")
+	}
+	document.Source.CollectorRole = "something-else"
+	if err := validateCorpusDocument(document); err == nil {
+		t.Fatal("accepted an unrecognised collector role")
+	}
+}
+
+// A permutation-tagged document is a DIFFERENT collector configuration, so a key synthkit
+// emits that this permutation does not carry is a permutation difference, not drift. Measured
+// case: the OTel-native receiver permutation's pod logs carry no `cluster` label, while the
+// Alloy permutation synthkit models does.
+func TestPermutationDocumentNeverContradictsButStillReportsCoverage(t *testing.T) {
+	document := validCorpusDocument("k8s", "k3d_lab", "k3s")
+	document.Source.Permutation = "otel-receivers"
+	document.Inventory.AddMetric("reality_only_family", TransportOTLPMetrics, InstrumentGauge, map[string]string{"k8s.cluster.name": "a"}, nil)
+	document.Inventory.AddMetric("shared_family", TransportOTLPMetrics, InstrumentGauge, map[string]string{"k8s.cluster.name": "a"}, nil)
+
+	synth := New()
+	synth.AddMetric("shared_family", TransportOTLPMetrics, InstrumentGauge, map[string]string{"cluster": "a"}, nil)
+
+	findings := CompareCorpus(synth, []CorpusDocument{document})
+	if len(findings) == 0 {
+		t.Fatal("no findings at all, want the reality-only coverage evidence kept")
+	}
+	sawRealityOnlyCoverage := false
+	for _, finding := range findings {
+		if finding.Finding.Disposition == DispositionContradiction {
+			t.Fatalf("permutation document produced a contradiction: %+v", finding.Finding)
+		}
+		if finding.Finding.Signal == "reality_only_family" && finding.Finding.Disposition == DispositionCoverageGap {
+			sawRealityOnlyCoverage = true
+		}
+	}
+	if !sawRealityOnlyCoverage {
+		t.Fatal("permutation document reported no coverage gap for the family only reality has")
+	}
+
+	// The same shapes in an untagged document are the default deployment, where a synth-only
+	// key IS drift and must still fail.
+	untagged := validCorpusDocument("k8s", "k3d_lab", "k3s")
+	untagged.Inventory = cloneSchema(document.Inventory)
+	contradictions := 0
+	for _, finding := range CompareCorpus(synth, []CorpusDocument{untagged}) {
+		if finding.Finding.Disposition == DispositionContradiction {
+			contradictions++
+		}
+	}
+	if contradictions == 0 {
+		t.Fatal("an untagged document produced no contradiction, so the permutation rule is suppressing drift everywhere")
 	}
 }

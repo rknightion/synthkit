@@ -33,13 +33,44 @@ type CorpusDocument struct {
 // CorpusSource identifies the generic producer and capture configuration. It deliberately
 // contains no deployment-specific identity.
 type CorpusSource struct {
-	Kind             string            `json:"kind"`
-	Substrate        string            `json:"substrate"`
-	Collector        string            `json:"collector"`
-	CollectorVersion string            `json:"collector_version"`
-	CapturedOn       string            `json:"captured_on"`
-	EnrichmentLabels []EnrichmentLabel `json:"enrichment_labels,omitempty"`
+	Kind string `json:"kind"`
+	// Permutation names the deliberate collector CONFIGURATION this document is evidence of,
+	// where one producer on one substrate can be deployed several materially different ways.
+	// It participates in merge identity, because two permutations of the same producer emit
+	// genuinely different shapes and fusing them would destroy the distinction the capture
+	// exists to record. An ABSENT value means a single-permutation document — every corpus
+	// file written before permutations existed stays valid and keeps its identity unchanged.
+	Permutation string `json:"permutation,omitempty"`
+	Substrate   string `json:"substrate"`
+	Collector   string `json:"collector"`
+	// CollectorRole declares what Collector/CollectorVersion actually name, and it decides
+	// whether the version participates in merge identity.
+	//
+	// CollectorRoleAudited: the collector under audit at the capture point. Its version
+	// identifies the configuration the evidence came from, so it stays in the identity — two
+	// chart versions are two different producers and must not fuse.
+	//
+	// CollectorRoleReader: the tool that READ the evidence back out of a store. Its version
+	// tracks a CLI build and says nothing about the telemetry, so it is provenance only. Left
+	// in the identity, a routine tool upgrade orphans the corpus: the merge is rejected, and
+	// overwriting instead silently deletes every family the newer read-back window did not
+	// return. That is data loss behind a version bump, in the one operation whose whole job is
+	// not to lose evidence.
+	CollectorRole    string `json:"collector_role"`
+	CollectorVersion string `json:"collector_version"`
+	CapturedOn       string `json:"captured_on"`
+	// InstrumentTypeSource names the mechanism this producer read instrument types from, or
+	// states why it could not observe them. It applies to every metric entry in the document
+	// and is the recorded reason behind any entry still carrying the unknown sentinel.
+	InstrumentTypeSource string            `json:"instrument_type_source,omitempty"`
+	EnrichmentLabels     []EnrichmentLabel `json:"enrichment_labels,omitempty"`
 }
+
+// The two roles source.collector_role may declare. See CorpusSource.CollectorRole.
+const (
+	CollectorRoleAudited = "audited"
+	CollectorRoleReader  = "reader"
+)
 
 // EnrichmentLabel declares one read-path addition this producer observes after collector egress.
 // The declaration is per producer because a label a read path invents is a property of that read
@@ -101,7 +132,7 @@ func LoadCorpusDir(path string) ([]CorpusDocument, error) {
 		document.Authority.Substrates = sortedUniqueStrings(document.Authority.Substrates)
 		key := corpusIdentity(document)
 		if previous, exists := seen[key]; exists {
-			return nil, fmt.Errorf("%s: duplicate area/source/substrate document %q; already defined by %s", file, key, previous)
+			return nil, fmt.Errorf("%s: duplicate area/source/substrate/permutation document %q; already defined by %s", file, key, previous)
 		}
 		seen[key] = file
 		documents = append(documents, document)
@@ -228,6 +259,14 @@ func requiredObject(raw map[string]json.RawMessage, key, field string) (map[stri
 	return object, nil
 }
 
+// ValidateCorpusDocument reports whether a document would load as part of the corpus. A
+// producer validates before writing: a document the loader rejects takes the WHOLE corpus down
+// with it, so every finding silently disappears rather than one document being skipped.
+func ValidateCorpusDocument(document CorpusDocument) error {
+	normalizeCorpusDocument(&document)
+	return validateCorpusDocument(document)
+}
+
 func validateCorpusDocument(document CorpusDocument) error {
 	if document.CorpusVersion != CorpusVersion {
 		return fmt.Errorf("corpus_version: got %q, want %q", document.CorpusVersion, CorpusVersion)
@@ -244,8 +283,21 @@ func validateCorpusDocument(document CorpusDocument) error {
 	if err := validateNonEmpty(document.Source.Collector, "source.collector"); err != nil {
 		return err
 	}
+	switch document.Source.CollectorRole {
+	case CollectorRoleAudited, CollectorRoleReader:
+	default:
+		return fmt.Errorf("source.collector_role: must be %q or %q, got %q",
+			CollectorRoleAudited, CollectorRoleReader, document.Source.CollectorRole)
+	}
 	if err := validateNonEmpty(document.Source.CollectorVersion, "source.collector_version"); err != nil {
 		return err
+	}
+	// Optional, but a present-and-blank value would record a mechanism nobody can read.
+	if document.Source.Permutation != "" && strings.TrimSpace(document.Source.Permutation) == "" {
+		return errors.New("source.permutation: must not be blank when present")
+	}
+	if document.Source.InstrumentTypeSource != "" && strings.TrimSpace(document.Source.InstrumentTypeSource) == "" {
+		return errors.New("source.instrument_type_source: must not be blank when present")
 	}
 	if err := validateCapturedOn(document.Source.CapturedOn); err != nil {
 		return err
@@ -378,7 +430,12 @@ func validateAttributes(attributes []Attribute, field string) error {
 }
 
 func corpusIdentity(document CorpusDocument) string {
-	return strings.Join([]string{document.Area, document.Source.Kind, document.Source.Substrate}, "|")
+	return strings.Join([]string{
+		document.Area,
+		document.Source.Kind,
+		document.Source.Substrate,
+		document.Source.Permutation,
+	}, "|")
 }
 
 // CanonicalMerge adds candidate's structural evidence to existing. It rejects documents whose
@@ -403,6 +460,15 @@ func CanonicalMerge(existing, candidate CorpusDocument) (CorpusDocument, error) 
 	out := cloneCorpusDocument(existing)
 	out.Source.EnrichmentLabels = mergeEnrichmentLabels(out.Source.EnrichmentLabels, candidate.Source.EnrichmentLabels)
 	structuralEvidence := mergeSchemas(&out.Inventory, candidate.Inventory)
+	// Provenance that is deliberately NOT part of the identity still has to be refreshable,
+	// or the clone pins the first-written text forever and a corrected mechanism can never
+	// reach the committed document.
+	if candidate.Source.InstrumentTypeSource != "" {
+		out.Source.InstrumentTypeSource = candidate.Source.InstrumentTypeSource
+	}
+	if out.Source.CollectorRole == CollectorRoleReader {
+		out.Source.CollectorVersion = candidate.Source.CollectorVersion
+	}
 	if structuralEvidence {
 		mergeCaptureVolume(&out.CaptureVolume, candidate.CaptureVolume)
 		mergeReceipts(&out.Inventory, &candidate.Inventory)
@@ -461,8 +527,19 @@ func matchingCorpusIdentity(existing, candidate CorpusDocument) error {
 		{"area", existing.Area, candidate.Area},
 		{"source.kind", existing.Source.Kind, candidate.Source.Kind},
 		{"source.substrate", existing.Source.Substrate, candidate.Source.Substrate},
+		{"source.permutation", existing.Source.Permutation, candidate.Source.Permutation},
 		{"source.collector", existing.Source.Collector, candidate.Source.Collector},
-		{"source.collector_version", existing.Source.CollectorVersion, candidate.Source.CollectorVersion},
+		{"source.collector_role", existing.Source.CollectorRole, candidate.Source.CollectorRole},
+	}
+	// The audited collector's version identifies the configuration the evidence came from, so
+	// it is identity. A reader's version is the build of the CLI that read the store back, and
+	// including it would make every tool upgrade orphan the corpus.
+	if existing.Source.CollectorRole == CollectorRoleAudited {
+		checks = append(checks, struct {
+			field     string
+			existing  string
+			candidate string
+		}{"source.collector_version", existing.Source.CollectorVersion, candidate.Source.CollectorVersion})
 	}
 	for _, check := range checks {
 		if check.existing != check.candidate {
@@ -1023,6 +1100,7 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 		reality := withoutEnrichmentLabels(document.Inventory, document.Source.EnrichmentLabels)
 		comparison := scopedSynthSchema(withoutSelectorLabels(synthCopy), reality)
 		for _, finding := range Diff(comparison, reality) {
+			finding = dispositionAgainstPermutation(finding, document.Source.Permutation)
 			out = append(out, ScopedFinding{
 				Area:      document.Area,
 				Source:    document.Source,
@@ -1033,6 +1111,36 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 	}
 	sort.SliceStable(out, func(i, j int) bool { return compareScopedFindings(out[i], out[j]) < 0 })
 	return out
+}
+
+// dispositionAgainstPermutation demotes every finding from a permutation-tagged document to
+// coverage evidence.
+//
+// A contradiction means synthkit emits a shape reality does not have — drift worth failing a
+// gate for. That reading only holds against the deployment synthkit MODELS. A permutation-
+// tagged document is deliberately a DIFFERENT collector configuration, and two permutations
+// producing different shapes for the same cluster is the whole reason the corpus records them
+// separately (SKT-0013): it is a real difference, not drift.
+//
+// Measured, so this is not a theoretical concern. The OTel-native receiver permutation's pod
+// logs carry `k8s.cluster.name` where the Alloy k8s-monitoring permutation carries `cluster`
+// and `app_kubernetes_io_name`. synthkit models the Alloy shape and emits those two keys
+// correctly; against the OTel permutation's document they read as keys synthkit invented.
+//
+// Reality-only findings stay: a family or key a permutation produces and synthkit does not is
+// honest coverage information about that permutation, which is exactly what a user choosing a
+// deployment needs.
+//
+// FORWARD PATH: when synthkit gains a lane that claims to emit a specific permutation, this
+// rule must narrow — synth declares which permutation it models, and a document naming that
+// same permutation compares with contradictions live again. Until an emitter exists to make
+// that declaration, adding the field would be speculative surface.
+func dispositionAgainstPermutation(finding Finding, permutation string) Finding {
+	if permutation == "" {
+		return finding
+	}
+	finding.Disposition = DispositionCoverageGap
+	return finding
 }
 
 // withoutEnrichmentLabels removes the producer's declared read-path additions from every
@@ -1161,6 +1269,7 @@ func compareCorpusDocuments(a, b CorpusDocument) int {
 		{a.Area, b.Area},
 		{a.Source.Substrate, b.Source.Substrate},
 		{a.Source.Kind, b.Source.Kind},
+		{a.Source.Permutation, b.Source.Permutation},
 		{a.Source.Collector, b.Source.Collector},
 		{a.Source.CollectorVersion, b.Source.CollectorVersion},
 		{a.Source.CapturedOn, b.Source.CapturedOn},

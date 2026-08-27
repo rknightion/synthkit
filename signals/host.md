@@ -527,3 +527,60 @@ stream_labels:
   stream: stdout|stderr
 structured_metadata: {}
 ```
+
+---
+
+## `hostmetricsreceiver` under the OTel Collector permutation — OBSERVED, NOT EMITTED [slug: host-otel-native-permutation]
+
+The families above are Prometheus `node_exporter`/`windows_exporter` names shipped by remote-write.
+This section records the **OTel-native host surface** produced by the same physical machine under
+the documented `config-other-methods/otel-collector-receivers` permutation, where a DaemonSet runs
+`hostmetrics` with `root_path: /hostfs` and ships OTLP. Different namespace, not a transport
+change: nothing here shares a name with a `node_*` family.
+
+**synthkit emits none of these.** Recorded as the ground truth an OTel-native host lane must be
+built from (SKT-0007.06). See `signals/k8s.md` `[slug: k8s-otel-native-permutation]` for the
+permutation as a whole.
+
+*Provenance: v: ok — captured at collector egress in the k3d permutation lab 2026-08-27,
+`open-telemetry/opentelemetry-collector` chart 0.171.0 running `grafana/alloy:v1.18.0` as
+`bin/otelcol`, 300s window. Corpus: `reality-corpus/host/k3d-lab-otel-receivers.json`
+(permutation `otel-receivers`). Instrument types are the OTLP data-shape field, not inferred.*
+
+Every family carries `host.name`, `k8s.node.name`, `k8s.cluster.name` and `os.type` — the last
+three because the permutation's `resourcedetection`, `resource/hostname` and
+`transform/copy_node_name` processors copy them onto every datapoint. A standalone (non-Kubernetes)
+`hostmetrics` deployment would carry `host.name` and `os.type` only, so do not treat the
+Kubernetes pair as part of the receiver's own contract.
+
+`gauge` in the table below means "not a monotonic Sum" — the corpus vocabulary has no
+UpDownCounter, so a non-monotonic Sum reads as `gauge` (cantfind SK-103).
+
+| Family | Instrument | Extra attributes |
+|---|---|---|
+| `system.cpu.time` | counter | `cpu`, `state` ∈ {`idle`,`interrupt`,`nice`,`softirq`,`steal`,`system`,`user`,`wait`} |
+| `system.cpu.load_average.1m` `.5m` `.15m` | gauge | — |
+| `system.cpu.logical.count` | gauge | opt-in, enabled by the documented values |
+| `system.memory.usage` | gauge | `state` ∈ {`buffered`,`cached`,`free`,`slab_reclaimable`,`slab_unreclaimable`,`used`} |
+| `system.memory.limit` | gauge | opt-in, enabled by the documented values |
+| `system.disk.io` `.merged` `.operation_time` `.operations` | counter | `device`, `direction` ∈ {`read`,`write`} |
+| `system.disk.io_time` `.weighted_io_time` | counter | `device` |
+| `system.disk.pending_operations` | gauge | `device` |
+| `system.network.io` `.packets` `.dropped` `.errors` | counter | `device`, `direction` ∈ {`receive`,`transmit`} |
+| `system.network.connections` | gauge | `protocol` = `tcp`, `state` ∈ the 12 TCP states {`CLOSE`,`CLOSE_WAIT`,`CLOSING`,`DELETE`,`ESTABLISHED`,`FIN_WAIT_1`,`FIN_WAIT_2`,`LAST_ACK`,`LISTEN`,`SYN_RECV`,`SYN_SENT`,`TIME_WAIT`} |
+
+`system.cpu.logical.count` and `system.memory.limit` are the two metrics the Grafana Cloud
+documentation enables beyond the scraper defaults. Everything else above is a default of its
+scraper.
+
+### Scrapers enabled but silent, and why that is not the contract
+
+`filesystem` is enabled in the documented values and produced **no** `system.filesystem.*`
+datapoint. The rendered scraper config excludes `overlay` in `exclude_fs_types` and excludes
+`/run/k3s/containerd`, `/var/lib/docker` and `/var/lib/kubelet` by mount point — which is every
+mount a k3d node has, because a k3d "node" is a Docker container on an overlay root. That is a
+property of running k3s inside Docker, NOT of the receiver, so `system.filesystem.*` must not be
+recorded as absent from the contract. Tracked as cantfind SK-100.
+
+`system.paging.*` and `system.processes.*` were not observed either; their scrapers are not in
+the documented values, so their absence is expected and needs no follow-up.

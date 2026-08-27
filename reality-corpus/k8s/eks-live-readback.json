@@ -5,8 +5,10 @@
     "kind": "gcx_live_readback",
     "substrate": "eks",
     "collector": "grafana/gcx",
+    "collector_role": "reader",
     "collector_version": "1.2.0",
     "captured_on": "2026-08-27",
+    "instrument_type_source": "Stack Prometheus metadata API, read once per run and looked up by exact metric name through a fixed type table; a miss keeps the unknown sentinel. The API answers for the CloudWatch cloud-scraper ingest path, returns nothing for the Prometheus remote-write path, and its answer is a time-windowed snapshot rather than a catalogue, so an unknown here means unresolved rather than untyped.",
     "enrichment_labels": [
       {
         "key": "__aggregation__",

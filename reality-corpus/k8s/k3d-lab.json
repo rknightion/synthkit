@@ -5,8 +5,10 @@
     "kind": "k3d_lab",
     "substrate": "k3s",
     "collector": "grafana/k8s-monitoring",
+    "collector_role": "audited",
     "collector_version": "4.4.0",
-    "captured_on": "2026-08-27"
+    "captured_on": "2026-08-27",
+    "instrument_type_source": "Two mechanisms at the capture point, neither a metric name. (1) The producer's own Remote-Write v2 symbol-table metadata, decoded at the receiver with field numbers verified against the pinned Prometheus 3.12.0 prompb protos. (2) The reserved label names of the Prometheus exposition contract: `le` is reserved for classic histogram buckets and `quantile` for summary quantiles, so a series carrying one IS that instrument, and a native histogram sample counts equally. A series carrying neither, sent on a protocol whose metadata the producer does not emit, keeps the unknown sentinel. grafana/k8s-monitoring 4.4.0 sends ZERO Remote-Write v1 metadata: 12,651 series decoded, 0 MetricMetadata records, so on protocol 1 mechanism (2) is the only one available."
   },
   "authority": {
     "substrates": [

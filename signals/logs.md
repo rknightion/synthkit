@@ -572,3 +572,65 @@ body_fields:
   - upstream_cluster
 note: "control plane: zap tab-separated (ts\\tlevel\\tlogger\\tmsg\\t{json}); data plane: JSON access log per request; shutdown-manager sidecar uses same JSON format as data plane"
 ```
+
+---
+
+## Pod logs under the OTel Collector native-receivers permutation [slug: logs-otel-native-permutation]
+
+The pod-log stream produced by the documented `config-other-methods/otel-collector-receivers`
+permutation, where a DaemonSet `filelog` receiver tails `/var/log/pods/*/*/*.log` through the
+`container` parser and ships OTLP. Transport is `otlp_logs`, the same as the
+`podLogsViaOpenTelemetry` Alloy lane, but the **attribute set differs** — this is a genuine
+permutation difference, not drift.
+
+*Provenance: v: ok — captured at collector egress in the k3d permutation lab 2026-08-27,
+`open-telemetry/opentelemetry-collector` chart 0.171.0 running `grafana/alloy:v1.18.0` as
+`bin/otelcol`, 300s window, 168 OTLP log records decoded across four pod streams. Corpus:
+`reality-corpus/logs/k3d-lab-otel-receivers.json` (permutation `otel-receivers`).*
+
+**Resource attributes come from TWO enrichers, and confusing them would mis-model the stream.**
+
+The `container` parser derives Kubernetes identity from the log file path
+(`/var/log/pods/<ns>_<pod>_<uid>/<container>/<restart>.log`), which needs `include_file_path:
+true` and is what the chart's `logsCollection` preset renders. It supplies
+`k8s.namespace.name`, `k8s.pod.name`, `k8s.pod.uid`, `k8s.container.name` and
+`k8s.container.restart_count`. The decisive evidence is `k8s.container.restart_count`: it is
+NOT in the rendered `k8s_attributes` extract list, so the only thing that can have produced it
+is the filepath parser.
+
+The `k8sattributes` preset supplies the rest by pod association: `k8s.cluster.uid`,
+`k8s.node.name`, `k8s.pod.start_time`, `k8s.deployment.name`, `k8s.replicaset.name`,
+`k8s.replicaset.uid`, `container.image.name`, `container.image.tag`, `service.name`,
+`service.namespace`, `service.instance.id`, `service.version`. `k8s.cluster.name` comes from
+the pipeline's own `resource/k8sclustername` processor, not from either enricher.
+
+**Record-level keys:** `log.file.path`, `log.iostream`, `logtag` — the `container` parser's own
+output, `logtag` being the CRI partial/full marker.
+
+### Where it differs from the Alloy permutation synthkit models
+
+| | Alloy `k8s-monitoring` | OTel Collector native receivers |
+|---|---|---|
+| Cluster identity | `cluster` **and** `k8s.cluster.name` | `k8s.cluster.name` only |
+| Workload label | `app_kubernetes_io_name` | absent |
+| Image | absent | `container.image.name`, `container.image.tag` |
+| Pod/replicaset identity | names only | adds `k8s.pod.uid`, `k8s.pod.start_time`, `k8s.cluster.uid`, `k8s.replicaset.uid`, `k8s.container.restart_count` |
+| Service version | absent | `service.version` |
+
+synthkit emits the Alloy shape. Against this permutation's corpus document its `cluster` and
+`app_kubernetes_io_name` keys read as synth-only, which is why a permutation-tagged document
+never raises a contradiction — see `internal/inventory/corpus.go`
+`dispositionAgainstPermutation`.
+
+### The cluster-events stream was NOT observed
+
+The documented permutation runs a `k8sobjects` receiver watching `events` with
+`service.name: integrations/kubernetes/eventhandler`, and that pipeline produced nothing in the
+capture window. `mode: watch` opens an update stream: with `include_initial_state` unset it
+does not replay the existing Event objects, and it then emits ADDED, MODIFIED and DELETED
+updates as they occur. No such update landed during the window — the Deployment collector is
+the last thing to start in the lab, and the cluster is settled by then. So the emptiness is
+"no watch update occurred", NOT "watch only sees newly created events".
+
+This is an UNOBSERVED shape, not an absent one: do not record the event contract from
+documentation. Tracked as cantfind SK-102.

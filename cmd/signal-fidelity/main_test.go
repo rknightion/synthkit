@@ -29,6 +29,7 @@ func TestRunPrintsCoverageFindingsWithoutFailing(t *testing.T) {
 		Area:          "k8s",
 		Source: inventory.CorpusSource{
 			Kind: "k3d_lab", Substrate: "k3s", Collector: "collector",
+			CollectorRole:    inventory.CollectorRoleAudited,
 			CollectorVersion: "1.0.0", CapturedOn: "2026-08-25",
 		},
 		Authority:     inventory.CorpusAuthority{Substrates: []string{"k3s"}},

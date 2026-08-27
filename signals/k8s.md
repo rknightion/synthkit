@@ -1315,3 +1315,129 @@ relevant_fields:
   - created_by_kind  # ReplicaSet | StatefulSet | DaemonSet | Job
   - created_by_name  # the owning controller name
 ```
+
+---
+
+## OTel Collector native-receivers permutation — OBSERVED, NOT EMITTED [slug: k8s-otel-native-permutation]
+
+Everything above this section describes the **default** Grafana Cloud Kubernetes permutation:
+Alloy `k8s-monitoring` scraping kube-state-metrics, cAdvisor, kubelet and node-exporter, shipping
+Prometheus-shaped names by remote-write. This section records a **different documented
+permutation of the same product**, `config-other-methods/otel-collector-receivers`: a DaemonSet
+running `otlp`/`hostmetrics`/`filelog` beside a Deployment running `otlp`/`k8s_cluster`/
+`k8sobjects`, shipping OTLP.
+
+**It is a different metric NAMESPACE, not a transport change.** Not one family below shares a
+name with anything above. A user running this permutation sees `k8s.pod.phase`, never
+`kube_pod_status_phase`, and a dashboard written against one is blank against the other.
+
+**synthkit emits NONE of these families.** They are recorded here as the ground truth a future
+OTel-native lane must be built from, and re-spelling the `kube_*`/`container_*` names above in an
+OTLP envelope would fabricate a shape no collector produces. Emission is tracked as SKT-0007.04
+and SKT-0007.06.
+
+*Provenance: v: ok — captured at collector egress in the credential-free k3d permutation lab
+2026-08-27, `open-telemetry/opentelemetry-collector` chart 0.171.0 running `grafana/alloy:v1.18.0`
+as `bin/otelcol`, 300s window, 8302 OTLP metric records decoded. Corpus:
+`reality-corpus/k8s/k3d-lab-otel-receivers.json` (permutation `otel-receivers`), host families in
+`reality-corpus/host/k3d-lab-otel-receivers.json`, pod logs in
+`reality-corpus/logs/k3d-lab-otel-receivers.json`. Instrument types are the OTLP data-shape field
+itself, not inferred from any name.*
+
+### Chart-preset trap, verified by rendering
+
+The values file names `service.pipelines.metrics.receivers: [otlp, hostmetrics]` and yet
+`kubeletstats` runs. The chart's `presets.kubeletMetrics` APPENDS its receiver to the pipeline
+rather than being overwritten by the explicit list, and it supplies the `nodes/stats` RBAC rule.
+Reading the values file alone would conclude kubeletstats is disabled. It is not — every
+`container.*`, `k8s.pod.*` and `k8s.node.*` family below arrives because of that preset.
+
+The same chart renders Alloy's snake_case component spellings (`file_log`, `k8s_attributes`,
+`otlp_http`) when `command.name: bin/otelcol`, so a config grep for `filelog` finds nothing in
+the rendered ConfigMap.
+
+### `kubeletstatsreceiver` — the DEFAULT-ENABLED set (resolves cantfind SK-85)
+
+Metric groups `container`, `pod` and `node` are on by default; `volume` is NOT, and no
+`k8s.volume.*` family was observed. The opt-in `*.node.utilization` ratios were likewise absent,
+confirming they stay off unless declared.
+
+| Family | Instrument | Group |
+|---|---|---|
+| `container.cpu.time` | counter | container |
+| `container.cpu.usage` | gauge | container |
+| `container.filesystem.available` `.capacity` `.usage` | gauge | container |
+| `container.memory.available` `.major_page_faults` `.page_faults` `.rss` `.usage` `.working_set` | gauge | container |
+| `k8s.pod.cpu.time` | counter | pod |
+| `k8s.pod.cpu.usage` | gauge | pod |
+| `k8s.pod.filesystem.available` `.capacity` `.usage` | gauge | pod |
+| `k8s.pod.memory.available` `.major_page_faults` `.page_faults` `.rss` `.usage` `.working_set` | gauge | pod |
+| `k8s.pod.network.io` `k8s.pod.network.errors` | counter | pod |
+| `k8s.node.cpu.time` | counter | node |
+| `k8s.node.cpu.usage` | gauge | node |
+| `k8s.node.filesystem.available` `.capacity` `.usage` | gauge | node |
+| `k8s.node.memory.available` `.major_page_faults` `.page_faults` `.rss` `.usage` `.working_set` | gauge | node |
+| `k8s.node.network.io` `k8s.node.network.errors` | counter | node |
+
+`container.*` and `k8s.pod.*` carry the full pod-identity attribute set: `k8s.cluster.name`,
+`k8s.cluster.uid`, `k8s.namespace.name`, `k8s.node.name`, `k8s.pod.name`, `k8s.pod.uid`,
+`k8s.pod.start_time`, `k8s.container.name`, the owning-controller pair for whichever controller
+owns the pod (`k8s.deployment.name`, `k8s.replicaset.name`/`.uid`, `k8s.daemonset.name`/`.uid`),
+`container.image.name`, `container.image.tag`, `service.name`, `service.namespace`,
+`service.instance.id`, `service.version`, `host.name` and `os.type`. `k8s.node.*` carries only
+`k8s.cluster.name`, `k8s.node.name`, `host.name`, `os.type`. The network families add
+`interface` and `direction` ∈ {`receive`, `transmit`}.
+
+### `k8sclusterreceiver` — the observed set
+
+| Family | Instrument | Attributes beyond `k8s.cluster.name` |
+|---|---|---|
+| `k8s.container.cpu_limit` `.cpu_request` `.memory_limit` `.memory_request` `.ready` `.restarts` | gauge | full pod identity + `container.id` |
+| `k8s.container.status.reason` | gauge | full pod identity + `container.id` + `k8s.container.status.reason` |
+| `k8s.pod.phase` | gauge | full pod identity |
+| `k8s.deployment.available` `.desired` | gauge | `k8s.deployment.name`, `k8s.deployment.uid`, `k8s.namespace.name`, `service.namespace` |
+| `k8s.replicaset.available` `.desired` | gauge | `k8s.replicaset.name`, `k8s.replicaset.uid`, `k8s.namespace.name`, `service.namespace` |
+| `k8s.daemonset.current_scheduled_nodes` `.desired_scheduled_nodes` `.misscheduled_nodes` `.ready_nodes` | gauge | `k8s.daemonset.name`, `k8s.daemonset.uid`, `k8s.namespace.name`, `service.namespace` |
+| `k8s.namespace.phase` | gauge | `k8s.namespace.name`, `k8s.namespace.uid`, `service.namespace` |
+| `k8s.node.condition_ready` | gauge | `k8s.node.name`, `k8s.node.uid`, `host.name` |
+
+### Reading the instrument column
+
+`gauge` here means "not a monotonic Sum". OTLP carries the data shape explicitly and the
+capture decodes that field rather than guessing from a name, but the corpus vocabulary is
+Prometheus-shaped and has no UpDownCounter, so a **non-monotonic Sum is recorded as `gauge`**
+and is indistinguishable from a true OTLP Gauge in this document. `k8sclusterreceiver` declares
+several of these families as non-monotonic Sums, so an emitter that reads `gauge` here and
+emits an OTLP Gauge would produce the wrong wire shape. Resolve the per-family split from the
+receiver's own `metadata.yaml` before emitting. Tracked as cantfind SK-103.
+
+`k8s.container.restarts` is not a counter despite naming a count — observed, not assumed. `k8s.container.status.reason` is emitted exhaustively, one datapoint per Kubernetes
+container state reason, so the observed set IS the closed enum: `Completed`,
+`ContainerCannotRun`, `ContainerCreating`, `CrashLoopBackOff`, `CreateContainerConfigError`,
+`ErrImagePull`, `Error`, `ImagePullBackOff`, `OOMKilled`. It is off by default and was enabled
+explicitly by the documented values file.
+
+Workload-object families carry NO `host.name` and NO `os.type`: those come from the DaemonSet's
+`resourcedetection` and `resource/hostname` processors, and a cluster-scoped object has no node
+to resolve them from. Reading `host.name` as universal would be wrong.
+
+### What this permutation does NOT produce
+
+A blueprint modelling it must not emit these, and their absence is not a capture gap:
+
+- **Every `kube_*` family.** There is no kube-state-metrics in this permutation at all, so
+  `kube_pod_info`, `kube_node_info`, `kube_pod_status_phase` and the whole KSM surface are
+  absent by construction, not by sampling.
+- **Every `container_*` cAdvisor family, every `kubelet_*` family, `node_*`, `kubeproxy_*` and
+  `up`.** No Prometheus scrape exists on this path.
+- **`k8s.volume.*`** — the `volume` metric group is not default-enabled.
+- **The `*.node.utilization` ratio families** — opt-in, and not enabled by the documented values.
+- **`k8s.node.allocatable_*`** — not observed.
+
+### Absent because the lab had no such object — NOT evidence of the contract
+
+The k3d lab runs Deployments, ReplicaSets and DaemonSets only. `k8s_cluster` families for
+StatefulSet, Job, CronJob, HorizontalPodAutoscaler, ResourceQuota and ReplicationController were
+therefore never exercised, and their absence from the corpus says nothing about the receiver.
+Confirm them against a cluster that runs those objects before treating the list above as
+complete. Tracked as cantfind SK-101.

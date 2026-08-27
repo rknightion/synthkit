@@ -127,6 +127,14 @@ func DeclaredInstrumentTypes(metadata map[string][]string) map[string][]string {
 // frozen substrate-scoped corpus documents. Deployment identities remain key-presence
 // evidence only; only the small allowlist of stable enum/topology values is retained.
 //
+// gcxInstrumentTypeSource records the one mechanism this producer reads instrument types from,
+// and why an entry can still carry the unknown sentinel. The API answers for the CloudWatch
+// cloud-scraper ingest path and returns nothing at all for the Prometheus remote-write path,
+// and its answer is a time-windowed snapshot rather than a catalogue — two reads twenty minutes
+// apart differed by 34 names dropped and 21 added. A family the API does not answer for is
+// therefore UNRESOLVED in this document, not untyped.
+const gcxInstrumentTypeSource = "Stack Prometheus metadata API, read once per run and looked up by exact metric name through a fixed type table; a miss keeps the unknown sentinel. The API answers for the CloudWatch cloud-scraper ingest path, returns nothing for the Prometheus remote-write path, and its answer is a time-windowed snapshot rather than a catalogue, so an unknown here means unresolved rather than untyped."
+
 // declaredInstruments carries the instrument types the same stack's metadata API reports,
 // keyed by exact metric name. A metric the API reports no type for keeps the unknown
 // sentinel: a type is never derived from the metric name.
@@ -191,11 +199,15 @@ func BuildGCXLiveReadback(series []map[string]string, declaredInstruments map[st
 			CorpusVersion: CorpusVersion,
 			Area:          area,
 			Source: CorpusSource{
-				Kind:             gcxLiveReadbackSource,
-				Substrate:        "eks",
-				Collector:        "grafana/gcx",
-				CollectorVersion: collectorVersion,
-				CapturedOn:       capturedOn,
+				Kind:      gcxLiveReadbackSource,
+				Substrate: "eks",
+				Collector: "grafana/gcx",
+				// The CLI reads the stack back; it is not the collector under audit, so its
+				// version is provenance and never merge identity.
+				CollectorRole:        CollectorRoleReader,
+				CollectorVersion:     collectorVersion,
+				CapturedOn:           capturedOn,
+				InstrumentTypeSource: gcxInstrumentTypeSource,
 			},
 			Authority: CorpusAuthority{Substrates: []string{"eks"}},
 			CaptureVolume: CaptureVolume{

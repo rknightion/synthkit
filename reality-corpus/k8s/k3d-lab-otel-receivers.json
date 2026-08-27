@@ -1,0 +1,4636 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "k8s",
+  "source": {
+    "kind": "k3d_lab",
+    "permutation": "otel-receivers",
+    "substrate": "k3s",
+    "collector": "open-telemetry/opentelemetry-collector",
+    "collector_role": "audited",
+    "collector_version": "0.171.0",
+    "captured_on": "2026-08-27",
+    "instrument_type_source": "Decoded from the OTLP wire form at the capture receiver: the metric data-shape field itself (Gauge, Sum with is_monotonic, Histogram, ExponentialHistogram), which OTLP carries explicitly rather than by naming convention. No type here is derived from a metric name, and none carries the unknown sentinel. A NON-MONOTONIC Sum is recorded as gauge: the inventory vocabulary is Prometheus-shaped and has no UpDownCounter, so this document cannot distinguish an OTLP Gauge from a non-monotonic Sum (cantfind SK-103)."
+  },
+  "authority": {
+    "substrates": [
+      "k3s"
+    ]
+  },
+  "capture_volume": {
+    "runs": 1,
+    "observed_contract_counts": [
+      55
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [
+      {
+        "name": "container.cpu.time",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.cpu.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.filesystem.available",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.filesystem.capacity",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.filesystem.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.memory.available",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.memory.major_page_faults",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.memory.page_faults",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.memory.rss",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.memory.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container.memory.working_set",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.container.cpu_limit",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.container.cpu_request",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.container.memory_limit",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.container.memory_request",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.container.ready",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.container.restarts",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.container.status.reason",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.status.reason",
+            "values": [
+              "Completed",
+              "ContainerCannotRun",
+              "ContainerCreating",
+              "CrashLoopBackOff",
+              "CreateContainerConfigError",
+              "ErrImagePull",
+              "Error",
+              "ImagePullBackOff",
+              "OOMKilled"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.daemonset.current_scheduled_nodes",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.daemonset.desired_scheduled_nodes",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.daemonset.misscheduled_nodes",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.daemonset.ready_nodes",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.deployment.available",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.deployment.desired",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.namespace.phase",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.condition_ready",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.uid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.cpu.time",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.cpu.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.filesystem.available",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.filesystem.capacity",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.filesystem.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.memory.available",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.memory.major_page_faults",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.memory.page_faults",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.memory.rss",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.memory.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.memory.working_set",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.network.errors",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "direction",
+            "values": [
+              "receive",
+              "transmit"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.node.network.io",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "direction",
+            "values": [
+              "receive",
+              "transmit"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.cpu.time",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.cpu.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.filesystem.available",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.filesystem.capacity",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.filesystem.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.memory.available",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.memory.major_page_faults",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.memory.page_faults",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.memory.rss",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.memory.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.memory.working_set",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.network.errors",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "receive",
+              "transmit"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.network.io",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "receive",
+              "transmit"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.pod.phase",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container.image.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container.image.tag",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.daemonset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.deployment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.instance.id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.replicaset.available",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "k8s.replicaset.desired",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.replicaset.uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.namespace",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      }
+    ],
+    "logs": [],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}

@@ -325,6 +325,7 @@ func TestMergeCorpusDocumentFileFoldsAComponentShapedDocument(t *testing.T) {
 		Area:          "k8s",
 		Source: CorpusSource{
 			Kind: gcxLiveReadbackSource, Substrate: "eks", Collector: "grafana/gcx",
+			CollectorRole:    CollectorRoleReader,
 			CollectorVersion: "1.1.1", CapturedOn: "2026-08-26",
 		},
 		Authority:     CorpusAuthority{Substrates: []string{"eks"}},

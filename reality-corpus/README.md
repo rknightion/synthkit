@@ -36,8 +36,10 @@ Every document has this envelope:
     "kind": "k3d_lab",
     "substrate": "k3s",
     "collector": "grafana/k8s-monitoring",
+    "collector_role": "audited",
     "collector_version": "4.4.0",
-    "captured_on": "2026-08-25"
+    "captured_on": "2026-08-25",
+    "instrument_type_source": "the mechanism this producer read instrument types from"
   },
   "authority": {
     "substrates": ["k3s"]
@@ -62,6 +64,45 @@ The `source` provenance applies to every observation in `inventory`. The
 capture date is a calendar date so timestamps do not create corpus churn.
 `inventory` uses the canonical schema defined by
 [`internal/inventory`](../internal/inventory/schema.go).
+
+### `source.collector_role` — required
+
+`collector_role` says what `collector`/`collector_version` name, and it decides
+whether the version is part of merge identity.
+
+- **`audited`** — the collector under audit at the capture point. Its version
+  identifies the configuration the evidence came from, so two versions are two
+  producers and a merge across them is rejected.
+- **`reader`** — the tool that read the evidence back out of a store. Its
+  version is a CLI build and says nothing about the telemetry, so it is
+  provenance only. Leaving it in the identity would mean a routine tool upgrade
+  orphans the corpus: the merge is rejected, and overwriting instead silently
+  deletes every family the newer read-back window did not return.
+
+### `source.permutation` — optional
+
+`permutation` names the deliberate collector CONFIGURATION a document is
+evidence of, where one producer on one substrate can be deployed several
+materially different ways. It is part of the identity `(area, kind, substrate,
+permutation)`, so two permutations of one producer stay separate documents
+instead of fusing into a shape no single deployment ever emitted.
+
+An ABSENT value means the default, single-permutation document, which is what
+every corpus file written before permutations existed is.
+
+**A permutation-tagged document never raises a contradiction.** synthkit models
+the default permutation, so a key or family it emits that a tagged document does
+not carry is a permutation difference, not drift. Reality-only findings stay:
+what a permutation produces and synthkit does not is honest coverage
+information. See `dispositionAgainstPermutation` in
+[`internal/inventory/corpus.go`](../internal/inventory/corpus.go).
+
+### `source.instrument_type_source` — optional
+
+The mechanism this producer read instrument types from, or why it could not
+observe them. It applies to every metric entry in the document and is the
+recorded reason behind any entry still carrying the `unknown` sentinel. A
+refresh may correct it; the merge takes the candidate's value when non-empty.
 
 ### `source.enrichment_labels`
 
@@ -124,7 +165,8 @@ the broader key-scoped form.
 ## Canonical refresh and capture noise
 
 Refresh uses a cumulative structural union only for the same path/source ID,
-producer kind, substrate, collector, and collector version. The path/source ID
+producer kind, substrate, permutation, collector, and collector role — plus the
+collector version when that role is `audited`. The path/source ID
 is the generic configuration identity; a materially different configuration is
 a separate baseline. Family identity within that baseline is:
 
@@ -150,3 +192,35 @@ evidence or confirmed stable-value evidence. A later capture containing only a
 subset therefore produces the same canonical document. Deletion or narrowing
 requires separate confirmed drift evidence; a single absence is never deletion
 authority.
+
+## Promoting a k3d permutation capture
+
+A matrix run writes candidates into `artifacts/` and never touches this
+directory: promotion is a deliberate step taken after reading the combined
+report. `lab-matrix promote` is that step, so the value-retention rule is one
+tested place rather than a judgement made afresh each time.
+
+```bash
+bash e2e/lab/run.sh otel-receivers          # capture; prints the candidate path
+
+go run ./e2e/lab/cmd/lab-matrix promote \
+  -in artifacts/signal-fidelity-k3d/otel-receivers/candidate-<run-id>.json \
+  -out reality-corpus/k8s/k3d-lab-otel-receivers.json \
+  -area k8s -permutation otel-receivers -kind k3d_lab -substrate k3s \
+  -collector open-telemetry/opentelemetry-collector -collector-version 0.171.0 \
+  -captured-on 2026-08-27 -instrument-type-source '<mechanism>' \
+  -metric-prefix 'k8s.' -metric-prefix 'container.'
+```
+
+One invocation writes one document, because a document is one area. Repeat per
+area, selecting that area's families with `-metric-prefix`, and add
+`-fold-pod-logs` on the `logs` document.
+
+**The retention rule.** An attribute's observed values are kept only when the
+value set is fixed by the producing software's own contract — a semantic-
+conventions enum, or a receiver's declared attribute enum. Everything a
+deployment chooses (namespaces, node and pod names, image tags, interface and
+device names, CPU indices) is elided even though the capture saw it, because one
+cluster's choice is not a value space. Retaining a value is a positive claim
+that the enum is closed, and each retained key carries its reason in
+[`e2e/lab/matrix/promote.go`](../e2e/lab/matrix/promote.go).

@@ -1,0 +1,837 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "host",
+  "source": {
+    "kind": "k3d_lab",
+    "permutation": "otel-receivers",
+    "substrate": "k3s",
+    "collector": "open-telemetry/opentelemetry-collector",
+    "collector_role": "audited",
+    "collector_version": "0.171.0",
+    "captured_on": "2026-08-27",
+    "instrument_type_source": "Decoded from the OTLP wire form at the capture receiver: the metric data-shape field itself (Gauge, Sum with is_monotonic, Histogram, ExponentialHistogram), which OTLP carries explicitly rather than by naming convention. No type here is derived from a metric name, and none carries the unknown sentinel. A NON-MONOTONIC Sum is recorded as gauge: the inventory vocabulary is Prometheus-shaped and has no UpDownCounter, so this document cannot distinguish an OTLP Gauge from a non-monotonic Sum (cantfind SK-103)."
+  },
+  "authority": {
+    "substrates": [
+      "k3s"
+    ]
+  },
+  "capture_volume": {
+    "runs": 1,
+    "observed_contract_counts": [
+      19
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [
+      {
+        "name": "system.cpu.load_average.15m",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.cpu.load_average.1m",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.cpu.load_average.5m",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.cpu.logical.count",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.cpu.time",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "state",
+            "values": [
+              "idle",
+              "interrupt",
+              "nice",
+              "softirq",
+              "steal",
+              "system",
+              "user",
+              "wait"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.disk.io",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "read",
+              "write"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.disk.io_time",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.disk.merged",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "read",
+              "write"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.disk.operation_time",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "read",
+              "write"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.disk.operations",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "read",
+              "write"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.disk.pending_operations",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.disk.weighted_io_time",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.memory.limit",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.memory.usage",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "state",
+            "values": [
+              "buffered",
+              "cached",
+              "free",
+              "slab_reclaimable",
+              "slab_unreclaimable",
+              "used"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.network.connections",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "protocol",
+            "values": [
+              "tcp"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "state",
+            "values": [
+              "CLOSE",
+              "CLOSE_WAIT",
+              "CLOSING",
+              "DELETE",
+              "ESTABLISHED",
+              "FIN_WAIT_1",
+              "FIN_WAIT_2",
+              "LAST_ACK",
+              "LISTEN",
+              "SYN_RECV",
+              "SYN_SENT",
+              "TIME_WAIT"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.network.dropped",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "receive",
+              "transmit"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.network.errors",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "receive",
+              "transmit"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.network.io",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "receive",
+              "transmit"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "system.network.packets",
+        "transports": [
+          "otlp_metrics"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "direction",
+            "values": [
+              "receive",
+              "transmit"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.node.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os.type",
+            "values": [
+              "linux"
+            ],
+            "values_elided": false
+          }
+        ]
+      }
+    ],
+    "logs": [],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}

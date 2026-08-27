@@ -32,6 +32,8 @@ func main() {
 		os.Exit(runReport(os.Args[2:]))
 	case "elide-corpus":
 		err = runElideCorpus(os.Args[2:])
+	case "promote":
+		err = runPromote(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -49,6 +51,9 @@ func usage() {
   lab-matrix normalize -in RAW.json -out CANDIDATE.json -substrate S -collector-version V -captured-at T
   lab-matrix report -results DIR -out REPORT.md -json REPORT.json -run-id ID -generated-at T -max-parallel N [-parallelism-note TEXT]
   lab-matrix elide-corpus -file CORPUS.json [-file ...]
+  lab-matrix promote -in CANDIDATE.json -out DOC.json -area A -permutation P -kind K
+                     -substrate S -collector C -collector-version V -captured-on YYYY-MM-DD
+                     -instrument-type-source TEXT [-metric-prefix P ...] [-fold-pod-logs]
 `)
 }
 
@@ -75,6 +80,75 @@ func runNormalize(args []string) error {
 		CapturedAt:   *capturedAt,
 	})
 	return writeSchema(*out, candidate)
+}
+
+// runPromote turns one permutation capture candidate into ONE corpus document. It is a
+// separate, deliberate step from capture on purpose: no matrix job writes to reality-corpus,
+// so promotion is always something an operator ran after reading the report.
+func runPromote(args []string) error {
+	flags := flag.NewFlagSet("promote", flag.ExitOnError)
+	in := flags.String("in", "", "capture candidate JSON")
+	out := flags.String("out", "", "corpus document to write")
+	area := flags.String("area", "", "signals catalogue area this document is evidence for")
+	permutation := flags.String("permutation", "", "collector configuration this document is evidence of")
+	kind := flags.String("kind", "", "generic producer kind, for example k3d_lab")
+	substrate := flags.String("substrate", "", "capture substrate, for example k3s")
+	collector := flags.String("collector", "", "the collector under audit")
+	collectorVersion := flags.String("collector-version", "", "the audited collector's pinned version")
+	capturedOn := flags.String("captured-on", "", "capture date, YYYY-MM-DD")
+	instrumentTypeSource := flags.String("instrument-type-source", "", "the mechanism instrument types were read from")
+	var metricPrefixes fileList
+	flags.Var(&metricPrefixes, "metric-prefix", "select captured metric families by name prefix (repeatable)")
+	foldPodLogs := flags.Bool("fold-pod-logs", false, "fold captured log streams into the canonical pod-log source")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if *in == "" || *out == "" || *area == "" {
+		return errors.New("promote requires -in, -out and -area")
+	}
+	candidate, err := readSchema(*in)
+	if err != nil {
+		return err
+	}
+	promoted, err := matrix.PromoteCandidate(candidate, matrix.PromoteOptions{
+		MetricPrefixes: metricPrefixes,
+		FoldPodLogs:    *foldPodLogs,
+	})
+	if err != nil {
+		return err
+	}
+	document := inventory.CorpusDocument{
+		CorpusVersion: inventory.CorpusVersion,
+		Area:          *area,
+		Source: inventory.CorpusSource{
+			Kind:                 *kind,
+			Permutation:          *permutation,
+			Substrate:            *substrate,
+			Collector:            *collector,
+			CollectorRole:        inventory.CollectorRoleAudited,
+			CollectorVersion:     *collectorVersion,
+			CapturedOn:           *capturedOn,
+			InstrumentTypeSource: *instrumentTypeSource,
+		},
+		Authority: inventory.CorpusAuthority{Substrates: []string{*substrate}},
+		CaptureVolume: inventory.CaptureVolume{
+			Runs: 1,
+			// Counts the evidence THIS document holds. A logs-only document carries no metric
+			// family, and recording 0 for it would read as a capture that observed nothing.
+			ObservedContractCounts: []int{len(promoted.Metrics) + len(promoted.Logs)},
+		},
+		Inventory: promoted,
+	}
+	// Validated before writing: a corpus document that cannot be loaded is worse than none,
+	// because the whole corpus fails to load and every finding silently disappears.
+	if err := inventory.ValidateCorpusDocument(document); err != nil {
+		return fmt.Errorf("%s: %w", *out, err)
+	}
+	encoded, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(*out, append(encoded, '\n'), 0o644)
 }
 
 type fileList []string
