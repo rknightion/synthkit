@@ -217,6 +217,28 @@ func (w *stampedOTLPMetrics) Write(ctx context.Context, resources []otlp.MetricR
 	return w.sink.Write(ctx, resources)
 }
 
+// stampedOTLPLogs stamps the blueprint label as a RESOURCE attribute on OTLP log blocks
+// (cloned before stamping). Substrate instances (label "") — which is every k8s_cluster —
+// pass through untouched. Mirrors stampedOTLPMetrics.
+type stampedOTLPLogs struct {
+	sink  core.OTLPLogWriter
+	label string
+}
+
+func (w *stampedOTLPLogs) Write(ctx context.Context, resources []otlp.LogResource) error {
+	if w.label != "" {
+		stamped := make([]otlp.LogResource, len(resources))
+		for i, r := range resources {
+			attrs := make(map[string]any, len(r.Attrs)+1)
+			maps.Copy(attrs, r.Attrs)
+			attrs[BlueprintLabel] = w.label
+			stamped[i] = otlp.LogResource{Attrs: attrs, Scope: r.Scope, Records: r.Records}
+		}
+		resources = stamped
+	}
+	return w.sink.Write(ctx, resources)
+}
+
 // stampedProfiles stamps the blueprint label onto Pyroscope series labels for blueprint-scoped
 // instances (cloned); substrate series pass through untouched.
 type stampedProfiles struct {

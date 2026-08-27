@@ -66,9 +66,15 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 // Kind implements core.Construct.
 func (c *Construct) Kind() string { return kind }
 
-// Signals declares Metrics and Logs.
+// Signals declares Metrics and Logs, plus OTLPLogs when the cluster declared the native OTLP
+// pod-log transport (podLogsViaOpenTelemetry). Logs stays declared unconditionally: cluster
+// events, node/journal logs and object manifests are Loki-native on either pod-log transport.
 func (c *Construct) Signals() []core.SignalClass {
-	return []core.SignalClass{core.Metrics, core.Logs}
+	sigs := []core.SignalClass{core.Metrics, core.Logs}
+	if podLogsOTLPNative(c.clust) {
+		sigs = append(sigs, core.OTLPLogs)
+	}
+	return sigs
 }
 
 // Interval implements core.Construct.

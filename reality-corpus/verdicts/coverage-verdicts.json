@@ -1,0 +1,5042 @@
+{
+  "record_version": "synthkit.telemetry.coverage-verdicts/v1alpha1",
+  "generated_on": "2026-08-27",
+  "task": "SKT-0010.04",
+  "purpose": "A recorded verdict for every extra_metric coverage gap the report-only signal-fidelity check finds: a metric family a real collector shipped that synthkit does not emit. Keyed on area + substrate + folded family name so it survives a corpus refresh.",
+  "family_key_rule": "The key is the metric family, not a series name. CloudWatch five-stat suffixes (_average/_maximum/_minimum/_sample_count/_sum) and Prometheus classic-histogram component suffixes (_bucket/_count/_sum) are folded off before lookup, matching the fold in internal/inventory/synth.go. A refresh that adds or drops individual stat suffixes or histogram components therefore resolves to the same verdict.",
+  "verdict_values": {
+    "should_emit": "A real deployment of something synthkit already claims to model produces this family, so its absence is a hole in a claim the project makes.",
+    "out_of_scope": "Reality produces it, but it belongs to a component synthkit does not claim to model. The rationale records why so the next audit does not re-litigate it.",
+    "unresolved": "Cannot be decided from the corpus and available documentation. Carries a cantfind.md PENDING id instead of a guessed verdict."
+  },
+  "triaged_corpus": [
+    {
+      "area": "cw",
+      "source_kind": "gcx_live_readback",
+      "path": "reality-corpus/cw/eks-live-readback.json",
+      "substrate": "eks",
+      "collector": "grafana/gcx",
+      "collector_version": "1.1.1",
+      "captured_on": "2026-08-25"
+    },
+    {
+      "area": "k8s",
+      "source_kind": "gcx_live_readback",
+      "path": "reality-corpus/k8s/eks-live-readback.json",
+      "substrate": "eks",
+      "collector": "grafana/gcx",
+      "collector_version": "1.1.1",
+      "captured_on": "2026-08-25"
+    },
+    {
+      "area": "k8s",
+      "source_kind": "k3d_lab",
+      "path": "reality-corpus/k8s/k3d-lab.json",
+      "substrate": "k3s",
+      "collector": "grafana/k8s-monitoring",
+      "collector_version": "4.4.0",
+      "captured_on": "2026-08-25"
+    },
+    {
+      "area": "k8s-addons",
+      "source_kind": "k3d_lab",
+      "path": "reality-corpus/k8s-addons/k3d-lab.json",
+      "substrate": "k3s",
+      "collector": "grafana/k8s-monitoring",
+      "collector_version": "4.4.0",
+      "captured_on": "2026-08-25"
+    }
+  ],
+  "totals": {
+    "report_extra_metric_findings": 367,
+    "distinct_families": 77,
+    "coverage_gap_families": 72,
+    "not_coverage_gap_families": 5,
+    "by_verdict": {
+      "out_of_scope": 1,
+      "unresolved": 14,
+      "should_emit": 57
+    }
+  },
+  "verdicts": [
+    {
+      "key": {
+        "area": "k8s-addons",
+        "substrate": "k3s",
+        "family": "coredns_hosts_entries"
+      },
+      "observed_series": [
+        "coredns_hosts_entries"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [],
+        "dimensions": [],
+        "emission_label_keys": [
+          "app",
+          "cluster",
+          "container",
+          "hostsfile",
+          "instance",
+          "job",
+          "k8s_cluster_name",
+          "namespace",
+          "pod",
+          "service",
+          "source",
+          "workload"
+        ],
+        "read_path_label_keys": []
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/k8s-addons/k3d-lab.json",
+          "source_kind": "k3d_lab",
+          "substrate": "k3s",
+          "collector": "grafana/k8s-monitoring",
+          "collector_version": "4.4.0",
+          "captured_on": "2026-08-25"
+        },
+        {
+          "type": "source",
+          "path": "internal/construct/coredns/coredns.go",
+          "note": "coredns_hosts_reload_timestamp_seconds pinned at 0; comment records the hosts plugin as not used"
+        },
+        {
+          "type": "vendor_doc",
+          "source": "CoreDNS hosts plugin README via context7 /coredns/coredns",
+          "retrieved_on": "2026-08-27",
+          "note": "confirms the hosts plugin is what exports the entry-count and reload-timestamp metrics"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "out_of_scope",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/coredns",
+        "signals": "signals/k8s-addons.md",
+        "slug": null
+      },
+      "group": "coredns/hosts-plugin",
+      "modelled_claim": "synthkit models a CoreDNS Corefile that does not load the hosts plugin.",
+      "rationale": "Reality produces this from the CoreDNS hosts plugin, which the corpus shows loaded against /etc/coredns/NodeHosts - a k3s-specific Corefile. The corpus authority is k3s only; no EKS-substrate evidence covers CoreDNS. synthkit deliberately models a Corefile with no hosts block, a decision already recorded in internal/construct/coredns/coredns.go where coredns_hosts_reload_timestamp_seconds is pinned at 0 with the comment \"hosts plugin not used\". Do not re-litigate without EKS-substrate evidence that the modelled Corefile loads the plugin.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_anomalous_host_count"
+      },
+      "observed_series": [
+        "aws_applicationelb_anomalous_host_count_average",
+        "aws_applicationelb_anomalous_host_count_maximum",
+        "aws_applicationelb_anomalous_host_count_minimum",
+        "aws_applicationelb_anomalous_host_count_sample_count",
+        "aws_applicationelb_anomalous_host_count_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "Reality publishes this ALB target-health/zonal state root, but the corpus records its value set as elided and available documentation retrieved for this decision did not establish whether a default-configured load balancer publishes it continuously or only while an optional target-health or zonal capability is active. Emitting it unconditionally could be wrong, so the verdict is withheld rather than guessed.",
+      "cantfind_pending": "SK-92"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_capacity_utilization"
+      },
+      "observed_series": [
+        "aws_applicationelb_capacity_utilization_average",
+        "aws_applicationelb_capacity_utilization_maximum",
+        "aws_applicationelb_capacity_utilization_minimum",
+        "aws_applicationelb_capacity_utilization_sample_count",
+        "aws_applicationelb_capacity_utilization_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "Reality publishes aws_applicationelb_capacity_utilization, but the corpus value set is elided and available documentation retrieved for this decision did not establish its unit or whether a load balancer with no capacity reservation publishes it. Its siblings consumed_lcus and peak_lcus are verdicted should_emit; this one is withheld pending the unit and publication condition.",
+      "cantfind_pending": "SK-93"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_client_tlsnegotiation_error_count"
+      },
+      "observed_series": [
+        "aws_applicationelb_client_tlsnegotiation_error_count_average",
+        "aws_applicationelb_client_tlsnegotiation_error_count_maximum",
+        "aws_applicationelb_client_tlsnegotiation_error_count_minimum",
+        "aws_applicationelb_client_tlsnegotiation_error_count_sample_count",
+        "aws_applicationelb_client_tlsnegotiation_error_count_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_consumed_lcus"
+      },
+      "observed_series": [
+        "aws_applicationelb_consumed_lcus_average",
+        "aws_applicationelb_consumed_lcus_maximum",
+        "aws_applicationelb_consumed_lcus_minimum",
+        "aws_applicationelb_consumed_lcus_sample_count",
+        "aws_applicationelb_consumed_lcus_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_desync_mitigation_mode_non_compliant_request_count"
+      },
+      "observed_series": [
+        "aws_applicationelb_desync_mitigation_mode_non_compliant_request_count_average",
+        "aws_applicationelb_desync_mitigation_mode_non_compliant_request_count_maximum",
+        "aws_applicationelb_desync_mitigation_mode_non_compliant_request_count_minimum",
+        "aws_applicationelb_desync_mitigation_mode_non_compliant_request_count_sample_count",
+        "aws_applicationelb_desync_mitigation_mode_non_compliant_request_count_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_healthy_state_dns"
+      },
+      "observed_series": [
+        "aws_applicationelb_healthy_state_dns_average",
+        "aws_applicationelb_healthy_state_dns_maximum",
+        "aws_applicationelb_healthy_state_dns_minimum",
+        "aws_applicationelb_healthy_state_dns_sample_count",
+        "aws_applicationelb_healthy_state_dns_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "Reality publishes this ALB target-health/zonal state root, but the corpus records its value set as elided and available documentation retrieved for this decision did not establish whether a default-configured load balancer publishes it continuously or only while an optional target-health or zonal capability is active. Emitting it unconditionally could be wrong, so the verdict is withheld rather than guessed.",
+      "cantfind_pending": "SK-92"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_healthy_state_routing"
+      },
+      "observed_series": [
+        "aws_applicationelb_healthy_state_routing_average",
+        "aws_applicationelb_healthy_state_routing_maximum",
+        "aws_applicationelb_healthy_state_routing_minimum",
+        "aws_applicationelb_healthy_state_routing_sample_count",
+        "aws_applicationelb_healthy_state_routing_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "Reality publishes this ALB target-health/zonal state root, but the corpus records its value set as elided and available documentation retrieved for this decision did not establish whether a default-configured load balancer publishes it continuously or only while an optional target-health or zonal capability is active. Emitting it unconditionally could be wrong, so the verdict is withheld rather than guessed.",
+      "cantfind_pending": "SK-92"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_http_fixed_response_count"
+      },
+      "observed_series": [
+        "aws_applicationelb_http_fixed_response_count_average",
+        "aws_applicationelb_http_fixed_response_count_maximum",
+        "aws_applicationelb_http_fixed_response_count_minimum",
+        "aws_applicationelb_http_fixed_response_count_sample_count",
+        "aws_applicationelb_http_fixed_response_count_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_http_redirect_count"
+      },
+      "observed_series": [
+        "aws_applicationelb_http_redirect_count_average",
+        "aws_applicationelb_http_redirect_count_maximum",
+        "aws_applicationelb_http_redirect_count_minimum",
+        "aws_applicationelb_http_redirect_count_sample_count",
+        "aws_applicationelb_http_redirect_count_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_httpcode_elb_3_xx_count"
+      },
+      "observed_series": [
+        "aws_applicationelb_httpcode_elb_3_xx_count_average",
+        "aws_applicationelb_httpcode_elb_3_xx_count_maximum",
+        "aws_applicationelb_httpcode_elb_3_xx_count_minimum",
+        "aws_applicationelb_httpcode_elb_3_xx_count_sample_count",
+        "aws_applicationelb_httpcode_elb_3_xx_count_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_httpcode_elb_4_xx_count"
+      },
+      "observed_series": [
+        "aws_applicationelb_httpcode_elb_4_xx_count_average",
+        "aws_applicationelb_httpcode_elb_4_xx_count_maximum",
+        "aws_applicationelb_httpcode_elb_4_xx_count_minimum",
+        "aws_applicationelb_httpcode_elb_4_xx_count_sample_count",
+        "aws_applicationelb_httpcode_elb_4_xx_count_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_mitigated_host_count"
+      },
+      "observed_series": [
+        "aws_applicationelb_mitigated_host_count_average",
+        "aws_applicationelb_mitigated_host_count_maximum",
+        "aws_applicationelb_mitigated_host_count_minimum",
+        "aws_applicationelb_mitigated_host_count_sample_count",
+        "aws_applicationelb_mitigated_host_count_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "Reality publishes this ALB target-health/zonal state root, but the corpus records its value set as elided and available documentation retrieved for this decision did not establish whether a default-configured load balancer publishes it continuously or only while an optional target-health or zonal capability is active. Emitting it unconditionally could be wrong, so the verdict is withheld rather than guessed.",
+      "cantfind_pending": "SK-92"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_peak_lcus"
+      },
+      "observed_series": [
+        "aws_applicationelb_peak_lcus_average",
+        "aws_applicationelb_peak_lcus_maximum",
+        "aws_applicationelb_peak_lcus_minimum",
+        "aws_applicationelb_peak_lcus_sample_count",
+        "aws_applicationelb_peak_lcus_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_request_count_per_target"
+      },
+      "observed_series": [
+        "aws_applicationelb_request_count_per_target_average",
+        "aws_applicationelb_request_count_per_target_maximum",
+        "aws_applicationelb_request_count_per_target_minimum",
+        "aws_applicationelb_request_count_per_target_sample_count",
+        "aws_applicationelb_request_count_per_target_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_rule_evaluations"
+      },
+      "observed_series": [
+        "aws_applicationelb_rule_evaluations_average",
+        "aws_applicationelb_rule_evaluations_maximum",
+        "aws_applicationelb_rule_evaluations_minimum",
+        "aws_applicationelb_rule_evaluations_sample_count",
+        "aws_applicationelb_rule_evaluations_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_LoadBalancer"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_LoadBalancer",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "A default-configured Application Load Balancer publishes this root continuously alongside the roots synthkit already emits, under dimensions synthkit already models. Its absence is a hole in the AWS/ApplicationELB claim, not a scope boundary.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_unhealthy_state_dns"
+      },
+      "observed_series": [
+        "aws_applicationelb_unhealthy_state_dns_average",
+        "aws_applicationelb_unhealthy_state_dns_maximum",
+        "aws_applicationelb_unhealthy_state_dns_minimum",
+        "aws_applicationelb_unhealthy_state_dns_sample_count",
+        "aws_applicationelb_unhealthy_state_dns_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "Reality publishes this ALB target-health/zonal state root, but the corpus records its value set as elided and available documentation retrieved for this decision did not establish whether a default-configured load balancer publishes it continuously or only while an optional target-health or zonal capability is active. Emitting it unconditionally could be wrong, so the verdict is withheld rather than guessed.",
+      "cantfind_pending": "SK-92"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_applicationelb_unhealthy_state_routing"
+      },
+      "observed_series": [
+        "aws_applicationelb_unhealthy_state_routing_average",
+        "aws_applicationelb_unhealthy_state_routing_maximum",
+        "aws_applicationelb_unhealthy_state_routing_minimum",
+        "aws_applicationelb_unhealthy_state_routing_sample_count",
+        "aws_applicationelb_unhealthy_state_routing_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AvailabilityZone",
+          "dimension_LoadBalancer",
+          "dimension_TargetGroup",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-alb"
+      },
+      "group": "cwinfra/AWS-ApplicationELB",
+      "modelled_claim": "synthkit models an Application Load Balancer and emits 12 AWS/ApplicationELB roots plus aws_applicationelb_info under the same dimensions (dimension_LoadBalancer, dimension_TargetGroup, dimension_AvailabilityZone).",
+      "rationale": "Reality publishes this ALB target-health/zonal state root, but the corpus records its value set as elided and available documentation retrieved for this decision did not establish whether a default-configured load balancer publishes it continuously or only while an optional target-health or zonal capability is active. Emitting it unconditionally could be wrong, so the verdict is withheld rather than guessed.",
+      "cantfind_pending": "SK-92"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ebs_volume_avg_iops"
+      },
+      "observed_series": [
+        "aws_ebs_volume_avg_iops_average",
+        "aws_ebs_volume_avg_iops_maximum",
+        "aws_ebs_volume_avg_iops_minimum",
+        "aws_ebs_volume_avg_iops_sample_count",
+        "aws_ebs_volume_avg_iops_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_InstanceId",
+          "dimension_VolumeId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_InstanceId",
+          "dimension_VolumeId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-ebs"
+      },
+      "group": "cwinfra/AWS-EBS",
+      "modelled_claim": "synthkit models EBS volumes and emits 10 AWS/EBS roots plus aws_ebs_info under dimension_VolumeId co-labelled with dimension_InstanceId.",
+      "rationale": "An attached EBS volume publishes this root continuously under dimensions synthkit already models (dimension_VolumeId co-labelled with dimension_InstanceId, live-verified in signals/cw.md).",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ebs_volume_avg_throughput"
+      },
+      "observed_series": [
+        "aws_ebs_volume_avg_throughput_average",
+        "aws_ebs_volume_avg_throughput_maximum",
+        "aws_ebs_volume_avg_throughput_minimum",
+        "aws_ebs_volume_avg_throughput_sample_count",
+        "aws_ebs_volume_avg_throughput_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_InstanceId",
+          "dimension_VolumeId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_InstanceId",
+          "dimension_VolumeId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-ebs"
+      },
+      "group": "cwinfra/AWS-EBS",
+      "modelled_claim": "synthkit models EBS volumes and emits 10 AWS/EBS roots plus aws_ebs_info under dimension_VolumeId co-labelled with dimension_InstanceId.",
+      "rationale": "An attached EBS volume publishes this root continuously under dimensions synthkit already models (dimension_VolumeId co-labelled with dimension_InstanceId, live-verified in signals/cw.md).",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ebs_volume_idle_time"
+      },
+      "observed_series": [
+        "aws_ebs_volume_idle_time_average",
+        "aws_ebs_volume_idle_time_maximum",
+        "aws_ebs_volume_idle_time_minimum",
+        "aws_ebs_volume_idle_time_sample_count",
+        "aws_ebs_volume_idle_time_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_VolumeId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_VolumeId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-ebs"
+      },
+      "group": "cwinfra/AWS-EBS",
+      "modelled_claim": "synthkit models EBS volumes and emits 10 AWS/EBS roots plus aws_ebs_info under dimension_VolumeId co-labelled with dimension_InstanceId.",
+      "rationale": "An attached EBS volume publishes this root continuously under dimensions synthkit already models (dimension_VolumeId co-labelled with dimension_InstanceId, live-verified in signals/cw.md).",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ebs_volume_iopsexceeded_check"
+      },
+      "observed_series": [
+        "aws_ebs_volume_iopsexceeded_check_average",
+        "aws_ebs_volume_iopsexceeded_check_maximum",
+        "aws_ebs_volume_iopsexceeded_check_minimum",
+        "aws_ebs_volume_iopsexceeded_check_sample_count",
+        "aws_ebs_volume_iopsexceeded_check_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_InstanceId",
+          "dimension_VolumeId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_InstanceId",
+          "dimension_VolumeId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-ebs"
+      },
+      "group": "cwinfra/AWS-EBS",
+      "modelled_claim": "synthkit models EBS volumes and emits 10 AWS/EBS roots plus aws_ebs_info under dimension_VolumeId co-labelled with dimension_InstanceId.",
+      "rationale": "An attached EBS volume publishes this root continuously under dimensions synthkit already models (dimension_VolumeId co-labelled with dimension_InstanceId, live-verified in signals/cw.md).",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ebs_volume_stalled_iocheck"
+      },
+      "observed_series": [
+        "aws_ebs_volume_stalled_iocheck_average",
+        "aws_ebs_volume_stalled_iocheck_maximum",
+        "aws_ebs_volume_stalled_iocheck_minimum",
+        "aws_ebs_volume_stalled_iocheck_sample_count",
+        "aws_ebs_volume_stalled_iocheck_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_InstanceId",
+          "dimension_VolumeId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_InstanceId",
+          "dimension_VolumeId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-ebs"
+      },
+      "group": "cwinfra/AWS-EBS",
+      "modelled_claim": "synthkit models EBS volumes and emits 10 AWS/EBS roots plus aws_ebs_info under dimension_VolumeId co-labelled with dimension_InstanceId.",
+      "rationale": "An attached EBS volume publishes this root continuously under dimensions synthkit already models (dimension_VolumeId co-labelled with dimension_InstanceId, live-verified in signals/cw.md).",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ebs_volume_throughput_exceeded_check"
+      },
+      "observed_series": [
+        "aws_ebs_volume_throughput_exceeded_check_average",
+        "aws_ebs_volume_throughput_exceeded_check_maximum",
+        "aws_ebs_volume_throughput_exceeded_check_minimum",
+        "aws_ebs_volume_throughput_exceeded_check_sample_count",
+        "aws_ebs_volume_throughput_exceeded_check_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_InstanceId",
+          "dimension_VolumeId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_InstanceId",
+          "dimension_VolumeId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-ebs"
+      },
+      "group": "cwinfra/AWS-EBS",
+      "modelled_claim": "synthkit models EBS volumes and emits 10 AWS/EBS roots plus aws_ebs_info under dimension_VolumeId co-labelled with dimension_InstanceId.",
+      "rationale": "An attached EBS volume publishes this root continuously under dimensions synthkit already models (dimension_VolumeId co-labelled with dimension_InstanceId, live-verified in signals/cw.md).",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_bytes_per_second_limit"
+      },
+      "observed_series": [
+        "aws_firehose_bytes_per_second_limit_average",
+        "aws_firehose_bytes_per_second_limit_maximum",
+        "aws_firehose_bytes_per_second_limit_minimum",
+        "aws_firehose_bytes_per_second_limit_sample_count",
+        "aws_firehose_bytes_per_second_limit_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_delivery_to_http_endpoint_bytes"
+      },
+      "observed_series": [
+        "aws_firehose_delivery_to_http_endpoint_bytes_average",
+        "aws_firehose_delivery_to_http_endpoint_bytes_maximum",
+        "aws_firehose_delivery_to_http_endpoint_bytes_minimum",
+        "aws_firehose_delivery_to_http_endpoint_bytes_sample_count",
+        "aws_firehose_delivery_to_http_endpoint_bytes_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_delivery_to_http_endpoint_processed_bytes"
+      },
+      "observed_series": [
+        "aws_firehose_delivery_to_http_endpoint_processed_bytes_average",
+        "aws_firehose_delivery_to_http_endpoint_processed_bytes_maximum",
+        "aws_firehose_delivery_to_http_endpoint_processed_bytes_minimum",
+        "aws_firehose_delivery_to_http_endpoint_processed_bytes_sample_count",
+        "aws_firehose_delivery_to_http_endpoint_processed_bytes_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_delivery_to_http_endpoint_processed_records"
+      },
+      "observed_series": [
+        "aws_firehose_delivery_to_http_endpoint_processed_records_average",
+        "aws_firehose_delivery_to_http_endpoint_processed_records_maximum",
+        "aws_firehose_delivery_to_http_endpoint_processed_records_minimum",
+        "aws_firehose_delivery_to_http_endpoint_processed_records_sample_count",
+        "aws_firehose_delivery_to_http_endpoint_processed_records_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_delivery_to_http_endpoint_records"
+      },
+      "observed_series": [
+        "aws_firehose_delivery_to_http_endpoint_records_average",
+        "aws_firehose_delivery_to_http_endpoint_records_maximum",
+        "aws_firehose_delivery_to_http_endpoint_records_minimum",
+        "aws_firehose_delivery_to_http_endpoint_records_sample_count",
+        "aws_firehose_delivery_to_http_endpoint_records_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_describe_delivery_stream_latency"
+      },
+      "observed_series": [
+        "aws_firehose_describe_delivery_stream_latency_average",
+        "aws_firehose_describe_delivery_stream_latency_maximum",
+        "aws_firehose_describe_delivery_stream_latency_minimum",
+        "aws_firehose_describe_delivery_stream_latency_sample_count",
+        "aws_firehose_describe_delivery_stream_latency_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_describe_delivery_stream_requests"
+      },
+      "observed_series": [
+        "aws_firehose_describe_delivery_stream_requests_average",
+        "aws_firehose_describe_delivery_stream_requests_maximum",
+        "aws_firehose_describe_delivery_stream_requests_minimum",
+        "aws_firehose_describe_delivery_stream_requests_sample_count",
+        "aws_firehose_describe_delivery_stream_requests_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_failed_validation_bytes"
+      },
+      "observed_series": [
+        "aws_firehose_failed_validation_bytes_average",
+        "aws_firehose_failed_validation_bytes_maximum",
+        "aws_firehose_failed_validation_bytes_minimum",
+        "aws_firehose_failed_validation_bytes_sample_count",
+        "aws_firehose_failed_validation_bytes_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName",
+          "dimension_SourcePartitionId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "dimension_SourcePartitionId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "Reality publishes this root with dimension_SourcePartitionId in addition to dimension_DeliveryStreamName. That dimension is absent from the signals/cw.md AWS/Firehose contract and corresponds to a stream capability synthkit does not model, so whether the modelled stream should carry the dimension at all is undetermined from the corpus and available documentation.",
+      "cantfind_pending": "SK-95"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_failed_validation_records"
+      },
+      "observed_series": [
+        "aws_firehose_failed_validation_records_average",
+        "aws_firehose_failed_validation_records_maximum",
+        "aws_firehose_failed_validation_records_minimum",
+        "aws_firehose_failed_validation_records_sample_count",
+        "aws_firehose_failed_validation_records_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName",
+          "dimension_SourcePartitionId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "dimension_SourcePartitionId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "Reality publishes this root with dimension_SourcePartitionId in addition to dimension_DeliveryStreamName. That dimension is absent from the signals/cw.md AWS/Firehose contract and corresponds to a stream capability synthkit does not model, so whether the modelled stream should carry the dimension at all is undetermined from the corpus and available documentation.",
+      "cantfind_pending": "SK-95"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_incoming_bytes"
+      },
+      "observed_series": [
+        "aws_firehose_incoming_bytes_average",
+        "aws_firehose_incoming_bytes_maximum",
+        "aws_firehose_incoming_bytes_minimum",
+        "aws_firehose_incoming_bytes_sample_count",
+        "aws_firehose_incoming_bytes_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_incoming_put_requests"
+      },
+      "observed_series": [
+        "aws_firehose_incoming_put_requests_average",
+        "aws_firehose_incoming_put_requests_maximum",
+        "aws_firehose_incoming_put_requests_minimum",
+        "aws_firehose_incoming_put_requests_sample_count",
+        "aws_firehose_incoming_put_requests_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_incoming_records"
+      },
+      "observed_series": [
+        "aws_firehose_incoming_records_average",
+        "aws_firehose_incoming_records_maximum",
+        "aws_firehose_incoming_records_minimum",
+        "aws_firehose_incoming_records_sample_count",
+        "aws_firehose_incoming_records_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_kmskey_access_denied"
+      },
+      "observed_series": [
+        "aws_firehose_kmskey_access_denied_average",
+        "aws_firehose_kmskey_access_denied_maximum",
+        "aws_firehose_kmskey_access_denied_minimum",
+        "aws_firehose_kmskey_access_denied_sample_count",
+        "aws_firehose_kmskey_access_denied_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "Reality publishes this Firehose key-management or destination-credential error root, but the corpus value set is elided and available documentation retrieved for this decision did not establish whether a stream publishes it continuously at zero or only on an error event. A continuously-published synthetic zero would be a fabricated steady state if the real metric is event-only.",
+      "cantfind_pending": "SK-94"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_kmskey_disabled"
+      },
+      "observed_series": [
+        "aws_firehose_kmskey_disabled_average",
+        "aws_firehose_kmskey_disabled_maximum",
+        "aws_firehose_kmskey_disabled_minimum",
+        "aws_firehose_kmskey_disabled_sample_count",
+        "aws_firehose_kmskey_disabled_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "Reality publishes this Firehose key-management or destination-credential error root, but the corpus value set is elided and available documentation retrieved for this decision did not establish whether a stream publishes it continuously at zero or only on an error event. A continuously-published synthetic zero would be a fabricated steady state if the real metric is event-only.",
+      "cantfind_pending": "SK-94"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_kmskey_invalid_state"
+      },
+      "observed_series": [
+        "aws_firehose_kmskey_invalid_state_average",
+        "aws_firehose_kmskey_invalid_state_maximum",
+        "aws_firehose_kmskey_invalid_state_minimum",
+        "aws_firehose_kmskey_invalid_state_sample_count",
+        "aws_firehose_kmskey_invalid_state_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "Reality publishes this Firehose key-management or destination-credential error root, but the corpus value set is elided and available documentation retrieved for this decision did not establish whether a stream publishes it continuously at zero or only on an error event. A continuously-published synthetic zero would be a fabricated steady state if the real metric is event-only.",
+      "cantfind_pending": "SK-94"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_kmskey_not_found"
+      },
+      "observed_series": [
+        "aws_firehose_kmskey_not_found_average",
+        "aws_firehose_kmskey_not_found_maximum",
+        "aws_firehose_kmskey_not_found_minimum",
+        "aws_firehose_kmskey_not_found_sample_count",
+        "aws_firehose_kmskey_not_found_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "Reality publishes this Firehose key-management or destination-credential error root, but the corpus value set is elided and available documentation retrieved for this decision did not establish whether a stream publishes it continuously at zero or only on an error event. A continuously-published synthetic zero would be a fabricated steady state if the real metric is event-only.",
+      "cantfind_pending": "SK-94"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_put_record_batch_bytes"
+      },
+      "observed_series": [
+        "aws_firehose_put_record_batch_bytes_average",
+        "aws_firehose_put_record_batch_bytes_maximum",
+        "aws_firehose_put_record_batch_bytes_minimum",
+        "aws_firehose_put_record_batch_bytes_sample_count",
+        "aws_firehose_put_record_batch_bytes_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_put_record_batch_latency"
+      },
+      "observed_series": [
+        "aws_firehose_put_record_batch_latency_average",
+        "aws_firehose_put_record_batch_latency_maximum",
+        "aws_firehose_put_record_batch_latency_minimum",
+        "aws_firehose_put_record_batch_latency_sample_count",
+        "aws_firehose_put_record_batch_latency_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_put_record_batch_records"
+      },
+      "observed_series": [
+        "aws_firehose_put_record_batch_records_average",
+        "aws_firehose_put_record_batch_records_maximum",
+        "aws_firehose_put_record_batch_records_minimum",
+        "aws_firehose_put_record_batch_records_sample_count",
+        "aws_firehose_put_record_batch_records_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_put_record_batch_requests"
+      },
+      "observed_series": [
+        "aws_firehose_put_record_batch_requests_average",
+        "aws_firehose_put_record_batch_requests_maximum",
+        "aws_firehose_put_record_batch_requests_minimum",
+        "aws_firehose_put_record_batch_requests_sample_count",
+        "aws_firehose_put_record_batch_requests_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_put_record_bytes"
+      },
+      "observed_series": [
+        "aws_firehose_put_record_bytes_average",
+        "aws_firehose_put_record_bytes_maximum",
+        "aws_firehose_put_record_bytes_minimum",
+        "aws_firehose_put_record_bytes_sample_count",
+        "aws_firehose_put_record_bytes_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_put_record_latency"
+      },
+      "observed_series": [
+        "aws_firehose_put_record_latency_average",
+        "aws_firehose_put_record_latency_maximum",
+        "aws_firehose_put_record_latency_minimum",
+        "aws_firehose_put_record_latency_sample_count",
+        "aws_firehose_put_record_latency_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_put_record_requests"
+      },
+      "observed_series": [
+        "aws_firehose_put_record_requests_average",
+        "aws_firehose_put_record_requests_maximum",
+        "aws_firehose_put_record_requests_minimum",
+        "aws_firehose_put_record_requests_sample_count",
+        "aws_firehose_put_record_requests_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_put_requests_per_second_limit"
+      },
+      "observed_series": [
+        "aws_firehose_put_requests_per_second_limit_average",
+        "aws_firehose_put_requests_per_second_limit_maximum",
+        "aws_firehose_put_requests_per_second_limit_minimum",
+        "aws_firehose_put_requests_per_second_limit_sample_count",
+        "aws_firehose_put_requests_per_second_limit_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_records_per_second_limit"
+      },
+      "observed_series": [
+        "aws_firehose_records_per_second_limit_average",
+        "aws_firehose_records_per_second_limit_maximum",
+        "aws_firehose_records_per_second_limit_minimum",
+        "aws_firehose_records_per_second_limit_sample_count",
+        "aws_firehose_records_per_second_limit_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_secrets_manager_access_denied_exception"
+      },
+      "observed_series": [
+        "aws_firehose_secrets_manager_access_denied_exception_average",
+        "aws_firehose_secrets_manager_access_denied_exception_maximum",
+        "aws_firehose_secrets_manager_access_denied_exception_minimum",
+        "aws_firehose_secrets_manager_access_denied_exception_sample_count",
+        "aws_firehose_secrets_manager_access_denied_exception_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "unresolved",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "Reality publishes this Firehose key-management or destination-credential error root, but the corpus value set is elided and available documentation retrieved for this decision did not establish whether a stream publishes it continuously at zero or only on an error event. A continuously-published synthetic zero would be a fabricated steady state if the real metric is event-only.",
+      "cantfind_pending": "SK-94"
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_firehose_throttled_records"
+      },
+      "observed_series": [
+        "aws_firehose_throttled_records_average",
+        "aws_firehose_throttled_records_maximum",
+        "aws_firehose_throttled_records_minimum",
+        "aws_firehose_throttled_records_sample_count",
+        "aws_firehose_throttled_records_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_DeliveryStreamName"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_DeliveryStreamName",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-firehose"
+      },
+      "group": "cwinfra/AWS-Firehose",
+      "modelled_claim": "synthkit models a Firehose delivery stream and emits 2 AWS/Firehose roots plus aws_firehose_info under dimension_DeliveryStreamName. signals/cw.md already records that the namespace has more roots than are emitted.",
+      "rationale": "A Firehose delivery stream publishes this root continuously as part of its normal ingest and delivery accounting, under the dimension synthkit already models. synthkit claims the namespace; the two emitted roots cover only the delivery-success view.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_natgateway_bytes_in_from_destination"
+      },
+      "observed_series": [
+        "aws_natgateway_bytes_in_from_destination_average",
+        "aws_natgateway_bytes_in_from_destination_maximum",
+        "aws_natgateway_bytes_in_from_destination_minimum",
+        "aws_natgateway_bytes_in_from_destination_sample_count",
+        "aws_natgateway_bytes_in_from_destination_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_NatGatewayId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_NatGatewayId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-natgw"
+      },
+      "group": "cwinfra/AWS-NATGateway",
+      "modelled_claim": "synthkit models a NAT gateway and emits 6 AWS/NATGateway roots plus aws_natgateway_info under dimension_NatGatewayId.",
+      "rationale": "A NAT gateway publishes this root continuously. synthkit emits only one of the four directional byte counters and none of the four packet counters, so any ingress/egress or drop-ratio view built on the modelled estate is arithmetically incomplete.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_natgateway_bytes_in_from_source"
+      },
+      "observed_series": [
+        "aws_natgateway_bytes_in_from_source_average",
+        "aws_natgateway_bytes_in_from_source_maximum",
+        "aws_natgateway_bytes_in_from_source_minimum",
+        "aws_natgateway_bytes_in_from_source_sample_count",
+        "aws_natgateway_bytes_in_from_source_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_NatGatewayId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_NatGatewayId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-natgw"
+      },
+      "group": "cwinfra/AWS-NATGateway",
+      "modelled_claim": "synthkit models a NAT gateway and emits 6 AWS/NATGateway roots plus aws_natgateway_info under dimension_NatGatewayId.",
+      "rationale": "A NAT gateway publishes this root continuously. synthkit emits only one of the four directional byte counters and none of the four packet counters, so any ingress/egress or drop-ratio view built on the modelled estate is arithmetically incomplete.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_natgateway_bytes_out_to_source"
+      },
+      "observed_series": [
+        "aws_natgateway_bytes_out_to_source_average",
+        "aws_natgateway_bytes_out_to_source_maximum",
+        "aws_natgateway_bytes_out_to_source_minimum",
+        "aws_natgateway_bytes_out_to_source_sample_count",
+        "aws_natgateway_bytes_out_to_source_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_NatGatewayId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_NatGatewayId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-natgw"
+      },
+      "group": "cwinfra/AWS-NATGateway",
+      "modelled_claim": "synthkit models a NAT gateway and emits 6 AWS/NATGateway roots plus aws_natgateway_info under dimension_NatGatewayId.",
+      "rationale": "A NAT gateway publishes this root continuously. synthkit emits only one of the four directional byte counters and none of the four packet counters, so any ingress/egress or drop-ratio view built on the modelled estate is arithmetically incomplete.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_natgateway_packets_in_from_destination"
+      },
+      "observed_series": [
+        "aws_natgateway_packets_in_from_destination_average",
+        "aws_natgateway_packets_in_from_destination_maximum",
+        "aws_natgateway_packets_in_from_destination_minimum",
+        "aws_natgateway_packets_in_from_destination_sample_count",
+        "aws_natgateway_packets_in_from_destination_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_NatGatewayId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_NatGatewayId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-natgw"
+      },
+      "group": "cwinfra/AWS-NATGateway",
+      "modelled_claim": "synthkit models a NAT gateway and emits 6 AWS/NATGateway roots plus aws_natgateway_info under dimension_NatGatewayId.",
+      "rationale": "A NAT gateway publishes this root continuously. synthkit emits only one of the four directional byte counters and none of the four packet counters, so any ingress/egress or drop-ratio view built on the modelled estate is arithmetically incomplete.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_natgateway_packets_in_from_source"
+      },
+      "observed_series": [
+        "aws_natgateway_packets_in_from_source_average",
+        "aws_natgateway_packets_in_from_source_maximum",
+        "aws_natgateway_packets_in_from_source_minimum",
+        "aws_natgateway_packets_in_from_source_sample_count",
+        "aws_natgateway_packets_in_from_source_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_NatGatewayId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_NatGatewayId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-natgw"
+      },
+      "group": "cwinfra/AWS-NATGateway",
+      "modelled_claim": "synthkit models a NAT gateway and emits 6 AWS/NATGateway roots plus aws_natgateway_info under dimension_NatGatewayId.",
+      "rationale": "A NAT gateway publishes this root continuously. synthkit emits only one of the four directional byte counters and none of the four packet counters, so any ingress/egress or drop-ratio view built on the modelled estate is arithmetically incomplete.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_natgateway_packets_out_to_destination"
+      },
+      "observed_series": [
+        "aws_natgateway_packets_out_to_destination_average",
+        "aws_natgateway_packets_out_to_destination_maximum",
+        "aws_natgateway_packets_out_to_destination_minimum",
+        "aws_natgateway_packets_out_to_destination_sample_count",
+        "aws_natgateway_packets_out_to_destination_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_NatGatewayId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_NatGatewayId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-natgw"
+      },
+      "group": "cwinfra/AWS-NATGateway",
+      "modelled_claim": "synthkit models a NAT gateway and emits 6 AWS/NATGateway roots plus aws_natgateway_info under dimension_NatGatewayId.",
+      "rationale": "A NAT gateway publishes this root continuously. synthkit emits only one of the four directional byte counters and none of the four packet counters, so any ingress/egress or drop-ratio view built on the modelled estate is arithmetically incomplete.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_natgateway_packets_out_to_source"
+      },
+      "observed_series": [
+        "aws_natgateway_packets_out_to_source_average",
+        "aws_natgateway_packets_out_to_source_maximum",
+        "aws_natgateway_packets_out_to_source_minimum",
+        "aws_natgateway_packets_out_to_source_sample_count",
+        "aws_natgateway_packets_out_to_source_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_NatGatewayId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_NatGatewayId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-natgw"
+      },
+      "group": "cwinfra/AWS-NATGateway",
+      "modelled_claim": "synthkit models a NAT gateway and emits 6 AWS/NATGateway roots plus aws_natgateway_info under dimension_NatGatewayId.",
+      "rationale": "A NAT gateway publishes this root continuously. synthkit emits only one of the four directional byte counters and none of the four packet counters, so any ingress/egress or drop-ratio view built on the modelled estate is arithmetically incomplete.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_natgateway_peak_bytes_per_second"
+      },
+      "observed_series": [
+        "aws_natgateway_peak_bytes_per_second_average",
+        "aws_natgateway_peak_bytes_per_second_maximum",
+        "aws_natgateway_peak_bytes_per_second_minimum",
+        "aws_natgateway_peak_bytes_per_second_sample_count",
+        "aws_natgateway_peak_bytes_per_second_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_NatGatewayId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_NatGatewayId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-natgw"
+      },
+      "group": "cwinfra/AWS-NATGateway",
+      "modelled_claim": "synthkit models a NAT gateway and emits 6 AWS/NATGateway roots plus aws_natgateway_info under dimension_NatGatewayId.",
+      "rationale": "A NAT gateway publishes this root continuously. synthkit emits only one of the four directional byte counters and none of the four packet counters, so any ingress/egress or drop-ratio view built on the modelled estate is arithmetically incomplete.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_natgateway_peak_packets_per_second"
+      },
+      "observed_series": [
+        "aws_natgateway_peak_packets_per_second_average",
+        "aws_natgateway_peak_packets_per_second_maximum",
+        "aws_natgateway_peak_packets_per_second_minimum",
+        "aws_natgateway_peak_packets_per_second_sample_count",
+        "aws_natgateway_peak_packets_per_second_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_NatGatewayId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_NatGatewayId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/cwinfra",
+        "signals": "signals/cw.md",
+        "slug": "cw-natgw"
+      },
+      "group": "cwinfra/AWS-NATGateway",
+      "modelled_claim": "synthkit models a NAT gateway and emits 6 AWS/NATGateway roots plus aws_natgateway_info under dimension_NatGatewayId.",
+      "rationale": "A NAT gateway publishes this root continuously. synthkit emits only one of the four directional byte counters and none of the four packet counters, so any ingress/egress or drop-ratio view built on the modelled estate is arithmetically incomplete.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_cpucredit_usage"
+      },
+      "observed_series": [
+        "aws_ec2_cpucredit_usage_average",
+        "aws_ec2_cpucredit_usage_maximum",
+        "aws_ec2_cpucredit_usage_minimum",
+        "aws_ec2_cpucredit_usage_sample_count",
+        "aws_ec2_cpucredit_usage_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_cpusurplus_credit_balance"
+      },
+      "observed_series": [
+        "aws_ec2_cpusurplus_credit_balance_average",
+        "aws_ec2_cpusurplus_credit_balance_maximum",
+        "aws_ec2_cpusurplus_credit_balance_minimum",
+        "aws_ec2_cpusurplus_credit_balance_sample_count",
+        "aws_ec2_cpusurplus_credit_balance_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_cpusurplus_credits_charged"
+      },
+      "observed_series": [
+        "aws_ec2_cpusurplus_credits_charged_average",
+        "aws_ec2_cpusurplus_credits_charged_maximum",
+        "aws_ec2_cpusurplus_credits_charged_minimum",
+        "aws_ec2_cpusurplus_credits_charged_sample_count",
+        "aws_ec2_cpusurplus_credits_charged_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_ebsbyte_balance_percent"
+      },
+      "observed_series": [
+        "aws_ec2_ebsbyte_balance_percent_average",
+        "aws_ec2_ebsbyte_balance_percent_maximum",
+        "aws_ec2_ebsbyte_balance_percent_minimum",
+        "aws_ec2_ebsbyte_balance_percent_sample_count",
+        "aws_ec2_ebsbyte_balance_percent_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_ebsiobalance_percent"
+      },
+      "observed_series": [
+        "aws_ec2_ebsiobalance_percent_average",
+        "aws_ec2_ebsiobalance_percent_maximum",
+        "aws_ec2_ebsiobalance_percent_minimum",
+        "aws_ec2_ebsiobalance_percent_sample_count",
+        "aws_ec2_ebsiobalance_percent_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_instance_ebsiopsexceeded_check"
+      },
+      "observed_series": [
+        "aws_ec2_instance_ebsiopsexceeded_check_average",
+        "aws_ec2_instance_ebsiopsexceeded_check_maximum",
+        "aws_ec2_instance_ebsiopsexceeded_check_minimum",
+        "aws_ec2_instance_ebsiopsexceeded_check_sample_count",
+        "aws_ec2_instance_ebsiopsexceeded_check_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_instance_ebsthroughput_exceeded_check"
+      },
+      "observed_series": [
+        "aws_ec2_instance_ebsthroughput_exceeded_check_average",
+        "aws_ec2_instance_ebsthroughput_exceeded_check_maximum",
+        "aws_ec2_instance_ebsthroughput_exceeded_check_minimum",
+        "aws_ec2_instance_ebsthroughput_exceeded_check_sample_count",
+        "aws_ec2_instance_ebsthroughput_exceeded_check_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_metadata_no_token"
+      },
+      "observed_series": [
+        "aws_ec2_metadata_no_token_average",
+        "aws_ec2_metadata_no_token_maximum",
+        "aws_ec2_metadata_no_token_minimum",
+        "aws_ec2_metadata_no_token_sample_count",
+        "aws_ec2_metadata_no_token_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_metadata_no_token_rejected"
+      },
+      "observed_series": [
+        "aws_ec2_metadata_no_token_rejected_average",
+        "aws_ec2_metadata_no_token_rejected_maximum",
+        "aws_ec2_metadata_no_token_rejected_minimum",
+        "aws_ec2_metadata_no_token_rejected_sample_count",
+        "aws_ec2_metadata_no_token_rejected_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_network_packets_in"
+      },
+      "observed_series": [
+        "aws_ec2_network_packets_in_average",
+        "aws_ec2_network_packets_in_maximum",
+        "aws_ec2_network_packets_in_minimum",
+        "aws_ec2_network_packets_in_sample_count",
+        "aws_ec2_network_packets_in_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "cw",
+        "substrate": "eks",
+        "family": "aws_ec2_network_packets_out"
+      },
+      "observed_series": [
+        "aws_ec2_network_packets_out_average",
+        "aws_ec2_network_packets_out_maximum",
+        "aws_ec2_network_packets_out_minimum",
+        "aws_ec2_network_packets_out_sample_count",
+        "aws_ec2_network_packets_out_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_average",
+          "_maximum",
+          "_minimum",
+          "_sample_count",
+          "_sum"
+        ],
+        "dimensions": [
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId"
+        ],
+        "emission_label_keys": [
+          "account_id",
+          "dimension_AutoScalingGroupName",
+          "dimension_InstanceId",
+          "job",
+          "name",
+          "namespace",
+          "region"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site",
+          "service"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/cw/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/ec2",
+        "signals": "signals/cw.md",
+        "slug": "cw-ec2"
+      },
+      "group": "ec2/AWS-EC2",
+      "modelled_claim": "synthkit models EC2 instances joined to the cluster nodes and emits 12 AWS/EC2 roots plus aws_ec2_info at both the dimension_AutoScalingGroupName and dimension_InstanceId levels.",
+      "rationale": "An EC2 instance publishes this root continuously alongside the roots synthkit already emits, at dimension levels synthkit already models. synthkit already emits conditional siblings of the same class (cpucredit_balance is burstable-only, status_check_failed_* are pinned at 0), so conditionality is not a scope boundary here.",
+      "cantfind_pending": null
+    },
+    {
+      "key": {
+        "area": "k8s",
+        "substrate": "k3s",
+        "family": "storage_operation_duration_seconds"
+      },
+      "observed_series": [
+        "storage_operation_duration_seconds"
+      ],
+      "observed": {
+        "instrument_types": [
+          "histogram"
+        ],
+        "stat_suffixes": [],
+        "dimensions": [],
+        "emission_label_keys": [
+          "cluster",
+          "instance",
+          "job",
+          "k8s_cluster_name",
+          "migrated",
+          "node",
+          "operation_name",
+          "source",
+          "status",
+          "volume_plugin"
+        ],
+        "read_path_label_keys": []
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/k8s/k3d-lab.json",
+          "source_kind": "k3d_lab",
+          "substrate": "k3s",
+          "collector": "grafana/k8s-monitoring",
+          "collector_version": "4.4.0",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "verdict": "should_emit",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/k8scluster",
+        "signals": "signals/k8s.md",
+        "slug": null
+      },
+      "group": "k8scluster/kubelet-storage",
+      "modelled_claim": "synthkit models the kubelet scrape and already emits a counter named storage_operation_duration_seconds_count with the captured label set (operation_name, status, volume_plugin, migrated, node).",
+      "rationale": "The real kubelet publishes this as a classic histogram (corpus instrument_types=[histogram], histogram.classic=true). synthkit publishes a standalone counter named storage_operation_duration_seconds_count, so the _bucket and _sum components of the family are absent and no quantile can be computed. Same resource, same labels, same scrape.",
+      "cantfind_pending": null
+    }
+  ],
+  "not_coverage_gaps": [
+    {
+      "key": {
+        "area": "k8s",
+        "substrate": "eks",
+        "family": "kubeproxy_conntrack_reconciler_sync_duration_seconds"
+      },
+      "observed_series": [
+        "kubeproxy_conntrack_reconciler_sync_duration_seconds_bucket",
+        "kubeproxy_conntrack_reconciler_sync_duration_seconds_count",
+        "kubeproxy_conntrack_reconciler_sync_duration_seconds_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_bucket",
+          "_count",
+          "_sum"
+        ],
+        "dimensions": [],
+        "emission_label_keys": [
+          "cluster",
+          "instance",
+          "ip_family",
+          "job",
+          "k8s_cluster_name",
+          "le"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/k8s/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "reason": "not_a_coverage_gap",
+      "note": "synthkit emits this family. The gcx read-back producer records raw Prometheus classic-histogram component series (_bucket/_count/_sum) as separate metric entries, while internal/inventory/synth.go and e2e/inventory/inventory.go both fold those components into the histogram family base. The finding is producer asymmetry, not missing emission. It disappears when the read-back producer folds component suffixes.",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/k8scluster",
+        "signals": "signals/k8s.md",
+        "slug": null
+      },
+      "group": "k8scluster/kube-proxy"
+    },
+    {
+      "key": {
+        "area": "k8s",
+        "substrate": "eks",
+        "family": "kubeproxy_network_programming_duration_seconds"
+      },
+      "observed_series": [
+        "kubeproxy_network_programming_duration_seconds_bucket",
+        "kubeproxy_network_programming_duration_seconds_count",
+        "kubeproxy_network_programming_duration_seconds_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_bucket",
+          "_count",
+          "_sum"
+        ],
+        "dimensions": [],
+        "emission_label_keys": [
+          "cluster",
+          "instance",
+          "ip_family",
+          "job",
+          "k8s_cluster_name",
+          "le"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/k8s/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "reason": "not_a_coverage_gap",
+      "note": "synthkit emits this family. The gcx read-back producer records raw Prometheus classic-histogram component series (_bucket/_count/_sum) as separate metric entries, while internal/inventory/synth.go and e2e/inventory/inventory.go both fold those components into the histogram family base. The finding is producer asymmetry, not missing emission. It disappears when the read-back producer folds component suffixes.",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/k8scluster",
+        "signals": "signals/k8s.md",
+        "slug": null
+      },
+      "group": "k8scluster/kube-proxy"
+    },
+    {
+      "key": {
+        "area": "k8s",
+        "substrate": "eks",
+        "family": "kubeproxy_sync_full_proxy_rules_duration_seconds"
+      },
+      "observed_series": [
+        "kubeproxy_sync_full_proxy_rules_duration_seconds_bucket",
+        "kubeproxy_sync_full_proxy_rules_duration_seconds_count",
+        "kubeproxy_sync_full_proxy_rules_duration_seconds_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_bucket",
+          "_count",
+          "_sum"
+        ],
+        "dimensions": [],
+        "emission_label_keys": [
+          "cluster",
+          "instance",
+          "ip_family",
+          "job",
+          "k8s_cluster_name",
+          "le"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/k8s/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "reason": "not_a_coverage_gap",
+      "note": "synthkit emits this family. The gcx read-back producer records raw Prometheus classic-histogram component series (_bucket/_count/_sum) as separate metric entries, while internal/inventory/synth.go and e2e/inventory/inventory.go both fold those components into the histogram family base. The finding is producer asymmetry, not missing emission. It disappears when the read-back producer folds component suffixes.",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/k8scluster",
+        "signals": "signals/k8s.md",
+        "slug": null
+      },
+      "group": "k8scluster/kube-proxy"
+    },
+    {
+      "key": {
+        "area": "k8s",
+        "substrate": "eks",
+        "family": "kubeproxy_sync_partial_proxy_rules_duration_seconds"
+      },
+      "observed_series": [
+        "kubeproxy_sync_partial_proxy_rules_duration_seconds_bucket",
+        "kubeproxy_sync_partial_proxy_rules_duration_seconds_count",
+        "kubeproxy_sync_partial_proxy_rules_duration_seconds_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_bucket",
+          "_count",
+          "_sum"
+        ],
+        "dimensions": [],
+        "emission_label_keys": [
+          "cluster",
+          "instance",
+          "ip_family",
+          "job",
+          "k8s_cluster_name",
+          "le"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/k8s/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "reason": "not_a_coverage_gap",
+      "note": "synthkit emits this family. The gcx read-back producer records raw Prometheus classic-histogram component series (_bucket/_count/_sum) as separate metric entries, while internal/inventory/synth.go and e2e/inventory/inventory.go both fold those components into the histogram family base. The finding is producer asymmetry, not missing emission. It disappears when the read-back producer folds component suffixes.",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/k8scluster",
+        "signals": "signals/k8s.md",
+        "slug": null
+      },
+      "group": "k8scluster/kube-proxy"
+    },
+    {
+      "key": {
+        "area": "k8s",
+        "substrate": "eks",
+        "family": "kubeproxy_sync_proxy_rules_duration_seconds"
+      },
+      "observed_series": [
+        "kubeproxy_sync_proxy_rules_duration_seconds_bucket",
+        "kubeproxy_sync_proxy_rules_duration_seconds_count",
+        "kubeproxy_sync_proxy_rules_duration_seconds_sum"
+      ],
+      "observed": {
+        "instrument_types": [
+          "unknown"
+        ],
+        "stat_suffixes": [
+          "_bucket",
+          "_count",
+          "_sum"
+        ],
+        "dimensions": [],
+        "emission_label_keys": [
+          "cluster",
+          "instance",
+          "ip_family",
+          "job",
+          "k8s_cluster_name",
+          "le"
+        ],
+        "read_path_label_keys": [
+          "__aggregation__",
+          "asserts_env",
+          "asserts_site"
+        ]
+      },
+      "evidence": [
+        {
+          "type": "corpus",
+          "path": "reality-corpus/k8s/eks-live-readback.json",
+          "source_kind": "gcx_live_readback",
+          "substrate": "eks",
+          "collector": "grafana/gcx",
+          "collector_version": "1.1.1",
+          "captured_on": "2026-08-25"
+        }
+      ],
+      "decided_on": "2026-08-27",
+      "reason": "not_a_coverage_gap",
+      "note": "synthkit emits this family. The gcx read-back producer records raw Prometheus classic-histogram component series (_bucket/_count/_sum) as separate metric entries, while internal/inventory/synth.go and e2e/inventory/inventory.go both fold those components into the histogram family base. The finding is producer asymmetry, not missing emission. It disappears when the read-back producer folds component suffixes.",
+      "owner": {
+        "kind": "construct",
+        "package": "internal/construct/k8scluster",
+        "signals": "signals/k8s.md",
+        "slug": null
+      },
+      "group": "k8scluster/kube-proxy"
+    }
+  ]
+}

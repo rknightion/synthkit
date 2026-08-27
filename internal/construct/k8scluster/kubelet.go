@@ -29,6 +29,14 @@ var proberHistoBounds = []float64{
 	0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
 }
 
+// podStartHistoBounds are the le boundaries kubelet actually registers for
+// kubelet_pod_start_duration_seconds — a custom scheme, NOT the prom-client default set used
+// by the other kubelet histograms. Confirmed against the live capture in
+// reality-corpus/k8s/k3d-lab.json (SKT-0010.03, 2026-08-27).
+var podStartHistoBounds = []float64{
+	0.5, 1, 2, 3, 4, 5, 6, 8, 10, 20, 30, 45, 60, 120, 180, 240, 300, 360, 480, 600, 900, 1200, 1800, 2700, 3600,
+}
+
 // storageOps are the storage operation_name values emitted by the EBS CSI driver on a live cluster
 // (live reference recon 2026-06-16). volume_attach is a legacy in-tree op absent from the CSI path.
 var storageOps = []string{"volume_mount", "volume_unmount", "unmount_device", "verify_controller_attached_volume", "volume_apply_access_control"}
@@ -178,16 +186,17 @@ func emitKubelet(
 		// / §kubelet_pod_worker_*); the other three carry only le.
 		hb := kubeletHistoBounds
 		for _, h := range []struct {
-			name string
-			mean float64
+			name   string
+			mean   float64
+			bounds []float64
 		}{
-			{"kubelet_pleg_relist_duration_seconds", 0.04},
-			{"kubelet_pleg_relist_interval_seconds", 1.0},
-			{"kubelet_pod_start_duration_seconds", 0.5},
+			{"kubelet_pleg_relist_duration_seconds", 0.04, hb},
+			{"kubelet_pleg_relist_interval_seconds", 1.0, hb},
+			{"kubelet_pod_start_duration_seconds", 0.5, podStartHistoBounds},
 		} {
 			samples := 3 + w.Shape.IntN(5)
 			for s := 0; s < samples; s++ {
-				st.Observe(h.name, kubBase, hb, statelib.LEBare, h.mean*(0.5+w.Shape.Float64()))
+				st.Observe(h.name, kubBase, h.bounds, statelib.LEBare, h.mean*(0.5+w.Shape.Float64()))
 			}
 		}
 		// operation_type-fanned histograms.

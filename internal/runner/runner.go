@@ -46,6 +46,8 @@ type Sinks struct {
 	Profiles core.PyroscopeWriter
 	// OTLPMetrics is the optional native-OTLP metrics lane (nil = inert). Reuses the OTLP gateway.
 	OTLPMetrics core.OTLPMetricWriter
+	// OTLPLogs is the optional native-OTLP logs lane (nil = inert). Reuses the OTLP gateway.
+	OTLPLogs core.OTLPLogWriter
 	// Sigil is the optional sigil AI-Observability generation-ingest lane (nil = inert; the
 	// aiagent workload's generation lane no-ops while traces/metrics still flow).
 	Sigil core.SigilWriter
@@ -481,6 +483,9 @@ func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.Sig
 	}
 	if slices.Contains(signals, core.OTLPMetrics) && r.sinks.OTLPMetrics != nil {
 		w.OTLPMetrics = &stampedOTLPMetrics{sink: r.queues.OTLPMetrics, label: label}
+	}
+	if slices.Contains(signals, core.OTLPLogs) && r.sinks.OTLPLogs != nil {
+		w.OTLPLogs = &stampedOTLPLogs{sink: r.queues.OTLPLogs, label: label}
 	}
 	if slices.Contains(signals, core.Sigil) && r.sinks.Sigil != nil {
 		// Substrate-scoped: no blueprint stamping (the ingest proto has no label field). The queue
@@ -1150,6 +1155,9 @@ func (r *Runner) DeliveryReadinessLanes() []DeliveryReadinessLane {
 		}
 		if w.OTLPMetrics != nil {
 			add("otlpmetrics", interval)
+		}
+		if w.OTLPLogs != nil {
+			add("otlplogs", interval)
 		}
 		if w.Sigil != nil {
 			add("sigil", interval)

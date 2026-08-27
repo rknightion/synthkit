@@ -190,7 +190,7 @@ metrics:
   - {root: coredns_cache_misses_total, type: counter, unit: count, v: ok}
   - {root: coredns_cache_evictions_total, type: counter, unit: count, v: ok}
   - {root: coredns_forward_healthcheck_broken_total, type: counter, unit: count, v: ok}
-  - {root: coredns_proxy_request_duration_seconds, type: histogram, unit: seconds, v: ok, note: 'proxy_name="forward",to,rcode'}
+  - {root: coredns_proxy_request_duration_seconds, type: histogram, unit: seconds, v: ok, buckets: [0.00025,0.0005,0.001,0.002,0.004,0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.024,2.048,4.096,8.192], note: 'proxy_name="forward",to,rcode; buckets confirmed via reality-corpus/k8s-addons/k3d-lab.json 2026-08-27 (SKT-0010.03) — synth previously truncated at 2.048, now matches through 8.192'}
   - {root: coredns_proxy_healthcheck_failures_total, type: counter, unit: count, v: ok}
   - {root: coredns_health_request_duration_seconds, type: histogram, unit: seconds, v: ok}
   - {root: coredns_panics_total, type: counter, unit: count, v: ok, note: "=0 always"}

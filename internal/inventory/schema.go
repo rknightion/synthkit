@@ -39,7 +39,8 @@ const (
 )
 
 // Schema is the canonical inventory document. Provenance, when present, applies to every
-// entry in the document; synth-side exports omit it, while real captures populate it.
+// entry in the document. A real capture records where and when it observed the estate; a
+// synth-side export records the selector labels its own routing layer stamps.
 type Schema struct {
 	SchemaVersion string      `json:"schema_version"`
 	Provenance    *Provenance `json:"provenance,omitempty"`
@@ -55,6 +56,15 @@ type Provenance struct {
 	Substrate    string `json:"substrate"`
 	ChartVersion string `json:"chart_version"`
 	CapturedAt   string `json:"captured_at"`
+	// SelectorLabels are label keys the producing side stamps for its own routing rather
+	// than because a vendor emits them. synthkit's composition root stamps the blueprint
+	// selector on every blueprint-scoped series, stream and span, so no capture of collector
+	// egress can ever carry it and it is not a name synthkit invented. The producer declares
+	// the keys here — sourced from the constant the runner defines, never a literal written
+	// twice — and the comparator removes them from that side before comparison. A synth-only
+	// key that is NOT declared here is still a contradiction: that is the never-invent-a-name
+	// rule and this field must not become a general suppression list.
+	SelectorLabels []string `json:"selector_labels,omitempty"`
 }
 
 type Attribute struct {

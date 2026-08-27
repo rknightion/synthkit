@@ -33,9 +33,33 @@ type Envelope struct {
 	Counts        map[string]int `json:"counts"`         // per-section counts (nodes, workloads, ...)
 }
 
+// Cluster identity sources, most authoritative first. Recorded verbatim in Cluster.NameSource so
+// an operator can see where the identity came from instead of having to infer it.
+const (
+	// NameSourceCollector is the cluster name the in-cluster metrics collector stamps on every
+	// signal it ships. It is read from the collector's release-info ConfigMap and is the only
+	// source that is guaranteed to join to the cluster's real telemetry.
+	NameSourceCollector = "collector-release-info"
+	// NameSourceEKSARN is the cluster name recovered from an EKS ARN kubeconfig context. It is the
+	// real EKS cluster name but not necessarily the name the telemetry carries.
+	NameSourceEKSARN = "eks-arn-context"
+	// NameSourceContext is a slug of whatever the kubeconfig context happens to be called. It
+	// describes the operator's kubeconfig, not the cluster, and is not authoritative.
+	NameSourceContext = "kubeconfig-context"
+	// NameSourceDefault is the placeholder used when no identity could be discovered at all.
+	NameSourceDefault = "default"
+)
+
+// AuthoritativeNameSource reports whether a Cluster.NameSource value is the identity the cluster's
+// own telemetry carries. Callers that present a captured cluster name must qualify it when this is
+// false: everything other than the collector identity is an inference from the operator's
+// kubeconfig and may not match the cluster label on the real signals.
+func AuthoritativeNameSource(source string) bool { return source == NameSourceCollector }
+
 // Cluster is one inspected cluster.
 type Cluster struct {
-	Name       string      `json:"name"`        // context/cluster name (best-effort)
+	Name       string      `json:"name"`        // cluster identity; see NameSource for provenance
+	NameSource string      `json:"name_source"` // collector-release-info|eks-arn-context|kubeconfig-context|default
 	Provider   string      `json:"provider"`    // eks|gke|aks|unknown (from node labels)
 	Region     string      `json:"region"`      // from topology.kubernetes.io/region
 	K8sVersion string      `json:"k8s_version"` // server gitVersion, trimmed to major.minor
@@ -48,26 +72,35 @@ type Cluster struct {
 	Monitoring Monitoring  `json:"monitoring"`
 }
 
-// NodeGroup is synthesized by grouping nodes on (instance_type, provisioner, os).
+// NodeGroup is one real node pool: an EKS managed nodegroup or a Karpenter NodePool, grouped by the
+// pool identity the nodes themselves declare. Nodes carrying neither label family are grouped by
+// (instance_type, os) with provisioner "unknown" rather than being attributed to a pool that does
+// not exist.
 type NodeGroup struct {
-	Name         string `json:"name"`          // eks nodegroup label value, or synthesized key
-	InstanceType string `json:"instance_type"` // node.kubernetes.io/instance-type
-	Count        int    `json:"count"`
-	Provisioner  string `json:"provisioner"` // managed|karpenter|unknown
-	OS           string `json:"os"`          // linux|windows
+	Name string `json:"name"` // eks.amazonaws.com/nodegroup or karpenter.sh/nodepool value
+	// InstanceType is the dominant node.kubernetes.io/instance-type in the pool. A pool may run
+	// several types; InstanceTypes carries the full observed set.
+	InstanceType  string   `json:"instance_type"`
+	InstanceTypes []string `json:"instance_types,omitempty"` // every observed type, sorted, when the pool spans more than one
+	Count         int      `json:"count"`
+	Provisioner   string   `json:"provisioner"` // managed|karpenter|unknown
+	OS            string   `json:"os"`          // linux|windows
 }
 
 // Workload is one Deployment/StatefulSet/DaemonSet.
 type Workload struct {
-	Name        string            `json:"name"`
-	Namespace   string            `json:"namespace"`
-	Kind        string            `json:"kind"` // Deployment|StatefulSet|DaemonSet
-	Replicas    int               `json:"replicas"`
-	Images      []string          `json:"images"`
-	Ports       []int32           `json:"ports"`
-	ProbePaths  []string          `json:"probe_paths"`
-	Labels      map[string]string `json:"labels"`      // pod-template labels
-	Annotations map[string]string `json:"annotations"` // workload-object annotations (e.g. meta.helm.sh/release-name)
+	Name       string            `json:"name"`
+	Namespace  string            `json:"namespace"`
+	Kind       string            `json:"kind"` // Deployment|StatefulSet|DaemonSet
+	Replicas   int               `json:"replicas"`
+	Images     []string          `json:"images"`
+	Ports      []int32           `json:"ports"`
+	ProbePaths []string          `json:"probe_paths"`
+	Labels     map[string]string `json:"labels"` // pod-template labels
+	// Annotations carries only the allowlisted workload-object annotation keys (see
+	// allowedAnnotationKeys). Annotations are never copied wholesale: several well-known keys embed
+	// the object's full spec, container environment values included.
+	Annotations map[string]string `json:"annotations"`
 }
 
 // Service carries call-graph hints; ExternalName surfaces db/cache endpoints.

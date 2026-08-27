@@ -33,17 +33,37 @@ import (
 	sigilv1 "github.com/rknightion/synthkit/internal/sink/sigil/v1"
 )
 
+// Instrument types outside inventory's four-value vocabulary. Prometheus remote-write
+// metadata can declare any OpenMetrics type, and a producer that declares one is real
+// evidence: it is recorded verbatim rather than folded into an approximation.
+const (
+	instrumentSummary  = "summary"
+	instrumentInfo     = "info"
+	instrumentStateSet = "stateset"
+)
+
+// receiptRW1Metadata counts decoded prompb.MetricMetadata records. Remote-write v1 carries them
+// in their own requests, so whether a producer sends any at all is a separate observation from
+// how many samples it sends, and an absent receipt is the honest record of a producer that sent
+// none.
+const receiptRW1Metadata = "prometheus_remote_write_v1_metadata"
+
 // Receiver accepts each synthkit egress lane over HTTP and accumulates the schema
 // (metric names + label values, log sources + stream-label values, trace services + span names,
 // sigil ingest kinds + operation names).
 type Receiver struct {
 	mu  sync.Mutex
 	inv inventory.Schema
+	// declaredInstruments maps a metric family name to the instrument type its producer
+	// declared in remote-write metadata. Remote-write v1 carries metadata in separate
+	// write requests from the samples, so the declaration is held here and applied to the
+	// inventory on Snapshot rather than at sample-decode time.
+	declaredInstruments map[string]string
 }
 
 // New returns a zero-state Receiver ready to use.
 func New() *Receiver {
-	return &Receiver{inv: inventory.New()}
+	return &Receiver{inv: inventory.New(), declaredInstruments: map[string]string{}}
 }
 
 // Handler returns an http.Handler routing all synthkit egress paths.
@@ -81,25 +101,39 @@ func (r *Receiver) handleRW2(w http.ResponseWriter, req *http.Request) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	version := remoteWriteVersion(req)
-	decoded := 0
-	switch version {
+	switch remoteWriteVersion(req) {
 	case "v1":
-		decoded = r.decodeRW1(raw)
+		decoded, metadata := r.decodeRW1(raw)
 		r.inv.AddReceipt(inventory.TransportPrometheusRW1, decoded)
+		r.inv.AddReceipt(receiptRW1Metadata, metadata)
 	case "v2":
-		decoded = r.decodeRW2(raw)
+		decoded, natives := r.decodeRW2(raw)
 		r.inv.AddReceipt(inventory.TransportPrometheusRW2, decoded)
+		writtenHeaders(w, decoded-natives, natives)
 	default:
-		decoded = r.decodeRW2(raw)
+		decoded, natives := r.decodeRW2(raw)
 		if decoded > 0 {
 			r.inv.AddReceipt(inventory.TransportPrometheusRW2, decoded)
-		} else {
-			decoded = r.decodeRW1(raw)
-			r.inv.AddReceipt(inventory.TransportPrometheusRW1, decoded)
+			writtenHeaders(w, decoded-natives, natives)
+			break
 		}
+		decoded, metadata := r.decodeRW1(raw)
+		r.inv.AddReceipt(inventory.TransportPrometheusRW1, decoded)
+		r.inv.AddReceipt(receiptRW1Metadata, metadata)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// writtenHeaders sets the response headers the Remote-Write 2.0 specification makes mandatory
+// for a receiver: a sender reads them to distinguish a full write from a partial or empty one,
+// and a real sender treats their absence as nothing having been written. The counts are of
+// decoded series, since this receiver keeps one observation per series rather than per sample.
+// The header names are the ones the specification fixes. This receiver decodes no exemplars,
+// and reports that as the zero it is.
+func writtenHeaders(w http.ResponseWriter, samples, histograms int) {
+	w.Header().Set("X-Prometheus-Remote-Write-Samples-Written", strconv.Itoa(samples))
+	w.Header().Set("X-Prometheus-Remote-Write-Histograms-Written", strconv.Itoa(histograms))
+	w.Header().Set("X-Prometheus-Remote-Write-Exemplars-Written", "0")
 }
 
 func remoteWriteVersion(req *http.Request) string {
@@ -119,12 +153,15 @@ func remoteWriteVersion(req *http.Request) string {
 	return ""
 }
 
-func (r *Receiver) decodeRW2(raw []byte) int {
+// decodeRW2 returns the number of decoded series and, of those, how many carried a native
+// histogram sample. The split is what the mandatory written-count response headers report.
+func (r *Receiver) decodeRW2(raw []byte) (int, int) {
 	var pb writev2.Request
 	if err := proto.Unmarshal(raw, &pb); err != nil {
-		return 0
+		return 0, 0
 	}
 	decoded := 0
+	natives := 0
 	for _, ts := range pb.Timeseries {
 		if ts == nil {
 			continue
@@ -133,11 +170,15 @@ func (r *Receiver) decodeRW2(raw []byte) int {
 		if name == "" {
 			continue
 		}
+		// The instrument type comes from the producer's own RW2 metadata, or from a
+		// native histogram sample, and never from the series name. A classic-histogram
+		// suffix establishes the family's bucket shape but declares no type.
 		instrument := rw2Instrument(ts)
 		histogram := rw2Histogram(name, labels, ts)
-		if histogram != nil {
-			instrument = inventory.InstrumentHistogram
-		} else if instrument == inventory.InstrumentHistogram {
+		if instrument == inventory.InstrumentUnknown {
+			instrument = seriesInstrument(labels, histogram)
+		}
+		if histogram == nil && instrument == inventory.InstrumentHistogram {
 			// RW2 metadata can describe a classic histogram family even when this
 			// particular series carries no histogram sample. Keep the family shape.
 			histogram = &inventory.Histogram{Classic: true, BucketBounds: []float64{}, NativeSchemas: []int32{}}
@@ -145,8 +186,11 @@ func (r *Receiver) decodeRW2(raw []byte) int {
 		name = normalizedHistogramName(name, histogram != nil)
 		r.inv.AddMetric(name, inventory.TransportPrometheusRW2, instrument, labels, histogram)
 		decoded++
+		if len(ts.Histograms) > 0 {
+			natives++
+		}
 	}
-	return decoded
+	return decoded, natives
 }
 
 func rw2Labels(symbols []string, refs []uint32) (string, map[string]string) {
@@ -219,8 +263,14 @@ func normalizedHistogramName(name string, histogram bool) string {
 	return name
 }
 
-func (r *Receiver) decodeRW1(raw []byte) int {
+// decodeRW1 walks a Prometheus remote-write v1 WriteRequest. Field numbers are those of
+// prompb.WriteRequest in Prometheus v3.12.0 (the pin recorded beside the vendored RW2 proto):
+// timeseries = 1, metadata = 3. Field 2 is reserved. Metadata records arrive in their own
+// write requests on the producer's metadata cadence, so a body can carry either or both.
+// It returns the number of decoded series and the number of decoded metadata records.
+func (r *Receiver) decodeRW1(raw []byte) (int, int) {
 	decoded := 0
+	metadata := 0
 	b := raw
 	for len(b) > 0 {
 		num, typ, n := protowire.ConsumeTag(b)
@@ -228,7 +278,7 @@ func (r *Receiver) decodeRW1(raw []byte) int {
 			break
 		}
 		b = b[n:]
-		if num != 1 || typ != protowire.BytesType {
+		if typ != protowire.BytesType || (num != 1 && num != 3) {
 			skip := protowire.ConsumeFieldValue(num, typ, b)
 			if skip < 0 {
 				break
@@ -236,24 +286,115 @@ func (r *Receiver) decodeRW1(raw []byte) int {
 			b = b[skip:]
 			continue
 		}
-		tsBytes, n := protowire.ConsumeBytes(b)
+		recordBytes, n := protowire.ConsumeBytes(b)
 		if n < 0 {
 			break
 		}
 		b = b[n:]
-		name, labels, histogram := decodeRW1TimeSeries(tsBytes)
+		if num == 3 {
+			family, instrument := decodeRW1MetricMetadata(recordBytes)
+			if family == "" || instrument == "" {
+				continue
+			}
+			r.declaredInstruments[family] = instrument
+			metadata++
+			continue
+		}
+		name, labels, histogram := decodeRW1TimeSeries(recordBytes)
 		if name == "" {
 			continue
 		}
-		instrument := inventory.InstrumentUnknown
+		instrument := seriesInstrument(labels, histogram)
 		if histogram != nil {
-			instrument = inventory.InstrumentHistogram
 			name = normalizedHistogramName(name, true)
 		}
 		r.inv.AddMetric(name, inventory.TransportPrometheusRW1, instrument, labels, histogram)
 		decoded++
 	}
-	return decoded
+	return decoded, metadata
+}
+
+// seriesInstrument reads the instrument type out of the series itself, never out of its name.
+// Two label names carry it: Prometheus reserves `le` for classic histogram bucket series and
+// `quantile` for summary quantile series, so a series carrying one is that instrument by the
+// exposition contract rather than by resemblance. A native histogram sample is equally direct.
+// Everything else stays unknown until the producer's own metadata declares a type: the
+// `_sum`, `_count` and `_total` suffixes look like evidence and are not, because a histogram
+// and a summary expose identically named component series.
+func seriesInstrument(labels map[string]string, histogram *inventory.Histogram) string {
+	switch {
+	case labels["le"] != "":
+		return inventory.InstrumentHistogram
+	case labels["quantile"] != "":
+		return instrumentSummary
+	case histogram != nil && histogram.Native:
+		return inventory.InstrumentHistogram
+	default:
+		return inventory.InstrumentUnknown
+	}
+}
+
+// decodeRW1MetricMetadata decodes one prompb.MetricMetadata record: type = 1 (MetricType
+// enum), metric_family_name = 2, help = 4, unit = 5. Only the declared type and the family
+// it applies to are retained.
+func decodeRW1MetricMetadata(raw []byte) (string, string) {
+	family := ""
+	instrument := ""
+	b := raw
+	for len(b) > 0 {
+		num, typ, n := protowire.ConsumeTag(b)
+		if n < 0 {
+			break
+		}
+		b = b[n:]
+		switch {
+		case num == 1 && typ == protowire.VarintType:
+			value, n := protowire.ConsumeVarint(b)
+			if n < 0 {
+				return "", ""
+			}
+			b = b[n:]
+			instrument = rw1MetadataInstrument(value)
+		case num == 2 && typ == protowire.BytesType:
+			value, n := protowire.ConsumeBytes(b)
+			if n < 0 {
+				return "", ""
+			}
+			b = b[n:]
+			family = string(value)
+		default:
+			skip := protowire.ConsumeFieldValue(num, typ, b)
+			if skip < 0 {
+				return "", ""
+			}
+			b = b[skip:]
+		}
+	}
+	return family, instrument
+}
+
+// rw1MetadataInstrument maps a prompb.MetricMetadata.MetricType enum value to the instrument
+// vocabulary. UNKNOWN (0) is a producer declaring the type is untyped, which is not evidence
+// of any instrument, so it records nothing.
+func rw1MetadataInstrument(value uint64) string {
+	switch value {
+	case 1:
+		return inventory.InstrumentCounter
+	case 2:
+		return inventory.InstrumentGauge
+	case 3, 4:
+		// HISTOGRAM and GAUGEHISTOGRAM both expose the bucket contract the inventory
+		// records as a histogram.
+		return inventory.InstrumentHistogram
+	case 5:
+		return instrumentSummary
+	case 6:
+		return instrumentInfo
+	case 7:
+		return instrumentStateSet
+	default:
+		return ""
+	}
 }
 
 func decodeRW1TimeSeries(raw []byte) (string, map[string]string, *inventory.Histogram) {
@@ -781,7 +922,43 @@ func (r *Receiver) handleSigilScores(w http.ResponseWriter, req *http.Request) {
 func (r *Receiver) Snapshot() inventory.Schema {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return cloneSchema(r.inv)
+	snapshot := cloneSchema(r.inv)
+	applyDeclaredInstruments(&snapshot, r.declaredInstruments)
+	return snapshot
+}
+
+// applyDeclaredInstruments replaces a family's recorded instrument types with the type its
+// producer declared in remote-write metadata. The lookup is by exact family name: a metadata
+// record for family "foo" never resolves the type of a differently named series, so a summary's
+// "foo_sum" and "foo_count" series stay unresolved rather than borrowing a type by suffix.
+func applyDeclaredInstruments(schema *inventory.Schema, declared map[string]string) {
+	for i := range schema.Metrics {
+		if instrument, ok := declared[schema.Metrics[i].Name]; ok && instrument != "" {
+			schema.Metrics[i].InstrumentTypes = []string{instrument}
+			continue
+		}
+		// A family's component series are recorded together, and only some of them carry
+		// the evidence: a histogram's bucket series carries `le` while its `_sum` and
+		// `_count` series carry nothing. Once any series has established the type, the
+		// sentinel the others contributed records nothing and is dropped.
+		schema.Metrics[i].InstrumentTypes = withoutSupersededSentinel(schema.Metrics[i].InstrumentTypes)
+	}
+}
+
+func withoutSupersededSentinel(instruments []string) []string {
+	if len(instruments) < 2 {
+		return instruments
+	}
+	observed := make([]string, 0, len(instruments))
+	for _, instrument := range instruments {
+		if instrument != inventory.InstrumentUnknown {
+			observed = append(observed, instrument)
+		}
+	}
+	if len(observed) == 0 {
+		return instruments
+	}
+	return observed
 }
 
 // handleInventory returns the accumulated Schema as JSON (GET /__inventory).

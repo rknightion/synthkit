@@ -320,3 +320,365 @@ func findMetricAttribute(metric Metric, key string) Attribute {
 	}
 	return Attribute{}
 }
+
+func TestCompareCorpusExcludesDeclaredEnrichmentLabels(t *testing.T) {
+	synth := New()
+	synth.Metrics = []Metric{{
+		Name:            "aws_applicationelb_request_count_sum",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels:          []Attribute{{Key: "job", Values: []string{"cloud/aws/applicationelb"}}},
+	}}
+
+	realityLabels := []Attribute{
+		{Key: "job", Values: []string{"cloud/aws/applicationelb"}},
+		{Key: "asserts_env", Values: []string{"prod"}},
+	}
+	declared := validCorpusDocument("cw", "gcx_live_readback", "eks")
+	declared.Source.EnrichmentLabels = []EnrichmentLabel{{
+		Key:        "asserts_env",
+		Provenance: "Grafana Cloud asserts read-path enrichment added after ingest; not present at collector egress.",
+	}}
+	declared.Inventory.Metrics = []Metric{{
+		Name:            "aws_applicationelb_request_count_sum",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels:          realityLabels,
+	}}
+
+	if findings := CompareCorpus(synth, []CorpusDocument{declared}); len(findings) != 0 {
+		t.Fatalf("findings=%+v, a declared enrichment label must not count as a missing synth label", findings)
+	}
+
+	undeclared := validCorpusDocument("cw", "other_readback", "eks")
+	undeclared.Inventory.Metrics = declared.Inventory.Metrics
+	findings := CompareCorpus(synth, []CorpusDocument{undeclared})
+	if len(findings) != 1 {
+		t.Fatalf("findings=%+v, an undeclared reality label must remain a coverage gap", findings)
+	}
+	if findings[0].Finding.Kind != KindUnexpectedLabelKey || findings[0].Finding.Disposition != DispositionCoverageGap {
+		t.Fatalf("finding=%+v", findings[0].Finding)
+	}
+}
+
+func TestCompareCorpusKeepsSynthOnlyLabelKeyContradictionForEnrichmentKeys(t *testing.T) {
+	synth := New()
+	synth.Metrics = []Metric{{
+		Name:            "aws_target_group_info",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels: []Attribute{
+			{Key: "job", Values: []string{"cloud/aws/applicationelb"}},
+			{Key: "service", Values: []string{"checkout"}},
+		},
+	}}
+	document := validCorpusDocument("cw", "gcx_live_readback", "eks")
+	document.Source.EnrichmentLabels = []EnrichmentLabel{{
+		Key:        "service",
+		Provenance: "Grafana Cloud asserts read-path enrichment added after ingest; not present at collector egress.",
+	}}
+	document.Inventory.Metrics = []Metric{{
+		Name:            "aws_target_group_info",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels: []Attribute{
+			{Key: "job", Values: []string{"cloud/aws/applicationelb"}},
+			{Key: "service", Values: []string{"checkout"}},
+		},
+	}}
+
+	findings := CompareCorpus(synth, []CorpusDocument{document})
+	if len(findings) != 1 {
+		t.Fatalf("findings=%+v, want the synth-only direction preserved", findings)
+	}
+	got := findings[0].Finding
+	if got.Kind != KindUnexpectedLabelKey || got.Disposition != DispositionContradiction || got.Field != "labels" {
+		t.Fatalf("finding=%+v, want a synth-only label-key contradiction", got)
+	}
+	if !reflect.DeepEqual(got.RealityValues, []string{"job"}) {
+		t.Fatalf("reality keys=%v, want the enrichment key removed from the reality view", got.RealityValues)
+	}
+}
+
+func TestCorpusRejectsEnrichmentLabelWithoutKeyOrProvenance(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		label EnrichmentLabel
+		want  string
+	}{
+		{name: "missing key", label: EnrichmentLabel{Provenance: "read path"}, want: "source.enrichment_labels[0].key"},
+		{name: "missing provenance", label: EnrichmentLabel{Key: "asserts_env"}, want: "source.enrichment_labels[0].provenance"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			document := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+			document.Source.EnrichmentLabels = []EnrichmentLabel{test.label}
+			writeCorpusJSON(t, root, "k8s", "source", document)
+			_, err := LoadCorpusDir(root)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error=%v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestCorpusRejectsDuplicateEnrichmentLabelKeys(t *testing.T) {
+	root := t.TempDir()
+	document := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	document.Source.EnrichmentLabels = []EnrichmentLabel{
+		{Key: "asserts_env", Provenance: "read path"},
+		{Key: "asserts_env", Provenance: "read path"},
+	}
+	writeCorpusJSON(t, root, "k8s", "source", document)
+	if _, err := LoadCorpusDir(root); err == nil || !strings.Contains(err.Error(), "source.enrichment_labels") {
+		t.Fatalf("error=%v, want a duplicate-key rejection", err)
+	}
+}
+
+func TestCanonicalMergePreservesDeclaredEnrichmentLabels(t *testing.T) {
+	existing := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	existing.Source.EnrichmentLabels = []EnrichmentLabel{{Key: "asserts_env", Provenance: "read path"}}
+	existing.Inventory.Metrics = []Metric{{Name: "kubelet_running_pods", InstrumentTypes: []string{InstrumentUnknown}}}
+
+	candidate := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	candidate.Source.CapturedOn = "2026-08-26"
+	candidate.Inventory.Metrics = []Metric{{Name: "kubelet_running_containers", InstrumentTypes: []string{InstrumentGauge}}}
+
+	merged, err := CanonicalMerge(existing, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(merged.Source.EnrichmentLabels, existing.Source.EnrichmentLabels) {
+		t.Fatalf("enrichment labels=%+v, a producer re-run must not drop the declaration", merged.Source.EnrichmentLabels)
+	}
+}
+
+func TestCompareCorpusExemptsDeclaredSynthSelectorLabel(t *testing.T) {
+	synth := New()
+	synth.Provenance = &Provenance{SelectorLabels: []string{"blueprint"}}
+	synth.Metrics = []Metric{{
+		Name:            "aws_ec2_cpuutilization_average",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels: []Attribute{
+			{Key: "blueprint", Values: []string{"cwinfra"}},
+			{Key: "job", Values: []string{"cloud/aws/ec2"}},
+		},
+	}}
+	document := validCorpusDocument("cw", "gcx_live_readback", "eks")
+	document.Inventory.Metrics = []Metric{{
+		Name:            "aws_ec2_cpuutilization_average",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels:          []Attribute{{Key: "job", Values: []string{"cloud/aws/ec2"}}},
+	}}
+
+	if findings := CompareCorpus(synth, []CorpusDocument{document}); len(findings) != 0 {
+		t.Fatalf("findings=%+v, the declared routing selector must not contradict reality", findings)
+	}
+}
+
+func TestCompareCorpusKeepsOtherSynthOnlyKeysBesideTheSelectorLabel(t *testing.T) {
+	synth := New()
+	synth.Provenance = &Provenance{SelectorLabels: []string{"blueprint"}}
+	synth.Metrics = []Metric{{
+		Name:            "coredns_panics_total",
+		InstrumentTypes: []string{InstrumentCounter},
+		Labels: []Attribute{
+			{Key: "blueprint", Values: []string{"netobs"}},
+			{Key: "job", Values: []string{"integrations/coredns"}},
+			{Key: "node", Values: []string{"ip-10-0-0-1"}},
+		},
+	}}
+	document := validCorpusDocument("k8s-addons", "k3d_lab", "k3s")
+	document.Inventory.Metrics = []Metric{{
+		Name:            "coredns_panics_total",
+		InstrumentTypes: []string{InstrumentCounter},
+		Labels:          []Attribute{{Key: "job", Values: []string{"integrations/coredns"}}},
+	}}
+
+	findings := CompareCorpus(synth, []CorpusDocument{document})
+	if len(findings) != 1 {
+		t.Fatalf("findings=%+v, want the invented dimension still reported", findings)
+	}
+	got := findings[0].Finding
+	if got.Kind != KindUnexpectedLabelKey || got.Disposition != DispositionContradiction {
+		t.Fatalf("finding=%+v, want a synth-only label-key contradiction", got)
+	}
+	if !reflect.DeepEqual(got.SynthValues, []string{"job", "node"}) {
+		t.Fatalf("synth keys=%v, want the selector label removed from the synth view", got.SynthValues)
+	}
+}
+
+func TestCompareCorpusKeepsUndeclaredSelectorLabelAsContradiction(t *testing.T) {
+	synth := New()
+	synth.Metrics = []Metric{{
+		Name:            "aws_ec2_cpuutilization_average",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels: []Attribute{
+			{Key: "blueprint", Values: []string{"cwinfra"}},
+			{Key: "job", Values: []string{"cloud/aws/ec2"}},
+		},
+	}}
+	document := validCorpusDocument("cw", "gcx_live_readback", "eks")
+	document.Inventory.Metrics = []Metric{{
+		Name:            "aws_ec2_cpuutilization_average",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels:          []Attribute{{Key: "job", Values: []string{"cloud/aws/ec2"}}},
+	}}
+
+	findings := CompareCorpus(synth, []CorpusDocument{document})
+	if len(findings) != 1 || findings[0].Finding.Disposition != DispositionContradiction {
+		t.Fatalf("findings=%+v, an undeclared synth-only key must still contradict", findings)
+	}
+}
+
+func TestCompareCorpusExcludesDeclaredEnrichmentValues(t *testing.T) {
+	synth := New()
+	synth.Metrics = []Metric{{
+		Name:            "kubeproxy_sync_proxy_rules_iptables_total",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels:          []Attribute{{Key: "ip_family", Values: []string{"IPv4", "IPv6"}}},
+	}}
+	document := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	document.Source.EnrichmentLabels = []EnrichmentLabel{{
+		Key:        "ip_family",
+		Values:     []string{"<aggregated>"},
+		Provenance: "Grafana Cloud Adaptive Metrics writes this marker into a retained label value when the series is aggregated away.",
+	}}
+	document.Inventory.Metrics = []Metric{{
+		Name:            "kubeproxy_sync_proxy_rules_iptables_total",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels:          []Attribute{{Key: "ip_family", Values: []string{"<aggregated>", "IPv4", "IPv6"}}},
+	}}
+
+	if findings := CompareCorpus(synth, []CorpusDocument{document}); len(findings) != 0 {
+		t.Fatalf("findings=%+v, a declared enrichment value must not contradict", findings)
+	}
+
+	document.Inventory.Metrics[0].Labels[0].Values = []string{"<aggregated>", "IPv4", "IPv6", "IPv9"}
+	findings := CompareCorpus(synth, []CorpusDocument{document})
+	if len(findings) != 1 {
+		t.Fatalf("findings=%+v, an undeclared reality value must still contradict", findings)
+	}
+	got := findings[0].Finding
+	if got.Kind != KindLabelValueContradiction || got.Disposition != DispositionContradiction {
+		t.Fatalf("finding=%+v, want a label-value contradiction", got)
+	}
+	if !reflect.DeepEqual(got.RealityValues, []string{"IPv4", "IPv6", "IPv9"}) {
+		t.Fatalf("reality values=%v, want the declared enrichment value removed", got.RealityValues)
+	}
+}
+
+func TestCompareCorpusKeepsEnrichmentValueKeyForKeyComparison(t *testing.T) {
+	synth := New()
+	synth.Metrics = []Metric{{
+		Name:            "kubeproxy_sync_proxy_rules_iptables_total",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels:          []Attribute{{Key: "job", Values: []string{"integrations/kubernetes/kube-proxy"}}},
+	}}
+	document := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	document.Source.EnrichmentLabels = []EnrichmentLabel{{
+		Key:        "ip_family",
+		Values:     []string{"<aggregated>"},
+		Provenance: "Grafana Cloud Adaptive Metrics marker written into a retained label value.",
+	}}
+	document.Inventory.Metrics = []Metric{{
+		Name:            "kubeproxy_sync_proxy_rules_iptables_total",
+		InstrumentTypes: []string{InstrumentGauge},
+		Labels: []Attribute{
+			{Key: "ip_family", Values: []string{"<aggregated>"}},
+			{Key: "job", Values: []string{"integrations/kubernetes/kube-proxy"}},
+		},
+	}}
+
+	findings := CompareCorpus(synth, []CorpusDocument{document})
+	if len(findings) != 1 {
+		t.Fatalf("findings=%+v, a value-scoped declaration must leave the key itself as evidence", findings)
+	}
+	got := findings[0].Finding
+	if got.Kind != KindUnexpectedLabelKey || got.Disposition != DispositionCoverageGap {
+		t.Fatalf("finding=%+v, want the missing label key still reported", got)
+	}
+}
+
+func TestCorpusRejectsEmptyEnrichmentLabelValue(t *testing.T) {
+	root := t.TempDir()
+	document := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	document.Source.EnrichmentLabels = []EnrichmentLabel{{
+		Key:        "ip_family",
+		Values:     []string{" "},
+		Provenance: "read path",
+	}}
+	writeCorpusJSON(t, root, "k8s", "source", document)
+	if _, err := LoadCorpusDir(root); err == nil || !strings.Contains(err.Error(), "source.enrichment_labels[0].values[0]") {
+		t.Fatalf("error=%v, want an empty-value rejection", err)
+	}
+}
+
+func TestCorpusRejectsDuplicateEnrichmentLabelValues(t *testing.T) {
+	root := t.TempDir()
+	document := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	document.Source.EnrichmentLabels = []EnrichmentLabel{{
+		Key:        "ip_family",
+		Values:     []string{"<aggregated>", "<aggregated>"},
+		Provenance: "read path",
+	}}
+	writeCorpusJSON(t, root, "k8s", "source", document)
+	if _, err := LoadCorpusDir(root); err == nil || !strings.Contains(err.Error(), "source.enrichment_labels[0].values[1]") {
+		t.Fatalf("error=%v, want a duplicate-value rejection", err)
+	}
+}
+
+func TestCanonicalMergePreservesDeclaredEnrichmentValues(t *testing.T) {
+	existing := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	existing.Source.EnrichmentLabels = []EnrichmentLabel{{
+		Key:        "ip_family",
+		Values:     []string{"<aggregated>"},
+		Provenance: "adaptive metrics marker",
+	}}
+	existing.Inventory.Metrics = []Metric{{Name: "kubelet_running_pods", InstrumentTypes: []string{InstrumentUnknown}}}
+
+	candidate := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	candidate.Source.CapturedOn = "2026-08-26"
+	candidate.Inventory.Metrics = []Metric{{Name: "kubelet_running_containers", InstrumentTypes: []string{InstrumentGauge}}}
+
+	merged, err := CanonicalMerge(existing, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(merged.Source.EnrichmentLabels, existing.Source.EnrichmentLabels) {
+		t.Fatalf("enrichment labels=%+v, a producer re-run must not drop declared values", merged.Source.EnrichmentLabels)
+	}
+}
+
+func TestCanonicalMergeKeepsKeyScopedEnrichmentDeclarationBroad(t *testing.T) {
+	existing := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	existing.Source.EnrichmentLabels = []EnrichmentLabel{{Key: "service", Provenance: "read-path entity label"}}
+	existing.Inventory.Metrics = []Metric{{Name: "kubelet_running_pods", InstrumentTypes: []string{InstrumentUnknown}}}
+
+	candidate := validCorpusDocument("k8s", "gcx_live_readback", "eks")
+	candidate.Source.CapturedOn = "2026-08-26"
+	candidate.Source.EnrichmentLabels = []EnrichmentLabel{{Key: "service", Values: []string{"checkout"}, Provenance: "read-path entity label"}}
+	candidate.Inventory.Metrics = []Metric{{Name: "kubelet_running_containers", InstrumentTypes: []string{InstrumentGauge}}}
+
+	merged, err := CanonicalMerge(existing, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(merged.Source.EnrichmentLabels) != 1 || len(merged.Source.EnrichmentLabels[0].Values) != 0 {
+		t.Fatalf("enrichment labels=%+v, a key-scoped declaration must not narrow to a value list", merged.Source.EnrichmentLabels)
+	}
+}
+
+func TestLoadCorpusDirIgnoresNonAreaDirectories(t *testing.T) {
+	root := t.TempDir()
+	writeCorpusJSON(t, root, "k8s", "k3d-lab", validCorpusDocument("k8s", "k3d_lab", "k3s"))
+	if err := os.MkdirAll(root+"/verdicts", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(root+"/verdicts/coverage-verdicts.json", []byte(`{"record_version":"other"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	documents, err := LoadCorpusDir(root)
+	if err != nil {
+		t.Fatalf("error=%v, a sibling record directory must not be parsed as a corpus document", err)
+	}
+	if len(documents) != 1 || documents[0].Area != "k8s" {
+		t.Fatalf("documents=%+v, want only the area-directory document", documents)
+	}
+}

@@ -16,7 +16,9 @@ The contract is deliberately narrow:
 
 - The version is `synthkit.telemetry.reality-corpus/v1alpha1`.
 - Each document is one `signals/<area>.md` area and one generic producer at
-  `reality-corpus/<signals-area>/<source-id>.json`.
+  `reality-corpus/<signals-area>/<source-id>.json`. The loader reads only the
+  corpus root and per-area subdirectories, so a sibling directory holding a
+  different record kind is skipped rather than parsed as a corpus document.
 - The `source` provenance and `authority.substrates` apply to every observation
   in that document.
 - Documents from different substrates are never unioned before `Diff`.
@@ -169,6 +171,95 @@ and commit the reviewed per-area files.
    root stages explicit accepted per-area paths, runs the repository's final
    documentation and fidelity checks, and owns the commit and push. An
    unreviewed candidate remains outside the committed corpus.
+
+## Evidence rules the comparator applies
+
+The comparator answers one question: does the corpus contain evidence that
+contradicts a synthetic claim? Absent evidence is never a contradiction. A field
+a producer could not observe is a coverage gap that routes to a PENDING, and the
+fix is to make the producer observe it, not to exempt the field permanently. A
+corpus producer must therefore understand what its output means:
+
+- **Instrument type.** A metric whose `instrument_types` is exactly
+  `["unknown"]` records that the producer could not observe an instrument shape.
+  It yields a coverage gap and a PENDING stub, never a contradiction. Any entry
+  recording a real type contradicts normally when synth disagrees, including a
+  set that mixes a real type with the sentinel. A producer that learns to read
+  instrument types therefore turns silent gaps into real verdicts without any
+  comparator change.
+- **Label keys.** A key synthkit emits that the reality view does not carry is a
+  contradiction; that is the never-invent-a-name rule and it is not relaxed. A
+  key reality carries that synthkit does not emit is a coverage gap.
+- **Read-path enrichment labels.** A label a producer's read path adds after
+  collector egress is not evidence about the emitted shape. Declare it in that
+  producer's `source.enrichment_labels`, with the provenance that says why the
+  read path adds it. A declared key is removed from that document's reality view
+  before comparison, in both the key and the value comparison. The declaration is
+  per producer on purpose: one producer's read-path quirk must never govern
+  another producer that does not add the key.
+- **Read-path enrichment values.** A read path also writes markers into the
+  value of a label that is otherwise genuine collector-egress evidence: Grafana
+  Cloud Adaptive Metrics replaces a retained label's value with `<aggregated>`
+  when it aggregates the series away. Declare those with the same block plus a
+  `values` list. The key stays in the reality view and still compares as a key;
+  only the declared values are removed before the value comparison. Use the
+  `values` form whenever the key itself is real — a key-scoped declaration would
+  silently stop the comparator noticing that synthkit never emits that key.
+- **The synth producer's own selector labels.** synthkit's composition root
+  stamps a blueprint selector label on every blueprint-scoped series, stream and
+  span. It is synthkit's routing key rather than a vendor name synthkit
+  invented, and no capture of collector egress can carry it, so comparing it
+  against one is the same category error as comparing a read-path enrichment
+  label. The synth export declares those keys in
+  `provenance.selector_labels`, read from the constant the composition root
+  defines so a rename cannot silently reopen the finding class, and the
+  comparator removes them from the synth view. This runs in the synth-to-reality
+  direction only and only for declared keys: every other synth-only key is still
+  a contradiction, and this field must never become a general suppression list.
+- **Substrate scoping is document-level.** When the synth export declares
+  `provenance.substrate`, a corpus document whose `authority.substrates` does
+  not include it is skipped entirely. That is the right scope for a
+  substrate-specific claim and the wrong scope for everything else in the same
+  document, so an export that models more than one substrate — the fidelity
+  gate's does, because it is produced with `BLUEPRINT_NAMES='*'` — declares no
+  substrate rather than a value that would drop whole documents of real,
+  substrate-independent evidence. A capture-instance value that only one
+  substrate can produce, such as a Kubernetes build string, is kept out of the
+  comparison by the producer marking it `values_elided`, not by dropping the
+  document that carries it.
+- **Label values compare as a subset.** A capture observes one account, one
+  region and one moment, so it sees a subset of the value space synthkit
+  deliberately models. Synth covering more values than reality observed is
+  correct and stays silent. Only a value reality carries that synthkit cannot
+  emit is a contradiction.
+- **Elided or empty value sets.** A label marked `values_elided` carries no
+  value evidence at all and runs no value comparison, and neither does a key
+  observed on either side without any value. Presence of the key is still
+  evidence.
+
+A declared enrichment label looks like this, and lives in the `source` block
+beside the rest of the producer provenance:
+
+```json
+"enrichment_labels": [
+  {
+    "key": "<observed-key>",
+    "provenance": "<why this producer's read path adds the key after ingest>"
+  },
+  {
+    "key": "<observed-key-with-a-real-egress-meaning>",
+    "values": ["<marker-the-read-path-writes-into-it>"],
+    "provenance": "<why this producer's read path writes that value after ingest>"
+  }
+]
+```
+
+A declaration is curated evidence about a read path, so a cumulative refresh
+never drops it: a producer re-run that omits the block keeps the established
+declaration and may only add keys or values to it. A key-scoped declaration is
+the broader claim, so merging a key-scoped and a value-scoped declaration of the
+same key keeps it key-scoped and never narrows it. Removing a declaration is a
+reviewer decision, made the same way as any other narrowing in the table below.
 
 ## Reviewer decision table
 

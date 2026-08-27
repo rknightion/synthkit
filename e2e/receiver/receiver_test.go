@@ -467,3 +467,218 @@ func gotReceiptCount(s inventory.Schema, protocol string) int {
 	}
 	return 0
 }
+
+// rw1Series encodes one prompb.TimeSeries with the supplied labels and a single sample.
+func rw1Series(t *testing.T, labels map[string]string) []byte {
+	t.Helper()
+	var series []byte
+	for name, value := range labels {
+		var label []byte
+		label = protowire.AppendTag(label, 1, protowire.BytesType)
+		label = protowire.AppendString(label, name)
+		label = protowire.AppendTag(label, 2, protowire.BytesType)
+		label = protowire.AppendString(label, value)
+		series = protowire.AppendTag(series, 1, protowire.BytesType)
+		series = protowire.AppendBytes(series, label)
+	}
+	var sample []byte
+	sample = protowire.AppendTag(sample, 1, protowire.Fixed64Type)
+	sample = protowire.AppendFixed64(sample, 1)
+	sample = protowire.AppendTag(sample, 2, protowire.VarintType)
+	sample = protowire.AppendVarint(sample, 1_700_000_000_000)
+	series = protowire.AppendTag(series, 2, protowire.BytesType)
+	series = protowire.AppendBytes(series, sample)
+	return series
+}
+
+// rw1MetadataRecord encodes one prompb.MetricMetadata with its MetricType enum value.
+func rw1MetadataRecord(family string, metricType uint64) []byte {
+	var record []byte
+	record = protowire.AppendTag(record, 1, protowire.VarintType)
+	record = protowire.AppendVarint(record, metricType)
+	record = protowire.AppendTag(record, 2, protowire.BytesType)
+	record = protowire.AppendString(record, family)
+	record = protowire.AppendTag(record, 4, protowire.BytesType)
+	record = protowire.AppendString(record, "help text")
+	return record
+}
+
+func postRW1(t *testing.T, url string, request []byte) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, url+"/api/prom/push", bytes.NewReader(snappy.Encode(nil, request)))
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-protobuf;proto=prometheus.WriteRequest")
+	req.Header.Set("Content-Encoding", "snappy")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST RW1: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		t.Fatalf("RW1 status = %d, want 2xx", resp.StatusCode)
+	}
+}
+
+// TestReceiverRecordsDeclaredInstrumentTypesFromRW1Metadata pins the mechanism that replaces
+// the unknown sentinel: the producer's own WriteRequest.metadata records, which arrive in
+// their own requests either side of the samples.
+func TestReceiverRecordsDeclaredInstrumentTypesFromRW1Metadata(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	// Metadata for one family arrives before its samples, the other after.
+	var early []byte
+	early = protowire.AppendTag(early, 3, protowire.BytesType)
+	early = protowire.AppendBytes(early, rw1MetadataRecord("lab_queue_depth", 2))
+	postRW1(t, srv.URL, early)
+
+	var samples []byte
+	for _, labels := range []map[string]string{
+		{"__name__": "lab_requests_total", "job": "lab"},
+		{"__name__": "lab_queue_depth", "job": "lab"},
+		{"__name__": "lab_latency_seconds_bucket", "job": "lab", "le": "0.5"},
+		{"__name__": "lab_pool_size", "job": "lab"},
+		{"__name__": "lab_untyped_series", "job": "lab"},
+	} {
+		samples = protowire.AppendTag(samples, 1, protowire.BytesType)
+		samples = protowire.AppendBytes(samples, rw1Series(t, labels))
+	}
+	postRW1(t, srv.URL, samples)
+
+	var late []byte
+	for family, metricType := range map[string]uint64{
+		"lab_requests_total":  1, // COUNTER
+		"lab_latency_seconds": 3, // HISTOGRAM
+		"lab_pool":            5, // SUMMARY, for a family no captured series is named after
+		"lab_untyped_series":  0, // UNKNOWN: a declaration of no type
+	} {
+		late = protowire.AppendTag(late, 3, protowire.BytesType)
+		late = protowire.AppendBytes(late, rw1MetadataRecord(family, metricType))
+	}
+	postRW1(t, srv.URL, late)
+
+	got := rec.Snapshot()
+	for _, want := range []struct {
+		metric     string
+		instrument string
+	}{
+		{"lab_requests_total", inventory.InstrumentCounter},
+		{"lab_queue_depth", inventory.InstrumentGauge},
+		{"lab_latency_seconds", inventory.InstrumentHistogram},
+		// The metadata names family "lab_pool"; the captured series is "lab_pool_size"
+		// and keeps the sentinel rather than borrowing a type by name prefix or suffix.
+		{"lab_pool_size", inventory.InstrumentUnknown},
+		// A producer declaring UNKNOWN is not evidence of an instrument type.
+		{"lab_untyped_series", inventory.InstrumentUnknown},
+	} {
+		metric := findMetric(got, want.metric)
+		if metric == nil {
+			t.Fatalf("metric %q missing: %#v", want.metric, got.Metrics)
+		}
+		if len(metric.InstrumentTypes) != 1 || metric.InstrumentTypes[0] != want.instrument {
+			t.Errorf("%s instrument_types = %v, want [%s]", want.metric, metric.InstrumentTypes, want.instrument)
+		}
+	}
+}
+
+// TestReceiverTypesFromSeriesEvidenceNotNames pins both halves of the rule. Prometheus
+// reserves `le` and `quantile`, so a series carrying one is that instrument by the exposition
+// contract. A name suffix is not evidence: `_total`, `_sum` and `_count` stay unknown until a
+// producer declares a type, because a histogram and a summary expose the same component names.
+func TestReceiverTypesFromSeriesEvidenceNotNames(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	var samples []byte
+	for _, labels := range []map[string]string{
+		{"__name__": "evidence_latency_seconds_bucket", "job": "lab", "le": "2.5"},
+		{"__name__": "evidence_latency_seconds_sum", "job": "lab"},
+		{"__name__": "evidence_latency_seconds_count", "job": "lab"},
+		{"__name__": "evidence_gc_pause_seconds", "job": "lab", "quantile": "0.99"},
+		{"__name__": "evidence_requests_total", "job": "lab"},
+		{"__name__": "evidence_pool_bytes_sum", "job": "lab"},
+	} {
+		samples = protowire.AppendTag(samples, 1, protowire.BytesType)
+		samples = protowire.AppendBytes(samples, rw1Series(t, labels))
+	}
+	postRW1(t, srv.URL, samples)
+
+	got := rec.Snapshot()
+	for _, want := range []struct {
+		metric     string
+		instrument string
+	}{
+		// The bucket series carries the evidence; its `_sum` and `_count` siblings merge
+		// into the same family and contribute only the sentinel, which is then dropped.
+		{"evidence_latency_seconds", inventory.InstrumentHistogram},
+		{"evidence_gc_pause_seconds", instrumentSummary},
+		{"evidence_requests_total", inventory.InstrumentUnknown},
+		{"evidence_pool_bytes", inventory.InstrumentUnknown},
+	} {
+		metric := findMetric(got, want.metric)
+		if metric == nil {
+			t.Fatalf("metric %q missing: %#v", want.metric, got.Metrics)
+		}
+		if len(metric.InstrumentTypes) != 1 || metric.InstrumentTypes[0] != want.instrument {
+			t.Errorf("%s instrument_types = %v, want [%s]", want.metric, metric.InstrumentTypes, want.instrument)
+		}
+	}
+	histogram := findMetric(got, "evidence_latency_seconds")
+	if histogram.Histogram == nil || !contains2point5(histogram.Histogram.BucketBounds) {
+		t.Errorf("bucket shape lost: %#v", histogram.Histogram)
+	}
+}
+
+func contains2point5(bounds []float64) bool {
+	for _, bound := range bounds {
+		if bound == 2.5 {
+			return true
+		}
+	}
+	return false
+}
+
+// TestReceiverReportsRemoteWriteV2WrittenCounts pins the response contract the Remote-Write 2.0
+// specification makes mandatory. A real sender reads these headers to tell a full write from an
+// empty one, and their absence is why a compliant sender can conclude nothing was written.
+func TestReceiverReportsRemoteWriteV2WrittenCounts(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	ms := promrw.New(srv.URL+"/api/prom/push", "u", "tok", false, func() int { return 0 })
+	if err := ms.Write(context.Background(), []promrw.Series{
+		{Name: "written_header_total", Labels: map[string]string{"job": "demo"}, Value: 1, Kind: promrw.KindCounter},
+		{Name: "written_header_gauge", Labels: map[string]string{"job": "demo"}, Value: 2, Kind: promrw.KindGauge},
+	}); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	// The sink reports no status, so assert against a direct request instead.
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/api/prom/push", bytes.NewReader(snappy.Encode(nil, nil)))
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-protobuf;proto=io.prometheus.write.v2.Request")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST RW2: %v", err)
+	}
+	defer resp.Body.Close()
+	for _, header := range []string{
+		"X-Prometheus-Remote-Write-Samples-Written",
+		"X-Prometheus-Remote-Write-Histograms-Written",
+		"X-Prometheus-Remote-Write-Exemplars-Written",
+	} {
+		if resp.Header.Get(header) == "" {
+			t.Errorf("%s missing; a compliant sender reads that as nothing written", header)
+		}
+	}
+	if got := resp.Header.Get("X-Prometheus-Remote-Write-Samples-Written"); got != "0" {
+		t.Errorf("empty request samples-written = %q, want 0", got)
+	}
+}

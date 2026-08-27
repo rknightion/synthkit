@@ -33,11 +33,32 @@ type CorpusDocument struct {
 // CorpusSource identifies the generic producer and capture configuration. It deliberately
 // contains no deployment-specific identity.
 type CorpusSource struct {
-	Kind             string `json:"kind"`
-	Substrate        string `json:"substrate"`
-	Collector        string `json:"collector"`
-	CollectorVersion string `json:"collector_version"`
-	CapturedOn       string `json:"captured_on"`
+	Kind             string            `json:"kind"`
+	Substrate        string            `json:"substrate"`
+	Collector        string            `json:"collector"`
+	CollectorVersion string            `json:"collector_version"`
+	CapturedOn       string            `json:"captured_on"`
+	EnrichmentLabels []EnrichmentLabel `json:"enrichment_labels,omitempty"`
+}
+
+// EnrichmentLabel declares one read-path addition this producer observes after collector egress.
+// The declaration is per producer because a label a read path invents is a property of that read
+// path, not of the emitted signal: another producer reading the same signal need not see it.
+//
+// A declaration with no Values is key-scoped: the whole key is a read-path invention and is
+// removed from this document's reality view before comparison. A declaration WITH Values is
+// value-scoped: the key itself is genuine collector-egress evidence and stays, but the listed
+// values are markers the read path writes into it (Grafana Cloud Adaptive Metrics writes
+// "<aggregated>" into a retained label's value when it aggregates a series away) and only those
+// values are removed before comparison. A value-scoped declaration therefore never weakens the
+// key comparison.
+//
+// The synth-to-reality direction is untouched in both forms: a key synthkit emits that the
+// reality view does not carry stays a contradiction.
+type EnrichmentLabel struct {
+	Key        string   `json:"key"`
+	Values     []string `json:"values,omitempty"`
+	Provenance string   `json:"provenance"`
 }
 
 // CorpusAuthority identifies the substrates for which this document is evidence.
@@ -61,8 +82,10 @@ var allowedCorpusAreas = map[string]struct{}{
 	"snowflake": {}, "traces": {},
 }
 
-// LoadCorpusDir loads every .json document below path. Files are parsed in deterministic path
-// order, and duplicate producer/area/substrate identities are rejected.
+// LoadCorpusDir loads every .json document in path and in the per-area subdirectories below it.
+// A subdirectory whose name is not a signals area is skipped: it holds a different record kind,
+// not a corpus document. Files are parsed in deterministic path order, and duplicate
+// producer/area/substrate identities are rejected.
 func LoadCorpusDir(path string) ([]CorpusDocument, error) {
 	files, err := corpusJSONFiles(path)
 	if err != nil {
@@ -100,6 +123,15 @@ func corpusJSONFiles(root string) ([]string, error) {
 			return walkErr
 		}
 		if entry.IsDir() {
+			// Corpus documents live in one directory per signals area. A sibling directory
+			// that is not an area holds a different record kind (recorded coverage verdicts,
+			// for one), and parsing its JSON as a corpus document fails the whole load.
+			if path == root {
+				return nil
+			}
+			if _, ok := allowedCorpusAreas[entry.Name()]; !ok {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if filepath.Ext(entry.Name()) == ".json" {
@@ -218,6 +250,9 @@ func validateCorpusDocument(document CorpusDocument) error {
 	if err := validateCapturedOn(document.Source.CapturedOn); err != nil {
 		return err
 	}
+	if err := validateEnrichmentLabels(document.Source.EnrichmentLabels); err != nil {
+		return err
+	}
 	if len(document.Authority.Substrates) == 0 {
 		return errors.New("authority.substrates: must contain at least one substrate")
 	}
@@ -250,6 +285,33 @@ func validateCorpusDocument(document CorpusDocument) error {
 func validateNonEmpty(value, field string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s: must not be empty", field)
+	}
+	return nil
+}
+
+func validateEnrichmentLabels(labels []EnrichmentLabel) error {
+	seen := make(map[string]struct{}, len(labels))
+	for i, label := range labels {
+		if err := validateNonEmpty(label.Key, fmt.Sprintf("source.enrichment_labels[%d].key", i)); err != nil {
+			return err
+		}
+		if err := validateNonEmpty(label.Provenance, fmt.Sprintf("source.enrichment_labels[%d].provenance", i)); err != nil {
+			return err
+		}
+		if _, exists := seen[label.Key]; exists {
+			return fmt.Errorf("source.enrichment_labels[%d]: duplicate key %q", i, label.Key)
+		}
+		seen[label.Key] = struct{}{}
+		seenValues := make(map[string]struct{}, len(label.Values))
+		for j, value := range label.Values {
+			if err := validateNonEmpty(value, fmt.Sprintf("source.enrichment_labels[%d].values[%d]", i, j)); err != nil {
+				return err
+			}
+			if _, exists := seenValues[value]; exists {
+				return fmt.Errorf("source.enrichment_labels[%d].values[%d]: duplicate value %q", i, j, value)
+			}
+			seenValues[value] = struct{}{}
+		}
 	}
 	return nil
 }
@@ -339,6 +401,7 @@ func CanonicalMerge(existing, candidate CorpusDocument) (CorpusDocument, error) 
 	}
 
 	out := cloneCorpusDocument(existing)
+	out.Source.EnrichmentLabels = mergeEnrichmentLabels(out.Source.EnrichmentLabels, candidate.Source.EnrichmentLabels)
 	structuralEvidence := mergeSchemas(&out.Inventory, candidate.Inventory)
 	if structuralEvidence {
 		mergeCaptureVolume(&out.CaptureVolume, candidate.CaptureVolume)
@@ -347,6 +410,46 @@ func CanonicalMerge(existing, candidate CorpusDocument) (CorpusDocument, error) 
 	}
 	normalizeCorpusDocument(&out)
 	return out, nil
+}
+
+// mergeEnrichmentLabels unions two declarations by key. An established declaration is curated
+// evidence about a read path, so a producer re-run that omits it never removes it; existing
+// provenance wins on a shared key. Values union, and a key-scoped declaration on either side
+// stays key-scoped because it is the broader claim: merging must never narrow "this whole key is
+// read-path" into "only these values are".
+func mergeEnrichmentLabels(existing, candidate []EnrichmentLabel) []EnrichmentLabel {
+	out := append([]EnrichmentLabel{}, existing...)
+	for _, label := range candidate {
+		found := false
+		for i := range out {
+			if out[i].Key != label.Key {
+				continue
+			}
+			found = true
+			if len(out[i].Values) == 0 || len(label.Values) == 0 {
+				out[i].Values = nil
+				break
+			}
+			out[i].Values = sortedUniqueStrings(append(out[i].Values, label.Values...))
+			break
+		}
+		if !found {
+			out = append(out, cloneEnrichmentLabel(label))
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out
+}
+
+func cloneEnrichmentLabel(label EnrichmentLabel) EnrichmentLabel {
+	out := label
+	if len(label.Values) > 0 {
+		out.Values = append([]string{}, label.Values...)
+	}
+	return out
 }
 
 func matchingCorpusIdentity(existing, candidate CorpusDocument) error {
@@ -573,6 +676,16 @@ func mergeReceipts(existing, candidate *Schema) {
 }
 
 func normalizeCorpusDocument(document *CorpusDocument) {
+	for i := range document.Source.EnrichmentLabels {
+		if len(document.Source.EnrichmentLabels[i].Values) == 0 {
+			document.Source.EnrichmentLabels[i].Values = nil
+			continue
+		}
+		document.Source.EnrichmentLabels[i].Values = sortedUniqueStrings(document.Source.EnrichmentLabels[i].Values)
+	}
+	sort.SliceStable(document.Source.EnrichmentLabels, func(i, j int) bool {
+		return document.Source.EnrichmentLabels[i].Key < document.Source.EnrichmentLabels[j].Key
+	})
 	document.Authority.Substrates = sortedUniqueStrings(document.Authority.Substrates)
 	document.CaptureVolume.ObservedContractCounts = sortedUniqueInts(document.CaptureVolume.ObservedContractCounts)
 	document.Inventory.Normalize()
@@ -605,6 +718,13 @@ func normalizeElidedAttributes(attributes []Attribute) {
 
 func cloneCorpusDocument(document CorpusDocument) CorpusDocument {
 	out := document
+	out.Source.EnrichmentLabels = make([]EnrichmentLabel, len(document.Source.EnrichmentLabels))
+	for i, label := range document.Source.EnrichmentLabels {
+		out.Source.EnrichmentLabels[i] = cloneEnrichmentLabel(label)
+	}
+	if len(document.Source.EnrichmentLabels) == 0 {
+		out.Source.EnrichmentLabels = nil
+	}
 	out.Authority.Substrates = append([]string{}, document.Authority.Substrates...)
 	out.CaptureVolume.ObservedContractCounts = append([]int{}, document.CaptureVolume.ObservedContractCounts...)
 	out.Inventory = cloneSchema(document.Inventory)
@@ -900,8 +1020,8 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 			!containsString(document.Authority.Substrates, synth.Provenance.Substrate) {
 			continue
 		}
-		reality := document.Inventory
-		comparison := scopedSynthSchema(synthCopy, reality)
+		reality := withoutEnrichmentLabels(document.Inventory, document.Source.EnrichmentLabels)
+		comparison := scopedSynthSchema(withoutSelectorLabels(synthCopy), reality)
 		for _, finding := range Diff(comparison, reality) {
 			out = append(out, ScopedFinding{
 				Area:      document.Area,
@@ -912,6 +1032,106 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return compareScopedFindings(out[i], out[j]) < 0 })
+	return out
+}
+
+// withoutEnrichmentLabels removes the producer's declared read-path additions from every
+// attribute set in its reality view. A key-scoped declaration drops the whole key: it is added
+// after collector egress, so it is not evidence about the emitted shape in either the key or the
+// value comparison. A value-scoped declaration keeps the key — that key IS collector-egress
+// evidence — and drops only the declared marker values from it.
+func withoutEnrichmentLabels(schema Schema, labels []EnrichmentLabel) Schema {
+	if len(labels) == 0 {
+		return schema
+	}
+	declaredKeys := make(map[string]struct{}, len(labels))
+	declaredValues := make(map[string]map[string]struct{}, len(labels))
+	for _, label := range labels {
+		if len(label.Values) == 0 {
+			declaredKeys[label.Key] = struct{}{}
+			continue
+		}
+		values := make(map[string]struct{}, len(label.Values))
+		for _, value := range label.Values {
+			values[value] = struct{}{}
+		}
+		declaredValues[label.Key] = values
+	}
+	out := cloneSchema(schema)
+	for i := range out.Metrics {
+		out.Metrics[i].Labels = withoutDeclaredEnrichment(out.Metrics[i].Labels, declaredKeys, declaredValues)
+	}
+	for i := range out.Logs {
+		out.Logs[i].StreamLabels = withoutDeclaredEnrichment(out.Logs[i].StreamLabels, declaredKeys, declaredValues)
+	}
+	for i := range out.Traces {
+		out.Traces[i].ResourceAttributes = withoutDeclaredEnrichment(out.Traces[i].ResourceAttributes, declaredKeys, declaredValues)
+	}
+	for i := range out.Profiles {
+		out.Profiles[i].Labels = withoutDeclaredEnrichment(out.Profiles[i].Labels, declaredKeys, declaredValues)
+	}
+	return out
+}
+
+func withoutDeclaredEnrichment(attributes []Attribute, declaredKeys map[string]struct{}, declaredValues map[string]map[string]struct{}) []Attribute {
+	out := make([]Attribute, 0, len(attributes))
+	for _, attribute := range attributes {
+		if _, found := declaredKeys[attribute.Key]; found {
+			continue
+		}
+		if values, found := declaredValues[attribute.Key]; found {
+			kept := make([]string, 0, len(attribute.Values))
+			for _, value := range attribute.Values {
+				if _, marker := values[value]; marker {
+					continue
+				}
+				kept = append(kept, value)
+			}
+			attribute.Values = kept
+		}
+		out = append(out, attribute)
+	}
+	return out
+}
+
+// withoutSelectorLabels removes the synth producer's own declared routing selector keys from its
+// view before comparison. synthkit's composition root stamps the blueprint selector on every
+// blueprint-scoped signal, so no capture of collector egress can carry it and comparing it
+// against one is the same category error as comparing a read-path enrichment label. This runs in
+// the synth-to-reality direction only, and only for keys the synth document declares: an
+// undeclared synth-only key remains a contradiction, which is the never-invent-a-name rule.
+func withoutSelectorLabels(schema Schema) Schema {
+	if schema.Provenance == nil || len(schema.Provenance.SelectorLabels) == 0 {
+		return schema
+	}
+	declared := make(map[string]struct{}, len(schema.Provenance.SelectorLabels))
+	for _, key := range schema.Provenance.SelectorLabels {
+		declared[key] = struct{}{}
+	}
+	out := cloneSchema(schema)
+	for i := range out.Metrics {
+		out.Metrics[i].Labels = dropDeclaredAttributes(out.Metrics[i].Labels, declared)
+	}
+	for i := range out.Logs {
+		out.Logs[i].StreamLabels = dropDeclaredAttributes(out.Logs[i].StreamLabels, declared)
+	}
+	for i := range out.Traces {
+		out.Traces[i].ResourceAttributes = dropDeclaredAttributes(out.Traces[i].ResourceAttributes, declared)
+	}
+	for i := range out.Profiles {
+		out.Profiles[i].Labels = dropDeclaredAttributes(out.Profiles[i].Labels, declared)
+	}
+	return out
+}
+
+func dropDeclaredAttributes(attributes []Attribute, declared map[string]struct{}) []Attribute {
+	out := make([]Attribute, 0, len(attributes))
+	for _, attribute := range attributes {
+		if _, found := declared[attribute.Key]; found {
+			continue
+		}
+		out = append(out, attribute)
+	}
 	return out
 }
 

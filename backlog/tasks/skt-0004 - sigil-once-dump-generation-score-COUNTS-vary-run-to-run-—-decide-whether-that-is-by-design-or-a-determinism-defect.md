@@ -3,10 +3,10 @@ id: SKT-0004
 title: >-
   sigil: -once -dump generation/score COUNTS vary run-to-run — decide whether
   that is by design or a determinism defect
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-19 07:34'
-updated_date: '2026-08-19 07:38'
+updated_date: '2026-08-27 07:19'
 labels:
   - needs-triage
 dependencies: []
@@ -61,4 +61,40 @@ Several sigil tasks carry an acceptance criterion of the form 'output stays dete
 
 <!-- SECTION:NOTES:BEGIN -->
 STRONGER EVIDENCE (2026-08-19, same session that filed this): the dump's authoritative inventory section — the '<metric> {[sorted label keys]}' block, not the sampled '[dry-run] N series e.g. …' lines — is BYTE-IDENTICAL across two consecutive runs: 2668 lines each, 'diff' exit 0. So the emitted contract is fully deterministic and the '-once -dump' inventory gate PASSES; the ONLY thing that moves between runs is the single '== sigil: generations=N workflow_steps=50 scores=N ==' summary line (workflow_steps itself is stable at 50). That narrows this task a lot: the by-design reading is now the strong favourite, and whoever picks this up should start from the sigil count summary's arrival path rather than suspecting the emit path. It also means the AC-wording fix in AC #3 is the likely real deliverable here.
+
+RESOLVED 2026-08-27 (lane L6, verified by the wiring pass). Verdict: BY DESIGN. No code change — that is the correct outcome, not a shortfall.
+
+## The code path, named
+
+1. internal/ledger/request.go:190-196 — uuid() mints every correlation identifier from crypto/rand (import confirmed at :14), deliberately unseeded per the package I9 comment: nothing outside the ledger mints request-scoped IDs, and that is what makes one correlation_id thread across every signal class.
+2. internal/workload/aiagent/minter.go:71 — mintOne calls ledger.NewCorrelation(), so every conversation gets a run-unique SessionID.
+3. internal/workload/aiagent/minter.go:88-124 — TurnCount is a deterministic FNV hash OF THAT SessionID. Deterministic for a given id; the id is fresh each run, so the turn-count population reshuffles.
+4. internal/workload/aiagent/conversation.go:73 — turns := TurnCount(agent, r.SessionID) sets how many sigil.Generations a conversation emits.
+5. cmd/synthkit/main.go:827 sums across the batch, so generations= and scores= inherit the reshuffle.
+
+Why workflow_steps stays pinned at 50: internal/workload/aiagent/archetypes.go:66-74 emits exactly ONE WorkflowStep per conversation regardless of turn count, and the conversation COUNT is fully deterministic — minter.go:56-63 draws via ledger.StochasticRound over the shape engine fixed-seed PCG stream (internal/shape/shape.go:376-383), which is identical every run.
+
+## Why this is by design rather than an I12 violation
+
+I12 governs SHAPE and CONTENT determinism given an identity, and it holds — TurnCount is a pure function of SessionID. The correlation-ID freshness driving the aggregate variance is I9, a separate and equally load-bearing requirement (unique, unguessable correlation ids). The two rules are not in conflict; the summary line simply aggregates across identities that are deliberately fresh.
+
+Ruled out explicitly: no wall-clock draw and no map-iteration-order dependence anywhere in the path. shape.New/AddBlueprint gives one engine per blueprint with no cross-blueprint sharing, ledger.Mint iterates a slice, and runner.RunOnce is fully serial with minting before any other RNG consumer in the tick.
+
+## The real deliverable — corrected AC wording for future sigil tasks
+
+"Two consecutive `DRY_RUN=true go run ./cmd/synthkit -once -dump` runs produce an IDENTICAL structural inventory: for every sink, the `<name> {[sorted label/attribute keys]}` block (series/stream/span names, label and attribute key sets, and — for sigil — the ingest-kind to operation-name mapping) diffs clean. The sigil `== sigil: generations=N workflow_steps=N scores=N ==` summary line is NOT part of this check and is expected to vary run to run (fresh per-conversation correlation IDs, by design — see docs/cli.md); do not compare it, and do not treat its variance as a regression."
+
+## Documentation
+
+docs/cli.md gained a "What -dump output is deterministic, and what isn not" block covering all three: the structural inventory is the contract and is byte-identical; the [dry-run <sink>] lines each sample ONE random exemplar per batch and must never be raw-diffed; the sigil summary counts vary by design while workflow_steps and the conversation count do not.
+
+## Reproduction
+
+The default blueprint selection emits no sigil traffic at all, so the reproduction needs an explicit blueprint:
+
+  $ for i in 1 2; do DRY_RUN=true BLUEPRINT_NAMES=otlp-native go run ./cmd/synthkit -once -dump 2>&1 | grep "== sigil: gen"; done
+  == sigil: generations=176 workflow_steps=50 scores=87 ==
+  == sigil: generations=194 workflow_steps=50 scores=90 ==
+
+Exactly the pattern this task recorded: workflow_steps pinned, generations/scores moving.
 <!-- SECTION:NOTES:END -->

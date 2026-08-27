@@ -5,8 +5,26 @@
     "kind": "gcx_live_readback",
     "substrate": "eks",
     "collector": "grafana/gcx",
-    "collector_version": "1.1.1",
-    "captured_on": "2026-08-25"
+    "collector_version": "1.2.0",
+    "captured_on": "2026-08-27",
+    "enrichment_labels": [
+      {
+        "key": "__aggregation__",
+        "provenance": "Grafana Cloud aggregated-series marker applied stack-side after ingest. Prometheus reserves double-underscore label names for internal use and drops them before ingestion, so no collector can emit this key at egress; only a read-path producer observes it."
+      },
+      {
+        "key": "asserts_env",
+        "provenance": "Grafana Cloud Asserts pipeline label applied stack-side after ingest. signals/k8s.md records that real series carry it and that synthkit deliberately does not emit Asserts labels; only a read-path producer observes it."
+      },
+      {
+        "key": "asserts_site",
+        "provenance": "Grafana Cloud Asserts pipeline label applied stack-side after ingest. signals/k8s.md records that real series carry it and that synthkit deliberately does not emit Asserts labels; only a read-path producer observes it."
+      },
+      {
+        "key": "service",
+        "provenance": "Grafana Cloud read-path entity label applied stack-side after ingest. Neither the CloudWatch metric stream nor the collector emits it at egress, so only a read-path producer observes it."
+      }
+    ]
   },
   "authority": {
     "substrates": [
@@ -14,9 +32,10 @@
     ]
   },
   "capture_volume": {
-    "runs": 1,
+    "runs": 2,
     "observed_contract_counts": [
-      588
+      588,
+      608
     ]
   },
   "inventory": {
@@ -26,7 +45,7 @@
         "name": "aws_applicationelb_active_connection_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -91,7 +110,7 @@
         "name": "aws_applicationelb_active_connection_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -161,7 +180,7 @@
         "name": "aws_applicationelb_active_connection_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -231,7 +250,7 @@
         "name": "aws_applicationelb_active_connection_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -301,7 +320,7 @@
         "name": "aws_applicationelb_active_connection_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -371,7 +390,7 @@
         "name": "aws_applicationelb_anomalous_host_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -446,7 +465,7 @@
         "name": "aws_applicationelb_anomalous_host_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -521,7 +540,7 @@
         "name": "aws_applicationelb_anomalous_host_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -596,7 +615,7 @@
         "name": "aws_applicationelb_anomalous_host_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -671,7 +690,7 @@
         "name": "aws_applicationelb_anomalous_host_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -746,7 +765,7 @@
         "name": "aws_applicationelb_capacity_utilization_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -806,7 +825,7 @@
         "name": "aws_applicationelb_capacity_utilization_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -866,7 +885,7 @@
         "name": "aws_applicationelb_capacity_utilization_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -926,7 +945,7 @@
         "name": "aws_applicationelb_capacity_utilization_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -986,7 +1005,7 @@
         "name": "aws_applicationelb_capacity_utilization_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -1391,7 +1410,7 @@
         "name": "aws_applicationelb_consumed_lcus_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -1451,7 +1470,7 @@
         "name": "aws_applicationelb_consumed_lcus_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -1511,7 +1530,7 @@
         "name": "aws_applicationelb_consumed_lcus_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -1571,7 +1590,7 @@
         "name": "aws_applicationelb_consumed_lcus_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -1631,7 +1650,7 @@
         "name": "aws_applicationelb_consumed_lcus_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2016,7 +2035,7 @@
         "name": "aws_applicationelb_healthy_host_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2086,7 +2105,7 @@
         "name": "aws_applicationelb_healthy_host_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2161,7 +2180,7 @@
         "name": "aws_applicationelb_healthy_host_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2236,7 +2255,7 @@
         "name": "aws_applicationelb_healthy_host_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2311,7 +2330,7 @@
         "name": "aws_applicationelb_healthy_host_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2386,7 +2405,7 @@
         "name": "aws_applicationelb_healthy_state_dns_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2461,7 +2480,7 @@
         "name": "aws_applicationelb_healthy_state_dns_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2536,7 +2555,7 @@
         "name": "aws_applicationelb_healthy_state_dns_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2611,7 +2630,7 @@
         "name": "aws_applicationelb_healthy_state_dns_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2686,7 +2705,7 @@
         "name": "aws_applicationelb_healthy_state_dns_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2761,7 +2780,7 @@
         "name": "aws_applicationelb_healthy_state_routing_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2836,7 +2855,7 @@
         "name": "aws_applicationelb_healthy_state_routing_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2911,7 +2930,7 @@
         "name": "aws_applicationelb_healthy_state_routing_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -2986,7 +3005,7 @@
         "name": "aws_applicationelb_healthy_state_routing_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3061,7 +3080,7 @@
         "name": "aws_applicationelb_healthy_state_routing_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3136,7 +3155,7 @@
         "name": "aws_applicationelb_http_fixed_response_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3206,7 +3225,7 @@
         "name": "aws_applicationelb_http_fixed_response_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3276,7 +3295,7 @@
         "name": "aws_applicationelb_http_fixed_response_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3346,7 +3365,7 @@
         "name": "aws_applicationelb_http_fixed_response_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3416,7 +3435,7 @@
         "name": "aws_applicationelb_http_fixed_response_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3486,7 +3505,7 @@
         "name": "aws_applicationelb_http_redirect_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3556,7 +3575,7 @@
         "name": "aws_applicationelb_http_redirect_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3626,7 +3645,7 @@
         "name": "aws_applicationelb_http_redirect_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3696,7 +3715,7 @@
         "name": "aws_applicationelb_http_redirect_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3766,7 +3785,7 @@
         "name": "aws_applicationelb_http_redirect_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3836,7 +3855,7 @@
         "name": "aws_applicationelb_httpcode_elb_3_xx_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3906,7 +3925,7 @@
         "name": "aws_applicationelb_httpcode_elb_3_xx_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -3976,7 +3995,7 @@
         "name": "aws_applicationelb_httpcode_elb_3_xx_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4046,7 +4065,7 @@
         "name": "aws_applicationelb_httpcode_elb_3_xx_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4116,7 +4135,7 @@
         "name": "aws_applicationelb_httpcode_elb_3_xx_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4181,7 +4200,7 @@
         "name": "aws_applicationelb_httpcode_elb_4_xx_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4251,7 +4270,7 @@
         "name": "aws_applicationelb_httpcode_elb_4_xx_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4321,7 +4340,7 @@
         "name": "aws_applicationelb_httpcode_elb_4_xx_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4391,7 +4410,7 @@
         "name": "aws_applicationelb_httpcode_elb_4_xx_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4461,6 +4480,656 @@
         "name": "aws_applicationelb_httpcode_elb_4_xx_count_sum",
         "transports": [],
         "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_503_count_average",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_503_count_maximum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_503_count_minimum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_503_count_sample_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_503_count_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_5_xx_count_average",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_5_xx_count_maximum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_5_xx_count_minimum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_5_xx_count_sample_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AvailabilityZone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_LoadBalancer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/applicationelb"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/ApplicationELB"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_applicationelb_httpcode_elb_5_xx_count_sum",
+        "transports": [],
+        "instrument_types": [
           "unknown"
         ],
         "labels": [
@@ -4526,7 +5195,7 @@
         "name": "aws_applicationelb_httpcode_target_2_xx_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4601,7 +5270,7 @@
         "name": "aws_applicationelb_httpcode_target_2_xx_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4676,7 +5345,7 @@
         "name": "aws_applicationelb_httpcode_target_2_xx_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4751,7 +5420,7 @@
         "name": "aws_applicationelb_httpcode_target_2_xx_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -4826,7 +5495,7 @@
         "name": "aws_applicationelb_httpcode_target_2_xx_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5301,7 +5970,7 @@
         "name": "aws_applicationelb_mitigated_host_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5376,7 +6045,7 @@
         "name": "aws_applicationelb_mitigated_host_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5451,7 +6120,7 @@
         "name": "aws_applicationelb_mitigated_host_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5526,7 +6195,7 @@
         "name": "aws_applicationelb_mitigated_host_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5601,7 +6270,7 @@
         "name": "aws_applicationelb_mitigated_host_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5676,7 +6345,7 @@
         "name": "aws_applicationelb_new_connection_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5741,7 +6410,7 @@
         "name": "aws_applicationelb_new_connection_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5811,7 +6480,7 @@
         "name": "aws_applicationelb_new_connection_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5881,7 +6550,7 @@
         "name": "aws_applicationelb_new_connection_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -5951,7 +6620,7 @@
         "name": "aws_applicationelb_new_connection_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6021,7 +6690,7 @@
         "name": "aws_applicationelb_peak_lcus_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6081,7 +6750,7 @@
         "name": "aws_applicationelb_peak_lcus_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6141,7 +6810,7 @@
         "name": "aws_applicationelb_peak_lcus_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6201,7 +6870,7 @@
         "name": "aws_applicationelb_peak_lcus_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6261,7 +6930,7 @@
         "name": "aws_applicationelb_peak_lcus_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6321,7 +6990,7 @@
         "name": "aws_applicationelb_processed_bytes_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6386,7 +7055,7 @@
         "name": "aws_applicationelb_processed_bytes_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6456,7 +7125,7 @@
         "name": "aws_applicationelb_processed_bytes_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6526,7 +7195,7 @@
         "name": "aws_applicationelb_processed_bytes_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6596,7 +7265,7 @@
         "name": "aws_applicationelb_processed_bytes_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6666,7 +7335,7 @@
         "name": "aws_applicationelb_request_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6741,7 +7410,7 @@
         "name": "aws_applicationelb_request_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6816,7 +7485,7 @@
         "name": "aws_applicationelb_request_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6891,7 +7560,7 @@
         "name": "aws_applicationelb_request_count_per_target_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -6966,7 +7635,7 @@
         "name": "aws_applicationelb_request_count_per_target_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7041,7 +7710,7 @@
         "name": "aws_applicationelb_request_count_per_target_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7116,7 +7785,7 @@
         "name": "aws_applicationelb_request_count_per_target_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7191,7 +7860,7 @@
         "name": "aws_applicationelb_request_count_per_target_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7266,7 +7935,7 @@
         "name": "aws_applicationelb_request_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7341,7 +8010,7 @@
         "name": "aws_applicationelb_request_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7411,7 +8080,7 @@
         "name": "aws_applicationelb_rule_evaluations_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7471,7 +8140,7 @@
         "name": "aws_applicationelb_rule_evaluations_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7531,7 +8200,7 @@
         "name": "aws_applicationelb_rule_evaluations_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7591,7 +8260,7 @@
         "name": "aws_applicationelb_rule_evaluations_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7651,7 +8320,7 @@
         "name": "aws_applicationelb_rule_evaluations_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7711,7 +8380,7 @@
         "name": "aws_applicationelb_target_response_time_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7781,7 +8450,7 @@
         "name": "aws_applicationelb_target_response_time_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7856,7 +8525,7 @@
         "name": "aws_applicationelb_target_response_time_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -7931,7 +8600,7 @@
         "name": "aws_applicationelb_target_response_time_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8006,7 +8675,7 @@
         "name": "aws_applicationelb_target_response_time_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8081,7 +8750,7 @@
         "name": "aws_applicationelb_un_healthy_host_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8151,7 +8820,7 @@
         "name": "aws_applicationelb_un_healthy_host_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8226,7 +8895,7 @@
         "name": "aws_applicationelb_un_healthy_host_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8301,7 +8970,7 @@
         "name": "aws_applicationelb_un_healthy_host_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8376,7 +9045,7 @@
         "name": "aws_applicationelb_un_healthy_host_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8451,7 +9120,7 @@
         "name": "aws_applicationelb_unhealthy_state_dns_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8526,7 +9195,7 @@
         "name": "aws_applicationelb_unhealthy_state_dns_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8601,7 +9270,7 @@
         "name": "aws_applicationelb_unhealthy_state_dns_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8676,7 +9345,7 @@
         "name": "aws_applicationelb_unhealthy_state_dns_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8751,7 +9420,7 @@
         "name": "aws_applicationelb_unhealthy_state_dns_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8826,7 +9495,7 @@
         "name": "aws_applicationelb_unhealthy_state_routing_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8901,7 +9570,7 @@
         "name": "aws_applicationelb_unhealthy_state_routing_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -8976,7 +9645,7 @@
         "name": "aws_applicationelb_unhealthy_state_routing_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9051,7 +9720,7 @@
         "name": "aws_applicationelb_unhealthy_state_routing_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9126,7 +9795,7 @@
         "name": "aws_applicationelb_unhealthy_state_routing_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9201,7 +9870,7 @@
         "name": "aws_ebs_burst_balance_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9251,7 +9920,7 @@
         "name": "aws_ebs_burst_balance_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9301,7 +9970,7 @@
         "name": "aws_ebs_burst_balance_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9351,7 +10020,7 @@
         "name": "aws_ebs_burst_balance_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9401,7 +10070,7 @@
         "name": "aws_ebs_burst_balance_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9501,7 +10170,7 @@
         "name": "aws_ebs_volume_avg_iops_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9561,7 +10230,7 @@
         "name": "aws_ebs_volume_avg_iops_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9621,7 +10290,7 @@
         "name": "aws_ebs_volume_avg_iops_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9681,7 +10350,7 @@
         "name": "aws_ebs_volume_avg_iops_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9741,7 +10410,7 @@
         "name": "aws_ebs_volume_avg_iops_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9801,7 +10470,7 @@
         "name": "aws_ebs_volume_avg_read_latency_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9861,7 +10530,7 @@
         "name": "aws_ebs_volume_avg_read_latency_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9921,7 +10590,7 @@
         "name": "aws_ebs_volume_avg_read_latency_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -9981,7 +10650,7 @@
         "name": "aws_ebs_volume_avg_read_latency_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10041,7 +10710,7 @@
         "name": "aws_ebs_volume_avg_read_latency_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10101,7 +10770,7 @@
         "name": "aws_ebs_volume_avg_throughput_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10161,7 +10830,7 @@
         "name": "aws_ebs_volume_avg_throughput_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10221,7 +10890,7 @@
         "name": "aws_ebs_volume_avg_throughput_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10281,7 +10950,7 @@
         "name": "aws_ebs_volume_avg_throughput_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10341,7 +11010,7 @@
         "name": "aws_ebs_volume_avg_throughput_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10401,7 +11070,7 @@
         "name": "aws_ebs_volume_avg_write_latency_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10461,7 +11130,7 @@
         "name": "aws_ebs_volume_avg_write_latency_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10521,7 +11190,7 @@
         "name": "aws_ebs_volume_avg_write_latency_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10581,7 +11250,7 @@
         "name": "aws_ebs_volume_avg_write_latency_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10641,7 +11310,7 @@
         "name": "aws_ebs_volume_avg_write_latency_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10701,7 +11370,7 @@
         "name": "aws_ebs_volume_idle_time_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10751,7 +11420,7 @@
         "name": "aws_ebs_volume_idle_time_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10806,7 +11475,7 @@
         "name": "aws_ebs_volume_idle_time_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10861,7 +11530,7 @@
         "name": "aws_ebs_volume_idle_time_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10916,7 +11585,7 @@
         "name": "aws_ebs_volume_idle_time_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -10971,7 +11640,7 @@
         "name": "aws_ebs_volume_iopsexceeded_check_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11031,7 +11700,7 @@
         "name": "aws_ebs_volume_iopsexceeded_check_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11091,7 +11760,7 @@
         "name": "aws_ebs_volume_iopsexceeded_check_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11151,7 +11820,7 @@
         "name": "aws_ebs_volume_iopsexceeded_check_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11211,7 +11880,7 @@
         "name": "aws_ebs_volume_iopsexceeded_check_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11271,7 +11940,7 @@
         "name": "aws_ebs_volume_queue_length_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11321,7 +11990,7 @@
         "name": "aws_ebs_volume_queue_length_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11376,7 +12045,7 @@
         "name": "aws_ebs_volume_queue_length_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11431,7 +12100,7 @@
         "name": "aws_ebs_volume_queue_length_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11486,7 +12155,7 @@
         "name": "aws_ebs_volume_queue_length_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11541,7 +12210,7 @@
         "name": "aws_ebs_volume_read_bytes_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11596,7 +12265,7 @@
         "name": "aws_ebs_volume_read_bytes_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11651,7 +12320,7 @@
         "name": "aws_ebs_volume_read_bytes_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11706,7 +12375,7 @@
         "name": "aws_ebs_volume_read_bytes_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11761,7 +12430,7 @@
         "name": "aws_ebs_volume_read_bytes_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11811,7 +12480,7 @@
         "name": "aws_ebs_volume_read_ops_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11861,7 +12530,7 @@
         "name": "aws_ebs_volume_read_ops_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11916,7 +12585,7 @@
         "name": "aws_ebs_volume_read_ops_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -11971,7 +12640,7 @@
         "name": "aws_ebs_volume_read_ops_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12026,7 +12695,7 @@
         "name": "aws_ebs_volume_read_ops_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12081,7 +12750,7 @@
         "name": "aws_ebs_volume_stalled_iocheck_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12141,7 +12810,7 @@
         "name": "aws_ebs_volume_stalled_iocheck_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12201,7 +12870,7 @@
         "name": "aws_ebs_volume_stalled_iocheck_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12261,7 +12930,7 @@
         "name": "aws_ebs_volume_stalled_iocheck_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12321,7 +12990,7 @@
         "name": "aws_ebs_volume_stalled_iocheck_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12381,7 +13050,7 @@
         "name": "aws_ebs_volume_throughput_exceeded_check_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12441,7 +13110,7 @@
         "name": "aws_ebs_volume_throughput_exceeded_check_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12501,7 +13170,7 @@
         "name": "aws_ebs_volume_throughput_exceeded_check_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12561,7 +13230,7 @@
         "name": "aws_ebs_volume_throughput_exceeded_check_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12621,7 +13290,7 @@
         "name": "aws_ebs_volume_throughput_exceeded_check_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12681,7 +13350,7 @@
         "name": "aws_ebs_volume_total_read_time_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12731,7 +13400,7 @@
         "name": "aws_ebs_volume_total_read_time_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12786,7 +13455,7 @@
         "name": "aws_ebs_volume_total_read_time_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12841,7 +13510,7 @@
         "name": "aws_ebs_volume_total_read_time_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12896,7 +13565,7 @@
         "name": "aws_ebs_volume_total_read_time_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -12951,7 +13620,7 @@
         "name": "aws_ebs_volume_total_write_time_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13001,7 +13670,7 @@
         "name": "aws_ebs_volume_total_write_time_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13056,7 +13725,7 @@
         "name": "aws_ebs_volume_total_write_time_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13111,7 +13780,7 @@
         "name": "aws_ebs_volume_total_write_time_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13166,7 +13835,7 @@
         "name": "aws_ebs_volume_total_write_time_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13221,7 +13890,7 @@
         "name": "aws_ebs_volume_write_bytes_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13276,7 +13945,7 @@
         "name": "aws_ebs_volume_write_bytes_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13331,7 +14000,7 @@
         "name": "aws_ebs_volume_write_bytes_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13386,7 +14055,7 @@
         "name": "aws_ebs_volume_write_bytes_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13441,7 +14110,7 @@
         "name": "aws_ebs_volume_write_bytes_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13491,7 +14160,7 @@
         "name": "aws_ebs_volume_write_ops_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13541,7 +14210,7 @@
         "name": "aws_ebs_volume_write_ops_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13596,7 +14265,7 @@
         "name": "aws_ebs_volume_write_ops_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13651,7 +14320,7 @@
         "name": "aws_ebs_volume_write_ops_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13706,7 +14375,7 @@
         "name": "aws_ebs_volume_write_ops_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13761,7 +14430,7 @@
         "name": "aws_ec2_cpucredit_balance_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13826,7 +14495,7 @@
         "name": "aws_ec2_cpucredit_balance_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13896,7 +14565,7 @@
         "name": "aws_ec2_cpucredit_balance_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -13966,7 +14635,7 @@
         "name": "aws_ec2_cpucredit_balance_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14036,7 +14705,7 @@
         "name": "aws_ec2_cpucredit_balance_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14106,7 +14775,7 @@
         "name": "aws_ec2_cpucredit_usage_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14176,7 +14845,7 @@
         "name": "aws_ec2_cpucredit_usage_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14246,7 +14915,7 @@
         "name": "aws_ec2_cpucredit_usage_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14316,7 +14985,7 @@
         "name": "aws_ec2_cpucredit_usage_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14386,7 +15055,7 @@
         "name": "aws_ec2_cpucredit_usage_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14451,7 +15120,7 @@
         "name": "aws_ec2_cpusurplus_credit_balance_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14521,7 +15190,7 @@
         "name": "aws_ec2_cpusurplus_credit_balance_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14591,7 +15260,7 @@
         "name": "aws_ec2_cpusurplus_credit_balance_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14661,7 +15330,7 @@
         "name": "aws_ec2_cpusurplus_credit_balance_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14731,7 +15400,7 @@
         "name": "aws_ec2_cpusurplus_credit_balance_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14801,7 +15470,7 @@
         "name": "aws_ec2_cpusurplus_credits_charged_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14871,7 +15540,7 @@
         "name": "aws_ec2_cpusurplus_credits_charged_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -14941,7 +15610,7 @@
         "name": "aws_ec2_cpusurplus_credits_charged_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15011,7 +15680,7 @@
         "name": "aws_ec2_cpusurplus_credits_charged_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15081,7 +15750,7 @@
         "name": "aws_ec2_cpusurplus_credits_charged_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15211,7 +15880,7 @@
         "name": "aws_ec2_cpuutilization_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15346,7 +16015,7 @@
         "name": "aws_ec2_cpuutilization_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15416,7 +16085,7 @@
         "name": "aws_ec2_cpuutilization_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15441,6 +16110,1206 @@
           },
           {
             "key": "dimension_AutoScalingGroupName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_bytes_average",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_bytes_maximum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_bytes_minimum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_bytes_sample_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_bytes_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_ops_average",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_ops_maximum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_ops_minimum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_ops_sample_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_read_ops_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_bytes_average",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_bytes_maximum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_bytes_minimum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_bytes_sample_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_bytes_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_ops_average",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_ops_maximum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_ops_minimum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_ops_sample_count",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_InstanceId",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [
+              "cloud/aws/ec2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [
+              "AWS/EC2"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "region",
+            "values": [
+              "eu-west-1"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "aws_ec2_disk_write_ops_sum",
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
             "values": [],
             "values_elided": true
           },
@@ -15556,7 +17425,7 @@
         "name": "aws_ec2_ebsbyte_balance_percent_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15626,7 +17495,7 @@
         "name": "aws_ec2_ebsbyte_balance_percent_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15696,7 +17565,7 @@
         "name": "aws_ec2_ebsbyte_balance_percent_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15766,7 +17635,7 @@
         "name": "aws_ec2_ebsbyte_balance_percent_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15836,7 +17705,7 @@
         "name": "aws_ec2_ebsiobalance_percent_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15906,7 +17775,7 @@
         "name": "aws_ec2_ebsiobalance_percent_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -15976,7 +17845,7 @@
         "name": "aws_ec2_ebsiobalance_percent_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -16046,7 +17915,7 @@
         "name": "aws_ec2_ebsiobalance_percent_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -16116,7 +17985,7 @@
         "name": "aws_ec2_ebsiobalance_percent_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -16186,7 +18055,7 @@
         "name": "aws_ec2_ebsread_bytes_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -16536,7 +18405,7 @@
         "name": "aws_ec2_ebsread_ops_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -16606,7 +18475,7 @@
         "name": "aws_ec2_ebsread_ops_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -16676,7 +18545,7 @@
         "name": "aws_ec2_ebsread_ops_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -16746,7 +18615,7 @@
         "name": "aws_ec2_ebsread_ops_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -16816,7 +18685,7 @@
         "name": "aws_ec2_ebsread_ops_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -16956,7 +18825,7 @@
         "name": "aws_ec2_ebswrite_bytes_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17026,7 +18895,7 @@
         "name": "aws_ec2_ebswrite_bytes_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17096,7 +18965,7 @@
         "name": "aws_ec2_ebswrite_bytes_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17166,7 +19035,7 @@
         "name": "aws_ec2_ebswrite_bytes_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17236,7 +19105,7 @@
         "name": "aws_ec2_ebswrite_ops_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17306,7 +19175,7 @@
         "name": "aws_ec2_ebswrite_ops_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17376,7 +19245,7 @@
         "name": "aws_ec2_ebswrite_ops_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17446,7 +19315,7 @@
         "name": "aws_ec2_ebswrite_ops_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17516,7 +19385,7 @@
         "name": "aws_ec2_ebswrite_ops_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17641,7 +19510,7 @@
         "name": "aws_ec2_instance_ebsiopsexceeded_check_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17706,7 +19575,7 @@
         "name": "aws_ec2_instance_ebsiopsexceeded_check_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17766,7 +19635,7 @@
         "name": "aws_ec2_instance_ebsiopsexceeded_check_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17831,7 +19700,7 @@
         "name": "aws_ec2_instance_ebsiopsexceeded_check_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17896,7 +19765,7 @@
         "name": "aws_ec2_instance_ebsiopsexceeded_check_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -17961,7 +19830,7 @@
         "name": "aws_ec2_instance_ebsthroughput_exceeded_check_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18026,7 +19895,7 @@
         "name": "aws_ec2_instance_ebsthroughput_exceeded_check_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18086,7 +19955,7 @@
         "name": "aws_ec2_instance_ebsthroughput_exceeded_check_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18151,7 +20020,7 @@
         "name": "aws_ec2_instance_ebsthroughput_exceeded_check_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18216,7 +20085,7 @@
         "name": "aws_ec2_instance_ebsthroughput_exceeded_check_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18281,7 +20150,7 @@
         "name": "aws_ec2_metadata_no_token_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18351,7 +20220,7 @@
         "name": "aws_ec2_metadata_no_token_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18421,7 +20290,7 @@
         "name": "aws_ec2_metadata_no_token_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18491,7 +20360,7 @@
         "name": "aws_ec2_metadata_no_token_rejected_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18506,6 +20375,11 @@
           },
           {
             "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AutoScalingGroupName",
             "values": [],
             "values_elided": true
           },
@@ -18551,7 +20425,7 @@
         "name": "aws_ec2_metadata_no_token_rejected_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18566,6 +20440,11 @@
           },
           {
             "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AutoScalingGroupName",
             "values": [],
             "values_elided": true
           },
@@ -18611,7 +20490,7 @@
         "name": "aws_ec2_metadata_no_token_rejected_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18626,6 +20505,11 @@
           },
           {
             "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AutoScalingGroupName",
             "values": [],
             "values_elided": true
           },
@@ -18671,7 +20555,7 @@
         "name": "aws_ec2_metadata_no_token_rejected_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18686,6 +20570,11 @@
           },
           {
             "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AutoScalingGroupName",
             "values": [],
             "values_elided": true
           },
@@ -18731,7 +20620,7 @@
         "name": "aws_ec2_metadata_no_token_rejected_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18746,6 +20635,11 @@
           },
           {
             "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_AutoScalingGroupName",
             "values": [],
             "values_elided": true
           },
@@ -18791,7 +20685,7 @@
         "name": "aws_ec2_metadata_no_token_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18861,7 +20755,7 @@
         "name": "aws_ec2_metadata_no_token_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18931,7 +20825,7 @@
         "name": "aws_ec2_network_in_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -18996,7 +20890,7 @@
         "name": "aws_ec2_network_in_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19066,7 +20960,7 @@
         "name": "aws_ec2_network_in_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19136,7 +21030,7 @@
         "name": "aws_ec2_network_in_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19271,7 +21165,7 @@
         "name": "aws_ec2_network_out_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19336,7 +21230,7 @@
         "name": "aws_ec2_network_out_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19406,7 +21300,7 @@
         "name": "aws_ec2_network_out_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19546,7 +21440,7 @@
         "name": "aws_ec2_network_out_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19681,7 +21575,7 @@
         "name": "aws_ec2_network_packets_in_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19751,7 +21645,7 @@
         "name": "aws_ec2_network_packets_in_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19891,7 +21785,7 @@
         "name": "aws_ec2_network_packets_in_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -19956,7 +21850,7 @@
         "name": "aws_ec2_network_packets_out_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20096,7 +21990,7 @@
         "name": "aws_ec2_network_packets_out_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20166,7 +22060,7 @@
         "name": "aws_ec2_network_packets_out_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20301,7 +22195,7 @@
         "name": "aws_ec2_status_check_failed_attached_ebs_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20371,7 +22265,7 @@
         "name": "aws_ec2_status_check_failed_attached_ebs_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20441,7 +22335,7 @@
         "name": "aws_ec2_status_check_failed_attached_ebs_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20511,7 +22405,7 @@
         "name": "aws_ec2_status_check_failed_attached_ebs_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20581,7 +22475,7 @@
         "name": "aws_ec2_status_check_failed_attached_ebs_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20651,7 +22545,7 @@
         "name": "aws_ec2_status_check_failed_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20721,7 +22615,7 @@
         "name": "aws_ec2_status_check_failed_instance_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20791,7 +22685,7 @@
         "name": "aws_ec2_status_check_failed_instance_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20861,7 +22755,7 @@
         "name": "aws_ec2_status_check_failed_instance_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -20931,7 +22825,7 @@
         "name": "aws_ec2_status_check_failed_instance_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21001,7 +22895,7 @@
         "name": "aws_ec2_status_check_failed_instance_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21066,7 +22960,7 @@
         "name": "aws_ec2_status_check_failed_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21136,7 +23030,7 @@
         "name": "aws_ec2_status_check_failed_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21206,7 +23100,7 @@
         "name": "aws_ec2_status_check_failed_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21276,7 +23170,7 @@
         "name": "aws_ec2_status_check_failed_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21341,7 +23235,7 @@
         "name": "aws_ec2_status_check_failed_system_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21411,7 +23305,7 @@
         "name": "aws_ec2_status_check_failed_system_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21481,7 +23375,7 @@
         "name": "aws_ec2_status_check_failed_system_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21551,7 +23445,7 @@
         "name": "aws_ec2_status_check_failed_system_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21621,7 +23515,7 @@
         "name": "aws_ec2_status_check_failed_system_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21686,7 +23580,7 @@
         "name": "aws_firehose_bytes_per_second_limit_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21741,7 +23635,7 @@
         "name": "aws_firehose_bytes_per_second_limit_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21796,7 +23690,7 @@
         "name": "aws_firehose_bytes_per_second_limit_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21851,7 +23745,7 @@
         "name": "aws_firehose_bytes_per_second_limit_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21906,7 +23800,7 @@
         "name": "aws_firehose_bytes_per_second_limit_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -21961,7 +23855,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_bytes_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22011,7 +23905,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_bytes_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22061,7 +23955,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_bytes_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22111,7 +24005,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_bytes_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22161,7 +24055,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_bytes_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22211,7 +24105,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_data_freshness_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22261,7 +24155,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_data_freshness_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22311,7 +24205,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_data_freshness_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22361,7 +24255,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_data_freshness_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22411,7 +24305,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_data_freshness_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22461,7 +24355,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_bytes_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22511,7 +24405,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_bytes_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22561,7 +24455,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_bytes_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22611,7 +24505,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_bytes_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22661,7 +24555,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_bytes_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22711,7 +24605,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_records_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22761,7 +24655,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_records_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22811,7 +24705,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_records_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22861,7 +24755,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_records_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22911,7 +24805,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_processed_records_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -22961,7 +24855,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_records_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23011,7 +24905,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_records_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23061,7 +24955,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_records_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23111,7 +25005,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_records_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23161,7 +25055,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_records_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23211,7 +25105,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_success_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23261,7 +25155,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_success_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23311,7 +25205,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_success_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23361,7 +25255,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_success_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23411,7 +25305,7 @@
         "name": "aws_firehose_delivery_to_http_endpoint_success_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -23961,7 +25855,7 @@
         "name": "aws_firehose_failed_validation_bytes_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24021,7 +25915,7 @@
         "name": "aws_firehose_failed_validation_bytes_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24081,7 +25975,7 @@
         "name": "aws_firehose_failed_validation_bytes_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24141,7 +26035,7 @@
         "name": "aws_firehose_failed_validation_bytes_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24201,7 +26095,7 @@
         "name": "aws_firehose_failed_validation_bytes_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24261,7 +26155,7 @@
         "name": "aws_firehose_failed_validation_records_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24321,7 +26215,7 @@
         "name": "aws_firehose_failed_validation_records_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24381,7 +26275,7 @@
         "name": "aws_firehose_failed_validation_records_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24441,7 +26335,7 @@
         "name": "aws_firehose_failed_validation_records_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24501,7 +26395,7 @@
         "name": "aws_firehose_failed_validation_records_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24561,7 +26455,7 @@
         "name": "aws_firehose_incoming_bytes_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24611,7 +26505,7 @@
         "name": "aws_firehose_incoming_bytes_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24661,7 +26555,7 @@
         "name": "aws_firehose_incoming_bytes_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24711,7 +26605,7 @@
         "name": "aws_firehose_incoming_bytes_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24761,7 +26655,7 @@
         "name": "aws_firehose_incoming_bytes_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24811,7 +26705,7 @@
         "name": "aws_firehose_incoming_put_requests_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24861,7 +26755,7 @@
         "name": "aws_firehose_incoming_put_requests_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24911,7 +26805,7 @@
         "name": "aws_firehose_incoming_put_requests_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -24961,7 +26855,7 @@
         "name": "aws_firehose_incoming_put_requests_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25011,7 +26905,7 @@
         "name": "aws_firehose_incoming_put_requests_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25061,7 +26955,7 @@
         "name": "aws_firehose_incoming_records_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25111,7 +27005,7 @@
         "name": "aws_firehose_incoming_records_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25161,7 +27055,7 @@
         "name": "aws_firehose_incoming_records_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25211,7 +27105,7 @@
         "name": "aws_firehose_incoming_records_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25261,7 +27155,7 @@
         "name": "aws_firehose_incoming_records_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25361,7 +27255,7 @@
         "name": "aws_firehose_kmskey_access_denied_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25416,7 +27310,7 @@
         "name": "aws_firehose_kmskey_access_denied_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25471,7 +27365,7 @@
         "name": "aws_firehose_kmskey_access_denied_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25526,7 +27420,7 @@
         "name": "aws_firehose_kmskey_access_denied_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25581,7 +27475,7 @@
         "name": "aws_firehose_kmskey_access_denied_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25636,7 +27530,7 @@
         "name": "aws_firehose_kmskey_disabled_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25691,7 +27585,7 @@
         "name": "aws_firehose_kmskey_disabled_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25746,7 +27640,7 @@
         "name": "aws_firehose_kmskey_disabled_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25801,7 +27695,7 @@
         "name": "aws_firehose_kmskey_disabled_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25856,7 +27750,7 @@
         "name": "aws_firehose_kmskey_disabled_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25911,7 +27805,7 @@
         "name": "aws_firehose_kmskey_invalid_state_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -25966,7 +27860,7 @@
         "name": "aws_firehose_kmskey_invalid_state_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26021,7 +27915,7 @@
         "name": "aws_firehose_kmskey_invalid_state_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26076,7 +27970,7 @@
         "name": "aws_firehose_kmskey_invalid_state_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26131,7 +28025,7 @@
         "name": "aws_firehose_kmskey_invalid_state_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26186,7 +28080,7 @@
         "name": "aws_firehose_kmskey_not_found_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26241,7 +28135,7 @@
         "name": "aws_firehose_kmskey_not_found_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26296,7 +28190,7 @@
         "name": "aws_firehose_kmskey_not_found_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26351,7 +28245,7 @@
         "name": "aws_firehose_kmskey_not_found_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26406,7 +28300,7 @@
         "name": "aws_firehose_kmskey_not_found_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26461,7 +28355,7 @@
         "name": "aws_firehose_put_record_batch_bytes_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26511,7 +28405,7 @@
         "name": "aws_firehose_put_record_batch_bytes_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26561,7 +28455,7 @@
         "name": "aws_firehose_put_record_batch_bytes_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26611,7 +28505,7 @@
         "name": "aws_firehose_put_record_batch_bytes_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26661,7 +28555,7 @@
         "name": "aws_firehose_put_record_batch_bytes_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26711,7 +28605,7 @@
         "name": "aws_firehose_put_record_batch_latency_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26761,7 +28655,7 @@
         "name": "aws_firehose_put_record_batch_latency_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26811,7 +28705,7 @@
         "name": "aws_firehose_put_record_batch_latency_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26861,7 +28755,7 @@
         "name": "aws_firehose_put_record_batch_latency_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26911,7 +28805,7 @@
         "name": "aws_firehose_put_record_batch_latency_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -26961,7 +28855,7 @@
         "name": "aws_firehose_put_record_batch_records_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -27011,7 +28905,7 @@
         "name": "aws_firehose_put_record_batch_records_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -27061,7 +28955,7 @@
         "name": "aws_firehose_put_record_batch_records_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -27111,7 +29005,7 @@
         "name": "aws_firehose_put_record_batch_records_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -27161,7 +29055,7 @@
         "name": "aws_firehose_put_record_batch_records_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -27211,7 +29105,7 @@
         "name": "aws_firehose_put_record_batch_requests_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -27261,7 +29155,7 @@
         "name": "aws_firehose_put_record_batch_requests_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -27311,7 +29205,7 @@
         "name": "aws_firehose_put_record_batch_requests_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -27361,7 +29255,7 @@
         "name": "aws_firehose_put_record_batch_requests_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -27411,7 +29305,7 @@
         "name": "aws_firehose_put_record_batch_requests_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -28211,7 +30105,7 @@
         "name": "aws_firehose_put_requests_per_second_limit_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -28321,7 +30215,7 @@
         "name": "aws_firehose_put_requests_per_second_limit_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -28376,7 +30270,7 @@
         "name": "aws_firehose_put_requests_per_second_limit_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -28431,7 +30325,7 @@
         "name": "aws_firehose_put_requests_per_second_limit_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -28486,7 +30380,7 @@
         "name": "aws_firehose_records_per_second_limit_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -28541,7 +30435,7 @@
         "name": "aws_firehose_records_per_second_limit_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -28596,7 +30490,7 @@
         "name": "aws_firehose_records_per_second_limit_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29011,7 +30905,7 @@
         "name": "aws_firehose_throttled_records_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29061,7 +30955,7 @@
         "name": "aws_firehose_throttled_records_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29111,7 +31005,7 @@
         "name": "aws_firehose_throttled_records_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29161,7 +31055,7 @@
         "name": "aws_firehose_throttled_records_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29211,7 +31105,7 @@
         "name": "aws_firehose_throttled_records_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29261,7 +31155,7 @@
         "name": "aws_natgateway_active_connection_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29311,7 +31205,7 @@
         "name": "aws_natgateway_active_connection_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29361,7 +31255,7 @@
         "name": "aws_natgateway_active_connection_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29411,7 +31305,7 @@
         "name": "aws_natgateway_active_connection_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29461,7 +31355,7 @@
         "name": "aws_natgateway_active_connection_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29511,7 +31405,7 @@
         "name": "aws_natgateway_bytes_in_from_destination_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29561,7 +31455,7 @@
         "name": "aws_natgateway_bytes_in_from_destination_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29611,7 +31505,7 @@
         "name": "aws_natgateway_bytes_in_from_destination_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29661,7 +31555,7 @@
         "name": "aws_natgateway_bytes_in_from_destination_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29711,7 +31605,7 @@
         "name": "aws_natgateway_bytes_in_from_destination_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29761,7 +31655,7 @@
         "name": "aws_natgateway_bytes_in_from_source_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29811,7 +31705,7 @@
         "name": "aws_natgateway_bytes_in_from_source_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29861,7 +31755,7 @@
         "name": "aws_natgateway_bytes_in_from_source_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29911,7 +31805,7 @@
         "name": "aws_natgateway_bytes_in_from_source_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -29961,7 +31855,7 @@
         "name": "aws_natgateway_bytes_in_from_source_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30011,7 +31905,7 @@
         "name": "aws_natgateway_bytes_out_to_destination_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30061,7 +31955,7 @@
         "name": "aws_natgateway_bytes_out_to_destination_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30111,7 +32005,7 @@
         "name": "aws_natgateway_bytes_out_to_destination_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30161,7 +32055,7 @@
         "name": "aws_natgateway_bytes_out_to_destination_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30211,7 +32105,7 @@
         "name": "aws_natgateway_bytes_out_to_destination_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30261,7 +32155,7 @@
         "name": "aws_natgateway_bytes_out_to_source_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30311,7 +32205,7 @@
         "name": "aws_natgateway_bytes_out_to_source_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30361,7 +32255,7 @@
         "name": "aws_natgateway_bytes_out_to_source_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30411,7 +32305,7 @@
         "name": "aws_natgateway_bytes_out_to_source_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30461,7 +32355,7 @@
         "name": "aws_natgateway_bytes_out_to_source_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30511,7 +32405,7 @@
         "name": "aws_natgateway_connection_attempt_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30561,7 +32455,7 @@
         "name": "aws_natgateway_connection_attempt_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30611,7 +32505,7 @@
         "name": "aws_natgateway_connection_attempt_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30661,7 +32555,7 @@
         "name": "aws_natgateway_connection_attempt_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30711,7 +32605,7 @@
         "name": "aws_natgateway_connection_attempt_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30761,7 +32655,7 @@
         "name": "aws_natgateway_connection_established_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30811,7 +32705,7 @@
         "name": "aws_natgateway_connection_established_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30861,7 +32755,7 @@
         "name": "aws_natgateway_connection_established_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30911,7 +32805,7 @@
         "name": "aws_natgateway_connection_established_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -30961,7 +32855,7 @@
         "name": "aws_natgateway_connection_established_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31011,7 +32905,7 @@
         "name": "aws_natgateway_error_port_allocation_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31061,7 +32955,7 @@
         "name": "aws_natgateway_error_port_allocation_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31111,7 +33005,7 @@
         "name": "aws_natgateway_error_port_allocation_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31161,7 +33055,7 @@
         "name": "aws_natgateway_error_port_allocation_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31211,7 +33105,7 @@
         "name": "aws_natgateway_error_port_allocation_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31311,7 +33205,7 @@
         "name": "aws_natgateway_packets_drop_count_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31361,7 +33255,7 @@
         "name": "aws_natgateway_packets_drop_count_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31411,7 +33305,7 @@
         "name": "aws_natgateway_packets_drop_count_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31461,7 +33355,7 @@
         "name": "aws_natgateway_packets_drop_count_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31511,7 +33405,7 @@
         "name": "aws_natgateway_packets_drop_count_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31561,7 +33455,7 @@
         "name": "aws_natgateway_packets_in_from_destination_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31611,7 +33505,7 @@
         "name": "aws_natgateway_packets_in_from_destination_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31661,7 +33555,7 @@
         "name": "aws_natgateway_packets_in_from_destination_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31711,7 +33605,7 @@
         "name": "aws_natgateway_packets_in_from_destination_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31761,7 +33655,7 @@
         "name": "aws_natgateway_packets_in_from_destination_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31811,7 +33705,7 @@
         "name": "aws_natgateway_packets_in_from_source_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31861,7 +33755,7 @@
         "name": "aws_natgateway_packets_in_from_source_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31911,7 +33805,7 @@
         "name": "aws_natgateway_packets_in_from_source_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -31961,7 +33855,7 @@
         "name": "aws_natgateway_packets_in_from_source_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32011,7 +33905,7 @@
         "name": "aws_natgateway_packets_in_from_source_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32061,7 +33955,7 @@
         "name": "aws_natgateway_packets_out_to_destination_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32111,7 +34005,7 @@
         "name": "aws_natgateway_packets_out_to_destination_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32161,7 +34055,7 @@
         "name": "aws_natgateway_packets_out_to_destination_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32211,7 +34105,7 @@
         "name": "aws_natgateway_packets_out_to_destination_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32261,7 +34155,7 @@
         "name": "aws_natgateway_packets_out_to_destination_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32311,7 +34205,7 @@
         "name": "aws_natgateway_packets_out_to_source_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32361,7 +34255,7 @@
         "name": "aws_natgateway_packets_out_to_source_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32411,7 +34305,7 @@
         "name": "aws_natgateway_packets_out_to_source_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32461,7 +34355,7 @@
         "name": "aws_natgateway_packets_out_to_source_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32511,7 +34405,7 @@
         "name": "aws_natgateway_packets_out_to_source_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32561,7 +34455,7 @@
         "name": "aws_natgateway_peak_bytes_per_second_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32611,7 +34505,7 @@
         "name": "aws_natgateway_peak_bytes_per_second_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32661,7 +34555,7 @@
         "name": "aws_natgateway_peak_bytes_per_second_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32711,7 +34605,7 @@
         "name": "aws_natgateway_peak_bytes_per_second_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32761,7 +34655,7 @@
         "name": "aws_natgateway_peak_bytes_per_second_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32811,7 +34705,7 @@
         "name": "aws_natgateway_peak_packets_per_second_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32861,7 +34755,7 @@
         "name": "aws_natgateway_peak_packets_per_second_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32911,7 +34805,7 @@
         "name": "aws_natgateway_peak_packets_per_second_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -32961,7 +34855,7 @@
         "name": "aws_natgateway_peak_packets_per_second_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33011,7 +34905,7 @@
         "name": "aws_natgateway_peak_packets_per_second_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33116,7 +35010,7 @@
         "name": "aws_privatelinkendpoints_active_connections_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33191,7 +35085,7 @@
         "name": "aws_privatelinkendpoints_active_connections_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33266,7 +35160,7 @@
         "name": "aws_privatelinkendpoints_active_connections_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33341,7 +35235,7 @@
         "name": "aws_privatelinkendpoints_active_connections_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33416,7 +35310,7 @@
         "name": "aws_privatelinkendpoints_active_connections_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33491,7 +35385,7 @@
         "name": "aws_privatelinkendpoints_bytes_processed_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33641,7 +35535,7 @@
         "name": "aws_privatelinkendpoints_bytes_processed_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33716,7 +35610,7 @@
         "name": "aws_privatelinkendpoints_bytes_processed_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33791,7 +35685,7 @@
         "name": "aws_privatelinkendpoints_bytes_processed_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -33991,7 +35885,7 @@
         "name": "aws_privatelinkendpoints_new_connections_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -34141,7 +36035,7 @@
         "name": "aws_privatelinkendpoints_new_connections_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -34216,7 +36110,7 @@
         "name": "aws_privatelinkendpoints_new_connections_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -34291,7 +36185,7 @@
         "name": "aws_privatelinkendpoints_packets_dropped_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -34366,7 +36260,7 @@
         "name": "aws_privatelinkendpoints_packets_dropped_maximum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -34591,7 +36485,7 @@
         "name": "aws_privatelinkendpoints_packets_dropped_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -34666,7 +36560,7 @@
         "name": "aws_privatelinkendpoints_rst_packets_received_average",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -34816,7 +36710,7 @@
         "name": "aws_privatelinkendpoints_rst_packets_received_minimum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -34891,7 +36785,7 @@
         "name": "aws_privatelinkendpoints_rst_packets_received_sample_count",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {
@@ -34966,7 +36860,7 @@
         "name": "aws_privatelinkendpoints_rst_packets_received_sum",
         "transports": [],
         "instrument_types": [
-          "unknown"
+          "gauge"
         ],
         "labels": [
           {

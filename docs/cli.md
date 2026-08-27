@@ -41,6 +41,30 @@ DRY_RUN=false BLUEPRINT_NAMES=otlp-native ./synthkit -once
 
 `DRY_RUN` defaults to `true`. You must explicitly set `DRY_RUN=false` to push synthetic data to Grafana Cloud. See [Configuration](configuration.md) for the full environment variable reference, and [Credentials](credentials.md) for how the Grafana Cloud tokens are scoped.
 
+**What `-dump` output is deterministic, and what isn't.** The authoritative section of a
+`-dump` — each sink's `<name> {[sorted label/attribute keys]}` inventory block — is the
+structural contract: series names, label/attribute key sets, and (for sigil) the ingest-kind →
+operation-name mapping. That block is byte-identical across consecutive runs and is what a
+diff against `signals/` should compare.
+
+The `[dry-run <sink>] N series e.g. <series>` lines underneath it are NOT part of that
+contract — each one logs a single randomly-sampled exemplar per batch, so which exemplar gets
+printed varies run to run by design. Never `diff` two raw `-dump` outputs line-for-line; it will
+show noise from this sampling (and, for sigil, from genuinely fresh per-run correlation IDs — see
+below) and prove nothing about a regression.
+
+For the same reason, the sigil block's final summary line —
+`== sigil: generations=N workflow_steps=N scores=N ==` — is a live COUNT, not part of the
+structural contract, and it is expected to vary run to run: `internal/ledger` mints a fresh,
+cryptographically-random `SessionID`/correlation ID per conversation on every run (by design —
+correlation ids must be unique and unguessable, never derived from a seed unit). Per-conversation
+turn count is a deterministic hash of that id (`internal/workload/aiagent/minter.go`'s
+`TurnCount`), so a fresh id set naturally reshuffles the aggregate turn-derived counts
+(`generations`, `scores`) even though the *number of conversations minted per tick* is itself
+fully deterministic (fixed `sessions_per_min` config × the shape engine's fixed-seed PRNG). Do
+not treat a `generations=`/`scores=` count mismatch across two `-once -dump` runs as a
+determinism regression; treat a mismatch in the structural inventory block as one.
+
 The control plane is available at `http://<bind>:<port>/control/` (default port **8088**). See [control-plane.md](control-plane.md).
 
 ## synthkit-deploy.py — deployment identity and rollback helper

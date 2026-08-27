@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"sort"
 	"strings"
 )
 
@@ -73,7 +74,7 @@ func (c *K8sCollector) Collect(ctx context.Context, inv *Inventory, opts Capture
 		return fmt.Errorf("k8s: parse nodes: %w", err)
 	}
 
-	cl.NodeGroups, cl.Provider, cl.Region = synthesizeNodeGroups(nodeList)
+	cl.NodeGroups, cl.Provider, cl.Region = groupNodes(nodeList)
 	inv.Envelope.Counts["nodes"] += len(nodeList)
 
 	// -------------------------------------------------------------------------
@@ -164,32 +165,133 @@ func (c *K8sCollector) Collect(ctx context.Context, inv *Inventory, opts Capture
 	inv.Envelope.Counts["ingresses"] += len(cl.Ingresses)
 
 	// -------------------------------------------------------------------------
-	// Cluster name: derive from kubectl config current-context (best-effort).
-	// EKS contexts are usually ARNs (arn:aws:eks:region:acct:cluster/NAME) — recover the trailing
-	// cluster name and slugify it so it is valid as both a cluster name and a blueprint-name stem.
+	// Cluster identity. Runs last: the collector lookup is driven by the workloads and namespaces
+	// already collected.
 	// -------------------------------------------------------------------------
-	if ctxRaw, cerr := run(ctx, "config", "current-context"); cerr == nil {
-		cl.Name = clusterNameFromContext(string(ctxRaw))
-	}
-	if cl.Name == "" {
-		cl.Name = "captured-cluster"
-	}
+	cl.Name, cl.NameSource = resolveClusterName(ctx, run, &cl)
 
 	inv.Clusters = append(inv.Clusters, cl)
 	return nil
 }
 
-// clusterNameFromContext recovers a clean cluster slug from a kubectl context string. For an EKS ARN
-// it takes the segment after the final "/" or ":" (the real cluster name); it then keeps only
-// lowercase alphanumerics and "-" (mapping "_", ".", " " to "-"). Returns "" when nothing usable
-// remains (the caller falls back to a default).
-func clusterNameFromContext(raw string) string {
-	s := strings.TrimSpace(raw)
-	if i := strings.LastIndexAny(s, "/:"); i >= 0 && i < len(s)-1 {
-		s = s[i+1:]
+// resolveClusterName determines the cluster identity and reports which source produced it.
+//
+// Precedence is deliberately observable-truth-first. Cluster name is the primary join key across
+// every k8s construct, so a blueprint forged with the wrong one emits telemetry that can never join
+// to the real cluster's dashboards — and does so silently, because the blueprint still loads and
+// validates. The collector's own cluster name is the value stamped on every metric, log and trace
+// the cluster ships, so it is the only source that is guaranteed to join.
+//
+// Nothing here falls back silently: every branch returns the source alongside the name, and only
+// NameSourceCollector satisfies AuthoritativeNameSource.
+func resolveClusterName(ctx context.Context, run KubectlRunner, cl *Cluster) (name, source string) {
+	if n := collectorClusterName(ctx, run, cl); n != "" {
+		return n, NameSourceCollector
 	}
+	if raw, err := run(ctx, "config", "current-context"); err == nil {
+		if n, ok := clusterNameFromEKSARN(string(raw)); ok {
+			return n, NameSourceEKSARN
+		}
+		if n := slugifyClusterName(string(raw)); n != "" {
+			return n, NameSourceContext
+		}
+	}
+	return "captured-cluster", NameSourceDefault
+}
+
+// releaseInfoClusterKey is the ConfigMap data key holding the cluster name the k8s-monitoring
+// collector applies as a label to all telemetry it collects.
+const releaseInfoClusterKey = "cluster"
+
+// collectorClusterName reads the cluster name out of the in-cluster metrics collector's release-info
+// ConfigMap, returning "" when it is not discoverable (no collector, no read permission, or a
+// release layout this does not recognise) so the caller can fall back and say that it did.
+//
+// The lookup is a targeted `get` of specific named ConfigMaps derived from the collector workloads
+// already captured — never a namespace- or cluster-wide list, which would pull every ConfigMap's
+// data through the process and defeat the zero-secret default. Only the single cluster-name key is
+// read out of the response.
+//
+// The default RBAC in deploy/skcapture/rbac.yaml grants no ConfigMap access at all, so an in-cluster
+// run under that role takes the fallback path by design.
+func collectorClusterName(ctx context.Context, run KubectlRunner, cl *Cluster) string {
+	if !cl.Monitoring.Alloy && !cl.Monitoring.K8sMonitoring {
+		return ""
+	}
+	for _, cand := range releaseInfoCandidates(cl) {
+		out, err := run(ctx, "get", "configmap", "-n", cand.namespace, cand.name,
+			"-o", "jsonpath={.data."+releaseInfoClusterKey+"}")
+		if err != nil {
+			continue // not present, or not readable under this role — both are expected
+		}
+		// The collector name is used verbatim: it must be byte-identical to the cluster label on
+		// the real telemetry, so it is never slugified.
+		if name := strings.TrimSpace(string(out)); name != "" {
+			return name
+		}
+	}
+	return ""
+}
+
+// releaseInfoCandidate is one namespace/name pair to probe for the collector release-info ConfigMap.
+type releaseInfoCandidate struct{ namespace, name string }
+
+// maxReleaseInfoCandidates bounds the probe so a large cluster cannot turn identity resolution into
+// a long sequence of kubectl calls.
+const maxReleaseInfoCandidates = 8
+
+// releaseInfoCandidates derives probe targets from the collector workloads that were actually
+// captured. The k8s-monitoring chart names its collectors "<fullname>-alloy-<role>" and its
+// release-info ConfigMap "<fullname>-release-info", so the chart fullname is recoverable from any
+// collector workload name. Deriving from observed names keeps this working for a renamed release
+// instead of hard-coding one installation's names.
+func releaseInfoCandidates(cl *Cluster) []releaseInfoCandidate {
+	var out []releaseInfoCandidate
+	seen := map[releaseInfoCandidate]bool{}
+	add := func(namespace, name string) {
+		if namespace == "" || name == "" || len(out) >= maxReleaseInfoCandidates {
+			return
+		}
+		c := releaseInfoCandidate{namespace: namespace, name: name}
+		if seen[c] {
+			return
+		}
+		seen[c] = true
+		out = append(out, c)
+	}
+	for _, w := range cl.Workloads {
+		if i := strings.Index(w.Name, "-alloy"); i > 0 {
+			add(w.Namespace, w.Name[:i]+"-release-info")
+		}
+		if rel := w.Annotations["meta.helm.sh/release-name"]; rel != "" && strings.Contains(w.Name, "alloy") {
+			add(w.Namespace, rel+"-release-info")
+		}
+	}
+	return out
+}
+
+// clusterNameFromEKSARN recovers the real EKS cluster name from an EKS ARN kubeconfig context
+// (arn:aws:eks:<region>:<account>:cluster/<name>). The second-best source: it is the cluster's AWS
+// identity, which is not necessarily the name its collector stamps on telemetry. Reports false for
+// anything that is not an EKS ARN so the caller can label the source correctly.
+func clusterNameFromEKSARN(raw string) (string, bool) {
+	s := strings.TrimSpace(raw)
+	if !strings.HasPrefix(s, "arn:") || !strings.Contains(s, ":cluster/") {
+		return "", false
+	}
+	i := strings.LastIndex(s, "/")
+	if i < 0 || i == len(s)-1 {
+		return "", false
+	}
+	return s[i+1:], true
+}
+
+// slugifyClusterName reduces an arbitrary kubeconfig context name to something usable as both a
+// cluster name and a blueprint-name stem: lowercase alphanumerics and "-", with "_", "." and " "
+// mapped to "-". Returns "" when nothing usable remains.
+func slugifyClusterName(raw string) string {
 	var b strings.Builder
-	for _, r := range strings.ToLower(s) {
+	for _, r := range strings.ToLower(strings.TrimSpace(raw)) {
 		switch {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-':
 			b.WriteRune(r)
@@ -344,22 +446,56 @@ func parseNodeList(raw []byte) ([]k8sNode, error) {
 	return list.Items, nil
 }
 
-// nodeGroupKey is used as a grouping key.
+// Node labels that declare which pool a node belongs to and therefore how it was provisioned.
+// Both are set by the component that owns the node; neither is inferable from anything else.
+const (
+	// labelEKSNodeGroup is present on every node in an EKS managed nodegroup.
+	labelEKSNodeGroup = "eks.amazonaws.com/nodegroup"
+	// labelKarpenterNodePool is present on every Karpenter-provisioned node and names its NodePool.
+	labelKarpenterNodePool = "karpenter.sh/nodepool"
+)
+
+// nodeGroupKey identifies one real node pool. Nodes are grouped by the pool identity they declare,
+// never by instance type: a NodePool routinely runs several instance types, and grouping by type
+// shreds one pool into several and merges unrelated pools that happen to share a type.
 type nodeGroupKey struct {
-	instanceType string
-	provisioner  string
-	os           string
+	name        string
+	provisioner string
+	os          string
 }
 
-func synthesizeNodeGroups(nodes []k8sNode) (groups []NodeGroup, provider string, region string) {
+// nodePoolIdentity reads how a node is provisioned and which pool it belongs to, straight off the
+// node's own labels.
+//
+// The EKS nodegroup label wins over the Karpenter one: a node in a managed nodegroup is managed by
+// definition, and such nodes commonly carry unrelated "karpenter.sh/" labels — "karpenter.sh/controller"
+// marks the nodes the Karpenter controller itself is scheduled onto, which is why a "karpenter.sh/"
+// prefix test attributes a managed nodegroup to Karpenter. Only the specific NodePool label means
+// Karpenter provisioned this node.
+//
+// A node declaring neither is reported as provisioner "unknown" rather than assumed managed.
+func nodePoolIdentity(lbl map[string]string) (name, provisioner string) {
+	if ng := lbl[labelEKSNodeGroup]; ng != "" {
+		return ng, "managed"
+	}
+	if np := lbl[labelKarpenterNodePool]; np != "" {
+		return np, "karpenter"
+	}
+	return "", "unknown"
+}
+
+// groupNodes collapses the node list into one NodeGroup per real pool, and detects the cloud
+// provider and region from node label families.
+func groupNodes(nodes []k8sNode) (groups []NodeGroup, provider string, region string) {
 	type groupAccum struct {
-		names []string // collected nodegroup label values
-		count int
+		count         int
+		typeCounts    map[string]int
+		typeFirstSeen map[string]int
 	}
 	accum := map[nodeGroupKey]*groupAccum{}
 	keyOrder := []nodeGroupKey{}
 
-	for _, n := range nodes {
+	for i, n := range nodes {
 		lbl := n.Metadata.Labels
 
 		// Provider detection from label families.
@@ -379,54 +515,78 @@ func synthesizeNodeGroups(nodes []k8sNode) (groups []NodeGroup, provider string,
 			region = lbl["topology.kubernetes.io/region"]
 		}
 
-		// Provisioner.
-		prov := "managed"
-		if hasLabelPrefix(lbl, "karpenter.sh/") {
-			prov = "karpenter"
-		}
-
+		poolName, prov := nodePoolIdentity(lbl)
 		instanceType := lbl["node.kubernetes.io/instance-type"]
 		os := lbl["kubernetes.io/os"]
 		if os == "" {
 			os = "linux"
 		}
+		if poolName == "" {
+			// No pool identity to read. Group by shape so the node count is still right, and make it
+			// obvious from the name that this is not a declared pool.
+			poolName = strings.Trim(instanceType+"-"+prov, "-")
+		}
 
-		key := nodeGroupKey{instanceType: instanceType, provisioner: prov, os: os}
-		if _, ok := accum[key]; !ok {
-			accum[key] = &groupAccum{}
+		key := nodeGroupKey{name: poolName, provisioner: prov, os: os}
+		acc, ok := accum[key]
+		if !ok {
+			acc = &groupAccum{typeCounts: map[string]int{}, typeFirstSeen: map[string]int{}}
+			accum[key] = acc
 			keyOrder = append(keyOrder, key)
 		}
-		accum[key].count++
-
-		// Collect EKS nodegroup names for this key.
-		if ng := lbl["eks.amazonaws.com/nodegroup"]; ng != "" {
-			accum[key].names = append(accum[key].names, ng)
+		acc.count++
+		if instanceType != "" {
+			if _, seen := acc.typeCounts[instanceType]; !seen {
+				acc.typeFirstSeen[instanceType] = i
+			}
+			acc.typeCounts[instanceType]++
 		}
 	}
 
 	for _, key := range keyOrder {
 		acc := accum[key]
-		// Prefer the EKS nodegroup label value as the name; fall back to synthesized key.
-		name := ""
-		if len(acc.names) > 0 {
-			name = acc.names[0] // all nodes in the group share the same label
-		}
-		if name == "" {
-			name = key.instanceType + "-" + key.provisioner
-		}
-		groups = append(groups, NodeGroup{
-			Name:         name,
-			InstanceType: key.instanceType,
+		types := sortedInstanceTypes(acc.typeCounts)
+		g := NodeGroup{
+			Name:         key.name,
+			InstanceType: dominantInstanceType(acc.typeCounts, acc.typeFirstSeen),
 			Count:        acc.count,
 			Provisioner:  key.provisioner,
 			OS:           key.os,
-		})
+		}
+		// Record the full set only when the pool genuinely spans more than one type; a single-type
+		// pool is fully described by InstanceType.
+		if len(types) > 1 {
+			g.InstanceTypes = types
+		}
+		groups = append(groups, g)
 	}
 
 	if provider == "" {
 		provider = "unknown"
 	}
 	return groups, provider, region
+}
+
+// dominantInstanceType returns the most common instance type in a pool, breaking ties on the order
+// the types were first observed so the result is stable for a given node list.
+func dominantInstanceType(counts map[string]int, firstSeen map[string]int) string {
+	best, bestCount, bestSeen := "", 0, 0
+	for t, n := range counts {
+		if n > bestCount || (n == bestCount && firstSeen[t] < bestSeen) {
+			best, bestCount, bestSeen = t, n, firstSeen[t]
+		}
+	}
+	return best
+}
+
+// sortedInstanceTypes returns the observed instance types in a deterministic order.
+func sortedInstanceTypes(counts map[string]int) []string {
+	out := make([]string, 0, len(counts))
+	for t := range counts {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func hasLabelPrefix(labels map[string]string, prefix string) bool {
@@ -553,10 +713,65 @@ func parseWorkloads(raw []byte, kind string) ([]Workload, error) {
 			Ports:       ports,
 			ProbePaths:  probePaths,
 			Labels:      item.Spec.Template.Metadata.Labels,
-			Annotations: item.Metadata.Annotations,
+			Annotations: filterAnnotations(item.Metadata.Annotations),
 		})
 	}
 	return out, nil
+}
+
+// allowedAnnotationKeys is the complete set of workload annotations a capture carries. It is an
+// allowlist, not a denylist, because annotations are an open key space that routinely holds object
+// specs: "kubectl.kubernetes.io/last-applied-configuration" embeds the whole serialised object,
+// container environment values included, so any cluster managed with `kubectl apply` would ship
+// credentials in a capture taken with the zero-secret defaults. A denylist naming that one key fails
+// the next annotation that embeds a spec; only an allowlist of keys a consumer actually reads holds.
+//
+// Every entry is a literal key with a bounded, non-spec value. Add a key here only when something
+// reads it.
+var allowedAnnotationKeys = map[string]struct{}{
+	// Helm release identity. detectAddons reads release-name to map a workload to a construct kind;
+	// release-namespace disambiguates two releases sharing a name.
+	"meta.helm.sh/release-name":      {},
+	"meta.helm.sh/release-namespace": {},
+
+	// Argo CD ownership. The GitOps equivalent of the Helm release identity: on an Argo-managed
+	// cluster this is the only annotation that says which application owns a workload.
+	"argocd.argoproj.io/tracking-id": {},
+
+	// Deployment revision — an integer, and the only rollout-generation signal on the object.
+	"deployment.kubernetes.io/revision": {},
+
+	// Scrape hints. These declare that a workload exposes metrics and on which port and path, which
+	// is what decides whether it is modelled as an observed service. Both the Grafana
+	// annotation-autodiscovery keys and the classic Prometheus ones are bounded scalars.
+	"k8s.grafana.com/scrape":             {},
+	"k8s.grafana.com/metrics.portNumber": {},
+	"k8s.grafana.com/metrics.portName":   {},
+	"k8s.grafana.com/metrics.path":       {},
+	"k8s.grafana.com/metrics.scheme":     {},
+	"prometheus.io/scrape":               {},
+	"prometheus.io/port":                 {},
+	"prometheus.io/path":                 {},
+	"prometheus.io/scheme":               {},
+}
+
+// filterAnnotations reduces an object's annotations to the allowlisted keys. Returns nil when none
+// survive, so an object with no interesting annotations serialises as null rather than {}.
+func filterAnnotations(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	var out map[string]string
+	for k, v := range in {
+		if _, ok := allowedAnnotationKeys[k]; !ok {
+			continue
+		}
+		if out == nil {
+			out = make(map[string]string, len(allowedAnnotationKeys))
+		}
+		out[k] = v
+	}
+	return out
 }
 
 func pluralToKind(plural string) string {
@@ -783,6 +998,11 @@ func detectAddons(workloads []Workload, namespaces []string) []Addon {
 // Monitoring detection
 // =============================================================================
 
+// detectMonitoring records whether an in-cluster collector is present.
+//
+// Detection is on the container image, not the workload name. The k8s-monitoring chart names its
+// collectors "<release>-alloy-<role>", so a workload-name prefix test misses every default install
+// and leaves the capture claiming a cluster has no collector while five of them are running.
 func detectMonitoring(workloads []Workload, namespaces []string) Monitoring {
 	var m Monitoring
 
@@ -793,26 +1013,53 @@ func detectMonitoring(workloads []Workload, namespaces []string) Monitoring {
 	}
 
 	for _, w := range workloads {
-		name := strings.ToLower(w.Name)
-		if strings.HasPrefix(name, "alloy") {
-			m.Alloy = true
-			// Best-effort: extract version from the image tag.
-			for _, img := range w.Images {
-				if strings.Contains(strings.ToLower(img), "alloy") {
-					if idx := strings.LastIndex(img, ":"); idx >= 0 {
-						m.AlloyVersion = img[idx+1:]
-					}
-					break
-				}
+		// The chart's own resources carry its name whatever namespace it was installed into; the
+		// namespace is operator choice and is frequently not "k8s-monitoring".
+		if strings.Contains(strings.ToLower(w.Name), "k8s-monitoring") {
+			m.K8sMonitoring = true
+		}
+		for _, img := range w.Images {
+			version, ok := alloyImageVersion(img)
+			if !ok {
+				continue
 			}
-			// If this alloy workload is in the k8s-monitoring namespace, mark K8sMonitoring too.
+			m.Alloy = true
+			if m.AlloyVersion == "" && version != "" {
+				m.AlloyVersion = version
+			}
 			if w.Namespace == "k8s-monitoring" {
 				m.K8sMonitoring = true
 			}
+			break
 		}
 	}
 
 	return m
+}
+
+// alloyImageVersion reports whether a container image reference is Grafana Alloy itself, and its
+// tag when it carries one. It compares the repository's final path segment exactly, so a private
+// registry mirror still matches while "alloy-operator" — which is not a collector — does not.
+// A digest-pinned reference matches with an empty version rather than reporting the digest as one.
+func alloyImageVersion(image string) (version string, ok bool) {
+	ref := image
+	if i := strings.LastIndex(ref, "/"); i >= 0 {
+		ref = ref[i+1:]
+	}
+	// Strip any digest FIRST. A tag-and-digest reference (alloy:v1.19.0@sha256:...) otherwise
+	// splits on the ':' and carries the digest into the version.
+	if i := strings.Index(ref, "@"); i >= 0 {
+		ref = ref[:i]
+	}
+	name := ref
+	if i := strings.Index(ref, ":"); i >= 0 {
+		name, version = ref[:i], ref[i+1:]
+	}
+	if strings.ToLower(name) != "alloy" {
+		return "", false
+	}
+	// A digest-only reference is recognised with no human-form version.
+	return version, true
 }
 
 // =============================================================================

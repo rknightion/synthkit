@@ -1,9 +1,10 @@
 ---
 id: SKT-0007
 title: OTLP-native emission parity across the catalog
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-24 12:05'
+updated_date: '2026-08-27 07:13'
 labels: []
 dependencies: []
 priority: high

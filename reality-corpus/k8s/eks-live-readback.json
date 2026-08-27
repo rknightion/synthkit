@@ -5,8 +5,43 @@
     "kind": "gcx_live_readback",
     "substrate": "eks",
     "collector": "grafana/gcx",
-    "collector_version": "1.1.1",
-    "captured_on": "2026-08-25"
+    "collector_version": "1.2.0",
+    "captured_on": "2026-08-27",
+    "enrichment_labels": [
+      {
+        "key": "__aggregation__",
+        "provenance": "Grafana Cloud aggregated-series marker applied stack-side after ingest. Prometheus reserves double-underscore label names for internal use and drops them before ingestion, so no collector can emit this key at egress; only a read-path producer observes it."
+      },
+      {
+        "key": "asserts_env",
+        "provenance": "Grafana Cloud Asserts pipeline label applied stack-side after ingest. signals/k8s.md records that real series carry it and that synthkit deliberately does not emit Asserts labels; only a read-path producer observes it."
+      },
+      {
+        "key": "asserts_site",
+        "provenance": "Grafana Cloud Asserts pipeline label applied stack-side after ingest. signals/k8s.md records that real series carry it and that synthkit deliberately does not emit Asserts labels; only a read-path producer observes it."
+      },
+      {
+        "key": "ip_family",
+        "values": [
+          "<aggregated>"
+        ],
+        "provenance": "Grafana Cloud Adaptive Metrics writes this marker into a retained label's value when it aggregates the series away, replacing the real value after ingest. The key itself is genuine kube-proxy collector-egress evidence and still compares; only this marker value is a read-path artefact, and only a read-path producer observes it."
+      },
+      {
+        "key": "table",
+        "values": [
+          "<aggregated>"
+        ],
+        "provenance": "Grafana Cloud Adaptive Metrics writes this marker into a retained label's value when it aggregates the series away, replacing the real value after ingest. The key itself is genuine kube-proxy collector-egress evidence and still compares; only this marker value is a read-path artefact, and only a read-path producer observes it."
+      },
+      {
+        "key": "traffic_policy",
+        "values": [
+          "<aggregated>"
+        ],
+        "provenance": "Grafana Cloud Adaptive Metrics writes this marker into a retained label's value when it aggregates the series away, replacing the real value after ingest. The key itself is genuine kube-proxy collector-egress evidence and still compares; only this marker value is a read-path artefact, and only a read-path producer observes it."
+      }
+    ]
   },
   "authority": {
     "substrates": [
@@ -14,8 +49,9 @@
     ]
   },
   "capture_volume": {
-    "runs": 1,
+    "runs": 2,
     "observed_contract_counts": [
+      31,
       31
     ]
   },
@@ -36,6 +72,11 @@
           },
           {
             "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "caasglobal",
             "values": [],
             "values_elided": true
           },
@@ -156,15 +197,8 @@
           },
           {
             "key": "label_beta_kubernetes_io_instance_type",
-            "values": [
-              "c7g.2xlarge",
-              "c7g.4xlarge",
-              "c7g.xlarge",
-              "c8g.xlarge",
-              "m6g.large",
-              "t4g.large"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "label_eks_amazonaws_com_nodegroup",
@@ -202,15 +236,8 @@
           },
           {
             "key": "label_node_kubernetes_io_instance_type",
-            "values": [
-              "c7g.2xlarge",
-              "c7g.4xlarge",
-              "c7g.xlarge",
-              "c8g.xlarge",
-              "m6g.large",
-              "t4g.large"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "label_topology_kubernetes_io_region",
@@ -848,7 +875,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -908,7 +935,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -963,7 +990,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1018,7 +1045,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1078,7 +1105,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1133,7 +1160,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1242,7 +1269,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1297,7 +1324,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1444,7 +1471,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1465,7 +1492,7 @@
           {
             "key": "table",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "filter",
               "nat"
             ],
@@ -1508,7 +1535,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1529,7 +1556,7 @@
           {
             "key": "table",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "filter",
               "nat"
             ],
@@ -1572,7 +1599,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1627,7 +1654,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1682,7 +1709,7 @@
           {
             "key": "ip_family",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "IPv4",
               "IPv6"
             ],
@@ -1703,7 +1730,7 @@
           {
             "key": "traffic_policy",
             "values": [
-              "\u003caggregated\u003e",
+              "<aggregated>",
               "external",
               "internal"
             ],

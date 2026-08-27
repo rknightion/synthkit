@@ -75,7 +75,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cluster.k8s_monitoring.control_plane.kube_scheduler` | bool |  |  |
 | `environments[].cluster.k8s_monitoring.control_plane.kube_controller_manager` | bool |  |  |
 | `environments[].cluster.k8s_monitoring.control_plane.kubelet_probes` | bool |  |  |
-| `environments[].cluster.k8s_monitoring.pod_logs_method` | string |  | PodLogsMethod selects the pod-log collection mechanism. "" with pod_logs feature enabled defaults to "opentelemetry"; explicit values pass through unchanged; absent pod_logs ⇒ "none". |
+| `environments[].cluster.k8s_monitoring.pod_logs_method` | string |  | PodLogsMethod selects the pod-log CHART FEATURE and therefore the TRANSPORT, cluster-wide. "opentelemetry" (the default when "" and pod_logs is on) is podLogsViaOpenTelemetry: OTLP log records to /v1/logs, with the destination promoting an allowlisted subset of the resource attributes to Loki stream labels. "kubernetes_api"/"loki" is podLogsViaLoki: a Loki-native push carrying stream labels and structured metadata on the wire. "none"/"objects" emit nothing (objects deferred). Absent pod_logs ⇒ "none". Both transports carry identical content; only the observable shape differs. See signals/k8s.md [slug: k8s-pod-logs]. |
 | `environments[].cluster.observability` | object | yes | gates the per-node ec2 CloudWatch lane |
 | `environments[].cluster.observability.cloudwatch` | bool | yes | emit the CloudWatch lane (default true) |
 | `environments[].cluster.addons[]` | object |  |  |

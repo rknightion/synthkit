@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -87,10 +88,49 @@ var trustedLiveJobValues = map[string]struct{}{
 	"integrations/kubernetes/kube-state-metrics": {},
 }
 
+// prometheusMetadataInstruments maps the metric types a Prometheus-compatible metadata API
+// reports onto the instrument vocabulary. A type outside this set, and the API's own "unknown",
+// are absent evidence rather than an instrument claim.
+var prometheusMetadataInstruments = map[string]string{
+	"counter": InstrumentCounter,
+	"gauge":   InstrumentGauge,
+	// HISTOGRAM and GAUGEHISTOGRAM both expose the bucket contract recorded as a histogram.
+	"histogram":      InstrumentHistogram,
+	"gaugehistogram": InstrumentHistogram,
+	"summary":        "summary",
+	"info":           "info",
+	"stateset":       "stateset",
+}
+
+// DeclaredInstrumentTypes reduces the metric-name-keyed metadata a Prometheus-compatible API
+// returns to the distinct instrument types it declares for each name. Names the API reports no
+// usable type for are omitted, so the caller records the unknown sentinel for them.
+func DeclaredInstrumentTypes(metadata map[string][]string) map[string][]string {
+	declared := make(map[string][]string, len(metadata))
+	for name, types := range metadata {
+		for _, reported := range types {
+			instrument, ok := prometheusMetadataInstruments[strings.ToLower(strings.TrimSpace(reported))]
+			if !ok {
+				continue
+			}
+			existing := declared[name]
+			if !slices.Contains(existing, instrument) {
+				declared[name] = append(existing, instrument)
+			}
+		}
+		sort.Strings(declared[name])
+	}
+	return declared
+}
+
 // BuildGCXLiveReadback converts Prometheus /series label sets returned by gcx into
 // frozen substrate-scoped corpus documents. Deployment identities remain key-presence
 // evidence only; only the small allowlist of stable enum/topology values is retained.
-func BuildGCXLiveReadback(series []map[string]string, capturedOn, collectorVersion string) ([]CorpusDocument, error) {
+//
+// declaredInstruments carries the instrument types the same stack's metadata API reports,
+// keyed by exact metric name. A metric the API reports no type for keeps the unknown
+// sentinel: a type is never derived from the metric name.
+func BuildGCXLiveReadback(series []map[string]string, declaredInstruments map[string][]string, capturedOn, collectorVersion string) ([]CorpusDocument, error) {
 	if err := validateCapturedOn(capturedOn); err != nil {
 		return nil, err
 	}
@@ -120,7 +160,13 @@ func BuildGCXLiveReadback(series []map[string]string, capturedOn, collectorVersi
 			}
 		}
 		schema := inventories[area]
-		schema.AddMetric(name, "", InstrumentUnknown, metricLabels, nil)
+		instruments := declaredInstruments[name]
+		if len(instruments) == 0 {
+			instruments = []string{InstrumentUnknown}
+		}
+		for _, instrument := range instruments {
+			schema.AddMetric(name, "", instrument, metricLabels, nil)
+		}
 		inventories[area] = schema
 	}
 
@@ -281,6 +327,7 @@ func MergeCorpusDocumentFile(path string, candidate CorpusDocument) error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("stat corpus document %q: %w", path, err)
 	}
+	dropSupersededInstrumentSentinel(&document.Inventory)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create corpus directory for %q: %w", path, err)
@@ -308,4 +355,25 @@ func MergeCorpusDocumentFile(path string, candidate CorpusDocument) error {
 		return fmt.Errorf("replace corpus document %q: %w", path, err)
 	}
 	return nil
+}
+
+// dropSupersededInstrumentSentinel removes the unknown sentinel from a metric that also
+// carries an observed instrument type. The cumulative merge unions instrument types, so a
+// refresh that finally observes a type would otherwise leave the earlier "we could not see
+// one" marker beside it. The sentinel records absent evidence, and once evidence exists it
+// records nothing. A metric whose only entry is the sentinel keeps it.
+func dropSupersededInstrumentSentinel(schema *Schema) {
+	for i := range schema.Metrics {
+		types := schema.Metrics[i].InstrumentTypes
+		if len(types) < 2 || !slices.Contains(types, InstrumentUnknown) {
+			continue
+		}
+		observed := make([]string, 0, len(types)-1)
+		for _, instrument := range types {
+			if instrument != InstrumentUnknown {
+				observed = append(observed, instrument)
+			}
+		}
+		schema.Metrics[i].InstrumentTypes = observed
+	}
 }

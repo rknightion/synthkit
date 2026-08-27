@@ -19,6 +19,102 @@ synthkit's.
 
 ---
 
+## Two real producers, and which one synthkit models [slug: apm-producers]
+
+*Provenance: grafana/tempo `modules/generator/processor/{spanmetrics,servicegraphs}/config.go` +
+`modules/generator/AGENTS.md`; opentelemetry-collector-contrib
+`connector/spanmetricsconnector/{README.md,connector.go}` +
+`internal/coreinternal/traceutil/traceutil.go`; grafana/k8s-monitoring-helm
+`charts/k8s-monitoring/charts/feature-application-observability/{values.yaml,templates/_connector_span_metrics.tpl}`.
+Read 2026-08-27 (SKT-0008). Live-verified generator shape: SK-28, 2026-06-13.*
+
+Span-derived RED metrics reach a Grafana stack from one of two producers with **materially
+different shapes**. Which one a deployment uses is a deployment choice, and the two are normally
+mutually exclusive to avoid double-counting.
+
+**Producer A — Tempo metrics-generator (server-side).** Derives metrics from the trace stream
+inside Tempo. Families: `traces_spanmetrics_{calls_total,latency,size_total}` and
+`traces_service_graph_request_{total,failed_total,server_seconds,client_seconds}`. Intrinsic
+dimensions `service`, `span_name`, `span_kind`, `status_code` (all default on; `status_message`
+opt-in; `job`/`instance` only with `enable_target_info`, default off). Grafana Cloud stamps
+`source="tempo"` as a registry external label and promotes resource attributes into flat labels.
+Classic explicit histograms by default (`histogram_buckets`, span-metrics default
+`ExponentialBuckets(0.002, 2, 14)`, service-graphs default `ExponentialBuckets(0.1, 2, 8)` — the
+two are NOT the same set); on a live Grafana Cloud stack both a native and a classic
+representation are emitted simultaneously (SK-28). Cumulative. Cardinality is bounded per tenant
+by `max_active_series`, which DROPS excess series with no marker label.
+`traces_service_graph_connection_info` and `traces_service_graph_request_messaging_system_seconds`
+are opt-in subprocessors and are absent by default.
+
+**Producer B — collector-side spanmetrics connector.** `otelcol.connector.spanmetrics`, wired by
+the k8s-monitoring chart's `applicationObservability.connectors.spanMetrics`. Families are
+`traces.span.metrics.calls` (monotonic Sum, no unit) and `traces.span.metrics.duration` (unit `s`),
+from the connector's default `namespace: traces.span.metrics` — NOT the `traces_spanmetrics_*`
+names. There is no size family, and **the chart ships no service-graph connector at all**, so a
+deployment on this path has no `traces_service_graph_*` unless Tempo's service-graphs processor
+is left running. Common dimensions are `service.name`, `span.name`, `span.kind`, `status.code`,
+`collector.instance.id`; the chart's transform additionally stamps `source="spanmetrics"` on the
+resource, sets `collector.id` to the collector hostname, and backfills `service.instance.id` from
+`k8s.pod.name`/`k8s.pod.uid`. A `span_metrics_prefilter` drops Beyla-marked spans (`skipBeyla`,
+default true — see `beyla.md`) and INTERNAL spans (`skipInternal`, default true). Cumulative
+(`aggregation_temporality` default `AGGREGATION_TEMPORALITY_CUMULATIVE`; the chart does not render
+the field).
+
+⚠ **`span_kind` and `status_code` values are identical on both producers**: the proto enum
+strings `SPAN_KIND_SERVER`/`SPAN_KIND_CLIENT`/… and `STATUS_CODE_UNSET`/`STATUS_CODE_OK`/
+`STATUS_CODE_ERROR`. The connector README's prose examples showing `span.kind="SERVER"` and
+`status.code="Ok"` are wrong — `traceutil.SpanKindStr`/`StatusCodeStr` return the proto form.
+
+⚠ **`exclude_dimensions` and `aggregation_cardinality_limit` are producer-B-only.** The reference
+deployment sets `excludeDimensions: [span.name]`, so its RED metrics carry **NO span-name
+dimension** — any panel or rule doing `by (span_name)` silently matches nothing there. It also
+sets `aggregationCardinalityLimit: 5000` (chart default 1000; connector default 0 = unlimited);
+past the limit the connector does not drop, it folds further combinations into ONE entry labelled
+`otel.metric.overflow="true"` (Prometheus-mangled `otel_metric_overflow`), so an aggregate series
+can look like a real one. Tempo has neither mechanism.
+
+### Which one synthkit models
+
+**synthkit's opt-in self-emission models Producer A, the Tempo metrics-generator.** The family
+names, `source="tempo"`, the `service`+`service_name` dual, the four service-graph families and
+the dual native+classic histogram form are all generator properties that Producer B does not have.
+Consequences to keep in mind:
+
+- A dashboard built against synthkit's self-emission does **not** port unchanged to a stack whose
+  span metrics come from a `span.name`-excluding connector. That is a property of that deployment,
+  not a synthkit defect.
+- synthkit emits no `otel_metric_overflow` series and no cardinality cap, correctly — its series
+  count is bounded by graph topology × declared routes.
+- The default-off posture (opt-in per blueprint) is not merely conservative: on a Producer-B
+  deployment, self-emission would add a family set that stack does not have and omit the one it
+  does.
+
+### synthkit's deliberate differences from Producer A
+
+- **Classic bucket bounds** are the empirically captured Grafana Cloud set
+  `[0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0]`, used for
+  both the span-metric and the service-graph latency families — not the two different OSS defaults.
+  `histogram_buckets` is a per-tenant override and the capture outranks the OSS default; the exact
+  live boundaries are re-verification item SK-96.
+- **`latency_count` is a bounded sample of `calls_total`.** A real producer observes the duration of
+  every span it counts, so the two are equal; synthkit observes `min(row calls, 200)` per tick
+  (the shared `web_service` per-call budget). Quantiles are unaffected;
+  `histogram_count(rate(...))` under-reads `rate(calls_total)` above the budget.
+- **`traces_spanmetrics_size_total` is `calls × 256` bytes**, a constant — synthkit has no per-span
+  wire size. The family is present and monotone; its magnitude is not meaningful.
+- **The error fraction is a fixed ~1%** on `calls_total{status_code="STATUS_CODE_ERROR"}` and the
+  service-graph failed edge, decoupled from the ledger outcomes that drive the trace lane — so an
+  active incident moves trace errors but not this family. Tracked as follow-up work.
+- **`connection_type=""` is emitted as a present, empty dimension**, which is the generator's real
+  behaviour (`store/edge.go` `Unknown ConnectionType = ""`) and a deliberate exception to the
+  omit-absent-dimensions rule.
+- **`span_name` on a synthesized SERVER/root row is the span name this workload actually projects**
+  — the node's declared route, not the node name — and the entry row carries the entry's real ROOT
+  span kind (CLIENT for a browser entry, CONSUMER for worker/stream, INTERNAL for job), because a
+  real producer reads both off the span.
+
+---
+
 ## `traces_spanmetrics_calls_total` [slug: apm-calls]
 
 *Provenance: predecessor SIGNALS §2.5 + `research/apm-spanmetrics-k8s.md` (empirical) + `emit/app_apm.go`.*
@@ -105,7 +201,10 @@ labels:
 metrics:
   - {root: traces_spanmetrics_latency, type: histogram, unit: seconds, v: ok, native: true,
      note: "BOTH native (no le) AND classic _bucket/_count/_sum emitted simultaneously (SK-28 live-verified)"}
-buckets: []   # classic buckets emitted; exact boundaries are metrics-generator defaults (live-verified)
+buckets: [0.0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0]
+# ⚠ NOT the Tempo OSS defaults (span-metrics ExponentialBuckets(0.002,2,14); service-graphs
+# ExponentialBuckets(0.1,2,8)). This is the empirically captured Grafana Cloud shape carried from
+# the predecessor; histogram_buckets is a per-tenant override. Exact live boundaries: SK-96.
 ```
 
 > **Exemplars:** `_bucket` series carry `trace_id` exemplars (real ledger trace_ids, routed
@@ -148,7 +247,9 @@ metrics:
 ## `traces_service_graph_request_total` / `_failed_total` — Counters [slug: apm-service-graph]
 
 One series per directed service edge. Labels: `client`, `server`, `connection_type` ∈ {``(empty),
-`database`, `virtual_node`}; per-edge-side prefixed dims `client_*` / `server_*` (`_cluster`,
+`database`, `virtual_node`, `messaging_system`} (the full generator enum — grafana/tempo
+`modules/generator/processor/servicegraphs/store/edge.go`, read 2026-08-27; synthkit emits only
+`` and `database`);
 `_deployment_environment_name`, `_k8s_cluster_name`, `_k8s_namespace_name`, `_service_namespace`,
 `_service_version`, **`_blueprint`**); `namespace` (client side), `service` (client name),
 `source="tempo"`, `cluster`+`k8s_cluster_name`, `job`=`{client_namespace}/{client_service}`. ⚠ **No
@@ -164,7 +265,7 @@ sink: promrw
 labels:
   client: <client-service>
   server: <server-service>
-  connection_type: ""|database|virtual_node
+  connection_type: ""|database|virtual_node|messaging_system   # synthkit emits ""|database only
   client_blueprint: <blueprint>
   server_blueprint: <blueprint>
   client_cluster: <cluster-name>
@@ -211,7 +312,7 @@ sink: promrw
 labels:
   client: <client-service>
   server: <server-service>
-  connection_type: ""|database|virtual_node
+  connection_type: ""|database|virtual_node|messaging_system   # synthkit emits ""|database only
   client_blueprint: <blueprint>
   server_blueprint: <blueprint>
   client_cluster: <cluster-name>

@@ -8,6 +8,8 @@ package forge
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/rknightion/synthkit/internal/capture"
 	"github.com/rknightion/synthkit/internal/core"
@@ -146,29 +148,51 @@ func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) 
 			platform = &SkelPlatform{KubernetesVersion: cl.K8sVersion}
 		}
 
-		// Addons: registered kinds → scalar addon list; unknown → Gap
+		// Addons: registered kinds → scalar addon list; unknown → Gap.
+		// seenKinds dedupes by construct KIND, not by Detected name: capture's own addonKindTable
+		// can legitimately map two different detected names (e.g. "argo-cd" and "argocd") to the
+		// same kind, and two workloads of one product must still declare that addon exactly once
+		// (SKT-0012.04 finding 2 — a duplicate validates and loads, so only a check catches it).
 		var addons []string
+		seenKinds := map[string]bool{}
 		for _, a := range cl.Addons {
-			if a.Kind == "" {
+			kind := a.Kind
+			if kind == "" {
+				// Capture left this unmapped. Before treating it as a genuine roadmap gap, check
+				// the forge-side supplemental table for names this build's catalog can already
+				// model but capture's own name table doesn't yet know about (SKT-0012.04 finding
+				// 1 — this is what stops a fixable mapping bug reading as missing-construct work).
+				kind = resolveAddonKind(a.Detected)
+			}
+			if kind == "" {
 				gaps = append(gaps, Gap{
 					Category: "addon",
 					Name:     a.Detected,
 					Evidence: []string{a.Evidence},
-					Reason:   "no matching construct",
+					Reason:   reasonNoConstruct,
 				})
 				continue
 			}
-			if _, ok := reg.Construct(a.Kind); !ok {
+			if _, ok := reg.Construct(kind); !ok {
 				gaps = append(gaps, Gap{
 					Category: "addon",
 					Name:     a.Detected,
 					Evidence: []string{a.Evidence},
-					Reason:   fmt.Sprintf("construct kind %q not registered", a.Kind),
+					Reason:   fmt.Sprintf("construct kind %q not registered", kind),
 				})
 				continue
 			}
-			addons = append(addons, a.Kind)
+			if seenKinds[kind] {
+				continue
+			}
+			seenKinds[kind] = true
+			addons = append(addons, kind)
 		}
+
+		// Platform products capture's own addon detector never recognises at all (so they never
+		// appear in cl.Addons with any Kind, mapped or not) still deserve an explicit, honest line
+		// rather than disappearing into the generic workload-gap pile (SKT-0012.04 finding 3).
+		gaps = append(gaps, detectUnmodelledPlatformProducts(cl.Workloads)...)
 
 		// Workloads → Gaps (the model classifies them; mapper records evidence)
 		for _, w := range cl.Workloads {
@@ -228,4 +252,107 @@ func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) 
 	}
 
 	return sk, gaps
+}
+
+// reasonNoConstruct is the Gap.Reason for a detected name this build's catalog genuinely has no
+// construct for. It is compared against verbatim by CoverageReport to route a gap into the
+// roadmap section — keep it exact wherever it is set.
+const reasonNoConstruct = "no matching construct"
+
+// addonNamePattern is one forge-side, name-prefix supplemental mapping from a detected addon
+// name capture's own addonKindTable does not (yet) recognise, to a construct kind this build's
+// catalog already ships. Add here — never in reasonNoConstruct's caller directly — only when the
+// construct genuinely exists (verify against the live registry/catalog first): a name with no
+// real construct stays unmapped and surfaces honestly as a roadmap gap. A genuinely new
+// detection name belongs in capture's addonKindTable instead; this table exists because forge
+// cannot edit that file across the capture/forge trust boundary, only report on it.
+var addonNamePatterns = []struct {
+	Prefix string
+	Kind   string
+}{
+	// The k8s-monitoring Helm chart splits Alloy into 4 per-purpose Deployments/DaemonSets
+	// (daemon/metrics/receiver/singleton), none of which capture's addonKindTable recognises by
+	// name. All four are the same Alloy self-telemetry surface the alloy_health construct models
+	// (confirmed live against the EKS lab cluster, SKT-0012 validation run 2026-08-27).
+	{Prefix: "grafana-k8s-monitoring-alloy-", Kind: "alloy_health"},
+}
+
+// resolveAddonKind checks the supplemental table for a detected name capture left unmapped.
+// Returns "" when nothing matches — the caller then reports it as a genuine roadmap gap.
+func resolveAddonKind(detected string) string {
+	for _, p := range addonNamePatterns {
+		if strings.HasPrefix(detected, p.Prefix) {
+			return p.Kind
+		}
+	}
+	return ""
+}
+
+// platformProductSignature recognises a well-known platform/operator product by its workload
+// name or container image, for products this build has NO construct for at all (verified against
+// the live catalog). Capture's own addon detector does not recognise these names or namespaces
+// (SKT-0012.04 finding 3) — matching them here does not fix that detection gap, it only stops the
+// coverage report going silent about a product that IS present in the cluster.
+type platformProductSignature struct {
+	Product         string
+	NameSubstrings  []string
+	ImageSubstrings []string
+}
+
+var unmodelledPlatformProducts = []platformProductSignature{
+	{Product: "crossplane", NameSubstrings: []string{"crossplane"}, ImageSubstrings: []string{"crossplane.io", "upbound.io"}},
+	{Product: "external-secrets", NameSubstrings: []string{"external-secrets"}},
+	{Product: "actions-runner-controller", NameSubstrings: []string{"gha-rs-controller", "gha-runner-scale-set"}},
+	{Product: "github2otel", NameSubstrings: []string{"github2otel"}},
+	{Product: "opencost", NameSubstrings: []string{"opencost"}},
+}
+
+// detectUnmodelledPlatformProducts scans workloads for known platform-product signatures and
+// returns one aggregated addon-category Gap per product actually seen, so the coverage report can
+// state plainly that it was detected and deliberately left unmodelled.
+func detectUnmodelledPlatformProducts(workloads []capture.Workload) []Gap {
+	evidenceByProduct := map[string][]string{}
+	for _, w := range workloads {
+		for _, sig := range unmodelledPlatformProducts {
+			if matchesPlatformProduct(w, sig) {
+				evidenceByProduct[sig.Product] = append(evidenceByProduct[sig.Product], w.Name)
+				break // one product match per workload is enough
+			}
+		}
+	}
+	var gaps []Gap
+	for _, product := range sortedStringKeys(evidenceByProduct) {
+		gaps = append(gaps, Gap{
+			Category: "addon",
+			Name:     product,
+			Evidence: evidenceByProduct[product],
+			Reason:   "no matching construct (recognised platform product, not surfaced by addon detection)",
+		})
+	}
+	return gaps
+}
+
+func matchesPlatformProduct(w capture.Workload, sig platformProductSignature) bool {
+	for _, sub := range sig.NameSubstrings {
+		if strings.Contains(w.Name, sub) {
+			return true
+		}
+	}
+	for _, img := range w.Images {
+		for _, sub := range sig.ImageSubstrings {
+			if strings.Contains(img, sub) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func sortedStringKeys(m map[string][]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

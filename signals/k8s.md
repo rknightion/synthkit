@@ -633,11 +633,13 @@ All carry `node`. Histograms emit `_bucket{le}` + `_sum` + `_count`.
   ⚠ `kubelet_runtime_operations_duration_seconds` histogram does NOT exist (counters only).
 - **Histograms (H):** `kubelet_cgroup_manager_duration_seconds` (`operation_type`),
   `kubelet_pleg_relist_duration_seconds`, `kubelet_pleg_relist_interval_seconds`,
-  `kubelet_pod_start_duration_seconds`, `kubelet_pod_worker_duration_seconds` (`operation_type`). ✅ SK-7:
-  cgroup_manager/pleg_relist/pod_worker use the **Prometheus client default seconds buckets**
-  `[0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10]`; real `kubelet_pod_start_duration_seconds` uses a
-  **custom 25-boundary set** `[0.5,1,2,3,4,5,6,8,10,20,30,45,60,120,180,240,300,360,480,600,900,1200,1800,2700,3600]`
-  (⚠ synth currently uses the default buckets for pod_start too — known divergence).
+  `kubelet_pod_start_duration_seconds`, `kubelet_pod_worker_duration_seconds` (`operation_type`). ✅ SK-7,
+  re-confirmed against `reality-corpus/k8s/k3d-lab.json` (2026-08-27, SKT-0010.03):
+  cgroup_manager/pleg_relist(_duration)/pleg_relist_interval/pod_worker use the **Prometheus client
+  default seconds buckets** `[0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10]`;
+  `kubelet_pod_start_duration_seconds` uses a **custom 25-boundary set**
+  `[0.5,1,2,3,4,5,6,8,10,20,30,45,60,120,180,240,300,360,480,600,900,1200,1800,2700,3600]`.
+  Synth emits the matching set for each — the SK-73 pod_start divergence is resolved.
 - **Volume stats (`namespace, persistentvolumeclaim`):** `kubelet_volume_stats_{capacity,used,available}_bytes`,
   `_inodes`, `_inodes_used`, `_inodes_free` — capacity joins the shared `volEntry` so it agrees with
   `kube_persistentvolumeclaim_resource_requests_storage_bytes`.
@@ -687,8 +689,8 @@ metrics:
   # ⚠ kubelet_runtime_operations_duration_seconds does NOT exist (runtime ops are counters only)
   - {root: kubelet_cgroup_manager_duration_seconds, type: histogram, unit: seconds, v: ok, buckets: [0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10], note: "operation_type label; Prometheus default buckets"}
   - {root: kubelet_pleg_relist_duration_seconds, type: histogram, unit: seconds, v: ok, buckets: [0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10]}
-  - {root: kubelet_pleg_relist_interval_seconds, type: histogram, unit: seconds, v: assumed, buckets: [0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10], note: "buckets assumed (SK-73); SK-7 confirmed defaults for cgroup_manager/pleg_relist(_duration)/pod_worker only, not the _interval variant"}
-  - {root: kubelet_pod_start_duration_seconds, type: histogram, unit: seconds, v: assumed, buckets: [0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10], note: "⚠ synth uses default buckets; real uses custom 25-boundary set [0.5..3600] — KNOWN DIVERGENCE (SK-73)"}
+  - {root: kubelet_pleg_relist_interval_seconds, type: histogram, unit: seconds, v: ok, buckets: [0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10], note: "confirmed via reality-corpus/k8s/k3d-lab.json 2026-08-27 (SKT-0010.03); matches Prometheus client defaults — resolves the SK-73 'assumed' note"}
+  - {root: kubelet_pod_start_duration_seconds, type: histogram, unit: seconds, v: ok, buckets: [0.5,1,2,3,4,5,6,8,10,20,30,45,60,120,180,240,300,360,480,600,900,1200,1800,2700,3600], note: "corrected to the kubelet's real 25-boundary scheme; confirmed via reality-corpus/k8s/k3d-lab.json 2026-08-27 (SKT-0010.03) — SK-73 divergence resolved"}
   - {root: kubelet_pod_worker_duration_seconds, type: histogram, unit: seconds, v: ok, buckets: [0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10], note: "operation_type label"}
   - {root: kubelet_volume_stats_capacity_bytes, type: gauge, unit: bytes, v: ok, note: "namespace,persistentvolumeclaim labels"}
   - {root: kubelet_volume_stats_used_bytes, type: gauge, unit: bytes, v: ok}
@@ -873,66 +875,125 @@ body_fields:
 
 ---
 
-## k8s pod logs (→ Loki) — ScopeSubstrate [slug: k8s-pod-logs]
+## k8s pod logs (two transports) — ScopeSubstrate [slug: k8s-pod-logs]
 
-*Provenance: live the reference cluster otel shape (k8s-monitoring opentelemetry method) 2026-06-15. Classic shape doc-sourced.*
+*Provenance: OTLP transport live-captured at COLLECTOR EGRESS — k3d lab, k8s-monitoring 4.4.0 with
+`podLogsViaOpenTelemetry.enabled: true`, 2026-08-25 (`reality-corpus/k8s/k3d-lab.json`,
+`inventory.logs[]`, `source: k8s_pod_logs`, `transport: otlp_logs`). DESTINATION-side stream labels
+for the same transport live-verified on the staff stack 2026-06-15 (SK-20). Loki-native (classic)
+shape doc-sourced. The resource-vs-record split is established from the collector-contrib `container`
+operator contract (`pkg/stanza/docs/operators/container.md`, read 2026-08-27), which puts the k8s
+identity on the RESOURCE and `log.iostream`/`logtag` on the RECORD; the corpus schema flattens both
+into one list and cannot express the split on its own.*
 
-Gated by `Features["pod_logs"]` + `PodLogsMethod`. One stream per pod×container, one line each tick.
-Two shapes (selected by `PodLogsMethod`):
+k8s-monitoring 4.x splits pod logs into two features and synthkit models both. `Features["pod_logs"]`
+gates collection; `PodLogsMethod` is the CLUSTER-LEVEL transport selector, matching the
+collector-level chart flag it models:
 
-**otel** (method `"opentelemetry"` or `""`; default; the reference cluster uses this path):
-Stream labels carry the OTel k8s semantic convention form. `job` is NOT a stream label (k8s-monitoring
-opentelemetry method does not set `job` — collector injects via relabeling if at all).
+| `pod_logs_method` | chart feature | transport | synthkit lane |
+|---|---|---|---|
+| `opentelemetry` (default when `""`) | `podLogsViaOpenTelemetry` | OTLP logs → `/v1/logs` | `core.OTLPLogs` → `internal/sink/otlp` |
+| `kubernetes_api` \| `loki` | `podLogsViaLoki` | Loki push → `/loki/api/v1/push` | `core.Logs` → `internal/sink/loki` |
+| `none` \| `objects` | — | none (`objects` deferred) | — |
 
-**classic** (method `"kubernetes_api"` or `"loki"`):
-Stream labels carry the classic Alloy `kubernetes_api` shape with `job=<ns>/<container>`;
-structured metadata carries `k8s_pod_name`/`pod`/`service_instance_id`.
+One line per pod×container per tick. Both transports carry IDENTICAL content — switching transport
+changes the observable shape and never adds, drops or alters a log line.
 
-`objects` method: deferred (not implemented — returns nil).
+**Naming.** The OTLP wire carries dotted OTel names beside the flat `cluster` and
+`app_kubernetes_io_name`. That mix is real and deliberate on the collector's part; it reaches the
+gateway verbatim. An absent dimension is OMITTED, never `""` — the corpus contains a pod with no
+`k8s.deployment.name`, no `app_kubernetes_io_name` and no `k8s.node.name`.
+
+**Not sent.** `log.file.path` (the `container` parser can add it; the capture has no such key) and
+`k8s.pod.uid` (on the chart's `default-remove-lists/resource-attributes.yaml`).
+
+**Severity.** `severity_number`/`severity_text` are NOT set: the captured pipeline runs the filelog
+`container` parser with no severity parser, and Loki derives `detected_level` from the body.
+`v: PENDING` — the corpus log schema has no severity field, so absence is inferred from the pipeline
+contract, not observed (cantfind SK-98).
+
+**Instrumentation scope.** EMPTY. A non-empty scope name would surface as a `scope_name`
+structured-metadata key at Loki, and the capture has none — so the synth does NOT apply the
+`"synthkit"` scope fallback the traces/metrics OTLP lanes use.
 
 ```yaml signals
 family: k8s_pod_logs
 scope: substrate
-sink: loki
 
-# --- OTel shape (method=opentelemetry; default; the reference cluster live-confirmed) ---
-stream_labels_otel:
-  cluster: <cluster-name>
-  k8s_cluster_name: <cluster-name>
-  k8s_namespace_name: <namespace>
-  k8s_pod_name: <pod-name>
-  k8s_container_name: <container-name>
-  k8s_node_name: <node-hostname>
-  k8s_deployment_name: <deploy-name>
-  app_kubernetes_io_name: <deploy-name>
-  service_name: <deploy-name>
-  service_namespace: <namespace>
-  service_instance_id: "<ns>.<pod-name>.<container>"
-  log_iostream: stdout
-  logtag: F
-  detected_level: info
-# NO job label on otel shape
+# -- Transport A: OTLP logs (pod_logs_method: opentelemetry; chart podLogsViaOpenTelemetry) --
+# Live-captured at collector egress, k3d lab, k8s-monitoring 4.4.0, 2026-08-25.
+transport_otlp:
+  sink: otlp
+  path: /v1/logs
+  resource_attributes:
+    cluster: <cluster-name>
+    k8s.cluster.name: <cluster-name>
+    k8s.namespace.name: <namespace>
+    k8s.pod.name: <pod-name>
+    k8s.container.name: <container-name>
+    k8s.node.name: <node-hostname>            # omitted when the pod has no node
+    k8s.deployment.name: <deploy-name>        # omitted when the pod has no Deployment owner
+    app_kubernetes_io_name: <deploy-name>     # flat; from the app.kubernetes.io/name pod label
+    service.name: <deploy-name>               # alignServiceNameWithOTelSemConv
+    service.namespace: <namespace>
+    service.instance.id: "<ns>.<pod-name>.<container>"
+  record_attributes:
+    log.iostream: stdout|stderr
+    logtag: F|P
+  severity_number: unset        # no severity parser in the captured pipeline (v: PENDING, SK-98)
+  severity_text: unset
+  scope: ""                     # empty; a name would appear as scope_name structured metadata
+  # DESTINATION-side observable. Config-dependent -- do NOT treat as a fixed contract.
+  promotion:
+    rule: >
+      Only RESOURCE attributes are promotion candidates. Promoted keys are sanitised (dots ->
+      underscores), so k8s.pod.name on the wire reads as k8s_pod_name in a Loki query. Every
+      record attribute, and every non-promoted resource attribute, becomes structured metadata.
+      Loki adds a derived detected_level that is never sent.
+    reference_allowlist:        # labelsToKeep, reference k8s-monitoring values.yaml
+      [app.kubernetes.io/name, container, instance, job, level, namespace, service.name,
+       service.namespace, deployment.environment, deployment.environment.name,
+       k8s.namespace.name, k8s.deployment.name, k8s.statefulset.name, k8s.daemonset.name,
+       k8s.cronjob.name, k8s.job.name, k8s.node.name]
+    observed_stream_labels:     # SK-20, staff stack 2026-06-15, a DIFFERENT destination config
+      [cluster, k8s_cluster_name, k8s_namespace_name, k8s_pod_name, k8s_container_name,
+       k8s_node_name, k8s_deployment_name, app_kubernetes_io_name, service_name,
+       service_namespace, service_instance_id, detected_level]
+    observed_structured_metadata: [log_iostream, logtag]
+    # log_iostream and logtag are RECORD attributes on the wire, so they are NEVER stream labels
+    # on this transport — only resource attributes are promotion candidates. They appear in a
+    # Loki query as structured metadata, which reads similarly but is not indexed. The Loki-native
+    # transport below is the one that puts a `stream` label on the wire.
+    # No `job` label on this path.
 
-# --- Classic shape (method=kubernetes_api or loki) ---
-stream_labels_classic:
-  cluster: <cluster-name>
-  k8s_cluster_name: <cluster-name>
-  namespace: <namespace>
-  pod: <pod-name>
-  container: <container-name>
-  job: "<namespace>/<container>"
-  app_kubernetes_io_name: <deploy-name>
-  service_name: <deploy-name>
-  service_namespace: <namespace>
-  service_instance_id: "<ns>.<pod-name>.<container>"
-  stream: stdout
-  detected_level: info
-structured_metadata_classic:
-  k8s_pod_name: <pod-name>
-  pod: <pod-name>
-  service_instance_id: "<ns>.<pod-name>.<container>"
-note: "objects method deferred (not implemented)"
+# -- Transport B: Loki-native push (pod_logs_method: kubernetes_api|loki; chart podLogsViaLoki) --
+transport_loki:
+  sink: loki
+  path: /loki/api/v1/push
+  stream_labels:
+    cluster: <cluster-name>
+    k8s_cluster_name: <cluster-name>
+    namespace: <namespace>
+    pod: <pod-name>
+    container: <container-name>
+    job: "<namespace>/<container>"
+    app_kubernetes_io_name: <deploy-name>   # omitted when the pod has no Deployment owner
+    service_name: <deploy-name>             # omitted when the pod has no Deployment owner
+    service_namespace: <namespace>
+    service_instance_id: "<ns>.<pod-name>.<container>"
+    stream: stdout
+    detected_level: info
+  structured_metadata:
+    k8s_pod_name: <pod-name>
+    pod: <pod-name>
+    service_instance_id: "<ns>.<pod-name>.<container>"
+
+body: '<RFC3339> level=info msg="request handled" path=/healthz status=200'
+note: >
+  objects method deferred (not implemented). Both transports project the same content set
+  (namespace, pod, container, body) -- switching transport never adds or drops a line.
 ```
+
 
 ---
 

@@ -29,6 +29,7 @@ type queueSet struct {
 	Profiles    *queue.Queue[pyroscope.Series]
 	RUM         *queue.Queue[faro.Payload]
 	OTLPMetrics *queue.Queue[otlp.MetricResource]
+	OTLPLogs    *queue.Queue[otlp.LogResource]
 	Sigil       *queue.Queue[sigil.Export]
 }
 
@@ -124,6 +125,19 @@ func shardMetricResource(r otlp.MetricResource) uint64 {
 	return h.Sum64()
 }
 
+// shardLogResource routes by pod identity so one pod's log records reach the same ordered
+// sender (Loki rejects out-of-order lines within a stream; cross-pod order is free).
+func shardLogResource(r otlp.LogResource) uint64 {
+	h := fnv.New64a()
+	for _, k := range []string{"k8s.namespace.name", "k8s.pod.name", "k8s.container.name", "blueprint"} {
+		if v, ok := r.Attrs[k].(string); ok {
+			_, _ = h.Write([]byte(v))
+		}
+		_, _ = h.Write([]byte{0})
+	}
+	return h.Sum64()
+}
+
 func (r *Runner) baseQueueOpts() queue.Options {
 	return queue.Options{
 		Shards:   r.opts.SendShards,
@@ -171,6 +185,12 @@ func (r *Runner) buildQueues() {
 		omo.Deadline = 2 * time.Second // Alloy applicationObservability batch cadence
 		r.queues.OTLPMetrics = queue.New[otlp.MetricResource](omo, r.sinks.OTLPMetrics.Write, shardMetricResource, nil)
 	}
+	if r.sinks.OTLPLogs != nil {
+		olo := o
+		olo.Sink = "otlplogs"
+		olo.Deadline = 2 * time.Second // Alloy pod-log batch cadence
+		r.queues.OTLPLogs = queue.New[otlp.LogResource](olo, r.sinks.OTLPLogs.Write, shardLogResource, nil)
+	}
 	if r.sinks.Sigil != nil {
 		so := o
 		so.Sink = "sigil"
@@ -207,6 +227,9 @@ func (r *Runner) eachQueue() []drainable {
 	}
 	if r.queues.OTLPMetrics != nil {
 		ds = append(ds, r.queues.OTLPMetrics)
+	}
+	if r.queues.OTLPLogs != nil {
+		ds = append(ds, r.queues.OTLPLogs)
 	}
 	if r.queues.Sigil != nil {
 		ds = append(ds, r.queues.Sigil)
@@ -266,6 +289,9 @@ func (r *Runner) QueueDepths() map[string]int {
 	}
 	if r.queues.OTLPMetrics != nil {
 		m["otlpmetrics"] = r.queues.OTLPMetrics.Depth()
+	}
+	if r.queues.OTLPLogs != nil {
+		m["otlplogs"] = r.queues.OTLPLogs.Depth()
 	}
 	if r.queues.Sigil != nil {
 		m["sigil"] = r.queues.Sigil.Depth()

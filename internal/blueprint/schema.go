@@ -210,8 +210,13 @@ type K8sMonitoringDecl struct {
 	FleetManagement bool `yaml:"fleet_management"`
 	// ControlPlane gates individual control-plane component metric families.
 	ControlPlane ControlPlaneDecl `yaml:"control_plane"`
-	// PodLogsMethod selects the pod-log collection mechanism. "" with pod_logs feature enabled
-	// defaults to "opentelemetry"; explicit values pass through unchanged; absent pod_logs ⇒ "none".
+	// PodLogsMethod selects the pod-log CHART FEATURE and therefore the TRANSPORT, cluster-wide.
+	// "opentelemetry" (the default when "" and pod_logs is on) is podLogsViaOpenTelemetry: OTLP log
+	// records to /v1/logs, with the destination promoting an allowlisted subset of the resource
+	// attributes to Loki stream labels. "kubernetes_api"/"loki" is podLogsViaLoki: a Loki-native
+	// push carrying stream labels and structured metadata on the wire. "none"/"objects" emit
+	// nothing (objects deferred). Absent pod_logs ⇒ "none". Both transports carry identical
+	// content; only the observable shape differs. See signals/k8s.md [slug: k8s-pod-logs].
 	PodLogsMethod string `yaml:"pod_logs_method"` // ""|opentelemetry|kubernetes_api|loki|objects|none
 }
 

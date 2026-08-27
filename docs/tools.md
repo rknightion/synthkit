@@ -46,6 +46,29 @@ The capture output is a versioned JSON `Inventory` envelope containing resource 
 
 The current v1 focus is AWS/EKS. The Inventory struct is designed to support additional collectors in future versions.
 
+### What the zero-secret default covers
+
+A capture leaves the cluster, so the boundary of the zero-secret default is worth stating exactly.
+
+**Covered.** Secret and ConfigMap *values* are never read. `--include-secret-data` and `--include-configmap-data` both default false, and the default RBAC in `deploy/skcapture/rbac.yaml` grants no access to Secrets or ConfigMaps at all — so the default install cannot read them whatever flags are passed. Object annotations are reduced to a fixed allowlist of the keys the tooling consumes: Helm release identity, Argo CD tracking, deployment revision, and metric scrape hints. Every other annotation is dropped, including `kubectl.kubernetes.io/last-applied-configuration`, which on any cluster managed with `kubectl apply` embeds the object's full spec and therefore every container environment value.
+
+**Not covered.** A capture is still a description of your environment. It carries namespace, workload, service and ingress names; container image references including the registry host; ingress hostnames; `ExternalName` service targets; pod-template labels; and node instance types and pool names. Treat the output as sensitive and use the encrypted path for anything leaving the cluster. A credential placed in a workload name, a label value or an image reference is captured, because those are identity fields the tool has to read to describe the environment.
+
+### Cluster identity and where it came from
+
+The captured cluster name is the primary join key for everything forged from a capture: get it wrong and the resulting blueprint emits telemetry that can never join to the real cluster's dashboards, while still loading and validating cleanly. `skcapture` therefore records which source produced the name in the cluster's `name_source` field, and prints it on completion.
+
+| `name_source` | Meaning |
+|---|---|
+| `collector-release-info` | Read from the in-cluster metrics collector's release-info ConfigMap. This is the name the collector applies as a label to every metric, log and trace the cluster ships, so it is the only source guaranteed to join to that cluster's real telemetry. |
+| `eks-arn-context` | Recovered from an EKS ARN kubeconfig context. The cluster's AWS identity, which is not necessarily the name its telemetry carries. |
+| `kubeconfig-context` | A slug of whatever the current kubeconfig context happens to be called. Describes your kubeconfig, not the cluster. |
+| `default` | Nothing was discoverable, and a placeholder was used. |
+
+Anything other than `collector-release-info` prints a warning: verify the name against a live signal before forging a blueprint from that capture.
+
+The collector lookup is a targeted `get` of a named ConfigMap in the collector's own namespace — never a namespace-wide or cluster-wide list — and reads only the cluster-name key. The default RBAC grants no ConfigMap access, so an in-cluster run under that role falls back and says so. To get the authoritative identity from an in-cluster run, grant `get` on that one ConfigMap in the collector's namespace.
+
 ## skforge — blueprint forge
 
 `skforge` takes a captured inventory and produces a synthkit blueprint draft. It uses a deterministic skeleton mapper to translate inventory resources into blueprint declarations, then emits a self-contained LLM prompt that you feed to Claude (or another LLM) to produce the final blueprint YAML.

@@ -222,6 +222,37 @@ gateway has scope-label injection disabled by default). The scope IS sent on the
 (ScopeMetrics name `…/otelhttp`, version `0.58.0`) but does not become a label — do not rely on
 `otel_scope_*` for querying GC-ingested OTLP metrics.
 
+### Instrumentation scope on the wire — what synthkit sends [slug: otlp-scope-on-wire]
+
+*Provenance: emitter contract, recorded 2026-08-27 (SKT-0007.02); gateway behaviour live-validated
+2026-06-18 — see the section above.*
+
+The section above records what Grafana Cloud does with scope. This records what synthkit puts on
+the wire, so the two are not confused:
+
+| Field | synthkit behaviour |
+|---|---|
+| `ScopeMetrics` per resource | Exactly **one**. Every metric for one resource shares one scope. |
+| `InstrumentationScope.name` | The **real** instrumentation library name of the modelled producer, e.g. `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp`. A caller that leaves `otlp.Scope` zero gets the fallback name `synthkit` rather than an unnamed scope. |
+| `InstrumentationScope.version` | The real library version, e.g. `0.58.0`. Empty when the caller supplies none — omitted, never `""` filler. |
+| `InstrumentationScope.attributes` | **Never emitted.** No modelled producer sets scope attributes, so emitting any would invent telemetry. |
+| `ScopeMetrics.schema_url` | **Never emitted.** |
+
+**Consequence for queries and dashboards:** because Grafana Cloud does not surface
+`otel_scope_name`/`otel_scope_version` as labels (live-validated 2026-06-18 above), the scope
+synthkit sends is *not* queryable on a GC-ingested series. No synthkit-emitted shape, generated
+dashboard or alert may key on `otel_scope_*`. Scope is sent because a real SDK sends it, not
+because it is retrievable.
+
+**Aggregation temporality:** every synthkit OTLP metric — Sum, explicit histogram and exponential
+histogram alike — is **cumulative**. Evidence: the OTLP exporter spec default is `Cumulative`
+(`OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE`, opentelemetry.io metrics SDK exporter spec,
+read 2026-08-27); the reference k8s-monitoring spanmetrics connector leaves
+`aggregation_temporality` unset and so inherits Alloy's `CUMULATIVE` default; and Mimir lists
+delta OTLP ingestion as an experimental, opt-in feature. Delta is encodable in the sink but no
+lane sets it. Whether the gateway accepts, converts or drops a delta point is unverified — see
+`cantfind.md` SK-91.
+
 ---
 
 ## LIVE VALIDATION — VALIDATED (2026-06-18)

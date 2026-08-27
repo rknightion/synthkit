@@ -102,31 +102,114 @@ func TestDiffUnexpectedLabelKeyDispositions(t *testing.T) {
 	}
 }
 
-func TestDiffLabelValuesReportsBothDirections(t *testing.T) {
-	synth := metricSchema(Metric{
-		Name:   "requests_total",
-		Labels: []Attribute{{Key: "environment", Values: []string{"prod"}}},
-	})
-	reality := metricSchema(Metric{
-		Name:   "requests_total",
-		Labels: []Attribute{{Key: "environment", Values: []string{"staging"}}},
-	})
+func TestDiffLabelValuesCompareAsSubset(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		synth     Attribute
+		reality   Attribute
+		wantCount int
+	}{
+		{
+			name:      "synth covering more values than reality observed is silent",
+			synth:     Attribute{Key: "region", Values: []string{"eu-west-1", "us-east-1", "us-west-2"}},
+			reality:   Attribute{Key: "region", Values: []string{"us-east-1"}},
+			wantCount: 0,
+		},
+		{
+			name:      "reality value synth cannot emit is a contradiction",
+			synth:     Attribute{Key: "region", Values: []string{"us-east-1"}},
+			reality:   Attribute{Key: "region", Values: []string{"us-east-1", "ap-south-1"}},
+			wantCount: 1,
+		},
+		{
+			name:      "disjoint value sets are a contradiction, not two findings",
+			synth:     Attribute{Key: "environment", Values: []string{"prod"}},
+			reality:   Attribute{Key: "environment", Values: []string{"staging"}},
+			wantCount: 1,
+		},
+		{
+			name:      "elided reality values run no value comparison",
+			synth:     Attribute{Key: "region", Values: []string{"us-east-1"}},
+			reality:   Attribute{Key: "region", Values: []string{}, ValuesElided: true},
+			wantCount: 0,
+		},
+		{
+			name:      "elided synth values run no value comparison",
+			synth:     Attribute{Key: "region", Values: []string{}, ValuesElided: true},
+			reality:   Attribute{Key: "region", Values: []string{"ap-south-1"}},
+			wantCount: 0,
+		},
+		{
+			name:      "reality key observed without any value carries no value evidence",
+			synth:     Attribute{Key: "region", Values: []string{"us-east-1"}},
+			reality:   Attribute{Key: "region", Values: []string{}},
+			wantCount: 0,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			findings := Diff(
+				metricSchema(Metric{Name: "requests_total", Labels: []Attribute{test.synth}}),
+				metricSchema(Metric{Name: "requests_total", Labels: []Attribute{test.reality}}),
+			)
+			if len(findings) != test.wantCount {
+				t.Fatalf("findings=%+v, want %d", findings, test.wantCount)
+			}
+			if test.wantCount == 0 {
+				return
+			}
+			got := findings[0]
+			if got.Kind != KindLabelValueContradiction || got.Disposition != DispositionContradiction {
+				t.Fatalf("finding=%+v, want a label-value contradiction", got)
+			}
+			if got.Field != "labels."+test.reality.Key {
+				t.Fatalf("finding field=%q", got.Field)
+			}
+		})
+	}
+}
 
-	findings := Diff(synth, reality)
-	if len(findings) != 2 {
-		t.Fatalf("findings=%+v, want contradiction and coverage gap", findings)
+func TestDiffUnobservedInstrumentTypeIsCoverageGapNotContradiction(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		synth   []string
+		reality []string
+	}{
+		{name: "reality never observed an instrument type", synth: []string{InstrumentGauge}, reality: []string{InstrumentUnknown}},
+		{name: "synth never observed an instrument type", synth: []string{InstrumentUnknown}, reality: []string{InstrumentGauge}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			findings := Diff(
+				metricSchema(Metric{Name: "node_cpu_seconds_total", InstrumentTypes: test.synth}),
+				metricSchema(Metric{Name: "node_cpu_seconds_total", InstrumentTypes: test.reality}),
+			)
+			for _, finding := range findings {
+				if finding.Disposition == DispositionContradiction {
+					t.Fatalf("finding=%+v, the unknown sentinel must never contradict", finding)
+				}
+			}
+			if len(findings) != 1 {
+				t.Fatalf("findings=%+v, want exactly one coverage gap", findings)
+			}
+			assertFinding(t, findings, KindInstrumentMismatch, DispositionCoverageGap, "node_cpu_seconds_total", "instrument_types")
+		})
 	}
-	if findings[0].Disposition != DispositionContradiction || findings[1].Disposition != DispositionCoverageGap {
-		t.Fatalf("dispositions=%q/%q, want contradiction/coverage_gap", findings[0].Disposition, findings[1].Disposition)
-	}
-	for _, finding := range findings {
-		if finding.Kind != KindLabelValueContradiction || finding.Signal != "requests_total" || finding.Field != "labels.environment" {
-			t.Fatalf("finding=%+v", finding)
-		}
-		if !reflect.DeepEqual(finding.SynthValues, []string{"prod"}) || !reflect.DeepEqual(finding.RealityValues, []string{"staging"}) {
-			t.Fatalf("values=%+v/%+v", finding.SynthValues, finding.RealityValues)
-		}
-	}
+}
+
+func TestDiffRecordedInstrumentTypeStillContradicts(t *testing.T) {
+	findings := Diff(
+		metricSchema(Metric{Name: "node_cpu_seconds_total", InstrumentTypes: []string{InstrumentGauge}}),
+		metricSchema(Metric{Name: "node_cpu_seconds_total", InstrumentTypes: []string{InstrumentCounter}}),
+	)
+	assertFinding(t, findings, KindInstrumentMismatch, DispositionContradiction, "node_cpu_seconds_total", "instrument_types")
+	assertFinding(t, findings, KindInstrumentMismatch, DispositionCoverageGap, "node_cpu_seconds_total", "instrument_types")
+}
+
+func TestDiffPartiallyObservedInstrumentTypeStillContradicts(t *testing.T) {
+	findings := Diff(
+		metricSchema(Metric{Name: "node_cpu_seconds_total", InstrumentTypes: []string{InstrumentGauge}}),
+		metricSchema(Metric{Name: "node_cpu_seconds_total", InstrumentTypes: []string{InstrumentCounter, InstrumentUnknown}}),
+	)
+	assertFinding(t, findings, KindInstrumentMismatch, DispositionContradiction, "node_cpu_seconds_total", "instrument_types")
 }
 
 func TestDiffInstrumentAndBucketBoundDispositions(t *testing.T) {
@@ -223,12 +306,11 @@ func TestDiffLogs(t *testing.T) {
 	}
 
 	findings := Diff(synth, reality)
-	if len(findings) != 2 {
-		t.Fatalf("findings=%+v, want log value contradiction and coverage gap", findings)
+	if len(findings) != 1 {
+		t.Fatalf("findings=%+v, want one log stream-label contradiction", findings)
 	}
 	signal := "loki[stream_labels=cluster;structured_metadata_keys=trace_id]"
 	assertFinding(t, findings, KindLabelValueContradiction, DispositionContradiction, signal, "stream_labels.cluster")
-	assertFinding(t, findings, KindLabelValueContradiction, DispositionCoverageGap, signal, "stream_labels.cluster")
 }
 
 func TestDiffLogSignalsIdentifyStructuralShapes(t *testing.T) {

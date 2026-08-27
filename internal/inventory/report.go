@@ -98,7 +98,7 @@ func writeDispositionReport(w io.Writer, heading string, disposition Disposition
 func writeFinding(w io.Writer, scoped ScopedFinding) error {
 	finding := scoped.Finding
 	signalPath := signalPath(scoped.Area)
-	values := fmt.Sprintf("synth=%s; reality=%s", formatValues(finding.SynthValues), formatValues(finding.RealityValues))
+	values := formatFindingValues(finding)
 	_, err := fmt.Fprintf(
 		w,
 		"- `%s` — on substrate `%s` from generic source `%s`: signal `%s`, field `%s` (%s).\n",
@@ -131,6 +131,21 @@ func writePendingStubs(w io.Writer, findings []ScopedFinding) error {
 	}
 	_, err := fmt.Fprintln(w, "```")
 	return err
+}
+
+// formatFindingValues leads with the one-sided difference that produced the finding so a
+// maintainer reads the divergence itself rather than diffing two long sets by eye. Both full sets
+// still follow, unchanged, for anything reading the line for context.
+func formatFindingValues(finding Finding) string {
+	parts := make([]string, 0, 4)
+	if onlySynth := difference(finding.SynthValues, finding.RealityValues); len(onlySynth) > 0 {
+		parts = append(parts, "only-in-synth="+formatValues(onlySynth))
+	}
+	if onlyReality := difference(finding.RealityValues, finding.SynthValues); len(onlyReality) > 0 {
+		parts = append(parts, "only-in-reality="+formatValues(onlyReality))
+	}
+	parts = append(parts, "synth="+formatValues(finding.SynthValues), "reality="+formatValues(finding.RealityValues))
+	return strings.Join(parts, "; ")
 }
 
 func signalPath(area string) string {

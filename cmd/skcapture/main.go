@@ -12,6 +12,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -148,6 +149,26 @@ func main() {
 		inv.Envelope.Counts["services"],
 		inv.Envelope.Counts["ingresses"],
 	)
+	reportClusterIdentity(os.Stderr, inv)
+}
+
+// reportClusterIdentity prints each captured cluster's name and where that name came from, and
+// warns when it did not come from the cluster itself.
+//
+// Cluster name is the primary join key for everything forged from this capture, and a name inferred
+// from the operator's kubeconfig is frequently not the name the cluster's telemetry carries. The
+// failure is silent downstream — the blueprint still loads and validates — so the one place it can
+// be caught is here, at capture time, in front of the operator who can correct it.
+func reportClusterIdentity(w io.Writer, inv *capture.Inventory) {
+	for _, cl := range inv.Clusters {
+		fmt.Fprintf(w, "skcapture: cluster %q (identity source: %s)\n", cl.Name, cl.NameSource)
+		if capture.AuthoritativeNameSource(cl.NameSource) {
+			continue
+		}
+		fmt.Fprintf(w, "skcapture: WARNING: %q was not read from the cluster's own collector, so it "+
+			"may not match the cluster label on this cluster's real telemetry. Verify it against a "+
+			"live signal before forging a blueprint from this capture.\n", cl.Name)
+	}
 }
 
 // splitTrimmed splits a comma-separated string and trims whitespace from each element,

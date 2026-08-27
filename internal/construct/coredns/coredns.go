@@ -146,10 +146,11 @@ var coreDNSSizeBuckets = []float64{
 }
 
 // coreDNSProxyDurationBuckets are the le boundaries for proxy_request_duration_seconds
-// (17 le values per recon §A3: 0.00025 through +Inf; +Inf implicit).
+// (16 le values; +Inf implicit). Matches coreDNSDurationBuckets — confirmed identical to the
+// live capture in reality-corpus/k8s-addons/k3d-lab.json (SKT-0010.03, 2026-08-27).
 var coreDNSProxyDurationBuckets = []float64{
 	0.00025, 0.0005, 0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128,
-	0.256, 0.512, 1.024, 2.048,
+	0.256, 0.512, 1.024, 2.048, 4.096, 8.192,
 }
 
 // coreDNSHealthDurationBuckets are the le boundaries for health_request_duration_seconds

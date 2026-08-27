@@ -126,6 +126,13 @@ func convertMetric(m Metric) (*metricspb.Metric, int) {
 			AggregationTemporality: temporality(m.Temporality),
 		}}
 		return out, len(dps)
+	case MetricExponentialHistogram:
+		dps := expHistoPoints(m.ExpHistograms)
+		out.Data = &metricspb.Metric_ExponentialHistogram{ExponentialHistogram: &metricspb.ExponentialHistogram{
+			DataPoints:             dps,
+			AggregationTemporality: temporality(m.Temporality),
+		}}
+		return out, len(dps)
 	default:
 		return nil, 0
 	}
@@ -162,6 +169,48 @@ func histoPoints(pts []HistogramPoint) []*metricspb.HistogramDataPoint {
 		}
 		if !p.Start.IsZero() {
 			dp.StartTimeUnixNano = uint64(p.Start.UnixNano())
+		}
+		if p.HasMinMax {
+			mn, mx := p.Min, p.Max
+			dp.Min, dp.Max = &mn, &mx
+		}
+		out = append(out, dp)
+	}
+	return out
+}
+
+// expHistoPoints builds ExponentialHistogramDataPoints. Positive/Negative are emitted only when
+// they carry buckets, so a non-negative-only histogram (every synthkit lane) sends no empty
+// `negative` submessage. ZeroThreshold/ZeroCount are written as given: zero is the OTLP default
+// and means "the zero bucket holds only values that rounded to zero", which is what a
+// strictly-positive latency or size distribution produces.
+func expHistoPoints(pts []ExponentialHistogramPoint) []*metricspb.ExponentialHistogramDataPoint {
+	out := make([]*metricspb.ExponentialHistogramDataPoint, 0, len(pts))
+	for _, p := range pts {
+		sum := p.Sum
+		dp := &metricspb.ExponentialHistogramDataPoint{
+			Attributes:    kvs(p.Attrs),
+			TimeUnixNano:  uint64(p.Time.UnixNano()),
+			Count:         p.Count,
+			Sum:           &sum,
+			Scale:         p.Scale,
+			ZeroCount:     p.ZeroCount,
+			ZeroThreshold: p.ZeroThreshold,
+		}
+		if !p.Start.IsZero() {
+			dp.StartTimeUnixNano = uint64(p.Start.UnixNano())
+		}
+		if len(p.Positive.BucketCounts) > 0 {
+			dp.Positive = &metricspb.ExponentialHistogramDataPoint_Buckets{
+				Offset:       p.Positive.Offset,
+				BucketCounts: p.Positive.BucketCounts,
+			}
+		}
+		if len(p.Negative.BucketCounts) > 0 {
+			dp.Negative = &metricspb.ExponentialHistogramDataPoint_Buckets{
+				Offset:       p.Negative.Offset,
+				BucketCounts: p.Negative.BucketCounts,
+			}
 		}
 		if p.HasMinMax {
 			mn, mx := p.Min, p.Max

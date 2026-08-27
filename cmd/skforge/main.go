@@ -181,7 +181,7 @@ func runPrompt(args []string) {
 	fmt.Print(prompt)
 
 	if *report != "" {
-		rep := forge.CoverageReport(inv, gaps, reg)
+		rep := forge.CoverageReport(sk, gaps, reg)
 		if err := os.WriteFile(*report, []byte(rep), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "skforge prompt: writing report: %v\n", err)
 			os.Exit(1)

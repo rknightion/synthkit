@@ -50,7 +50,11 @@ func TestBuildGCXLiveReadbackScopesAreasAndElidesDeploymentIdentity(t *testing.T
 		{"__name__": "kube_node_labels", "cluster": "other-cluster", "label_node_kubernetes_io_instance_type": "other.type"},
 	}
 
-	documents, err := BuildGCXLiveReadback(series, "2026-08-25", "1.1.1")
+	declared := DeclaredInstrumentTypes(map[string][]string{
+		"aws_ec2_cpu_credit_usage_sum": {"gauge"},
+		"kube_node_info":               {"gauge"},
+	})
+	documents, err := BuildGCXLiveReadback(series, declared, "2026-08-25", "1.1.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,6 +92,17 @@ func TestBuildGCXLiveReadbackScopesAreasAndElidesDeploymentIdentity(t *testing.T
 	assertAttribute(t, metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum"), "dimension_InstanceId", nil, true)
 	assertAttribute(t, metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum"), "namespace", []string{"AWS/EC2"}, false)
 	assertAttribute(t, metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum"), "region", []string{"region"}, false)
+	// The metadata API answered for the CloudWatch family and not for the kubeproxy one,
+	// so the second keeps the sentinel rather than taking a type from its name.
+	if got := metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum").InstrumentTypes; !reflect.DeepEqual(got, []string{InstrumentGauge}) {
+		t.Fatalf("cw instrument types=%v, want [gauge]", got)
+	}
+	if got := metricForName(t, k8s, "kube_node_info").InstrumentTypes; !reflect.DeepEqual(got, []string{InstrumentGauge}) {
+		t.Fatalf("kube_node_info instrument types=%v, want [gauge]", got)
+	}
+	if got := metricForName(t, k8s, "kubeproxy_sync_proxy_rules_iptables_total").InstrumentTypes; !reflect.DeepEqual(got, []string{InstrumentUnknown}) {
+		t.Fatalf("kubeproxy instrument types=%v, want [unknown]", got)
+	}
 	for _, attribute := range metricForName(t, cw, "aws_ec2_cpu_credit_usage_sum").Labels {
 		if strings.HasPrefix(attribute.Key, "tag_") {
 			t.Fatalf("identity-bearing CloudWatch tag key entered corpus: %q", attribute.Key)
@@ -99,11 +114,11 @@ func TestMergeCorpusDocumentFileUsesCanonicalCumulativeUnion(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cw", "eks-live-readback.json")
-	first, err := BuildGCXLiveReadback([]map[string]string{{"__name__": "aws_ec2_cpu_credit_usage_sum", "region": "a"}}, "2026-08-24", "1.1.1")
+	first, err := BuildGCXLiveReadback([]map[string]string{{"__name__": "aws_ec2_cpu_credit_usage_sum", "region": "a"}}, nil, "2026-08-24", "1.1.1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := BuildGCXLiveReadback([]map[string]string{{"__name__": "aws_ec2_cpu_credit_usage_sum", "region": "b"}}, "2026-08-25", "1.1.1")
+	second, err := BuildGCXLiveReadback([]map[string]string{{"__name__": "aws_ec2_cpu_credit_usage_sum", "region": "b"}}, DeclaredInstrumentTypes(map[string][]string{"aws_ec2_cpu_credit_usage_sum": {"gauge"}}), "2026-08-25", "1.1.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,4 +197,65 @@ func assertAttribute(t *testing.T, metric Metric, key string, values []string, e
 		}
 	}
 	t.Fatalf("metric %q missing attribute %q", metric.Name, key)
+}
+
+func TestDeclaredInstrumentTypesKeepsOnlyReportedTypes(t *testing.T) {
+	t.Parallel()
+	got := DeclaredInstrumentTypes(map[string][]string{
+		"a_counter":     {"counter"},
+		"a_gauge":       {"gauge"},
+		"a_histogram":   {"histogram"},
+		"a_gaugehisto":  {"gaugehistogram"},
+		"a_summary":     {"summary"},
+		"an_info":       {"info"},
+		"a_stateset":    {"stateset"},
+		"an_untyped":    {"unknown"},
+		"a_nonsense":    {"not-a-prometheus-type"},
+		"a_disagreeing": {"counter", "gauge", "counter"},
+	})
+	want := map[string][]string{
+		"a_counter":     {InstrumentCounter},
+		"a_gauge":       {InstrumentGauge},
+		"a_histogram":   {InstrumentHistogram},
+		"a_gaugehisto":  {InstrumentHistogram},
+		"a_summary":     {"summary"},
+		"an_info":       {"info"},
+		"a_stateset":    {"stateset"},
+		"a_disagreeing": {InstrumentCounter, InstrumentGauge},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("declared=%v, want %v", got, want)
+	}
+}
+
+func TestMergeCorpusDocumentFileDropsSupersededInstrumentSentinel(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cw", "eks-live-readback.json")
+	series := []map[string]string{{"__name__": "aws_ec2_cpu_credit_usage_sum", "region": "a"}}
+	// The first capture could not observe a type; the refresh can.
+	unobserved, err := BuildGCXLiveReadback(series, nil, "2026-08-24", "1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := BuildGCXLiveReadback(series, DeclaredInstrumentTypes(map[string][]string{
+		"aws_ec2_cpu_credit_usage_sum": {"gauge"},
+	}), "2026-08-25", "1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MergeCorpusDocumentFile(path, documentForArea(t, unobserved, "cw")); err != nil {
+		t.Fatal(err)
+	}
+	if err := MergeCorpusDocumentFile(path, documentForArea(t, observed, "cw")); err != nil {
+		t.Fatal(err)
+	}
+	documents, err := LoadCorpusDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged := documentForArea(t, documents, "cw")
+	if got := metricForName(t, merged, "aws_ec2_cpu_credit_usage_sum").InstrumentTypes; !reflect.DeepEqual(got, []string{InstrumentGauge}) {
+		t.Fatalf("merged instrument types=%v, want [gauge] with the sentinel dropped", got)
+	}
 }

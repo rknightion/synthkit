@@ -6,7 +6,7 @@
     "substrate": "k3s",
     "collector": "grafana/k8s-monitoring",
     "collector_version": "4.4.0",
-    "captured_on": "2026-08-25"
+    "captured_on": "2026-08-27"
   },
   "authority": {
     "substrates": [
@@ -14,10 +14,11 @@
     ]
   },
   "capture_volume": {
-    "runs": 2,
+    "runs": 3,
     "observed_contract_counts": [
       39,
-      103
+      103,
+      105
     ]
   },
   "inventory": {
@@ -2252,7 +2253,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
-          "histogram"
+          "unknown"
         ],
         "labels": [
           {

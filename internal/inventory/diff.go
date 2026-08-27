@@ -54,10 +54,12 @@ type Finding struct {
 // inventory is the comparison scope: a family absent from reality is not
 // evidence of drift, while a reality-only family is a coverage gap.
 //
-// Attribute values marked ValuesElided are deliberately treated as open-ended.
-// A value absent from an elided set cannot prove a contradiction or a coverage
-// gap, so Diff reports only differences that remain certain after accounting
-// for the cap.
+// Absent evidence is never a contradiction. Attribute values marked
+// ValuesElided are deliberately treated as open-ended, an instrument-type set
+// that is exactly the unknown sentinel carries no evidence about instrument
+// shape, and label values compare as a subset because a capture observes only
+// part of the value space an emitter models. Diff reports only differences that
+// remain certain after accounting for what the reality producer could observe.
 func Diff(synth, reality Schema) []Finding {
 	out := make([]Finding, 0)
 	diffMetrics(&out, synth.Metrics, reality.Metrics)
@@ -397,19 +399,40 @@ func diffAttributes(out *[]Finding, signal, field string, synth, reality map[str
 	realityKeys := sortedAttributeKeys(reality)
 	appendDirectional(out, KindUnexpectedLabelKey, signal, field, synthKeys, realityKeys, true, true)
 	for _, key := range intersection(synthKeys, realityKeys) {
-		synthAttribute := synth[key]
-		realityAttribute := reality[key]
-		appendDirectional(
-			out,
-			KindLabelValueContradiction,
-			signal,
-			field+"."+key,
-			sortedStrings(synthAttribute.values),
-			sortedStrings(realityAttribute.values),
-			!realityAttribute.elided,
-			!synthAttribute.elided,
-		)
+		appendLabelValueSubset(out, signal, field+"."+key, synth[key], reality[key])
 	}
+}
+
+// appendLabelValueSubset reports label-value evidence in one direction only. A capture
+// observes one account, region and moment, so it sees a subset of the value space an emitter
+// deliberately models: synth covering more values than reality observed is correct and stays
+// silent. Only a reality value synthkit cannot emit is a contradiction. An elided or empty
+// value set on either side is absent evidence and is not compared at all.
+func appendLabelValueSubset(out *[]Finding, signal, field string, synth, reality attributeView) {
+	if synth.elided || reality.elided || len(synth.values) == 0 || len(reality.values) == 0 {
+		return
+	}
+	synthValues := sortedStrings(synth.values)
+	realityValues := sortedStrings(reality.values)
+	if len(difference(realityValues, synthValues)) == 0 {
+		return
+	}
+	*out = append(*out, Finding{
+		Kind:          KindLabelValueContradiction,
+		Disposition:   DispositionContradiction,
+		Signal:        signal,
+		Field:         field,
+		SynthValues:   synthValues,
+		RealityValues: realityValues,
+	})
+}
+
+// instrumentEvidenceAbsent reports whether an instrument-type set is exactly the unknown
+// sentinel. A producer that could not observe an instrument type records that sentinel, so the
+// set carries no evidence about instrument shape and must never contradict. A set recording any
+// real type, including one mixed with the sentinel, is evidence and is compared normally.
+func instrumentEvidenceAbsent(instruments []string) bool {
+	return len(instruments) == 1 && instruments[0] == InstrumentUnknown
 }
 
 func indexAttributes(attributes []Attribute) map[string]attributeView {
@@ -507,7 +530,8 @@ func sortedSigilSignals(sigil map[string]sigilView) []string {
 func diffMetric(out *[]Finding, synth, reality metricView) {
 	synthInstruments := sortedStrings(synth.instruments)
 	realityInstruments := sortedStrings(reality.instruments)
-	appendDirectional(out, KindInstrumentMismatch, synth.name, "instrument_types", synthInstruments, realityInstruments, true, true)
+	instrumentEvidence := !instrumentEvidenceAbsent(synthInstruments) && !instrumentEvidenceAbsent(realityInstruments)
+	appendDirectional(out, KindInstrumentMismatch, synth.name, "instrument_types", synthInstruments, realityInstruments, instrumentEvidence, true)
 	appendDirectional(
 		out,
 		KindInstrumentMismatch,
@@ -533,20 +557,8 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 	realityKeys := sortedAttributeKeys(reality.labels)
 	appendDirectional(out, KindUnexpectedLabelKey, synth.name, "labels", synthKeys, realityKeys, true, true)
 
-	commonKeys := intersection(synthKeys, realityKeys)
-	for _, key := range commonKeys {
-		synthAttribute := synth.labels[key]
-		realityAttribute := reality.labels[key]
-		appendDirectional(
-			out,
-			KindLabelValueContradiction,
-			synth.name,
-			"labels."+key,
-			sortedStrings(synthAttribute.values),
-			sortedStrings(realityAttribute.values),
-			!realityAttribute.elided,
-			!synthAttribute.elided,
-		)
+	for _, key := range intersection(synthKeys, realityKeys) {
+		appendLabelValueSubset(out, synth.name, "labels."+key, synth.labels[key], reality.labels[key])
 	}
 
 	synthBounds := sortedBounds(synth.histogram.bounds)

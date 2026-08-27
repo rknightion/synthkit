@@ -41,6 +41,7 @@ const (
 	PyroscopeProfiles
 	OTLPMetrics
 	Sigil
+	OTLPLogs
 )
 
 func (c SignalClass) String() string {
@@ -59,6 +60,8 @@ func (c SignalClass) String() string {
 		return "otlp_metrics"
 	case Sigil:
 		return "sigil"
+	case OTLPLogs:
+		return "otlp_logs"
 	default:
 		return "unknown"
 	}
@@ -107,6 +110,17 @@ type OTLPMetricWriter interface {
 	Write(ctx context.Context, resources []otlp.MetricResource) error
 }
 
+// OTLPLogWriter writes native OTLP log resource blocks to the OTLP gateway (/v1/logs).
+// DISTINCT from LogWriter (Loki-native push, stream labels + structured metadata ON THE WIRE):
+// this lane models the collector's podLogsViaOpenTelemetry transport, emitting resource and
+// record attributes and letting the DESTINATION promote an allowlisted subset to Loki stream
+// labels. Both transports carry identical content; only the observable shape differs. Pre-scoped
+// like the other writers: a ScopeBlueprint instance receives a writer that stamps the "blueprint"
+// resource attribute; ScopeSubstrate never stamps.
+type OTLPLogWriter interface {
+	Write(ctx context.Context, resources []otlp.LogResource) error
+}
+
 // PyroscopeWriter writes Pyroscope profile series (one pprof Profile per series per push). Pre-scoped
 // like the other writers: ScopeBlueprint stamps the selector label (clone-before-stamp); ScopeSubstrate
 // never does.
@@ -135,7 +149,11 @@ type World struct {
 	// OTLPMetrics is the native-OTLP metrics lane (nil unless the instance declared OTLPMetrics).
 	// Opt-in alternative to Metrics (promrw) for emitters modelling OTLP-SDK apps pushed via Alloy.
 	OTLPMetrics OTLPMetricWriter
-	Ledger      *ledger.Ledger
+	// OTLPLogs is the native-OTLP logs lane (nil unless the instance declared OTLPLogs).
+	// Opt-in alternative to Logs (Loki-native push) for emitters modelling the collector's
+	// podLogsViaOpenTelemetry transport.
+	OTLPLogs OTLPLogWriter
+	Ledger   *ledger.Ledger
 	// Scaling answers live replica/read-replica counts (control plane). Nil for instances that
 	// declared no scalable dimension; readers fall back to their blueprint-declared default.
 	Scaling *scale.Source

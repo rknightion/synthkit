@@ -26,16 +26,28 @@ stream), `level` ∈ {info,warn,error}, `source="app"`, `cluster`, `job`={servic
 **Body shapes (JSON, content-stripped).** Backend event types:
 - Request lifecycle (one per active request): `{"msg":"request completed", "status":"success|
   client_error|server_error|throttled", "phase":"{phase}", "latency_ms":N, "outcome":"success"}`.
-- k8s pod logs stream (separate): ✅ **live-verified (staff stack, modern k8s-monitoring/Alloy — SK-20):**
-  pod/container log streams carry **NO `source` label** (the old `source="k8s"` was wrong; `source` is
-  reserved for the `journal` and `kubernetes-events` lanes). Real stream labels are **OTel-resource
-  style**: `{k8s_cluster_name, k8s_namespace_name, k8s_pod_name, k8s_container_name,
-  k8s_{deployment,daemonset,statefulset,job}_name, service_name, service_namespace, service_instance_id,
-  cluster, k8s_node_name, log_iostream∈{stdout,stderr}, logtag}` (+ derived `detected_level`) — NOT the
-  older `{namespace, pod, container}` promtail style, and no `job` label observed. Body format is
-  **mixed per-workload**: modern apps emit JSON (`{"level","msg","ts"}`), infra components emit plain
-  klog/log4j text. ⚠ this label style is k8s-monitoring-config-dependent (otel-resource vs promtail);
-  captured = the modern default.
+- k8s pod logs (separate, TWO transports): synthkit models both k8s-monitoring 4.x pod-log
+  features. The authoritative contract is [`k8s.md`](k8s.md) `[slug: k8s-pod-logs]`; the summary is:
+  `podLogsViaOpenTelemetry` (`pod_logs_method: opentelemetry`, the default) ships OTLP log records
+  to `/v1/logs` carrying dotted OTel resource attributes plus the chart's flat `cluster` and
+  `app_kubernetes_io_name`, with `log.iostream`/`logtag` as RECORD attributes; the DESTINATION then
+  promotes an allowlisted subset of the RESOURCE attributes to Loki stream labels, sanitising dots
+  to underscores. `podLogsViaLoki` (`pod_logs_method: kubernetes_api|loki`) pushes Loki-native with
+  stream labels and structured metadata on the wire and `job=<ns>/<container>`. Both carry identical
+  content; only the observable shape differs.
+  ✅ **live-verified (staff stack, modern k8s-monitoring/Alloy — SK-20, 2026-06-15):** read back out
+  of Loki, pod/container log streams carry **NO `source` label** (the old `source="k8s"` was wrong;
+  `source` is reserved for the `journal` and `kubernetes-events` lanes) and the label style is
+  **OTel-resource, underscore-sanitised**: `{k8s_cluster_name, k8s_namespace_name, k8s_pod_name,
+  k8s_container_name, k8s_{deployment,daemonset,statefulset,job}_name, service_name,
+  service_namespace, service_instance_id, cluster, k8s_node_name}` (+ derived `detected_level`),
+  with no `job` label. `log_iostream∈{stdout,stderr}` and `logtag` are **structured metadata, not
+  stream labels** — they are RECORD attributes on the wire, and only resource attributes are
+  promotion candidates. ⚠ That is the DESTINATION-side view of
+  the OTLP transport — the promotion set is destination-config-dependent (`labelsToKeep`), and
+  the underscores are Loki's sanitisation of the dotted attributes on the wire, not what the
+  collector sends. Body format is **mixed per-workload**: modern apps emit JSON
+  (`{"level","msg","ts"}`), infra components emit plain klog/log4j text.
 
 > ⚠ `session_id` is always a body/metadata field, never a stream label (T12). No content-bearing
 > field in any body (I23). SK-20 resolved (above); pod-log label style is config-dependent.

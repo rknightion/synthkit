@@ -41,6 +41,10 @@ readonly RUN_ID="${LAB_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 readonly CAPTURED_AT="${LAB_CAPTURED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 readonly RECEIVER_LOCAL_PORT="${LAB_RECEIVER_LOCAL_PORT:-19099}"
 readonly CAPTURE_TIMEOUT_SECONDS="${LAB_CAPTURE_TIMEOUT_SECONDS:-300}"
+# Remote-write v1 carries metric metadata in its own write requests on the producer's metadata
+# cadence rather than alongside the samples, so the declared instrument types land after the
+# first samples do. This is the bounded extra wait for them.
+readonly INSTRUMENT_GRACE_SECONDS="${LAB_INSTRUMENT_GRACE_SECONDS:-180}"
 
 LAB_TMP=""
 PORT_FORWARD_PID=""
@@ -50,6 +54,7 @@ CANDIDATE_JSON=""
 FINDINGS_REPORT=""
 CAPTURE_STATUS="NOT RUN"
 CAPTURE_FAILURE_REASON=""
+INSTRUMENT_STATUS="NOT RUN"
 CONFORMANCE_LITERAL_STATUS=""
 
 log() {
@@ -290,6 +295,38 @@ inventory_meets_acceptance() {
   ' "$LATEST_INVENTORY" >/dev/null 2>&1
 }
 
+inventory_declares_instrument_types() {
+  jq -e 'any(.metrics[]?; any(.instrument_types[]?; . != "unknown"))' "$LATEST_INVENTORY" >/dev/null 2>&1
+}
+
+# wait_for_declared_instruments never fails the run. Whether the pinned collector sends
+# remote-write metadata at all is one of the things this lab measures, so an absent
+# declaration is a recorded finding, not a broken capture.
+wait_for_declared_instruments() {
+  local deadline=$((SECONDS + INSTRUMENT_GRACE_SECONDS))
+  local remaining
+  log "waiting for producer-declared instrument types (remote-write v1 metadata)"
+  while ((SECONDS < deadline)); do
+    if inventory_declares_instrument_types; then
+      cp -- "$LATEST_INVENTORY" "$RAW_INVENTORY"
+      INSTRUMENT_STATUS="PASS"
+      return 0
+    fi
+    if ! kill -0 "$PORT_FORWARD_PID" >/dev/null 2>&1; then
+      break
+    fi
+    remaining=$((deadline - SECONDS))
+    log "no declared instrument type yet; retrying (${remaining}s remaining)"
+    sleep 5
+    fetch_inventory || true
+  done
+  if [[ -s "$LATEST_INVENTORY" ]]; then
+    cp -- "$LATEST_INVENTORY" "$RAW_INVENTORY"
+  fi
+  INSTRUMENT_STATUS="FAIL"
+  return 0
+}
+
 wait_for_capture() {
   local deadline=$((SECONDS + CAPTURE_TIMEOUT_SECONDS))
   local remaining
@@ -385,6 +422,17 @@ write_findings_report() {
   fi
   ambient_values="$(inventory_value_summary)"
 
+  local declared_metrics="(unavailable)"
+  local unknown_metrics="(unavailable)"
+  local declared_types="(unavailable)"
+  local metadata_records="(unavailable)"
+  if [[ -s "$RAW_INVENTORY" ]]; then
+    declared_metrics="$(jq -r '[.metrics[]? | select(any(.instrument_types[]?; . != "unknown"))] | length' "$RAW_INVENTORY")"
+    unknown_metrics="$(jq -r '[.metrics[]? | select(all(.instrument_types[]?; . == "unknown"))] | length' "$RAW_INVENTORY")"
+    declared_types="$(jq -r '[.metrics[]?.instrument_types[]? | select(. != "unknown")] | unique | if length == 0 then "(none)" else join(", ") end' "$RAW_INVENTORY")"
+    metadata_records="$(jq -r '[.receipts[]? | select(.protocol == "prometheus_remote_write_v1_metadata") | .count] | add // 0' "$RAW_INVENTORY")"
+  fi
+
   local rw1_status="FAIL"
   local otlp_logs_status="FAIL"
   local ambient_status="FAIL"
@@ -423,6 +471,29 @@ write_findings_report() {
 
 Ambient label values observed:
 $ambient_values
+
+## Instrument types
+
+The capture receiver reads the instrument type from two mechanisms, both evidence, neither a
+name:
+
+1. prompb.WriteRequest.metadata (field 3), where the producer declares one MetricType per
+   metric family. This is authoritative when present, and applies to the family of exactly
+   that name.
+2. The reserved label names of the exposition contract: `le` on a classic histogram bucket
+   series, `quantile` on a summary quantile series, and a native histogram sample.
+
+- instrument-type evidence observed: $INSTRUMENT_STATUS
+- metric families carrying an observed type: $declared_metrics
+- metric families still carrying the unknown sentinel: $unknown_metrics
+- observed types: $declared_types
+- remote-write v1 metadata records decoded: $metadata_records
+
+A family keeps the unknown sentinel when neither mechanism reached it: no metadata record named
+it, it declared MetricType UNKNOWN, and none of its captured series carried a reserved label.
+That is absent evidence, not a claim that the metric is untyped. A counter is the common case:
+nothing in a remote-write v1 sample distinguishes one from a gauge, and the `_total` suffix is
+a naming convention, not a declaration.
 
 ## Conformance audit
 
@@ -479,6 +550,8 @@ main() {
     write_failure_context
     die "$CAPTURE_FAILURE_REASON See $FINDINGS_REPORT and the exact-name diagnostics in $LAB_OUTPUT_DIR."
   fi
+
+  wait_for_declared_instruments
 
   normalize_candidate || die "could not normalize the receiver inventory into a candidate"
   write_findings_report

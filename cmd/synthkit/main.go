@@ -299,7 +299,8 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	lokiSink := loki.New(cfg.LokiURL, cfg.LokiUser, cfg.Token, cfg.DryRun)
 	otlpSink := otlp.New(cfg.OTLPEndpoint, cfg.OTLPUser, cfg.Token, cfg.DryRun)
 	otlpMetricsSink := otlp.NewMetrics(cfg.OTLPEndpoint, cfg.OTLPUser, cfg.Token, cfg.DryRun)
-	sinks := runner.Sinks{Metrics: prom, Logs: lokiSink, Traces: otlpSink, OTLPMetrics: otlpMetricsSink}
+	otlpLogsSink := otlp.NewLogs(cfg.OTLPEndpoint, cfg.OTLPUser, cfg.Token, cfg.DryRun)
+	sinks := runner.Sinks{Metrics: prom, Logs: lokiSink, Traces: otlpSink, OTLPMetrics: otlpMetricsSink, OTLPLogs: otlpLogsSink}
 	var faroSink *faro.Sink
 	if cfg.RUMEnabled() {
 		faroSink = faro.New(cfg.FaroCollector, cfg.FaroAppKey, cfg.DryRun)
@@ -324,6 +325,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		lokiSink.Capture = true
 		otlpSink.Capture = true
 		otlpMetricsSink.Capture = true
+		otlpLogsSink.Capture = true
 		if profSink != nil {
 			profSink.Capture = true
 		}
@@ -571,10 +573,10 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			return err
 		}
 		if dump {
-			printInventory(prom, lokiSink, otlpSink, profSink, sigilSink)
+			printInventory(prom, lokiSink, otlpSink, otlpLogsSink, profSink, sigilSink)
 		}
 		if inventoryJSON {
-			schema := inventory.FromSinks(prom, lokiSink, otlpSink, otlpMetricsSink, profSink, sigilSink)
+			schema := withSynthProvenance(inventory.FromSinks(prom, lokiSink, otlpSink, otlpMetricsSink, otlpLogsSink, profSink, sigilSink))
 			if err := schema.WriteJSON(os.Stdout); err != nil {
 				return fmt.Errorf("inventory JSON: %w", err)
 			}
@@ -775,7 +777,7 @@ func healthReport(rep healthstatus.Report) healthPayload {
 // printInventory prints the FULL distinct series-name + label-key inventory (I32 —
 // never just batch[0]) for offline diff against signals/. Explicit stdout writes;
 // never redirect generator output into an artifact (I28).
-func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink, profSink *pyroscope.Sink, sigilSink *sigilsink.Sink) {
+func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink, otlpLogsSink *otlp.LogsSink, profSink *pyroscope.Sink, sigilSink *sigilsink.Sink) {
 	fmt.Println("== metrics: series name → label keys ==")
 	inv := prom.Inventory()
 	names := make([]string, 0, len(inv))
@@ -799,6 +801,20 @@ func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink,
 		fmt.Printf("%s  stream=%v meta=%v\n", s, streamInv[s], metaInv[s])
 	}
 	fmt.Println()
+
+	if otlpLogsSink != nil {
+		logResAttrs, logRecAttrs := otlpLogsSink.Inventory()
+		fmt.Println("== otlp logs (transport otlp_logs): service → resource attrs / record attrs ==")
+		logSvcs := make([]string, 0, len(logResAttrs))
+		for s := range logResAttrs {
+			logSvcs = append(logSvcs, s)
+		}
+		sort.Strings(logSvcs)
+		for _, s := range logSvcs {
+			fmt.Printf("%s\n  resource=%v\n  record=%v\n", s, logResAttrs[s], logRecAttrs[s])
+		}
+		fmt.Println()
+	}
 
 	resAttrs, spanNames, spanAttrs := otlpSink.Inventory()
 	fmt.Println("== traces: service → resource attrs / span names / span attrs ==")

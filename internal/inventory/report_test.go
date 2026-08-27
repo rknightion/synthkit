@@ -101,3 +101,21 @@ func TestWriteFindingsReportIsDeterministicAndEmptyReportIsUseful(t *testing.T) 
 		t.Fatalf("empty report is not useful:\n%s", empty.String())
 	}
 }
+
+func TestWriteFindingsReportLeadsWithTheOneSidedDifference(t *testing.T) {
+	findings := []ScopedFinding{
+		{Area: "k8s-addons", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{
+			Kind: KindUnexpectedLabelKey, Disposition: DispositionContradiction, Signal: "coredns_panics_total", Field: "labels",
+			SynthValues:   []string{"job", "node"},
+			RealityValues: []string{"job", "source"},
+		}},
+	}
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatal(err)
+	}
+	want := "field `labels` (only-in-synth=[node]; only-in-reality=[source]; synth=[job, node]; reality=[job, source])."
+	if !strings.Contains(out.String(), want) {
+		t.Fatalf("report missing the one-sided difference %q:\n%s", want, out.String())
+	}
+}

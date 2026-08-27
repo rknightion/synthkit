@@ -15,7 +15,7 @@ import (
 )
 
 // FromSinks projects one dry-run tick's captured sink payloads into the canonical schema.
-func FromSinks(prom *promrw.Sink, lokiSink *loki.Sink, traceSink *otlp.Sink, metricsSink *otlp.MetricsSink, profileSink *pyroscope.Sink, sigilSink *sigilsink.Sink) Schema {
+func FromSinks(prom *promrw.Sink, lokiSink *loki.Sink, traceSink *otlp.Sink, metricsSink *otlp.MetricsSink, otlpLogsSink *otlp.LogsSink, profileSink *pyroscope.Sink, sigilSink *sigilsink.Sink) Schema {
 	out := New()
 	if prom != nil {
 		for _, series := range prom.Captured() {
@@ -40,6 +40,24 @@ func FromSinks(prom *promrw.Sink, lokiSink *loki.Sink, traceSink *otlp.Sink, met
 				keys = append(keys, key)
 			}
 			out.AddLog(stream.Labels["source"], TransportLoki, stream.Labels, keys)
+		}
+	}
+	if otlpLogsSink != nil {
+		for _, resource := range otlpLogsSink.Captured() {
+			attrs := stringify(resource.Attrs)
+			metadata := map[string]struct{}{}
+			for _, record := range resource.Records {
+				for key := range record.Attrs {
+					metadata[key] = struct{}{}
+				}
+			}
+			keys := make([]string, 0, len(metadata))
+			for key := range metadata {
+				keys = append(keys, key)
+			}
+			// Resource attributes are the destination's promotion candidates (they become stream
+			// labels); record attributes always land as structured metadata.
+			out.AddLog(attrs["source"], TransportOTLPLogs, attrs, keys)
 		}
 	}
 	if traceSink != nil {
@@ -129,7 +147,7 @@ func addOTLPMetricResource(out *Schema, resource otlp.MetricResource) {
 			if metric.Monotonic {
 				instrument = InstrumentCounter
 			}
-		case otlp.MetricHistogram:
+		case otlp.MetricHistogram, otlp.MetricExponentialHistogram:
 			instrument = InstrumentHistogram
 		}
 		for _, point := range metric.Numbers {
@@ -141,7 +159,15 @@ func addOTLPMetricResource(out *Schema, resource otlp.MetricResource) {
 			out.AddMetric(metric.Name, TransportOTLPMetrics, instrument, attrs,
 				&Histogram{Classic: true, BucketBounds: point.Bounds})
 		}
-		if len(metric.Numbers) == 0 && len(metric.Histograms) == 0 {
+		for _, point := range metric.ExpHistograms {
+			attrs := mergeStrings(resourceAttrs, stringify(point.Attrs))
+			// Exponential histograms carry no explicit bounds; the scale IS the bucket schema,
+			// and it matches the Prometheus native-histogram schema numerically. Mirrors how the
+			// e2e receiver records the same shape, so the two sides of the diff agree.
+			out.AddMetric(metric.Name, TransportOTLPMetrics, instrument, attrs,
+				&Histogram{Native: true, NativeSchemas: []int32{point.Scale}})
+		}
+		if len(metric.Numbers) == 0 && len(metric.Histograms) == 0 && len(metric.ExpHistograms) == 0 {
 			out.AddMetric(metric.Name, TransportOTLPMetrics, instrument, resourceAttrs, nil)
 		}
 	}

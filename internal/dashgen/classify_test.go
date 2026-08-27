@@ -174,6 +174,41 @@ func TestClassifyDualFamilyIsNative(t *testing.T) {
 	}
 }
 
+// TestClassifyServiceGraphLatencyIsNative locks the SKT-0008 #5/#6 routing contract for the two
+// service-graph latency families by NAME (server_seconds, client_seconds), not just spanmetrics_latency
+// — ClassifyMetrics's routing is name-agnostic (keyed purely off the natives map), but the AC names
+// these families explicitly, so pin them individually rather than relying on one family to prove the
+// mechanism for all three. Mirrors signals/apm.md [slug: apm-service-graph-latency]: both dual-emit
+// native via state.ObserveDual (SK-28 live-verified).
+func TestClassifyServiceGraphLatencyIsNative(t *testing.T) {
+	for _, base := range []string{
+		"traces_service_graph_request_server_seconds",
+		"traces_service_graph_request_client_seconds",
+	} {
+		inv := map[string][]string{
+			base:             {"blueprint", "client", "server"},
+			base + "_bucket": {"blueprint", "le", "client", "server"},
+			base + "_sum":    {"blueprint", "client", "server"},
+			base + "_count":  {"blueprint", "client", "server"},
+		}
+		kinds := map[string]promrw.Kind{
+			base:             promrw.KindHistogram,
+			base + "_bucket": promrw.KindHistogram,
+			base + "_sum":    promrw.KindHistogram,
+			base + "_count":  promrw.KindHistogram,
+		}
+		natives := map[string]bool{base: true}
+		out := ClassifyMetrics(inv, kinds, natives)
+		sig := findSignal(t, out, base)
+		if sig.Instrument != dashboard.HistogramNative {
+			t.Errorf("%s: instrument = %v, want HistogramNative", base, sig.Instrument)
+		}
+		if !sig.Dual {
+			t.Errorf("%s: want Dual=true (both native bare series and classic _bucket present)", base)
+		}
+	}
+}
+
 func TestClassifyClassicHistogramUnaffected(t *testing.T) {
 	inv := map[string][]string{
 		"http_request_duration_seconds_bucket": {"le", "route"},

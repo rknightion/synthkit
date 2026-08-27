@@ -20,6 +20,10 @@ capture configuration. A materially different configuration uses a different
 source ID rather than merging into the existing path. The ID must not contain a
 live stack, account, tenant, cluster, or other deployment identifier.
 
+The loader reads the corpus root and the per-area subdirectories only. A
+subdirectory whose name is not a signals area holds a different record kind and
+is skipped, so a sibling record file is never parsed as a corpus document.
+
 ## Version 1alpha1 envelope
 
 Every document has this envelope:
@@ -58,6 +62,50 @@ The `source` provenance applies to every observation in `inventory`. The
 capture date is a calendar date so timestamps do not create corpus churn.
 `inventory` uses the canonical schema defined by
 [`internal/inventory`](../internal/inventory/schema.go).
+
+### `source.enrichment_labels`
+
+`enrichment_labels` is optional and declares what this producer's read path adds
+after collector egress. It exists so a read-path artefact is never counted as a
+label or value synthkit is missing, and it is declared per producer because a
+label a read path invents is a property of that read path: another producer
+reading the same signal need not see it. Omit the field entirely when the
+producer observes collector egress directly, as the k3d lab does.
+
+```json
+"enrichment_labels": [
+  {
+    "key": "asserts_env",
+    "provenance": "Grafana Cloud Asserts pipeline label applied stack-side after ingest; no collector emits it at egress, so only a read-path producer observes it."
+  },
+  {
+    "key": "ip_family",
+    "values": ["<aggregated>"],
+    "provenance": "Grafana Cloud Adaptive Metrics writes this marker into a retained label's value when it aggregates the series away; the key itself is real kube-proxy egress evidence."
+  }
+]
+```
+
+Each entry needs a non-empty `key` and a non-empty `provenance` saying why that
+read path adds it. `values` is optional and decides the scope:
+
+- **No `values` — key-scoped.** The whole key is a read-path invention and is
+  removed from this document's reality view before comparison, in both the key
+  and the value comparison.
+- **With `values` — value-scoped.** The key is genuine collector-egress
+  evidence and stays, so it still compares as a key; only the listed values are
+  removed before the value comparison. Values must be non-empty and distinct.
+
+Use the value-scoped form whenever the key itself is real. Declaring such a key
+key-scoped would silently stop the comparator noticing that synthkit never emits
+it.
+
+Both forms leave the synth-to-reality direction untouched: a key synthkit emits
+that the reality view does not carry is still a contradiction. A declaration is
+curated evidence, so a cumulative refresh never drops it — a producer re-run
+that omits the block keeps the established declaration and may only add to it,
+and merging a key-scoped with a value-scoped declaration of the same key keeps
+the broader key-scoped form.
 
 ## Authority and comparison
 

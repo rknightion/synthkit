@@ -1,16 +1,18 @@
-# k8s-logs-events — logs-centric k8s monitoring: pod logs + node logs + cluster events to Loki.
+# k8s-logs-events — logs-centric k8s monitoring: pod logs + node logs + cluster events.
 # Demonstrates the full Alloy log-collection pipeline: alloy-logs DaemonSet (pod+node logs) +
 # alloy-singleton Deployment (cluster events). No profiling, no opencost/kepler.
+# Pod logs take the NATIVE OTLP transport (podLogsViaOpenTelemetry); node logs, cluster events
+# and object manifests stay Loki-native, exactly as the chart splits them.
 # Schema: ARCHITECTURE.md §3. Deleting this file removes k8slogs's telemetry and nothing else.
 name: k8s-logs-events
 label: k8s-logs-events
 shape: business_hours_plateau
 timezone: America/Los_Angeles
 metadata:
-  description: "Logs-centric k8s monitoring: pod logs, node logs, and cluster events shipped to Loki via Alloy DaemonSet and singleton collectors."
+  description: "Logs-centric k8s monitoring: pod logs shipped native OTLP (podLogsViaOpenTelemetry), plus node logs and cluster events shipped to Loki via Alloy DaemonSet and singleton collectors."
   owner: platform-observability
   category: reference
-  tags: [kubernetes, logs, events, loki, pod-logs, node-logs]
+  tags: [kubernetes, logs, events, loki, otlp-logs, pod-logs, node-logs]
   links:
     signals: ./signals/k8s.md
 
@@ -35,5 +37,12 @@ environments:
         features:
           cluster_metrics: true       # KSM + cAdvisor + kubelet + node-exporter (metrics baseline)
           cluster_events: true        # cluster events → Loki (alloy-singleton Deployment)
-          pod_logs: true              # pod log streams → Loki (alloy-logs DaemonSet, one per node)
+          pod_logs: true              # pod log collection (alloy-logs DaemonSet, one per node)
           node_logs: true             # node/journal log streams → Loki (same DaemonSet)
+        # Transport selector for pod logs, cluster-level exactly like the chart flag it models.
+        # opentelemetry ⇒ podLogsViaOpenTelemetry: OTLP ResourceLogs to /v1/logs, resource +
+        # record attributes on the wire, and the DESTINATION promotes an allowlisted subset of
+        # the resource attributes to Loki stream labels. kubernetes_api/loki ⇒ podLogsViaLoki:
+        # Loki-native push with stream labels + structured metadata on the wire. Same log lines
+        # either way; only the observable shape differs.
+        pod_logs_method: opentelemetry
