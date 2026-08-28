@@ -1,9 +1,10 @@
 ---
 id: SKT-0018
-title: 'The OTLP-logs lane never enqueues in live mode, only under -once'
+title: The OTLP-logs lane never pushes on the cluster while five other lanes do
 status: To Do
 assignee: []
 created_date: '2026-08-28 18:34'
+updated_date: '2026-08-28 19:36'
 labels: []
 dependencies: []
 priority: high
@@ -45,10 +46,11 @@ Compare `RunOnce` against `blueprintLoop` and `tickBlueprintInstances` for what 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The OTLP-logs lane enqueues and pushes under the live scheduler, observed with a real or stubbed sink rather than through RunOnce
-- [ ] #2 The mechanism by which RunOnce reaches the lane and blueprintLoop does not is stated, not just patched around
-- [ ] #3 A regression test exercises the live scheduler path, since a RunOnce-based test passes against the broken code
-- [ ] #4 Any other lane reachable only through RunOnce is identified in the same pass
+- [ ] #1 The cluster deployment's otlplogs lane is reproduced as not_attempted somewhere it can be iterated on, not only observed in the cluster
+- [ ] #2 Why the lane resolves differently on the cluster than under a local live scheduler is established with evidence, since the local live scheduler demonstrably does reach it
+- [ ] #3 The lane pushes on the cluster, verified through /control/status rather than inferred
+- [ ] #4 A regression test covers whichever path was actually broken, and does not pass against the broken code
+- [ ] #5 Any other lane reachable through only one entry point is identified in the same pass
 <!-- AC:END -->
 
 ## Definition of Done
@@ -57,3 +59,23 @@ Compare `RunOnce` against `blueprintLoop` and `tickBlueprintInstances` for what 
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-08-28 CORRECTION, measured. The title and description are TOO BROAD and partly wrong. The OTLP-logs lane DOES fire under the live scheduler.
+
+Reproduced locally with the live scheduler (not RunOnce), dry-run, twice:
+- BLUEPRINT_NAMES=k8s-full-stack, TICK_DEFAULT=1s: 8 otlplogs pushes by t=25s, 16 by t=75s.
+- The EXACT cluster set (k8s-full-stack,k8s-logs-events,aws-cloud-services,dbo11y-mysql,netobs-enterprise,otlp-native,profiling-demo) at TICK_DEFAULT=5s, matching the deployment: 8 otlplogs by t=28s, 16 by t=112s, alongside loki 136, otlp 176, otlpmetrics 8, promrw 138.
+
+So 'the live scheduler never reaches the lane' is DISPROVED. blueprintLoop and tickBlueprintInstances do reach it, on the same blueprint set and the same tick cadence the cluster runs.
+
+What remains true and unexplained: on the cluster the lane sits at not_attempted with queue depth 0 for the whole run while five other lanes push. The differences still in play are (a) DRY_RUN=false, i.e. live delivery through the queue to a real endpoint rather than the printing sink, and (b) something environmental about the deployment. Note otlpmetrics is comparably low-volume and DOES push in the cluster (8 pushes), so 'low-volume lanes are just slow' does not explain it either.
+
+A local live-mode reproduction was attempted and blocked by config validation: GC_PROM_RW must be an HTTPS URL with path /api/prom/push, so pointing the sinks at a dead plain-HTTP endpoint will not start. A reproduction needs HTTPS endpoints or a local TLS receiver — the e2e receiver harness is the obvious candidate since it already terminates what the sinks expect.
+
+Start from the queue and the enqueue path, not the scheduler. Depth 0 with zero pushes means Write was never called on that lane's stamped writer, so the question is whether w.OTLPLogs was nil for the instance in the cluster — which would mean Signals() did not contain core.OTLPLogs there, i.e. podLogsOTLPNative(cl) resolved false. Check what the running pod actually resolved rather than what the blueprint file says.
+
+Also still true and still worth the fourth acceptance criterion: whether any other lane is reachable only through one entry point.
+<!-- SECTION:NOTES:END -->
