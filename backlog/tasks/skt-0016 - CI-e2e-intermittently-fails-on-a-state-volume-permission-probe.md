@@ -4,6 +4,7 @@ title: CI e2e intermittently fails on a state-volume permission probe
 status: To Do
 assignee: []
 created_date: '2026-08-28 09:03'
+updated_date: '2026-08-28 11:55'
 labels: []
 dependencies: []
 priority: high
@@ -44,3 +45,9 @@ Do not paper over it by relaxing the probe. The probe exists because a read-only
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-08-28 wave covering check: exact-SHA CI run 33168159591 at 6e74d7ee62d8c3a02209de5c4bb093b069843440 failed only in e2e job 98839548298. TestDockerE2E logged control persist and startup state-volume probe failures for both ./.control-state-3038999027.tmp and /app/.control-state-3794945131.tmp with permission denied; the remaining exact-SHA jobs passed. This matches the pre-existing intermittent state-volume permission failure and is outside the OTLP/high-DPM wave. Resume at AC #1: run make e2e locally more than once until the failure is reproduced, then inspect the failing container image runtime UID/GID, working directory, configured control-state path, mount target, and directory ownership before changing code. Do not weaken the startup writability probe.
+<!-- SECTION:NOTES:END -->
