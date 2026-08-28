@@ -52,6 +52,10 @@ type Config struct {
 	Services []ServiceNode `yaml:"services"`
 	// Traffic shapes the entry node's invocation volume (the correlated narrative sample).
 	Traffic Traffic `yaml:"traffic"`
+	// OTel enables the native OTLP metrics lane for inline service-node DSL instruments.
+	// Absent (nil) or Metrics=false leaves the established promrw path unchanged. Catalog
+	// profiles remain on promrw; they are not re-spelled into the native envelope.
+	OTel *OTelObs `yaml:"otel"`
 
 	// Models is the set of valid (model, provider) routings this app's requests draw from. The minter
 	// picks ONE pair per request and stamps it into the correlation, so the gen_ai spans + gateway
@@ -63,6 +67,14 @@ type Config struct {
 	// out of the catalog).
 	Models []ModelChoice `yaml:"models"`
 }
+
+// OTelObs is the per-workload native-OTLP metrics switch. Metrics gates emission;
+// false (the zero value) means no native metrics lane is declared.
+type OTelObs struct {
+	Metrics bool `yaml:"metrics"`
+}
+
+func (c *Config) otelMetricsEnabled() bool { return c.OTel != nil && c.OTel.Metrics }
 
 // ModelChoice is one valid (model, provider) routing — paired so a request never draws an impossible
 // combination. The app minter draws one ModelChoice per request → ledger.Request.Model/Provider.
@@ -236,6 +248,10 @@ type Workload struct {
 	graph *graph       // validated graph (nodes + edges + effective specs)
 	m     *minter      // entry-node invocation minter
 	st    *state.State // cumulative metric state
+	// otlpStates is separate from st so the native lane cannot alter established promrw
+	// state or label identity. One state per service node keeps resources independent.
+	otlpStates    map[string]*state.State
+	otlpColdStart time.Time
 }
 
 // build constructs a Workload: decode-time defaults, resolve + validate the graph, freeze identity.
@@ -254,7 +270,13 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err != nil {
 		return nil, err
 	}
-	w := &Workload{cfg: *cfg, b: b, graph: g, st: state.NewState()}
+	w := &Workload{
+		cfg:        *cfg,
+		b:          b,
+		graph:      g,
+		st:         state.NewState(),
+		otlpStates: make(map[string]*state.State),
+	}
 	w.resolveIdentity()
 	// Wire each db/cache leaf that declared db_instance to its env's RDS/cache fixture (the resolver
 	// owns the per-env identity; the workload only reads it from the binding — no minting).
@@ -292,7 +314,8 @@ func (w *Workload) Name() string { return w.b.Name }
 
 // Signals declares the classes this instance emits (Metrics + Traces + Logs; RUM is appended
 // when rumEnabled; PyroscopeProfiles is appended when at least one node declares pyroscope in
-// sdk mode — scraped mode is handled by Alloy, no push sink).
+// sdk mode — scraped mode is handled by Alloy, no push sink). Native OTLP metrics are declared
+// only by an explicit `otel.metrics: true` switch.
 func (w *Workload) Signals() []core.SignalClass {
 	sigs := []core.SignalClass{core.Metrics, core.Traces, core.Logs}
 	if w.rumEnabled() {
@@ -303,6 +326,9 @@ func (w *Workload) Signals() []core.SignalClass {
 			sigs = append(sigs, core.PyroscopeProfiles)
 			break
 		}
+	}
+	if w.cfg.otelMetricsEnabled() {
+		sigs = append(sigs, core.OTLPMetrics)
 	}
 	return sigs
 }

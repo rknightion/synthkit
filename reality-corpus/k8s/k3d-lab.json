@@ -7,8 +7,8 @@
     "collector": "grafana/k8s-monitoring",
     "collector_role": "audited",
     "collector_version": "4.4.0",
-    "captured_on": "2026-08-27",
-    "instrument_type_source": "Decoded at the capture receiver from the producer own evidence, never a metric name: Remote-Write v2 symbol-table metadata where the producer sends it, and otherwise the reserved label names of the Prometheus exposition contract \u2014 `le` for a classic-histogram bucket series and `quantile` for a summary quantile series. grafana/k8s-monitoring 4.4.0 sends ZERO Remote-Write v1 metadata (12,651 series decoded, 0 MetricMetadata records), so on the protocol this lab pins the reserved-label mechanism is the only one available and a series carrying neither keeps the unknown sentinel."
+    "captured_on": "2026-08-28",
+    "instrument_type_source": "Decoded at the capture receiver from the producer own evidence, never a metric name: Remote-Write v2 symbol-table metadata where the producer sends it, and otherwise the reserved label names of the Prometheus exposition contract — `le` for a classic-histogram bucket series and `quantile` for a summary quantile series. grafana/k8s-monitoring 4.4.0 sends ZERO Remote-Write v1 metadata (12,651 series decoded, 0 MetricMetadata records), so on the protocol this lab pins the reserved-label mechanism is the only one available and a series carrying neither keeps the unknown sentinel."
   },
   "authority": {
     "substrates": [
@@ -16,10 +16,11 @@
     ]
   },
   "capture_volume": {
-    "runs": 4,
+    "runs": 5,
     "observed_contract_counts": [
       3,
       39,
+      75,
       103,
       105
     ]
@@ -48,10 +49,8 @@
           },
           {
             "key": "cpu",
-            "values": [
-              "total"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "id",
@@ -70,10 +69,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -87,11 +84,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -105,10 +99,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -153,10 +145,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -170,10 +160,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -187,10 +175,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -235,10 +221,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -252,10 +236,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -269,10 +251,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -317,10 +297,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -334,10 +312,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -351,10 +327,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -399,10 +373,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -416,10 +388,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -433,10 +403,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -476,10 +444,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -493,11 +459,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -511,10 +474,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -554,10 +515,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -571,11 +530,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -589,10 +545,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -632,10 +586,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -649,11 +601,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -667,10 +616,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -710,10 +657,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -727,11 +672,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -745,10 +687,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -788,10 +728,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -805,11 +743,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -823,10 +758,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -866,10 +799,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -883,11 +814,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -901,10 +829,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -944,10 +870,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -961,11 +885,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -979,10 +900,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -1022,10 +941,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1039,11 +956,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -1057,10 +971,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -1100,10 +1012,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1117,11 +1027,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -1135,10 +1042,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -1178,10 +1083,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1195,11 +1098,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -1213,10 +1113,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -1256,10 +1154,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1273,11 +1169,8 @@
           },
           {
             "key": "namespace",
-            "values": [
-              "kube-system",
-              "monitoring"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -1291,10 +1184,2069 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_gc_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "summary"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "quantile",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_gc_duration_seconds_count",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_gc_duration_seconds_sum",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_gc_gogc_percent",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_gc_gomemlimit_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_goroutines",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_alloc_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_alloc_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_buck_hash_sys_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_frees_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_gc_sys_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_heap_alloc_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_heap_idle_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_heap_inuse_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_heap_objects",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_heap_released_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_heap_sys_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_last_gc_time_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_mallocs_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_mcache_inuse_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_mcache_sys_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_mspan_inuse_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_mspan_sys_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_next_gc_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_other_sys_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_stack_inuse_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_stack_sys_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_sys_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_sched_gomaxprocs_threads",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_threads",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -1319,10 +3271,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1331,21 +3281,8 @@
           },
           {
             "key": "le",
-            "values": [
-              "+Inf",
-              "0.005",
-              "0.01",
-              "0.025",
-              "0.05",
-              "0.1",
-              "0.25",
-              "0.5",
-              "1.0",
-              "10.0",
-              "2.5",
-              "5.0"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -1354,18 +3291,13 @@
           },
           {
             "key": "operation_type",
-            "values": [
-              "create",
-              "update"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ],
         "histogram": {
@@ -1413,10 +3345,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1430,10 +3360,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -1458,10 +3386,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1470,21 +3396,8 @@
           },
           {
             "key": "le",
-            "values": [
-              "+Inf",
-              "0.005",
-              "0.01",
-              "0.025",
-              "0.05",
-              "0.1",
-              "0.25",
-              "0.5",
-              "1.0",
-              "10.0",
-              "2.5",
-              "5.0"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -1493,10 +3406,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ],
         "histogram": {
@@ -1539,10 +3450,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1551,21 +3460,8 @@
           },
           {
             "key": "le",
-            "values": [
-              "+Inf",
-              "0.005",
-              "0.01",
-              "0.025",
-              "0.05",
-              "0.1",
-              "0.25",
-              "0.5",
-              "1.0",
-              "10.0",
-              "2.5",
-              "5.0"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -1574,10 +3470,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ],
         "histogram": {
@@ -1620,10 +3514,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1632,35 +3524,8 @@
           },
           {
             "key": "le",
-            "values": [
-              "+Inf",
-              "0.5",
-              "1.0",
-              "10.0",
-              "120.0",
-              "1200.0",
-              "180.0",
-              "1800.0",
-              "2.0",
-              "20.0",
-              "240.0",
-              "2700.0",
-              "3.0",
-              "30.0",
-              "300.0",
-              "360.0",
-              "3600.0",
-              "4.0",
-              "45.0",
-              "480.0",
-              "5.0",
-              "6.0",
-              "60.0",
-              "600.0",
-              "8.0",
-              "900.0"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -1669,10 +3534,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ],
         "histogram": {
@@ -1729,10 +3592,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1741,21 +3602,8 @@
           },
           {
             "key": "le",
-            "values": [
-              "+Inf",
-              "0.005",
-              "0.01",
-              "0.025",
-              "0.05",
-              "0.1",
-              "0.25",
-              "0.5",
-              "1.0",
-              "10.0",
-              "2.5",
-              "5.0"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -1764,18 +3612,13 @@
           },
           {
             "key": "operation_type",
-            "values": [
-              "create",
-              "sync"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ],
         "histogram": {
@@ -1813,11 +3656,8 @@
           },
           {
             "key": "container_state",
-            "values": [
-              "created",
-              "running"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "instance",
@@ -1826,10 +3666,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1843,10 +3681,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -1871,10 +3707,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1888,10 +3722,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -1916,10 +3748,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1933,17 +3763,13 @@
           },
           {
             "key": "operation_type",
-            "values": [
-              "run_podsandbox"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -1968,10 +3794,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -1990,10 +3814,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -2018,10 +3840,8 @@
           },
           {
             "key": "compiler",
-            "values": [
-              "gc"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "git_commit",
@@ -2030,10 +3850,8 @@
           },
           {
             "key": "git_tree_state",
-            "values": [
-              "clean"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "git_version",
@@ -2052,10 +3870,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -2079,17 +3895,13 @@
           },
           {
             "key": "platform",
-            "values": [
-              "linux/arm64"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -2119,10 +3931,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/cadvisor"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -2136,10 +3946,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "system_uuid",
@@ -2169,10 +3977,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/resources"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -2186,10 +3992,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -2214,10 +4018,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/resources"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -2231,10 +4033,823 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "prober_probe_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "probe_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "prober_probe_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod_uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "probe_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "result",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_cpu_seconds_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_max_fds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_network_receive_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_network_transmit_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_open_fds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_resident_memory_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_start_time_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_virtual_memory_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_virtual_memory_max_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "rest_client_requests_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "code",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "method",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
           }
         ]
       },
@@ -2259,10 +4874,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -2271,10 +4884,8 @@
           },
           {
             "key": "migrated",
-            "values": [
-              "false"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -2283,26 +4894,18 @@
           },
           {
             "key": "operation_name",
-            "values": [
-              "verify_controller_attached_volume",
-              "volume_mount",
-              "volume_unmount"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "status",
-            "values": [
-              "success"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "volume_plugin",
@@ -2332,10 +4935,8 @@
           },
           {
             "key": "job",
-            "values": [
-              "integrations/kubernetes/kubelet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "k8s_cluster_name",
@@ -2354,10 +4955,8 @@
           },
           {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "state",

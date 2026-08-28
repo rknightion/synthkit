@@ -115,11 +115,11 @@ func TestParseDumpSplitsCapturedPodLogsFromManifests(t *testing.T) {
 		switch schema.Logs[i].Source {
 		case canonical.LogFamilyPodLogs:
 			podLogs = true
-		case "":
+		case canonical.LogFamilyKubernetesManifests:
 			manifests = true
 		}
 	}
 	if !podLogs || !manifests {
-		t.Fatalf("logs=%v, want sources k8s_pod_logs and empty", schema.Logs)
+		t.Fatalf("logs=%v, want sources %s and %s", schema.Logs, canonical.LogFamilyPodLogs, canonical.LogFamilyKubernetesManifests)
 	}
 }

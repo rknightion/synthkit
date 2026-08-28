@@ -10,11 +10,12 @@
 // Scope: ScopeSubstrate — disambiguated by (job, instance); never stamped with a blueprint
 // label. The hostname (`instance`) must be unique across blueprints (load-time gate).
 // Group: omitted ("") — a topology kind emitted by a bespoke resolver pass over `hosts:`.
-// Signals: Metrics + Logs.
+// Signals: Metrics + Logs (+ OTLPMetrics when `otel.metrics: true`).
 // Interval: 60s by default; an explicit, ceiling-bounded blueprint high_dpm interval may override it.
 //
-// Config is EMPTY (fixture-driven): every per-host knob rides on the fixture.Host the
-// resolver builds from the blueprint declaration (the ec2/rds precedent).
+// Config is otherwise fixture-driven: every per-host topology/exporter knob rides on
+// the fixture.Host the resolver builds from the blueprint declaration (the ec2/rds
+// precedent); only the additive native OTLP switch lives in Config.
 package host
 
 import (
@@ -38,9 +39,11 @@ const tickCadence = 60 * time.Second
 // (deterministic from seed + fixture.Host); per-tick dynamics come from the shape engine
 // and `now`, so the only cross-tick mutable state is the cumulative counters in st.
 type Construct struct {
-	h    *fixture.Host
-	seed string
-	st   *state.State
+	h           *fixture.Host
+	seed        string
+	st          *state.State
+	otelMetrics bool
+	otlpState   *nativeOTLPState
 }
 
 // Build validates cfg (*Config), requires a non-nil fixture.Host, and captures the host +
@@ -52,16 +55,26 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	if fx == nil || fx.Host == nil {
 		return nil, fmt.Errorf("host: Build requires fixture.Set.Host (the resolved host declaration)")
 	}
+	conf, _ := cfg.(*Config)
+	otelMetrics := conf != nil && conf.OTel != nil && conf.OTel.Metrics
 	return &Construct{
-		h:    fx.Host,
-		seed: fx.Seed,
-		st:   state.NewState(),
+		h:           fx.Host,
+		seed:        fx.Seed,
+		st:          state.NewState(),
+		otelMetrics: otelMetrics,
+		otlpState:   newNativeOTLPState(),
 	}, nil
 }
 
-func (c *Construct) Kind() string                { return Kind }
-func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics, core.Logs} }
-func (c *Construct) Interval() time.Duration     { return tickCadence }
+func (c *Construct) Kind() string { return Kind }
+func (c *Construct) Signals() []core.SignalClass {
+	sigs := []core.SignalClass{core.Metrics, core.Logs}
+	if c.otelMetrics {
+		sigs = append(sigs, core.OTLPMetrics)
+	}
+	return sigs
+}
+func (c *Construct) Interval() time.Duration { return tickCadence }
 
 // Tick renders one metric cycle: the OS exporter series (+ optional Docker cadvisor lane)
 // accumulate into c.st via the nodeexp emitters, then the collected batch is written once.
@@ -101,6 +114,13 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		if err := w.Metrics.Write(ctx, series); err != nil {
 			return fmt.Errorf("host: metrics write: %w", err)
 		}
+	}
+
+	// Native hostmetricsreceiver telemetry is a second, semantic-name catalogue. It is
+	// emitted only when the per-host otel.metrics switch is enabled AND the runner wires
+	// the declared OTLP lane. The legacy Prometheus path above is intentionally unchanged.
+	if err := c.tickOTLPMetrics(ctx, now, top, factor, tickSec, w); err != nil {
+		return fmt.Errorf("host: otlp metrics write: %w", err)
 	}
 
 	// Log streams (journal/winevent/macos/docker) — built by buildLogs in logs.go.

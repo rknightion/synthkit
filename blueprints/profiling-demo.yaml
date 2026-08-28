@@ -67,6 +67,8 @@ workloads:
   - type: app
     name: profiling-app
     runs_on: profiling-demo-prod-euw1
+    otel:
+      metrics: true
     traffic: { shape: diurnal, off_peak_rps: 2, peak_rps: 20 }
     services:
       - name: checkout
@@ -74,6 +76,11 @@ workloads:
         runtime: go
         entry: true
         replicas: 3
+        metrics:
+          - name: app_queue_depth
+            instrument: gauge
+            unit: "{item}"
+            value: { const: 3 }
         pyroscope: { enabled: true, span_profiles: true }   # runtime defaults from the node (go)
         calls: [catalog, cart-store]
       - name: catalog

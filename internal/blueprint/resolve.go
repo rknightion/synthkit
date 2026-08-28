@@ -606,13 +606,21 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				if err != nil {
 					return nil, err
 				}
-				if kind == KindK8sCluster && e.Cluster.OTel.Kind != 0 {
-					// ClusterDecl owns the public `otel:` key, while the construct config retains
-					// the same nested shape used by workload configs. Re-wrap the raw child node
-					// before strict decoding so the blueprint package stays catalog-agnostic.
-					wrapped := yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{
-						{Kind: yaml.ScalarNode, Tag: "!!str", Value: "otel"}, &e.Cluster.OTel,
-					}}
+				if kind == KindK8sCluster && (e.Cluster.OTel.Kind != 0 || e.Cluster.SeriesChurnPerMinute != 0) {
+					// ClusterDecl owns public topology keys while the construct config owns their
+					// behavior. Re-wrap the typed declaration before strict decoding so blueprint
+					// stays catalog-agnostic.
+					content := make([]*yaml.Node, 0, 4)
+					if e.Cluster.OTel.Kind != 0 {
+						content = append(content,
+							&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "otel"}, &e.Cluster.OTel)
+					}
+					if e.Cluster.SeriesChurnPerMinute != 0 {
+						content = append(content,
+							&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "series_churn_per_minute"},
+							&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: strconv.Itoa(e.Cluster.SeriesChurnPerMinute)})
+					}
+					wrapped := yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: content}
 					if err := strictDecode(&wrapped, ci.Config, fmt.Sprintf("blueprint %q: cluster %q otel config", d.Name, cl.Name)); err != nil {
 						return nil, err
 					}
@@ -778,6 +786,18 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		ci, err := emptyConfigInstance(reg, KindHost, h.Hostname, set, d.Name)
 		if err != nil {
 			return nil, err
+		}
+		if hd.OTel.Kind != 0 {
+			// HostDecl owns the public `otel:` key, while the construct config retains
+			// the nested shape used by other native-OTLP emitters. Re-wrap the raw
+			// child node before strict decoding so the blueprint package stays
+			// catalog-agnostic.
+			wrapped := yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{
+				{Kind: yaml.ScalarNode, Tag: "!!str", Value: "otel"}, &hd.OTel,
+			}}
+			if err := strictDecode(&wrapped, ci.Config, fmt.Sprintf("blueprint %q: host %q otel config", d.Name, h.Hostname)); err != nil {
+				return nil, err
+			}
 		}
 		r.Constructs = append(r.Constructs, *ci)
 	}

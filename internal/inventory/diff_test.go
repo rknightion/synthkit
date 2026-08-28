@@ -617,6 +617,44 @@ func TestDiffKeepsStructuralIdentityForUnclassifiedLogFamilies(t *testing.T) {
 	}
 }
 
+func TestDiffPairsCapturedDeclaredLogFamiliesBeforeComparingKeys(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		family   string
+		keys     []string
+		metadata []string
+	}{
+		"kubernetes_events": {
+			family:   LogFamilyKubernetesEvents,
+			keys:     []string{"cluster", "job", "k8s_cluster_name", "level", "namespace", "reason", "service_name", "source"},
+			metadata: []string{"name", "node"},
+		},
+		"manifests": {
+			family:   LogFamilyKubernetesManifests,
+			keys:     []string{"action", "cluster", "job", "k8s_cluster_name", "k8s_kind", "k8s_namespace_name"},
+			metadata: []string{"k8s_daemonset_name", "k8s_deployment_name", "k8s_pod_name"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			synthLog := logWithKeys(tc.family, tc.keys)
+			synthLog.Transport = TransportLoki
+			synthLog.StructuredMetadataKeys = tc.metadata
+			realityLog := logWithKeys(tc.family, append(append([]string{}, tc.keys...), "instance"))
+			realityLog.Transport = TransportLoki
+			realityLog.StructuredMetadataKeys = tc.metadata
+
+			findings := Diff(logSchema(synthLog), logSchema(realityLog))
+			for _, finding := range findings {
+				if finding.Kind == KindExtraLog {
+					t.Fatalf("findings=%+v, want the declared lane paired before key comparison", findings)
+				}
+			}
+			assertFinding(t, findings, KindUnexpectedLabelKey, DispositionCoverageGap,
+				TransportLoki+"[family="+tc.family+"]", "stream_labels")
+		})
+	}
+}
+
 func TestDiffTreatsAnEmptyBucketBoundSetAsAbsentEvidence(t *testing.T) {
 	// A producer that recorded the classic representation but no bounds did not observe them;
 	// a classic histogram always has bounds, so an empty set is absent evidence, never a claim.

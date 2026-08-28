@@ -38,6 +38,11 @@ const (
 // fx.Cluster; the switch only changes which signal classes this construct declares/emits.
 type Config struct {
 	OTel *OTelObs `yaml:"otel"`
+	// SeriesChurnPerMinute rotates this many declared application-pod identities per minute. The
+	// active set stays bounded: retired pods stop emitting and replacement identities are derived
+	// from the cluster-scoped seed. It deliberately uses the same blueprint seam shape as
+	// network_topology churn. Zero preserves the resolved pod set byte-for-byte.
+	SeriesChurnPerMinute int `yaml:"series_churn_per_minute"`
 }
 
 // OTelObs controls the receiver-native OTLP metrics lane. The lane is deliberately opt-in:
@@ -50,6 +55,16 @@ type OTelObs struct {
 type Construct struct {
 	clust *fixture.Cluster
 	st    *state.State
+
+	// podChurnPerMinute rotates a bounded application-pod identity set when explicitly enabled.
+	// The baseline is zero, preserving the resolved fixture identities byte-for-byte.
+	podChurnPerMinute  int
+	podChurnStart      time.Time
+	podChurnActive     map[string]bool
+	podChurnBaseNames  map[string][]string
+	podChurnSpans      map[string]int
+	podChurnPreparedAt time.Time
+	podChurnRetired    map[string]bool
 
 	// otelMetrics is resolved once at construction. The OTLP lane owns a separate cumulative
 	// state store so enabling it cannot perturb the established Prometheus state or draw order.
@@ -72,12 +87,24 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 	}
 	conf, _ := cfg.(*Config)
 	otelMetrics := conf != nil && conf.OTel != nil && conf.OTel.Metrics
+	podChurnPerMinute := 0
+	if conf != nil {
+		if conf.SeriesChurnPerMinute < 0 {
+			return nil, errors.New("k8s_cluster: series_churn_per_minute must be >= 0")
+		}
+		podChurnPerMinute = conf.SeriesChurnPerMinute
+	}
+	baseNames, spans := initPodLifecycleState(fx.Cluster)
 	return &Construct{
-		clust:       fx.Cluster,
-		st:          state.NewState(),
-		otelMetrics: otelMetrics,
-		otlpState:   newNativeOTLPState(),
-		maxPods:     map[string]int{},
+		clust:             fx.Cluster,
+		st:                state.NewState(),
+		otelMetrics:       otelMetrics,
+		otlpState:         newNativeOTLPState(),
+		maxPods:           map[string]int{},
+		podChurnPerMinute: podChurnPerMinute,
+		podChurnActive:    map[string]bool{},
+		podChurnBaseNames: baseNames,
+		podChurnSpans:     spans,
 	}, nil
 }
 
@@ -106,6 +133,10 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// Build the live cluster view (per-tick local copy; the shared c.clust is never mutated). At
 	// default scaling (nil w.Scaling) this reproduces c.clust's pods + nodes byte-for-byte.
 	lc, replicas := c.liveCluster(w)
+	retiredPods := c.podChurnRetired
+	if !c.podChurnPreparedAt.Equal(now) {
+		retiredPods = c.applyPodLifecycleChurn(&lc, now)
+	}
 	cl := &lc
 	cluster := cl.Name
 	nodes := lc.Nodes
@@ -177,6 +208,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// ── scale-down retirement ─────────────────────────────────────────────────
 	// Drop series for pods/nodes that existed at the high-water mark but are gone now, so they
 	// stop re-emitting (state retains every series ever Set and re-emits on Collect).
+	c.retireChurned(retiredPods)
 	c.retireScaledAway(&lc)
 
 	// ── metrics flush ────────────────────────────────────────────────────────
@@ -195,6 +227,22 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		return err
 	}
 	return emitPodLogs(ctx, now, cluster, cl, w)
+}
+
+// PreparePodLifecycle advances the shared cluster placement before the runner projects workload
+// traces for this tick. Tick observes the same prepared workload slice and cached retirement set,
+// so workload resources, substrate metrics, and both pod-log transports change identity together.
+// Direct construct callers do not need this hook: Tick retains the local preparation fallback.
+func (c *Construct) PreparePodLifecycle(now time.Time) {
+	if c.podChurnPerMinute <= 0 || c.podChurnPreparedAt.Equal(now) {
+		return
+	}
+	lc := *c.clust
+	lc.Workloads = append([]fixture.Workload(nil), c.clust.Workloads...)
+	retired := c.applyPodLifecycleChurn(&lc, now)
+	c.clust.Workloads = lc.Workloads
+	c.podChurnPreparedAt = now
+	c.podChurnRetired = retired
 }
 
 // liveCluster returns a per-tick COPY of the cluster with live pod counts + a cascaded node set,
@@ -256,6 +304,7 @@ func (c *Construct) liveCluster(w *core.World) (fixture.Cluster, int) {
 		// StatefulSet to the ReplicaSet form, the live-revert bug).
 		if n == wl.Replicas && len(wl.PodNames) == n {
 			nw.PodNames = append(nw.PodNames, wl.PodNames...)
+			nw.PodUIDs = append(nw.PodUIDs, wl.PodUIDs...)
 		} else {
 			nw.PodNames = fixture.WorkloadPodNames(clusterSeed(c.clust), nw, nil)
 		}

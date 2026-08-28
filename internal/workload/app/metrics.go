@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
+	"github.com/rknightion/synthkit/internal/state"
 	"github.com/rknightion/synthkit/internal/telemetryspec"
 )
 
@@ -16,20 +17,32 @@ import (
 // per node (the INC1 metric lane). spanmetrics/service-graph stay DERIVED unless the per-blueprint
 // EmitSpanMetrics opt-in is set (F4b).
 func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) error {
-	if world.Metrics == nil {
+	if world.Metrics == nil && (!w.cfg.otelMetricsEnabled() || world.OTLPMetrics == nil) {
 		return nil
 	}
 	for _, n := range w.graph.nodes {
 		id := w.identity(n)
-		for _, spec := range n.metrics {
-			w.observeMetric(w.st, id, spec, w.metricCtx(now, world, id, spec))
+		for i, spec := range n.metrics {
+			metricCtx := w.metricCtx(now, world, id, spec)
+			var native *state.State
+			if w.cfg.otelMetricsEnabled() && world.OTLPMetrics != nil && i >= n.nativeMetricStart {
+				native = w.nativeState(n)
+			}
+			w.observeMetricStates(w.st, native, id, spec, metricCtx)
 		}
 	}
 	if world.EmitSpanMetrics {
 		w.tickSpanMetrics(now, world)
 	}
-	if err := world.Metrics.Write(ctx, w.st.Collect(now)); err != nil {
-		return err
+	if world.Metrics != nil {
+		if err := world.Metrics.Write(ctx, w.st.Collect(now)); err != nil {
+			return err
+		}
+	}
+	if w.cfg.otelMetricsEnabled() && world.OTLPMetrics != nil {
+		if err := w.tickOTLPMetrics(ctx, now, world); err != nil {
+			return err
+		}
 	}
 	w.tickProfiles(ctx, now, world)
 	return nil

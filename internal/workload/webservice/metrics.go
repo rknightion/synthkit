@@ -57,6 +57,7 @@ const connTypeDatabase = "database"
 // aggregate metric volume from the correlated ledger sample. Counters/histograms are
 // cumulative across ticks via state.Add/Observe (I3).
 func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) error {
+	w.refreshPlacement()
 	if world.Metrics == nil {
 		return nil
 	}

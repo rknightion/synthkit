@@ -83,6 +83,15 @@ func sortedKeys(m map[string]any) []string {
 	return out
 }
 
+func sortedStringKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -271,7 +280,7 @@ func TestPodLogsTransportsCarryIdenticalContent(t *testing.T) {
 		for _, line := range s.Lines {
 			lokiContent[contentKey{
 				ns:        s.Labels["namespace"],
-				pod:       s.Labels["pod"],
+				pod:       line.Meta["pod"],
 				container: s.Labels["container"],
 				body:      line.Body,
 			}]++
@@ -299,7 +308,7 @@ func TestPodLogsTransportsCarryIdenticalContent(t *testing.T) {
 // ── Loki-native transport ────────────────────────────────────────────────────────────
 
 // TestPodLogsClassicShape verifies kubernetes_api method: streams have job, namespace,
-// pod, container, but NO k8s_pod_name stream label.
+// container, but NO pod identity stream label.
 func TestPodLogsClassicShape(t *testing.T) {
 	streams := podLogStreamsForMethod(t, "kubernetes_api", true)
 
@@ -314,7 +323,7 @@ func TestPodLogsClassicShape(t *testing.T) {
 	}
 
 	for _, s := range podStreams {
-		for _, req := range []string{"job", "namespace", "pod", "container", "cluster", "k8s_cluster_name"} {
+		for _, req := range []string{"job", "namespace", "container", "cluster", "k8s_cluster_name"} {
 			if _, ok := s.Labels[req]; !ok {
 				t.Errorf("classic pod log stream missing label %q (labels: %v)", req, s.Labels)
 			}
@@ -342,15 +351,55 @@ func TestPodLogsClassicStructuredMeta(t *testing.T) {
 		}
 		for _, line := range s.Lines {
 			found = true
-			for _, req := range []string{"pod", "k8s_pod_name", "service_instance_id"} {
+			for _, req := range []string{"pod", "service_instance_id"} {
 				if _, ok := line.Meta[req]; !ok {
 					t.Errorf("classic pod log line missing %q in structured meta: %v", req, line.Meta)
 				}
+			}
+			if _, ok := line.Meta["k8s_pod_name"]; ok {
+				t.Errorf("classic pod log line must not carry k8s_pod_name metadata: %v", line.Meta)
 			}
 		}
 	}
 	if !found {
 		t.Fatal("classic pod logs: no lines captured")
+	}
+}
+
+// TestPodLogsClassicCapturedShape pins the Loki-native podLogsViaLoki wire contract. The shared
+// builder owns this shape: pod identity is metadata (not stream identity), flags is present, and
+// neither the OTLP destination's promoted k8s_pod_name nor an inferred detected_level leaks onto
+// the native stream.
+func TestPodLogsClassicCapturedShape(t *testing.T) {
+	streams := podLogStreamsForMethod(t, "loki", true)
+	wantLabels := []string{
+		"app_kubernetes_io_name", "cluster", "container", "flags", "job", "k8s_cluster_name",
+		"namespace", "service_name", "service_namespace", "stream",
+	}
+	wantMeta := []string{"pod", "service_instance_id"}
+	if len(streams) == 0 {
+		t.Fatal("classic pod logs: no streams captured")
+	}
+	for i, stream := range streams {
+		if got := sortedStringKeys(stream.Labels); !equalStrings(got, wantLabels) {
+			t.Errorf("stream %d labels = %v, want exactly %v", i, got, wantLabels)
+		}
+		for _, forbidden := range []string{"pod", "service_instance_id", "detected_level", "k8s_pod_name"} {
+			if _, ok := stream.Labels[forbidden]; ok {
+				t.Errorf("stream %d must not carry %q as a label: %v", i, forbidden, stream.Labels)
+			}
+		}
+		if stream.Labels["flags"] != "F" {
+			t.Errorf("stream %d flags = %q, want F", i, stream.Labels["flags"])
+		}
+		for j, line := range stream.Lines {
+			if got := sortedStringKeys(line.Meta); !equalStrings(got, wantMeta) {
+				t.Errorf("stream %d line %d metadata = %v, want exactly %v", i, j, got, wantMeta)
+			}
+			if line.Meta["pod"] == "" || line.Meta["service_instance_id"] == "" {
+				t.Errorf("stream %d line %d metadata values must be non-empty: %v", i, j, line.Meta)
+			}
+		}
 	}
 }
 

@@ -485,17 +485,26 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 
 func projectHighDPMCost(bp *bpRuntime, seriesBudget int, interval time.Duration) *control.BlueprintCostProjection {
 	metricInstances := 0
+	totalDPMPerInstanceSeries := 0.0
 	for _, bc := range bp.constructs {
 		if slices.Contains(bc.construct.Signals(), core.Metrics) || slices.Contains(bc.construct.Signals(), core.OTLPMetrics) {
 			metricInstances++
+			totalDPMPerInstanceSeries += float64(time.Minute) / float64(bc.interval)
 		}
 	}
 	for _, bw := range bp.workloads {
 		if slices.Contains(bw.workload.Signals(), core.Metrics) || slices.Contains(bw.workload.Signals(), core.OTLPMetrics) {
 			metricInstances++
+			totalDPMPerInstanceSeries += float64(time.Minute) / float64(bw.interval)
 		}
 	}
-	dpmPerSeries := float64(time.Minute) / float64(interval)
+	dpmPerSeries := 0.0
+	if metricInstances > 0 {
+		// A projected series is distributed across the metric-bearing instances. Summing their
+		// actual effective rates before averaging preserves today's result when every instance
+		// runs at the floor without pretending a legitimately slower instance runs that fast.
+		dpmPerSeries = totalDPMPerInstanceSeries / float64(metricInstances)
+	}
 	p := &control.BlueprintCostProjection{
 		MetricInstances: metricInstances,
 		MetricInterval:  interval.String(),
@@ -571,14 +580,12 @@ func (r *Runner) instanceMetricInterval(bp, name string, signals []core.SignalCl
 	if !metricBearing {
 		return iv
 	}
-	if highDPM {
-		if iv != floor {
-			log.Printf("runner: blueprint %q instance %q metric interval %v overridden by explicit high_dpm.metric_interval %v", bp, name, iv, floor)
-		}
-		return floor
-	}
 	if iv < floor {
-		log.Printf("runner: blueprint %q instance %q interval %v below the %v DPM floor — clamped", bp, name, iv, floor)
+		if highDPM {
+			log.Printf("runner: blueprint %q instance %q metric interval %v below explicit high_dpm floor %v — clamped", bp, name, iv, floor)
+		} else {
+			log.Printf("runner: blueprint %q instance %q interval %v below the %v DPM floor — clamped", bp, name, iv, floor)
+		}
 		return floor
 	}
 	return iv
@@ -647,6 +654,14 @@ func (r *Runner) MasterTick(ctx context.Context, now time.Time) error {
 // serially by MasterTick (RunOnce) and concurrently — one goroutine per blueprint — by Run. The
 // caller gates on enabled() before calling.
 func (r *Runner) masterTickOne(ctx context.Context, bp *bpRuntime, now time.Time) error {
+	// Pod lifecycle is a composition concern because the k8s substrate and workload resources
+	// share the resolved cluster placement. Advance it before mint/projection so traces and the
+	// construct's metrics/logs retire the same identity in this master cycle.
+	for _, bc := range bp.constructs {
+		if preparer, ok := bc.construct.(interface{ PreparePodLifecycle(time.Time) }); ok {
+			preparer.PreparePodLifecycle(now)
+		}
+	}
 	batch := bp.ledger.Mint(now)
 	if len(batch) == 0 {
 		return nil

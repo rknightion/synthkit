@@ -79,6 +79,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cluster.k8s_monitoring.control_plane.kubelet_probes` | bool |  |  |
 | `environments[].cluster.k8s_monitoring.pod_logs_method` | string |  | PodLogsMethod selects the pod-log CHART FEATURE and therefore the TRANSPORT, cluster-wide. "opentelemetry" (the default when "" and pod_logs is on) is podLogsViaOpenTelemetry: OTLP log records to /v1/logs, with the destination promoting an allowlisted subset of the resource attributes to Loki stream labels. "kubernetes_api"/"loki" is podLogsViaLoki: a Loki-native push carrying stream labels and structured metadata on the wire. "none"/"objects" emit nothing (objects deferred). Absent pod_logs ⇒ "none". Both transports carry identical content; only the observable shape differs. See signals/k8s.md [slug: k8s-pod-logs]. |
 | `environments[].cluster.otel` | raw yaml (see per-kind config sections) |  | k8s_cluster receiver-native emission switches; decoded via registry |
+| `environments[].cluster.series_churn_per_minute` | int |  | SeriesChurnPerMinute rotates bounded pod identities through the same declarative seam used by network_topology. Zero preserves the resolved cluster identity set. |
 | `environments[].cluster.observability` | object | yes | gates the per-node ec2 CloudWatch lane |
 | `environments[].cluster.observability.cloudwatch` | bool | yes | emit the CloudWatch lane (default true) |
 | `environments[].cluster.addons[]` | object |  |  |
@@ -140,6 +141,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `hosts[].metrics_profile` | string |  | MetricsProfile selects the kept metric set: integration (cost-controlled GC integration allowlist) \| full (broad default-Alloy surface). Default: integration. |
 | `hosts[].os_version` | string |  | OSVersion feeds *_os_info (e.g. "22.04" / "Server 2022" / "14.5"). Optional; sensible default per OS. |
 | `hosts[].kernel` | string |  | Kernel feeds node_uname_info (linux/macos, e.g. "6.8.0-40-generic"). Optional; sensible default per OS. |
+| `hosts[].otel` | raw yaml (see per-kind config sections) |  | OTel carries the optional hostmetricsreceiver-shaped native OTLP metrics switch. It is decoded into the registered host construct config during resolution. |
 | `hosts[].observability` | object | yes | Observability gates the docker lane and host logs. |
 | `hosts[].observability.docker` | bool | yes | Docker emits the Docker cadvisor metric lane + container log streams. Default: false. |
 | `hosts[].observability.logs` | bool | yes | Logs emits the host log streams (journal/winevent/file). Default: true. |
@@ -393,7 +395,10 @@ aws_glue_* CloudWatch metrics for AWS Glue ETL jobs (namespace: Glue, no AWS/ pr
 
 traditional non-k8s host (node/windows/macos exporter + optional docker cadvisor), metrics + logs
 
-_(no configurable fields)_
+| key | type | optional | description |
+|---|---|---|---|
+| `otel` | object | yes |  |
+| `otel.metrics` | bool |  |  |
 
 ## k8s_cluster config
 
@@ -405,6 +410,7 @@ k8s-monitoring substrate (KSM/cAdvisor/kubelet/node-exporter + conformance + eve
 |---|---|---|---|
 | `otel` | object | yes |  |
 | `otel.metrics` | bool |  |  |
+| `series_churn_per_minute` | int |  | SeriesChurnPerMinute rotates this many declared application-pod identities per minute. The active set stays bounded: retired pods stop emitting and replacement identities are derived from the cluster-scoped seed. It deliberately uses the same blueprint seam shape as network_topology churn. Zero preserves the resolved pod set byte-for-byte. |
 
 ## k8s_profiling config
 
@@ -661,6 +667,8 @@ ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sig
 | `rules[].sample_rate` | float |  |  |
 | `rules[].match_agent[]` | string |  |  |
 | `rules[].evaluators[]` | string |  |  |
+| `otel` | object | yes | OTel enables the native OTLP metrics lane for the documented gen_ai client instruments. Absent (nil) or Metrics=false leaves the established promrw lane unchanged. |
+| `otel.metrics` | bool |  |  |
 
 ## app workload config
 
@@ -754,6 +762,8 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `traffic.off_peak_rps` | float |  | trough rate (default 5) |
 | `traffic.peak_rps` | float |  | plateau rate (default 50) |
 | `traffic.request_latency_p95_ms` | float |  | RequestLatencyP95Ms is the entry request's base end-to-end latency p95 (lognormal; the per-hop budget + agentflow span windows derive from it). Default 0 ⇒ 200ms (plain HTTP). LLM/agentic apps should set this to seconds (e.g. 9000) so http_server_request_duration + the in-process invoke_workflow/agent/chat span latencies reflect real LLM-wait time, not HTTP speed. |
+| `otel` | object | yes | OTel enables the native OTLP metrics lane for inline service-node DSL instruments. Absent (nil) or Metrics=false leaves the established promrw path unchanged. Catalog profiles remain on promrw; they are not re-spelled into the native envelope. |
+| `otel.metrics` | bool |  |  |
 | `models[]` | object |  | Models is the set of valid (model, provider) routings this app's requests draw from. The minter picks ONE pair per request and stamps it into the correlation, so the gen_ai spans + gateway export logs of every gen_ai-composed node carry the REAL model AND provider (the names-are-law value behind the gen_ai_client / gateway_export_log profiles). Pairing them (vs two independent lists) prevents impossible combinations like a Claude model on the Azure-OpenAI provider. Empty ⇒ a non-AI app. These feed body/attr FIELDS only (never labels), so the per-request draw does not affect the -dump inventory (I32). Values are blueprint-declared (customer model lists stay out of the catalog). |
 | `models[].model` | string |  | gen_ai.request.model (e.g. gpt-4o, claude-3.5-sonnet) |
 | `models[].provider` | string |  | gen_ai.provider.name (e.g. azure-openai, bedrock) |

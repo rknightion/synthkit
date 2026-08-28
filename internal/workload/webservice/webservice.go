@@ -276,6 +276,7 @@ type Workload struct {
 	team      string // §5 canon (optional)
 	version   string // service.version (declared override or serviceVersion default)
 	podName   string
+	podUID    string
 	nodeName  string // k8s node hostname for pod 0 (empty when no cluster placement or no nodes)
 	hostArch  string // host.arch (GOARCH form) of pod 0's node, from its instance type ("" when no placement)
 	feoAppID  string // gf.feo11y.app.id — deterministic 8-hex from seed (signals/traces.md [slug: traces-resource-attrs])
@@ -390,6 +391,21 @@ func (w *Workload) ownPlacement() *fixture.Workload {
 	return nil
 }
 
+// refreshPlacement follows the runner-prepared cluster lifecycle for the current tick. The
+// resolver-owned placement remains the source of identity; the workload never mints a pod name.
+func (w *Workload) refreshPlacement() {
+	own := w.ownPlacement()
+	if own == nil || len(own.PodNames) == 0 {
+		return
+	}
+	w.podName = own.PodNames[0]
+	if len(own.PodUIDs) > 0 {
+		w.podUID = own.PodUIDs[0]
+	} else {
+		w.podUID = ""
+	}
+}
+
 // job is the Prometheus/Loki job label: "{namespace}/{service}".
 func (w *Workload) job() string { return w.namespace + "/" + w.name }
 
@@ -434,6 +450,7 @@ func (w *Workload) Minter() ledger.Minter { return w.m }
 // minted batch and emits each signal class once. Span timing starts from
 // r.RenderStart() (I11). Empty batch → no-op.
 func (w *Workload) ProjectBatch(ctx context.Context, now time.Time, world *core.World, batch []*ledger.Request) error {
+	w.refreshPlacement()
 	if len(batch) == 0 {
 		return nil
 	}

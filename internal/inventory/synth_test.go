@@ -64,12 +64,12 @@ func TestFromSinksSplitsCapturedPodLogsFromManifests(t *testing.T) {
 		switch log.Source {
 		case LogFamilyPodLogs:
 			podLogs = log
-		case "":
+		case LogFamilyKubernetesManifests:
 			manifests = log
 		}
 	}
 	if podLogs == nil || manifests == nil {
-		t.Fatalf("logs=%v, want sources %q and empty", schema.Logs, LogFamilyPodLogs)
+		t.Fatalf("logs=%v, want sources %q and %q", schema.Logs, LogFamilyPodLogs, LogFamilyKubernetesManifests)
 	}
 	if !containsLogMetadataKey(podLogs, "pod") || containsLogStreamKey(podLogs, "k8s_kind") {
 		t.Fatalf("pod logs=%v, want pod metadata and no manifest label", podLogs)

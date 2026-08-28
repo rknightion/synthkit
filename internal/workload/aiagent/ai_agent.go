@@ -27,9 +27,10 @@ type Workload struct {
 	env     string
 	cluster string
 
-	m     *minter
-	st    *state.State // cumulative metric state (Lane C) — flushed in Tick (R-M4)
-	evals *evalEngine
+	m             *minter
+	st            *state.State // cumulative metric state (Lane C) — flushed in Tick (R-M4)
+	evals         *evalEngine
+	otlpColdStart time.Time
 }
 
 // Registration returns the core.WorkloadReg for the "ai_agent" kind. Call this from the composition
@@ -80,7 +81,11 @@ func (w *Workload) Name() string { return w.b.Name }
 
 // Signals declares the classes this instance emits: native sigil ingest + OTLP traces + metrics.
 func (w *Workload) Signals() []core.SignalClass {
-	return []core.SignalClass{core.Sigil, core.Traces, core.Metrics}
+	sigs := []core.SignalClass{core.Sigil, core.Traces, core.Metrics}
+	if w.cfg.otelMetricsEnabled() {
+		sigs = append(sigs, core.OTLPMetrics)
+	}
+	return sigs
 }
 
 // Interval implements core.Workload (metric lane cadence; ≥60s for the metric lane).
@@ -100,12 +105,23 @@ func (w *Workload) agentByName(name string) (AgentDecl, bool) {
 }
 
 // Tick is the metric lane (R-M4): it FLUSHES the cumulative Lane-C totals accumulated by
-// ProjectBatch. It never recomputes observations here. No-op when no metrics writer is wired.
+// ProjectBatch. It never recomputes observations here. The native OTLP lane is emitted only when
+// its explicit switch and writer are both active; either lane may be wired independently.
 func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) error {
-	if world.Metrics == nil {
+	if world == nil || (world.Metrics == nil && (!w.cfg.otelMetricsEnabled() || world.OTLPMetrics == nil)) {
 		return nil
 	}
-	return world.Metrics.Write(ctx, w.st.Collect(now))
+	if world.Metrics != nil {
+		if err := world.Metrics.Write(ctx, w.st.Collect(now)); err != nil {
+			return err
+		}
+	}
+	if w.cfg.otelMetricsEnabled() && world.OTLPMetrics != nil {
+		if err := w.tickOTLPMetrics(ctx, now, world); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ProjectBatch builds the three lanes for each minted conversation Request. It maps req.Route to the

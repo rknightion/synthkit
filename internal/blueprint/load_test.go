@@ -39,6 +39,12 @@ type testK8sConfig struct {
 	} `yaml:"otel"`
 }
 
+type testHostConfig struct {
+	OTel *struct {
+		Metrics bool `yaml:"metrics"`
+	} `yaml:"otel"`
+}
+
 // testRegistry builds a registry covering the v1 kinds the resolver emits plus the
 // path-1 kinds (addons/features/workloads) the loader decodes configs for.
 func testRegistry(t *testing.T) *core.Registry {
@@ -63,6 +69,8 @@ func testRegistry(t *testing.T) *core.Registry {
 		newConfig := func() any { return &struct{}{} }
 		if k == KindK8sCluster {
 			newConfig = func() any { return &testK8sConfig{} }
+		} else if k == KindHost {
+			newConfig = func() any { return &testHostConfig{} }
 		}
 		reg.RegisterConstruct(core.ConstructReg{
 			Kind: k, Doc: "test", Scope: core.ScopeSubstrate,
@@ -159,6 +167,28 @@ environments:
 		return
 	}
 	t.Fatal("no k8s_cluster construct resolved")
+}
+
+func TestResolveHostNativeOTLPMetricsSwitch(t *testing.T) {
+	y := `
+name: host-native
+hosts:
+  - name: native-linux
+    os: linux
+    otel: {metrics: true}
+`
+	r := load(t, y)
+	for _, instance := range r.Constructs {
+		if instance.Kind != KindHost {
+			continue
+		}
+		cfg, ok := instance.Config.(*testHostConfig)
+		if !ok || cfg.OTel == nil || !cfg.OTel.Metrics {
+			t.Fatalf("host config = %#v, want otel.metrics=true", instance.Config)
+		}
+		return
+	}
+	t.Fatal("no host construct resolved")
 }
 
 const minimalYAML = `

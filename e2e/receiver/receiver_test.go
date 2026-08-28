@@ -824,12 +824,12 @@ func TestReceiverKeepsCapturedPodLogsSeparateFromManifests(t *testing.T) {
 		switch log.Source {
 		case inventory.LogFamilyPodLogs:
 			podLogs = true
-		case "":
+		case inventory.LogFamilyKubernetesManifests:
 			manifests = true
 		}
 	}
 	if !podLogs || !manifests {
-		t.Fatalf("logs=%v, want sources %q and empty", inv.Logs, inventory.LogFamilyPodLogs)
+		t.Fatalf("logs=%v, want sources %q and %q", inv.Logs, inventory.LogFamilyPodLogs, inventory.LogFamilyKubernetesManifests)
 	}
 }
 

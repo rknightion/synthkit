@@ -149,6 +149,9 @@ func (w *Workload) beylaResourceAttrs() map[string]any {
 	a["k8s.cluster.name"] = w.cluster
 	a["k8s.namespace.name"] = w.namespace
 	a["k8s.pod.name"] = w.podName
+	if w.podUID != "" {
+		a["k8s.pod.uid"] = w.podUID
+	}
 	a["k8s.deployment.name"] = w.name
 	return a
 }

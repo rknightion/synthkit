@@ -82,6 +82,8 @@ workloads:
   - type: ai_agent
     name: e2e-ai-agents
     runs_on: otlp-native-prod-euw1
+    otel:
+      metrics: true
     resource:
       service_name: e2e-agent
       job: e2e-agent

@@ -391,8 +391,9 @@ type BlueprintMetaInfo struct {
 }
 
 // BlueprintCostProjection is the startup-known upper bound for an explicit high-DPM blueprint.
-// SeriesBudget is a fixed-minute data-point allowance, so dividing it by DPMPerSeries gives the
-// number of stable series that can sustain the requested cadence for the full minute.
+// SeriesBudget is a fixed-minute data-point allowance. DPMPerSeries is the average effective rate
+// across metric-bearing instances, so dividing by it gives the projected stable series capacity
+// even when an instance declares an interval longer than the blueprint's high-DPM floor.
 type BlueprintCostProjection struct {
 	MetricInstances int     `json:"metric_instances"`
 	MetricInterval  string  `json:"metric_interval"`

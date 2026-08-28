@@ -1,18 +1,18 @@
 # k8s-logs-events — logs-centric k8s monitoring: pod logs + node logs + cluster events.
 # Demonstrates the full Alloy log-collection pipeline: alloy-logs DaemonSet (pod+node logs) +
 # alloy-singleton Deployment (cluster events). No profiling, no opencost/kepler.
-# Pod logs take the NATIVE OTLP transport (podLogsViaOpenTelemetry); node logs, cluster events
-# and object manifests stay Loki-native, exactly as the chart splits them.
+# Pod logs take the classic Loki transport (podLogsViaLoki); node logs and cluster events stay
+# Loki-native as well. This reference deliberately exercises the captured classic pod-log lane.
 # Schema: ARCHITECTURE.md §3. Deleting this file removes k8slogs's telemetry and nothing else.
 name: k8s-logs-events
 label: k8s-logs-events
 shape: business_hours_plateau
 timezone: America/Los_Angeles
 metadata:
-  description: "Logs-centric k8s monitoring: pod logs shipped native OTLP (podLogsViaOpenTelemetry), plus node logs and cluster events shipped to Loki via Alloy DaemonSet and singleton collectors."
+  description: "Logs-centric k8s monitoring: pod logs, node logs and cluster events shipped to Loki via Alloy DaemonSet and singleton collectors, with one bounded pod replacement per minute."
   owner: platform-observability
   category: reference
-  tags: [kubernetes, logs, events, loki, otlp-logs, pod-logs, node-logs]
+  tags: [kubernetes, logs, events, loki, pod-logs, node-logs]
   links:
     signals: ./signals/k8s.md
 
@@ -27,6 +27,7 @@ environments:
     cluster:
       type: eks
       name: k8slogs-prod-usw2
+      series_churn_per_minute: 1
       node_groups:
         - { name: general, instance_type: m6i.large, desired: 3 }
       observability:
@@ -45,4 +46,14 @@ environments:
         # the resource attributes to Loki stream labels. kubernetes_api/loki ⇒ podLogsViaLoki:
         # Loki-native push with stream labels + structured metadata on the wire. Same log lines
         # either way; only the observable shape differs.
-        pod_logs_method: opentelemetry
+        pod_logs_method: loki
+
+workloads:
+  - type: web_service
+    name: logs-api
+    runs_on: k8slogs-prod-usw2
+    replicas: 1
+    tracing: true
+    traffic: { shape: business_hours_plateau, off_peak_rps: 2, peak_rps: 8 }
+    endpoints:
+      - { route: "GET /healthz", error_rate: 0.002, p95_ms: 25 }

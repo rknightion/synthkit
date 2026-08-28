@@ -34,8 +34,7 @@ func TestShapeLogFamilyLeavesOtherLanesUnclassified(t *testing.T) {
 	t.Parallel()
 	for name, keys := range map[string][]string{
 		// Reserves `source` for itself (SK-20) and carries no pod identity.
-		"journal":           {"cluster", "instance", "job", "k8s_cluster_name", "level", "service_name", "source", "unit"},
-		"kubernetes_events": {"cluster", "job", "k8s_cluster_name", "level", "namespace", "reason", "service_name", "source"},
+		"journal": {"cluster", "instance", "job", "k8s_cluster_name", "level", "service_name", "source", "unit"},
 		// A namespace alone is not a pod identity.
 		"app": {"blueprint", "cluster", "env", "job", "level", "namespace", "service_name", "source"},
 		// Two thirds of a triple is not a pod identity either.
@@ -44,6 +43,48 @@ func TestShapeLogFamilyLeavesOtherLanesUnclassified(t *testing.T) {
 		if family, ok := ShapeLogFamily(logWithKeys("", keys)); ok {
 			t.Fatalf("%s: ShapeLogFamily classified as %q; only a full pod identity is a pod-log stream", name, family)
 		}
+	}
+}
+
+func TestCapturedDeclaredLogFamiliesUseOneShapeRule(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		labels   map[string]string
+		metadata []string
+		want     string
+	}{
+		"kubernetes_events": {
+			labels: map[string]string{
+				"cluster": "lab", "instance": "alloy", "job": "integrations/kubernetes/eventhandler",
+				"k8s_cluster_name": "lab", "level": "Warning", "namespace": "default",
+				"reason": "BackOff", "service_name": "integrations/kubernetes/eventhandler",
+				"source": "kubernetes-events",
+			},
+			metadata: []string{"name", "node"},
+			want:     LogFamilyKubernetesEvents,
+		},
+		"manifests": {
+			labels: map[string]string{
+				"action": "manifest", "cluster": "lab", "instance": "alloy",
+				"job": "integrations/kubernetes/manifests", "k8s_cluster_name": "lab",
+				"k8s_kind": "Deployment", "k8s_namespace_name": "default",
+			},
+			metadata: []string{"k8s_daemonset_name", "k8s_deployment_name", "k8s_pod_name"},
+			want:     LogFamilyKubernetesManifests,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := ClassifyLogStream(tc.labels, tc.metadata); got != tc.want {
+				t.Fatalf("ClassifyLogStream=%q, want %q", got, tc.want)
+			}
+			log := Log{Transport: TransportLoki, StructuredMetadataKeys: tc.metadata}
+			for key, value := range tc.labels {
+				log.StreamLabels = append(log.StreamLabels, Attribute{Key: key, Values: []string{value}})
+			}
+			if got, ok := ShapeLogFamily(log); !ok || got != tc.want {
+				t.Fatalf("ShapeLogFamily=(%q, %v), want (%q, true)", got, ok, tc.want)
+			}
+		})
 	}
 }
 
@@ -110,8 +151,8 @@ func TestClassifyLogStreamRecognisesCapturedPodLogsViaLokiShape(t *testing.T) {
 		"k8s_kind": "Pod", "k8s_namespace_name": "otel-demo",
 	}
 	manifestsMetadata := []string{"k8s_daemonset_name", "k8s_deployment_name", "k8s_pod_name"}
-	if got := ClassifyLogStream(manifests, manifestsMetadata); got == LogFamilyPodLogs {
-		t.Fatal("the manifests lane classified as pod logs, so the two would fuse again")
+	if got := ClassifyLogStream(manifests, manifestsMetadata); got != LogFamilyKubernetesManifests {
+		t.Fatalf("the manifests lane classified as %q, want its own family %q", got, LogFamilyKubernetesManifests)
 	}
 
 	// A lane that declares its own source keeps naming itself.

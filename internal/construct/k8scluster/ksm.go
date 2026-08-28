@@ -789,7 +789,7 @@ func buildAffectedSets(
 				} else {
 					pod = synthPodName(deploy, ri)
 				}
-				uid := podUID(cluster, ns, pod)
+				uid := resolvedPodUID(cluster, ns, pod, fwl, ri)
 				allUIDs = append(allUIDs, uid)
 			}
 		}
@@ -915,7 +915,7 @@ func emitKSMPods(
 				}
 
 				node := nodes[nodeIdx].Hostname
-				uid := podUID(cluster, ns, pod)
+				uid := resolvedPodUID(cluster, ns, pod, fwl, ri)
 				rs := replicaSetName(deploy)
 				// Controller-aware owner identity. Substrate (fwl==nil) is always a Deployment
 				// (ReplicaSet-owned). Declared workloads route by controller kind.

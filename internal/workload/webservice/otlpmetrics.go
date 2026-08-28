@@ -185,6 +185,9 @@ func (w *Workload) otelResourceAttrs(mode string) map[string]any {
 	if mode == otelModeK8sMonitoring {
 		attrs["k8s.namespace.name"] = w.namespace
 		attrs["k8s.pod.name"] = w.podName
+		if w.podUID != "" {
+			attrs["k8s.pod.uid"] = w.podUID
+		}
 		attrs["k8s.deployment.name"] = w.name
 		attrs["k8s.cluster.name"] = w.cluster
 		attrs["k8s.node.name"] = w.nodeName

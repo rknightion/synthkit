@@ -156,11 +156,20 @@ func reqRefs(r *ledger.Request, call *ledger.Call) map[string]string {
 	return refs
 }
 
-// observeMetric evaluates one metric spec into state for a node: it stamps the node identity, then
-// expands enum-label domains into the FULL cross-product (every label combination every run —
-// determinism §3.4), and dispatches by instrument (gauge=Set, counter=Add-delta accumulates I3,
-// histogram=Observe with the declared buckets + le-style).
+// observeMetric evaluates one metric spec into the established promrw state for a node: it stamps
+// the node identity, then expands enum-label domains into the FULL cross-product (every label
+// combination every run — determinism §3.4), and dispatches by instrument (gauge=Set,
+// counter=Add-delta accumulates I3, histogram=Observe with the declared buckets + le-style).
 func (w *Workload) observeMetric(st *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx) {
+	w.observeMetricStates(st, nil, id, spec, ctx)
+}
+
+// observeMetricStates evaluates a metric value once and writes it to the promrw state plus an
+// optional native-OTLP state. Keeping the evaluation single-sourced means an enabled native lane
+// mirrors the same inline instrument observation without changing the value draw sequence used by
+// the established promrw lane. Native labels contain only the author-declared DSL dimensions;
+// node identity is represented by the OTLP resource attributes.
+func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx) {
 	base := id.metricBaseLabels()
 	for _, combo := range labelCombos(spec.Labels) {
 		labels := make(map[string]string, len(base)+len(combo))
@@ -171,13 +180,25 @@ func (w *Workload) observeMetric(st *state.State, id nodeIdentity, spec telemetr
 			labels[k] = v
 		}
 		val, _ := spec.Value.Eval(ctx)
-		switch spec.Instrument {
-		case telemetryspec.InstrumentGauge:
-			st.Set(spec.Name, labels, val)
-		case telemetryspec.InstrumentCounter:
-			st.Add(spec.Name, labels, val)
-		case telemetryspec.InstrumentHistogram:
-			st.Observe(spec.Name, labels, spec.Buckets, leStyle(spec.LEStyle), val)
+		if st != nil {
+			switch spec.Instrument {
+			case telemetryspec.InstrumentGauge:
+				st.Set(spec.Name, labels, val)
+			case telemetryspec.InstrumentCounter:
+				st.Add(spec.Name, labels, val)
+			case telemetryspec.InstrumentHistogram:
+				st.Observe(spec.Name, labels, spec.Buckets, leStyle(spec.LEStyle), val)
+			}
+		}
+		if native != nil {
+			switch spec.Instrument {
+			case telemetryspec.InstrumentGauge:
+				native.Set(spec.Name, combo, val)
+			case telemetryspec.InstrumentCounter:
+				native.Add(spec.Name, combo, val)
+			case telemetryspec.InstrumentHistogram:
+				native.Observe(spec.Name, combo, spec.Buckets, leStyle(spec.LEStyle), val)
+			}
 		}
 	}
 }

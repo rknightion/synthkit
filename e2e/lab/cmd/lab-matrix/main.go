@@ -53,7 +53,8 @@ func usage() {
   lab-matrix elide-corpus -file CORPUS.json [-file ...]
   lab-matrix promote -in CANDIDATE.json -out DOC.json -area A -permutation P -kind K
                      -substrate S -collector C -collector-version V -captured-on YYYY-MM-DD
-                     -instrument-type-source TEXT [-metric-prefix P ...]
+                     -instrument-type-source TEXT [-metrics] [-metric-prefix P ...]
+                     [-exclude-metric-prefix P ...] [-exclude-metric NAME ...]
                      [-logs] [-fold-pod-logs] [-merge]
 `)
 }
@@ -99,7 +100,12 @@ func runPromote(args []string) error {
 	capturedOn := flags.String("captured-on", "", "capture date, YYYY-MM-DD")
 	instrumentTypeSource := flags.String("instrument-type-source", "", "the mechanism instrument types were read from")
 	var metricPrefixes fileList
+	var excludeMetricPrefixes fileList
+	var excludeMetricNames fileList
+	metrics := flags.Bool("metrics", false, "select every captured metric family before applying exclusions")
 	flags.Var(&metricPrefixes, "metric-prefix", "select captured metric families by name prefix (repeatable)")
+	flags.Var(&excludeMetricPrefixes, "exclude-metric-prefix", "exclude selected metric families by name prefix (repeatable)")
+	flags.Var(&excludeMetricNames, "exclude-metric", "exclude one selected metric family by exact name (repeatable)")
 	foldPodLogs := flags.Bool("fold-pod-logs", false, "fold captured log streams into the canonical pod-log source")
 	logs := flags.Bool("logs", false, "promote the captured log entries as classified, one per family")
 	merge := flags.Bool("merge", false, "canonically merge into an existing document at -out instead of replacing it")
@@ -114,9 +120,12 @@ func runPromote(args []string) error {
 		return err
 	}
 	promoted, err := matrix.PromoteCandidate(candidate, matrix.PromoteOptions{
-		MetricPrefixes: metricPrefixes,
-		FoldPodLogs:    *foldPodLogs,
-		Logs:           *logs,
+		Metrics:               *metrics,
+		MetricPrefixes:        metricPrefixes,
+		ExcludeMetricPrefixes: excludeMetricPrefixes,
+		ExcludeMetricNames:    excludeMetricNames,
+		FoldPodLogs:           *foldPodLogs,
+		Logs:                  *logs,
 	})
 	if err != nil {
 		return err

@@ -93,6 +93,91 @@ or omitting it leaves the established promrw family and label-key surface unchan
 
 ---
 
+## Standalone host native receiver metrics [slug: host-native-otlp-metrics]
+
+The `host` construct adds this hostmetricsreceiver-shaped surface only when a host declaration
+sets `otel: {metrics: true}`. These are semantic OTel names, not renamed `node_*` or
+`windows_*` Prometheus families. The existing Prometheus exporter lane remains enabled alongside
+the native lane.
+
+**Provenance/date for every family in the table:** observed on the OTLP wire at collector egress
+in the k3d `otel-receivers` permutation on **2026-08-27**. The deployment used the
+`open-telemetry/opentelemetry-collector` Helm chart at `0.171.0`; its collector process was the
+`bin/otelcol` binary in the `grafana/alloy:v1.18.0` image. The family set and observed attributes are recorded in
+`reality-corpus/host/k3d-lab-otel-receivers.json` and `signals/host.md` (`host-otel-native-permutation`).
+The instrument shape, unit, and monotonicity annotations below are sourced from the current
+hostmetricsreceiver metadata for the same receiver. The generated scope is
+`github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver`, version
+`0.171.0`.
+
+| Family | OTLP instrument | Unit | Datapoint attributes |
+|---|---|---|---|
+| `system.cpu.load_average.1m`, `.5m`, `.15m` | Gauge | `{thread}` | — |
+| `system.cpu.logical.count` | non-monotonic cumulative Sum | `{cpu}` | — |
+| `system.cpu.time` | monotonic cumulative Sum | `s` | `cpu`, `state` |
+| `system.disk.io` | monotonic cumulative Sum | `By` | `device`, `direction` = `read` or `write` |
+| `system.disk.io_time` | monotonic cumulative Sum | `s` | `device` |
+| `system.disk.merged` | monotonic cumulative Sum | `{operations}` | `device`, `direction` = `read` or `write` |
+| `system.disk.operation_time` | monotonic cumulative Sum | `s` | `device`, `direction` = `read` or `write` |
+| `system.disk.operations` | monotonic cumulative Sum | `{operations}` | `device`, `direction` = `read` or `write` |
+| `system.disk.pending_operations` | non-monotonic cumulative Sum | `{operations}` | `device` |
+| `system.disk.weighted_io_time` | monotonic cumulative Sum | `s` | `device` |
+| `system.memory.limit` | non-monotonic cumulative Sum | `By` | — |
+| `system.memory.usage` | non-monotonic cumulative Sum | `By` | `state` = `buffered`, `cached`, `free`, `slab_reclaimable`, `slab_unreclaimable`, or `used` |
+| `system.network.connections` | non-monotonic cumulative Sum | `{connections}` | `protocol` = `tcp`, `state` = the 12 TCP states in `signals/host.md` |
+| `system.network.dropped` | monotonic cumulative Sum | `{packets}` | `device`, `direction` = `receive` or `transmit` |
+| `system.network.errors` | monotonic cumulative Sum | `{errors}` | `device`, `direction` = `receive` or `transmit` |
+| `system.network.io` | monotonic cumulative Sum | `By` | `device`, `direction` = `receive` or `transmit` |
+| `system.network.packets` | monotonic cumulative Sum | `{packets}` | `device`, `direction` = `receive` or `transmit` |
+
+The `state` attribute on `system.cpu.time` is platform-specific: Linux emits
+`user`, `system`, `idle`, `interrupt`, `nice`, `softirq`, `steal`, and `wait`; Windows and macOS
+emit only `user`, `system`, `idle`, and `interrupt`. A standalone host resource carries only
+`host.name` and `os.type`; Kubernetes enrichment attributes from the capture permutation are not
+fabricated for this top-level host construct.
+
+`system.filesystem.usage` is intentionally not emitted. The authoritative permutation enabled the
+filesystem scraper but produced no datapoints because all k3d mounts were excluded; this is an
+environmental capture absence, not a claim that the receiver can never produce filesystem data.
+
+The reference `blueprints/hostfleet.yaml` enables the native lane on one Linux, one macOS, and one
+Windows host so the platform-specific CPU state contract is exercised without changing any host's
+Prometheus exporter configuration.
+
+---
+
+## App and AI-agent native metrics [slug: workload-native-otlp-metrics]
+
+The `app` and `ai_agent` workloads add native OTLP metrics only when their workload declaration
+sets `otel: {metrics: true}`. Their existing Prometheus Remote-Write lanes remain enabled and are
+unchanged when the switch is absent or false.
+
+For `app`, the native family set is the workload's own inline `services[].metrics[]` DSL surface,
+with the declared name, instrument kind, unit, bounds, and dimension keys unchanged. Catalog
+profiles are Prometheus-oriented and are not re-spelled into the OTLP envelope. Provenance is the
+blueprint's SDK-instrument declaration itself, dated **2026-08-28**. The exercised reference in
+`blueprints/profiling-demo.yaml` declares:
+
+| Family | OTLP instrument | Unit | Datapoint attributes |
+|---|---|---|---|
+| `app_queue_depth` | Gauge | `{item}` | — |
+
+For `ai_agent`, the two families below are the semantic-convention instruments whose documented
+OTLP-to-Prometheus translation is already reconciled in `signals/genai.md`: dots become underscores,
+the seconds unit adds `_seconds`, and annotation units do not add a suffix. Provenance: live capture
+and OpenTelemetry semantic-convention reconciliation recorded in `signals/genai.md`, **2026-06-22**;
+native emission added **2026-08-28**.
+
+| Family | OTLP instrument | Unit | Datapoint attributes |
+|---|---|---|---|
+| `gen_ai.client.token.usage` | cumulative Histogram | `{token}` | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `server.address`, `server.port`, `gen_ai.token.type` |
+| `gen_ai.client.operation.duration` | cumulative Histogram | `s` | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `server.address`, `server.port`; `error.type` when the operation ends in error |
+
+`blueprints/otlp-native.yaml` enables the AI-agent lane; the workload's existing activity settings
+ensure both histograms receive observations in one-shot inventory runs.
+
+---
+
 ## Emitter configuration
 
 | YAML field | Values | Effect |

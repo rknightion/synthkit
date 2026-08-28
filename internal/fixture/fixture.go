@@ -57,7 +57,10 @@ type Workload struct {
 	Namespace string // k8s namespace
 	Replicas  int
 	PodNames  []string // deterministic, len == Replicas
-	NodeIdx   []int    // pod→node placement: index into Cluster.Nodes, len == Replicas
+	// PodUIDs optionally carries the current lifecycle UID parallel to PodNames. It is populated
+	// only by declarable churn; nil preserves the established name-derived UID path byte-for-byte.
+	PodUIDs []string
+	NodeIdx []int // pod→node placement: index into Cluster.Nodes, len == Replicas
 	// Runtime is the pod's language runtime (go|jvm|node|python; "" = unknown/omitted, I13). It is
 	// the shared pod-runtime identity any pod-aware construct joins on — set from an app
 	// ServiceNode's runtime; "" for web_service pods (runtime-agnostic). A runtime-discriminated

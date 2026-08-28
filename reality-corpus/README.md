@@ -220,6 +220,28 @@ which is the cumulative union — it never removes established evidence, so a
 correction that must REMOVE something is a deliberate, reasoned edit and not a
 merge.
 
+For a full Alloy metric refresh, select the capture and state every exclusion in
+the command rather than deleting families after promotion:
+
+```bash
+go run ./e2e/lab/cmd/lab-matrix promote \
+  -in artifacts/signal-fidelity-k3d/alloy-default/candidate-<run-id>.json \
+  -out reality-corpus/k8s/k3d-lab.json \
+  -area k8s -kind k3d_lab -substrate k3s \
+  -collector grafana/k8s-monitoring -collector-version 4.4.0 \
+  -captured-on YYYY-MM-DD -instrument-type-source '<mechanism>' \
+  -metrics -exclude-metric-prefix coredns_ \
+  -exclude-metric-prefix synthkit_lab_ \
+  -exclude-metric-prefix scrape_ -exclude-metric up -merge
+```
+
+`coredns_` belongs to the separate `k8s-addons` area. `synthkit_lab_` is owned
+by the lab's pinned workload deck, so the prefix rule also excludes future
+harness families without maintaining a hand-edited name list. `scrape_*` and
+the exact family `up` describe Prometheus scrape health and volume rather than
+the target's telemetry contract, so the k8s corpus deliberately excludes them.
+`up` is exact so a target family such as `uptime_seconds` would remain eligible.
+
 `-fold-pod-logs` is the narrow alternative to `-logs`: it collapses every
 captured stream into the canonical pod-log source, and is correct only for a
 capture whose every stream IS a pod log and whose recorded source is a workload

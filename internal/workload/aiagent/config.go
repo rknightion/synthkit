@@ -15,7 +15,18 @@ type Config struct {
 	Agents     []AgentDecl `yaml:"agents"`
 	Evaluators []EvalDecl  `yaml:"evaluators,omitempty"`
 	Rules      []RuleDecl  `yaml:"rules,omitempty"`
+	// OTel enables the native OTLP metrics lane for the documented gen_ai client instruments.
+	// Absent (nil) or Metrics=false leaves the established promrw lane unchanged.
+	OTel *OTelObs `yaml:"otel"`
 }
+
+// OTelObs is the per-workload native-OTLP metrics switch. Metrics gates emission;
+// false (the zero value) means no native metrics lane is declared.
+type OTelObs struct {
+	Metrics bool `yaml:"metrics"`
+}
+
+func (c *Config) otelMetricsEnabled() bool { return c.OTel != nil && c.OTel.Metrics }
 
 // ResourceID is the OTLP resource identity for this workload's spans + metrics. Coding fleets use
 // the sigil/job form (ServiceName="sigil", Job="sigil"); general fleets use the service+k8s form.

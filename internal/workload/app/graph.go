@@ -99,6 +99,10 @@ type node struct {
 	decl    ServiceNode
 	kind    nodeKind
 	metrics []telemetryspec.MetricSpec
+	// nativeMetricStart marks the first inline metric in metrics. Catalog profile metrics
+	// are Prometheus-oriented and intentionally remain on the promrw path when native OTLP
+	// is enabled; only the blueprint-declared inline DSL instruments are native candidates.
+	nativeMetricStart int
 	logs    []telemetryspec.LogSpec
 	spans   []telemetryspec.SpanSpec
 	// agenticFlow, when non-nil, makes projectTraces emit a nested in-process gen_ai span subtree
@@ -163,6 +167,7 @@ func buildGraph(services []ServiceNode) (*graph, error) {
 			n.logs = append(n.logs, p.Logs...)
 			n.spans = append(n.spans, p.Spans...)
 		}
+		n.nativeMetricStart = len(n.metrics)
 		n.metrics = append(n.metrics, s.Metrics...)
 		n.logs = append(n.logs, s.Logs...)
 		n.spans = append(n.spans, s.Spans...)

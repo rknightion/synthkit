@@ -62,8 +62,17 @@ const canonicalPodLogSource = "k8s_pod_logs"
 // PromoteOptions selects what a candidate contributes to one corpus document. A document is
 // one area, so a capture spanning several producer domains promotes once per area.
 type PromoteOptions struct {
+	// Metrics selects every captured metric family. Exclusion rules are applied after this
+	// selection so a refresh can state which lab-owned or scrape-health namespace is out of
+	// contract without maintaining a hand-curated inclusion list.
+	Metrics bool
 	// MetricPrefixes selects metric families by name prefix. Empty selects no metric.
 	MetricPrefixes []string
+	// ExcludeMetricPrefixes and ExcludeMetricNames state reproducible exclusions from the
+	// selected metric set. Prefixes cover namespaces owned by the lab workload deck; exact
+	// names avoid accidentally excluding target metrics that merely share a short prefix.
+	ExcludeMetricPrefixes []string
+	ExcludeMetricNames    []string
 	// FoldPodLogs folds every captured log stream into the canonical pod-log source. Use it
 	// only for a capture whose every stream IS a pod log and whose recorded source is a
 	// workload name the classifier could not resolve.
@@ -82,7 +91,10 @@ func PromoteCandidate(candidate inventory.Schema, options PromoteOptions) (inven
 	out := inventory.New()
 
 	for _, metric := range candidate.Metrics {
-		if !hasAnyPrefix(metric.Name, options.MetricPrefixes) {
+		if !options.Metrics && !hasAnyPrefix(metric.Name, options.MetricPrefixes) {
+			continue
+		}
+		if hasAnyPrefix(metric.Name, options.ExcludeMetricPrefixes) || contains(options.ExcludeMetricNames, metric.Name) {
 			continue
 		}
 		promoted := metric
@@ -171,6 +183,15 @@ func PromoteCandidate(candidate inventory.Schema, options PromoteOptions) (inven
 func hasAnyPrefix(name string, prefixes []string) bool {
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func contains(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
 			return true
 		}
 	}

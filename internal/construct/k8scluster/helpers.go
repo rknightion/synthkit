@@ -133,6 +133,15 @@ func podUID(cluster, ns, pod string) string {
 	return fmt.Sprintf("%08x-0000-4000-8000-%012x", h&0xffffffff, (h*0x1234567)&0xffffffffffff)
 }
 
+// resolvedPodUID returns the runner-prepared lifecycle UID when one exists for this ordinal.
+// The nil/empty fallback is the established deterministic name-derived identity.
+func resolvedPodUID(cluster, namespace, pod string, wl *fixture.Workload, ordinal int) string {
+	if wl != nil && ordinal >= 0 && ordinal < len(wl.PodUIDs) && wl.PodUIDs[ordinal] != "" {
+		return wl.PodUIDs[ordinal]
+	}
+	return podUID(cluster, namespace, pod)
+}
+
 // replicaSetName derives the stable ReplicaSet name for a deployment.
 func replicaSetName(deploy string) string {
 	h := 0

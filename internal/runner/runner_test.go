@@ -31,16 +31,22 @@ import (
 
 // fakeConstruct records ticks and emits one metric series + one log stream.
 type fakeConstruct struct {
-	kind    string
-	ticks   int
-	worlds  []*core.World
-	labels  map[string]string // the labels map it writes (to assert clone-before-stamp)
-	signals []core.SignalClass
+	kind     string
+	ticks    int
+	worlds   []*core.World
+	labels   map[string]string // the labels map it writes (to assert clone-before-stamp)
+	signals  []core.SignalClass
+	interval time.Duration
 }
 
 func (f *fakeConstruct) Kind() string                { return f.kind }
 func (f *fakeConstruct) Signals() []core.SignalClass { return f.signals }
-func (f *fakeConstruct) Interval() time.Duration     { return 60 * time.Second }
+func (f *fakeConstruct) Interval() time.Duration {
+	if f.interval > 0 {
+		return f.interval
+	}
+	return 60 * time.Second
+}
 func (f *fakeConstruct) Tick(ctx context.Context, now time.Time, w *core.World) error {
 	f.ticks++
 	f.worlds = append(f.worlds, w)
@@ -91,6 +97,96 @@ type fakeMinter struct{ workload string }
 func (m *fakeMinter) Workload() string { return m.workload }
 func (m *fakeMinter) Mint(now time.Time, tickSec float64, _ *shape.Engine) []*ledger.Request {
 	return []*ledger.Request{{Correlation: ledger.NewCorrelation(), Workload: m.workload, Start: now}}
+}
+
+type lifecycleConstruct struct {
+	cluster *fixture.Cluster
+	start   time.Time
+}
+
+func (c *lifecycleConstruct) Kind() string { return "lifecycle_k8s" }
+func (c *lifecycleConstruct) Signals() []core.SignalClass {
+	return []core.SignalClass{core.Metrics, core.Logs}
+}
+func (c *lifecycleConstruct) Interval() time.Duration { return time.Minute }
+func (c *lifecycleConstruct) PreparePodLifecycle(now time.Time) {
+	if c.start.IsZero() {
+		c.start = now
+	}
+	pod := "api-old"
+	if now.Sub(c.start) >= time.Minute {
+		pod = "api-new"
+	}
+	c.cluster.Workloads[0].PodNames = []string{pod}
+}
+func (c *lifecycleConstruct) Tick(ctx context.Context, now time.Time, w *core.World) error {
+	pod := c.cluster.Workloads[0].PodNames[0]
+	if err := w.Metrics.Write(ctx, []promrw.Series{{Name: "kube_pod_info", Labels: map[string]string{"namespace": "ns", "pod": pod}, Value: 1, T: now}}); err != nil {
+		return err
+	}
+	return w.Logs.Write(ctx, []loki.Stream{{Labels: map[string]string{"namespace": "ns"}, Lines: []loki.Line{{T: now, Body: "ready", Meta: map[string]string{"pod": pod}}}}})
+}
+
+type lifecycleWorkload struct{ binding core.Binding }
+
+func (w *lifecycleWorkload) Kind() string                                       { return "lifecycle_workload" }
+func (w *lifecycleWorkload) Name() string                                       { return w.binding.Name }
+func (w *lifecycleWorkload) Signals() []core.SignalClass                        { return []core.SignalClass{core.Traces} }
+func (w *lifecycleWorkload) Interval() time.Duration                            { return time.Minute }
+func (w *lifecycleWorkload) Minter() ledger.Minter                              { return &fakeMinter{workload: w.Name()} }
+func (w *lifecycleWorkload) Tick(context.Context, time.Time, *core.World) error { return nil }
+func (w *lifecycleWorkload) ProjectBatch(ctx context.Context, _ time.Time, world *core.World, _ []*ledger.Request) error {
+	pod := w.binding.Cluster.Workloads[0].PodNames[0]
+	return world.Traces.Write(ctx, []otlp.Resource{{Attrs: map[string]any{"service.name": w.Name(), "k8s.pod.name": pod}}})
+}
+
+// TestPodLifecyclePreparedBeforeProjection pins the root-owned composition seam: the construct
+// advances the shared placement before workload projection, then metrics, logs, and trace resources
+// all observe the replacement identity in the same RunOnce cycle.
+func TestPodLifecyclePreparedBeforeProjection(t *testing.T) {
+	cluster := &fixture.Cluster{Name: "c", Env: &fixture.Env{Name: "prod", Weight: 1}, Workloads: []fixture.Workload{{Name: "api", Namespace: "ns", Replicas: 1, PodNames: []string{"api-old"}}}}
+	reg := core.NewRegistry()
+	reg.RegisterConstruct(core.ConstructReg{Kind: "lifecycle_k8s", Doc: "test", Scope: core.ScopeSubstrate,
+		NewConfig: func() any { return &struct{}{} },
+		Build:     func(any, *fixture.Set) (core.Construct, error) { return &lifecycleConstruct{cluster: cluster}, nil }})
+	reg.RegisterWorkload(core.WorkloadReg{Kind: "lifecycle_workload", Doc: "test",
+		NewConfig: func() any { return &struct{}{} },
+		Build: func(_ any, binding core.Binding) (core.Workload, error) {
+			return &lifecycleWorkload{binding: binding}, nil
+		}})
+	mc, lc, tc := &coretest.MetricCapture{}, &coretest.LogCapture{}, &coretest.TraceCapture{}
+	r := New(Sinks{Metrics: mc, Logs: lc, Traces: tc}, reg, Options{})
+	resolved := &blueprint.Resolved{Name: "pod-life", Label: "pod-life",
+		Constructs: []blueprint.ConstructInstance{{Kind: "lifecycle_k8s", Name: "c", Config: &struct{}{}, Fixtures: &fixture.Set{Cluster: cluster}}},
+		Workloads:  []blueprint.WorkloadInstance{{Kind: "lifecycle_workload", Name: "api", Config: &struct{}{}, Replicas: 1, Env: cluster.Env, Cluster: cluster}}}
+	if err := r.AddBlueprint(resolved); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Date(2026, 8, 28, 10, 0, 0, 0, time.UTC)
+	if err := r.RunOnce(context.Background(), start); err != nil {
+		t.Fatal(err)
+	}
+	metricStart, logStart, traceStart := len(mc.All()), len(lc.Streams), len(tc.Resources)
+	if err := r.RunOnce(context.Background(), start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	for _, series := range mc.All()[metricStart:] {
+		if series.Labels["pod"] != "api-new" {
+			t.Errorf("metric retained pod %q, want api-new", series.Labels["pod"])
+		}
+	}
+	for _, stream := range lc.Streams[logStart:] {
+		for _, line := range stream.Lines {
+			if line.Meta["pod"] != "api-new" {
+				t.Errorf("log retained pod %q, want api-new", line.Meta["pod"])
+			}
+		}
+	}
+	for _, resource := range tc.Resources[traceStart:] {
+		if resource.Attrs["k8s.pod.name"] != "api-new" {
+			t.Errorf("trace retained pod %v, want api-new", resource.Attrs["k8s.pod.name"])
+		}
+	}
 }
 
 // buildTestResolved fabricates a Resolved with one substrate construct, one
@@ -526,7 +622,7 @@ func TestHighDPMCostProjectionLoggedAndExposedInControlSchema(t *testing.T) {
 	if err := r.AddBlueprint(res); err != nil {
 		t.Fatalf("AddBlueprint: %v", err)
 	}
-	if got := logs.String(); !strings.Contains(got, `high-DPM projection: metric_instances=3 metric_interval=10s projected_series=115 projected_dpm=690`) {
+	if got := logs.String(); !strings.Contains(got, `high-DPM projection: metric_instances=3 metric_interval=10s projected_series=690 projected_dpm=690`) {
 		t.Fatalf("startup logs missing projection, got:\n%s", got)
 	}
 
@@ -543,14 +639,14 @@ func TestHighDPMCostProjectionLoggedAndExposedInControlSchema(t *testing.T) {
 	}
 	projection := bm.CostProjection
 	if projection.MetricInstances != 3 || projection.MetricInterval != "10s" ||
-		projection.DPMPerSeries != 6 || projection.ProjectedSeries != 115 || projection.ProjectedDPM != 690 || projection.Unbounded {
+		projection.DPMPerSeries != 1 || projection.ProjectedSeries != 690 || projection.ProjectedDPM != 690 || projection.Unbounded {
 		t.Fatalf("cost projection = %+v", projection)
 	}
 	payload, err := json.Marshal(bm)
 	if err != nil {
 		t.Fatalf("marshal blueprint metadata: %v", err)
 	}
-	for _, field := range []string{`"cost_projection"`, `"projected_series":115`, `"projected_dpm":690`} {
+	for _, field := range []string{`"cost_projection"`, `"projected_series":690`, `"projected_dpm":690`} {
 		if !bytes.Contains(payload, []byte(field)) {
 			t.Errorf("control JSON %s missing %s", payload, field)
 		}
@@ -558,24 +654,31 @@ func TestHighDPMCostProjectionLoggedAndExposedInControlSchema(t *testing.T) {
 }
 
 func TestHighDPMCostProjectionUsesPerWindowSampleCeiling(t *testing.T) {
-	r, _, _, _, _, _, _ := newTestRunner(t)
-	res := buildTestResolved("fast-odd-interval")
-	res.SeriesBudget = 60
-	res.HighDPM = &blueprint.ResolvedHighDPM{MetricInterval: 11 * time.Second}
-	if err := r.AddBlueprint(res); err != nil {
-		t.Fatalf("AddBlueprint: %v", err)
-	}
-
-	projection := r.bps[0].costProjection
-	if projection == nil {
-		t.Fatal("cost projection missing")
-	}
+	bp := &bpRuntime{constructs: []*boundConstruct{{
+		construct: &fakeConstruct{signals: []core.SignalClass{core.Metrics}, interval: 11 * time.Second},
+		interval:  11 * time.Second,
+	}}}
+	projection := projectHighDPMCost(bp, 60, 11*time.Second)
 	if projection.ProjectedSeries != 10 {
 		t.Fatalf("ProjectedSeries = %d, want 10 (60 budget / ceil(60s/11s))", projection.ProjectedSeries)
 	}
 	wantDPM := 10 * (60.0 / 11.0)
 	if math.Abs(projection.ProjectedDPM-wantDPM) > 1e-9 {
 		t.Fatalf("ProjectedDPM = %v, want average-rate value %v", projection.ProjectedDPM, wantDPM)
+	}
+}
+
+func TestHighDPMCostProjectionSumsPerInstanceRates(t *testing.T) {
+	bp := &bpRuntime{constructs: []*boundConstruct{
+		{construct: &fakeConstruct{signals: []core.SignalClass{core.Metrics}, interval: 10 * time.Second}, interval: 10 * time.Second},
+		{construct: &fakeConstruct{signals: []core.SignalClass{core.Metrics}, interval: 30 * time.Second}, interval: 30 * time.Second},
+	}}
+	projection := projectHighDPMCost(bp, 80, 10*time.Second)
+	if projection.MetricInstances != 2 || projection.MetricInterval != "10s" {
+		t.Fatalf("projection identity = %+v, want two instances at a 10s blueprint floor", projection)
+	}
+	if projection.DPMPerSeries != 4 || projection.ProjectedSeries != 20 || projection.ProjectedDPM != 80 {
+		t.Fatalf("projection = %+v, want average rate (6+2)/2=4 DPM per series", projection)
 	}
 }
 
@@ -792,7 +895,7 @@ func TestSeriesBudgetTruncatesPerBlueprint(t *testing.T) {
 	}
 }
 
-func TestHighDPMBlueprintsUseDifferentMetricFloorsInOneRunner(t *testing.T) {
+func TestHighDPMBlueprintFloorDoesNotForceDeclaredInterval(t *testing.T) {
 	r, _, _, _, _, _, _ := newTestRunner(t)
 	normal := buildTestResolved("normal")
 	fast := buildTestResolved("fast")
@@ -806,8 +909,11 @@ func TestHighDPMBlueprintsUseDifferentMetricFloorsInOneRunner(t *testing.T) {
 	if got := r.bps[0].constructs[0].interval; got != 60*time.Second {
 		t.Fatalf("normal interval = %v, want 60s", got)
 	}
-	if got := r.bps[1].constructs[0].interval; got != 10*time.Second {
-		t.Fatalf("fast interval = %v, want 10s", got)
+	if got := r.bps[1].constructs[0].interval; got != 60*time.Second {
+		t.Fatalf("high-DPM interval = %v, want the construct's declared 60s above its 10s floor", got)
+	}
+	if projection := r.bps[1].costProjection; projection == nil || projection.MetricInterval != "10s" {
+		t.Fatalf("high-DPM floor missing from projection: %+v", projection)
 	}
 }
 
@@ -839,6 +945,26 @@ func TestMetricFloorDoesNotClampLogOnlyInterval(t *testing.T) {
 		if got != 5*time.Second {
 			t.Errorf("highDPM=%v: log-only interval = %v, want 5s", highDPM, got)
 		}
+	}
+}
+
+func TestHighDPMMetricIntervalIsAFloor(t *testing.T) {
+	r := &Runner{}
+	for name, tc := range map[string]struct {
+		declared time.Duration
+		floor    time.Duration
+		want     time.Duration
+	}{
+		"longer_declared_interval_is_kept":     {declared: 2 * time.Minute, floor: 10 * time.Second, want: 2 * time.Minute},
+		"shorter_declared_interval_is_clamped": {declared: 5 * time.Second, floor: 10 * time.Second, want: 10 * time.Second},
+		"equal_declared_interval_is_kept":      {declared: 10 * time.Second, floor: 10 * time.Second, want: 10 * time.Second},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fixture := &fakeConstruct{signals: []core.SignalClass{core.Metrics}, interval: tc.declared}
+			if got := r.instanceMetricInterval("bp", fixture.Kind(), fixture.Signals(), fixture.Interval(), tc.floor, true); got != tc.want {
+				t.Fatalf("instanceMetricInterval=%v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

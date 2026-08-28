@@ -185,6 +185,9 @@ func (w *Workload) backendResourceAttrs() map[string]any {
 	if w.nodeName != "" {
 		attrs["k8s.node.name"] = w.nodeName
 	}
+	if w.podUID != "" {
+		attrs["k8s.pod.uid"] = w.podUID
+	}
 	// §5 canon attrs (§5): omit when empty (I13).
 	if w.context != "" {
 		attrs[semconv.AttrContext] = w.context

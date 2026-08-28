@@ -3,6 +3,7 @@
 package matrix
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/inventory"
@@ -38,6 +39,34 @@ func TestPromoteRefusesToWriteAnEmptyMetricDocument(t *testing.T) {
 	candidate.AddMetric("system.cpu.time", inventory.TransportOTLPMetrics, inventory.InstrumentCounter, map[string]string{"os.type": "linux"}, nil)
 	if _, err := PromoteCandidate(candidate, PromoteOptions{MetricPrefixes: []string{"k8s."}}); err == nil {
 		t.Fatal("promoted a document with no matching family, want a refusal")
+	}
+}
+
+func TestPromoteAllMetricsAppliesDeclaredLabAndScrapeExclusions(t *testing.T) {
+	candidate := inventory.New()
+	for _, name := range []string{
+		"go_gc_duration_seconds", "process_cpu_seconds_total", "prober_probe_total",
+		"synthkit_lab_requests_total", "synthkit_lab_up",
+		"scrape_duration_seconds", "scrape_samples_scraped", "up", "uptime_seconds",
+	} {
+		candidate.AddMetric(name, inventory.TransportPrometheusRW2, inventory.InstrumentGauge, nil, nil)
+	}
+
+	promoted, err := PromoteCandidate(candidate, PromoteOptions{
+		Metrics:               true,
+		ExcludeMetricPrefixes: []string{"synthkit_lab_", "scrape_"},
+		ExcludeMetricNames:    []string{"up"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(promoted.Metrics))
+	for _, metric := range promoted.Metrics {
+		got = append(got, metric.Name)
+	}
+	want := []string{"go_gc_duration_seconds", "prober_probe_total", "process_cpu_seconds_total", "uptime_seconds"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("promoted metrics=%v, want genuine producer families %v", got, want)
 	}
 }
 

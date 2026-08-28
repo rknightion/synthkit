@@ -31,6 +31,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/k8saddon"
 	"github.com/rknightion/synthkit/internal/sink/loki"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 )
@@ -251,30 +252,17 @@ func buildPodLogStreamsClassic(now time.Time, cluster string, cl *fixture.Cluste
 	entries := buildPodLogEntries(now, cl)
 	out := make([]loki.Stream, 0, len(entries))
 	for _, e := range entries {
-		labels := map[string]string{
-			"cluster":             cluster,
-			"k8s_cluster_name":    cluster,
-			"namespace":           e.Namespace,
-			"pod":                 e.Pod,
-			"container":           e.Container,
-			"job":                 e.Namespace + "/" + e.Container,
-			"service_namespace":   e.Namespace,
-			"service_instance_id": e.ServiceInstanceID,
-			"stream":              e.IOStream,
-			"detected_level":      "info",
-		}
-		if e.Deployment != "" {
-			labels["app_kubernetes_io_name"] = e.Deployment
-			labels["service_name"] = e.Deployment
-		}
-		out = append(out, loki.Stream{
-			Labels: labels,
-			Lines: []loki.Line{{T: e.Time, Body: e.Body, Meta: map[string]string{
-				"k8s_pod_name":        e.Pod,
-				"pod":                 e.Pod,
-				"service_instance_id": e.ServiceInstanceID,
-			}}},
-		})
+		out = append(out, k8saddon.NewLokiPodLogStream(k8saddon.LokiPodLogConfig{
+			Cluster:          cluster,
+			Namespace:        e.Namespace,
+			Container:        e.Container,
+			AppName:          e.Deployment,
+			ServiceName:      e.Deployment,
+			ServiceNamespace: e.Namespace,
+			Stream:           e.IOStream,
+			Flags:            e.LogTag,
+			Pod:              e.Pod,
+		}, []loki.Line{{T: e.Time, Body: e.Body}}))
 	}
 	return out
 }

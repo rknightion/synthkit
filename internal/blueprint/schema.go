@@ -86,6 +86,9 @@ type HostDecl struct {
 	OSVersion string `yaml:"os_version"`
 	// Kernel feeds node_uname_info (linux/macos, e.g. "6.8.0-40-generic"). Optional; sensible default per OS.
 	Kernel string `yaml:"kernel"`
+	// OTel carries the optional hostmetricsreceiver-shaped native OTLP metrics switch.
+	// It is decoded into the registered host construct config during resolution.
+	OTel yaml.Node `yaml:"otel"`
 	// Observability gates the docker lane and host logs.
 	Observability *HostObservabilityDecl `yaml:"observability"`
 }
@@ -145,10 +148,13 @@ type ClusterDecl struct {
 	Name          string            `yaml:"name"`
 	NodeGroups    []NodeGroupDecl   `yaml:"node_groups"`
 	K8sMonitoring K8sMonitoringDecl `yaml:"k8s_monitoring"`
-	OTel          yaml.Node         `yaml:"otel"`          // k8s_cluster receiver-native emission switches; decoded via registry
-	Observability *CloudWatchToggle `yaml:"observability"` // gates the per-node ec2 CloudWatch lane
-	Addons        []AddonRef        `yaml:"addons"`
-	Platform      *PlatformDecl     `yaml:"platform"` // node OS/runtime/k8s version (defaults applied when omitted)
+	OTel          yaml.Node         `yaml:"otel"` // k8s_cluster receiver-native emission switches; decoded via registry
+	// SeriesChurnPerMinute rotates bounded pod identities through the same declarative seam used
+	// by network_topology. Zero preserves the resolved cluster identity set.
+	SeriesChurnPerMinute int               `yaml:"series_churn_per_minute"`
+	Observability        *CloudWatchToggle `yaml:"observability"` // gates the per-node ec2 CloudWatch lane
+	Addons               []AddonRef        `yaml:"addons"`
+	Platform             *PlatformDecl     `yaml:"platform"` // node OS/runtime/k8s version (defaults applied when omitted)
 }
 
 // PlatformDecl declares the cluster's node OS / kubernetes version. All fields optional; the

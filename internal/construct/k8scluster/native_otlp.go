@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
@@ -44,10 +45,24 @@ func (s *nativeOTLPState) add(key string, delta float64) float64 {
 	return s.counters[key]
 }
 
+// dropIdentity retires all cumulative native-OTLP counters for one pod identity. A pod that
+// returns from the bounded churn pool is a fresh lifecycle, so it must not resume the retired
+// pod's counter totals. The key format is owned by counter/networkCounter below:
+// metric-name, identity, optional attribute discriminator.
+func (s *nativeOTLPState) dropIdentity(identity string) {
+	for key := range s.counters {
+		parts := strings.SplitN(key, "\x00", 3)
+		if len(parts) >= 2 && parts[1] == identity {
+			delete(s.counters, key)
+		}
+	}
+}
+
 type nativePod struct {
 	wl        *fixture.Workload
 	namespace string
 	name      string
+	uid       string
 	container string
 	node      fixture.Node
 	ordinal   int
@@ -100,12 +115,14 @@ func nativePods(cl *fixture.Cluster, nodes []fixture.Node, replicas int) []nativ
 			count := substrateReps(wl, replicas, len(nodes))
 			for ordinal := 0; ordinal < count; ordinal++ {
 				podName := synthPodName(deployment, ordinal)
+				podUIDValue := resolvedPodUID(cl.Name, namespace, podName, wl, ordinal)
 				nodeIdx := nodeAssignment(namespace, deployment, ordinal, len(nodes))
 				container := deployment
 				if wl != nil {
 					if ordinal < len(wl.PodNames) {
 						podName = wl.PodNames[ordinal]
 					}
+					podUIDValue = resolvedPodUID(cl.Name, namespace, podName, wl, ordinal)
 					if ordinal < len(wl.NodeIdx) {
 						nodeIdx = wl.NodeIdx[ordinal]
 					}
@@ -116,7 +133,7 @@ func nativePods(cl *fixture.Cluster, nodes []fixture.Node, replicas int) []nativ
 				if nodeIdx < 0 || nodeIdx >= len(nodes) {
 					nodeIdx = 0
 				}
-				out = append(out, nativePod{wl: wl, namespace: namespace, name: podName, container: container, node: nodes[nodeIdx], ordinal: ordinal})
+				out = append(out, nativePod{wl: wl, namespace: namespace, name: podName, uid: podUIDValue, container: container, node: nodes[nodeIdx], ordinal: ordinal})
 			}
 		}
 	}
@@ -125,7 +142,7 @@ func nativePods(cl *fixture.Cluster, nodes []fixture.Node, replicas int) []nativ
 
 func (c *Construct) kubeletPodResource(now, start time.Time, pod nativePod, factor, tickSec float64) otlp.MetricResource {
 	attrs := nativePodAttrs(c.clust.Name, pod, true)
-	key := podUID(c.clust.Name, pod.namespace, pod.name)
+	key := pod.uid
 	cpu := resolveCPUUsageBase(pod.wl, podServiceName(pod)) * factor
 	if cpu < 0.001 {
 		cpu = 0.001
@@ -312,7 +329,7 @@ func nativePodAttrs(cluster string, pod nativePod, includeOS bool) map[string]an
 		"k8s.namespace.name":   pod.namespace,
 		"k8s.node.name":        pod.node.Hostname,
 		"k8s.pod.name":         pod.name,
-		"k8s.pod.uid":          podUID(cluster, pod.namespace, pod.name),
+		"k8s.pod.uid":          pod.uid,
 		"k8s.pod.start_time":   time.Unix(clusterCreatedUnix, 0).UTC().Format(time.RFC3339),
 		"k8s.container.name":   pod.container,
 		"container.image.name": imageRepo(service),

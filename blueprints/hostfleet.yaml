@@ -33,6 +33,8 @@ hosts:
     metrics_profile: integration
     os_version: "44"
     kernel: "7.0.10-201.fc44.x86_64"
+    otel:
+      metrics: true
     observability:
       docker: true
 
@@ -81,6 +83,8 @@ hosts:
     metrics_profile: full
     os_version: "27.0"
     kernel: "Darwin Kernel 27.0.0"
+    otel:
+      metrics: true
 
   # hfleet-win01 — Windows Server 2025 VM (Proxmox/QEMU, x86_64).
   # integration profile; 2 vCPU cores matching a live Windows Server capture (core="0,0" + "0,1").
@@ -92,3 +96,5 @@ hosts:
     memory_gb: 6
     metrics_profile: integration
     os_version: "10.0.26100"
+    otel:
+      metrics: true

@@ -17,6 +17,14 @@ package inventory
 // transport. It matches the family name the reality corpus records.
 const LogFamilyPodLogs = "k8s_pod_logs"
 
+// LogFamilyKubernetesEvents and LogFamilyKubernetesManifests name the two captured
+// Kubernetes control-plane log lanes whose shapes remain stable when deployment-specific
+// label values are elided during corpus promotion.
+const (
+	LogFamilyKubernetesEvents    = "kubernetes-events"
+	LogFamilyKubernetesManifests = "k8s_manifests"
+)
+
 // podLogIdentitySpellings are the namespace/pod/container triple in each spelling a real
 // pod-log pipeline puts on the wire. All three name the same identity:
 //
@@ -101,6 +109,15 @@ func shapeLogFamily(has func(string) bool) (string, bool) {
 		if has(spelling[0]) && has(spelling[1]) && has(spelling[2]) {
 			return LogFamilyPodLogs, true
 		}
+	}
+	// These are producer-contract keys rather than deployment identity. The same rule names
+	// the live capture and the values-elided corpus entry, so one additional `instance` key is
+	// compared within the lane instead of turning the whole lane into extra_log.
+	if has("action") && has("k8s_kind") {
+		return LogFamilyKubernetesManifests, true
+	}
+	if has("reason") && has("level") {
+		return LogFamilyKubernetesEvents, true
 	}
 	return "", false
 }
