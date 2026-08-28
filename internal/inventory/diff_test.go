@@ -102,6 +102,67 @@ func TestDiffUnexpectedLabelKeyDispositions(t *testing.T) {
 	}
 }
 
+func TestDiffSkipsLabelsForSharedLibraryMultiProducerFamilies(t *testing.T) {
+	for _, name := range []string{
+		"go_goroutines",
+		"process_cpu_seconds_total",
+		"rest_client_requests_total",
+	} {
+		t.Run(name, func(t *testing.T) {
+			findings := Diff(
+				metricSchema(Metric{
+					Name:            name,
+					InstrumentTypes: []string{InstrumentGauge},
+					Labels: []Attribute{
+						{Key: "job", Values: []string{"one"}},
+						{Key: "synth_producer", Values: []string{"one"}},
+					},
+				}),
+				metricSchema(Metric{
+					Name:            name,
+					InstrumentTypes: []string{InstrumentGauge},
+					Labels: []Attribute{
+						{Key: "job", Values: []string{"many"}},
+						{Key: "reality_producer", Values: []string{"many"}},
+					},
+				}),
+			)
+			if len(findings) != 0 {
+				t.Fatalf("findings=%+v, multi-producer union labels must not compare", findings)
+			}
+		})
+	}
+}
+
+func TestDiffSharedLibraryMultiProducerFamilyStillComparesInstrument(t *testing.T) {
+	findings := Diff(
+		metricSchema(Metric{
+			Name:            "go_goroutines",
+			InstrumentTypes: []string{InstrumentGauge},
+			Labels:          []Attribute{{Key: "synth_producer"}},
+		}),
+		metricSchema(Metric{
+			Name:            "go_goroutines",
+			InstrumentTypes: []string{InstrumentCounter},
+			Labels:          []Attribute{{Key: "reality_producer"}},
+		}),
+	)
+	if len(findings) != 2 {
+		t.Fatalf("findings=%+v, want only the two directional instrument findings", findings)
+	}
+	assertFinding(t, findings, KindInstrumentMismatch, DispositionContradiction, "go_goroutines", "instrument_types")
+	assertFinding(t, findings, KindInstrumentMismatch, DispositionCoverageGap, "go_goroutines", "instrument_types")
+}
+
+func TestDiffNonSharedMetricStillComparesLabels(t *testing.T) {
+	findings := Diff(
+		metricSchema(Metric{Name: "application_process_state", Labels: []Attribute{{Key: "synth_only"}}}),
+		metricSchema(Metric{Name: "application_process_state", Labels: []Attribute{{Key: "reality_only"}}}),
+	)
+	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionContradiction, "application_process_state", "labels")
+	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionCoverageGap, "application_process_state", "labels")
+}
+
 func TestDiffLabelValuesCompareAsSubset(t *testing.T) {
 	for _, test := range []struct {
 		name      string

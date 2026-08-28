@@ -594,12 +594,14 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 		true,
 	)
 
-	synthKeys := sortedAttributeKeys(synth.labels)
-	realityKeys := sortedAttributeKeys(reality.labels)
-	appendDirectional(out, KindUnexpectedLabelKey, synth.name, "labels", synthKeys, realityKeys, true, true)
+	if !sharedLibraryMultiProducerFamily(synth.name) {
+		synthKeys := sortedAttributeKeys(synth.labels)
+		realityKeys := sortedAttributeKeys(reality.labels)
+		appendDirectional(out, KindUnexpectedLabelKey, synth.name, "labels", synthKeys, realityKeys, true, true)
 
-	for _, key := range intersection(synthKeys, realityKeys) {
-		appendLabelValueSubset(out, synth.name, "labels."+key, synth.labels[key], reality.labels[key])
+		for _, key := range intersection(synthKeys, realityKeys) {
+			appendLabelValueSubset(out, synth.name, "labels."+key, synth.labels[key], reality.labels[key])
+		}
 	}
 
 	// An empty bucket-bound set on either side is absent evidence, not a claim: a classic
@@ -611,6 +613,17 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 	if len(synthBounds) > 0 && len(realityBounds) > 0 {
 		appendDirectional(out, KindBucketBoundMismatch, synth.name, "histogram.bucket_bounds", formatBounds(synthBounds), formatBounds(realityBounds), true, true)
 	}
+}
+
+// sharedLibraryMultiProducerFamily identifies process-wide library metrics whose global family
+// name is emitted by many unrelated binaries in one capture. The v1alpha1 inventory merges those
+// producers before comparison and promotion elides the label values needed to split them again,
+// so the resulting label union cannot contradict any one modelled producer. Only label key/value
+// comparison is skipped; family presence, instrument and histogram evidence remain live.
+func sharedLibraryMultiProducerFamily(name string) bool {
+	return strings.HasPrefix(name, "go_") ||
+		strings.HasPrefix(name, "process_") ||
+		name == "rest_client_requests_total"
 }
 
 func histogramRepresentations(histogram histogramView) []string {
