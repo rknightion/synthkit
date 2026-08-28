@@ -777,13 +777,18 @@ func TestRequireToken(t *testing.T) {
 }
 
 func TestPublicReadinessOmitsOperationalDetails(t *testing.T) {
-	report := ReadinessReport{
-		Running: true, HTTPReady: true, Ready: false, LiveReady: false,
-		Blueprints:     BlueprintReadiness{Loaded: 2, Skipped: 1, Active: 1},
-		PersistedState: PersistedStateReadiness{Writable: false, Error: "secret filesystem path"},
-		Lanes:          []pushstatus.LaneStatus{{Name: "private-sink", LastError: "private endpoint failure"}},
-		Reasons:        []string{"private reason"},
-	}
+	report := EvaluateReadiness(ReadinessInput{
+		ProcessRunning:       true,
+		HTTPServing:          true,
+		Blueprints:           BlueprintReadiness{Loaded: 2, Skipped: 1, Active: 1},
+		PersistedState:       PersistedStateReadiness{Writable: false, Error: "secret filesystem path"},
+		LiveDeliveryExpected: true,
+		RequiredLanes:        []string{"private-sink"},
+		Lanes: []pushstatus.LaneStatus{{
+			Name: "private-sink", Configured: true, State: pushstatus.LaneNotAttempted,
+			LastError: "private endpoint failure",
+		}},
+	})
 	h := NewHandler(NewStore(filepath.Join(t.TempDir(), "state.json")), nil, "token").
 		SetStatus(StatusSources{Readiness: func() ReadinessReport { return report }})
 	rec := httptest.NewRecorder()
@@ -800,6 +805,17 @@ func TestPublicReadinessOmitsOperationalDetails(t *testing.T) {
 	for _, required := range []string{`"ready":false`, `"loaded":2`, `"writable":false`} {
 		if !strings.Contains(body, required) {
 			t.Errorf("public readiness missing %q: %s", required, body)
+		}
+	}
+	var public struct {
+		ReasonCodes []string `json:"reason_codes"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &public); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"persisted_state_not_writable", "delivery_not_attempted"} {
+		if !containsReason(public.ReasonCodes, want) {
+			t.Errorf("public readiness missing safe reason code %q: %s", want, body)
 		}
 	}
 }

@@ -25,6 +25,24 @@ type PersistedStateReadiness struct {
 	Error    string `json:"error"`
 }
 
+// ReadinessReasonCode is a stable, non-sensitive explanation suitable for the public probe.
+// Detailed authenticated reasons may include lane names and errors; these codes never do.
+type ReadinessReasonCode string
+
+const (
+	ReadinessProcessNotRunning         ReadinessReasonCode = "process_not_running"
+	ReadinessHTTPNotServing            ReadinessReasonCode = "http_not_serving"
+	ReadinessSetupRequired             ReadinessReasonCode = "setup_required"
+	ReadinessNoActiveBlueprint         ReadinessReasonCode = "no_active_blueprint"
+	ReadinessPersistedStateNotWritable ReadinessReasonCode = "persisted_state_not_writable"
+	ReadinessDeliveryNotReady          ReadinessReasonCode = "delivery_not_ready"
+	ReadinessDeliveryNotAttempted      ReadinessReasonCode = "delivery_not_attempted"
+	ReadinessDeliveryError             ReadinessReasonCode = "delivery_error"
+	ReadinessDeliveryStale             ReadinessReasonCode = "delivery_stale"
+	ReadinessLiveDeliveryDisabled      ReadinessReasonCode = "live_delivery_disabled"
+	ReadinessNoLiveDeliveryLane        ReadinessReasonCode = "no_live_delivery_lane"
+)
+
 // ReadinessInput is assembled at the composition root. The evaluator intentionally does not
 // depend on runner, HTTP, or store implementations: those layers supply their factual state and
 // retain their existing ownership boundaries.
@@ -35,6 +53,7 @@ type ReadinessInput struct {
 	Blueprints           BlueprintReadiness
 	PersistedState       PersistedStateReadiness
 	Lanes                []pushstatus.LaneStatus
+	RequiredLanes        []string
 	LiveDeliveryExpected bool
 }
 
@@ -52,10 +71,12 @@ type ReadinessReport struct {
 	PersistedState PersistedStateReadiness `json:"persisted_state"`
 	Lanes          []pushstatus.LaneStatus `json:"lanes"`
 	Reasons        []string                `json:"reasons"`
+	ReasonCodes    []ReadinessReasonCode   `json:"reason_codes"`
 }
 
 // ReadinessProbe is the credential-free healthcheck representation. It deliberately omits lane
-// names, endpoint errors, filesystem paths, and reason strings; authenticated operators get the
+// names, endpoint errors, filesystem paths, and detailed reason strings. Stable reason codes make
+// a failed probe diagnosable without exposing operational detail; authenticated operators get the
 // complete ReadinessReport through /control/status.
 type ReadinessProbe struct {
 	Running        bool               `json:"running"`
@@ -67,6 +88,7 @@ type ReadinessProbe struct {
 	PersistedState struct {
 		Writable bool `json:"writable"`
 	} `json:"persisted_state"`
+	ReasonCodes []ReadinessReasonCode `json:"reason_codes"`
 }
 
 func (r ReadinessReport) Probe() ReadinessProbe {
@@ -74,6 +96,7 @@ func (r ReadinessReport) Probe() ReadinessProbe {
 		Running: r.Running, HTTPReady: r.HTTPReady, Ready: r.Ready, LiveReady: r.LiveReady,
 		SetupRequired: r.SetupRequired,
 		Blueprints:    r.Blueprints,
+		ReasonCodes:   append([]ReadinessReasonCode{}, r.ReasonCodes...),
 	}
 	p.PersistedState.Writable = r.PersistedState.Writable
 	return p
@@ -92,24 +115,34 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 		PersistedState: in.PersistedState,
 		Lanes:          append([]pushstatus.LaneStatus{}, in.Lanes...),
 		Reasons:        []string{},
+		ReasonCodes:    []ReadinessReasonCode{},
+	}
+	seenCodes := map[ReadinessReasonCode]struct{}{}
+	addReason := func(code ReadinessReasonCode, reason string) {
+		report.Reasons = append(report.Reasons, reason)
+		if _, ok := seenCodes[code]; ok {
+			return
+		}
+		seenCodes[code] = struct{}{}
+		report.ReasonCodes = append(report.ReasonCodes, code)
 	}
 	if !report.Running {
-		report.Reasons = append(report.Reasons, "process is not running")
+		addReason(ReadinessProcessNotRunning, "process is not running")
 	}
 	if !report.HTTPReady {
-		report.Reasons = append(report.Reasons, "HTTP handler is not serving")
+		addReason(ReadinessHTTPNotServing, "HTTP handler is not serving")
 	}
 	if report.SetupRequired {
-		report.Reasons = append(report.Reasons, "no blueprints selected; setup required")
+		addReason(ReadinessSetupRequired, "no blueprints selected; setup required")
 	} else if report.Blueprints.Active <= 0 {
-		report.Reasons = append(report.Reasons, "no intended blueprint is active")
+		addReason(ReadinessNoActiveBlueprint, "no intended blueprint is active")
 	}
 	if !report.PersistedState.Writable {
 		reason := "persisted control state is not writable"
 		if report.PersistedState.Error != "" {
 			reason += ": " + report.PersistedState.Error
 		}
-		report.Reasons = append(report.Reasons, reason)
+		addReason(ReadinessPersistedStateNotWritable, reason)
 	}
 	if report.SetupRequired {
 		report.LiveReady = false
@@ -118,11 +151,25 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 	}
 
 	liveLaneCount := 0
-	hasUnconfiguredLane := false
+	allRequiredReady := true
+	lanesByName := make(map[string]pushstatus.LaneStatus, len(report.Lanes))
 	for _, lane := range report.Lanes {
-		if !lane.Configured {
-			hasUnconfiguredLane = true
-			report.Reasons = append(report.Reasons, fmt.Sprintf("delivery lane %q is unconfigured", lane.Name))
+		lanesByName[lane.Name] = lane
+	}
+	seenRequired := make(map[string]struct{}, len(in.RequiredLanes))
+	for _, name := range in.RequiredLanes {
+		if name == "" {
+			continue
+		}
+		if _, seen := seenRequired[name]; seen {
+			continue
+		}
+		seenRequired[name] = struct{}{}
+		lane, present := lanesByName[name]
+		if !present || !lane.Configured {
+			liveLaneCount++
+			allRequiredReady = false
+			addReason(ReadinessDeliveryNotReady, fmt.Sprintf("delivery lane %q is unconfigured", name))
 			continue
 		}
 		if lane.Disabled {
@@ -130,22 +177,26 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 		}
 		liveLaneCount++
 		if !lane.LiveReady {
-			report.Reasons = append(report.Reasons, fmt.Sprintf("delivery lane %q is %s", lane.Name, lane.State))
+			allRequiredReady = false
+			code := ReadinessDeliveryNotReady
+			switch lane.State {
+			case pushstatus.LaneNotAttempted:
+				code = ReadinessDeliveryNotAttempted
+			case pushstatus.LaneError:
+				code = ReadinessDeliveryError
+			case pushstatus.LaneStaleSuccess:
+				code = ReadinessDeliveryStale
+			}
+			addReason(code, fmt.Sprintf("delivery lane %q is %s", lane.Name, lane.State))
 		}
 	}
 	if !in.LiveDeliveryExpected {
-		report.Reasons = append(report.Reasons, "live delivery is disabled")
+		addReason(ReadinessLiveDeliveryDisabled, "live delivery is disabled")
 	} else if liveLaneCount == 0 {
-		report.Reasons = append(report.Reasons, "no live delivery lane is configured")
+		addReason(ReadinessNoLiveDeliveryLane, "no live delivery lane is configured")
 	}
 
-	report.LiveReady = in.LiveDeliveryExpected && liveLaneCount > 0 && !hasUnconfiguredLane
-	for _, lane := range report.Lanes {
-		if lane.Configured && !lane.Disabled && !lane.LiveReady {
-			report.LiveReady = false
-			break
-		}
-	}
+	report.LiveReady = in.LiveDeliveryExpected && liveLaneCount > 0 && allRequiredReady
 	report.Ready = report.Running && report.HTTPReady && report.Blueprints.Active > 0 && report.PersistedState.Writable && report.LiveReady
 	return report
 }

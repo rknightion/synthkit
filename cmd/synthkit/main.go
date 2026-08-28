@@ -599,6 +599,11 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	adapter := &blueprintAdminAdapter{mgr: mgr, sc: sc}
 	readiness := func() control.ReadinessReport {
 		persist := store.PersistHealth()
+		deliveryLanes := r.DeliveryReadinessLanes()
+		requiredLanes := make([]string, 0, len(deliveryLanes))
+		for _, lane := range deliveryLanes {
+			requiredLanes = append(requiredLanes, lane.Name)
+		}
 		return control.EvaluateReadiness(control.ReadinessInput{
 			ProcessRunning: true,
 			HTTPServing:    true,
@@ -610,6 +615,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 				Writable: persist.LastOKMs > 0 && persist.LastError == "", Error: persist.LastError,
 			},
 			Lanes:                ps.SnapshotLanes(),
+			RequiredLanes:        requiredLanes,
 			LiveDeliveryExpected: !cfg.DryRun,
 		})
 	}

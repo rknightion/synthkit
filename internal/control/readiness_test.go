@@ -16,6 +16,7 @@ func TestEvaluateReadinessFreshLaneIsRedUntilFirstSuccess(t *testing.T) {
 		Blueprints:           BlueprintReadiness{Loaded: 2, Skipped: 1, Active: 2},
 		PersistedState:       PersistedStateReadiness{Writable: true},
 		LiveDeliveryExpected: true,
+		RequiredLanes:        []string{"promrw"},
 		Lanes: []pushstatus.LaneStatus{{
 			Name: "promrw", Configured: true, State: pushstatus.LaneNotAttempted,
 		}},
@@ -38,6 +39,7 @@ func TestEvaluateReadinessBecomesGreenAfterAllLiveLanesSucceed(t *testing.T) {
 		Blueprints:           BlueprintReadiness{Loaded: 1, Active: 1},
 		PersistedState:       PersistedStateReadiness{Writable: true},
 		LiveDeliveryExpected: true,
+		RequiredLanes:        []string{"loki", "promrw"},
 		Lanes: []pushstatus.LaneStatus{
 			{Name: "promrw", Configured: true, State: pushstatus.LaneSuccess, LiveReady: true},
 			{Name: "loki", Configured: true, State: pushstatus.LaneSuccess, LiveReady: true},
@@ -75,6 +77,7 @@ func TestEvaluateReadinessRejectsNoActiveBlueprintAndUnwritableState(t *testing.
 		Blueprints:           BlueprintReadiness{Loaded: 3, Skipped: 2, Active: 0},
 		PersistedState:       PersistedStateReadiness{Writable: false, Error: "permission denied"},
 		LiveDeliveryExpected: true,
+		RequiredLanes:        []string{"promrw"},
 		Lanes:                []pushstatus.LaneStatus{{Name: "promrw", Configured: true, State: pushstatus.LaneSuccess, LiveReady: true}},
 	})
 	if got.Ready {
@@ -92,6 +95,7 @@ func TestEvaluateReadinessMarksDryRunAsConfiguredButNotLiveReady(t *testing.T) {
 		Blueprints:           BlueprintReadiness{Loaded: 1, Active: 1},
 		PersistedState:       PersistedStateReadiness{Writable: true},
 		LiveDeliveryExpected: false,
+		RequiredLanes:        []string{"promrw"},
 		Lanes: []pushstatus.LaneStatus{{
 			Name: "promrw", Configured: true, Disabled: true, DisabledReason: "dry_run", State: pushstatus.LaneDisabled,
 		}},
@@ -101,20 +105,22 @@ func TestEvaluateReadinessMarksDryRunAsConfiguredButNotLiveReady(t *testing.T) {
 	}
 }
 
-func TestEvaluateReadinessRejectsObservedUnconfiguredLane(t *testing.T) {
+func TestEvaluateReadinessUsesActiveBlueprintFeedsAsDenominator(t *testing.T) {
 	got := EvaluateReadiness(ReadinessInput{
 		ProcessRunning:       true,
 		HTTPServing:          true,
 		Blueprints:           BlueprintReadiness{Loaded: 1, Active: 1},
 		PersistedState:       PersistedStateReadiness{Writable: true},
 		LiveDeliveryExpected: true,
+		RequiredLanes:        []string{"promrw"},
 		Lanes: []pushstatus.LaneStatus{
 			{Name: "promrw", Configured: true, State: pushstatus.LaneSuccess, LiveReady: true},
-			{Name: "unexpected", Configured: false, State: pushstatus.LaneUnconfigured},
+			{Name: "otlplogs", Configured: true, State: pushstatus.LaneNotAttempted},
+			{Name: "historical", Configured: false, State: pushstatus.LaneUnconfigured},
 		},
 	})
-	if got.Ready || got.LiveReady || !containsReason(got.Reasons, "unconfigured") {
-		t.Fatalf("unconfigured observed lane must fail readiness: %+v", got)
+	if !got.Ready || !got.LiveReady || containsReason(got.Reasons, "otlplogs") || containsReason(got.Reasons, "historical") {
+		t.Fatalf("lane outside the current active-blueprint denominator held readiness red: %+v", got)
 	}
 }
 

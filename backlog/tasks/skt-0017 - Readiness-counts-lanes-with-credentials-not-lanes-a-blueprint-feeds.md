@@ -1,9 +1,11 @@
 ---
 id: SKT-0017
 title: 'Readiness counts lanes with credentials, not lanes a blueprint feeds'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-08-28 18:24'
+updated_date: '2026-08-28 21:12'
 labels: []
 dependencies: []
 priority: high
@@ -51,3 +53,15 @@ Do not fix this by dropping `not_attempted` to a pass. A lane that a loaded blue
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add failing readiness tests proving an observed historical lane outside the current active-blueprint denominator is ignored, while a currently configured not_attempted lane stays red. 2. Add a failing public-probe test for stable sanitized reason codes that expose the readiness gate without lane names, endpoints, paths, or raw errors. 3. Make the smallest internal/control change, retain runner-driven dynamic recomputation, and run focused control/runner/pushstatus tests. 4. Run CodeRabbit before the code commit, then the task gates and exact-SHA CI before finalization.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+TDD evidence: before the fix, TestEvaluateReadinessUsesActiveBlueprintFeedsAsDenominator failed because a credential-configured otlplogs lane outside RequiredLanes remained not_attempted and held readiness red. The public-probe test also failed because no safe reason codes were present. The implementation now passes an explicit RequiredLanes list derived fresh from Runner.DeliveryReadinessLanes() on every readiness request; only those active feeds form the denominator. Required lanes missing from status or not yet successful remain red. Public /control/readiness exposes deduplicated non-sensitive reason_codes, including delivery_not_attempted/error/stale, while still omitting lane names, endpoint errors, paths, and detailed reasons. Existing SetChangeObserver reconfigures pushstatus freshness on runtime control changes, and the per-request RequiredLanes derivation prevents a stale cached denominator. CodeRabbit first pass raised one major ambiguity about relying on Configured as an implicit active-feed signal; addressed with the explicit RequiredLanes seam. Second pass reviewed all five code/test files and raised 0 issues. Focused control/runner/pushstatus/cmd tests passed. make gate passed. The literal DOD dump command selected no blueprints and produced setup-only empty inventory, so it was not counted; rerunning with BLUEPRINT_NAMES=k8s-full-stack passed and exercised 1,137 metric families plus Loki, OTLP logs, traces, and profiles, including eight dry-run otlplogs pushes. make blueprint-schema is not applicable because no blueprint field or construct/workload config struct changed.
+<!-- SECTION:NOTES:END -->
