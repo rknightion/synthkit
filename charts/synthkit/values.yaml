@@ -19,7 +19,7 @@ image:
   repository: ghcr.io/rknightion/synthkit
   # Empty tag falls back to Chart.appVersion. Image tags are bare X.Y.Z; Git release tags carry
   # the leading v.
-  tag: ""
+  tag: "@sha256:0ddf2e621d7a0023c058d39e366de4aa00fc947ca748cf31f6a4399a2069525f"
   # PREFERRED for standing deployments: the verified multi-platform index digest, e.g.
   # "sha256:0000…". When set it wins over tag and the reference becomes repository@digest.
   digest: ""
