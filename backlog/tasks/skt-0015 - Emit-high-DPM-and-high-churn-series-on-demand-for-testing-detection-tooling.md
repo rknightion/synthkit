@@ -1,10 +1,10 @@
 ---
 id: SKT-0015
 title: 'Emit high-DPM and high-churn series on demand, for testing detection tooling'
-status: Done
+status: In Progress
 assignee: []
 created_date: '2026-08-28 08:56'
-updated_date: '2026-08-28 11:41'
+updated_date: '2026-08-28 13:56'
 labels: []
 dependencies: []
 priority: high
@@ -62,6 +62,8 @@ Root implements the epic sequentially: .01 per-blueprint fast cadence with a fix
 
 <!-- SECTION:NOTES:BEGIN -->
 Final evidence: SKT-0015.01-.03 are complete. The reference blueprint projects 115 series at 6 DPM and 690 data points/minute with declarable topology churn; non-opted blueprints retain the default floor. make blueprint-schema, targeted/full-catalog inventories, report-only fidelity and the integrated make gate passed. Fidelity delta versus baseline: extra_metric 466 to 411, unexpected-label coverage 87 to 86, contradictions 69 to 68; instrument_mismatch 103 and extra_log 2 unchanged.
+
+2026-08-28: reopened. Two decisions taken after the first three subtasks landed add SKT-0015.04 (high_dpm must be a floor, not a forced cadence) and SKT-0015.05 (pod lifecycle churn, since edge churn alone is too narrow for the detectors this epic exists to test).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
