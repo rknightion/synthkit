@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 07:06'
-updated_date: '2026-08-27 07:47'
+updated_date: '2026-08-28 10:07'
 labels: []
 dependencies: []
 priority: high
@@ -76,11 +76,11 @@ Note for whoever runs it: AWS SSO was expired on the authoring machine on 2026-0
 
 STACK TOPOLOGY, confirmed by Rob 2026-08-27 — orientation for whoever runs this round.
 
-Two existing stacks with distinct roles. The lab/staff stack holds the REAL data: source of truth for live captures, signals/ provenance and the reality-corpus read-back. A second, dedicated synthkit stack is the EMISSION-TEST target: where you check what synthkit output looks like once it lands in Grafana Cloud, usually deployed there from the jules host, which already holds the credentials (a local deploy works too).
+Two existing stacks with distinct roles. The lab/staff stack holds the REAL data: source of truth for live captures, signals/ provenance and the reality-corpus read-back. A second, dedicated synthkit stack is the EMISSION-TEST target: where you check what synthkit output looks like once it lands in Grafana Cloud, usually deployed there from the dedicated deployment host, which already holds the credentials (a local deploy works too).
 
 Why this round still needs a THIRD, FRESH stack rather than reusing the emission-test one: the emission-test stack has accumulated dashboards, folders and datasource structure over months. That is exactly what hides the defect class group G5 exists to find — anything synthkit needs on a stack but does not itself create. A stack that already has the structure cannot reveal a missing-structure defect.
 
 So the division for this round: the fresh stack is the one-off cold-start test, and the existing emission-test stack remains the everyday check for whether emission looks right. Do not substitute one for the other.
 
-Credentials for the emission path already exist on jules if a comparison against the established stack is useful mid-round.
+Credentials for the emission path already exist on that deployment host if a comparison against the established stack is useful mid-round.
 <!-- SECTION:NOTES:END -->
