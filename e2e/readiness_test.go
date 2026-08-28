@@ -22,6 +22,9 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	tcnetwork "github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	e2einventory "github.com/rknightion/synthkit/e2e/inventory"
+	"github.com/rknightion/synthkit/internal/inventory"
 )
 
 const (
@@ -100,7 +103,7 @@ func TestDockerReadinessFreshDryRunReturns503(t *testing.T) {
 
 func TestDockerReadinessUnwritablePersistedStateReturns503(t *testing.T) {
 	ctx := context.Background()
-	net, receiverURL, testTLS := startReadinessReceiver(t, ctx)
+	net, receiverURL, _, testTLS := startReadinessReceiver(t, ctx)
 
 	synth, baseURL, client := startReadinessSynthkit(t, ctx, net, &readinessSink{
 		baseURL: receiverURL,
@@ -135,7 +138,7 @@ func TestDockerReadinessUnwritablePersistedStateReturns503(t *testing.T) {
 
 func TestDockerReadinessTransitionsAfterFakeSinkDelivery(t *testing.T) {
 	ctx := context.Background()
-	net, receiverURL, testTLS := startReadinessReceiver(t, ctx)
+	net, receiverURL, _, testTLS := startReadinessReceiver(t, ctx)
 
 	synth, baseURL, client := startReadinessSynthkit(t, ctx, net, &readinessSink{
 		baseURL: receiverURL,
@@ -181,7 +184,7 @@ func TestDockerReadinessTransitionsAfterFakeSinkDelivery(t *testing.T) {
 
 func TestDockerReadinessObservesOTLPLogsLiveDelivery(t *testing.T) {
 	ctx := context.Background()
-	net, receiverURL, testTLS := startReadinessReceiver(t, ctx)
+	net, receiverURL, receiver, testTLS := startReadinessReceiver(t, ctx)
 
 	synth, baseURL, client := startReadinessSynthkitForBlueprint(t, ctx, "k8s-full-stack", net, &readinessSink{
 		baseURL: receiverURL,
@@ -194,13 +197,27 @@ func TestDockerReadinessObservesOTLPLogsLiveDelivery(t *testing.T) {
 	report := waitForDetailedReadiness(t, ctx, client, baseURL, func(report readinessReport) bool {
 		for _, lane := range report.Lanes {
 			if lane.Name == "otlplogs" {
-				return lane.Attempted && lane.State == "success" && lane.LiveReady
+				return lane.Attempted && lane.State == "success" && lane.LiveReady && report.Ready && report.LiveReady
 			}
 		}
 		return false
 	})
 	if !report.Ready || !report.LiveReady {
 		t.Fatalf("OTLP-logs delivery should satisfy the live-delivery gate: %+v", report)
+	}
+	received := fetchPublishedInventory(t, ctx, receiver, testTLS)
+	if got := e2einventory.ReceiptCount(received, inventory.TransportOTLPLogs); got <= 0 {
+		t.Fatalf("receiver OTLP-log receipt count = %d, want > 0", got)
+	}
+	foundLog := false
+	for _, log := range received.Logs {
+		if log.Transport == inventory.TransportOTLPLogs {
+			foundLog = true
+			break
+		}
+	}
+	if !foundLog {
+		t.Fatalf("receiver decoded no OTLP log record: %+v", received.Logs)
 	}
 }
 
@@ -324,7 +341,7 @@ func startReadinessSynthkitForBlueprint(
 	return c, fmt.Sprintf("http://%s:%s", host, port.Port()), client
 }
 
-func startReadinessReceiver(t *testing.T, ctx context.Context) (*testcontainers.DockerNetwork, string, generatedTLS) {
+func startReadinessReceiver(t *testing.T, ctx context.Context) (*testcontainers.DockerNetwork, string, testcontainers.Container, generatedTLS) {
 	t.Helper()
 	testTLS := newTestTLS(t)
 
@@ -362,7 +379,7 @@ func startReadinessReceiver(t *testing.T, ctx context.Context) (*testcontainers.
 	if err != nil {
 		t.Fatalf("start readiness receiver: %v", err)
 	}
-	return net, "https://receiver:9099", testTLS
+	return net, "https://receiver:9099", receiverC, testTLS
 }
 
 func getReadiness(ctx context.Context, client *http.Client, baseURL string) (int, readinessReport, string, error) {
