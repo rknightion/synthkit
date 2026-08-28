@@ -67,6 +67,9 @@ func ParseDump(r io.Reader) (Schema, error) {
 		case strings.HasPrefix(line, "== metrics: series"):
 			section = "metrics"
 			continue
+		case strings.HasPrefix(line, "== otlp metrics: series"):
+			section = "otlp_metrics"
+			continue
 		case strings.HasPrefix(line, "== logs:"):
 			section = "logs"
 			continue
@@ -79,7 +82,7 @@ func ParseDump(r io.Reader) (Schema, error) {
 		case strings.HasPrefix(line, "=== PYROSCOPE ==="):
 			section = "profiles"
 			continue
-		case strings.HasPrefix(line, "== metrics:") || strings.HasPrefix(line, "=== PYROSCOPE:"):
+		case strings.HasPrefix(line, "== metrics:") || strings.HasPrefix(line, "== otlp metrics:") || strings.HasPrefix(line, "=== PYROSCOPE:"):
 			section = ""
 			continue
 		}
@@ -87,24 +90,22 @@ func ParseDump(r io.Reader) (Schema, error) {
 			continue
 		}
 		switch section {
-		case "metrics":
+		case "metrics", "otlp_metrics":
 			i := strings.Index(line, "  {[")
 			if i < 0 {
 				continue
 			}
 			name := strings.TrimSpace(line[:i])
 			labels := keyMap(bracketList(strings.TrimSuffix(strings.TrimPrefix(line[i:], "  {"), "}")))
-			instrument := canonical.InstrumentUnknown
-			var histogram *canonical.Histogram
-			// The text dump carries no instrument kind, so a component suffix is the only
-			// classic-histogram signal it has. The fold rule itself is the shared one, so this
-			// adapter cannot drift from the other inventory producers.
-			if family, folded := canonical.ClassicHistogramFamily(name); folded {
-				name = family
-				instrument = canonical.InstrumentHistogram
-				histogram = &canonical.Histogram{Classic: true}
+			// The text dump carries label keys but no instrument kind. Record the raw names
+			// first; once the complete dump has been read, `le` proves which component names
+			// belong to real classic histograms. A suffix alone is not evidence because
+			// CloudWatch five-stat gauges legitimately end in `_sum` and `_sample_count`.
+			transport := canonical.TransportPrometheusRW2
+			if section == "otlp_metrics" {
+				transport = canonical.TransportOTLPMetrics
 			}
-			out.AddMetric(name, canonical.TransportPrometheusRW2, instrument, labels, histogram)
+			out.AddMetric(name, transport, canonical.InstrumentUnknown, labels, nil)
 		case "logs":
 			i := strings.Index(line, "  stream=[")
 			if i < 0 {
@@ -147,6 +148,6 @@ func ParseDump(r io.Reader) (Schema, error) {
 	if err := sc.Err(); err != nil {
 		return out, fmt.Errorf("scan dump: %w", err)
 	}
-	out.Normalize()
+	out = canonical.FoldClassicHistogramMetrics(out)
 	return out, nil
 }

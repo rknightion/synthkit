@@ -47,6 +47,44 @@ func TestParseDumpIntoCanonicalSchema(t *testing.T) {
 	}
 }
 
+func TestParseDumpFoldsOnlyProvenClassicHistogramFamilies(t *testing.T) {
+	dump := `== metrics: series name → label keys ==
+aws_rds_cpuutilization_sum  {[region]}
+aws_rds_cpuutilization_sample_count  {[region]}
+request_duration_seconds_bucket  {[job le]}
+request_duration_seconds_sum  {[job]}
+request_duration_seconds_count  {[job]}
+== metrics: 5 distinct series names ==
+
+== otlp metrics: series name → attribute keys ==
+http.server.active_requests  {[http.request.method service.name url.scheme]}
+http.server.request.duration  {[http.request.method http.route http.response.status_code service.name]}
+== otlp metrics: 2 distinct series names ==
+`
+	schema, err := ParseDump(strings.NewReader(dump))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{
+		"aws_rds_cpuutilization_sample_count",
+		"aws_rds_cpuutilization_sum",
+		"http.server.active_requests",
+		"http.server.request.duration",
+		"request_duration_seconds",
+	}
+	got := make([]string, 0, len(schema.Metrics))
+	for _, metric := range schema.Metrics {
+		got = append(got, metric.Name)
+	}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("metric names=%v, want %v", got, want)
+	}
+	if histogram := schema.Metrics[4].Histogram; histogram == nil || !histogram.Classic {
+		t.Fatalf("proved classic histogram lost its representation: %#v", schema.Metrics[4])
+	}
+}
+
 func TestSubsetReportsMissingMetric(t *testing.T) {
 	expected, err := ParseDump(strings.NewReader(sampleDump))
 	if err != nil {

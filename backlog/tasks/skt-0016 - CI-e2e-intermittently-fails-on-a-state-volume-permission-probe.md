@@ -1,10 +1,11 @@
 ---
 id: SKT-0016
 title: 'CI e2e fails: 131 CloudWatch families declared by -dump are never received'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-08-28 09:03'
-updated_date: '2026-08-28 13:48'
+updated_date: '2026-08-28 14:29'
 labels: []
 dependencies: []
 priority: high
@@ -54,10 +55,25 @@ Reproduce with `make e2e` before proposing a cause. `e2e/` is `//go:build e2e` s
 - [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add a failing ParseDump regression test proving CloudWatch five-stat _sum and _sample_count names remain independent while a bucket carrying le still proves and folds a real classic histogram.
+2. Change ParseDump to record raw metric names and apply the shared proof-gated fold once after the complete dump is parsed.
+3. Run focused inventory tests, make e2e, the task DoD checks, and review the final diff.
+4. Run CodeRabbit, stage only explicit Lane A paths, commit and push to main, then confirm exact-SHA ci including e2e and ci-success before any other lane starts.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-08-28 wave covering check: exact-SHA CI run 33168159591 at 6e74d7ee62d8c3a02209de5c4bb093b069843440 failed only in e2e job 98839548298. TestDockerE2E logged control persist and startup state-volume probe failures for both ./.control-state-3038999027.tmp and /app/.control-state-3794945131.tmp with permission denied; the remaining exact-SHA jobs passed. This matches the pre-existing intermittent state-volume permission failure and is outside the OTLP/high-DPM wave. Resume at AC #1: run make e2e locally more than once until the failure is reproduced, then inspect the failing container image runtime UID/GID, working directory, configured control-state path, mount target, and directory ownership before changing code. Do not weaken the startup writability probe.
 
 2026-08-28 correction: the original description and acceptance criteria were WRONG and have been replaced. They read the readiness_test.go synthkit-readiness-unwritable negative test's expected permission-denied output as the failure. The real assertion is the -dump-vs-receiver subset correlation, constant at 648 received / 646 expected / 131 missing across 4fa184e6, c2c5ae0f, 10197de6, 6e74d7ee and 29a6facf. Not intermittent; regressed at 4fa184e. All 131 are CloudWatch aws_* families in <name> / <name>_sample pairs.
+
+2026-08-28 Lane A root start at 537b169. Corrected task and goal read in full. Beginning required local make e2e reproduction before proposing or implementing a cause; pre-existing untracked runtime/ remains untouched.
+
+Required local reproduction observed before diagnosis: make e2e failed TestDockerE2E with received=648 metrics, expected=646, declared-but-not-received=131. The deliberate synthkit-readiness-unwritable permission-denied test passed. Missing entries are the recorded CloudWatch name/name_sample pairs plus storage_operation_duration_seconds.
+
+Lane A implementation evidence: the regression test first failed with invented families aws_rds_cpuutilization and aws_rds_cpuutilization_sample, then passed after ParseDump moved to proof-gated end-of-window folding. A bidirectional e2e assertion then exposed two receiver-only native OTLP families; -dump now includes canonical OTLP metric names and attributes. Final local make e2e: received=648 metric families and expected=648, with both subset directions empty; all readiness tests passed. make gate passed. All-blueprint -dump exited 0. Fidelity stayed at the section 2 baseline: gaps extra_metric=411, instrument_mismatch=103, unexpected_label_key=86, extra_log=2; contradictions unexpected_label_key=64, label_value=4. make blueprint-schema skipped because no blueprint field or construct/workload config changed. CodeRabbit completed with one minor tracker-Markdown suggestion dismissed because applying it would require the prohibited plan replacement; hygiene is green and code/acceptance are unaffected.
 <!-- SECTION:NOTES:END -->

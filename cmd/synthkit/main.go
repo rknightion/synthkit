@@ -320,7 +320,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		sigilSink = s
 		sinks.Sigil = s
 	}
-	if inventoryJSON {
+	if inventoryJSON || dump {
 		prom.Capture = true
 		lokiSink.Capture = true
 		otlpSink.Capture = true
@@ -575,7 +575,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			return err
 		}
 		if dump {
-			printInventory(prom, lokiSink, otlpSink, otlpLogsSink, profSink, sigilSink)
+			printInventory(prom, lokiSink, otlpSink, otlpMetricsSink, otlpLogsSink, profSink, sigilSink)
 		}
 		if inventoryJSON {
 			schema := withSynthProvenance(inventory.FromSinks(prom, lokiSink, otlpSink, otlpMetricsSink, otlpLogsSink, profSink, sigilSink))
@@ -779,7 +779,7 @@ func healthReport(rep healthstatus.Report) healthPayload {
 // printInventory prints the FULL distinct series-name + label-key inventory (I32 —
 // never just batch[0]) for offline diff against signals/. Explicit stdout writes;
 // never redirect generator output into an artifact (I28).
-func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink, otlpLogsSink *otlp.LogsSink, profSink *pyroscope.Sink, sigilSink *sigilsink.Sink) {
+func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink, otlpMetricsSink *otlp.MetricsSink, otlpLogsSink *otlp.LogsSink, profSink *pyroscope.Sink, sigilSink *sigilsink.Sink) {
 	fmt.Println("== metrics: series name → label keys ==")
 	inv := prom.Inventory()
 	names := make([]string, 0, len(inv))
@@ -791,6 +791,19 @@ func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink,
 		fmt.Printf("%s  {%v}\n", n, inv[n])
 	}
 	fmt.Printf("== metrics: %d distinct series names ==\n\n", len(names))
+
+	if otlpMetricsSink != nil {
+		metricInv := inventory.FromSinks(nil, nil, nil, otlpMetricsSink, nil, nil, nil)
+		fmt.Println("== otlp metrics: series name → attribute keys ==")
+		for _, metric := range metricInv.Metrics {
+			keys := make([]string, 0, len(metric.Labels))
+			for _, attr := range metric.Labels {
+				keys = append(keys, attr.Key)
+			}
+			fmt.Printf("%s  {%v}\n", metric.Name, keys)
+		}
+		fmt.Printf("== otlp metrics: %d distinct series names ==\n\n", len(metricInv.Metrics))
+	}
 
 	streamInv, metaInv := lokiSink.Inventory()
 	fmt.Println("== logs: source → stream labels / structured metadata ==")

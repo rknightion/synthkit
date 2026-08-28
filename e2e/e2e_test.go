@@ -223,24 +223,35 @@ func TestDockerE2E(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&received); err != nil {
 		t.Fatalf("decode inventory JSON: %v", err)
 	}
-	t.Logf("received: %d metrics, %d log sources, %d trace services, %d sigil kinds",
-		len(received.Metrics), len(received.Logs), len(received.Traces), len(received.Sigil))
+	t.Logf("received: %d metric families (%d transport entries), %d log sources, %d trace services, %d sigil kinds",
+		metricFamilyCount(received), len(received.Metrics), len(received.Logs), len(received.Traces), len(received.Sigil))
 
 	// ── 4. Build the expected schema from -dump on the host ───────────────────
 	expected := dumpSchema(t)
-	t.Logf("expected (from -dump): %d metrics, %d log sources, %d trace services, %d sigil kinds",
-		len(expected.Metrics), len(expected.Logs), len(expected.Traces), len(expected.Sigil))
+	t.Logf("expected (from -dump): %d metric families (%d transport entries), %d log sources, %d trace services, %d sigil kinds",
+		metricFamilyCount(expected), len(expected.Metrics), len(expected.Logs), len(expected.Traces), len(expected.Sigil))
 
-	// ── 5. Correlation: every -dump-declared name must be present in received ──
-	// received is a SUPERSET (it also captures native OTLP metric names not in
-	// -dump); Subset only checks expected ⊆ received, so extras are fine.
+	// ── 5. Correlation: receiver and -dump must declare the same identities ────
 	missing := expected.Subset(received)
 	if len(missing) > 0 {
 		t.Fatalf("telemetry declared by -dump but NOT received (%d entries):\n  %s",
 			len(missing), strings.Join(missing, "\n  "))
 	}
+	unexpected := received.Subset(expected)
+	if len(unexpected) > 0 {
+		t.Fatalf("telemetry received but NOT declared by -dump (%d entries):\n  %s",
+			len(unexpected), strings.Join(unexpected, "\n  "))
+	}
 	t.Logf("PASS: all %d declared metrics + %d log sources + %d trace services + %d sigil kinds received",
-		len(expected.Metrics), len(expected.Logs), len(expected.Traces), len(expected.Sigil))
+		metricFamilyCount(expected), len(expected.Logs), len(expected.Traces), len(expected.Sigil))
+}
+
+func metricFamilyCount(schema inventory.Schema) int {
+	families := make(map[string]struct{}, len(schema.Metrics))
+	for _, metric := range schema.Metrics {
+		families[metric.Name] = struct{}{}
+	}
+	return len(families)
 }
 
 type generatedTLS struct {
