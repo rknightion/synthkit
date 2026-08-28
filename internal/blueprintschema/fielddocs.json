@@ -28,6 +28,7 @@
   "github.com/rknightion/synthkit/internal/blueprint.Decl.Label": "sink-stamped selector; defaults to Name",
   "github.com/rknightion/synthkit/internal/blueprint.Decl.Metadata": "optional human-facing annotation (UI only)",
   "github.com/rknightion/synthkit/internal/blueprint.Decl.Regions": "follow-the-sun multi-tz composite (mutually exclusive with timezone)",
+  "github.com/rknightion/synthkit/internal/blueprint.Decl.SeriesBudget": "fixed one-minute per-blueprint data-point allowance; <=0 is unlimited",
   "github.com/rknightion/synthkit/internal/blueprint.Decl.Shape": "default shape profile",
   "github.com/rknightion/synthkit/internal/blueprint.Decl.Timezone": "business-hours anchor (default Europe/Zurich)",
   "github.com/rknightion/synthkit/internal/blueprint.EffectDecl.Intensity": "[0,1]; default 1.0 when <= 0",

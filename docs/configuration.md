@@ -63,7 +63,8 @@ RUM is disabled when either variable is empty.
 |---|---|---|
 | `DRY_RUN` | `true` | Set to `false` to push live data. **Defaults to `true`** — live push is always opt-in. |
 | `TICK_DEFAULT` | `5s` | Master-clock cadence. Go duration string (`5s`, `1m`, `30s`). All constructs tick at a multiple of this. |
-| `SERIES_CAP` | _(empty, unlimited)_ | Optional global per-push series backstop. Set a positive integer to cap how many series synthkit will push per tick across all sinks — a kill switch for runaway cardinality. |
+| `MAX_DPM_PER_SERIES` | `6` | Maximum per-series cadence an explicit blueprint `high_dpm.metric_interval` may request. The default permits a 10-second interval. This is a validation ceiling, not a series-count cap. |
+| `SERIES_CAP` | _(empty, unlimited)_ | Optional global per-push series backstop. Set a positive integer to truncate an individual metric push — a kill switch for runaway cardinality. It does not change cadence or enforce DPM per series. |
 | `BLUEPRINTS` | `./blueprints` | Directory containing available bundled-style `*.yaml` blueprints. In Docker Compose this is `/app/blueprints`. Availability does not enable emission. |
 | `BLUEPRINT_NAMES` | _(empty)_ | Runtime selection: empty/unset starts setup mode and emits nothing; a comma-separated exact-name list loads only those identities; `*` explicitly loads the complete available catalog. |
 | `JSON_HTTP_ADDR` | `127.0.0.1:8088` | Address the process binds for the control plane and Infinity JSON host. In Docker compose this is overridden to `0.0.0.0:8088` (bind all interfaces inside the container; host exposure is controlled by `SYNTHKIT_BIND`). |
@@ -71,6 +72,13 @@ RUM is disabled when either variable is empty.
 | `CONTROL_TOKEN` | _(empty)_ | HTTP Basic password (username `control`) for sensitive control/Infinity reads and all mutations. Empty is supported for loopback-only use. |
 | `CONTROL_EXPOSURE_ACK` | _(empty)_ | Required for non-loopback exposure: exactly `trusted-network` for an isolated plaintext path or `tls-proxy` for a trusted HTTPS proxy. Invalid non-empty values fail startup, including on loopback. |
 | `TICK_TIMEOUT` | _(empty, disabled)_ | Optional per-blueprint per-tick backstop in seconds (integer). Set `>0` only as a coarse safety net for a stuck tick. The per-sink 15 s HTTP timeout already bounds hung pushes under normal operation. |
+
+`SERIES_CAP` and `MAX_DPM_PER_SERIES` protect different dimensions. `SERIES_CAP` truncates the
+number of series in an individual push after a construct emits it. `MAX_DPM_PER_SERIES` bounds how
+often each series may be sampled when a blueprint explicitly declares `high_dpm.metric_interval`.
+It does not make a blueprint high-DPM on its own. The per-blueprint `series_budget` is separate again:
+it is a fixed one-minute data-point allowance, so a 115-series blueprint at 6 DPM needs a budget of
+at least 690 to sustain every scheduled sample.
 
 ---
 

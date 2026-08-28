@@ -75,11 +75,17 @@ problem without exposing remote response text.
 ## Series cap / kill switch
 
 !!! warning "SERIES_CAP truncates pushes globally"
-    When `SERIES_CAP` is set to a positive integer, synthkit will not push more than that many series per tick across all sinks. Cardinality above the cap is silently dropped.
+    When `SERIES_CAP` is set to a positive integer, synthkit truncates each metric push to that many
+    series. It is a per-push series backstop, not the DPM limiter. `MAX_DPM_PER_SERIES` is the separate
+    per-series cadence ceiling for an explicit `high_dpm.metric_interval`; changing `SERIES_CAP` does
+    not make a series arrive more or less often.
 
 **Symptom:** Some constructs have data, others do not — especially lower-priority or substrate constructs.
 
-**Fix:** Increase or unset `SERIES_CAP` in `.env`. If the cap is intentional, reduce the blueprint's declared constructs or tick cadence to stay under the limit.
+**Fix:** Increase or unset `SERIES_CAP` in `.env`. If the cap is intentional, reduce the blueprint's
+declared constructs. For a high-DPM blueprint, also check its fixed-minute `series_budget`: it must
+cover the projected series count multiplied by DPM per series. Startup and `/control/schema` expose
+that projection; `high-dpm-churn` is 115 projected series × 6 DPM = 690 data points per minute.
 
 ---
 

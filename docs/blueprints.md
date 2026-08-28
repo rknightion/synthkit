@@ -14,6 +14,13 @@ Set it to a comma-separated list of exact runtime identities to load only those 
 Decoding remains strict for every selected blueprint: any unknown top-level key, unknown construct
 kind, or unknown field inside a construct's config is a loud load error, not a silent ignore.
 
+!!! warning "The high-DPM reference is intentionally cost-bearing"
+    `high-dpm-churn` is a small detector-test blueprint, not a normal fidelity example. It projects
+    115 series at 6 DPM per series, or 690 data points per minute, and replaces one declared topology
+    edge identity per minute. Select it explicitly with `BLUEPRINT_NAMES=high-dpm-churn`. It is not
+    registered in the reality corpus because its deliberately over-scraped cadence is not collector
+    fidelity evidence. Startup logs and `/control/schema` report the resolved projection.
+
 ## Where blueprints come from
 
 - **Bundled:** files shipped in `BLUEPRINTS` are available on the next startup. In a checkout, copy
@@ -47,7 +54,8 @@ A blueprint has a small set of top-level keys that you control at the YAML level
 | `shape` | Default shape profile for the whole blueprint (e.g. `business_hours_plateau`). |
 | `timezone` | Business-hours anchor for the diurnal curve. Default `Europe/Zurich`. Mutually exclusive with `regions`. |
 | `regions` | Follow-the-sun multi-timezone composite: a list of `{name, timezone, weight}` entries. Mutually exclusive with `timezone`. |
-| `series_budget` | Optional per-blueprint series cap. |
+| `series_budget` | Optional per-blueprint data-point allowance for each fixed one-minute budget window. A high-DPM blueprint must fund repeated samples of the same series. |
+| `high_dpm.metric_interval` | Explicit cost-bearing override for every metric-bearing instance in this blueprint. Omit it to keep the default 60-second floor. |
 
 ### Environments
 

@@ -1,0 +1,31 @@
+# high-dpm-churn deliberately runs a small, existing metric catalogue at a faster scrape cadence.
+# It is a detector-test scenario, not a reality-corpus or fidelity reference.
+name: high-dpm-churn
+label: high-dpm-churn
+metadata:
+  description: "Cost-bearing detector test: 115 projected series at 10s cadence (6 DPM per series, 690 data points/minute) with one edge replacement per minute. Select this blueprint explicitly; it is not a reality-corpus or fidelity reference."
+  owner: network-observability
+  category: detector-test
+  tags: [network, topology, high-dpm, series-churn]
+  links:
+    signals: ./signals/nettopo.md
+series_budget: 690
+high_dpm:
+  metric_interval: 10s
+environments:
+  - name: detector-lab
+integrations:
+  network_topology:
+    enabled: true
+    instance: high-dpm-netobs:9100
+    job: integrations/network-topology-exporter
+    role: standalone
+    protocols: [lldp]
+    fabric:
+      kind: spine_leaf
+      spines: 1
+      leaves: 2
+      hosts_per_leaf: 0
+      vendor_mix: [arista]
+      site: detector-lab
+    series_churn_per_minute: 1

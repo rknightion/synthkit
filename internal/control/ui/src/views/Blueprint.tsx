@@ -412,12 +412,21 @@ function AttrChips(props: { m: MetaFields }): JSX.Element {
 // BpMeta renders the description + attr chips + per-env metadata (ported from renderBpMeta).
 function BpMeta(props: { m: BlueprintMetaInfo }): JSX.Element {
   const envs = createMemo(() => (props.m.environments ?? []).filter((e) => metaHasContent(e)));
-  const hasContent = createMemo(() => metaHasContent(props.m) || envs().length > 0);
+  const hasContent = createMemo(() => metaHasContent(props.m) || !!props.m.cost_projection || envs().length > 0);
   return (
     <Show when={hasContent()}>
       <div class="bpmeta">
         <Show when={props.m.description}>
           <div class="desc">{props.m.description}</div>
+        </Show>
+        <Show when={props.m.cost_projection}>
+          {(cost) => (
+            <div class="cost">
+              <b>Projected cost</b>
+              <span>{cost().unbounded ? "unbounded by series_budget" : `${cost().projected_series ?? 0} series · ${cost().projected_dpm ?? 0} data points/min`}</span>
+              <span>{cost().dpm_per_series} DPM/series · {cost().metric_interval} interval · {cost().metric_instances} metric instance{cost().metric_instances === 1 ? "" : "s"}</span>
+            </div>
+          )}
         </Show>
         <Show when={(props.m.tags?.length ?? 0) || props.m.owner || props.m.category || Object.keys(props.m.links ?? {}).length}>
           <div class="attrs">
@@ -479,6 +488,11 @@ const VIEW_CSS = `
 .bpmeta { background:var(--panel2); border:1px solid var(--bd); border-radius:12px;
   padding:14px 16px; margin:0 0 18px; }
 .bpmeta .desc { font-size:13px; color:var(--tx); line-height:1.55; margin-bottom:10px; }
+.bpmeta .cost { display:flex; flex-wrap:wrap; gap:7px 12px; align-items:baseline; margin:0 0 10px;
+  padding:8px 10px; border:1px solid var(--warnbd); border-radius:8px; background:var(--warnbg);
+  font-size:12px; color:var(--tx); }
+.bpmeta .cost b { color:var(--warn); }
+.bpmeta .cost span { font-family:var(--mono); }
 .bpmeta .attrs { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
 .bpmeta .tag { font:600 11px system-ui; padding:3px 9px; border-radius:20px; border:1px solid var(--bd);
   background:var(--panel); color:var(--dim); }

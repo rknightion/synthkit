@@ -3,7 +3,11 @@
 package runner
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"log"
+	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -506,6 +510,72 @@ func TestControlSchemaCarriesBlueprintMetadata(t *testing.T) {
 	}
 	if bm.Environments[1].Name != "staging" || bm.Environments[1].Description != "" {
 		t.Fatalf("staging env should have empty metadata: %+v", bm.Environments[1])
+	}
+}
+
+func TestHighDPMCostProjectionLoggedAndExposedInControlSchema(t *testing.T) {
+	r, _, _, _, _, _, _ := newTestRunner(t)
+	res := buildTestResolved("fast")
+	res.SeriesBudget = 690
+	res.HighDPM = &blueprint.ResolvedHighDPM{MetricInterval: 10 * time.Second}
+
+	var logs bytes.Buffer
+	previousLogWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousLogWriter) })
+	if err := r.AddBlueprint(res); err != nil {
+		t.Fatalf("AddBlueprint: %v", err)
+	}
+	if got := logs.String(); !strings.Contains(got, `high-DPM projection: metric_instances=3 metric_interval=10s projected_series=115 projected_dpm=690`) {
+		t.Fatalf("startup logs missing projection, got:\n%s", got)
+	}
+
+	sc := r.ControlSchema()
+	var bm *control.BlueprintMetaInfo
+	for i := range sc.BlueprintMeta {
+		if sc.BlueprintMeta[i].Name == "fast" {
+			bm = &sc.BlueprintMeta[i]
+			break
+		}
+	}
+	if bm == nil || bm.CostProjection == nil {
+		t.Fatalf("BlueprintMeta cost projection missing: %+v", sc.BlueprintMeta)
+	}
+	projection := bm.CostProjection
+	if projection.MetricInstances != 3 || projection.MetricInterval != "10s" ||
+		projection.DPMPerSeries != 6 || projection.ProjectedSeries != 115 || projection.ProjectedDPM != 690 || projection.Unbounded {
+		t.Fatalf("cost projection = %+v", projection)
+	}
+	payload, err := json.Marshal(bm)
+	if err != nil {
+		t.Fatalf("marshal blueprint metadata: %v", err)
+	}
+	for _, field := range []string{`"cost_projection"`, `"projected_series":115`, `"projected_dpm":690`} {
+		if !bytes.Contains(payload, []byte(field)) {
+			t.Errorf("control JSON %s missing %s", payload, field)
+		}
+	}
+}
+
+func TestHighDPMCostProjectionUsesPerWindowSampleCeiling(t *testing.T) {
+	r, _, _, _, _, _, _ := newTestRunner(t)
+	res := buildTestResolved("fast-odd-interval")
+	res.SeriesBudget = 60
+	res.HighDPM = &blueprint.ResolvedHighDPM{MetricInterval: 11 * time.Second}
+	if err := r.AddBlueprint(res); err != nil {
+		t.Fatalf("AddBlueprint: %v", err)
+	}
+
+	projection := r.bps[0].costProjection
+	if projection == nil {
+		t.Fatal("cost projection missing")
+	}
+	if projection.ProjectedSeries != 10 {
+		t.Fatalf("ProjectedSeries = %d, want 10 (60 budget / ceil(60s/11s))", projection.ProjectedSeries)
+	}
+	wantDPM := 10 * (60.0 / 11.0)
+	if math.Abs(projection.ProjectedDPM-wantDPM) > 1e-9 {
+		t.Fatalf("ProjectedDPM = %v, want average-rate value %v", projection.ProjectedDPM, wantDPM)
 	}
 }
 

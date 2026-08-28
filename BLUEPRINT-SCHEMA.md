@@ -26,7 +26,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `regions[].name` | string |  |  |
 | `regions[].timezone` | string |  |  |
 | `regions[].weight` | float |  |  |
-| `series_budget` | int |  |  |
+| `series_budget` | int |  | fixed one-minute per-blueprint data-point allowance; <=0 is unlimited |
 | `high_dpm` | object | yes | explicit opt-in to a per-blueprint metric cadence below the default floor |
 | `high_dpm.metric_interval` | string |  |  |
 | `environments[]` | object |  |  |

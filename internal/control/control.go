@@ -386,7 +386,20 @@ type EnvMetaInfo struct {
 type BlueprintMetaInfo struct {
 	Name string `json:"name"`
 	MetaFields
-	Environments []EnvMetaInfo `json:"environments,omitempty"`
+	Environments   []EnvMetaInfo            `json:"environments,omitempty"`
+	CostProjection *BlueprintCostProjection `json:"cost_projection,omitempty"`
+}
+
+// BlueprintCostProjection is the startup-known upper bound for an explicit high-DPM blueprint.
+// SeriesBudget is a fixed-minute data-point allowance, so dividing it by DPMPerSeries gives the
+// number of stable series that can sustain the requested cadence for the full minute.
+type BlueprintCostProjection struct {
+	MetricInstances int     `json:"metric_instances"`
+	MetricInterval  string  `json:"metric_interval"`
+	DPMPerSeries    float64 `json:"dpm_per_series"`
+	ProjectedSeries int     `json:"projected_series,omitempty"`
+	ProjectedDPM    float64 `json:"projected_dpm,omitempty"`
+	Unbounded       bool    `json:"unbounded,omitempty"`
 }
 
 // ConstructInfo is one construct instance in the schema, blueprint-qualified, with its enable state.

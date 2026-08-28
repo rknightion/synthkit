@@ -1,10 +1,10 @@
 ---
 id: SKT-0015
 title: 'Emit high-DPM and high-churn series on demand, for testing detection tooling'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-28 08:56'
-updated_date: '2026-08-28 10:11'
+updated_date: '2026-08-28 11:41'
 labels: []
 dependencies: []
 priority: high
@@ -37,19 +37,19 @@ Cardinality alone (many series at a normal cadence) is explicitly NOT the target
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A blueprint can opt in to sub-60s metric cadence, and blueprints that do not opt in are unaffected in the same process
-- [ ] #2 The maximum DPM per series is bounded by a configurable ceiling that defaults to 6 DPM (a 10-second interval)
-- [ ] #3 Series churn is declarable, so the active series set turns over at a chosen rate
-- [ ] #4 The per-blueprint series budget window is not silently rescaled by a lowered floor
-- [ ] #5 A reference blueprint exists that a user can run to exercise high-DPM detection, and its cost is stated where they will see it before running it
-- [ ] #6 Every place that documents the 60s floor as absolute is corrected to describe the opt-in override
+- [x] #1 A blueprint can opt in to sub-60s metric cadence, and blueprints that do not opt in are unaffected in the same process
+- [x] #2 The maximum DPM per series is bounded by a configurable ceiling that defaults to 6 DPM (a 10-second interval)
+- [x] #3 Series churn is declarable, so the active series set turns over at a chosen rate
+- [x] #4 The per-blueprint series budget window is not silently rescaled by a lowered floor
+- [x] #5 A reference blueprint exists that a user can run to exercise high-DPM detection, and its cost is stated where they will see it before running it
+- [x] #6 Every place that documents the 60s floor as absolute is corrected to describe the opt-in override
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
-- [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -57,3 +57,15 @@ Cardinality alone (many series at a normal cadence) is explicitly NOT the target
 <!-- SECTION:PLAN:BEGIN -->
 Root implements the epic sequentially: .01 per-blueprint fast cadence with a fixed one-minute series-budget window; .02 truthful lifecycle churn; .03 a small reference blueprint with projected-cost surfaces; then integrated schema, dump, fidelity and CI gates.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Final evidence: SKT-0015.01-.03 are complete. The reference blueprint projects 115 series at 6 DPM and 690 data points/minute with declarable topology churn; non-opted blueprints retain the default floor. make blueprint-schema, targeted/full-catalog inventories, report-only fidelity and the integrated make gate passed. Fidelity delta versus baseline: extra_metric 466 to 411, unexpected-label coverage 87 to 86, contradictions 69 to 68; instrument_mismatch 103 and extra_log 2 unchanged.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Delivered opt-in high-DPM and high-churn generation using the existing catalog, with a default 6-DPM ceiling, fixed-minute budget semantics, truthful series retirement, a small cost-labelled reference blueprint, and startup/control-plane cost projection.
+<!-- SECTION:FINAL_SUMMARY:END -->

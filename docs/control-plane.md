@@ -114,7 +114,7 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
 |---|---|
 | `GET /control/ui/` | Embedded operator UI (SPA). Redirect from `/control/ui`. |
 | `GET /control/readiness` | Public sanitized readiness probe: process, HTTP, blueprint counts, and state-writable boolean only. |
-| `GET /control/schema` | Blueprint-derived schema: all modes, addressable targets, scenarios, scalable workloads, construct instances. Add `?audience=customer` for a reduced view without operator-internal fields. |
+| `GET /control/schema` | Blueprint-derived schema: all modes, addressable targets, scenarios, scalable workloads, construct instances, and startup cost projections for explicit high-DPM blueprints. Add `?audience=customer` for a reduced view without operator-internal fields. |
 | `GET /control/state` | Current control snapshot (volume multiplier, active scenarios, failures, scaling, disabled blueprints/constructs/kinds). |
 | `GET /control/status` | Sink readiness strip: `last_success_ms`, failure counts, dry-run flag, per-blueprint emission, Fleet Management health, persist health. |
 | `GET /control/health` | Per-construct tick health and process metrics. |

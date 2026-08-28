@@ -42,13 +42,13 @@ func (m Metadata) IsZero() bool {
 // Decl is the raw YAML blueprint document (strict-decoded; unknown fields fail loud).
 type Decl struct {
 	Name         string               `yaml:"name"`
-	Label        string               `yaml:"label"`    // sink-stamped selector; defaults to Name
-	Metadata     Metadata             `yaml:"metadata"` // optional human-facing annotation (UI only)
-	Shape        string               `yaml:"shape"`    // default shape profile
-	Timezone     string               `yaml:"timezone"` // business-hours anchor (default Europe/Zurich)
-	Regions      []RegionDecl         `yaml:"regions"`  // follow-the-sun multi-tz composite (mutually exclusive with timezone)
-	SeriesBudget int                  `yaml:"series_budget"`
-	HighDPM      *HighDPMDecl         `yaml:"high_dpm"` // explicit opt-in to a per-blueprint metric cadence below the default floor
+	Label        string               `yaml:"label"`         // sink-stamped selector; defaults to Name
+	Metadata     Metadata             `yaml:"metadata"`      // optional human-facing annotation (UI only)
+	Shape        string               `yaml:"shape"`         // default shape profile
+	Timezone     string               `yaml:"timezone"`      // business-hours anchor (default Europe/Zurich)
+	Regions      []RegionDecl         `yaml:"regions"`       // follow-the-sun multi-tz composite (mutually exclusive with timezone)
+	SeriesBudget int                  `yaml:"series_budget"` // fixed one-minute per-blueprint data-point allowance; <=0 is unlimited
+	HighDPM      *HighDPMDecl         `yaml:"high_dpm"`      // explicit opt-in to a per-blueprint metric cadence below the default floor
 	Environments []EnvDecl            `yaml:"environments"`
 	Workloads    []WorkloadDecl       `yaml:"workloads"`
 	Features     map[string]yaml.Node `yaml:"features"`     // Grafana Cloud products (sm, fleet); `enabled` reserved (default true)

@@ -239,6 +239,15 @@ export interface EnvMetaInfo extends MetaFields {
 export interface BlueprintMetaInfo extends MetaFields {
   name: string;
   environments?: EnvMetaInfo[];
+  cost_projection?: BlueprintCostProjection;
+}
+export interface BlueprintCostProjection {
+  metric_instances: number;
+  metric_interval: string;
+  dpm_per_series: number;
+  projected_series?: number;
+  projected_dpm?: number;
+  unbounded?: boolean;
 }
 export interface Schema {
   volume_multiplier: Descriptor;

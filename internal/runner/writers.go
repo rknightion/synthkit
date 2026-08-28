@@ -20,8 +20,9 @@ import (
 // spans. Stamped HERE and only here (ARCHITECTURE I17); constructs never stamp it.
 const BlueprintLabel = "blueprint"
 
-// seriesBudget is the per-blueprint series budget for one tick window (I7). The sink's
-// global SERIES_CAP remains the backstop underneath.
+// seriesBudget is the per-blueprint data-point allowance for one fixed-minute window (I7). Each
+// repeated high-DPM sample consumes the allowance again. The sink's global per-push SERIES_CAP
+// remains the separate backstop underneath.
 type seriesBudget struct {
 	mu   sync.Mutex
 	cap  int // <=0 = unlimited

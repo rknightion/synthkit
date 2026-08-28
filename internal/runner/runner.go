@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
+	"math"
 	"slices"
 	"sort"
 	"strconv"
@@ -140,14 +141,15 @@ type DeliveryReadinessLane struct {
 // bpRuntime is one blueprint's running state: its own shape engine (its incidents +
 // timezone), its own ledger, its own series budget.
 type bpRuntime struct {
-	name    string
-	label   string
-	source  string
-	meta    blueprint.Metadata          // blueprint-level human-facing annotation (UI only)
-	envMeta []blueprint.ResolvedEnvMeta // per-env metadata for the UI (decl order)
-	eng     *shape.Engine
-	ledger  *ledger.Ledger
-	budget  *seriesBudget
+	name           string
+	label          string
+	source         string
+	meta           blueprint.Metadata          // blueprint-level human-facing annotation (UI only)
+	envMeta        []blueprint.ResolvedEnvMeta // per-env metadata for the UI (decl order)
+	costProjection *control.BlueprintCostProjection
+	eng            *shape.Engine
+	ledger         *ledger.Ledger
+	budget         *seriesBudget
 	// SeriesBudget is a fixed per-minute allowance. This timestamp is deliberately independent
 	// of high_dpm.metric_interval, and RunOnce observes the same window as the live loop.
 	budgetWindowStart time.Time
@@ -467,8 +469,54 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		})
 	}
 
+	if highDPM && metricInterval < r.opts.MinMetricInterval {
+		bp.costProjection = projectHighDPMCost(bp, res.SeriesBudget, metricInterval)
+		p := bp.costProjection
+		if p.Unbounded {
+			log.Printf("runner: blueprint %q high-DPM projection: metric_instances=%d metric_interval=%s projected_series=unbounded projected_dpm=unbounded dpm_per_series=%g", bp.name, p.MetricInstances, p.MetricInterval, p.DPMPerSeries)
+		} else {
+			log.Printf("runner: blueprint %q high-DPM projection: metric_instances=%d metric_interval=%s projected_series=%d projected_dpm=%g dpm_per_series=%g", bp.name, p.MetricInstances, p.MetricInterval, p.ProjectedSeries, p.ProjectedDPM, p.DPMPerSeries)
+		}
+	}
+
 	r.bps = append(r.bps, bp)
 	return nil
+}
+
+func projectHighDPMCost(bp *bpRuntime, seriesBudget int, interval time.Duration) *control.BlueprintCostProjection {
+	metricInstances := 0
+	for _, bc := range bp.constructs {
+		if slices.Contains(bc.construct.Signals(), core.Metrics) || slices.Contains(bc.construct.Signals(), core.OTLPMetrics) {
+			metricInstances++
+		}
+	}
+	for _, bw := range bp.workloads {
+		if slices.Contains(bw.workload.Signals(), core.Metrics) || slices.Contains(bw.workload.Signals(), core.OTLPMetrics) {
+			metricInstances++
+		}
+	}
+	dpmPerSeries := float64(time.Minute) / float64(interval)
+	p := &control.BlueprintCostProjection{
+		MetricInstances: metricInstances,
+		MetricInterval:  interval.String(),
+		DPMPerSeries:    dpmPerSeries,
+		Unbounded:       seriesBudget <= 0,
+	}
+	if metricInstances == 0 {
+		p.Unbounded = false
+		return p
+	}
+	if p.Unbounded {
+		return p
+	}
+	// SeriesBudget is shared by the blueprint and reset every fixed minute. This projection is
+	// therefore the maximum stable series set that can receive every scheduled point for the full
+	// minute. A cadence that does not divide one minute can schedule ceil(DPM) samples in a window,
+	// so capacity uses that ceiling while the displayed DPM remains the average rate.
+	samplesPerBudgetWindow := math.Ceil(dpmPerSeries)
+	p.ProjectedSeries = int(float64(seriesBudget) / samplesPerBudgetWindow)
+	p.ProjectedDPM = float64(p.ProjectedSeries) * dpmPerSeries
+	return p
 }
 
 // buildWorld wires the writers an instance declared — nothing more (the framework
@@ -855,7 +903,7 @@ func (r *Runner) ControlSchema() control.Schema {
 	kindSeen := map[string]bool{}
 	for _, bp := range r.bps {
 		sc.Blueprints = append(sc.Blueprints, bp.name)
-		bmi := control.BlueprintMetaInfo{Name: bp.name, MetaFields: toMetaFields(bp.meta)}
+		bmi := control.BlueprintMetaInfo{Name: bp.name, MetaFields: toMetaFields(bp.meta), CostProjection: bp.costProjection}
 		for _, em := range bp.envMeta {
 			bmi.Environments = append(bmi.Environments, control.EnvMetaInfo{Name: em.Name, MetaFields: toMetaFields(em.Metadata)})
 		}
