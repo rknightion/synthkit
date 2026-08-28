@@ -588,6 +588,9 @@ func (r *Runner) instanceMetricInterval(bp, name string, signals []core.SignalCl
 		}
 		return floor
 	}
+	if iv <= r.opts.MinMetricInterval {
+		return floor
+	}
 	return iv
 }
 

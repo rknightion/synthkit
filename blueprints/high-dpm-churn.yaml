@@ -1,11 +1,11 @@
-# high-dpm-churn lowers the minimum permitted metric interval for detector experiments. Each
-# instance keeps a longer interval it declares; the current network-topology construct declares
-# 60s, so this blueprint proves the floor and churn controls without forcing a faster cadence.
-# It is a detector-test scenario, not a reality-corpus or fidelity reference.
+# high-dpm-churn speeds the default-cadence network-topology construct up to 10s for detector
+# experiments. It projects 115 series at 6 DPM per series, or 690 data points per minute, and
+# replaces one edge identity per minute. It is a detector-test scenario, not a reality-corpus or
+# fidelity reference.
 name: high-dpm-churn
 label: high-dpm-churn
 metadata:
-  description: "Cost-bearing detector test: a 10s minimum metric interval, the network-topology construct's declared 60s cadence, a 690 data-point/minute budget projection, and one edge replacement per minute. Select this blueprint explicitly; it is not a reality-corpus or fidelity reference."
+  description: "Cost-bearing detector test: 115 projected network-topology series at 6 DPM per series, or 690 data points per minute, plus one edge replacement per minute. Select this blueprint explicitly; it is not a reality-corpus or fidelity reference."
   owner: network-observability
   category: detector-test
   tags: [network, topology, high-dpm, series-churn]

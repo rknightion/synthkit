@@ -622,7 +622,7 @@ func TestHighDPMCostProjectionLoggedAndExposedInControlSchema(t *testing.T) {
 	if err := r.AddBlueprint(res); err != nil {
 		t.Fatalf("AddBlueprint: %v", err)
 	}
-	if got := logs.String(); !strings.Contains(got, `high-DPM projection: metric_instances=3 metric_interval=10s projected_series=690 projected_dpm=690`) {
+	if got := logs.String(); !strings.Contains(got, `high-DPM projection: metric_instances=3 metric_interval=10s projected_series=115 projected_dpm=690 dpm_per_series=6`) {
 		t.Fatalf("startup logs missing projection, got:\n%s", got)
 	}
 
@@ -639,14 +639,14 @@ func TestHighDPMCostProjectionLoggedAndExposedInControlSchema(t *testing.T) {
 	}
 	projection := bm.CostProjection
 	if projection.MetricInstances != 3 || projection.MetricInterval != "10s" ||
-		projection.DPMPerSeries != 1 || projection.ProjectedSeries != 690 || projection.ProjectedDPM != 690 || projection.Unbounded {
+		projection.DPMPerSeries != 6 || projection.ProjectedSeries != 115 || projection.ProjectedDPM != 690 || projection.Unbounded {
 		t.Fatalf("cost projection = %+v", projection)
 	}
 	payload, err := json.Marshal(bm)
 	if err != nil {
 		t.Fatalf("marshal blueprint metadata: %v", err)
 	}
-	for _, field := range []string{`"cost_projection"`, `"projected_series":690`, `"projected_dpm":690`} {
+	for _, field := range []string{`"cost_projection"`, `"projected_series":115`, `"projected_dpm":690`, `"dpm_per_series":6`} {
 		if !bytes.Contains(payload, []byte(field)) {
 			t.Errorf("control JSON %s missing %s", payload, field)
 		}
@@ -895,7 +895,7 @@ func TestSeriesBudgetTruncatesPerBlueprint(t *testing.T) {
 	}
 }
 
-func TestHighDPMBlueprintFloorDoesNotForceDeclaredInterval(t *testing.T) {
+func TestHighDPMBlueprintSpeedsUpDefaultMetricInterval(t *testing.T) {
 	r, _, _, _, _, _, _ := newTestRunner(t)
 	normal := buildTestResolved("normal")
 	fast := buildTestResolved("fast")
@@ -909,8 +909,8 @@ func TestHighDPMBlueprintFloorDoesNotForceDeclaredInterval(t *testing.T) {
 	if got := r.bps[0].constructs[0].interval; got != 60*time.Second {
 		t.Fatalf("normal interval = %v, want 60s", got)
 	}
-	if got := r.bps[1].constructs[0].interval; got != 60*time.Second {
-		t.Fatalf("high-DPM interval = %v, want the construct's declared 60s above its 10s floor", got)
+	if got := r.bps[1].constructs[0].interval; got != 10*time.Second {
+		t.Fatalf("high-DPM interval = %v, want the 10s high_dpm interval for a default-cadence construct", got)
 	}
 	if projection := r.bps[1].costProjection; projection == nil || projection.MetricInterval != "10s" {
 		t.Fatalf("high-DPM floor missing from projection: %+v", projection)
@@ -948,20 +948,19 @@ func TestMetricFloorDoesNotClampLogOnlyInterval(t *testing.T) {
 	}
 }
 
-func TestHighDPMMetricIntervalIsAFloor(t *testing.T) {
-	r := &Runner{}
+func TestHighDPMMetricIntervalRespectsExplicitSlowCadence(t *testing.T) {
+	r := &Runner{opts: Options{MinMetricInterval: 60 * time.Second}}
 	for name, tc := range map[string]struct {
 		declared time.Duration
-		floor    time.Duration
 		want     time.Duration
 	}{
-		"longer_declared_interval_is_kept":     {declared: 2 * time.Minute, floor: 10 * time.Second, want: 2 * time.Minute},
-		"shorter_declared_interval_is_clamped": {declared: 5 * time.Second, floor: 10 * time.Second, want: 10 * time.Second},
-		"equal_declared_interval_is_kept":      {declared: 10 * time.Second, floor: 10 * time.Second, want: 10 * time.Second},
+		"default_cadence_is_sped_up":        {declared: 60 * time.Second, want: 10 * time.Second},
+		"explicit_300s_cadence_is_retained": {declared: 300 * time.Second, want: 300 * time.Second},
+		"sub_default_cadence_uses_high_dpm": {declared: 5 * time.Second, want: 10 * time.Second},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fixture := &fakeConstruct{signals: []core.SignalClass{core.Metrics}, interval: tc.declared}
-			if got := r.instanceMetricInterval("bp", fixture.Kind(), fixture.Signals(), fixture.Interval(), tc.floor, true); got != tc.want {
+			if got := r.instanceMetricInterval("bp", fixture.Kind(), fixture.Signals(), fixture.Interval(), 10*time.Second, true); got != tc.want {
 				t.Fatalf("instanceMetricInterval=%v, want %v", got, tc.want)
 			}
 		})
