@@ -82,3 +82,6 @@ codex/
 # Local UI screenshot scratch (Claude Design source material). Root-anchored: curated copies
 # under docs/assets/screenshots/ are tracked deliberately.
 /screenshots/
+
+# temporary deck-review working dir (not a deliverable)
+/slides/
