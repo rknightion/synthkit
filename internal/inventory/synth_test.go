@@ -8,9 +8,127 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/sink/loki"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 )
+
+func TestFromSinksSplitsCapturedPodLogsFromManifests(t *testing.T) {
+	sink := loki.New("", "", "", true)
+	sink.Capture = true
+	sink.Quiet = true
+	now := time.Unix(1, 0)
+	if err := sink.Write(context.Background(), []loki.Stream{
+		{
+			Labels: map[string]string{
+				"app_kubernetes_io_name": "catalog",
+				"cluster":                "lab",
+				"container":              "catalog",
+				"flags":                  "F",
+				"job":                    "otel-demo/catalog",
+				"k8s_cluster_name":       "lab",
+				"namespace":              "otel-demo",
+				"service_name":           "catalog",
+				"service_namespace":      "otel-demo",
+				"stream":                 "stdout",
+			},
+			Lines: []loki.Line{{T: now, Body: "pod log", Meta: map[string]string{
+				"pod": "catalog-0", "service_instance_id": "catalog-0",
+			}}},
+		},
+		{
+			Labels: map[string]string{
+				"action":             "manifest",
+				"cluster":            "lab",
+				"instance":           "alloy",
+				"job":                "integrations/kubernetes/manifests",
+				"k8s_cluster_name":   "lab",
+				"k8s_kind":           "Pod",
+				"k8s_namespace_name": "otel-demo",
+			},
+			Lines: []loki.Line{{T: now, Body: "manifest", Meta: map[string]string{
+				"k8s_pod_name": "catalog-0",
+			}}},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	schema := FromSinks(nil, sink, nil, nil, nil, nil, nil)
+	if len(schema.Logs) != 2 {
+		t.Fatalf("logs=%v, want separate pod-log and manifest entries", schema.Logs)
+	}
+	var podLogs, manifests *Log
+	for i := range schema.Logs {
+		log := &schema.Logs[i]
+		switch log.Source {
+		case LogFamilyPodLogs:
+			podLogs = log
+		case "":
+			manifests = log
+		}
+	}
+	if podLogs == nil || manifests == nil {
+		t.Fatalf("logs=%v, want sources %q and empty", schema.Logs, LogFamilyPodLogs)
+	}
+	if !containsLogMetadataKey(podLogs, "pod") || containsLogStreamKey(podLogs, "k8s_kind") {
+		t.Fatalf("pod logs=%v, want pod metadata and no manifest label", podLogs)
+	}
+	if !containsLogStreamKey(manifests, "k8s_kind") || containsLogStreamKey(manifests, "container") {
+		t.Fatalf("manifests=%v, want manifest label and no pod-log label", manifests)
+	}
+}
+
+func containsLogStreamKey(log *Log, want string) bool {
+	for _, attr := range log.StreamLabels {
+		if attr.Key == want {
+			return true
+		}
+	}
+	return false
+}
+
+func containsLogMetadataKey(log *Log, want string) bool {
+	for _, key := range log.StructuredMetadataKeys {
+		if key == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestFromSinksClassifiesCapturedOTLPPodLogs(t *testing.T) {
+	sink := otlp.NewLogs("", "", "", true)
+	sink.Capture = true
+	sink.Quiet = true
+	if err := sink.Write(context.Background(), []otlp.LogResource{{
+		Attrs: map[string]any{
+			"cluster":             "lab",
+			"k8s.cluster.name":    "lab",
+			"k8s.namespace.name":  "otel-demo",
+			"k8s.pod.name":        "catalog-0",
+			"k8s.container.name":  "catalog",
+			"service.name":        "catalog",
+			"service.namespace":   "otel-demo",
+			"service.instance.id": "catalog-0",
+		},
+		Records: []otlp.LogRecord{{Attrs: map[string]any{"log.iostream": "stdout"}}},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	schema := FromSinks(nil, nil, nil, nil, sink, nil, nil)
+	if len(schema.Logs) != 1 {
+		t.Fatalf("logs=%v, want one OTLP pod-log entry", schema.Logs)
+	}
+	log := schema.Logs[0]
+	if log.Source != LogFamilyPodLogs || log.Transport != TransportOTLPLogs {
+		t.Fatalf("log=%v, want source %q over %q", log, LogFamilyPodLogs, TransportOTLPLogs)
+	}
+	if !containsLogStreamKey(&log, "k8s.pod.name") || !containsLogMetadataKey(&log, "log.iostream") {
+		t.Fatalf("log=%v, want resource identity and record metadata kept split", log)
+	}
+}
 
 func TestFromSinksMergesClassicAndNativeHistogramFamily(t *testing.T) {
 	prom := promrw.New("", "", "", true, nil)

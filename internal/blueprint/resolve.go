@@ -186,6 +186,7 @@ type Resolved struct {
 	Timezone     string
 	Regions      []RegionDecl // follow-the-sun multi-tz composite; mutually exclusive with Timezone
 	SeriesBudget int
+	HighDPM      *ResolvedHighDPM
 	Constructs   []ConstructInstance
 	Workloads    []WorkloadInstance
 	Incidents    []string // shape-engine schedule entries: kind@at/for[#intensity][@target]
@@ -196,6 +197,11 @@ type Resolved struct {
 	Warnings []string
 	// Source is the verbatim YAML the blueprint was loaded from (operator UI display).
 	Source string
+}
+
+// ResolvedHighDPM is the validated per-blueprint metric cadence override.
+type ResolvedHighDPM struct {
+	MetricInterval time.Duration
 }
 
 // vocabulary returns the union of failure modes across all registered construct + workload kinds —
@@ -269,6 +275,10 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		Timezone:     d.Timezone,
 		Regions:      d.Regions,
 		SeriesBudget: d.SeriesBudget,
+	}
+	if d.HighDPM != nil {
+		iv, _ := time.ParseDuration(d.HighDPM.MetricInterval) // validateDecl already proved it valid.
+		r.HighDPM = &ResolvedHighDPM{MetricInterval: iv}
 	}
 	for i := range d.Environments {
 		r.Environments = append(r.Environments, ResolvedEnvMeta{Name: d.Environments[i].Name, Metadata: d.Environments[i].Metadata})
@@ -595,6 +605,17 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				ci, err := emptyConfigInstance(reg, kind, cl.Name, set, d.Name)
 				if err != nil {
 					return nil, err
+				}
+				if kind == KindK8sCluster && e.Cluster.OTel.Kind != 0 {
+					// ClusterDecl owns the public `otel:` key, while the construct config retains
+					// the same nested shape used by workload configs. Re-wrap the raw child node
+					// before strict decoding so the blueprint package stays catalog-agnostic.
+					wrapped := yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{
+						{Kind: yaml.ScalarNode, Tag: "!!str", Value: "otel"}, &e.Cluster.OTel,
+					}}
+					if err := strictDecode(&wrapped, ci.Config, fmt.Sprintf("blueprint %q: cluster %q otel config", d.Name, cl.Name)); err != nil {
+						return nil, err
+					}
 				}
 				r.Constructs = append(r.Constructs, *ci)
 			}

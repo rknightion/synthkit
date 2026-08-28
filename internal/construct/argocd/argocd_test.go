@@ -476,10 +476,10 @@ func tickWithLogs(t *testing.T, c core.Construct) (*coretest.MetricCapture, *cor
 	return mc, lc
 }
 
-// ─── (n) Log streams: OTel/Alloy stream labels on all components ─────────────
+// ─── (n) Log streams: captured Loki-native labels on all components ──────────
 
 // TestLogStreamLabels verifies that each emitted log stream carries the required
-// OTel/Alloy stream labels per svc-group-b.md §2.C. Runs multiple ticks to ensure
+// captured Loki-native stream labels per signals/k8s.md [slug: k8s-pod-logs]. Runs multiple ticks to ensure
 // streams are always emitted (argocd logs should emit every tick).
 func TestLogStreamLabels(t *testing.T) {
 	c := buildWithPods(t)
@@ -509,17 +509,24 @@ func TestLogStreamLabels(t *testing.T) {
 			t.Errorf("stream k8s_cluster_name=%q want %q", stream.Labels["k8s_cluster_name"], cl.Name)
 		}
 		// All argocd streams must be in namespace "argocd".
-		if stream.Labels["k8s_namespace_name"] != "argocd" {
-			t.Errorf("stream k8s_namespace_name=%q want argocd", stream.Labels["k8s_namespace_name"])
+		if stream.Labels["namespace"] != "argocd" {
+			t.Errorf("stream namespace=%q want argocd", stream.Labels["namespace"])
 		}
 		// All argocd components write to stderr.
-		if stream.Labels["log_iostream"] != "stderr" {
-			t.Errorf("stream log_iostream=%q want stderr", stream.Labels["log_iostream"])
+		if stream.Labels["stream"] != "stderr" {
+			t.Errorf("stream stream=%q want stderr", stream.Labels["stream"])
 		}
-		// detected_level must be present.
-		dl := stream.Labels["detected_level"]
-		if dl == "" {
-			t.Errorf("stream missing detected_level label; labels=%v", stream.Labels)
+		if stream.Labels["container"] == "" {
+			t.Errorf("stream missing container label; labels=%v", stream.Labels)
+		}
+		if stream.Labels["job"] != "argocd/"+stream.Labels["container"] {
+			t.Errorf("stream job=%q want argocd/%s", stream.Labels["job"], stream.Labels["container"])
+		}
+		if stream.Labels["flags"] != "F" {
+			t.Errorf("stream flags=%q want F", stream.Labels["flags"])
+		}
+		if _, ok := stream.Labels["detected_level"]; ok {
+			t.Errorf("stream must not carry detected_level; labels=%v", stream.Labels)
 		}
 		// service_namespace must be argocd.
 		if stream.Labels["service_namespace"] != "argocd" {
@@ -545,26 +552,29 @@ func TestLogAppControllerPodName(t *testing.T) {
 	// Find a stream for the application-controller container.
 	var found []loki.Stream
 	for _, s := range lc.Streams {
-		if s.Labels["k8s_container_name"] == "application-controller" {
+		if s.Labels["container"] == "application-controller" {
 			found = append(found, s)
 		}
 	}
 	if len(found) == 0 {
-		t.Fatal("no log stream for k8s_container_name=application-controller")
+		t.Fatal("no log stream for container=application-controller")
 	}
 	for _, s := range found {
-		pod := s.Labels["k8s_pod_name"]
+		if len(s.Lines) == 0 {
+			t.Error("application-controller stream has no lines")
+			continue
+		}
+		pod := s.Lines[0].Meta["pod"]
 		if pod == "" {
-			t.Errorf("application-controller stream missing k8s_pod_name; labels=%v", s.Labels)
+			t.Errorf("application-controller stream missing pod metadata; labels=%v", s.Labels)
 			continue
 		}
 		// StatefulSet ordinal: pod name must end with "-0".
 		if !strings.HasSuffix(pod, "-0") {
-			t.Errorf("application-controller k8s_pod_name=%q should end with -0 (StatefulSet ordinal)", pod)
+			t.Errorf("application-controller pod=%q should end with -0 (StatefulSet ordinal)", pod)
 		}
-		// Must have k8s_statefulset_name or k8s_deployment_name.
-		if s.Labels["k8s_statefulset_name"] == "" {
-			t.Errorf("application-controller stream missing k8s_statefulset_name; labels=%v", s.Labels)
+		if s.Labels["app_kubernetes_io_name"] != "argocd-application-controller" {
+			t.Errorf("application-controller stream app_kubernetes_io_name=%q", s.Labels["app_kubernetes_io_name"])
 		}
 	}
 }
@@ -580,7 +590,7 @@ func TestLogBodyFormats(t *testing.T) {
 	}
 
 	for _, s := range lc.Streams {
-		container := s.Labels["k8s_container_name"]
+		container := s.Labels["container"]
 		for _, line := range s.Lines {
 			if line.Body == "" {
 				t.Errorf("container=%q: empty log body", container)
@@ -618,11 +628,11 @@ func TestLogAllComponentsEmit(t *testing.T) {
 
 	seen := map[string]bool{}
 	for _, s := range lc.Streams {
-		seen[s.Labels["k8s_container_name"]] = true
+		seen[s.Labels["container"]] = true
 	}
 	for _, container := range expectedContainers {
 		if !seen[container] {
-			t.Errorf("no log stream emitted for k8s_container_name=%q", container)
+			t.Errorf("no log stream emitted for container=%q", container)
 		}
 	}
 }
@@ -647,7 +657,7 @@ func TestLogNoHighCardStreamLabels(t *testing.T) {
 		for _, k := range forbiddenStreamKeys {
 			if _, ok := s.Labels[k]; ok {
 				t.Errorf("stream has high-card key %q as stream label (must be in body only); container=%q labels=%v",
-					k, s.Labels["k8s_container_name"], s.Labels)
+					k, s.Labels["container"], s.Labels)
 			}
 		}
 	}

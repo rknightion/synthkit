@@ -41,7 +41,7 @@ CONSTRUCTS ⊥ WORKLOADS      isolated modules. Constructs render infra telemetr
 type Construct interface {
     Kind() string                  // registry key, snake_case ("coredns", "rds")
     Signals() []SignalClass        // Metrics | Traces | Logs | RUM | PyroscopeProfiles — framework only asks for these
-    Interval() time.Duration       // tick cadence; metric lanes ≥60s (DPM floor, runner-clamped)
+    Interval() time.Duration       // default cadence; metric lanes use the 60s floor unless high_dpm opts in
     Tick(ctx context.Context, now time.Time, w *World) error
 }
 
@@ -386,7 +386,10 @@ plane, a `cw_infra` family) — independent toggles for independent families.
   cadence-invariant: minters scale by `tickSec/30`); the runner immediately calls each workload's
   `ProjectBatch` with exactly its own minted requests → traces/logs/RUM emitted ONCE by
   construction, unfloored.
-- **Metric lanes:** every construct/workload `Tick`s on its own `Interval()` (≥60s — DPM floor);
+- **Metric lanes:** every construct/workload `Tick`s on its own `Interval()` with a default 60s DPM
+  floor. A blueprint may explicitly set `high_dpm.metric_interval`; the runner applies that cadence
+  only to that blueprint's metric-bearing instances, bounded by `MAX_DPM_PER_SERIES` (default 6,
+  a 10s minimum interval) and never below `TICK_DEFAULT`.
   workload metric lanes read `Ledger.ActiveFor(name, now, interval)`.
 - ONE lane = ONE signal class. Span timing uses `r.RenderStart()`; ledger windowing keys on `r.Start`.
 - **Per-blueprint goroutines (`Run`):** each blueprint runs its master + budget-reset tickers on its
@@ -587,7 +590,9 @@ Metric mechanics
 
 Correlation & identity
 - **I9** Request-scoped IDs minted ONLY by the ledger; constructs/workloads read, never mint.
-- **I10** Two cadences: fast master mint returning the batch; ≥60s metric ticks reading Active();
+- **I10** Two cadences: fast master mint returning the batch; metric ticks read Active() at the
+  default ≥60s cadence unless that blueprint explicitly declares a ceiling-bounded `high_dpm`
+  interval. Its `SeriesBudget` remains a fixed per-minute allowance regardless of cadence;
   trace/log lanes handed the exact batch, emitted once by construction.
 - **I11** Deterministic per-request RenderOffset from TraceID; `Start` stays the windowing key.
 - **I12** Deterministic fixtures: sha256 of stable seeds; EC2↔node and DB↔cloud identity resolved

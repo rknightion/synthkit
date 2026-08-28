@@ -65,9 +65,9 @@ func (m *Manager) loadDir(dir string, prov Provenance, sourceID string, applySel
 		var res *blueprint.Resolved
 		var lerr error
 		if prov == ProvBuiltin {
-			res, lerr = blueprint.Load(data, m.reg)
+			res, lerr = blueprint.Load(data, m.reg, m.limits)
 		} else {
-			res, lerr = blueprint.LoadNamespaced(data, SanitizeNS(ns), m.reg)
+			res, lerr = blueprint.LoadNamespaced(data, SanitizeNS(ns), m.reg, m.limits)
 		}
 		if lerr != nil {
 			diags = append(diags, Diag{"error", diagSource(sourceID, fn), "load", lerr.Error()})

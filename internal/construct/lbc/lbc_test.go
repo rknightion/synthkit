@@ -19,8 +19,8 @@ package lbc_test
 //   (k) aws_api_* carries exported_service label (not service).
 //   (l) Fallback: nil SubstrateWorkloads → cluster-scoped (no pod label, no crash).
 //   (m) Logs: Signals() includes core.Logs.
-//   (n) Logs: stream labels correct (k8s_namespace_name=kube-system, detected_level, etc.).
-//   (o) Logs: k8s_pod_name matches an LBC pod name.
+//   (n) Logs: captured Loki-native stream labels and structured metadata are correct.
+//   (o) Logs: pod metadata matches an LBC pod name.
 //   (p) Logs: no high-card stream labels (no reconcileID, error text, ARNs).
 //   (q) Logs: zap-JSON body contains "ts" field.
 //   (r) Logs: nil w.Logs → no crash (guard).
@@ -754,14 +754,13 @@ func TestSignalsIncludeLogs(t *testing.T) {
 // TestLBCLogsStreamLabels runs 20 ticks to guarantee at least one log emission
 // (LBC emits every tick, but guard in case cadence changes) and validates:
 //
-//	(n) k8s_namespace_name=kube-system, k8s_container_name=aws-load-balancer-controller,
-//	    k8s_deployment_name=aws-load-balancer-controller, service_namespace=kube-system,
-//	    log_iostream=stderr, detected_level ∈ {info, error}.
-//	(o) k8s_pod_name is set and matches a real LBC pod from SubstrateWorkloads.
+//	(n) namespace/container identify the source, service_namespace=kube-system,
+//	    stream=stderr, flags=F, and job uses the namespace/container form.
+//	(o) pod metadata is set and matches a real LBC pod from SubstrateWorkloads.
 //	(p) No high-card stream label (reconcileID, error text, ARNs).
 //	(q) Body is zap-JSON containing "ts" field.
 func TestLBCLogsStreamLabels(t *testing.T) {
-	// Use the with-pods build so k8s_pod_name can be checked against real pod names.
+	// Use the with-pods build so pod metadata can be checked against real pod names.
 	cl := clusterWithAddonPods(t)
 	reg := lbc.Registration()
 	c, err := reg.Build(&lbc.Config{}, &fixture.Set{Cluster: cl})
@@ -792,24 +791,29 @@ func TestLBCLogsStreamLabels(t *testing.T) {
 			gotStreams++
 
 			// (n) Required stream labels with fixed values.
-			if stream.Labels["k8s_namespace_name"] != "kube-system" {
-				t.Errorf("k8s_namespace_name=%q want kube-system", stream.Labels["k8s_namespace_name"])
+			if stream.Labels["namespace"] != "kube-system" {
+				t.Errorf("namespace=%q want kube-system", stream.Labels["namespace"])
 			}
-			if stream.Labels["k8s_container_name"] != "aws-load-balancer-controller" {
-				t.Errorf("k8s_container_name=%q want aws-load-balancer-controller", stream.Labels["k8s_container_name"])
+			if stream.Labels["container"] != "aws-load-balancer-controller" {
+				t.Errorf("container=%q want aws-load-balancer-controller", stream.Labels["container"])
 			}
-			if stream.Labels["k8s_deployment_name"] != "aws-load-balancer-controller" {
-				t.Errorf("k8s_deployment_name=%q want aws-load-balancer-controller", stream.Labels["k8s_deployment_name"])
+			if stream.Labels["app_kubernetes_io_name"] != "aws-load-balancer-controller" {
+				t.Errorf("app_kubernetes_io_name=%q want aws-load-balancer-controller", stream.Labels["app_kubernetes_io_name"])
 			}
 			if stream.Labels["service_namespace"] != "kube-system" {
 				t.Errorf("service_namespace=%q want kube-system", stream.Labels["service_namespace"])
 			}
-			if stream.Labels["log_iostream"] != "stderr" {
-				t.Errorf("log_iostream=%q want stderr", stream.Labels["log_iostream"])
+			if stream.Labels["stream"] != "stderr" {
+				t.Errorf("stream=%q want stderr", stream.Labels["stream"])
 			}
-			dl := stream.Labels["detected_level"]
-			if dl != "info" && dl != "error" {
-				t.Errorf("detected_level=%q want info or error", dl)
+			if stream.Labels["flags"] != "F" {
+				t.Errorf("flags=%q want F", stream.Labels["flags"])
+			}
+			if stream.Labels["job"] != "kube-system/aws-load-balancer-controller" {
+				t.Errorf("job=%q want kube-system/aws-load-balancer-controller", stream.Labels["job"])
+			}
+			if _, ok := stream.Labels["detected_level"]; ok {
+				t.Errorf("detected_level must not be a stream label: %v", stream.Labels)
 			}
 			if stream.Labels["cluster"] == "" {
 				t.Error("stream missing cluster label")
@@ -821,12 +825,18 @@ func TestLBCLogsStreamLabels(t *testing.T) {
 				t.Error("stream missing service_name label")
 			}
 
-			// (o) k8s_pod_name set and matches a real pod.
-			podName := stream.Labels["k8s_pod_name"]
+			// (o) pod metadata is set and matches a real pod.
+			podName := ""
+			if len(stream.Lines) > 0 {
+				podName = stream.Lines[0].Meta["pod"]
+			}
 			if podName == "" {
-				t.Error("stream missing k8s_pod_name label")
+				t.Error("stream missing pod metadata")
 			} else if len(lbcPodNames) > 0 && !lbcPodNames[podName] {
-				t.Errorf("k8s_pod_name=%q not in known LBC pod names %v", podName, lbcPodNames)
+				t.Errorf("pod metadata=%q not in known LBC pod names %v", podName, lbcPodNames)
+			}
+			if len(stream.Lines) > 0 && stream.Lines[0].Meta["service_instance_id"] == "" {
+				t.Errorf("stream line missing service_instance_id metadata: %v", stream.Lines[0].Meta)
 			}
 
 			// (p) No high-card stream labels.

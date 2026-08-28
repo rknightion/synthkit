@@ -26,6 +26,7 @@ func NewManager(opts Options) *Manager {
 		bakedDir:   opts.BakedDir,
 		dataDir:    opts.DataDir,
 		reg:        opts.Registry,
+		limits:     opts.RuntimeLimits,
 		git:        opts.Git,
 		cfg:        opts.Config,
 		now:        now,
@@ -403,7 +404,7 @@ func (m *Manager) validateUpload(ns, name string, data []byte) (*blueprint.Resol
 	if name != declaredName {
 		return nil, fmt.Errorf("blueprint form name %q must match YAML name %q", name, declaredName)
 	}
-	res, err := blueprint.LoadNamespaced(data, SanitizeNS(ns), m.reg)
+	res, err := blueprint.LoadNamespaced(data, SanitizeNS(ns), m.reg, m.limits)
 	if err != nil {
 		return nil, fmt.Errorf("bpsource: invalid blueprint: %w", err)
 	}
@@ -531,7 +532,7 @@ func (m *Manager) PollSources(ctx context.Context) {
 // Validate loads and inspects a YAML blueprint, returning a ValidationResult.
 // This satisfies the BlueprintAdmin interface (Task 7).
 func (m *Manager) Validate(data []byte) ValidationResult {
-	res, err := blueprint.Load(data, m.reg)
+	res, err := blueprint.Load(data, m.reg, m.limits)
 	if err != nil {
 		return ValidationResult{OK: false, Diagnostics: []string{err.Error()}}
 	}

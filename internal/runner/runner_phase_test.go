@@ -51,6 +51,18 @@ func TestPhaseOffsetSpreadsNamesAcrossMasterTicks(t *testing.T) {
 	}
 }
 
+func TestPhaseOffsetKeepsTenSecondHighDPMCadenceSpread(t *testing.T) {
+	const interval = 10 * time.Second
+	const master = 5 * time.Second
+	buckets := map[int64]struct{}{}
+	for _, name := range []string{"c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"} {
+		buckets[int64(phaseOffset(name, interval)/master)] = struct{}{}
+	}
+	if len(buckets) != 2 {
+		t.Fatalf("10s high-DPM offsets occupy %d master-tick buckets, want both available buckets", len(buckets))
+	}
+}
+
 // TestSeedPhasesAppliesPerInstanceOffset: Run's startup seeding must set each instance's first nextDue
 // to now + its own phase offset (constructs and workloads alike), so the live loop starts already
 // de-synchronised. Verifies the wiring exactly (no timing/flakiness).

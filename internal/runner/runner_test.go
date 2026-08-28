@@ -706,10 +706,69 @@ func TestSeriesBudgetTruncatesPerBlueprint(t *testing.T) {
 	if err := r.AddBlueprint(res); err != nil {
 		t.Fatal(err)
 	}
-	_ = r.RunOnce(context.Background(), time.Now())
-	// 2 constructs × 1 series, budget 1 per blueprint per tick cycle → only 1 series lands.
+	now := time.Unix(1_700_000_000, 0)
+	_ = r.RunOnce(context.Background(), now)
+	// 2 constructs × 1 series, budget 1 per blueprint per fixed minute → only 1 series lands.
 	if got := len(mc.All()); got != 1 {
 		t.Fatalf("series after budget: %d, want 1", got)
+	}
+	_ = r.RunOnce(context.Background(), now.Add(30*time.Second))
+	if got := len(mc.All()); got != 1 {
+		t.Fatalf("series after second RunOnce inside the same minute: %d, want 1", got)
+	}
+	_ = r.RunOnce(context.Background(), now.Add(61*time.Second))
+	if got := len(mc.All()); got != 2 {
+		t.Fatalf("series after the next fixed minute window: %d, want 2", got)
+	}
+}
+
+func TestHighDPMBlueprintsUseDifferentMetricFloorsInOneRunner(t *testing.T) {
+	r, _, _, _, _, _, _ := newTestRunner(t)
+	normal := buildTestResolved("normal")
+	fast := buildTestResolved("fast")
+	fast.HighDPM = &blueprint.ResolvedHighDPM{MetricInterval: 10 * time.Second}
+	if err := r.AddBlueprint(normal); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.AddBlueprint(fast); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.bps[0].constructs[0].interval; got != 60*time.Second {
+		t.Fatalf("normal interval = %v, want 60s", got)
+	}
+	if got := r.bps[1].constructs[0].interval; got != 10*time.Second {
+		t.Fatalf("fast interval = %v, want 10s", got)
+	}
+}
+
+func TestHighDPMRejectsIntervalAboveConfiguredDPMCeiling(t *testing.T) {
+	r, _, _, _, _, _, _ := newTestRunner(t)
+	res := buildTestResolved("too-fast")
+	res.HighDPM = &blueprint.ResolvedHighDPM{MetricInterval: 5 * time.Second}
+	err := r.AddBlueprint(res)
+	if err == nil || !strings.Contains(err.Error(), "MAX_DPM_PER_SERIES") || !strings.Contains(err.Error(), "6") {
+		t.Fatalf("AddBlueprint error = %v, want configured ceiling and env name", err)
+	}
+}
+
+func TestHighDPMRejectsIntervalBelowMasterTick(t *testing.T) {
+	subs, scs, wls := &[]*fakeConstruct{}, &[]*fakeConstruct{}, &[]*fakeWorkload{}
+	r := New(Sinks{}, testRegistry(subs, scs, wls), Options{MasterTick: 5 * time.Second, MaxDPMPerSeries: 60})
+	res := buildTestResolved("unschedulable")
+	res.HighDPM = &blueprint.ResolvedHighDPM{MetricInterval: 4 * time.Second}
+	err := r.AddBlueprint(res)
+	if err == nil || !strings.Contains(err.Error(), "TICK_DEFAULT") {
+		t.Fatalf("AddBlueprint error = %v, want TICK_DEFAULT", err)
+	}
+}
+
+func TestMetricFloorDoesNotClampLogOnlyInterval(t *testing.T) {
+	r := &Runner{}
+	for _, highDPM := range []bool{false, true} {
+		got := r.instanceMetricInterval("bp", "logs", []core.SignalClass{core.Logs}, 5*time.Second, 60*time.Second, highDPM)
+		if got != 5*time.Second {
+			t.Errorf("highDPM=%v: log-only interval = %v, want 5s", highDPM, got)
+		}
 	}
 }
 

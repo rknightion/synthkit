@@ -43,6 +43,17 @@ func keyMap(keys []string) map[string]string {
 	return out
 }
 
+// keyPresenceMap turns the key-only text representation into the non-empty raw attributes
+// ClassifyLogStream expects. Values are placeholders used only for classification; the canonical
+// inventory keeps the original key-only representation through keyMap.
+func keyPresenceMap(keys []string) map[string]string {
+	out := make(map[string]string, len(keys))
+	for _, key := range keys {
+		out[key] = "present"
+	}
+	return out
+}
+
 // ParseDump parses the stable text presentation into the canonical schema. It is structural:
 // the text format carries keys, not values, and cannot faithfully split span names with spaces.
 func ParseDump(r io.Reader) (Schema, error) {
@@ -99,7 +110,7 @@ func ParseDump(r io.Reader) (Schema, error) {
 			if i < 0 {
 				continue
 			}
-			source := strings.TrimSpace(line[:i])
+			rawSource := strings.TrimSpace(line[:i])
 			rest := line[i+len("  stream="):]
 			end := strings.Index(rest, "] meta=")
 			if end < 0 {
@@ -107,6 +118,13 @@ func ParseDump(r io.Reader) (Schema, error) {
 			}
 			streamKeys := bracketList(rest[:end+1])
 			metaKeys := bracketList(rest[end+len("] meta="):])
+			classificationLabels := keyPresenceMap(streamKeys)
+			// Text dumps carry the source value outside the key-only label set. Include it in
+			// the classifier input so source-declaring lanes keep their fallback identity
+			// without changing the recorded stream-label keys. Set it even when empty: a
+			// source-less stream may still list `source` as a key with an empty value.
+			classificationLabels["source"] = rawSource
+			source := canonical.ClassifyLogStream(classificationLabels, metaKeys)
 			out.AddLog(source, canonical.TransportLoki, keyMap(streamKeys), metaKeys)
 		case "traces":
 			if !strings.HasPrefix(line, "  ") {

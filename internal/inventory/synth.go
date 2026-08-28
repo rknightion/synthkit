@@ -37,7 +37,7 @@ func FromSinks(prom *promrw.Sink, lokiSink *loki.Sink, traceSink *otlp.Sink, met
 			for key := range metadata {
 				keys = append(keys, key)
 			}
-			out.AddLog(ClassifyLogSource(stream.Labels), TransportLoki, stream.Labels, keys)
+			out.AddLog(ClassifyLogStream(stream.Labels, keys), TransportLoki, stream.Labels, keys)
 		}
 	}
 	if otlpLogsSink != nil {

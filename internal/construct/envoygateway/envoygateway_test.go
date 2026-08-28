@@ -20,8 +20,8 @@ package envoygateway_test
 //   (j) Signals() includes core.Logs alongside core.Metrics.
 //   (k) Data-plane log stream: correct namespace/container labels, JSON body with
 //       response_code/method/path; route_name NOT a stream label.
-//   (l) Control-plane log stream: k8s_container_name=envoy-gateway, detected_level set.
-//   (m) Both log streams carry detected_level; fallback graceful when no SubstrateWorkloads.
+//   (l) Control-plane log stream: container=envoy-gateway and pod metadata set.
+//   (m) Both log streams use the captured Loki-native shape; fallback remains graceful.
 
 import (
 	"context"
@@ -454,11 +454,11 @@ func tickOnceWithLogs(t *testing.T, c core.Construct) (*coretest.MetricCapture, 
 	return mc, lc
 }
 
-// streamsByContainer groups Loki streams by their k8s_container_name label.
+// streamsByContainer groups Loki streams by their container label.
 func streamsByContainer(streams []loki.Stream) map[string][]loki.Stream {
 	out := make(map[string][]loki.Stream)
 	for _, s := range streams {
-		key := s.Labels["k8s_container_name"]
+		key := s.Labels["container"]
 		out[key] = append(out[key], s)
 	}
 	return out
@@ -470,12 +470,11 @@ func streamsByContainer(streams []loki.Stream) map[string][]loki.Stream {
 // ─── (k) Data-plane log stream labels + JSON body ─────────────────────────────
 
 // TestDataPlaneLogStream verifies:
-//   - stream label k8s_namespace_name = "envoy-gateway-system"
-//   - stream label k8s_container_name = "envoy"
-//   - stream label k8s_pod_name matches a proxy pod name pattern
+//   - stream label namespace = "envoy-gateway-system"
+//   - stream label container = "envoy"
+//   - structured metadata pod matches a proxy pod name pattern
 //   - route_name is NOT a stream label (high-card, body only)
 //   - log body is JSON containing response_code, method, path
-//   - detected_level is set on the stream
 func TestDataPlaneLogStream(t *testing.T) {
 	c := buildWithPods(t)
 	_, lc := tickOnceWithLogs(t, c)
@@ -483,19 +482,19 @@ func TestDataPlaneLogStream(t *testing.T) {
 	byContainer := streamsByContainer(lc.Streams)
 	envoyStreams := byContainer["envoy"]
 	if len(envoyStreams) == 0 {
-		t.Fatal("no data-plane log streams (k8s_container_name=envoy) emitted")
+		t.Fatal("no data-plane log streams (container=envoy) emitted")
 	}
 
 	cl := clusterWithEnvoyGateway(t)
 
 	for _, stream := range envoyStreams {
-		// k8s_namespace_name must be envoy-gateway-system
-		if stream.Labels["k8s_namespace_name"] != "envoy-gateway-system" {
-			t.Errorf("data-plane: k8s_namespace_name=%q want envoy-gateway-system", stream.Labels["k8s_namespace_name"])
+		// namespace must be envoy-gateway-system
+		if stream.Labels["namespace"] != "envoy-gateway-system" {
+			t.Errorf("data-plane: namespace=%q want envoy-gateway-system", stream.Labels["namespace"])
 		}
-		// k8s_container_name already selected by this loop.
-		if stream.Labels["k8s_container_name"] != "envoy" {
-			t.Errorf("data-plane: k8s_container_name=%q want envoy", stream.Labels["k8s_container_name"])
+		// container already selected by this loop.
+		if stream.Labels["container"] != "envoy" {
+			t.Errorf("data-plane: container=%q want envoy", stream.Labels["container"])
 		}
 		// cluster labels
 		if stream.Labels["cluster"] != cl.Name {
@@ -504,13 +503,12 @@ func TestDataPlaneLogStream(t *testing.T) {
 		if stream.Labels["k8s_cluster_name"] != cl.Name {
 			t.Errorf("data-plane: k8s_cluster_name=%q want %q", stream.Labels["k8s_cluster_name"], cl.Name)
 		}
-		// k8s_pod_name must be present (proxy pod name)
-		if stream.Labels["k8s_pod_name"] == "" {
-			t.Errorf("data-plane: k8s_pod_name must be set (got empty)")
+		// pod metadata must be present (proxy pod name)
+		if len(stream.Lines) == 0 || stream.Lines[0].Meta["pod"] == "" {
+			t.Errorf("data-plane: pod metadata must be set (got %v)", stream.Lines)
 		}
-		// detected_level must be present
-		if stream.Labels["detected_level"] == "" {
-			t.Errorf("data-plane: detected_level must be set")
+		if _, ok := stream.Labels["detected_level"]; ok {
+			t.Errorf("data-plane: detected_level must not be a stream label")
 		}
 		// route_name must NOT be a stream label (high-cardinality — body only)
 		if _, ok := stream.Labels["route_name"]; ok {
@@ -562,8 +560,8 @@ func TestDataPlaneLogStream(t *testing.T) {
 // ─── (l) Control-plane log stream ─────────────────────────────────────────────
 
 // TestControlPlaneLogStream verifies:
-//   - stream label k8s_container_name = "envoy-gateway"
-//   - detected_level is set (info or warn)
+//   - stream label container = "envoy-gateway"
+//   - structured metadata pod is set
 //   - has at least one log line per tick
 func TestControlPlaneLogStream(t *testing.T) {
 	c := buildWithPods(t)
@@ -572,25 +570,26 @@ func TestControlPlaneLogStream(t *testing.T) {
 	byContainer := streamsByContainer(lc.Streams)
 	cpStreams := byContainer["envoy-gateway"]
 	if len(cpStreams) == 0 {
-		t.Fatal("no control-plane log streams (k8s_container_name=envoy-gateway) emitted")
+		t.Fatal("no control-plane log streams (container=envoy-gateway) emitted")
 	}
 
 	cl := clusterWithEnvoyGateway(t)
 
 	for _, stream := range cpStreams {
-		if stream.Labels["k8s_container_name"] != "envoy-gateway" {
-			t.Errorf("control-plane: k8s_container_name=%q want envoy-gateway", stream.Labels["k8s_container_name"])
+		if stream.Labels["container"] != "envoy-gateway" {
+			t.Errorf("control-plane: container=%q want envoy-gateway", stream.Labels["container"])
 		}
-		if stream.Labels["k8s_namespace_name"] != "envoy-gateway-system" {
-			t.Errorf("control-plane: k8s_namespace_name=%q want envoy-gateway-system", stream.Labels["k8s_namespace_name"])
+		if stream.Labels["namespace"] != "envoy-gateway-system" {
+			t.Errorf("control-plane: namespace=%q want envoy-gateway-system", stream.Labels["namespace"])
 		}
 		if stream.Labels["cluster"] != cl.Name {
 			t.Errorf("control-plane: cluster=%q want %q", stream.Labels["cluster"], cl.Name)
 		}
-		// detected_level must be set (info or warn)
-		dl := stream.Labels["detected_level"]
-		if dl != "info" && dl != "warn" {
-			t.Errorf("control-plane: detected_level=%q want info or warn", dl)
+		if len(stream.Lines) == 0 || stream.Lines[0].Meta["pod"] == "" {
+			t.Errorf("control-plane: pod metadata must be set")
+		}
+		if _, ok := stream.Labels["detected_level"]; ok {
+			t.Errorf("control-plane: detected_level must not be a stream label")
 		}
 		// Must not carry blueprint label
 		if _, ok := stream.Labels["blueprint"]; ok {
@@ -613,10 +612,10 @@ func TestBothLogSurfaces(t *testing.T) {
 	byContainer := streamsByContainer(lc.Streams)
 
 	if len(byContainer["envoy"]) == 0 {
-		t.Error("missing data-plane log stream (k8s_container_name=envoy)")
+		t.Error("missing data-plane log stream (container=envoy)")
 	}
 	if len(byContainer["envoy-gateway"]) == 0 {
-		t.Error("missing control-plane log stream (k8s_container_name=envoy-gateway)")
+		t.Error("missing control-plane log stream (container=envoy-gateway)")
 	}
 }
 
@@ -641,16 +640,16 @@ func TestLogsFallbackGraceful(t *testing.T) {
 	byContainer := streamsByContainer(lc.Streams)
 
 	if len(byContainer["envoy"]) == 0 {
-		t.Error("fallback: missing data-plane log stream (k8s_container_name=envoy)")
+		t.Error("fallback: missing data-plane log stream (container=envoy)")
 	}
 	if len(byContainer["envoy-gateway"]) == 0 {
-		t.Error("fallback: missing control-plane log stream (k8s_container_name=envoy-gateway)")
+		t.Error("fallback: missing control-plane log stream (container=envoy-gateway)")
 	}
 
-	// In fallback mode, k8s_pod_name should still be set (synthetic name).
+	// In fallback mode, pod metadata should still be set (synthetic name).
 	for _, stream := range byContainer["envoy"] {
-		if stream.Labels["k8s_pod_name"] == "" {
-			t.Errorf("fallback: data-plane k8s_pod_name must be set (synthetic fallback)")
+		if len(stream.Lines) == 0 || stream.Lines[0].Meta["pod"] == "" {
+			t.Errorf("fallback: data-plane pod metadata must be set (synthetic fallback)")
 		}
 	}
 }
@@ -662,7 +661,7 @@ func TestDataPlaneLogVolume(t *testing.T) {
 
 	var totalLines int
 	for _, stream := range lc.Streams {
-		if stream.Labels["k8s_container_name"] == "envoy" {
+		if stream.Labels["container"] == "envoy" {
 			totalLines += len(stream.Lines)
 		}
 	}

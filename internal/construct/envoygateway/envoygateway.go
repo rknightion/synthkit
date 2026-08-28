@@ -474,19 +474,25 @@ func (c *Construct) emitLogs(
 ) []loki.Stream {
 	var streams []loki.Stream
 
-	// ── Base stream labels shared by both surfaces ────────────────────────────
-
-	baseLabels := map[string]string{
-		"cluster":            cluster,
-		"k8s_cluster_name":   cluster,
-		"k8s_namespace_name": "envoy-gateway-system",
-		"service_name":       "envoy-gateway",
-		"service_namespace":  "envoy-gateway-system",
+	// The shared k8saddon mechanic applies the captured Loki-native stream shape to
+	// both surfaces while keeping pod identity in structured metadata.
+	newStream := func(container, appName, serviceName, pod, stream string, lines []loki.Line) loki.Stream {
+		return k8saddon.NewLokiPodLogStream(k8saddon.LokiPodLogConfig{
+			Cluster:          cluster,
+			Namespace:        "envoy-gateway-system",
+			Container:        container,
+			AppName:          appName,
+			ServiceName:      serviceName,
+			ServiceNamespace: "envoy-gateway-system",
+			Stream:           stream,
+			Flags:            "F",
+			Pod:              pod,
+		}, lines)
 	}
 
 	// ── Surface 1: Data-plane access logs (container=envoy) ───────────────────
 	//
-	// Recon (svc-group-b.md §3.C): JSON access log, high volume, log_iostream=stdout.
+	// Recon (svc-group-b.md §3.C): JSON access log, high volume, stream=stdout.
 	// route_name and upstream_cluster are HIGH-CARD — body only, never stream labels.
 	// Number of log lines per tick: 3–6 (deterministic via tick second modulo).
 	numLines := 3 + int(now.Unix()%4) // 3–6 lines
@@ -501,13 +507,6 @@ func (c *Construct) emitLogs(
 		// Deployment name is the workload name (strip per-pod suffix from pod name heuristic).
 		// We use the known fixture name directly.
 	}
-
-	dataLabels := cloneStringMap(baseLabels)
-	dataLabels["k8s_container_name"] = "envoy"
-	dataLabels["k8s_pod_name"] = proxyPodName
-	dataLabels["k8s_deployment_name"] = proxyDeployName
-	dataLabels["log_iostream"] = "stdout"
-	dataLabels["detected_level"] = "unknown" // access logs — no level field; Alloy detects "unknown"
 
 	var accessLines []loki.Line
 	for i := 0; i < numLines; i++ {
@@ -531,16 +530,13 @@ func (c *Construct) emitLogs(
 		accessLines = append(accessLines, loki.Line{T: now, Body: body})
 	}
 
-	streams = append(streams, loki.Stream{
-		Labels: dataLabels,
-		Lines:  accessLines,
-	})
+	streams = append(streams, newStream("envoy", proxyDeployName, "envoy-gateway", proxyPodName, "stdout", accessLines))
 
 	// ── Surface 2: Control-plane reconcile logs (container=envoy-gateway) ────
 	//
 	// Recon (svc-group-b.md §3.C): zap tab-separated format, sparse (~1-2 lines/tick).
 	// Format: <unix_float_ts>\t<level>\t<logger>\t<caller>\t<message>\t{json fields}
-	// log_iostream=stdout per live recon (control-plane envoy-gateway writes to stdout).
+	// stream=stdout per live recon (control-plane envoy-gateway writes to stdout).
 
 	controllerPodName := synthControllerPodName()
 	if len(controlMaps) > 0 {
@@ -562,32 +558,13 @@ func (c *Construct) emitLogs(
 	unixFloat := float64(now.UnixNano()) / 1e9
 
 	for _, msg := range msgs {
-		cpLabels := cloneStringMap(baseLabels)
-		cpLabels["k8s_container_name"] = "envoy-gateway"
-		cpLabels["k8s_pod_name"] = controllerPodName
-		cpLabels["k8s_deployment_name"] = "envoy-gateway"
-		cpLabels["log_iostream"] = "stdout"
-		cpLabels["detected_level"] = msg.level
-
 		body := fmt.Sprintf("%.9e\t%s\t%s\tv3/simple.go:693\t%s\t{}",
 			unixFloat, msg.level, msg.logger, msg.message)
 
-		streams = append(streams, loki.Stream{
-			Labels: cpLabels,
-			Lines:  []loki.Line{{T: now, Body: body}},
-		})
+		streams = append(streams, newStream("envoy-gateway", "envoy-gateway", "envoy-gateway", controllerPodName, "stdout", []loki.Line{{T: now, Body: body}}))
 	}
 
 	return streams
-}
-
-// cloneStringMap returns a shallow copy of m. Used for Loki stream label maps.
-func cloneStringMap(m map[string]string) map[string]string {
-	out := make(map[string]string, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
 }
 
 // ─── topology helper ──────────────────────────────────────────────────────────

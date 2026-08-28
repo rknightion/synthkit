@@ -12,7 +12,7 @@ package extdns_test
 //   (e) Counters are monotone — two successive ticks show non-decreasing values (I3).
 //   (f) record_type label lowercase per recon; correct types per family.
 //   (g) source_type label ∈ {service, ingress} on deduplicated_endpoints series.
-//   (h) Logs emitted with OTel/Alloy stream labels (k8s_namespace_name, k8s_container_name, etc.).
+//   (h) Logs emitted with the captured Loki-native stream labels and structured pod metadata.
 //   (i) No controller_runtime_* or rest_client_* (ExternalDNS does not use them).
 //   (j) Build returns an error when fx.Cluster is nil.
 //   (k) Kind/Signals/Interval metadata.
@@ -370,13 +370,13 @@ func TestSourceTypeLabels(t *testing.T) {
 	}
 }
 
-// ─── (h) Logs emitted with OTel/Alloy stream labels ──────────────────────────
+// ─── (h) Logs emitted with captured Loki-native stream labels ────────────────
 
 // TestLogsStreamLabels runs 20 ticks to ensure at least one log batch is emitted.
-// Verifies OTel/Alloy stream label convention (k8s_namespace_name, NOT namespace).
+// Verifies the captured Loki-native stream label convention.
 func TestLogsStreamLabels(t *testing.T) {
-	c := buildDefault(t)
-	cl := coretest.Cluster()
+	c := buildWithPods(t)
+	cl := clusterWithExtDNSPods(t)
 
 	var gotStreams int
 	for i := range 20 {
@@ -389,12 +389,11 @@ func TestLogsStreamLabels(t *testing.T) {
 		}
 		for _, stream := range lc.Streams {
 			gotStreams++
-			// OTel/Alloy namespace label is k8s_namespace_name (NOT "namespace").
-			if stream.Labels["k8s_namespace_name"] != "external-dns" {
-				t.Errorf("stream k8s_namespace_name=%q want %q", stream.Labels["k8s_namespace_name"], "external-dns")
+			if stream.Labels["namespace"] != "external-dns" {
+				t.Errorf("stream namespace=%q want %q", stream.Labels["namespace"], "external-dns")
 			}
-			if stream.Labels["k8s_container_name"] != "external-dns" {
-				t.Errorf("stream k8s_container_name=%q want %q", stream.Labels["k8s_container_name"], "external-dns")
+			if stream.Labels["container"] != "external-dns" {
+				t.Errorf("stream container=%q want %q", stream.Labels["container"], "external-dns")
 			}
 			if stream.Labels["cluster"] != cl.Name {
 				t.Errorf("stream cluster=%q want %q", stream.Labels["cluster"], cl.Name)
@@ -405,14 +404,22 @@ func TestLogsStreamLabels(t *testing.T) {
 			if stream.Labels["service_name"] != "external-dns" {
 				t.Errorf("stream service_name=%q want %q", stream.Labels["service_name"], "external-dns")
 			}
-			// detected_level must be present (info or warn).
-			dl := stream.Labels["detected_level"]
-			if dl != "info" && dl != "warn" {
-				t.Errorf("stream detected_level=%q want info or warn", dl)
+			if stream.Labels["job"] != "external-dns/external-dns" {
+				t.Errorf("stream job=%q want external-dns/external-dns", stream.Labels["job"])
 			}
-			// log_iostream must be stderr (external-dns writes exclusively to stderr).
-			if stream.Labels["log_iostream"] != "stderr" {
-				t.Errorf("stream log_iostream=%q want stderr", stream.Labels["log_iostream"])
+			if stream.Labels["flags"] != "F" {
+				t.Errorf("stream flags=%q want F", stream.Labels["flags"])
+			}
+			if stream.Labels["stream"] != "stderr" {
+				t.Errorf("stream stream=%q want stderr", stream.Labels["stream"])
+			}
+			if _, ok := stream.Labels["detected_level"]; ok {
+				t.Errorf("stream must not carry detected_level: %v", stream.Labels)
+			}
+			for _, line := range stream.Lines {
+				if line.Meta["pod"] == "" || line.Meta["service_instance_id"] == "" {
+					t.Errorf("stream line missing pod metadata: %v", line.Meta)
+				}
 			}
 			// Must not carry a blueprint label.
 			if _, ok := stream.Labels["blueprint"]; ok {

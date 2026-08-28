@@ -360,6 +360,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		BlueprintNames: cfg.BlueprintNames,
 		DataDir:        cfg.BlueprintDataDir,
 		Registry:       reg,
+		RuntimeLimits:  blueprint.RuntimeLimits{MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries},
 		Git:            gitClient,
 		Config:         sc,
 		Now:            func() int64 { return time.Now().UnixMilli() },
@@ -417,8 +418,9 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		return err
 	}
 	r := runner.New(sinks, reg, runner.Options{
-		MasterTick:  cfg.MasterTick,
-		TickTimeout: cfg.TickTimeout,
+		MasterTick:      cfg.MasterTick,
+		MaxDPMPerSeries: cfg.MaxDPMPerSeries,
+		TickTimeout:     cfg.TickTimeout,
 		Fleet: fleet.Config{
 			FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun,
 		},

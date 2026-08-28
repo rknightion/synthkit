@@ -50,6 +50,7 @@ type Config struct {
 
 	DryRun           bool          // DRY_RUN (default true)
 	MasterTick       time.Duration // TICK_DEFAULT (default 5s)
+	MaxDPMPerSeries  int           // MAX_DPM_PER_SERIES (default 6) — ceiling for explicit per-blueprint high_dpm cadence
 	TickTimeout      time.Duration // TICK_TIMEOUT seconds (0/unset = disabled) — optional per-blueprint per-tick backstop
 	SeriesCap        int           // SERIES_CAP global sink backstop (0 = unlimited)
 	BlueprintsDir    string        // BLUEPRINTS (default ./blueprints)
@@ -204,6 +205,14 @@ func Load(envPath string) (*Config, error) {
 		return nil, fmt.Errorf("config: bad TICK_DEFAULT %q: %w", tick, derr)
 	}
 	cfg.MasterTick = d
+	maxDPM := get("MAX_DPM_PER_SERIES", "6")
+	if maxDPM == "" {
+		maxDPM = "6"
+	}
+	cfg.MaxDPMPerSeries, err = strconv.Atoi(maxDPM)
+	if err != nil || cfg.MaxDPMPerSeries <= 0 {
+		return nil, fmt.Errorf("config: bad MAX_DPM_PER_SERIES %q: expected a positive integer", maxDPM)
+	}
 	soInt := get("SELFOBS_METRIC_INTERVAL", "15s")
 	si, sierr := time.ParseDuration(soInt)
 	if sierr != nil {

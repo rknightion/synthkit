@@ -171,8 +171,9 @@ type Construct interface {
 	Kind() string
 	// Signals declares which classes this instance emits.
 	Signals() []SignalClass
-	// Interval is the tick cadence. Metric lanes are ≥60s (the DPM floor, I10);
-	// the runner clamps lower values up and logs.
+	// Interval is the default tick cadence. Metric lanes use the 60s floor unless the
+	// containing blueprint explicitly declares a ceiling-bounded high_dpm override (I10);
+	// the runner applies the effective per-blueprint cadence and logs overrides/clamps.
 	Interval() time.Duration
 	// Tick renders one batch into w. Counters/histograms accumulate in the instance's
 	// own state.State across ticks (push running totals, never deltas — I3).

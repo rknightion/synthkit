@@ -41,10 +41,10 @@
 //
 // Logs (svc-group-b.md §2.C):
 //
-//	All 5 components write to stderr. Stream labels use OTel/Alloy convention:
-//	  cluster / k8s_cluster_name / k8s_namespace_name="argocd" / k8s_container_name /
-//	  k8s_pod_name / k8s_statefulset_name (app-controller) or k8s_deployment_name (others) /
-//	  service_name / service_namespace="argocd" / detected_level / log_iostream="stderr".
+//	All 5 components write to stderr. Loki-native stream labels use the captured wire shape:
+//	  cluster / k8s_cluster_name / namespace / container / job / stream / flags /
+//	  app_kubernetes_io_name / service_name / service_namespace.
+//	Pod and service-instance identity are structured metadata.
 //	Formats: logfmt for app-controller/server/repo-server/applicationset-controller;
 //	         JSON for notifications-controller.
 //	Pod names: derived from SubstrateWorkloads when populated; falls back to synthetic names.
@@ -581,8 +581,8 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 // buildLogStreams constructs the per-component Loki streams for one tick.
 // All 5 argocd components write to stderr every tick (dense per-reconcile volume
-// per svc-group-b.md §2.C). Stream labels use OTel/Alloy convention; high-card
-// identifiers (app names, sync IDs) ride in body only (I15).
+// per svc-group-b.md §2.C). The shared k8saddon mechanic applies the captured
+// Loki-native stream shape; high-card identifiers (app names, sync IDs) stay in bodies.
 func (c *Construct) buildLogStreams(now time.Time, cluster string) []loki.Stream {
 	ts := now.UTC().Format(time.RFC3339)
 	// tickIdx rotates 0–59 each minute so log body fields vary across ticks
@@ -603,16 +603,18 @@ func (c *Construct) buildLogStreams(now time.Time, cluster string) []loki.Stream
 		return fallback
 	}
 
-	// baseLabels returns the common OTel/Alloy stream labels for all components.
-	// Never aliased — each call returns a fresh map.
-	baseLabels := func() map[string]string {
-		return map[string]string{
-			"cluster":            cluster,
-			"k8s_cluster_name":   cluster,
-			"k8s_namespace_name": "argocd",
-			"service_namespace":  "argocd",
-			"log_iostream":       "stderr",
-		}
+	newStream := func(workloadName, fallbackPod, containerName, appName, serviceName string, lines []loki.Line) loki.Stream {
+		return k8saddon.NewLokiPodLogStream(k8saddon.LokiPodLogConfig{
+			Cluster:          cluster,
+			Namespace:        "argocd",
+			Container:        containerName,
+			AppName:          appName,
+			ServiceName:      serviceName,
+			ServiceNamespace: "argocd",
+			Stream:           "stderr",
+			Flags:            "F",
+			Pod:              podName(workloadName, fallbackPod),
+		}, lines)
 	}
 
 	// logfmtLine returns a logfmt-formatted log line with the given msg and optional
@@ -634,35 +636,20 @@ func (c *Construct) buildLogStreams(now time.Time, cluster string) []loki.Stream
 		return "{" + fields + "}"
 	}
 
-	detectedLevel := func(level string) string {
-		if level == "warning" {
-			return "warn"
-		}
-		return level
-	}
-
 	var streams []loki.Stream
 
 	// ── application-controller (StatefulSet, logfmt) ──────────────────────────
-	// Real pod name ends with -0 (StatefulSet ordinal). Uses k8s_statefulset_name
-	// per svc-group-b.md §2.C cross-cutting facts.
+	// Real pod name ends with -0 (StatefulSet ordinal). Pod identity is carried
+	// as structured metadata by the Loki-native transport.
 	{
 		appCtrlPod := podName("argocd-application-controller", "argocd-application-controller-0")
-		lbls := baseLabels()
-		lbls["k8s_container_name"] = "application-controller"
-		lbls["k8s_pod_name"] = appCtrlPod
-		lbls["k8s_statefulset_name"] = "argocd-application-controller"
-		lbls["service_name"] = "argocd-application-controller"
-		lbls["service_instance_id"] = fmt.Sprintf("argocd.%s.application-controller", appCtrlPod)
-		lbls["detected_level"] = detectedLevel("info")
 		// Rotate the reconciled app name and timing per tick so bodies aren't frozen.
 		appNames := []string{"otel-demo", "external-dns", "cert-manager", "karpenter", "grafana-agent"}
 		reconcileTimes := []string{"3", "5", "8", "2", "11", "4", "7", "6", "9", "12"}
 		appName := appNames[tickIdx%len(appNames)]
 		timeMs := reconcileTimes[tickIdx%len(reconcileTimes)]
-		streams = append(streams, loki.Stream{
-			Labels: lbls,
-			Lines: []loki.Line{
+		streams = append(streams, newStream("argocd-application-controller", appCtrlPod,
+			"application-controller", "argocd-application-controller", "argocd-application-controller", []loki.Line{
 				{T: now, Body: logfmtLine("info", "Reconciliation completed",
 					"app-namespace", "argocd",
 					"comparison-level", "0",
@@ -677,20 +664,12 @@ func (c *Construct) buildLogStreams(now time.Time, cluster string) []loki.Stream
 					"application", appName,
 					"project", "platform",
 				)},
-			},
-		})
+			}))
 	}
 
 	// ── server (Deployment, logfmt) ───────────────────────────────────────────
 	{
 		serverPod := podName("argocd-server", "argocd-server-0")
-		lbls := baseLabels()
-		lbls["k8s_container_name"] = "server"
-		lbls["k8s_pod_name"] = serverPod
-		lbls["k8s_deployment_name"] = "argocd-server"
-		lbls["service_name"] = "argocd-server"
-		lbls["service_instance_id"] = fmt.Sprintf("argocd.%s.server", serverPod)
-		lbls["detected_level"] = detectedLevel("info")
 		// Rotate gRPC method per tick so bodies vary.
 		grpcMethods := []string{"VersionString", "List", "Get", "Watch", "Update", "ListApps"}
 		grpcServices := []string{"version.VersionService", "application.ApplicationService", "cluster.ClusterService"}
@@ -698,37 +677,27 @@ func (c *Construct) buildLogStreams(now time.Time, cluster string) []loki.Stream
 		grpcMethod := grpcMethods[tickIdx%len(grpcMethods)]
 		grpcService := grpcServices[tickIdx%len(grpcServices)]
 		grpcTime := grpcTimings[tickIdx%len(grpcTimings)]
-		streams = append(streams, loki.Stream{
-			Labels: lbls,
-			Lines: []loki.Line{
+		streams = append(streams, newStream("argocd-server", serverPod,
+			"server", "argocd-server", "argocd-server", []loki.Line{
 				{T: now, Body: logfmtLine("info", "received unary call",
 					"grpc.method", grpcMethod,
 					"grpc.service", grpcService,
 					"grpc.code", "OK",
 					"grpc.time_ms", grpcTime,
 				)},
-			},
-		})
+			}))
 	}
 
 	// ── repo-server (Deployment, logfmt) ──────────────────────────────────────
 	{
 		repoPod := podName("argocd-repo-server", "argocd-repo-server-0")
-		lbls := baseLabels()
-		lbls["k8s_container_name"] = "repo-server"
-		lbls["k8s_pod_name"] = repoPod
-		lbls["k8s_deployment_name"] = "argocd-repo-server"
-		lbls["service_name"] = "argocd-repo-server"
-		lbls["service_instance_id"] = fmt.Sprintf("argocd.%s.repo-server", repoPod)
-		lbls["detected_level"] = detectedLevel("info")
 		// Rotate repo-server rpc timing and app name per tick.
 		repoMethods := []string{"GenerateManifest", "GetAppDetails", "GetRevisionMetadata", "ListApps", "GetHelmCharts"}
 		repoTimings := []string{"120", "85", "210", "63", "145", "97", "178", "52", "230", "110"}
 		repoMethod := repoMethods[tickIdx%len(repoMethods)]
 		repoTime := repoTimings[tickIdx%len(repoTimings)]
-		streams = append(streams, loki.Stream{
-			Labels: lbls,
-			Lines: []loki.Line{
+		streams = append(streams, newStream("argocd-repo-server", repoPod,
+			"repo-server", "argocd-repo-server", "argocd-repo-server", []loki.Line{
 				{T: now, Body: logfmtLine("info", "git fetch",
 					"grpc.method", repoMethod,
 					"grpc.code", "OK",
@@ -736,8 +705,7 @@ func (c *Construct) buildLogStreams(now time.Time, cluster string) []loki.Stream
 					"peer.address", "127.0.0.1:56789",
 					"protocol", "grpc",
 				)},
-			},
-		})
+			}))
 	}
 
 	// ── applicationset-controller (Deployment, logfmt) ────────────────────────
@@ -745,57 +713,30 @@ func (c *Construct) buildLogStreams(now time.Time, cluster string) []loki.Stream
 	// so it fires roughly once per 10 minutes of simulated time.
 	if tickIdx%10 == 0 {
 		appSetPod := podName("argocd-applicationset-controller", "argocd-applicationset-controller-0")
-		lbls := baseLabels()
-		lbls["k8s_container_name"] = "applicationset-controller"
-		lbls["k8s_pod_name"] = appSetPod
-		lbls["k8s_deployment_name"] = "argocd-applicationset-controller"
-		lbls["service_name"] = "argocd-applicationset-controller"
-		lbls["service_instance_id"] = fmt.Sprintf("argocd.%s.applicationset-controller", appSetPod)
-		lbls["detected_level"] = detectedLevel("info")
 		// Rotate heap/goroutine values so heartbeat body isn't frozen.
 		allocKBs := []string{"12345", "13210", "11870", "14500", "12980", "13750"}
 		goroutines := []string{"160", "162", "158", "165", "157", "163"}
 		alloc := allocKBs[tickIdx%len(allocKBs)]
 		goroutine := goroutines[tickIdx%len(goroutines)]
-		streams = append(streams, loki.Stream{
-			Labels: lbls,
-			Lines: []loki.Line{
+		streams = append(streams, newStream("argocd-applicationset-controller", appSetPod,
+			"applicationset-controller", "argocd-applicationset-controller", "argocd-applicationset-controller", []loki.Line{
 				{T: now, Body: logfmtLine("info", fmt.Sprintf("Alloc=%s NumGC=42 Goroutines=%s", alloc, goroutine))},
-			},
-		})
+			}))
 	}
 
 	// ── notifications-controller (Deployment, JSON) ───────────────────────────
 	{
 		notifPod := podName("argocd-notifications-controller", "argocd-notifications-controller-0")
-		lbls := baseLabels()
-		lbls["k8s_container_name"] = "notifications-controller"
-		lbls["k8s_pod_name"] = notifPod
-		lbls["k8s_deployment_name"] = "argocd-notifications-controller"
-		lbls["service_name"] = "argocd-notifications-controller"
-		lbls["service_instance_id"] = fmt.Sprintf("argocd.%s.notifications-controller", notifPod)
-		lbls["detected_level"] = detectedLevel("info")
 		// Rotate notification resource per tick.
 		notifResources := []string{"argocd/external-dns", "argocd/otel-demo", "argocd/cert-manager", "argocd/karpenter"}
 		notifResource := notifResources[tickIdx%len(notifResources)]
-		streams = append(streams, loki.Stream{
-			Labels: lbls,
-			Lines: []loki.Line{
+		streams = append(streams, newStream("argocd-notifications-controller", notifPod,
+			"notifications-controller", "argocd-notifications-controller", "argocd-notifications-controller", []loki.Line{
 				{T: now, Body: jsonLine("info", "Start processing",
 					"resource", notifResource,
 				)},
-			},
-		})
+			}))
 	}
 
 	return streams
-}
-
-// cloneMap returns a shallow copy of m.
-func cloneMap(m map[string]string) map[string]string {
-	out := make(map[string]string, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
 }

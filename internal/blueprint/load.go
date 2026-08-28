@@ -16,21 +16,21 @@ import (
 // Load strict-parses one blueprint document, validates it (schema + references +
 // registry), and resolves topology into fixtures + buildable instances. Every failure
 // is loud and names the offending field plus the available alternatives.
-func Load(data []byte, reg *core.Registry) (*Resolved, error) {
+func Load(data []byte, reg *core.Registry, runtimeLimits ...RuntimeLimits) (*Resolved, error) {
 	var d Decl
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	if err := dec.Decode(&d); err != nil {
 		return nil, fmt.Errorf("blueprint: %w", err)
 	}
-	return loadDecl(&d, data, reg)
+	return loadDecl(&d, data, reg, effectiveRuntimeLimits(runtimeLimits))
 }
 
 // LoadNamespaced is Load with the blueprint's name (and label, if explicitly set)
 // prefixed by nsPrefix BEFORE resolution, so the determinism seed + all fixture
 // identities + the stamped selector label are consistent with the namespaced name.
 // nsPrefix is already sanitized by the caller (bpsource.SanitizeNS); "" ⇒ plain Load.
-func LoadNamespaced(data []byte, nsPrefix string, reg *core.Registry) (*Resolved, error) {
+func LoadNamespaced(data []byte, nsPrefix string, reg *core.Registry, runtimeLimits ...RuntimeLimits) (*Resolved, error) {
 	var d Decl
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
@@ -43,11 +43,11 @@ func LoadNamespaced(data []byte, nsPrefix string, reg *core.Registry) (*Resolved
 			d.Label = nsPrefix + "/" + d.Label
 		}
 	}
-	return loadDecl(&d, data, reg)
+	return loadDecl(&d, data, reg, effectiveRuntimeLimits(runtimeLimits))
 }
 
 // loadDecl is the shared tail of Load and LoadNamespaced: validate, resolve, stamp Source.
-func loadDecl(d *Decl, data []byte, reg *core.Registry) (*Resolved, error) {
+func loadDecl(d *Decl, data []byte, reg *core.Registry, limits RuntimeLimits) (*Resolved, error) {
 	if err := validateDecl(d); err != nil {
 		return nil, err
 	}
@@ -55,8 +55,50 @@ func loadDecl(d *Decl, data []byte, reg *core.Registry) (*Resolved, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := ValidateRuntime(res, limits); err != nil {
+		return nil, err
+	}
 	res.Source = string(data)
 	return res, nil
+}
+
+// RuntimeLimits are process-level safety bounds applied while a blueprint is loaded. The zero
+// value uses the production defaults so non-runtime tooling and tests remain safe by default.
+type RuntimeLimits struct {
+	MasterTick      time.Duration
+	MaxDPMPerSeries int
+}
+
+func effectiveRuntimeLimits(in []RuntimeLimits) RuntimeLimits {
+	var limits RuntimeLimits
+	if len(in) > 0 {
+		limits = in[0]
+	}
+	if limits.MasterTick <= 0 {
+		limits.MasterTick = 5 * time.Second
+	}
+	if limits.MaxDPMPerSeries <= 0 {
+		limits.MaxDPMPerSeries = 6
+	}
+	return limits
+}
+
+// ValidateRuntime checks a resolved blueprint against the process's scheduling and cost bounds.
+// It is exported so the runner can apply the same rule to programmatically-built blueprints.
+func ValidateRuntime(res *Resolved, limits RuntimeLimits) error {
+	limits = effectiveRuntimeLimits([]RuntimeLimits{limits})
+	if res.HighDPM == nil {
+		return nil
+	}
+	iv := res.HighDPM.MetricInterval
+	if iv < limits.MasterTick {
+		return fmt.Errorf("blueprint %q: high_dpm.metric_interval %v is below TICK_DEFAULT %v and cannot be scheduled", res.Name, iv, limits.MasterTick)
+	}
+	ceilingInterval := time.Minute / time.Duration(limits.MaxDPMPerSeries)
+	if iv < ceilingInterval {
+		return fmt.Errorf("blueprint %q: high_dpm.metric_interval %v exceeds MAX_DPM_PER_SERIES=%d (minimum interval %v)", res.Name, iv, limits.MaxDPMPerSeries, ceilingInterval)
+	}
+	return nil
 }
 
 // validateDecl checks the declaration's internal consistency before resolution.
@@ -66,6 +108,15 @@ func validateDecl(d *Decl) error {
 	}
 	bad := func(format string, args ...any) error {
 		return fmt.Errorf("blueprint %q: %s", d.Name, fmt.Sprintf(format, args...))
+	}
+	if d.HighDPM != nil {
+		if d.HighDPM.MetricInterval == "" {
+			return bad("high_dpm.metric_interval is required when high_dpm is declared")
+		}
+		iv, err := time.ParseDuration(d.HighDPM.MetricInterval)
+		if err != nil || iv <= 0 {
+			return bad("high_dpm.metric_interval %q must be a positive duration", d.HighDPM.MetricInterval)
+		}
 	}
 	if len(d.Environments) == 0 && len(d.Hosts) == 0 {
 		return bad("at least one environment or host is required")

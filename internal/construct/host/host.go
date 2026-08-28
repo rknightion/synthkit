@@ -11,7 +11,7 @@
 // label. The hostname (`instance`) must be unique across blueprints (load-time gate).
 // Group: omitted ("") — a topology kind emitted by a bespoke resolver pass over `hosts:`.
 // Signals: Metrics + Logs.
-// Interval: 60s.
+// Interval: 60s by default; an explicit, ceiling-bounded blueprint high_dpm interval may override it.
 //
 // Config is EMPTY (fixture-driven): every per-host knob rides on the fixture.Host the
 // resolver builds from the blueprint declaration (the ec2/rds precedent).
@@ -31,7 +31,7 @@ import (
 // Kind is the registry key for this construct.
 const Kind = "host"
 
-// tickCadence is the metric lane cadence (the DPM floor, I10).
+// tickCadence is the default metric cadence; the runner may apply a blueprint high_dpm override (I10).
 const tickCadence = 60 * time.Second
 
 // Construct is one host-instance emitter. The host topology is fixed at Build time
@@ -63,7 +63,7 @@ func (c *Construct) Kind() string                { return Kind }
 func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics, core.Logs} }
 func (c *Construct) Interval() time.Duration     { return tickCadence }
 
-// Tick renders one 60s cycle: the OS exporter series (+ optional Docker cadvisor lane)
+// Tick renders one metric cycle: the OS exporter series (+ optional Docker cadvisor lane)
 // accumulate into c.st via the nodeexp emitters, then the collected batch is written once.
 // The emitters own their own `up` series (keyed by `job`) — the construct never emits up.
 func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) error {

@@ -450,7 +450,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	//
 	// Guard: skip silently when w.Logs is nil (tests that only probe metrics).
 	if w.Logs != nil {
-		streams := buildLBCLogStreams(cluster, c.clust, now, allPodMaps)
+		streams := buildLBCLogStreams(cluster, now, allPodMaps)
 		if len(streams) > 0 {
 			if err := w.Logs.Write(ctx, streams); err != nil {
 				return err
@@ -485,7 +485,6 @@ var lbcLogMessages = []struct {
 // allPodMaps is the per-pod label-sets from StampPods; may be nil for fallback.
 func buildLBCLogStreams(
 	cluster string,
-	cl *fixture.Cluster,
 	now time.Time,
 	allPodMaps []map[string]string,
 ) []loki.Stream {
@@ -519,51 +518,32 @@ func buildLBCLogStreams(
 			line.level, ts, line.msg, line.extra)
 	}
 
-	detectedLevel := line.level // info → info, error → error (no warn in LBC logs per recon)
-
-	// Base stream labels (low-card only — no reconcileID, error text, ARNs).
-	// service_name = lbcJob per OTel/Alloy convention (svc-lbc.md §C.1).
-	_ = cl // cl reserved for future fixture fields (e.g. service_instance_id)
-	streamBase := map[string]string{
-		"cluster":                cluster,
-		"k8s_cluster_name":       cluster,
-		"k8s_namespace_name":     "kube-system",
-		"k8s_container_name":     "aws-load-balancer-controller",
-		"k8s_deployment_name":    "aws-load-balancer-controller",
-		"service_name":           lbcJob,
-		"service_namespace":      "kube-system",
-		"app_kubernetes_io_name": "aws-load-balancer-controller",
-		"log_iostream":           "stderr",
-	}
-
-	if len(podNames) == 0 {
-		// Fallback: absent SubstrateWorkloads — emit one stream without k8s_pod_name.
-		lbls := cloneMap(streamBase)
-		lbls["detected_level"] = detectedLevel
-		return []loki.Stream{
-			{Labels: lbls, Lines: []loki.Line{{T: now, Body: body}}},
+	// The shared mechanic applies the captured Loki-native wire shape. High-card fields
+	// (reconcileID, ARNs, error text) remain in the JSON body.
+	streamConfig := func(pod string) k8saddon.LokiPodLogConfig {
+		return k8saddon.LokiPodLogConfig{
+			Cluster:          cluster,
+			Namespace:        "kube-system",
+			Container:        lbcJob,
+			AppName:          lbcJob,
+			ServiceName:      lbcJob,
+			ServiceNamespace: "kube-system",
+			Stream:           "stderr",
+			Flags:            "F",
+			Pod:              pod,
 		}
 	}
 
-	// Emit one stream per pod (each gets its own detected_level-labelled stream).
+	if len(podNames) == 0 {
+		return []loki.Stream{
+			k8saddon.NewLokiPodLogStream(streamConfig(""), []loki.Line{{T: now, Body: body}}),
+		}
+	}
+
+	// Emit one stream per pod; pod identity is structured metadata on each line.
 	out := make([]loki.Stream, 0, len(podNames))
 	for _, pn := range podNames {
-		lbls := cloneMap(streamBase)
-		lbls["k8s_pod_name"] = pn
-		lbls["detected_level"] = detectedLevel
-		out = append(out, loki.Stream{
-			Labels: lbls,
-			Lines:  []loki.Line{{T: now, Body: body}},
-		})
-	}
-	return out
-}
-
-// cloneMap returns a shallow copy of m.
-func cloneMap(m map[string]string) map[string]string {
-	out := make(map[string]string, len(m))
-	for k, v := range m {
-		out[k] = v
+		out = append(out, k8saddon.NewLokiPodLogStream(streamConfig(pn), []loki.Line{{T: now, Body: body}}))
 	}
 	return out
 }

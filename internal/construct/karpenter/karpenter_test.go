@@ -20,10 +20,10 @@ package karpenter_test
 //   (j) Fallback: cluster-scoped series when SubstrateWorkloads absent (no pod/namespace labels).
 //   (k) Registration.
 //   (l) Signals() includes core.Logs.
-//   (m) Log streams: k8s_namespace_name=kube-system, k8s_pod_name matches karpenter pod,
-//       detected_level present, body is zap-JSON with level+time fields.
+//   (m) Log streams: namespace/container identify the pod source, pod identity is structured
+//       metadata, and the body is zap-JSON with level+time fields.
 //   (n) No high-card label (reconcileID) in stream labels.
-//   (o) Log streams: k8s_deployment_name=karpenter, service_namespace=kube-system, log_iostream=stderr.
+//   (o) Log streams: app/service identity and captured stream/job/flags labels are present.
 //   (p) Nil w.Logs guard: Tick succeeds when w.Logs is nil.
 
 import (
@@ -594,28 +594,28 @@ func TestLogStreamsLabels(t *testing.T) {
 		for _, stream := range lc.Streams {
 			lbls := stream.Labels
 
-			// k8s_namespace_name must be kube-system.
-			if lbls["k8s_namespace_name"] != "kube-system" {
-				t.Errorf("k8s_namespace_name=%q want kube-system", lbls["k8s_namespace_name"])
+			// namespace must be kube-system.
+			if lbls["namespace"] != "kube-system" {
+				t.Errorf("namespace=%q want kube-system", lbls["namespace"])
 			}
 
-			// k8s_pod_name must match a real karpenter pod from SubstrateWorkloads.
-			podName := lbls["k8s_pod_name"]
+			// pod metadata must match a real karpenter pod from SubstrateWorkloads.
+			podName := ""
+			if len(stream.Lines) > 0 {
+				podName = stream.Lines[0].Meta["pod"]
+			}
 			if podName == "" {
-				t.Error("k8s_pod_name label absent or empty")
+				t.Error("pod metadata absent or empty")
 			} else if len(podNames) > 0 && !podNames[podName] {
-				t.Errorf("k8s_pod_name=%q not in karpenter SubstrateWorkloads pods %v", podName, podNames)
+				t.Errorf("pod metadata=%q not in karpenter SubstrateWorkloads pods %v", podName, podNames)
 			}
 
-			// detected_level must be present and one of info/error.
-			dl := lbls["detected_level"]
-			if dl != "info" && dl != "error" {
-				t.Errorf("detected_level=%q want info or error", dl)
+			if _, ok := lbls["detected_level"]; ok {
+				t.Errorf("detected_level must not be a stream label: %v", lbls)
 			}
 
-			// k8s_deployment_name must be "karpenter".
-			if lbls["k8s_deployment_name"] != "karpenter" {
-				t.Errorf("k8s_deployment_name=%q want karpenter", lbls["k8s_deployment_name"])
+			if lbls["app_kubernetes_io_name"] != "karpenter" {
+				t.Errorf("app_kubernetes_io_name=%q want karpenter", lbls["app_kubernetes_io_name"])
 			}
 
 			// service_namespace must be kube-system.
@@ -623,14 +623,26 @@ func TestLogStreamsLabels(t *testing.T) {
 				t.Errorf("service_namespace=%q want kube-system", lbls["service_namespace"])
 			}
 
-			// log_iostream must be stderr.
-			if lbls["log_iostream"] != "stderr" {
-				t.Errorf("log_iostream=%q want stderr", lbls["log_iostream"])
+			// stream must be stderr.
+			if lbls["stream"] != "stderr" {
+				t.Errorf("stream=%q want stderr", lbls["stream"])
 			}
 
-			// k8s_container_name must be controller.
-			if lbls["k8s_container_name"] != "controller" {
-				t.Errorf("k8s_container_name=%q want controller", lbls["k8s_container_name"])
+			// container must be controller.
+			if lbls["container"] != "controller" {
+				t.Errorf("container=%q want controller", lbls["container"])
+			}
+			if lbls["job"] != "kube-system/controller" {
+				t.Errorf("job=%q want kube-system/controller", lbls["job"])
+			}
+			if lbls["flags"] != "F" {
+				t.Errorf("flags=%q want F", lbls["flags"])
+			}
+			if len(stream.Lines) > 0 {
+				wantServiceID := "kube-system." + podName + ".controller"
+				if stream.Lines[0].Meta["service_instance_id"] != wantServiceID {
+					t.Errorf("service_instance_id=%q want %q", stream.Lines[0].Meta["service_instance_id"], wantServiceID)
+				}
 			}
 
 			// cluster and k8s_cluster_name must be present and match.
@@ -666,6 +678,32 @@ func TestLogStreamsLabels(t *testing.T) {
 				// Karpenter uses "time" (RFC3339), NOT "ts" (lbc uses ts).
 				if _, ok := obj["time"]; !ok {
 					t.Errorf("zap-JSON body missing 'time' field (karpenter uses time, not ts): %q", line.Body)
+				}
+			}
+		}
+	}
+}
+
+func TestLogStreamsOmitPodMetadataWithoutResolvedLeader(t *testing.T) {
+	cl := coretest.Cluster()
+	cl.SubstrateWorkloads = nil
+	c, err := karpenter.New(&karpenter.Config{}, &fixture.Set{Seed: "test", Cluster: cl})
+	if err != nil {
+		t.Fatalf("karpenter.New: %v", err)
+	}
+
+	caps := tickOnceLogs(t, c, 20)
+	if len(caps) == 0 {
+		t.Fatal("no log streams emitted across 20 ticks")
+	}
+	for _, capture := range caps {
+		for _, stream := range capture.Streams {
+			for _, line := range stream.Lines {
+				if _, ok := line.Meta["pod"]; ok {
+					t.Errorf("unresolved leader invented pod metadata: %v", line.Meta)
+				}
+				if _, ok := line.Meta["service_instance_id"]; ok {
+					t.Errorf("unresolved leader invented service_instance_id metadata: %v", line.Meta)
 				}
 			}
 		}

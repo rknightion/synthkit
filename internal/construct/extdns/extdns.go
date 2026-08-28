@@ -20,10 +20,10 @@
 //	  external_dns_build_info                 discovery/version gauge
 //	  external_dns_http_request_duration_seconds (summary: quantile 0.5/0.9/0.99 + _count + _sum)
 //
-//	Logs: JSON-structured lines to Loki (OTel/Alloy stream labels:
-//	      cluster / k8s_cluster_name / k8s_namespace_name / k8s_container_name /
-//	      k8s_pod_name / k8s_deployment_name / service_name / service_namespace /
-//	      detected_level / log_iostream)
+//	Logs: JSON-structured lines to Loki using the captured native stream labels:
+//	      cluster / k8s_cluster_name / namespace / container / job / stream / flags /
+//	      app_kubernetes_io_name / service_name / service_namespace, with pod identity
+//	      in structured metadata.
 //
 // NOTE: ExternalDNS does NOT use controller-runtime — no controller_runtime_* or
 // rest_client_* (signals/k8s-addons.md [slug: k8s-externaldns] closing note). This is contractual.
@@ -362,16 +362,13 @@ func (c *construct) emitForCluster(cluster string, factor, scale float64, now ti
 		})
 	}
 
-	// ── JSON-structured logs (OTel/Alloy Loki stream labels) ─────────────────
+	// ── JSON-structured logs (captured Loki-native stream shape) ───────────────
 	//
 	// Recon (svc-external-dns.md §C): JSON format (--log-format=json), stderr only.
-	// Stream labels use OTel/Alloy convention: k8s_namespace_name (NOT namespace),
-	// k8s_pod_name, k8s_container_name, k8s_deployment_name, service_namespace, etc.
-	// detected_level maps JSON "warning" → "warn".
 	// ~70% of ticks emit a log line (2/min cadence: 1 warning + 1 info per sync).
 
 	if w.Shape.Float64() < 0.7 {
-		// Determine the pod name for the stream label — use first pod if available.
+		// Determine the pod name for structured metadata — use first pod if available.
 		podName := ""
 		if len(podMaps) > 0 {
 			podName = podMaps[0]["pod"]
@@ -411,38 +408,21 @@ func (c *construct) emitForCluster(cluster string, factor, scale float64, now ti
 			infoMsg, ts,
 		)
 
-		streamLabels := map[string]string{
-			"cluster":                cluster,
-			"k8s_cluster_name":       cluster,
-			"k8s_namespace_name":     "external-dns",
-			"k8s_container_name":     "external-dns",
-			"k8s_deployment_name":    "external-dns",
-			"service_name":           "external-dns",
-			"service_namespace":      "external-dns",
-			"app_kubernetes_io_name": "external-dns",
-			"log_iostream":           "stderr",
+		streamConfig := k8saddon.LokiPodLogConfig{
+			Cluster:          cluster,
+			Namespace:        "external-dns",
+			Container:        "external-dns",
+			AppName:          "external-dns",
+			ServiceName:      "external-dns",
+			ServiceNamespace: "external-dns",
+			Stream:           "stderr",
+			Flags:            "F",
+			Pod:              podName,
 		}
-		if podName != "" {
-			streamLabels["k8s_pod_name"] = podName
-		}
-
-		// Emit warning stream with detected_level=warn.
-		warnLabels := cloneMap(streamLabels)
-		warnLabels["detected_level"] = "warn"
-
-		// Emit info stream with detected_level=info.
-		infoLabels := cloneMap(streamLabels)
-		infoLabels["detected_level"] = "info"
 
 		return []loki.Stream{
-			{
-				Labels: warnLabels,
-				Lines:  []loki.Line{{T: now, Body: warnBody}},
-			},
-			{
-				Labels: infoLabels,
-				Lines:  []loki.Line{{T: now, Body: infoBody}},
-			},
+			k8saddon.NewLokiPodLogStream(streamConfig, []loki.Line{{T: now, Body: warnBody}}),
+			k8saddon.NewLokiPodLogStream(streamConfig, []loki.Line{{T: now, Body: infoBody}}),
 		}
 	}
 	return nil
@@ -456,15 +436,6 @@ func mergeLabels(podMap map[string]string, extra map[string]string) map[string]s
 		out[k] = v
 	}
 	for k, v := range extra {
-		out[k] = v
-	}
-	return out
-}
-
-// cloneMap returns a shallow copy of m.
-func cloneMap(m map[string]string) map[string]string {
-	out := make(map[string]string, len(m))
-	for k, v := range m {
 		out[k] = v
 	}
 	return out

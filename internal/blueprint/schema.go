@@ -48,6 +48,7 @@ type Decl struct {
 	Timezone     string               `yaml:"timezone"` // business-hours anchor (default Europe/Zurich)
 	Regions      []RegionDecl         `yaml:"regions"`  // follow-the-sun multi-tz composite (mutually exclusive with timezone)
 	SeriesBudget int                  `yaml:"series_budget"`
+	HighDPM      *HighDPMDecl         `yaml:"high_dpm"` // explicit opt-in to a per-blueprint metric cadence below the default floor
 	Environments []EnvDecl            `yaml:"environments"`
 	Workloads    []WorkloadDecl       `yaml:"workloads"`
 	Features     map[string]yaml.Node `yaml:"features"`     // Grafana Cloud products (sm, fleet); `enabled` reserved (default true)
@@ -55,6 +56,13 @@ type Decl struct {
 	Incidents    []IncidentDecl       `yaml:"incidents"`
 	Scenarios    []ScenarioDecl       `yaml:"scenarios"`
 	Hosts        []HostDecl           `yaml:"hosts"` // traditional non-k8s machines (node/windows/macos exporter + optional docker)
+}
+
+// HighDPMDecl is the explicit cost-bearing override for one blueprint's metric-bearing
+// instances. MetricInterval is parsed and validated during load; the runner additionally
+// checks it against the process ceiling and master tick before building the blueprint.
+type HighDPMDecl struct {
+	MetricInterval string `yaml:"metric_interval"`
 }
 
 // HostDecl declares one traditional non-Kubernetes machine running Grafana Alloy's
@@ -137,6 +145,7 @@ type ClusterDecl struct {
 	Name          string            `yaml:"name"`
 	NodeGroups    []NodeGroupDecl   `yaml:"node_groups"`
 	K8sMonitoring K8sMonitoringDecl `yaml:"k8s_monitoring"`
+	OTel          yaml.Node         `yaml:"otel"`          // k8s_cluster receiver-native emission switches; decoded via registry
 	Observability *CloudWatchToggle `yaml:"observability"` // gates the per-node ec2 CloudWatch lane
 	Addons        []AddonRef        `yaml:"addons"`
 	Platform      *PlatformDecl     `yaml:"platform"` // node OS/runtime/k8s version (defaults applied when omitted)

@@ -782,6 +782,100 @@ func TestReceiverDecodesAlloyProtobufLokiPush(t *testing.T) {
 	}
 }
 
+func TestReceiverKeepsCapturedPodLogsSeparateFromManifests(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	for _, tc := range []struct {
+		labels   string
+		metadata []string
+	}{
+		{
+			labels:   `{app_kubernetes_io_name="catalog", cluster="lab", container="catalog", flags="F", job="otel-demo/catalog", k8s_cluster_name="lab", namespace="otel-demo", service_name="catalog", service_namespace="otel-demo", stream="stdout"}`,
+			metadata: []string{"pod", "service_instance_id"},
+		},
+		{
+			labels:   `{action="manifest", cluster="lab", instance="alloy", job="integrations/kubernetes/manifests", k8s_cluster_name="lab", k8s_kind="Pod", k8s_namespace_name="otel-demo"}`,
+			metadata: []string{"k8s_pod_name"},
+		},
+	} {
+		req, err := http.NewRequest(http.MethodPost, srv.URL+"/loki/api/v1/push", bytes.NewReader(lokiProtobufPush(tc.labels, tc.metadata)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/x-protobuf")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNoContent {
+			t.Fatalf("status = %d, want 204", resp.StatusCode)
+		}
+	}
+
+	inv := rec.Snapshot()
+	if len(inv.Logs) != 2 {
+		t.Fatalf("logs=%v, want separate pod-log and manifest entries", inv.Logs)
+	}
+	var podLogs, manifests bool
+	for _, log := range inv.Logs {
+		switch log.Source {
+		case inventory.LogFamilyPodLogs:
+			podLogs = true
+		case "":
+			manifests = true
+		}
+	}
+	if !podLogs || !manifests {
+		t.Fatalf("logs=%v, want sources %q and empty", inv.Logs, inventory.LogFamilyPodLogs)
+	}
+}
+
+func TestReceiverClassifiesCapturedOTLPPodLogs(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	payload, err := proto.Marshal(&logspb.ExportLogsServiceRequest{ResourceLogs: []*logs.ResourceLogs{{
+		Resource: &resourcepb.Resource{Attributes: []*commonpb.KeyValue{
+			{Key: "cluster", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "lab"}}},
+			{Key: "k8s.cluster.name", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "lab"}}},
+			{Key: "k8s.namespace.name", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "otel-demo"}}},
+			{Key: "k8s.pod.name", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "catalog-0"}}},
+			{Key: "k8s.container.name", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "catalog"}}},
+			{Key: "service.name", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "catalog"}}},
+		}},
+		ScopeLogs: []*logs.ScopeLogs{{LogRecords: []*logs.LogRecord{{
+			Attributes: []*commonpb.KeyValue{{Key: "log.iostream", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "stdout"}}}},
+		}}}},
+	}}})
+	if err != nil {
+		t.Fatalf("marshal OTLP logs: %v", err)
+	}
+	resp, err := http.Post(srv.URL+"/otlp/v1/logs", "application/x-protobuf", bytes.NewReader(payload)) //nolint:noctx
+	if err != nil {
+		t.Fatalf("POST OTLP logs: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		t.Fatalf("OTLP logs status = %d, want 2xx", resp.StatusCode)
+	}
+
+	got := rec.Snapshot()
+	if len(got.Logs) != 1 {
+		t.Fatalf("logs=%v, want one OTLP pod-log entry", got.Logs)
+	}
+	log := got.Logs[0]
+	if log.Source != inventory.LogFamilyPodLogs || log.Transport != inventory.TransportOTLPLogs {
+		t.Fatalf("log=%v, want source %q over %q", log, inventory.LogFamilyPodLogs, inventory.TransportOTLPLogs)
+	}
+	if !containsAttributeValue(log.StreamLabels, "k8s.pod.name", "catalog-0") || !contains(log.StructuredMetadataKeys, "log.iostream") {
+		t.Fatalf("log=%v, want resource identity and record metadata kept split", log)
+	}
+}
+
 func TestParseLokiLabelSetHandlesEscapesAndCommas(t *testing.T) {
 	got := parseLokiLabelSet(`{a="1", b="has, comma", c="has \"quote\"", d="tab\there"}`)
 	want := map[string]string{

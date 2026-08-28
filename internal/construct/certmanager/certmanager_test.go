@@ -699,9 +699,9 @@ func TestCertManagerSignalsIncludeLogs(t *testing.T) {
 
 // TestCertManagerEmitsLogs verifies the log lane with cert-manager workloads
 // in SubstrateWorkloads. Checks:
-//   - at least one stream has k8s_namespace_name="cert-manager"
-//   - at least one stream has k8s_pod_name matching a cert-manager pod from SubstrateWorkloads
-//   - detected_level is set on every stream
+//   - at least one stream has namespace="cert-manager"
+//   - at least one line has pod metadata matching a cert-manager pod from SubstrateWorkloads
+//   - pod identity metadata is present on every line
 //   - log body matches klog format (starts with I, W, or E followed by date digits)
 //   - no high-card label keys (certificate, order, reconcileID, etc.) in stream labels
 func TestCertManagerEmitsLogs(t *testing.T) {
@@ -729,25 +729,23 @@ func TestCertManagerEmitsLogs(t *testing.T) {
 
 	var gotNamespace, gotPodName bool
 	for _, stream := range lc.Streams {
-		// k8s_namespace_name must be "cert-manager".
-		if stream.Labels["k8s_namespace_name"] == "cert-manager" {
+		// namespace must be "cert-manager".
+		if stream.Labels["namespace"] == "cert-manager" {
 			gotNamespace = true
 		}
 
-		// At least one stream must have a pod name from SubstrateWorkloads.
-		if podName := stream.Labels["k8s_pod_name"]; certManagerPodNames[podName] {
-			gotPodName = true
+		// stream must be stderr (cert-manager uses klog → stderr).
+		if stream.Labels["stream"] != "stderr" {
+			t.Errorf("stream stream=%q want stderr", stream.Labels["stream"])
 		}
-
-		// detected_level must be set.
-		dl := stream.Labels["detected_level"]
-		if dl == "" {
-			t.Errorf("stream missing detected_level: labels=%v", stream.Labels)
+		if stream.Labels["flags"] != "F" {
+			t.Errorf("stream flags=%q want F", stream.Labels["flags"])
 		}
-
-		// log_iostream must be stderr (cert-manager uses klog → stderr).
-		if stream.Labels["log_iostream"] != "stderr" {
-			t.Errorf("stream log_iostream=%q want stderr", stream.Labels["log_iostream"])
+		if stream.Labels["job"] != stream.Labels["namespace"]+"/"+stream.Labels["container"] {
+			t.Errorf("stream job=%q want namespace/container form", stream.Labels["job"])
+		}
+		if _, ok := stream.Labels["detected_level"]; ok {
+			t.Errorf("stream must not carry detected_level: labels=%v", stream.Labels)
 		}
 
 		// cluster labels must be set.
@@ -772,6 +770,12 @@ func TestCertManagerEmitsLogs(t *testing.T) {
 
 		// Log body must match klog format: starts with I/W/E followed by 4 date digits.
 		for _, line := range stream.Lines {
+			if podName := line.Meta["pod"]; certManagerPodNames[podName] {
+				gotPodName = true
+			}
+			if line.Meta["service_instance_id"] == "" {
+				t.Errorf("line missing service_instance_id metadata: %v", line.Meta)
+			}
 			if len(line.Body) < 5 {
 				t.Errorf("log line body too short: %q", line.Body)
 				continue
@@ -790,10 +794,10 @@ func TestCertManagerEmitsLogs(t *testing.T) {
 	}
 
 	if !gotNamespace {
-		t.Error("no stream with k8s_namespace_name=\"cert-manager\"")
+		t.Error("no stream with namespace=\"cert-manager\"")
 	}
 	if !gotPodName {
-		t.Error("no stream with k8s_pod_name matching a cert-manager pod from SubstrateWorkloads")
+		t.Error("no line with pod metadata matching a cert-manager pod from SubstrateWorkloads")
 	}
 }
 

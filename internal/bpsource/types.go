@@ -104,13 +104,14 @@ type ValidationResult struct {
 
 // Options configures a Manager at construction time.
 type Options struct {
-	BakedDir       string         // cfg.BlueprintsDir (built-ins)
-	BlueprintNames []string       // exact-name allowlist; empty selects none, "*" selects every available blueprint
-	DataDir        string         // <volume>/blueprints (custom + git + manifest)
-	Registry       *core.Registry // runner.Catalog()
-	Git            GitClient      // nanogit adapter (may be nil → git sources skipped)
-	Config         SourceConfig   // control.Store adapter
-	Now            func() int64   // unix-ms clock (injectable for tests)
+	BakedDir       string                  // cfg.BlueprintsDir (built-ins)
+	BlueprintNames []string                // exact-name allowlist; empty selects none, "*" selects every available blueprint
+	DataDir        string                  // <volume>/blueprints (custom + git + manifest)
+	Registry       *core.Registry          // runner.Catalog()
+	RuntimeLimits  blueprint.RuntimeLimits // process scheduling/cost bounds used by blueprint load validation
+	Git            GitClient               // nanogit adapter (may be nil → git sources skipped)
+	Config         SourceConfig            // control.Store adapter
+	Now            func() int64            // unix-ms clock (injectable for tests)
 }
 
 // Manager is the composition-root object wiring all of the above. Constructed in main.go.
@@ -122,6 +123,7 @@ type Manager struct {
 	bakedDir   string
 	dataDir    string
 	reg        *core.Registry
+	limits     blueprint.RuntimeLimits
 	git        GitClient
 	cfg        SourceConfig
 	now        func() int64

@@ -497,8 +497,8 @@ func (c *Construct) emitCainjectorMetrics(podMaps []map[string]string, scale flo
 // certComponent describes one cert-manager component for log emission.
 type certComponent struct {
 	workloadName  string // SubstrateWorkloads lookup key (e.g. "cert-manager")
-	containerName string // k8s_container_name in stream labels
-	deployName    string // k8s_deployment_name / service_name
+	containerName string // container in the Loki-native stream labels
+	deployName    string // app_kubernetes_io_name / service_name
 }
 
 // certManagerComponents lists the three cert-manager components that emit logs.
@@ -538,7 +538,7 @@ func (c *Construct) buildLogStreams(cluster string, now time.Time) []loki.Stream
 
 	var streams []loki.Stream
 	for _, comp := range certManagerComponents {
-		// Look up the pod name from SubstrateWorkloads — required for k8s_pod_name label.
+		// Look up the pod name from SubstrateWorkloads — carried as structured metadata.
 		wl, ok := k8saddon.LookupSubstrateWorkload(c.clust, comp.workloadName)
 		if !ok || len(wl.PodNames) == 0 {
 			// No workload found — skip this component.
@@ -555,32 +555,17 @@ func (c *Construct) buildLogStreams(cluster string, now time.Time) []loki.Stream
 		timePart := now.Format("15:04:05.000000")
 		body := fmt.Sprintf(tmpl.level+tmpl.body, datePart, timePart)
 
-		// Map klog level to detected_level (Alloy convention):
-		// I → "info", W → "warn", E → "error"; klog "I" lines Alloy marks as "unknown"
-		// in practice but our synthetic label matches the body's intent.
-		detectedLevel := "info"
-		switch tmpl.level {
-		case "W":
-			detectedLevel = "warn"
-		case "E":
-			detectedLevel = "error"
-		}
-
-		streams = append(streams, loki.Stream{
-			Labels: map[string]string{
-				"cluster":             cluster,
-				"k8s_cluster_name":    cluster,
-				"k8s_namespace_name":  "cert-manager",
-				"k8s_container_name":  comp.containerName,
-				"k8s_deployment_name": comp.deployName,
-				"k8s_pod_name":        podName,
-				"service_name":        comp.deployName,
-				"service_namespace":   "cert-manager",
-				"detected_level":      detectedLevel,
-				"log_iostream":        "stderr",
-			},
-			Lines: []loki.Line{{T: now, Body: body}},
-		})
+		streams = append(streams, k8saddon.NewLokiPodLogStream(k8saddon.LokiPodLogConfig{
+			Cluster:          cluster,
+			Namespace:        "cert-manager",
+			Container:        comp.containerName,
+			AppName:          comp.deployName,
+			ServiceName:      comp.deployName,
+			ServiceNamespace: "cert-manager",
+			Stream:           "stderr",
+			Flags:            "F",
+			Pod:              podName,
+		}, []loki.Line{{T: now, Body: body}}))
 	}
 	return streams
 }

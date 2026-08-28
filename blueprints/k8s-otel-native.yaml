@@ -1,0 +1,37 @@
+# k8s-otel-native — minimum Kubernetes estate with the observed native OTel receiver surface.
+# The otel.metrics switch adds receiver-native OTLP metrics; it does not re-spell the existing
+# Prometheus scrape families. See signals/k8s.md [slug: k8s-otel-native-permutation].
+name: k8s-otel-native
+label: k8s-otel-native
+shape: business_hours_plateau
+timezone: America/Los_Angeles
+metadata:
+  description: "Minimum Kubernetes footprint with the observed k8sclusterreceiver and default kubeletstatsreceiver OTLP metrics."
+  owner: platform-observability
+  category: reference
+  tags: [kubernetes, otlp, native-receivers, metrics-only, cost-controlled]
+  links:
+    signals: ./signals/otlp-metrics.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "410000000002"
+      region: us-west-2
+      vpc_id: vpc-0k8sotlp1
+    cluster:
+      type: eks
+      name: k8sotlp-prod-usw2
+      node_groups:
+        - {name: general, instance_type: m6i.large, desired: 3}
+      observability:
+        cloudwatch: false
+      otel:
+        metrics: true
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+        features:
+          cluster_metrics: true

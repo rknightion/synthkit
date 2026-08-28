@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/failuremode"
@@ -32,6 +33,12 @@ type testWsCfg struct {
 	} `yaml:"endpoints"`
 }
 
+type testK8sConfig struct {
+	OTel *struct {
+		Metrics bool `yaml:"metrics"`
+	} `yaml:"otel"`
+}
+
 // testRegistry builds a registry covering the v1 kinds the resolver emits plus the
 // path-1 kinds (addons/features/workloads) the loader decodes configs for.
 func testRegistry(t *testing.T) *core.Registry {
@@ -53,9 +60,13 @@ func testRegistry(t *testing.T) *core.Registry {
 				{Name: "slow_query_storm", Axis: failuremode.AxisDatabase},
 			}
 		}
+		newConfig := func() any { return &struct{}{} }
+		if k == KindK8sCluster {
+			newConfig = func() any { return &testK8sConfig{} }
+		}
 		reg.RegisterConstruct(core.ConstructReg{
 			Kind: k, Doc: "test", Scope: core.ScopeSubstrate,
-			NewConfig:    func() any { return &struct{}{} },
+			NewConfig:    newConfig,
 			Build:        func(cfg any, fx *fixture.Set) (core.Construct, error) { return nil, nil },
 			FailureModes: modes,
 		})
@@ -122,6 +133,32 @@ func testRegistry(t *testing.T) *core.Registry {
 		},
 	})
 	return reg
+}
+
+func TestResolveK8sNativeOTLPMetricsSwitch(t *testing.T) {
+	y := `
+name: k8s-native
+environments:
+  - name: prod
+    cloud: {provider: aws, account_id: "111122223333", region: us-east-1, vpc_id: vpc-test}
+    cluster:
+      type: eks
+      name: native-cluster
+      node_groups: [{name: general, instance_type: m6i.large, desired: 3}]
+      otel: {metrics: true}
+`
+	r := load(t, y)
+	for _, instance := range r.Constructs {
+		if instance.Kind != KindK8sCluster {
+			continue
+		}
+		cfg, ok := instance.Config.(*testK8sConfig)
+		if !ok || cfg.OTel == nil || !cfg.OTel.Metrics {
+			t.Fatalf("k8s_cluster config = %#v, want otel.metrics=true", instance.Config)
+		}
+		return
+	}
+	t.Fatal("no k8s_cluster construct resolved")
 }
 
 const minimalYAML = `
@@ -192,6 +229,49 @@ func TestLoadMinimalBlueprint(t *testing.T) {
 	}
 	if len(r.Workloads) != 1 || r.Workloads[0].Kind != "web_service" || r.Workloads[0].Name != "mini-api" {
 		t.Fatalf("workloads: %+v", r.Workloads)
+	}
+}
+
+func TestLoadHighDPMMetricInterval(t *testing.T) {
+	y := strings.Replace(minimalYAML, "name: mini\n", "name: mini\nhigh_dpm:\n  metric_interval: 10s\n", 1)
+	r := load(t, y)
+	if r.HighDPM == nil || r.HighDPM.MetricInterval != 10*time.Second {
+		t.Fatalf("HighDPM = %+v, want 10s metric interval", r.HighDPM)
+	}
+}
+
+func TestLoadRejectsInvalidHighDPMMetricInterval(t *testing.T) {
+	y := strings.Replace(minimalYAML, "name: mini\n", "name: mini\nhigh_dpm:\n  metric_interval: soon\n", 1)
+	err := loadErr(t, y)
+	if !strings.Contains(err.Error(), "high_dpm.metric_interval") {
+		t.Fatalf("error = %v, want high_dpm.metric_interval", err)
+	}
+}
+
+func TestLoadRejectsHighDPMAboveDefaultCeiling(t *testing.T) {
+	y := strings.Replace(minimalYAML, "name: mini\n", "name: mini\nhigh_dpm:\n  metric_interval: 5s\n", 1)
+	err := loadErr(t, y)
+	if !strings.Contains(err.Error(), "MAX_DPM_PER_SERIES=6") {
+		t.Fatalf("error = %v, want default DPM ceiling", err)
+	}
+}
+
+func TestLoadRejectsHighDPMBelowMasterTick(t *testing.T) {
+	y := strings.Replace(minimalYAML, "name: mini\n", "name: mini\nhigh_dpm:\n  metric_interval: 4s\n", 1)
+	err := loadErr(t, y)
+	if !strings.Contains(err.Error(), "TICK_DEFAULT") {
+		t.Fatalf("error = %v, want TICK_DEFAULT", err)
+	}
+}
+
+func TestLoadAcceptsHighDPMWithinConfiguredCeiling(t *testing.T) {
+	y := strings.Replace(minimalYAML, "name: mini\n", "name: mini\nhigh_dpm:\n  metric_interval: 5s\n", 1)
+	r, err := Load([]byte(y), testRegistry(t), RuntimeLimits{MasterTick: 5 * time.Second, MaxDPMPerSeries: 12})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.HighDPM == nil || r.HighDPM.MetricInterval != 5*time.Second {
+		t.Fatalf("HighDPM = %+v, want configured 5s interval", r.HighDPM)
 	}
 }
 

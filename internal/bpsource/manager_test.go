@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/rknightion/synthkit/internal/blueprint"
 	"github.com/rknightion/synthkit/internal/runner"
 )
 
@@ -50,6 +52,17 @@ func TestStageUploadRejectsInvalid(t *testing.T) {
 	m := NewManager(Options{DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{}})
 	if err := m.StageUpload("x", "bad", []byte("name: \n:::")); err == nil {
 		t.Fatal("expected reject for invalid YAML")
+	}
+}
+
+func TestStageUploadAppliesConfiguredHighDPMLimit(t *testing.T) {
+	m := NewManager(Options{
+		DataDir: t.TempDir(), Registry: runner.Catalog(), Config: &fakeConfig{},
+		RuntimeLimits: blueprint.RuntimeLimits{MasterTick: 5 * time.Second, MaxDPMPerSeries: 6},
+	})
+	err := m.StageUpload("x", "fast", []byte("name: fast\nhigh_dpm:\n  metric_interval: 5s\nhosts: [{name: h1, os: linux}]\n"))
+	if err == nil || !strings.Contains(err.Error(), "MAX_DPM_PER_SERIES=6") {
+		t.Fatalf("StageUpload error = %v, want configured high-DPM ceiling", err)
 	}
 }
 

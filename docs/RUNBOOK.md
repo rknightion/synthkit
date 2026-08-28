@@ -99,8 +99,9 @@ DRY_RUN=false go run ./cmd/synthkit
 
 It binds the control plane on `127.0.0.1:8088` (loopback-safe). Open <http://127.0.0.1:8088/control/ui>.
 Wait one declared emission interval plus `SEND_BATCH_DEADLINE` before verifying (§5). Metric lanes
-below the 60-second DPM floor still require at least that 60-second interval; a few master ticks are
-not landing proof.
+use a 60-second floor unless their blueprint explicitly declares `high_dpm.metric_interval`. That
+override is bounded by `MAX_DPM_PER_SERIES` (6 DPM by default) and cannot run below `TICK_DEFAULT`;
+a few master ticks are not landing proof.
 
 ### 4b. Containerised deploy (the standing host)
 

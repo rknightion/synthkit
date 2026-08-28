@@ -38,7 +38,7 @@ The interfaces that constructs and workloads implement are frozen. Changes to th
 type Construct interface {
     Kind() string                 // registry key, snake_case
     Signals() []SignalClass       // Metrics | Traces | Logs | RUM | PyroscopeProfiles
-    Interval() time.Duration      // tick cadence; metric lanes ≥60s (DPM floor)
+    Interval() time.Duration      // default cadence; metric lanes use the 60s floor unless high_dpm opts in
     Tick(ctx context.Context, now time.Time, w *World) error
 }
 ```
@@ -91,7 +91,7 @@ Spans are **backdated to completion**: `RenderStart = Start − Duration − Ren
 Each blueprint runs on its own goroutine. Two cadences run per blueprint:
 
 - **Master tick (fast, default 5 s)**: `Ledger.Mint(now)` returns the request batch for this tick. The runner immediately calls each workload's `ProjectBatch` with its own minted requests — traces, logs, and RUM are emitted exactly once, unfloored.
-- **Metric lanes (≥60 s)**: every construct and workload calls its own `Tick` on its declared `Interval()`. Workload metric lanes call `Ledger.ActiveFor(name, now, interval)` to read the window of recently-minted requests.
+- **Metric lanes (60 s by default)**: every construct and workload calls its own `Tick` on its declared `Interval()`. A blueprint may explicitly declare `high_dpm.metric_interval`; the runner applies it only to that blueprint's metric-bearing instances, subject to `MAX_DPM_PER_SERIES` (default 6 DPM, or 10 s) and `TICK_DEFAULT`. Workload metric lanes call `Ledger.ActiveFor(name, now, interval)` to read the window of recently-minted requests.
 
 Blueprint goroutines share nothing but the concurrency-safe sinks. A slow or hung push on one blueprint cannot delay another's cadence.
 
@@ -156,7 +156,7 @@ The full invariant text (I1–I41) is in [ARCHITECTURE.md on GitHub](https://git
 | Group | Key rules |
 |---|---|
 | **Metrics** | All metrics via Remote-Write v2 with final pre-mangled names (I1). OTel metrics SDK banned on the synthetic path. OTLP carries traces only (I2). Counters/histograms are cumulative (I3). CloudWatch `_sum` series are gauges, never `rate()` (I5). |
-| **Identity** | Request-scoped IDs minted only by the ledger (I9). Two cadences: fast master mint, ≥60 s metric tick (I10). Fixtures are deterministic from stable seeds (I12). Absent dimensions are omitted — never `""` or `"NA"` (I13). |
+| **Identity** | Request-scoped IDs minted only by the ledger (I9). Two cadences: fast master mint, and a default ≥60 s metric tick with an explicit per-blueprint, ceiling-bounded `high_dpm` override (I10). Fixtures are deterministic from stable seeds (I12). Absent dimensions are omitted — never `""` or `"NA"` (I13). |
 | **Cardinality** | UUID-class keys are never Mimir labels or Loki stream labels (I14). Blueprint selector stamped in exactly one place, clone-before-stamp (I17). |
 | **Composition** | Constructs contain zero blueprint-name references (I18). Nothing derived from a blueprint's positional index (I19). Scope is explicit per construct kind (I21). |
 | **Ops** | `DRY_RUN=true` default. Generators write to explicit `--out` paths, never stdout redirect (I28). Control-plane JSON round-trips zero/false — no `omitempty` on knobs (I24). |

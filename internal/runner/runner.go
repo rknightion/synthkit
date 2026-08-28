@@ -57,6 +57,7 @@ type Sinks struct {
 type Options struct {
 	MasterTick        time.Duration // ledger mint + ProjectBatch cadence (default 5s)
 	MinMetricInterval time.Duration // DPM floor for metric lanes (default 60s)
+	MaxDPMPerSeries   int           // maximum explicit high_dpm cadence (default 6 DPM; MAX_DPM_PER_SERIES)
 	TickTimeout       time.Duration // optional per-blueprint per-tick backstop (0 = disabled; per-sink HTTP timeouts already bound individual pushes)
 
 	// Fleet is the Fleet Management registration config. The zero value (empty FMURL) DISABLES
@@ -97,6 +98,9 @@ func (o *Options) defaults() {
 	if o.MinMetricInterval <= 0 {
 		o.MinMetricInterval = 60 * time.Second
 	}
+	if o.MaxDPMPerSeries <= 0 {
+		o.MaxDPMPerSeries = 6
+	}
 	if o.SendDrainDeadline <= 0 {
 		o.SendDrainDeadline = 30 * time.Second
 	}
@@ -136,16 +140,19 @@ type DeliveryReadinessLane struct {
 // bpRuntime is one blueprint's running state: its own shape engine (its incidents +
 // timezone), its own ledger, its own series budget.
 type bpRuntime struct {
-	name       string
-	label      string
-	source     string
-	meta       blueprint.Metadata          // blueprint-level human-facing annotation (UI only)
-	envMeta    []blueprint.ResolvedEnvMeta // per-env metadata for the UI (decl order)
-	eng        *shape.Engine
-	ledger     *ledger.Ledger
-	budget     *seriesBudget
-	constructs []*boundConstruct
-	workloads  []*boundWorkload
+	name    string
+	label   string
+	source  string
+	meta    blueprint.Metadata          // blueprint-level human-facing annotation (UI only)
+	envMeta []blueprint.ResolvedEnvMeta // per-env metadata for the UI (decl order)
+	eng     *shape.Engine
+	ledger  *ledger.Ledger
+	budget  *seriesBudget
+	// SeriesBudget is a fixed per-minute allowance. This timestamp is deliberately independent
+	// of high_dpm.metric_interval, and RunOnce observes the same window as the live loop.
+	budgetWindowStart time.Time
+	constructs        []*boundConstruct
+	workloads         []*boundWorkload
 
 	// scenarios + targets are the blueprint's resolved incident-model inventory: the Live closure
 	// expands active scenarios + axis-wildcard scopes against them. scale carries the live scaling
@@ -256,6 +263,10 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		if bp.name == res.Name {
 			return fmt.Errorf("runner: blueprint %q already added", res.Name)
 		}
+	}
+	metricInterval, highDPM, err := r.blueprintMetricInterval(res)
+	if err != nil {
+		return err
 	}
 	var eng *shape.Engine
 	if len(res.Regions) > 0 {
@@ -406,7 +417,7 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 			construct: c,
 			world:     world,
 			inv:       inv,
-			interval:  r.clampInterval(res.Name, ci.Name, c.Interval()),
+			interval:  r.instanceMetricInterval(res.Name, ci.Name, c.Signals(), c.Interval(), metricInterval, highDPM),
 		})
 	}
 
@@ -451,7 +462,7 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 			kind:     wi.Kind,
 			world:    wworld,
 			inv:      winv,
-			interval: r.clampInterval(res.Name, wi.Name, w.Interval()),
+			interval: r.instanceMetricInterval(res.Name, wi.Name, w.Signals(), w.Interval(), metricInterval, highDPM),
 			rum:      rum != nil,
 		})
 	}
@@ -495,12 +506,43 @@ func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.Sig
 	return w, inv
 }
 
-func (r *Runner) clampInterval(bp, name string, iv time.Duration) time.Duration {
-	if iv < r.opts.MinMetricInterval {
-		log.Printf("runner: blueprint %q instance %q interval %v below the %v DPM floor — clamped", bp, name, iv, r.opts.MinMetricInterval)
-		return r.opts.MinMetricInterval
+func (r *Runner) blueprintMetricInterval(res *blueprint.Resolved) (time.Duration, bool, error) {
+	if res.HighDPM == nil {
+		return r.opts.MinMetricInterval, false, nil
+	}
+	if err := blueprint.ValidateRuntime(res, blueprint.RuntimeLimits{
+		MasterTick: r.opts.MasterTick, MaxDPMPerSeries: r.opts.MaxDPMPerSeries,
+	}); err != nil {
+		return 0, false, fmt.Errorf("runner: %w", err)
+	}
+	return res.HighDPM.MetricInterval, true, nil
+}
+
+func (r *Runner) instanceMetricInterval(bp, name string, signals []core.SignalClass, iv, floor time.Duration, highDPM bool) time.Duration {
+	metricBearing := slices.Contains(signals, core.Metrics) || slices.Contains(signals, core.OTLPMetrics)
+	if !metricBearing {
+		return iv
+	}
+	if highDPM {
+		if iv != floor {
+			log.Printf("runner: blueprint %q instance %q metric interval %v overridden by explicit high_dpm.metric_interval %v", bp, name, iv, floor)
+		}
+		return floor
+	}
+	if iv < floor {
+		log.Printf("runner: blueprint %q instance %q interval %v below the %v DPM floor — clamped", bp, name, iv, floor)
+		return floor
 	}
 	return iv
+}
+
+const seriesBudgetWindow = time.Minute
+
+func (bp *bpRuntime) resetBudgetWindow(now time.Time) {
+	if bp.budgetWindowStart.IsZero() || !now.Before(bp.budgetWindowStart.Add(seriesBudgetWindow)) {
+		bp.budget.reset()
+		bp.budgetWindowStart = now
+	}
 }
 
 // phaseOffset returns a deterministic per-instance start offset in [0, interval) derived from the
@@ -588,7 +630,7 @@ func (r *Runner) RunOnce(ctx context.Context, now time.Time) error {
 	// MasterTick (called below) starts the delivery-queue senders; Flush — not Drain — runs at
 	// the end so the queue stays reusable across repeated RunOnce calls.
 	for _, bp := range r.bps {
-		bp.budget.reset()
+		bp.resetBudgetWindow(now)
 	}
 	if err := r.MasterTick(ctx, now); err != nil {
 		errs = append(errs, err)
@@ -695,7 +737,11 @@ func (r *Runner) blueprintLoop(ctx context.Context, bp *bpRuntime, wg *sync.Wait
 
 	master := time.NewTicker(r.opts.MasterTick)
 	defer master.Stop()
-	budgetReset := time.NewTicker(r.opts.MinMetricInterval)
+	// SeriesBudget is per fixed minute, not per DPM-floor window. Keeping this ticker independent
+	// of high_dpm.metric_interval prevents a 10s blueprint from receiving six times the series
+	// allowance of an otherwise identical 60s blueprint.
+	bp.resetBudgetWindow(time.Now())
+	budgetReset := time.NewTicker(seriesBudgetWindow)
 	defer budgetReset.Stop()
 
 	lastTick := time.Now()
@@ -703,8 +749,8 @@ func (r *Runner) blueprintLoop(ctx context.Context, bp *bpRuntime, wg *sync.Wait
 		select {
 		case <-ctx.Done():
 			return
-		case <-budgetReset.C:
-			bp.budget.reset()
+		case t := <-budgetReset.C:
+			bp.resetBudgetWindow(t)
 		case t := <-master.C:
 			if !r.enabled(bp.name) {
 				lastTick = t

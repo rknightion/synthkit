@@ -11,7 +11,67 @@ import (
 	"fmt"
 
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/sink/loki"
 )
+
+// LokiPodLogConfig describes the low-cardinality stream identity and the pod identity
+// carried as structured metadata by the Loki-native pod-log transport. AppName and
+// ServiceName are optional because the collector only includes those dimensions when the
+// pod has the corresponding application/service identity.
+type LokiPodLogConfig struct {
+	Cluster          string
+	Namespace        string
+	Container        string
+	AppName          string
+	ServiceName      string
+	ServiceNamespace string
+	Stream           string
+	Flags            string
+	Pod              string
+}
+
+// NewLokiPodLogStream returns a stream in the captured podLogsViaLoki wire shape.
+//
+// The stream labels intentionally use the classic Loki-native spellings (namespace,
+// container, stream) rather than the destination-promoted OTLP spellings. Pod identity
+// is structured metadata, not a stream label. Lines are cloned so this mechanic never
+// mutates a caller-owned line or metadata map; bodies and timestamps are unchanged.
+func NewLokiPodLogStream(cfg LokiPodLogConfig, lines []loki.Line) loki.Stream {
+	labels := make(map[string]string, 10)
+	put := func(key, value string) {
+		if value != "" {
+			labels[key] = value
+		}
+	}
+
+	put("cluster", cfg.Cluster)
+	put("k8s_cluster_name", cfg.Cluster)
+	put("namespace", cfg.Namespace)
+	put("container", cfg.Container)
+	if cfg.Namespace != "" && cfg.Container != "" {
+		labels["job"] = cfg.Namespace + "/" + cfg.Container
+	}
+	put("app_kubernetes_io_name", cfg.AppName)
+	put("service_name", cfg.ServiceName)
+	put("service_namespace", cfg.ServiceNamespace)
+	put("stream", cfg.Stream)
+	put("flags", cfg.Flags)
+
+	clonedLines := make([]loki.Line, len(lines))
+	for i, line := range lines {
+		meta := cloneMap(line.Meta)
+		if cfg.Pod != "" {
+			meta["pod"] = cfg.Pod
+			if cfg.Namespace != "" && cfg.Container != "" {
+				meta["service_instance_id"] = cfg.Namespace + "." + cfg.Pod + "." + cfg.Container
+			}
+		}
+		line.Meta = meta
+		clonedLines[i] = line
+	}
+
+	return loki.Stream{Labels: labels, Lines: clonedLines}
+}
 
 // LookupSubstrateWorkload finds an addon/baseline workload by name in
 // cl.SubstrateWorkloads. Returns the workload and true if found, or zero value and

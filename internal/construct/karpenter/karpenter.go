@@ -1028,10 +1028,9 @@ func (c *Construct) emitGoProcMetrics(
 
 // buildLogStreams constructs karpenter zap-JSON log streams for one tick.
 //
-// Stream labels follow the OTel/Alloy convention (svc-group-b.md §1.C):
-// low-card keys only — cluster, k8s_cluster_name, k8s_namespace_name, k8s_container_name,
-// k8s_pod_name (leader pod), k8s_deployment_name, service_name, service_namespace,
-// detected_level, log_iostream.
+// Stream labels use the captured Loki-native pod-log convention: cluster,
+// k8s_cluster_name, namespace, container, job, app_kubernetes_io_name, service_name,
+// service_namespace, stream and flags. The leader pod identity is structured metadata.
 //
 // High-card fields (reconcileID, nodeclaim name, node name) stay in the body.
 // ~60 % of ticks emit a disruption/reconcile log line; ~30 % emit an error.
@@ -1124,18 +1123,12 @@ func (c *Construct) buildLogStreams(now time.Time, cluster string, leaderMaps []
 
 	shape := shapes[minute%len(shapes)]
 
-	// Determine the leader pod name for the stream label.
-	podName := "karpenter"
+	// Determine the leader pod name for structured metadata.
+	podName := ""
 	if len(leaderMaps) > 0 {
 		if p, ok := leaderMaps[0]["pod"]; ok && p != "" {
 			podName = p
 		}
-	}
-
-	// detected_level: map zap INFO→info, ERROR→error.
-	detectedLevel := "info"
-	if shape.level == "ERROR" {
-		detectedLevel = "error"
 	}
 
 	// Build the zap-JSON body. Fields: level, time, logger, message, commit, controller, + extras.
@@ -1160,24 +1153,18 @@ func (c *Construct) buildLogStreams(now time.Time, cluster string, leaderMaps []
 			shape.level, now.UTC().Format(zapTimeFormat), shape.msg))
 	}
 
-	streamLabels := map[string]string{
-		"cluster":             cluster,
-		"k8s_cluster_name":    cluster,
-		"k8s_namespace_name":  "kube-system",
-		"k8s_container_name":  "controller",
-		"k8s_pod_name":        podName,
-		"k8s_deployment_name": "karpenter",
-		"service_name":        "karpenter",
-		"service_namespace":   "kube-system",
-		"detected_level":      detectedLevel,
-		"log_iostream":        "stderr",
-	}
-
 	return []loki.Stream{
-		{
-			Labels: streamLabels,
-			Lines:  []loki.Line{{T: now, Body: string(bodyBytes)}},
-		},
+		k8saddon.NewLokiPodLogStream(k8saddon.LokiPodLogConfig{
+			Cluster:          cluster,
+			Namespace:        "kube-system",
+			Container:        "controller",
+			AppName:          "karpenter",
+			ServiceName:      "karpenter",
+			ServiceNamespace: "kube-system",
+			Stream:           "stderr",
+			Flags:            "F",
+			Pod:              podName,
+		}, []loki.Line{{T: now, Body: string(bodyBytes)}}),
 	}
 }
 

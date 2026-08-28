@@ -9,7 +9,7 @@
 //
 // Kind: "app"  (coexists with — does NOT replace — "web_service": the simple single-service kind).
 // Signals: Metrics + Traces + Logs.
-// Interval: 60s (metric lane; the DPM floor — I10).
+// Interval: 60s by default; an explicit, ceiling-bounded blueprint high_dpm interval may override it (I10).
 //
 // Realism lives in the NAMES (real metric/label/field names, sourced from signals/, via the DSL);
 // genericity lives in the ARCHITECTURE (all service identity/topology/shapes are blueprint-declared,

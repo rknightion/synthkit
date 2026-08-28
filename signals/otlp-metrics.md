@@ -12,6 +12,87 @@ promotion, resource-attribute → Prometheus label promotion, unit suffix).
 
 ---
 
+## Kubernetes native receiver metrics [slug: k8s-native-otlp-metrics]
+
+The `k8s_cluster` construct adds this surface only when its cluster declaration sets
+`otel: {metrics: true}`. These are collector-native semantic names. They are not derived from,
+aliases of, or replacements for the construct's `kube_*`, Prometheus `container_*`, `node_*`, or
+other scrape-shaped remote-write families.
+
+**Provenance and date:** all 55 family names and attribute keys below were observed on the OTLP
+wire in the `otel-receivers` k3d permutation on 2026-08-27, recorded in
+`reality-corpus/k8s/k3d-lab-otel-receivers.json` and `signals/k8s.md`
+`[slug: k8s-otel-native-permutation]`. The lab used the
+`open-telemetry/opentelemetry-collector` chart at `0.171.0`, running `grafana/alloy:v1.18.0`
+as `bin/otelcol`.
+Instrument wire kinds and units were checked on 2026-08-28 against the corresponding current
+OpenTelemetry Collector Contrib `kubeletstatsreceiver/metadata.yaml` and
+`k8sclusterreceiver/metadata.yaml`. The generated builders set scopes to
+`github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kubeletstatsreceiver` and
+`.../receiver/k8sclusterreceiver`, with the collector build version.
+
+### `kubeletstatsreceiver` default-enabled surface (37 families)
+
+Only the default `container`, `pod`, and `node` groups are modelled. Volume metrics and the
+opt-in `*.node.utilization` families were not observed in this permutation and therefore are not
+emitted by this lane; that absence does not narrow the receiver's configurable contract.
+
+| Families | OTLP instrument | Unit |
+|---|---|---|
+| `container.cpu.time` | monotonic cumulative Sum | `s` |
+| `container.cpu.usage` | Gauge | `{cpu}` |
+| `container.filesystem.available`, `container.filesystem.capacity`, `container.filesystem.usage` | Gauge | `By` |
+| `container.memory.available`, `container.memory.rss`, `container.memory.usage`, `container.memory.working_set` | Gauge | `By` |
+| `container.memory.major_page_faults`, `container.memory.page_faults` | Gauge | `1` |
+| `k8s.pod.cpu.time` | monotonic cumulative Sum | `s` |
+| `k8s.pod.cpu.usage` | Gauge | `{cpu}` |
+| `k8s.pod.filesystem.available`, `k8s.pod.filesystem.capacity`, `k8s.pod.filesystem.usage` | Gauge | `By` |
+| `k8s.pod.memory.available`, `k8s.pod.memory.rss`, `k8s.pod.memory.usage`, `k8s.pod.memory.working_set` | Gauge | `By` |
+| `k8s.pod.memory.major_page_faults`, `k8s.pod.memory.page_faults` | Gauge | `1` |
+| `k8s.pod.network.io` | monotonic cumulative Sum | `By` |
+| `k8s.pod.network.errors` | monotonic cumulative Sum | `{error}` |
+| `k8s.node.cpu.time` | monotonic cumulative Sum | `s` |
+| `k8s.node.cpu.usage` | Gauge | `{cpu}` |
+| `k8s.node.filesystem.available`, `k8s.node.filesystem.capacity`, `k8s.node.filesystem.usage` | Gauge | `By` |
+| `k8s.node.memory.available`, `k8s.node.memory.rss`, `k8s.node.memory.usage`, `k8s.node.memory.working_set` | Gauge | `By` |
+| `k8s.node.memory.major_page_faults`, `k8s.node.memory.page_faults` | Gauge | `1` |
+| `k8s.node.network.io` | monotonic cumulative Sum | `By` |
+| `k8s.node.network.errors` | monotonic cumulative Sum | `{error}` |
+
+Container and pod resources carry the observed pod identity keys:
+`k8s.cluster.name`, `k8s.cluster.uid`, `k8s.namespace.name`, `k8s.node.name`, `k8s.pod.name`,
+`k8s.pod.uid`, `k8s.pod.start_time`, `k8s.container.name`, the applicable observed owner pair
+(`k8s.deployment.name`, `k8s.replicaset.name`/`.uid`, or `k8s.daemonset.name`/`.uid`),
+`container.image.name`, `container.image.tag`, `service.name`, `service.namespace`,
+`service.instance.id`, `service.version`, `host.name`, and `os.type`. Node resources carry only
+`k8s.cluster.name`, `k8s.node.name`, `host.name`, and `os.type`. Network points add exactly
+`interface` and `direction`, with `direction` in `{receive, transmit}`.
+
+### `k8sclusterreceiver` observed surface (18 families)
+
+The permutation explicitly enabled `k8s.container.status.reason`; its closed nine-value reason
+enum is documented in `signals/k8s.md` `[slug: k8s-otel-native-permutation]`.
+
+| Families | OTLP instrument | Unit | Attributes beyond `k8s.cluster.name` |
+|---|---|---|---|
+| `k8s.container.cpu_limit`, `k8s.container.cpu_request` | Gauge | `{cpu}` | full observed pod identity plus `container.id` |
+| `k8s.container.memory_limit`, `k8s.container.memory_request` | Gauge | `By` | full observed pod identity plus `container.id` |
+| `k8s.container.ready` | Gauge | empty | full observed pod identity plus `container.id` |
+| `k8s.container.restarts` | Gauge | `{restart}` | full observed pod identity plus `container.id` |
+| `k8s.container.status.reason` | non-monotonic cumulative Sum | `{container}` | full observed pod identity plus `container.id` and `k8s.container.status.reason` |
+| `k8s.pod.phase` | Gauge | empty | full observed pod identity |
+| `k8s.deployment.available`, `k8s.deployment.desired` | Gauge | `{pod}` | `k8s.deployment.name`, `k8s.deployment.uid`, `k8s.namespace.name`, `service.namespace` |
+| `k8s.replicaset.available`, `k8s.replicaset.desired` | Gauge | `{pod}` | `k8s.replicaset.name`, `k8s.replicaset.uid`, `k8s.namespace.name`, `service.namespace` |
+| `k8s.daemonset.current_scheduled_nodes`, `k8s.daemonset.desired_scheduled_nodes`, `k8s.daemonset.misscheduled_nodes`, `k8s.daemonset.ready_nodes` | Gauge | `{node}` | `k8s.daemonset.name`, `k8s.daemonset.uid`, `k8s.namespace.name`, `service.namespace` |
+| `k8s.namespace.phase` | Gauge | empty | `k8s.namespace.name`, `k8s.namespace.uid`, `service.namespace` |
+| `k8s.node.condition_ready` | Gauge | empty | `k8s.node.name`, `k8s.node.uid`, `host.name` |
+
+The reference composition is `blueprints/k8s-otel-native.yaml`. It keeps the existing
+Prometheus-shaped cluster lane and adds these native OTLP resources; switching `otel.metrics` off
+or omitting it leaves the established promrw family and label-key surface unchanged.
+
+---
+
 ## Emitter configuration
 
 | YAML field | Values | Effect |

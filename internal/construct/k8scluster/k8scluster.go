@@ -34,13 +34,27 @@ const (
 	interval = 60 * time.Second
 )
 
-// Config is empty — all identity comes from fx.Cluster.
-type Config struct{}
+// Config carries the optional native OTLP metrics switch. All identity still comes from
+// fx.Cluster; the switch only changes which signal classes this construct declares/emits.
+type Config struct {
+	OTel *OTelObs `yaml:"otel"`
+}
+
+// OTelObs controls the receiver-native OTLP metrics lane. The lane is deliberately opt-in:
+// absent (or Metrics=false) preserves the existing Prometheus scrape-shaped output exactly.
+type OTelObs struct {
+	Metrics bool `yaml:"metrics"`
+}
 
 // Construct renders k8s-monitoring substrate telemetry for one cluster.
 type Construct struct {
 	clust *fixture.Cluster
 	st    *state.State
+
+	// otelMetrics is resolved once at construction. The OTLP lane owns a separate cumulative
+	// state store so enabling it cannot perturb the established Prometheus state or draw order.
+	otelMetrics bool
+	otlpState   *nativeOTLPState
 
 	// High-water marks for scale-down retirement: the largest pod count ever seen per workload
 	// and the largest node count ever derived. On a scale-down, ordinals/nodes that existed at the
@@ -53,13 +67,17 @@ type Construct struct {
 // New builds a Construct from cfg (unused — all from fixtures) and fx.
 // Returns error if fx.Cluster is nil.
 func New(cfg any, fx *fixture.Set) (core.Construct, error) {
-	if fx.Cluster == nil {
+	if fx == nil || fx.Cluster == nil {
 		return nil, errors.New("k8s_cluster: fixture.Cluster is required (nil)")
 	}
+	conf, _ := cfg.(*Config)
+	otelMetrics := conf != nil && conf.OTel != nil && conf.OTel.Metrics
 	return &Construct{
-		clust:   fx.Cluster,
-		st:      state.NewState(),
-		maxPods: map[string]int{},
+		clust:       fx.Cluster,
+		st:          state.NewState(),
+		otelMetrics: otelMetrics,
+		otlpState:   newNativeOTLPState(),
+		maxPods:     map[string]int{},
 	}, nil
 }
 
@@ -73,6 +91,9 @@ func (c *Construct) Signals() []core.SignalClass {
 	sigs := []core.SignalClass{core.Metrics, core.Logs}
 	if podLogsOTLPNative(c.clust) {
 		sigs = append(sigs, core.OTLPLogs)
+	}
+	if c.otelMetrics {
+		sigs = append(sigs, core.OTLPMetrics)
 	}
 	return sigs
 }
@@ -160,6 +181,9 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 	// ── metrics flush ────────────────────────────────────────────────────────
 	if err := w.Metrics.Write(ctx, c.st.Collect(now)); err != nil {
+		return err
+	}
+	if err := c.tickOTLPMetrics(ctx, now, cl, nodes, replicas, factor, tickSec, w); err != nil {
 		return err
 	}
 

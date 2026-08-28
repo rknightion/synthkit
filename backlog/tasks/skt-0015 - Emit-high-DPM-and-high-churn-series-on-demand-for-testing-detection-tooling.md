@@ -1,9 +1,10 @@
 ---
 id: SKT-0015
 title: 'Emit high-DPM and high-churn series on demand, for testing detection tooling'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-28 08:56'
+updated_date: '2026-08-28 10:11'
 labels: []
 dependencies: []
 priority: high
@@ -50,3 +51,9 @@ Cardinality alone (many series at a normal cadence) is explicitly NOT the target
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Root implements the epic sequentially: .01 per-blueprint fast cadence with a fixed one-minute series-budget window; .02 truthful lifecycle churn; .03 a small reference blueprint with projected-cost surfaces; then integrated schema, dump, fidelity and CI gates.
+<!-- SECTION:PLAN:END -->

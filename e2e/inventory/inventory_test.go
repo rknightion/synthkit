@@ -5,6 +5,8 @@ package inventory
 import (
 	"strings"
 	"testing"
+
+	canonical "github.com/rknightion/synthkit/internal/inventory"
 )
 
 const sampleDump = `== metrics: series name → label keys ==
@@ -55,5 +57,31 @@ func TestSubsetReportsMissingMetric(t *testing.T) {
 	missing := expected.Subset(received)
 	if len(missing) != 1 || !strings.HasPrefix(missing[0], "metric: ") {
 		t.Fatalf("missing=%v", missing)
+	}
+}
+
+func TestParseDumpSplitsCapturedPodLogsFromManifests(t *testing.T) {
+	dump := `== logs: source → stream labels / structured metadata ==
+  stream=[app_kubernetes_io_name cluster container flags job k8s_cluster_name namespace service_name service_namespace stream] meta=[pod service_instance_id]
+  stream=[action cluster instance job k8s_cluster_name k8s_kind k8s_namespace_name] meta=[k8s_pod_name]
+`
+	schema, err := ParseDump(strings.NewReader(dump))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(schema.Logs) != 2 {
+		t.Fatalf("logs=%v, want separate pod-log and manifest entries", schema.Logs)
+	}
+	var podLogs, manifests bool
+	for i := range schema.Logs {
+		switch schema.Logs[i].Source {
+		case canonical.LogFamilyPodLogs:
+			podLogs = true
+		case "":
+			manifests = true
+		}
+	}
+	if !podLogs || !manifests {
+		t.Fatalf("logs=%v, want sources k8s_pod_logs and empty", schema.Logs)
 	}
 }

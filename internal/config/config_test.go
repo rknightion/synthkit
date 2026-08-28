@@ -63,6 +63,9 @@ func TestLoadDefaultsAndOverrides(t *testing.T) {
 	if cfg.MasterTick != 10*time.Second {
 		t.Fatalf("tick: %v", cfg.MasterTick)
 	}
+	if cfg.MaxDPMPerSeries != 6 {
+		t.Fatalf("max DPM per series default: %d", cfg.MaxDPMPerSeries)
+	}
 	if !cfg.DryRun {
 		t.Fatalf("DRY_RUN must DEFAULT TO TRUE (live push is opt-in)")
 	}
@@ -71,6 +74,27 @@ func TestLoadDefaultsAndOverrides(t *testing.T) {
 	}
 	if len(cfg.BlueprintNames) != 0 {
 		t.Fatalf("blueprint names default: %v", cfg.BlueprintNames)
+	}
+}
+
+func TestLoadOverridesMaxDPMPerSeries(t *testing.T) {
+	cfg, err := Load(writeEnv(t, "MAX_DPM_PER_SERIES=12\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.MaxDPMPerSeries != 12 {
+		t.Fatalf("MaxDPMPerSeries = %d, want 12", cfg.MaxDPMPerSeries)
+	}
+}
+
+func TestLoadRejectsNonPositiveMaxDPMPerSeries(t *testing.T) {
+	for _, value := range []string{"0", "-1"} {
+		t.Run(value, func(t *testing.T) {
+			_, err := Load(writeEnv(t, "MAX_DPM_PER_SERIES="+value+"\n"))
+			if err == nil || !strings.Contains(err.Error(), "MAX_DPM_PER_SERIES") {
+				t.Fatalf("Load error = %v, want MAX_DPM_PER_SERIES rejection", err)
+			}
+		})
 	}
 }
 
