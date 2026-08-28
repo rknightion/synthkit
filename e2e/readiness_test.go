@@ -179,6 +179,31 @@ func TestDockerReadinessTransitionsAfterFakeSinkDelivery(t *testing.T) {
 	}
 }
 
+func TestDockerReadinessObservesOTLPLogsLiveDelivery(t *testing.T) {
+	ctx := context.Background()
+	net, receiverURL, testTLS := startReadinessReceiver(t, ctx)
+
+	synth, baseURL, client := startReadinessSynthkitForBlueprint(t, ctx, "k8s-full-stack", net, &readinessSink{
+		baseURL: receiverURL,
+		caPath:  testTLS.caPath,
+	}, map[string]string{
+		"CONFIG_SNAPSHOT_PATH": "/tmp/control-state.json",
+	})
+	defer printContainerLogs(t, ctx, synth, "synthkit-readiness-otlp-logs")
+
+	report := waitForDetailedReadiness(t, ctx, client, baseURL, func(report readinessReport) bool {
+		for _, lane := range report.Lanes {
+			if lane.Name == "otlplogs" {
+				return lane.Attempted && lane.State == "success" && lane.LiveReady
+			}
+		}
+		return false
+	})
+	if !report.Ready || !report.LiveReady {
+		t.Fatalf("OTLP-logs delivery should satisfy the live-delivery gate: %+v", report)
+	}
+}
+
 type readinessSink struct {
 	baseURL string
 	caPath  string
@@ -192,8 +217,20 @@ func startReadinessSynthkit(
 	overrides map[string]string,
 ) (testcontainers.Container, string, *http.Client) {
 	t.Helper()
+	return startReadinessSynthkitForBlueprint(t, ctx, e2eBlueprint, net, sink, overrides)
+}
 
-	blueprintPath, err := filepath.Abs("../blueprints/" + e2eBlueprint + ".yaml")
+func startReadinessSynthkitForBlueprint(
+	t *testing.T,
+	ctx context.Context,
+	blueprintName string,
+	net *testcontainers.DockerNetwork,
+	sink *readinessSink,
+	overrides map[string]string,
+) (testcontainers.Container, string, *http.Client) {
+	t.Helper()
+
+	blueprintPath, err := filepath.Abs("../blueprints/" + blueprintName + ".yaml")
 	if err != nil {
 		t.Fatalf("resolve readiness blueprint: %v", err)
 	}
@@ -203,7 +240,7 @@ func startReadinessSynthkit(
 
 	env := map[string]string{
 		"DRY_RUN":             "false",
-		"BLUEPRINT_NAMES":     e2eBlueprint,
+		"BLUEPRINT_NAMES":     blueprintName,
 		"JSON_HTTP_ADDR":      "0.0.0.0:8088",
 		"SYNTHKIT_BIND":       "127.0.0.1",
 		"CONTROL_TOKEN":       controlToken,
@@ -214,7 +251,7 @@ func startReadinessSynthkit(
 	}
 	files := []testcontainers.ContainerFile{{
 		HostFilePath:      blueprintPath,
-		ContainerFilePath: "/app/blueprints-readiness/" + e2eBlueprint + ".yaml",
+		ContainerFilePath: "/app/blueprints-readiness/" + blueprintName + ".yaml",
 		FileMode:          0o644,
 	}}
 	var networks []string

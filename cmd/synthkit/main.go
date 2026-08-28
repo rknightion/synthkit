@@ -516,7 +516,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		}
 	}
 	obs := fan(so.PushObserver(), ps.Observer())
-	prom.Observe, lokiSink.Observe, otlpSink.Observe, otlpMetricsSink.Observe = obs, obs, obs, obs
+	prom.Observe, lokiSink.Observe, otlpSink.Observe, otlpMetricsSink.Observe, otlpLogsSink.Observe = obs, obs, obs, obs, obs
 	if faroSink != nil {
 		faroSink.Observe = obs
 	}
