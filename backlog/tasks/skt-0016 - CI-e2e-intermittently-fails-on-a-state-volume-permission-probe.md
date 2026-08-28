@@ -1,11 +1,11 @@
 ---
 id: SKT-0016
 title: 'CI e2e fails: 131 CloudWatch families declared by -dump are never received'
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-08-28 09:03'
-updated_date: '2026-08-28 14:29'
+updated_date: '2026-08-28 14:38'
 labels: []
 dependencies: []
 priority: high
@@ -42,17 +42,17 @@ Reproduce with `make e2e` before proposing a cause. `e2e/` is `//go:build e2e` s
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The receiver and ParseDump agree on which metric families exist, so received and expected match
-- [ ] #2 CloudWatch five-stat names are not folded as classic-histogram components, and a test pins that
-- [ ] #3 The le-as-proof rule from SKT-0013.06 is preserved, not reverted
-- [ ] #4 make e2e is reproduced locally before a cause is proposed, then passes locally and in CI, and ci-success goes green on main
+- [x] #1 The receiver and ParseDump agree on which metric families exist, so received and expected match
+- [x] #2 CloudWatch five-stat names are not folded as classic-histogram components, and a test pins that
+- [x] #3 The le-as-proof rule from SKT-0013.06 is preserved, not reverted
+- [x] #4 make e2e is reproduced locally before a cause is proposed, then passes locally and in CI, and ci-success goes green on main
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -76,4 +76,12 @@ Reproduce with `make e2e` before proposing a cause. `e2e/` is `//go:build e2e` s
 Required local reproduction observed before diagnosis: make e2e failed TestDockerE2E with received=648 metrics, expected=646, declared-but-not-received=131. The deliberate synthkit-readiness-unwritable permission-denied test passed. Missing entries are the recorded CloudWatch name/name_sample pairs plus storage_operation_duration_seconds.
 
 Lane A implementation evidence: the regression test first failed with invented families aws_rds_cpuutilization and aws_rds_cpuutilization_sample, then passed after ParseDump moved to proof-gated end-of-window folding. A bidirectional e2e assertion then exposed two receiver-only native OTLP families; -dump now includes canonical OTLP metric names and attributes. Final local make e2e: received=648 metric families and expected=648, with both subset directions empty; all readiness tests passed. make gate passed. All-blueprint -dump exited 0. Fidelity stayed at the section 2 baseline: gaps extra_metric=411, instrument_mismatch=103, unexpected_label_key=86, extra_log=2; contradictions unexpected_label_key=64, label_value=4. make blueprint-schema skipped because no blueprint field or construct/workload config changed. CodeRabbit completed with one minor tracker-Markdown suggestion dismissed because applying it would require the prohibited plan replacement; hygiene is green and code/acceptance are unaffected.
+
+Exact-SHA CI evidence: GitHub Actions run 33180404563 at 25e8c040967b9fb1793afba399bdcaca99f24929 completed successfully. The e2e job ran make e2e successfully and ci-success reported all required jobs passed. Definition of Done item 2 remains unchecked because no blueprint field or construct/workload config struct changed.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Unified metric-family inventory correlation around proof-gated classic-histogram folding, preserved CloudWatch five-stat families, included native OTLP metrics in -dump, and made e2e correlation bidirectional. Verified with the failing-before-fix regression test, local make e2e at 648 received and 648 expected, make gate, all-blueprint dry-run dump, unchanged fidelity counts, CodeRabbit review, and exact-SHA CI run 33180404563 including green e2e and ci-success.
+<!-- SECTION:FINAL_SUMMARY:END -->
