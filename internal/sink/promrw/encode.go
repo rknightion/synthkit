@@ -106,6 +106,8 @@ func encodeMetadata(_ *interner, m Series) *writev2.Metadata {
 		t = writev2.Metadata_METRIC_TYPE_COUNTER
 	case KindHistogram:
 		t = writev2.Metadata_METRIC_TYPE_HISTOGRAM
+	case KindSummary:
+		t = writev2.Metadata_METRIC_TYPE_SUMMARY
 	default: // KindGauge (zero value) and anything else
 		t = writev2.Metadata_METRIC_TYPE_GAUGE
 	}

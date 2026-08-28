@@ -41,8 +41,8 @@ type Exemplar struct {
 // Kind classifies a series' instrument type so downstream tooling (the dashboard
 // generator) picks the correct query form — rate() vs raw vs histogram_quantile — instead
 // of guessing from the metric name. Stamped by state.Collect from the Add/Set/Observe
-// origin: Add ⇒ counter (incl. cumulative _sum/_count summaries), Set ⇒ gauge, Observe ⇒
-// histogram. The zero value is KindGauge — the conservative default for any Series not
+// origin: Add ⇒ counter (incl. cumulative _sum/_count summaries), Set ⇒ gauge,
+// SetSummaryQuantile ⇒ summary, Observe ⇒ histogram. The zero value is KindGauge — the conservative default for any Series not
 // built via state. This field is NEVER read on the synthetic-emit path; it exists only for
 // the dry-run inventory the dashboard generator reads (the OTel-SDK ban is unaffected).
 type Kind uint8
@@ -51,6 +51,7 @@ const (
 	KindGauge Kind = iota
 	KindCounter
 	KindHistogram
+	KindSummary
 )
 
 // NativeHistogram is a fully-encoded Prometheus native (exponential) histogram for one

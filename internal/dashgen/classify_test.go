@@ -142,6 +142,12 @@ func TestClassifyUsesAuthoritativeKind(t *testing.T) {
 	}
 }
 
+func TestInstrumentForSummaryUsesRawQueryKind(t *testing.T) {
+	if got := instrumentFor(promrw.KindSummary); got != dashboard.Gauge {
+		t.Fatalf("instrumentFor(KindSummary) = %s, want Gauge", got)
+	}
+}
+
 func TestClassifyDualFamilyIsNative(t *testing.T) {
 	inv := map[string][]string{
 		"traces_spanmetrics_latency":        {"blueprint", "service", "span_name"},

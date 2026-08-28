@@ -956,7 +956,7 @@ func (c *Construct) emitGoProcMetrics(
 		q := q
 		v := map[string]float64{"0.0": 0.0001, "0.25": 0.0002, "0.5": 0.0005, "0.75": 0.001, "1.0": 0.005}[q]
 		emit(map[string]string{"quantile": q}, func(lbls map[string]string) {
-			c.st.Set("go_gc_duration_seconds", lbls, v)
+			c.st.SetSummaryQuantile("go_gc_duration_seconds", lbls, v)
 		})
 	}
 	emit(nil, func(lbls map[string]string) {

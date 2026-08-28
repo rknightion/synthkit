@@ -36,6 +36,7 @@ const (
 	InstrumentGauge     = "gauge"
 	InstrumentCounter   = "counter"
 	InstrumentHistogram = "histogram"
+	InstrumentSummary   = "summary"
 )
 
 // Schema is the canonical inventory document. Provenance, when present, applies to every

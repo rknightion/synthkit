@@ -111,6 +111,7 @@ func TestEncodeStampsMetadataFromKind(t *testing.T) {
 		{KindCounter, writev2.Metadata_METRIC_TYPE_COUNTER},
 		{KindGauge, writev2.Metadata_METRIC_TYPE_GAUGE},
 		{KindHistogram, writev2.Metadata_METRIC_TYPE_HISTOGRAM},
+		{KindSummary, writev2.Metadata_METRIC_TYPE_SUMMARY},
 	}
 	for _, c := range cases {
 		req := encodeRequest([]Series{{Name: "m", Value: 1, T: time.UnixMilli(1), Kind: c.kind}})

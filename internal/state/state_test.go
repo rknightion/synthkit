@@ -596,6 +596,19 @@ func TestDeleteGauge(t *testing.T) {
 	_ = after
 }
 
+func TestSetSummaryQuantileCollectsSummaryKind(t *testing.T) {
+	s := NewState()
+	s.SetSummaryQuantile("request_duration_seconds", map[string]string{"quantile": "0.9"}, 0.25)
+
+	got := s.Collect(time.Unix(1, 0))
+	if len(got) != 1 {
+		t.Fatalf("Collect returned %d series, want 1", len(got))
+	}
+	if got[0].Kind != promrw.KindSummary {
+		t.Fatalf("Kind = %v, want KindSummary", got[0].Kind)
+	}
+}
+
 func TestCollectHistosConvertsCumulativeToPerBucket(t *testing.T) {
 	s := NewState()
 	bounds := []float64{1, 2, 3}

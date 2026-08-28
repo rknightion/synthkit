@@ -269,6 +269,32 @@ func TestSummaryNotHistogram(t *testing.T) {
 	}
 }
 
+func TestGoGCDurationReportsSummaryKind(t *testing.T) {
+	c := buildWithPods(t)
+	cap := tickOnce(t, c)
+
+	quantiles := cap.Find("go_gc_duration_seconds")
+	if len(quantiles) == 0 {
+		t.Fatal("go_gc_duration_seconds: no quantile series found")
+	}
+	for _, series := range quantiles {
+		if series.Kind != promrw.KindSummary {
+			t.Errorf("quantile %q Kind = %v, want KindSummary", series.Labels["quantile"], series.Kind)
+		}
+	}
+	for _, name := range []string{"go_gc_duration_seconds_count", "go_gc_duration_seconds_sum"} {
+		series := cap.Find(name)
+		if len(series) == 0 {
+			t.Fatalf("%s: no series found", name)
+		}
+		for _, series := range series {
+			if series.Kind != promrw.KindCounter {
+				t.Errorf("%s Kind = %v, want KindCounter", name, series.Kind)
+			}
+		}
+	}
+}
+
 // ─── (c) PascalCase reason exception ─────────────────────────────────────────
 
 // TestAllowedDisruptionsPascalCase verifies that karpenter_nodepools_allowed_disruptions

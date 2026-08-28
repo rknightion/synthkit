@@ -158,6 +158,25 @@ func TestFromSinksMergesClassicAndNativeHistogramFamily(t *testing.T) {
 	}
 }
 
+func TestFromSinksProjectsSummaryKind(t *testing.T) {
+	prom := promrw.New("", "", "", true, nil)
+	prom.Capture = true
+	if err := prom.Write(context.Background(), []promrw.Series{{
+		Name: "go_gc_duration_seconds", Labels: map[string]string{"quantile": "0.5"},
+		Kind: promrw.KindSummary, T: time.Unix(1, 0),
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	schema := FromSinks(prom, nil, nil, nil, nil, nil, nil)
+	if len(schema.Metrics) != 1 {
+		t.Fatalf("metrics=%v, want exactly one family", schema.Metrics)
+	}
+	if got := schema.Metrics[0].InstrumentTypes; len(got) != 1 || got[0] != InstrumentSummary {
+		t.Fatalf("instrument_types=%v, want [%s]", got, InstrumentSummary)
+	}
+}
+
 func TestFromSinksPreservesNativeHistogramNameWithClassicSuffixText(t *testing.T) {
 	prom := promrw.New("", "", "", true, nil)
 	prom.Capture = true

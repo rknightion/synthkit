@@ -20,9 +20,10 @@
 //     (cumulative *_sum/*_total series): both expose a cumulative value; the
 //     counter-vs-gauge distinction only changes how a dashboard queries it (rate vs delta),
 //     not the emitted number.
-//   - Set(...)     stores an instantaneous value. Use for normal gauges (queue depth, replicas).
+//   - Set(...) stores an instantaneous value. Use for normal gauges (queue depth, replicas).
+//   - SetSummaryQuantile(...) stores one instantaneous quantile in a Prometheus summary.
 //   - Observe(...) accumulates a cumulative histogram (buckets + _sum + _count).
-//   - Reset(...)   drops a counter's running total to zero — models a synthetic gateway
+//   - Reset(...) drops a counter's running total to zero — models a synthetic gateway
 //     restart (rare, off-peak; delta() windows rarely span one).
 package state
 
@@ -88,6 +89,7 @@ type scalarState struct {
 	name      string
 	labels    map[string]string
 	value     float64
+	kind      promrw.Kind
 	exemplars []promrw.Exemplar // drained each Collect (per-emit, not cumulative)
 }
 
@@ -138,6 +140,17 @@ func (s *State) Add(name string, labels map[string]string, delta float64) {
 
 // Set stores the instantaneous value of a normal gauge.
 func (s *State) Set(name string, labels map[string]string, value float64) {
+	s.setScalar(name, labels, value, promrw.KindGauge)
+}
+
+// SetSummaryQuantile stores an instantaneous quantile value for a Prometheus summary.
+// The caller supplies the summary's quantile label; _sum and _count companions remain
+// cumulative Add-tracked series.
+func (s *State) SetSummaryQuantile(name string, labels map[string]string, value float64) {
+	s.setScalar(name, labels, value, promrw.KindSummary)
+}
+
+func (s *State) setScalar(name string, labels map[string]string, value float64, kind promrw.Kind) {
 	sig := seriesSig(name, labels)
 	gs := s.gauges[sig]
 	if gs == nil {
@@ -145,6 +158,7 @@ func (s *State) Set(name string, labels map[string]string, value float64) {
 		s.gauges[sig] = gs
 	}
 	gs.value = value
+	gs.kind = kind
 }
 
 // Observe records one histogram observation against the pinned bucket bounds. The bounds
@@ -286,7 +300,7 @@ func (s *State) Collect(now time.Time) []promrw.Series {
 		cs.exemplars = nil // drained: exemplars are per-emit, not cumulative
 	}
 	for _, gs := range s.gauges {
-		out = append(out, promrw.Series{Name: gs.name, Labels: gs.labels, Value: gs.value, T: now, Kind: promrw.KindGauge})
+		out = append(out, promrw.Series{Name: gs.name, Labels: gs.labels, Value: gs.value, T: now, Kind: gs.kind})
 	}
 	for _, hs := range s.histos {
 		// Pre-bin exemplars by landing bucket (index into bounds; len(bounds) == +Inf).

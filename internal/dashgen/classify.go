@@ -178,6 +178,9 @@ func instrumentFor(k promrw.Kind) dashboard.InstrumentKind {
 		return dashboard.Counter
 	case promrw.KindHistogram:
 		return dashboard.HistogramClassic
+	case promrw.KindSummary:
+		// Summary quantiles are already computed values and must be queried raw.
+		return dashboard.Gauge
 	default:
 		return dashboard.Gauge
 	}

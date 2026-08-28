@@ -122,6 +122,8 @@ func addPromSeries(out *Schema, series promrw.Series) {
 		} else {
 			histogram = &Histogram{Native: true, BucketBounds: []float64{}, NativeSchemas: []int32{series.Native.Schema}}
 		}
+	case promrw.KindSummary:
+		instrument = InstrumentSummary
 	}
 	out.AddMetric(name, TransportPrometheusRW2, instrument, series.Labels, histogram)
 }
