@@ -281,6 +281,15 @@ podAnnotations: {}
 podLabels: {}
 terminationGracePeriodSeconds: 60
 
+# Superseded ReplicaSets kept for rollback. The Deployment default is 10, which for a single-replica
+# Recreate workload is nine objects nobody will ever roll back to. Two keeps one step of history.
+revisionHistoryLimit: 2
+
+# NO PodDisruptionBudget, deliberately — do not add one. This workload runs exactly one replica, so
+# a PDB with minAvailable: 1 (or maxUnavailable: 0) can never be satisfied by evicting it, and a
+# node drain blocks forever. synthkit is a generator: a brief gap during a drain is a gap in
+# synthetic data, not an outage, and the counters it resets on restart are a clean rate() window.
+
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 65532

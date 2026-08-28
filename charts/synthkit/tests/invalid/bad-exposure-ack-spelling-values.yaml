@@ -1,0 +1,6 @@
+# The acknowledgement is an exact enum. A near-miss must be refused rather than treated as absent:
+# treating it as absent would silently close the control plane an operator meant to open, and the
+# Service and Ingress guards would then refuse for a reason that does not name the real mistake.
+controlPlane:
+  exposure:
+    ack: tls_proxy

@@ -98,7 +98,25 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - run: helm version
+      # kubeconform is what actually schema-validates the rendered manifests. It was absent on
+      # every runner, and the render suite skipped that leg silently, so the chart's output had
+      # never once been checked against the Kubernetes API schemas despite the check being part of
+      # the suite. REQUIRE_KUBECONFORM makes a missing binary fail instead of skip.
+      - name: install kubeconform
+        run: |
+          set -euo pipefail
+          version=v0.7.0
+          # Checksum verified locally against the published release before pinning. Piping the
+          # download straight into tar would execute whatever the URL served, which for a tool that
+          # gates a required check is a supply-chain hole rather than a convenience.
+          sha256=c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${version}/kubeconform-linux-amd64.tar.gz" -o /tmp/kubeconform.tgz
+          echo "${sha256}  /tmp/kubeconform.tgz" | sha256sum -c -
+          tar -xzf /tmp/kubeconform.tgz -C /usr/local/bin kubeconform
+          kubeconform -v
       - run: make helm-test
+        env:
+          REQUIRE_KUBECONFORM: "1"
 
   # Single aggregator the branch ruleset gates on (`ci-success` required status check). Keeping the
   # ruleset pinned to one check means the job list above can change without touching branch

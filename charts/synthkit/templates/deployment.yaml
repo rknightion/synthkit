@@ -10,6 +10,7 @@ spec:
   # same backend — duplicate samples and out-of-order writes, not more throughput — and each keeps
   # its own cumulative counter state.
   replicas: 1
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   # Recreate, not RollingUpdate: a ReadWriteOnce claim cannot be mounted by the incoming pod while
   # the outgoing one still holds it, so a rolling upgrade would deadlock.
   strategy:

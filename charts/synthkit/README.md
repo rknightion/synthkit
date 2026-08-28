@@ -215,9 +215,17 @@ Helm deep-merges maps, so dropping one of the chart's default `keys` entries nee
 | `probes.liveness.enabled` | `false` | The same check as liveness crash-loops on a backend outage |
 | `resources` | see above | Derived from measurement |
 | `serviceAccount.automountServiceAccountToken` | `false` | synthkit calls no Kubernetes API |
+| `revisionHistoryLimit` | `2` | Superseded ReplicaSets kept; the Kubernetes default of 10 is nine nobody rolls back to |
+| `terminationGracePeriodSeconds` | `60` | Drain budget for the delivery queue |
 
 Replica count is deliberately not a value: two emitters produce the same series identities against
-the same backend.
+the same backend. Setting `replicaCount` is rejected by the values schema rather than ignored,
+because it is the key every other chart uses and silently dropping it would leave you believing you
+had scaled out.
+
+**There is deliberately no PodDisruptionBudget, and adding one would be a bug.** This workload runs
+exactly one replica, so a PDB with `minAvailable: 1` can never be satisfied by evicting it and a
+node drain blocks forever. A gap during a drain is a gap in synthetic data, not an outage.
 
 ### Synthetic Monitoring provisioner
 
@@ -235,7 +243,22 @@ the same backend.
 helm lint charts/synthkit
 helm template charts/synthkit
 bash charts/synthkit/tests/render_test.sh
+REQUIRE_KUBECONFORM=1 bash charts/synthkit/tests/render_test.sh   # what CI runs
+make helm-test                                                    # all of the above
 ```
+
+`values.schema.json` is structural validation and closes a gap the template guards cannot see. The
+`synthkit.validate` helper enforces semantics — which credential groups a mode requires, which
+environment variables a group may own — but it can only inspect keys that were actually set. A
+misspelled key is merged silently by Helm and then simply is not there, so the group renders
+unconfigured and the failure surfaces later as an unauthenticated lane. `additionalProperties:
+false` turns that into a values error at install time. The suite reports which guard refused each
+negative permutation, `(template guard)` or `(values schema)`.
+
+kubeconform validates the rendered manifests against the Kubernetes API schemas at Chart.yaml's
+`kubeVersion` floor, so the compatibility claim is checked rather than asserted. Override with
+`KUBE_VERSION`. It is skipped when the binary is absent; CI sets `REQUIRE_KUBECONFORM=1` so a
+missing binary fails instead.
 
 `tests/render_test.sh` asserts the credential and exposure permutations rather than eyeballing one
 render. `ci/*-values.yaml` are permutations that must render correctly;

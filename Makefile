@@ -227,8 +227,10 @@ signal-fidelity-eks-readback: ## read EKS and core CloudWatch metric shapes from
 	  go run ./cmd/reality-corpus-gcx -context "$$context" -since "$${GCX_SINCE:-24h}" -corpus reality-corpus
 
 # Local "simulate full CI" umbrella.
-# Helm chart: lint plus the credential and exposure render permutations. Requires helm on PATH;
-# kubeconform is an optional extra leg the script skips when absent.
+# Helm chart: lint, values-schema rejection of the negative permutations, the credential and
+# exposure render permutations, and kubeconform schema validation against Chart.yaml's kubeVersion
+# floor. kubeconform is skipped locally when absent; CI sets REQUIRE_KUBECONFORM=1 so a missing
+# binary fails rather than silently dropping the only leg that checks the manifests are valid.
 helm-test: ## lint the chart and assert the credential + exposure render permutations
 	helm lint charts/synthkit
 	bash charts/synthkit/tests/render_test.sh

@@ -1,0 +1,5 @@
+# `replicaCount` is the name every other chart uses, so it is the one an operator reaches for.
+# This chart pins replicas to 1 deliberately — two emitters produce the SAME series identities
+# against the same backend, which is duplicate samples and out-of-order writes rather than more
+# throughput. Silently ignoring the key would leave the operator believing they had scaled out.
+replicaCount: 3

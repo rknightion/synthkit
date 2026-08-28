@@ -1,0 +1,521 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "synthkit chart values",
+  "description": "Structural validation for charts/synthkit. The chart's own `synthkit.validate` helper enforces the SEMANTIC rules \u2014 which credential groups a mode requires, which environment variables a group may own, whether an exposure acknowledgement is present. This file catches the class those guards cannot see: a misspelled or misplaced key, which Helm merges silently and which then renders a chart that is missing the setting the operator believes they made. `additionalProperties: false` is the point of the file, not incidental strictness.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string",
+          "description": "Preferred for standing deployments. Wins over tag.",
+          "pattern": "^(sha256:[a-f0-9]{64})?$"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "nameOverride": {
+      "type": "string",
+      "maxLength": 63
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "maxLength": 63
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dryRun": {
+          "type": "boolean"
+        },
+        "blueprintNames": {
+          "type": "string"
+        },
+        "tickDefault": {
+          "$ref": "#/$defs/duration"
+        },
+        "seriesCap": {
+          "$ref": "#/$defs/intOrEmptyString"
+        },
+        "tickTimeout": {
+          "$ref": "#/$defs/intOrEmptyString"
+        },
+        "gitPollInterval": {
+          "$ref": "#/$defs/intOrEmptyString"
+        },
+        "sendShards": {
+          "$ref": "#/$defs/intOrEmptyString"
+        },
+        "sendBatchMax": {
+          "$ref": "#/$defs/intOrEmptyString"
+        },
+        "sendBatchDeadline": {
+          "$ref": "#/$defs/duration"
+        },
+        "sendQueueCapacity": {
+          "$ref": "#/$defs/intOrEmptyString"
+        },
+        "sendDrainDeadline": {
+          "$ref": "#/$defs/duration"
+        }
+      }
+    },
+    "selfObs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "tags": {
+          "type": "string"
+        },
+        "metricInterval": {
+          "$ref": "#/$defs/duration"
+        },
+        "pyroscopeTags": {
+          "type": "string"
+        },
+        "pyroscopeMutexFraction": {
+          "$ref": "#/$defs/intOrEmptyString"
+        },
+        "pyroscopeBlockRate": {
+          "$ref": "#/$defs/intOrEmptyString"
+        }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Group names are FIXED by the chart: listing an environment variable under a group that does not own it fails the render. An unknown group name here is a typo, never an extension point.",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/credentialGroup"
+        },
+        "selfObs": {
+          "$ref": "#/$defs/credentialGroup"
+        },
+        "rum": {
+          "$ref": "#/$defs/credentialGroup"
+        },
+        "sm": {
+          "$ref": "#/$defs/credentialGroup"
+        },
+        "fm": {
+          "$ref": "#/$defs/credentialGroup"
+        },
+        "sigil": {
+          "$ref": "#/$defs/credentialGroup"
+        },
+        "control": {
+          "$ref": "#/$defs/credentialGroup"
+        },
+        "git": {
+          "$ref": "#/$defs/credentialGroup"
+        }
+      }
+    },
+    "controlPlane": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exposure": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ack": {
+              "type": "string",
+              "description": "\"\" = closed (loopback bind). No value other than these is accepted, and the binary refuses to start on a non-loopback bind without one.",
+              "enum": [
+                "",
+                "trusted-network",
+                "tls-proxy"
+              ]
+            }
+          }
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ]
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "annotations": {
+              "type": "object"
+            }
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "className": {
+              "type": "string"
+            },
+            "annotations": {
+              "type": "object"
+            },
+            "hosts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "host",
+                  "paths"
+                ],
+                "properties": {
+                  "host": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "paths": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "path",
+                        "pathType"
+                      ],
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "pathType": {
+                          "type": "string",
+                          "enum": [
+                            "Exact",
+                            "Prefix",
+                            "ImplementationSpecific"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "tls": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "ingressFrom": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "existingClaim": {
+          "type": "string"
+        },
+        "storageClass": {
+          "type": "string"
+        },
+        "accessModes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "ReadWriteOnce",
+              "ReadWriteMany",
+              "ReadWriteOncePod",
+              "ReadOnlyMany"
+            ]
+          }
+        },
+        "size": {
+          "$ref": "#/$defs/quantity"
+        },
+        "annotations": {
+          "type": "object"
+        },
+        "retain": {
+          "type": "boolean"
+        }
+      }
+    },
+    "resources": {
+      "$ref": "#/$defs/resources"
+    },
+    "nodeSelector": {
+      "type": "object"
+    },
+    "tolerations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "affinity": {
+      "type": "object"
+    },
+    "topologySpreadConstraints": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "priorityClassName": {
+      "type": "string"
+    },
+    "podAnnotations": {
+      "type": "object"
+    },
+    "podLabels": {
+      "type": "object"
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "revisionHistoryLimit": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "podSecurityContext": {
+      "type": "object"
+    },
+    "securityContext": {
+      "type": "object"
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 253
+        },
+        "annotations": {
+          "type": "object"
+        },
+        "automountServiceAccountToken": {
+          "type": "boolean"
+        }
+      }
+    },
+    "probes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "startup": {
+          "$ref": "#/$defs/probe"
+        },
+        "readiness": {
+          "$ref": "#/$defs/probe"
+        },
+        "liveness": {
+          "$ref": "#/$defs/probe"
+        }
+      }
+    },
+    "smProvision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "apply": {
+          "type": "boolean"
+        },
+        "adoptLegacy": {
+          "type": "boolean"
+        },
+        "migrateTarget": {
+          "type": "boolean",
+          "description": "Boolean despite the name: SM_PROVISION_MIGRATE_TARGET is read with explicitBool, so it selects whether to migrate the target fingerprint, not which target."
+        },
+        "runId": {
+          "type": "string"
+        },
+        "ttlSecondsAfterFinished": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        }
+      }
+    },
+    "extraEnv": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "extraVolumes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "extraVolumeMounts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "$defs": {
+    "credentialGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "existingSecret": {
+          "type": "string",
+          "description": "An EXISTING Secret in the release namespace. Empty means the group is not configured and its keys are inert. The chart never creates a Secret.",
+          "maxLength": 253
+        },
+        "keys": {
+          "type": "object",
+          "description": "ENV_VAR: secretKey. Free-form by design, but the chart fixes which variables each group may own and fails the render on a variable listed under the wrong group.",
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "periodSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "failureThreshold": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requests": {
+          "$ref": "#/$defs/resourceList"
+        },
+        "limits": {
+          "$ref": "#/$defs/resourceList"
+        }
+      }
+    },
+    "resourceList": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpu": {
+          "$ref": "#/$defs/quantity"
+        },
+        "memory": {
+          "$ref": "#/$defs/quantity"
+        },
+        "ephemeral-storage": {
+          "$ref": "#/$defs/quantity"
+        }
+      }
+    },
+    "quantity": {
+      "type": [
+        "string",
+        "number"
+      ],
+      "pattern": "^[0-9]+(\\.[0-9]+)?(m|k|M|G|T|P|E|Ki|Mi|Gi|Ti|Pi|Ei)?$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))+$"
+    },
+    "intOrEmptyString": {
+      "type": [
+        "string",
+        "integer"
+      ],
+      "pattern": "^([0-9]+)?$"
+    }
+  }
+}

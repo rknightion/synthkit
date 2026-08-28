@@ -4,12 +4,19 @@ description: Composable synthetic-telemetry generator — emits structurally cor
 type: application
 
 # Chart version is independent of the application version and follows SemVer for the CHART.
-version: 0.1.0
+version: 0.2.0
 # The synthkit release this chart defaults to. Bumped with each synthkit release; overridden
 # per-install by image.tag or (preferred) image.digest.
 appVersion: "1.3.1"
 
+# The oldest cluster this chart is claimed to run on. Everything it emits is GA at this floor:
+# seccompProfile (1.19), networking.k8s.io/v1 Ingress (1.19), topologySpreadConstraints (1.19),
+# ttlSecondsAfterFinished (1.23). The render suite schema-validates against this same version, so
+# the claim is checked rather than asserted.
+kubeVersion: ">=1.25.0-0"
+
 home: https://m7kni.io/synthkit
+icon: https://m7kni.io/synthkit/assets/logo.svg
 sources:
   - https://github.com/rknightion/synthkit
 keywords:

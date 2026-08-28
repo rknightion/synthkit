@@ -192,17 +192,32 @@ assert_absent "sm-provision" "$JOB" \
 
 echo
 echo "== rendered manifests validate against the Kubernetes API schemas =="
+# KUBE_VERSION pins the schema set. Without it kubeconform validates against the newest schemas
+# it can fetch, which passes a manifest that would be rejected by the oldest cluster the chart
+# claims to support in Chart.yaml's kubeVersion.
+KUBE_VERSION="${KUBE_VERSION:-1.25.0}"
+# NO -ignore-missing-schemas. That flag skips any resource kubeconform has no schema for, so a leg
+# carrying it can pass while validating nothing — the exact failure this suite already had, one
+# level down. Every kind this chart renders is core Kubernetes and has a schema; if a future
+# template adds a CRD, add its schema location with -schema-location rather than reinstating the
+# flag and losing coverage of everything else.
+KUBECONFORM_ARGS=(-strict -kubernetes-version "$KUBE_VERSION")
 if command -v kubeconform >/dev/null 2>&1; then
   for f in "$CI_DIR"/*-values.yaml; do
-    if render -f "$f" | kubeconform -strict -summary -ignore-missing-schemas - >/dev/null 2>&1; then
-      ok "kubeconform $(basename "$f")"
+    if render -f "$f" | kubeconform "${KUBECONFORM_ARGS[@]}" -summary - >/dev/null 2>&1; then
+      ok "kubeconform $(basename "$f") against $KUBE_VERSION"
     else
-      bad "kubeconform $(basename "$f")"
-      render -f "$f" | kubeconform -strict -ignore-missing-schemas - 2>&1 | tail -5 >&2
+      bad "kubeconform $(basename "$f") against $KUBE_VERSION"
+      render -f "$f" | kubeconform "${KUBECONFORM_ARGS[@]}" - 2>&1 | tail -5 >&2
     fi
   done
+elif [ -n "${REQUIRE_KUBECONFORM:-}" ]; then
+  # CI sets this. A leg that silently skips is a leg that has never run: before this, kubeconform
+  # was absent on every runner, so the chart's manifests had never once been schema-validated
+  # despite the check appearing to be part of the suite.
+  bad "kubeconform is required (REQUIRE_KUBECONFORM set) but is not installed"
 else
-  echo "  skip kubeconform is not installed (optional leg)"
+  echo "  skip kubeconform is not installed (set REQUIRE_KUBECONFORM to make this fatal)"
 fi
 
 echo
@@ -212,8 +227,14 @@ for f in "$INVALID_DIR"/*-values.yaml; do
   if out=$(render -f "$f"); then
     bad "refuses $name (rendered successfully — the guard is missing)"
   else
+    # Two guards can legitimately refuse, and which one fired is worth seeing. `execution error`
+    # is a template guard in synthkit.validate — a semantically wrong combination. A schema
+    # rejection is values.schema.json catching a key that was never valid to set at all, which the
+    # template guards cannot see because the key simply is not there.
     if grep -q 'execution error' <<<"$out"; then
-      ok "refuses $name"
+      ok "refuses $name (template guard)"
+    elif grep -q "don't meet the specifications of the schema" <<<"$out"; then
+      ok "refuses $name (values schema)"
     else
       bad "refuses $name (failed, but not with a chart validation error)"
       echo "$out" | tail -3 >&2
