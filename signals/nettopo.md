@@ -202,6 +202,17 @@ re-appear). The `change_total` counter increments on each visibility transition 
 `change_kind=added/removed` counter values are exact mirrors of the `edge_info` inventory at
 each tick (counter ↔ inventory are consistent).
 
+**Declared detector-test churn (added 2026-08-28):** an integration may set
+`series_churn_per_minute: N`. Once per minute the construct rotates `N` stable, already-declared
+`network_topology_edge_info` identities out of the active set and returns `N` other declared
+identities. The exact `N` additions and removals apply when those identities are otherwise visible;
+the construct's independent flap, reboot, and unreachable-device models can also suppress them.
+Removed gauges are deleted before `Collect`, so they stop emitting rather than accumulating
+alongside replacements. `network_topology_change_total` records every observed added/removed
+transition, including all minute boundaries crossed by a delayed tick. The rate must be non-negative
+and no larger than half the resolved edge pool; load fails instead of silently clamping a graph that
+cannot sustain the requested turnover. No synthetic changing label is added.
+
 > ⚠ `change_kind=updated` is in the documented enum but is **NOT currently emitted** by
 > synthkit. Real link-layer flaps and device reboots generate `added`/`removed` transitions
 > only. Attribute-change "updated" events (e.g. a metadata field change with no topology

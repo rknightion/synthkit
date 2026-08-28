@@ -525,6 +525,7 @@ fake network-topology-exporter (SNMP topology discovery: devices/edges + discove
 | `session_pool` | bool |  | SessionPool gates the snmp_session_pool_* family. |
 | `out_of_scope_neighbours` | int |  | OutOfScopeNeighbours sets the steady-state out-of-scope neighbour count (gates the OOS gauge, and the hub boundary-observation series when role=hub). |
 | `otlp_output` | bool |  | OTLPOutput gates the otlp_push_total family. |
+| `series_churn_per_minute` | int |  | SeriesChurnPerMinute rotates this many network_topology_edge_info identities per minute. The identities come only from the declared graph: removed series stop emitting and the replacement series reuse other stable declared edges. The rate cannot exceed half the resolved edge pool. Zero disables deliberate churn. |
 | `federation` | object | yes | Federation carries hub-mode wiring (the spokes this hub aggregates). |
 | `federation.spokes[]` | string |  |  |
 

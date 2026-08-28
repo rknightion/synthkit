@@ -5,6 +5,7 @@ package nettopo
 import (
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -344,6 +345,144 @@ func TestBuildData_ChangeCounter_HasChangekindLabel(t *testing.T) {
 			t.Errorf("change_total missing discovery_proto label")
 		}
 	}
+}
+
+func TestDeclaredSeriesChurnTurnsOverEdgeInfoWithoutAccumulating(t *testing.T) {
+	const rate = 2
+	c := makeTestConstruct()
+	c.rc.seriesChurnPerMinute = rate
+	c.graph.Edges = nil
+	for idx := 0; idx < 8; idx++ {
+		c.graph.Edges = append(c.graph.Edges, Edge{
+			SrcDevice: "spine-01", SrcPort: "Ethernet" + strconv.Itoa(idx+1),
+			DstDevice: "leaf-01", DstPort: "Ethernet" + strconv.Itoa(idx+1),
+			Proto: ProtoLLDP, LinkKind: LinkEthernet, Direction: DirBidirectional,
+		})
+	}
+
+	start := noon()
+	// Keep the assertion focused on declared churn, not the construct's separate rare flap model.
+	for candidate := 0; ; candidate++ {
+		seed := "churn-test-" + strconv.Itoa(candidate)
+		allVisible := true
+		for _, edge := range c.graph.Edges {
+			if !edgeVisible(edge, seed, start, start) || !edgeVisible(edge, seed, start, start.Add(time.Minute)) {
+				allVisible = false
+				break
+			}
+		}
+		if allVisible {
+			c.seed = seed
+			break
+		}
+	}
+
+	c.buildData(start, shape.New("", nil))
+	first := edgeIdentitySet(c.st.Collect(start))
+	beforeAdded := addedTotal(c.st.Collect(start))
+	beforeRemoved := removedTotal(c.st.Collect(start))
+	for offset := 10 * time.Second; offset <= time.Minute; offset += 10 * time.Second {
+		c.buildData(start.Add(offset), shape.New("", nil))
+	}
+	second := edgeIdentitySet(c.st.Collect(start.Add(time.Minute)))
+
+	if len(first) != 6 || len(second) != 6 {
+		t.Fatalf("active edge-info set sizes = %d then %d, want 6 then 6", len(first), len(second))
+	}
+	added, removed := setDifference(second, first), setDifference(first, second)
+	if len(added) != rate || len(removed) != rate {
+		t.Fatalf("one-minute turnover added=%v removed=%v, want %d each", added, removed, rate)
+	}
+	after := c.st.Collect(start.Add(time.Minute))
+	if delta := addedTotal(after) - beforeAdded; delta != rate {
+		t.Errorf("added change_total delta = %v, want %d despite 10s ticks", delta, rate)
+	}
+	if delta := removedTotal(after) - beforeRemoved; delta != rate {
+		t.Errorf("removed change_total delta = %v, want %d despite 10s ticks", delta, rate)
+	}
+	for identity := range removed {
+		if second[identity] {
+			t.Errorf("retired series %q still emitted after turnover", identity)
+		}
+	}
+}
+
+func TestDeclaredSeriesChurnCountsEveryTransitionAcrossCompleteRotationGap(t *testing.T) {
+	const (
+		rate      = 2
+		edgeCount = 8
+	)
+	c := makeTestConstruct()
+	c.rc.seriesChurnPerMinute = rate
+	c.graph.Edges = nil
+	for idx := 0; idx < edgeCount; idx++ {
+		c.graph.Edges = append(c.graph.Edges, Edge{
+			SrcDevice: "spine-01", SrcPort: "Ethernet" + strconv.Itoa(idx+1),
+			DstDevice: "leaf-01", DstPort: "Ethernet" + strconv.Itoa(idx+1),
+			Proto: ProtoLLDP, LinkKind: LinkEthernet, Direction: DirBidirectional,
+		})
+	}
+
+	start := noon()
+	rotationPeriod := time.Duration(edgeCount/rate) * time.Minute
+	for candidate := 0; ; candidate++ {
+		seed := "churn-gap-test-" + strconv.Itoa(candidate)
+		allVisible := true
+		for offset := time.Duration(0); offset <= rotationPeriod; offset += time.Minute {
+			for _, edge := range c.graph.Edges {
+				if !edgeVisible(edge, seed, start, start.Add(offset)) {
+					allVisible = false
+					break
+				}
+			}
+			if !allVisible {
+				break
+			}
+		}
+		if allVisible {
+			c.seed = seed
+			break
+		}
+	}
+
+	c.buildData(start, shape.New("", nil))
+	first := edgeIdentitySet(c.st.Collect(start))
+	beforeAdded := addedTotal(c.st.Collect(start))
+	beforeRemoved := removedTotal(c.st.Collect(start))
+	c.buildData(start.Add(rotationPeriod), shape.New("", nil))
+	after := c.st.Collect(start.Add(rotationPeriod))
+	last := edgeIdentitySet(after)
+
+	if len(setDifference(first, last)) != 0 || len(setDifference(last, first)) != 0 {
+		t.Fatalf("active edge-info set changed across a complete rotation: first=%v last=%v", first, last)
+	}
+	if delta := addedTotal(after) - beforeAdded; delta != edgeCount {
+		t.Errorf("added change_total delta = %v, want %d across complete rotation", delta, edgeCount)
+	}
+	if delta := removedTotal(after) - beforeRemoved; delta != edgeCount {
+		t.Errorf("removed change_total delta = %v, want %d across complete rotation", delta, edgeCount)
+	}
+}
+
+func edgeIdentitySet(series []promrw.Series) map[string]bool {
+	out := map[string]bool{}
+	for _, item := range series {
+		if item.Name != "network_topology_edge_info" {
+			continue
+		}
+		out[item.Labels["src_device"]+"/"+item.Labels["src_port"]+"->"+item.Labels["dst_device"]+"/"+item.Labels["dst_port"]] = true
+	}
+	return out
+}
+
+func setDifference(left, right map[string]bool) map[string]bool {
+	out := map[string]bool{}
+	for value := range left {
+		if !right[value] {
+			out[value] = true
+		}
+	}
+	return out
 }
 
 // ── conflict counter ──────────────────────────────────────────────────────────

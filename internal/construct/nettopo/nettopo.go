@@ -53,6 +53,45 @@ func edgeVisible(edge Edge, seed string, bootTime, t time.Time) bool {
 		!deviceRebooting(edge.DstDevice, seed, bootTime, t)
 }
 
+// churnEdgeVisible rotates a fixed-size hidden window over the already-declared edge pool. With
+// rate <= total/2, each minute exactly rate previously visible identities stop and rate previously
+// hidden identities return. No label or identity is minted; the active set stays bounded.
+func churnEdgeVisible(index, total, rate int, bootTime, now time.Time) bool {
+	if rate <= 0 || total == 0 {
+		return true
+	}
+	minute := int(now.Sub(bootTime) / time.Minute)
+	if minute < 0 {
+		minute = 0
+	}
+	hiddenStart := (minute * rate) % total
+	relative := (index - hiddenStart + total) % total
+	return relative >= rate
+}
+
+func (c *Construct) edgeVisibleAt(index int, edge Edge, now time.Time) bool {
+	return edgeVisible(edge, c.seed, c.bootTime, now) &&
+		churnEdgeVisible(index, len(c.graph.Edges), c.rc.seriesChurnPerMinute, c.bootTime, now)
+}
+
+// visibilityCheckpoints returns every declared-churn boundary crossed since the previous data
+// tick, plus the current tick. Walking the boundaries prevents a delayed tick whose endpoints have
+// the same visibility (for example, one complete rotation period apart) from losing the intervening
+// additions and removals from change_total.
+func (c *Construct) visibilityCheckpoints(previous, now time.Time) []time.Time {
+	checkpoints := []time.Time{previous}
+	if c.rc.seriesChurnPerMinute > 0 && now.After(previous) {
+		elapsedMinutes := int(previous.Sub(c.bootTime) / time.Minute)
+		for boundary := c.bootTime.Add(time.Duration(elapsedMinutes+1) * time.Minute); !boundary.After(now); boundary = boundary.Add(time.Minute) {
+			checkpoints = append(checkpoints, boundary)
+		}
+	}
+	if !checkpoints[len(checkpoints)-1].Equal(now) {
+		checkpoints = append(checkpoints, now)
+	}
+	return checkpoints
+}
+
 // buildData accumulates the topology DATA families into c.st (device inventory, edge_info,
 // graph totals, change/conflict counters, out-of-scope/boundary observations) and returns
 // the Loki change/conflict log streams for this tick.
@@ -124,7 +163,7 @@ func (c *Construct) buildData(now time.Time, eng *shape.Engine) []loki.Stream {
 	// either endpoint device is in a reboot-down window — mirrors the real exporter's
 	// reconciliation behaviour where a reconverging link is removed from the topology.
 	// DeleteGauge is called so previously-Set series become absent in the next Collect.
-	for _, edge := range c.graph.Edges {
+	for edgeIndex, edge := range c.graph.Edges {
 		lbls := map[string]string{
 			"job":             base["job"],
 			"instance":        base["instance"],
@@ -136,7 +175,7 @@ func (c *Construct) buildData(now time.Time, eng *shape.Engine) []loki.Stream {
 			"link_kind":       edge.LinkKind,
 			"direction":       edge.Direction,
 		}
-		if edgeVisible(edge, c.seed, c.bootTime, now) {
+		if c.edgeVisibleAt(edgeIndex, edge, now) {
 			c.st.Set("network_topology_edge_info", lbls, 1)
 		} else {
 			// Edge is down: remove from gauge set so it is absent in Collect output.
@@ -214,23 +253,31 @@ func (c *Construct) buildData(now time.Time, eng *shape.Engine) []loki.Stream {
 	// true→false or false→true transition per edge per tick is counted — no separate
 	// flap/reboot branches, no attribution rule, no double-count gap.
 	if !coldStart {
-		bucketSecs := int64(60)
-		curBucket := now.Unix() / bucketSecs
-		prevBucketTime := time.Unix((curBucket-1)*bucketSecs, 0)
+		prevBucketTime := c.lastDataTick
+		if prevBucketTime.IsZero() {
+			const bucketSecs = int64(60)
+			curBucket := now.Unix() / bucketSecs
+			prevBucketTime = time.Unix((curBucket-1)*bucketSecs, 0)
+		}
 
-		for i, edge := range c.graph.Edges {
-			sampleEdge := &c.graph.Edges[i]
-			curVis := edgeVisible(edge, c.seed, c.bootTime, now)
-			prevVis := edgeVisible(edge, c.seed, c.bootTime, prevBucketTime)
-			if prevVis && !curVis {
-				// Edge just became invisible (link went down or device entered reboot).
-				addChange("removed", edge.Proto, 1, sampleEdge)
-			} else if !prevVis && curVis {
-				// Edge just became visible (link came up or device exited reboot).
-				addChange("added", edge.Proto, 1, sampleEdge)
+		checkpoints := c.visibilityCheckpoints(prevBucketTime, now)
+		for checkpointIndex := 1; checkpointIndex < len(checkpoints); checkpointIndex++ {
+			previous, current := checkpoints[checkpointIndex-1], checkpoints[checkpointIndex]
+			for i, edge := range c.graph.Edges {
+				sampleEdge := &c.graph.Edges[i]
+				curVis := c.edgeVisibleAt(i, edge, current)
+				prevVis := c.edgeVisibleAt(i, edge, previous)
+				if prevVis && !curVis {
+					// Edge just became invisible (link went down or device entered reboot).
+					addChange("removed", edge.Proto, 1, sampleEdge)
+				} else if !prevVis && curVis {
+					// Edge just became visible (link came up or device exited reboot).
+					addChange("added", edge.Proto, 1, sampleEdge)
+				}
 			}
 		}
 	}
+	c.lastDataTick = now
 
 	// Emit the change log as ONE stream per tick (low-cardinality stream labels only).
 	if len(changeLogLines) > 0 {

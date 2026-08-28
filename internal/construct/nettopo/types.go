@@ -122,6 +122,11 @@ type Config struct {
 	OutOfScopeNeighbours int `yaml:"out_of_scope_neighbours"`
 	// OTLPOutput gates the otlp_push_total family.
 	OTLPOutput bool `yaml:"otlp_output"`
+	// SeriesChurnPerMinute rotates this many network_topology_edge_info identities per minute.
+	// The identities come only from the declared graph: removed series stop emitting and the
+	// replacement series reuse other stable declared edges. The rate cannot exceed half the
+	// resolved edge pool. Zero disables deliberate churn.
+	SeriesChurnPerMinute int `yaml:"series_churn_per_minute"`
 	// Federation carries hub-mode wiring (the spokes this hub aggregates).
 	Federation *FederationConfig `yaml:"federation"`
 }
@@ -167,16 +172,17 @@ type FederationConfig struct {
 // resolvedConfig is the fully-defaulted, validated configuration the construct emits from.
 // Owned/produced by config.go (resolveConfig).
 type resolvedConfig struct {
-	instance    string
-	job         string
-	role        string
-	spokeID     string
-	protocols   []string // normalized + deduped, in ladder order
-	protoSet    map[string]bool
-	sessionPool bool
-	oosCount    int
-	otlpOutput  bool
-	spokes      []string // hub federation spokes
+	instance             string
+	job                  string
+	role                 string
+	spokeID              string
+	protocols            []string // normalized + deduped, in ladder order
+	protoSet             map[string]bool
+	sessionPool          bool
+	oosCount             int
+	otlpOutput           bool
+	seriesChurnPerMinute int
+	spokes               []string // hub federation spokes
 
 	// generator inputs retained for generateGraph.
 	fabric  *FabricConfig
@@ -250,6 +256,9 @@ type Construct struct {
 	// cold-start topology-discovery burst and the warm-up→steady churn decay, mirroring a
 	// real exporter that adds its entire graph in cycle one then settles to rare changes.
 	bootTime time.Time
+	// lastDataTick is the actual preceding Tick time. Declared churn compares against this rather
+	// than an assumed 60s bucket so a high_dpm cadence cannot recount one minute transition six times.
+	lastDataTick time.Time
 }
 
 // NewConfig returns an empty *Config for the YAML decoder.
@@ -269,9 +278,13 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	if err != nil {
 		return nil, err
 	}
+	graph := generateGraph(rc, seed)
+	if rc.seriesChurnPerMinute > len(graph.Edges)/2 {
+		return nil, fmt.Errorf("nettopo: series_churn_per_minute=%d exceeds the truthful rotation pool for %d declared edges (maximum %d)", rc.seriesChurnPerMinute, len(graph.Edges), len(graph.Edges)/2)
+	}
 	return &Construct{
 		rc:    rc,
-		graph: generateGraph(rc, seed),
+		graph: graph,
 		st:    state.NewState(),
 		seed:  seed,
 	}, nil

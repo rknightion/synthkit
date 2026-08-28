@@ -43,6 +43,9 @@ func resolveConfig(c *Config, _ string) (resolvedConfig, error) {
 	if c.Instance == "" {
 		return resolvedConfig{}, fmt.Errorf("nettopo: instance is required")
 	}
+	if c.SeriesChurnPerMinute < 0 {
+		return resolvedConfig{}, fmt.Errorf("nettopo: series_churn_per_minute must be >= 0")
+	}
 
 	// ── job ──────────────────────────────────────────────────────────────────
 	job := c.Job
@@ -126,18 +129,19 @@ func resolveConfig(c *Config, _ string) (resolvedConfig, error) {
 	copy(links, c.Links)
 
 	return resolvedConfig{
-		instance:    c.Instance,
-		job:         job,
-		role:        role,
-		spokeID:     c.SpokeID,
-		protocols:   protocols,
-		protoSet:    protoSet,
-		sessionPool: c.SessionPool,
-		oosCount:    oosCount,
-		otlpOutput:  c.OTLPOutput,
-		spokes:      spokes,
-		fabric:      c.Fabric,
-		devices:     devices,
-		links:       links,
+		instance:             c.Instance,
+		job:                  job,
+		role:                 role,
+		spokeID:              c.SpokeID,
+		protocols:            protocols,
+		protoSet:             protoSet,
+		sessionPool:          c.SessionPool,
+		oosCount:             oosCount,
+		otlpOutput:           c.OTLPOutput,
+		seriesChurnPerMinute: c.SeriesChurnPerMinute,
+		spokes:               spokes,
+		fabric:               c.Fabric,
+		devices:              devices,
+		links:                links,
 	}, nil
 }

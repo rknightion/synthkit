@@ -391,6 +391,13 @@ plane, a `cw_infra` family) — independent toggles for independent families.
   only to that blueprint's metric-bearing instances, bounded by `MAX_DPM_PER_SERIES` (default 6,
   a 10s minimum interval) and never below `TICK_DEFAULT`.
   workload metric lanes read `Ledger.ActiveFor(name, now, interval)`.
+- **Declarable series churn:** `network_topology.series_churn_per_minute` rotates a bounded window
+  over the construct's already-declared `network_topology_edge_info` identities. Retired gauges are
+  deleted before collection and replacements are other stable edges from the same graph; no changing
+  label is added and the active set cannot accumulate. The rate is rejected when the graph is too
+  small to remove and replace that many identities truthfully. Kubernetes constructs deliberately do
+  not implement this knob: pod/node/volume names, UIDs and seeds are deterministic cross-signal join
+  contracts, and reseeding them for load generation would break I12.
 - ONE lane = ONE signal class. Span timing uses `r.RenderStart()`; ledger windowing keys on `r.Start`.
 - **Per-blueprint goroutines (`Run`):** each blueprint runs its master + budget-reset tickers on its
   OWN goroutine, so a slow or hung sink push on one blueprint cannot delay another's cadence

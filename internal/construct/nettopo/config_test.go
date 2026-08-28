@@ -3,7 +3,10 @@
 package nettopo
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/rknightion/synthkit/internal/fixture"
 )
 
 func TestResolveConfig_MissingInstance(t *testing.T) {
@@ -14,6 +17,43 @@ func TestResolveConfig_MissingInstance(t *testing.T) {
 	const want = "nettopo: instance is required"
 	if err.Error() != want {
 		t.Fatalf("error = %q; want %q", err.Error(), want)
+	}
+}
+
+func TestResolveConfigRejectsNegativeSeriesChurn(t *testing.T) {
+	_, err := resolveConfig(&Config{Instance: "host:9100", SeriesChurnPerMinute: -1}, "seed")
+	if err == nil || !strings.Contains(err.Error(), "series_churn_per_minute") {
+		t.Fatalf("resolveConfig error = %v, want series_churn_per_minute validation", err)
+	}
+}
+
+func TestBuildRejectsSeriesChurnRateLargerThanTruthfulRotationPool(t *testing.T) {
+	cfg := &Config{
+		Instance:             "netobs:9100",
+		SeriesChurnPerMinute: 2,
+		Fabric:               &FabricConfig{Kind: "spine_leaf", Spines: 1, Leaves: 2},
+	}
+	if _, err := Build(cfg, &fixture.Set{Seed: "test"}); err == nil || !strings.Contains(err.Error(), "series_churn_per_minute") {
+		t.Fatalf("Build error = %v, want truthful-pool validation", err)
+	}
+}
+
+func TestBuildAcceptsSeriesChurnRateEqualToHalfTheResolvedEdgePool(t *testing.T) {
+	cfg := &Config{
+		Instance: "netobs:9100",
+		Fabric:   &FabricConfig{Kind: "spine_leaf", Spines: 2, Leaves: 4},
+	}
+	rc, err := resolveConfig(cfg, "test")
+	if err != nil {
+		t.Fatalf("resolveConfig: %v", err)
+	}
+	edgeCount := len(generateGraph(rc, "test").Edges)
+	if edgeCount == 0 || edgeCount%2 != 0 {
+		t.Fatalf("test graph edge count = %d, want positive even count", edgeCount)
+	}
+	cfg.SeriesChurnPerMinute = edgeCount / 2
+	if _, err := Build(cfg, &fixture.Set{Seed: "test"}); err != nil {
+		t.Fatalf("Build with series_churn_per_minute=%d for %d edges: %v", cfg.SeriesChurnPerMinute, edgeCount, err)
 	}
 }
 

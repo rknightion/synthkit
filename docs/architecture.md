@@ -92,6 +92,7 @@ Each blueprint runs on its own goroutine. Two cadences run per blueprint:
 
 - **Master tick (fast, default 5 s)**: `Ledger.Mint(now)` returns the request batch for this tick. The runner immediately calls each workload's `ProjectBatch` with its own minted requests — traces, logs, and RUM are emitted exactly once, unfloored.
 - **Metric lanes (60 s by default)**: every construct and workload calls its own `Tick` on its declared `Interval()`. A blueprint may explicitly declare `high_dpm.metric_interval`; the runner applies it only to that blueprint's metric-bearing instances, subject to `MAX_DPM_PER_SERIES` (default 6 DPM, or 10 s) and `TICK_DEFAULT`. Workload metric lanes call `Ledger.ActiveFor(name, now, interval)` to read the window of recently-minted requests.
+- **Declarable series churn**: the `network_topology` integration can set `series_churn_per_minute`, rotating stable declared `edge_info` identities out of and back into the active set. The construct deletes retired gauges, keeps the active set bounded, and rejects rates its declared graph cannot support. Kubernetes identity is intentionally unsupported because pod, node, and storage identities are deterministic cross-signal joins.
 
 Blueprint goroutines share nothing but the concurrency-safe sinks. A slow or hung push on one blueprint cannot delay another's cadence.
 
