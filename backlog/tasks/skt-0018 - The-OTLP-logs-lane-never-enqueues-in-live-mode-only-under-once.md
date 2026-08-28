@@ -3,11 +3,11 @@ id: SKT-0018
 title: >-
   OTLP-logs delivery is invisible to push status because its observer is not
   attached
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-08-28 18:34'
-updated_date: '2026-08-28 20:07'
+updated_date: '2026-08-28 21:01'
 labels: []
 dependencies: []
 priority: high
@@ -49,18 +49,18 @@ Compare `RunOnce` against `blueprintLoop` and `tickBlueprintInstances` for what 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The cluster deployment's otlplogs lane is reproduced as not_attempted somewhere it can be iterated on, not only observed in the cluster
-- [ ] #2 Why the lane resolves differently on the cluster than under a local live scheduler is established with evidence, since the local live scheduler demonstrably does reach it
-- [ ] #3 The lane pushes on the cluster, verified through /control/status rather than inferred
-- [ ] #4 A regression test covers whichever path was actually broken, and does not pass against the broken code
-- [ ] #5 Any other lane reachable through only one entry point is identified in the same pass
+- [x] #1 The cluster deployment's otlplogs lane is reproduced as not_attempted somewhere it can be iterated on, not only observed in the cluster
+- [x] #2 Why the lane resolves differently on the cluster than under a local live scheduler is established with evidence, since the local live scheduler demonstrably does reach it
+- [x] #3 The lane pushes on the cluster, verified through /control/status rather than inferred
+- [x] #4 A regression test covers whichever path was actually broken, and does not pass against the broken code
+- [x] #5 Any other lane reachable through only one entry point is identified in the same pass
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -97,4 +97,12 @@ Also still true and still worth the fourth acceptance criterion: whether any oth
 2026-08-28 correction to the preceding live-diagnosis wording: the control endpoints alone proved the loaded/active blueprint and absence of scheduler/tick errors; they did not directly expose Signals() or the World writer. The non-dry-run TLS regression then reproduced the exact status state on 894206b: loki/otlp/promrw success, otlplogs not_attempted for 90s. Source inspection found the actual fault at cmd/synthkit/main.go: the shared push observer was attached to every mandatory sink except otlpLogsSink. Therefore OTLP-log Write and HTTP delivery could occur and drain the queue while pushstatus saw no event. After attaching the observer, the unchanged live test observed otlplogs attempted=true/state=success/live_ready=true and overall Ready=true/LiveReady=true in 12s. The test now also reads the receiver inventory and requires a non-zero OTLP-log receipt plus a decoded OTLP log record. The entry-point audit found no second omission: every mandatory sink receives the observer, optional Faro/Pyroscope/Sigil sinks receive it under their construction gates, and eachQueue includes every constructed queue for both Run and RunOnce lifecycle management.
 
 CodeRabbit second pass completed with one minor tracker-only finding and no code findings. Applied the useful part by retitling the task to the confirmed observer defect. The original Description remains as historical filed evidence and is intentionally not rewritten; the dated CORRECTION and subsequent diagnosis notes preserve how the disproved premise was retired without erasing it.
+
+Cluster verification completed from immutable main-177224b (full revision 177224b2a574fabff832f323603ece657bd8d3b8). ArgoCD reported Synced/Healthy at synthkit source 177224b2... and rkps-awsinfra a00808f..., the Deployment reached 1/1, and public readiness returned HTTP 200. Authenticated /control/status directly observed otlplogs attempted=true, state=success, live_ready=true, 8 pushes, 0 failures, HTTP 204, 34 total items, queue depth 0; overall ready=true and live_ready=true, with every configured lane successful. /app/synthkit -version matched the complete expected revision. The unchanged startup and readiness probes passed naturally. EKS-0065 was finalized with the immutable manifest, ESO, persistence, and rollout evidence. Exact-SHA CI run 33207476486 is green including go, secret-scan, signal-fidelity, UI, Helm, Docker, hygiene, e2e, and ci-success; publish run 33207476896 is green for both architectures, signed manifest, provenance, SBOM, and Trivy. DOD #2 is intentionally left unchecked because no blueprint field or construct/workload config struct changed, so make blueprint-schema was not applicable. CodeRabbit had already completed its clean second pass before the code-bearing commit.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Attached the missing shared push observer to the live OTLP-log sink and added a TLS receiver-backed live-scheduler regression that failed as not_attempted before the fix and proves both pushstatus success and decoded OTLP-log receipt after it. Audited all sink observers and queue lifecycle paths. Verified locally with make gate and -once -dump, in exact-SHA CI including e2e, and on the lab cluster at immutable main-177224b with 1/1 readiness and otlplogs success/zero failures through /control/status.
+<!-- SECTION:FINAL_SUMMARY:END -->
