@@ -6,7 +6,7 @@ golangci_version := env('GOLANGCI_LINT_VERSION', 'v2.13.2')
 # renovate: datasource=github-releases depName=google/go-licenses
 go_licenses_version := env('GO_LICENSES_VERSION', 'v2.0.1')
 # renovate: datasource=github-releases depName=anchore/syft
-syft_version := env('SYFT_VERSION', 'v1.18.1')
+syft_version := env('SYFT_VERSION', 'v1.51.1')
 # renovate: datasource=github-releases depName=gitleaks/gitleaks
 gitleaks_version := env('GITLEAKS_VERSION', 'v8.21.2')
 gcx_context := env('GCX_CONTEXT', 'default')
