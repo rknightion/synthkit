@@ -1,9 +1,11 @@
 ---
 id: SKT-0025
 title: 'Reclassify subset label values as coverage gaps, not contradictions'
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-29 09:22'
+updated_date: '2026-08-29 16:27'
 labels: []
 dependencies: []
 priority: high
@@ -30,17 +32,35 @@ This is the last comparator-semantics correction blocking the gate flip, so it l
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A label value present in reality and absent from synth reports as a coverage gap
-- [ ] #2 A label value synthkit emits that reality never shows still reports as a contradiction
-- [ ] #3 The two kube_pod_info findings move out of the Contradictions section and are still visible as gaps
-- [ ] #4 The reclassification is a rule in the comparator, not a filter on those two findings
-- [ ] #5 The host-network and owner-kind accuracy limits are recorded as tracked work rather than lost with the reclassification
-- [ ] #6 docs/reality-corpus.md states the value-set rule in both directions
+- [x] #1 A label value present in reality and absent from synth reports as a coverage gap
+- [x] #2 A label value synthkit emits that reality never shows still reports as a contradiction
+- [x] #3 The two kube_pod_info findings move out of the Contradictions section and are still visible as gaps
+- [x] #4 The reclassification is a rule in the comparator, not a filter on those two findings
+- [x] #5 The host-network and owner-kind accuracy limits are recorded as tracked work rather than lost with the reclassification
+- [x] #6 docs/reality-corpus.md states the value-set rule in both directions
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Lane C owns internal/inventory/ and docs/reality-corpus.md. Encode directional label-value semantics in the comparator, test subset-as-gap and synth-only-as-contradiction, retain the two kube_pod_info limits as visible gaps, and verify them by name.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Final verification 2026-08-29: comparator tests prove reality-only label values classify as coverage gaps and synth-only values remain contradictions. The two kube_pod_info limits remain visible as gaps and the directional rule is documented. just check and just dump passed. No blueprint field or construct/workload config struct changed, so the conditional blueprint-schema DoD item was not applicable.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Made label-value comparison directional without filtering named signals: under-modelled reality values report, while unsupported synth claims fail. Comparator tests, fidelity output, just check, and just dump passed.
+<!-- SECTION:FINAL_SUMMARY:END -->

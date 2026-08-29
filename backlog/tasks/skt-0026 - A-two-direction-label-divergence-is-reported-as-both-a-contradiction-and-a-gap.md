@@ -1,9 +1,11 @@
 ---
 id: SKT-0026
 title: A two-direction label divergence is reported as both a contradiction and a gap
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-29 09:23'
+updated_date: '2026-08-29 16:27'
 labels: []
 dependencies: []
 priority: high
@@ -27,15 +29,33 @@ Split the finding instead: the `only-in-synth` keys are the contradiction, the `
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A finding appears in exactly one section, so no line carries two verdicts
-- [ ] #2 The only-in-synth keys report as the contradiction and the only-in-reality keys as the gap
-- [ ] #3 The contradiction and coverage-gap counts are independent, verifiable by intersecting the two sections and finding nothing
-- [ ] #4 Fixing one direction of a two-direction finding leaves no stale line naming the fixed direction
+- [x] #1 A finding appears in exactly one section, so no line carries two verdicts
+- [x] #2 The only-in-synth keys report as the contradiction and the only-in-reality keys as the gap
+- [x] #3 The contradiction and coverage-gap counts are independent, verifiable by intersecting the two sections and finding nothing
+- [x] #4 Fixing one direction of a two-direction finding leaves no stale line naming the fixed direction
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Execute jointly with SKT-0025 in Lane C. Split two-direction label-key divergences into direction-specific findings and sections, test that no byte-identical line appears in both sections, and verify by intersection rather than total counts.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Final verification 2026-08-29: two-direction label differences render as separate direction-specific findings. Sorting and intersecting the post-lane Contradictions and Coverage gaps sections produced zero byte-identical lines, and focused tests prove a corrected direction leaves no stale text. just check and just dump passed. No blueprint field or construct/workload config struct changed, so the conditional blueprint-schema DoD item was not applicable.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Split bidirectional label divergences into independent contradiction and gap findings. Focused tests, zero section intersection, just check, and just dump passed.
+<!-- SECTION:FINAL_SUMMARY:END -->

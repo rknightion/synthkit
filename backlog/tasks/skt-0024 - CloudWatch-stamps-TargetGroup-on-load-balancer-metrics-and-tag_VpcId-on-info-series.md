@@ -3,9 +3,11 @@ id: SKT-0024
 title: >-
   CloudWatch stamps TargetGroup on load-balancer metrics and tag_VpcId on info
   series
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-29 09:22'
+updated_date: '2026-08-29 16:27'
 labels: []
 dependencies: []
 priority: high
@@ -29,17 +31,35 @@ Establish which families really carry TargetGroup from `signals/cw.md` or curren
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 dimension_TargetGroup is carried only by the families CloudWatch actually scopes to a target group, established from signals/cw.md or current AWS docs
-- [ ] #2 The cwinfra tests assert the corrected dimension sets rather than the current ones
-- [ ] #3 tag_VpcId is no longer stamped on _info families, and scrape_job is emitted as reality carries it
-- [ ] #4 The fixture.go comment describing VpcID as tag_VpcId on _info series is corrected, not left contradicting the code
-- [ ] #5 The dimension_VolumeId divergence on aws_ebs_info is resolved or recorded with a reason
-- [ ] #6 signals/cw.md records both corrections with provenance
+- [x] #1 dimension_TargetGroup is carried only by the families CloudWatch actually scopes to a target group, established from signals/cw.md or current AWS docs
+- [x] #2 The cwinfra tests assert the corrected dimension sets rather than the current ones
+- [x] #3 tag_VpcId is no longer stamped on _info families, and scrape_job is emitted as reality carries it
+- [x] #4 The fixture.go comment describing VpcID as tag_VpcId on _info series is corrected, not left contradicting the code
+- [x] #5 The dimension_VolumeId divergence on aws_ebs_info is resolved or recorded with a reason
+- [x] #6 signals/cw.md records both corrections with provenance
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Lane B owns internal/construct/cwinfra/, internal/fixture/fixture.go, and signals/cw.md. Correct TargetGroup family scoping and _info labels from recorded evidence, update tests/comments/provenance, and verify the named ALB/info findings individually without using total counts.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Final verification 2026-08-29: TargetGroup is restricted to target-group-scoped ApplicationELB families; scraper info series omit tag_VpcId and resource dimensions and carry scrape_job=synthkit-cloudwatch. The separate EC2 info path and scale-down retirement were corrected after review. All named ALB and info findings are absent. just check and just dump passed. No blueprint field or construct/workload config struct changed, so the conditional blueprint-schema DoD item was not applicable.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Corrected CloudWatch dimension scoping and scraper info-series shape, including stale-series retirement. Focused tests, named-finding verification, just check, and just dump passed.
+<!-- SECTION:FINAL_SUMMARY:END -->

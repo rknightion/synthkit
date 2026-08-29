@@ -1,9 +1,11 @@
 ---
 id: SKT-0022
 title: k8s-addons stamp an invented node label and omit source
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-29 09:22'
+updated_date: '2026-08-29 16:27'
 labels: []
 dependencies: []
 priority: high
@@ -27,16 +29,34 @@ Note the interaction: several of these families also appear as `unexpected_label
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The invented node label is no longer stamped on addon families
-- [ ] #2 source is stamped as the capture shows real k8s-monitoring stamping it, with the value and family scope confirmed from the capture rather than inferred
-- [ ] #3 The k8saddon tests assert the corrected shape rather than the current one
-- [ ] #4 signals/k8s-addons.md records the correction with provenance
-- [ ] #5 The 23 contradictions in this class are gone from the fidelity report
+- [x] #1 The invented node label is no longer stamped on addon families
+- [x] #2 source is stamped as the capture shows real k8s-monitoring stamping it, with the value and family scope confirmed from the capture rather than inferred
+- [x] #3 The k8saddon tests assert the corrected shape rather than the current one
+- [x] #4 signals/k8s-addons.md records the correction with provenance
+- [x] #5 The 23 contradictions in this class are gone from the fidelity report
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Lane A owns internal/k8saddon/, internal/construct/k8scluster/, signals/k8s-addons.md, and signals/k8s.md for the whole wave. Establish the capture-derived per-job source rule; remove invented addon node labels; apply the same rule to k8s pollers; keep ip_family separate; verify named findings are absent without using total counts.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Final verification 2026-08-29: capture-derived per-job behavior is encoded and tested; addons omit invented node and kube-dns carries source=kubernetes. All 23 named addon contradictions are absent from the post-lane fidelity report. just check and just dump passed. No blueprint field or construct/workload config struct changed, so the conditional blueprint-schema DoD item was not applicable.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Corrected addon labels from capture evidence and documented the per-job source rule. Focused tests, named-finding fidelity verification, just check, and just dump passed.
+<!-- SECTION:FINAL_SUMMARY:END -->
