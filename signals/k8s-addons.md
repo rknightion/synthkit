@@ -199,6 +199,7 @@ labels:
   cluster: <cluster>
   k8s_cluster_name: <cluster-name>
   job: integrations/kubernetes/kube-dns
+  source: kubernetes              # k3d_lab capture 2026-08-27; job-scoped collector label
   namespace: kube-system
   instance: <podIP>:9153
   server: "dns://:53"
@@ -769,7 +770,9 @@ note: "data-plane: job=envoy; extra topology labels: architecture,availability_z
 
 (Already documented above — see the existing section. Additional per-pod correlation details added 2026-06-16.)
 
-> ✅ **Per-pod correlation labels now emitted (2026-06-16, svc-cert-manager.md):** All cert-manager metric families carry `pod`, `namespace`, `container`, `instance` (podIP:port), and `node` (via kube_pod_info join). This is the standard per-pod stamp from `k8saddon.StampPods/StampPodsContainer`. Container names per scrape job: controller=`cert-manager-controller`, cainjector=`cert-manager-cainjector`, webhook=`cert-manager-webhook`. `kube_pod_container_info.container` matches these values exactly.
+> ✅ **Per-pod correlation labels now emitted (2026-06-16, svc-cert-manager.md):** All cert-manager metric families carry `pod`, `namespace`, `container`, and `instance` (podIP:port). This is the standard per-pod stamp from `k8saddon.StampPods/StampPodsContainer`; `node` is not an addon scrape label. Container names per scrape job: controller=`cert-manager-controller`, cainjector=`cert-manager-cainjector`, webhook=`cert-manager-webhook`. `kube_pod_container_info.container` matches these values exactly.
+>
+> **Capture correction (k3d_lab 2026-08-27):** `source="kubernetes"` is a collector-side label on the `integrations/kubernetes/kube-dns` job (all 23 captured CoreDNS families), not an addon-wide default. `k8saddon.StampSourceForJob` applies this job rule while preserving the no-`node` addon shape.
 
 ---
 

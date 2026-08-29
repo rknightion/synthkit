@@ -28,7 +28,7 @@ const (
 // ksmInstance is the fixed KSM pod IP:port (stable synthetic — real pod IPs are dynamic).
 const ksmInstance = "10.1.30.200:8080"
 
-// k8sSource is required on ALL k8s-monitoring series.
+// k8sSource is the captured Kubernetes collector source value used by the Windows exporter.
 const k8sSource = "kubernetes"
 
 // clusterCreatedUnix is a frozen epoch for all *_created / *_start_time gauges (deterministic).
@@ -50,32 +50,46 @@ var runtimeOps = []string{
 
 // ── Label builders ────────────────────────────────────────────────────────────────
 
-// k8sBase returns the three labels present on every k8s-monitoring series.
+// k8sBase returns the labels shared by every k8s-monitoring metric series.
 func k8sBase(cluster string) map[string]string {
 	return map[string]string{
 		"cluster":          cluster,
 		"k8s_cluster_name": cluster,
-		"source":           k8sSource,
 	}
 }
 
+func k8sJobLabels(cluster, job string) map[string]string {
+	labels := k8sBase(cluster)
+	labels["job"] = job
+	stampSourceForJob(labels)
+	return labels
+}
+
+// stampSourceForJob preserves the established source="kubernetes" stamp for
+// k8s-monitoring metric jobs, except for kube-proxy where the capture confirms
+// source is absent. Addon jobs use their own capture-scoped helper.
+func stampSourceForJob(labels map[string]string) {
+	if labels["job"] == jobKubeProxy {
+		delete(labels, "source")
+		return
+	}
+	labels["source"] = k8sSource
+}
+
 func ksmLabels(cluster string) map[string]string {
-	m := k8sBase(cluster)
-	m["job"] = jobKSM
+	m := k8sJobLabels(cluster, jobKSM)
 	m["instance"] = ksmInstance
 	return m
 }
 
 func cadvisorLabels(cluster, node string) map[string]string {
-	m := k8sBase(cluster)
-	m["job"] = jobCAdvisor
+	m := k8sJobLabels(cluster, jobCAdvisor)
 	m["instance"] = node
 	return m
 }
 
 func kubeletLabels(cluster, node string) map[string]string {
-	m := k8sBase(cluster)
-	m["job"] = jobKubelet
+	m := k8sJobLabels(cluster, jobKubelet)
 	m["instance"] = node
 	return m
 }
@@ -83,8 +97,7 @@ func kubeletLabels(cluster, node string) map[string]string {
 // nodeExporterLabels returns the base labels for a node-exporter series, including the
 // DaemonSet pod labels carried by Alloy relabelling (extract §2.4).
 func nodeExporterLabels(cluster, node string, nodeIdx int) map[string]string {
-	m := k8sBase(cluster)
-	m["job"] = jobNodeExporter
+	m := k8sJobLabels(cluster, jobNodeExporter)
 	m["instance"] = node
 	m["app"] = "node-exporter"
 	m["component"] = "metrics"
@@ -104,6 +117,7 @@ func merge(base map[string]string, extra map[string]string) map[string]string {
 	for k, v := range extra {
 		out[k] = v
 	}
+	stampSourceForJob(out)
 	return out
 }
 

@@ -111,6 +111,25 @@ func TestKubeProxyJob(t *testing.T) {
 	}
 }
 
+// TestKubeProxyCapturedLabelShape verifies the capture-derived kube-proxy labels.
+func TestKubeProxyCapturedLabelShape(t *testing.T) {
+	mc, _ := tickKubeProxy(t)
+	for _, s := range mc.All() {
+		if s.Labels["job"] != "integrations/kubernetes/kube-proxy" {
+			continue
+		}
+		if _, hasSource := s.Labels["source"]; hasSource {
+			t.Errorf("kube-proxy series %q must not carry source, got %q", s.Name, s.Labels["source"])
+		}
+	}
+
+	for _, s := range mc.Find("kubeproxy_conntrack_reconciler_deleted_entries_total") {
+		if got := s.Labels["ip_family"]; got != "IPv4" {
+			t.Errorf("kubeproxy_conntrack_reconciler_deleted_entries_total: ip_family=%q, want IPv4", got)
+		}
+	}
+}
+
 // TestKubeProxyDisabledWhenFlagOff verifies no kube-proxy series when ControlPlane.KubeProxy=false.
 func TestKubeProxyDisabledWhenFlagOff(t *testing.T) {
 	cl := coretest.Cluster()

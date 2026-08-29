@@ -279,8 +279,13 @@ misbehaves once it is running.
 
 {{/* 5. Control-plane exposure keeps the binary's own friction. */}}
 {{- $ack := .Values.controlPlane.exposure.ack -}}
+{{- $routeEnabled := .Values.controlPlane.httpRoute.enabled -}}
+{{- $published := or .Values.controlPlane.ingress.enabled $routeEnabled -}}
 {{- if and $ack (not (has $ack (list "trusted-network" "tls-proxy"))) -}}
   {{- fail (printf "controlPlane.exposure.ack must be exactly trusted-network or tls-proxy (got %q). Leave it empty to keep the control plane closed." $ack) -}}
+{{- end -}}
+{{- if and $published (eq $ack "trusted-network") -}}
+  {{- fail "controlPlane.exposure.ack is trusted-network but a hostname is published through Ingress or HTTPRoute. Routed TLS termination requires tls-proxy." -}}
 {{- end -}}
 {{- if $ack -}}
   {{- if not $creds.control.existingSecret -}}
@@ -296,6 +301,9 @@ misbehaves once it is running.
   {{- if .Values.controlPlane.ingress.enabled -}}
     {{- fail "controlPlane.ingress.enabled is true but controlPlane.exposure.ack is empty." -}}
   {{- end -}}
+  {{- if $routeEnabled -}}
+    {{- fail "controlPlane.httpRoute.enabled is true but controlPlane.exposure.ack is empty." -}}
+  {{- end -}}
 {{- end -}}
 {{- if .Values.controlPlane.ingress.enabled -}}
   {{- if not .Values.controlPlane.service.enabled -}}
@@ -304,6 +312,32 @@ misbehaves once it is running.
   {{- if eq (len .Values.controlPlane.ingress.hosts) 0 -}}
     {{- fail "controlPlane.ingress.enabled requires at least one entry under controlPlane.ingress.hosts." -}}
   {{- end -}}
+{{- end -}}
+{{- if $routeEnabled -}}
+  {{- if not .Values.controlPlane.service.enabled -}}
+    {{- fail "controlPlane.httpRoute.enabled requires controlPlane.service.enabled." -}}
+  {{- end -}}
+  {{- if eq (len .Values.controlPlane.httpRoute.parentRefs) 0 -}}
+    {{- fail "controlPlane.httpRoute.enabled requires at least one entry under controlPlane.httpRoute.parentRefs." -}}
+  {{- end -}}
+  {{- if eq (len .Values.controlPlane.httpRoute.hostnames) 0 -}}
+    {{- fail "controlPlane.httpRoute.enabled requires at least one entry under controlPlane.httpRoute.hostnames." -}}
+  {{- end -}}
+  {{- if eq (len .Values.controlPlane.httpRoute.rules) 0 -}}
+    {{- fail "controlPlane.httpRoute.enabled requires at least one entry under controlPlane.httpRoute.rules." -}}
+  {{- end -}}
+{{- end -}}
+{{- if and .Values.controlPlane.ingress.enabled $routeEnabled -}}
+  {{- range $routeHost := .Values.controlPlane.httpRoute.hostnames -}}
+    {{- range $ingressHost := $.Values.controlPlane.ingress.hosts -}}
+      {{- if eq $routeHost $ingressHost.host -}}
+        {{- fail (printf "controlPlane.ingress and controlPlane.httpRoute both publish host %q; choose one route type for each host." $routeHost) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if and $published .Values.networkPolicy.enabled (eq (len .Values.networkPolicy.ingressFrom) 0) -}}
+  {{- fail "a published control-plane Ingress or HTTPRoute requires at least one networkPolicy.ingressFrom peer while networkPolicy.enabled is true; otherwise the default-deny policy leaves the route pointing at a blocked pod." -}}
 {{- end -}}
 
 {{/* 6. extraEnv may not shadow synthkit's own configuration surface, which would let a value

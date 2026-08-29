@@ -16,7 +16,9 @@ package ec2_test
 
 import (
 	"context"
+	"fmt"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -201,8 +203,7 @@ func TestPerNodeCorrelation(t *testing.T) {
 
 // ─── (c) Label keys present on every series ──────────────────────────────────
 
-// universalCWKeys are the label keys that must appear on every aws_ec2_* series
-// (except aws_ec2_info which additionally has tag_* keys).
+// universalCWKeys are the label keys that must appear on every aws_ec2_* series.
 var universalCWKeys = []string{"account_id", "job", "name", "namespace", "region"}
 
 func TestUniversalLabelKeys(t *testing.T) {
@@ -227,15 +228,18 @@ func TestUniversalLabelKeys(t *testing.T) {
 		}
 	}
 
-	// aws_ec2_info must also carry tag_VpcId and dimension_InstanceId.
+	// The scraper-generated info family carries scrape_job but no resource dimensions or tags.
 	infoKeys := cap.LabelKeys("aws_ec2_info")
 	infoSet := map[string]bool{}
 	for _, k := range infoKeys {
 		infoSet[k] = true
 	}
-	for _, req := range []string{"tag_VpcId", "dimension_InstanceId"} {
-		if !infoSet[req] {
-			t.Errorf("aws_ec2_info missing label key %q (got %v)", req, infoKeys)
+	if !infoSet["scrape_job"] {
+		t.Errorf("aws_ec2_info missing scrape_job (got %v)", infoKeys)
+	}
+	for key := range infoSet {
+		if strings.HasPrefix(key, "tag_") || strings.HasPrefix(key, "dimension_") {
+			t.Errorf("aws_ec2_info carries unexpected resource label key %q (got %v)", key, infoKeys)
 		}
 	}
 }
@@ -448,6 +452,11 @@ func TestScaleDownRetiresInstances(t *testing.T) {
 	if n1 != 5 {
 		t.Fatalf("tick1: expected 5 nodes, got %d", n1)
 	}
+	if got := len(cap1.Find("aws_ec2_info")); got != 5 {
+		t.Fatalf("tick1: expected 5 aws_ec2_info series, got %d", got)
+	}
+	wantHigh := fixture.DeriveNodes(cl.Seed, cl.Name, cl.NodeGroups, cl.Region, 40)
+	assertEC2InfoNames(t, cap1, cl.Region, coretest.Cloud().AccountID, wantHigh)
 
 	// Second tick: scale back to 1 replica → 3 nodes; retired nodes must be absent.
 	src.Set(map[string]int{"test-api": 1})
@@ -459,6 +468,9 @@ func TestScaleDownRetiresInstances(t *testing.T) {
 	n2, lowIDs := countCPUInstances(cap2)
 	if n2 != 3 {
 		t.Errorf("scale-down: got %d per-instance series, want 3", n2)
+	}
+	if got := len(cap2.Find("aws_ec2_info")); got != 3 {
+		t.Errorf("scale-down: got %d aws_ec2_info series, want 3", got)
 	}
 
 	// Compute retired IDs: in high set but not in low set.
@@ -475,6 +487,7 @@ func TestScaleDownRetiresInstances(t *testing.T) {
 	// Confirm the retired IDs are truly absent (not just not in the low active set by chance).
 	// Every ID in cap2 must be one of the low-scale DeriveNodes IDs.
 	wantLow := fixture.DeriveNodes(cl.Seed, cl.Name, cl.NodeGroups, cl.Region, 1)
+	assertEC2InfoNames(t, cap2, cl.Region, coretest.Cloud().AccountID, wantLow)
 	wantLowIDs := map[string]bool{}
 	for _, nd := range wantLow {
 		wantLowIDs[nd.InstanceID] = true
@@ -482,6 +495,40 @@ func TestScaleDownRetiresInstances(t *testing.T) {
 	for id := range lowIDs {
 		if !wantLowIDs[id] {
 			t.Errorf("scale-down: unexpected InstanceID %q in cap2; should have been retired", id)
+		}
+	}
+	for _, series := range cap2.Find("aws_ec2_info") {
+		wantName := false
+		for _, node := range wantLow {
+			if series.Labels["name"] == fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", cl.Region, coretest.Cloud().AccountID, node.InstanceID) {
+				wantName = true
+				break
+			}
+		}
+		if !wantName {
+			t.Errorf("scale-down: stale aws_ec2_info name %q", series.Labels["name"])
+		}
+	}
+}
+
+func assertEC2InfoNames(t *testing.T, capture *coretest.MetricCapture, region, accountID string, nodes []fixture.Node) {
+	t.Helper()
+	want := make(map[string]int, len(nodes))
+	for _, node := range nodes {
+		want[fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", region, accountID, node.InstanceID)] = 1
+	}
+	got := make(map[string]int, len(nodes))
+	for _, series := range capture.Find("aws_ec2_info") {
+		got[series.Labels["name"]]++
+	}
+	for name, count := range want {
+		if got[name] != count {
+			t.Errorf("aws_ec2_info name %q count=%d, want %d", name, got[name], count)
+		}
+	}
+	for name, count := range got {
+		if want[name] != count {
+			t.Errorf("unexpected aws_ec2_info name %q count=%d", name, count)
 		}
 	}
 }

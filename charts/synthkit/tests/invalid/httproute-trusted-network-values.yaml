@@ -1,0 +1,25 @@
+# MUST FAIL: a hostname routed through a Gateway API proxy requires tls-proxy acknowledgement.
+credentials:
+  control:
+    existingSecret: synthkit-control
+    keys:
+      CONTROL_TOKEN: CONTROL_TOKEN
+controlPlane:
+  exposure:
+    ack: trusted-network
+  service:
+    enabled: true
+  httpRoute:
+    enabled: true
+    parentRefs:
+      - name: gateway
+        namespace: gateway-system
+    hostnames:
+      - synthkit.example.internal
+    rules:
+      - path: /
+networkPolicy:
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: gateway-system

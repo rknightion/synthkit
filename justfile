@@ -206,7 +206,7 @@ published-e2e:
     DH="${DOCKER_HOST:-$(docker context inspect --format '{{{{.Endpoints.docker.Host}}' "$(docker context show)" 2>/dev/null)}"
     DOCKER_HOST="$DH" go test -tags e2e -run '^TestPublishedCompose$' -v -timeout 15m ./e2e/
 
-# report-only synth-vs-reality corpus comparison; findings are evidence and exit 0
+# synth-vs-reality gate: unexempted contradictions fail; gaps and visible exemptions report
 [group('check')]
 [no-exit-message]
 [script('bash')]

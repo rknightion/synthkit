@@ -8,7 +8,7 @@
 //
 // Hard rules honoured here (ARCHITECTURE + extract):
 //   - Scope=ScopeSubstrate — no blueprint label, ever. The cluster label disambiguates.
-//   - Every series carries cluster AND k8s_cluster_name (same value) + source="kubernetes".
+//   - Every series carries cluster AND k8s_cluster_name (same value); source is job-scoped.
 //   - Exact job label strings are load-bearing for dashboard variable queries.
 //   - kube_pod_status_phase: ALL four phase values emitted per pod (real KSM behaviour).
 //   - container_network_*: pod-scoped (NO container label); adds interface="eth0".

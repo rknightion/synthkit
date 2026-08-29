@@ -114,8 +114,62 @@ func TestWriteFindingsReportLeadsWithTheOneSidedDifference(t *testing.T) {
 	if err := WriteFindingsReport(&out, findings); err != nil {
 		t.Fatal(err)
 	}
-	want := "field `labels` (only-in-synth=[node]; only-in-reality=[source]; synth=[job, node]; reality=[job, source])."
+	want := "field `labels` (only-in-synth=[node]; synth=[job, node]; reality=[job, source])."
 	if !strings.Contains(out.String(), want) {
 		t.Fatalf("report missing the one-sided difference %q:\n%s", want, out.String())
 	}
+}
+
+func TestWriteFindingsReportSplitsTwoDirectionalFindingLines(t *testing.T) {
+	findings := []ScopedFinding{
+		{Area: "cw", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{
+			Kind: KindUnexpectedLabelKey, Disposition: DispositionContradiction, Signal: "aws_applicationelb_info", Field: "labels",
+			SynthValues: []string{"job", "tag_VpcId"}, RealityValues: []string{"job", "scrape_job"},
+		}},
+		{Area: "cw", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{
+			Kind: KindUnexpectedLabelKey, Disposition: DispositionCoverageGap, Signal: "aws_applicationelb_info", Field: "labels",
+			SynthValues: []string{"job", "tag_VpcId"}, RealityValues: []string{"job", "scrape_job"},
+		}},
+	}
+
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatal(err)
+	}
+	report := out.String()
+	contradictions := reportSection(report, "## Contradictions", "## Coverage gaps")
+	gaps := reportSection(report, "## Coverage gaps", "")
+	if !strings.Contains(contradictions, "only-in-synth=[tag_VpcId]") || strings.Contains(contradictions, "only-in-reality=[scrape_job]") {
+		t.Fatalf("contradiction line includes the wrong direction:\n%s", contradictions)
+	}
+	if !strings.Contains(gaps, "only-in-reality=[scrape_job]") || strings.Contains(gaps, "only-in-synth=[tag_VpcId]") {
+		t.Fatalf("coverage-gap line includes the wrong direction:\n%s", gaps)
+	}
+	if contradictionLines, gapLines := findingLines(contradictions), findingLines(gaps); len(contradictionLines) != 1 || len(gapLines) != 1 || contradictionLines[0] == gapLines[0] {
+		t.Fatalf("directional lines are not independent:\ncontradictions=%v\ngaps=%v", contradictionLines, gapLines)
+	}
+}
+
+func reportSection(report, heading, nextHeading string) string {
+	start := strings.Index(report, heading)
+	if start < 0 {
+		return ""
+	}
+	section := report[start:]
+	if nextHeading != "" {
+		if end := strings.Index(section, nextHeading); end >= 0 {
+			section = section[:end]
+		}
+	}
+	return section
+}
+
+func findingLines(section string) []string {
+	lines := make([]string, 0)
+	for _, line := range strings.Split(section, "\n") {
+		if strings.HasPrefix(line, "- `") {
+			lines = append(lines, line)
+		}
+	}
+	return lines
 }

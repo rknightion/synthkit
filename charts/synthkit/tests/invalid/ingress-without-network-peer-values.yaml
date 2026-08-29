@@ -1,0 +1,21 @@
+# MUST FAIL: default-deny ingress cannot publish an Ingress without the controller peer.
+credentials:
+  control:
+    existingSecret: synthkit-control
+    keys:
+      CONTROL_TOKEN: CONTROL_TOKEN
+controlPlane:
+  exposure:
+    ack: tls-proxy
+  service:
+    enabled: true
+  ingress:
+    enabled: true
+    hosts:
+      - host: synthkit.example.internal
+        paths:
+          - path: /
+            pathType: Prefix
+networkPolicy:
+  enabled: true
+  ingressFrom: []

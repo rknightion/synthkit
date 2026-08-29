@@ -163,30 +163,37 @@ func TestDiffNonSharedMetricStillComparesLabels(t *testing.T) {
 	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionCoverageGap, "application_process_state", "labels")
 }
 
-func TestDiffLabelValuesCompareAsSubset(t *testing.T) {
+func TestDiffLabelValuesCompareDirectionally(t *testing.T) {
 	for _, test := range []struct {
 		name      string
 		synth     Attribute
 		reality   Attribute
 		wantCount int
+		want      map[Disposition]bool
 	}{
 		{
-			name:      "synth covering more values than reality observed is silent",
+			name:      "synth-only value is a contradiction",
 			synth:     Attribute{Key: "region", Values: []string{"eu-west-1", "us-east-1", "us-west-2"}},
 			reality:   Attribute{Key: "region", Values: []string{"us-east-1"}},
-			wantCount: 0,
+			wantCount: 1,
+			want:      map[Disposition]bool{DispositionContradiction: true},
 		},
 		{
-			name:      "reality value synth cannot emit is a contradiction",
+			name:      "reality-only value is a coverage gap",
 			synth:     Attribute{Key: "region", Values: []string{"us-east-1"}},
 			reality:   Attribute{Key: "region", Values: []string{"us-east-1", "ap-south-1"}},
 			wantCount: 1,
+			want:      map[Disposition]bool{DispositionCoverageGap: true},
 		},
 		{
-			name:      "disjoint value sets are a contradiction, not two findings",
+			name:      "disjoint value sets split into contradiction and gap",
 			synth:     Attribute{Key: "environment", Values: []string{"prod"}},
 			reality:   Attribute{Key: "environment", Values: []string{"staging"}},
-			wantCount: 1,
+			wantCount: 2,
+			want: map[Disposition]bool{
+				DispositionContradiction: true,
+				DispositionCoverageGap:   true,
+			},
 		},
 		{
 			name:      "elided reality values run no value comparison",
@@ -218,14 +225,47 @@ func TestDiffLabelValuesCompareAsSubset(t *testing.T) {
 			if test.wantCount == 0 {
 				return
 			}
-			got := findings[0]
-			if got.Kind != KindLabelValueContradiction || got.Disposition != DispositionContradiction {
-				t.Fatalf("finding=%+v, want a label-value contradiction", got)
+			seen := make(map[Disposition]bool, len(findings))
+			for _, got := range findings {
+				if got.Kind != KindLabelValueContradiction {
+					t.Fatalf("finding=%+v, want a label-value finding", got)
+				}
+				if got.Field != "labels."+test.reality.Key {
+					t.Fatalf("finding field=%q", got.Field)
+				}
+				seen[got.Disposition] = true
 			}
-			if got.Field != "labels."+test.reality.Key {
-				t.Fatalf("finding field=%q", got.Field)
+			if !reflect.DeepEqual(seen, test.want) {
+				t.Fatalf("findings=%+v, want dispositions=%v", findings, test.want)
 			}
 		})
+	}
+}
+
+func TestDiffKubePodInfoValueGapsRemainVisible(t *testing.T) {
+	synth := metricSchema(Metric{
+		Name: "kube_pod_info",
+		Labels: []Attribute{
+			{Key: "created_by_kind", Values: []string{"DaemonSet", "Job", "ReplicaSet", "StatefulSet"}},
+			{Key: "host_network", Values: []string{"false"}},
+		},
+	})
+	reality := metricSchema(Metric{
+		Name: "kube_pod_info",
+		Labels: []Attribute{
+			{Key: "created_by_kind", Values: []string{"AutoscalingListener", "DaemonSet", "EphemeralRunner", "Job", "ReplicaSet", "StatefulSet"}},
+			{Key: "host_network", Values: []string{"false", "true"}},
+		},
+	})
+
+	findings := Diff(synth, reality)
+	if len(findings) != 2 {
+		t.Fatalf("findings=%+v, want one gap for each kube_pod_info value limit", findings)
+	}
+	for _, finding := range findings {
+		if finding.Kind != KindLabelValueContradiction || finding.Disposition != DispositionCoverageGap {
+			t.Fatalf("finding=%+v, kube_pod_info value limits must be coverage gaps", finding)
+		}
 	}
 }
 
@@ -367,11 +407,12 @@ func TestDiffLogs(t *testing.T) {
 	}
 
 	findings := Diff(synth, reality)
-	if len(findings) != 1 {
-		t.Fatalf("findings=%+v, want one log stream-label contradiction", findings)
+	if len(findings) != 2 {
+		t.Fatalf("findings=%+v, want one finding for each log stream-label direction", findings)
 	}
 	signal := "loki[stream_labels=cluster;structured_metadata_keys=trace_id]"
 	assertFinding(t, findings, KindLabelValueContradiction, DispositionContradiction, signal, "stream_labels.cluster")
+	assertFinding(t, findings, KindLabelValueContradiction, DispositionCoverageGap, signal, "stream_labels.cluster")
 }
 
 func TestDiffLogSignalsIdentifyStructuralShapes(t *testing.T) {

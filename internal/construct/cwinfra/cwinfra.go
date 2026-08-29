@@ -46,6 +46,8 @@ import (
 	"github.com/rknightion/synthkit/internal/state"
 )
 
+const syntheticCloudWatchScrapeJob = "synthkit-cloudwatch"
+
 // ── Registration ──────────────────────────────────────────────────────────────
 
 // Registration returns the core.ConstructReg for the "cw_infra" kind.
@@ -242,56 +244,53 @@ func (c *construct) emitInfoSeries(fx *fixture.Set) {
 	st := c.st
 	accountID := fx.Cloud.AccountID
 	region := fx.Cloud.Region
-	vpcID := fx.Cloud.VpcID
-	tags := map[string]string{"tag_VpcId": vpcID}
 
 	// ALB info — one per configured ALB
 	for i := range c.cfg.albCount() {
 		st.Set("aws_applicationelb_info", cwInfoLabels(accountID, region, "AWS/ApplicationELB", "applicationelb",
-			albARN(fx.Seed, accountID, region, i), tags), 1)
+			albARN(fx.Seed, accountID, region, i)), 1)
 	}
 	// NLB info — one instance
 	if c.cfg.nlbEnabled() {
 		st.Set("aws_networkelb_info", cwInfoLabels(accountID, region, "AWS/NetworkELB", "networkelb",
-			nlbARN(fx.Seed, accountID, region), tags), 1)
+			nlbARN(fx.Seed, accountID, region)), 1)
 	}
 	// EBS info — one per volume
 	if c.cfg.ebsEnabled() {
 		for _, volID := range ebsVolumeIDs(fx) {
-			ebsTags := map[string]string{"tag_VpcId": vpcID, "dimension_VolumeId": volID}
 			st.Set("aws_ebs_info", cwInfoLabels(accountID, region, "AWS/EBS", "ebs",
-				ebsVolumeARN(accountID, region, volID), ebsTags), 1)
+				ebsVolumeARN(accountID, region, volID)), 1)
 		}
 	}
 	// NAT GW info — one per NATGatewayID entry in fx.Cloud
 	if c.cfg.natGatewayEnabled() {
 		for _, natID := range fx.Cloud.NATGatewayIDs {
 			st.Set("aws_natgateway_info", cwInfoLabels(accountID, region, "AWS/NATGateway", "natgateway",
-				natGWARN(accountID, region, natID), tags), 1)
+				natGWARN(accountID, region, natID)), 1)
 		}
 	}
 	// S3 info — one per configured bucket
 	for i := range c.cfg.s3Count() {
 		bucketName := s3BucketName(fx.Seed, i)
 		st.Set("aws_s3_info", cwInfoLabels(accountID, region, "AWS/S3", "s3",
-			bucketName, tags), 1)
+			bucketName), 1)
 	}
 	// EKS info — only when cluster is present AND EKS toggle is enabled
 	if c.cfg.eksEnabled() && fx.Cluster != nil {
 		st.Set("aws_eks_info", cwInfoLabels(accountID, region, "AWS/EKS", "eks",
-			"global", tags), 1)
+			"global"), 1)
 	}
 	// Firehose info
 	if c.cfg.firehoseEnabled() {
 		st.Set("aws_firehose_info", cwInfoLabels(accountID, region, "AWS/Firehose", "firehose",
-			firehoseARN(fx.Seed, accountID, region), tags), 1)
+			firehoseARN(fx.Seed, accountID, region)), 1)
 	}
 	// PrivateLink info — one per namespace
 	if c.cfg.privateLinkEnabled() {
 		st.Set("aws_privatelinkendpoints_info", cwInfoLabels(accountID, region,
-			"AWS/PrivateLinkEndpoints", "privatelinkendpoints", "global", tags), 1)
+			"AWS/PrivateLinkEndpoints", "privatelinkendpoints", "global"), 1)
 		st.Set("aws_privatelinkservices_info", cwInfoLabels(accountID, region,
-			"AWS/PrivateLinkServices", "privatelinkservices", "global", tags), 1)
+			"AWS/PrivateLinkServices", "privatelinkservices", "global"), 1)
 	}
 }
 
@@ -322,40 +321,46 @@ func (c *construct) emitALB(factor float64, fx *fixture.Set, azs []string, w *co
 		rpsPerAZ := baseRPS / float64(len(azs))
 
 		for _, az := range azs {
-			dims := map[string]string{
+			loadBalancerDims := map[string]string{
+				"dimension_LoadBalancer":     albDimLB,
+				"dimension_AvailabilityZone": az,
+			}
+			targetGroupDims := map[string]string{
 				"dimension_LoadBalancer":     albDimLB,
 				"dimension_TargetGroup":      albDimTG,
 				"dimension_AvailabilityZone": az,
 			}
-			lbls := cwLabels(accountID, region, "AWS/ApplicationELB", "applicationelb", arn, dims)
+			loadBalancerLabels := cwLabels(accountID, region, "AWS/ApplicationELB", "applicationelb", arn, loadBalancerDims)
+			targetGroupLabels := cwLabels(accountID, region, "AWS/ApplicationELB", "applicationelb", arn, targetGroupDims)
 
 			reqCount := rpsPerAZ * 60
-			setGaugeStats(st, "aws_applicationelb_request_count", lbls, reqCount, w)
+			// RequestCount supports a TargetGroup dimension combination in AWS/ApplicationELB.
+			setGaugeStats(st, "aws_applicationelb_request_count", targetGroupLabels, reqCount, w)
 
 			rtMean := 0.08 * (1 + w.Shape.NormFloat64()*0.15)
 			if rtMean < 0.005 {
 				rtMean = 0.005
 			}
-			setGaugeStats(st, "aws_applicationelb_target_response_time", lbls, rtMean, w)
+			setGaugeStats(st, "aws_applicationelb_target_response_time", targetGroupLabels, rtMean, w)
 
 			// ⚠ 2_xx, 4_xx, 5_xx (NOT 2xx/4xx/5xx — LAW)
-			setGaugeStats(st, "aws_applicationelb_httpcode_target_2_xx_count", lbls, reqCount*0.98, w)
-			setGaugeStats(st, "aws_applicationelb_httpcode_target_4_xx_count", lbls, reqCount*0.015, w)
-			setGaugeStats(st, "aws_applicationelb_httpcode_target_5_xx_count", lbls, reqCount*0.002, w)
-			setGaugeStats(st, "aws_applicationelb_httpcode_elb_5_xx_count", lbls, reqCount*0.0005, w)
+			setGaugeStats(st, "aws_applicationelb_httpcode_target_2_xx_count", targetGroupLabels, reqCount*0.98, w)
+			setGaugeStats(st, "aws_applicationelb_httpcode_target_4_xx_count", targetGroupLabels, reqCount*0.015, w)
+			setGaugeStats(st, "aws_applicationelb_httpcode_target_5_xx_count", targetGroupLabels, reqCount*0.002, w)
+			setGaugeStats(st, "aws_applicationelb_httpcode_elb_5_xx_count", loadBalancerLabels, reqCount*0.0005, w)
 
 			// ⚠ un_healthy_host_count (NOT unhealthy_host_count — LAW)
-			setGaugeStats(st, "aws_applicationelb_healthy_host_count", lbls, healthyHosts, w)
-			setGaugeStats(st, "aws_applicationelb_un_healthy_host_count", lbls, 0, w)
+			setGaugeStats(st, "aws_applicationelb_healthy_host_count", targetGroupLabels, healthyHosts, w)
+			setGaugeStats(st, "aws_applicationelb_un_healthy_host_count", targetGroupLabels, 0, w)
 
 			activeCx := rpsPerAZ * 8 * w.Shape.Noise(0.2)
 			if activeCx < 0 {
 				activeCx = 0
 			}
-			setGaugeStats(st, "aws_applicationelb_active_connection_count", lbls, activeCx, w)
-			setGaugeStats(st, "aws_applicationelb_new_connection_count", lbls, rpsPerAZ*2, w)
-			setGaugeStats(st, "aws_applicationelb_processed_bytes", lbls, reqCount*8192, w)
-			setGaugeStats(st, "aws_applicationelb_target_connection_error_count", lbls, reqCount*0.0002, w)
+			setGaugeStats(st, "aws_applicationelb_active_connection_count", loadBalancerLabels, activeCx, w)
+			setGaugeStats(st, "aws_applicationelb_new_connection_count", loadBalancerLabels, rpsPerAZ*2, w)
+			setGaugeStats(st, "aws_applicationelb_processed_bytes", loadBalancerLabels, reqCount*8192, w)
+			setGaugeStats(st, "aws_applicationelb_target_connection_error_count", targetGroupLabels, reqCount*0.0002, w)
 		}
 	}
 }
@@ -662,14 +667,12 @@ func cwLabels(accountID, region, namespace, service, name string, dims map[strin
 	return out
 }
 
-// cwInfoLabels builds the label set for a per-namespace _info series (base + tag_*).
-func cwInfoLabels(accountID, region, namespace, service, name string, tags map[string]string) map[string]string {
+// cwInfoLabels builds the label set for a per-namespace _info series. Grafana
+// Cloud's CloudWatch scraper supplies scrape_job; synthkit uses one stable
+// synthetic configured job name across its CloudWatch info families.
+func cwInfoLabels(accountID, region, namespace, service, name string) map[string]string {
 	out := cwBaseLabels(accountID, region, namespace, service, name)
-	for k, v := range tags {
-		if v != "" {
-			out[k] = v
-		}
-	}
+	out["scrape_job"] = syntheticCloudWatchScrapeJob
 	return out
 }
 

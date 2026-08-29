@@ -1,10 +1,5 @@
-# Control plane behind a TLS-terminating Ingress.
-config:
-  dryRun: false
-  blueprintNames: otlp-native
+# MUST FAIL: one hostname may not be published by both the Ingress and HTTPRoute paths.
 credentials:
-  data:
-    existingSecret: synthkit-data
   control:
     existingSecret: synthkit-control
     keys:
@@ -16,19 +11,22 @@ controlPlane:
     enabled: true
   ingress:
     enabled: true
-    className: nginx
     hosts:
       - host: synthkit.example.internal
         paths:
           - path: /
             pathType: Prefix
-    tls:
-      - hosts:
-          - synthkit.example.internal
-        secretName: synthkit-tls
+  httpRoute:
+    enabled: true
+    parentRefs:
+      - name: gateway
+        namespace: gateway-system
+    hostnames:
+      - synthkit.example.internal
+    rules:
+      - path: /
 networkPolicy:
-  enabled: true
   ingressFrom:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: ingress-nginx
+          kubernetes.io/metadata.name: gateway-system

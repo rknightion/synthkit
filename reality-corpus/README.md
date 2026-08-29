@@ -1,7 +1,8 @@
 # Reality corpus
 
 The reality corpus is the committed, credential-free input to synthkit's
-report-only signal-fidelity check. Each JSON document contains observations for
+signal-fidelity gate. Contradictions fail unless explicitly exempted; coverage
+gaps remain report-only. Each JSON document contains observations for
 one [`signals/<area>.md`](../signals/) area from one producer. A producer's
 substrate is part of its authority: evidence captured from one substrate must
 not contradict a claim scoped to another.

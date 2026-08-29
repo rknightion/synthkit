@@ -46,11 +46,20 @@ series_name      = "aws_" + namespace_prefix + "_" + metric_part + "_" + stat_su
 - New word at an uppercase→lowercase transition following a single preceding uppercase:
   `UnHealthy`→`un_healthy` (but `Unhealthy`→`unhealthy`).
 
-**Universal labels on every CW series:** `account_id`, `region`, `namespace` (original CW string,
-verbatim), `job`=`cloud/aws/<lowercased service>`, `name` (resource ARN or `"global"`),
+**Universal labels on every CW metric series:** `account_id`, `region`, `namespace` (original CW
+string, verbatim), `job`=`cloud/aws/<lowercased service>`, `name` (resource ARN or `"global"`),
 `dimension_<DimName>` (one per CW dimension, CW casing preserved), `tag_*` (resource tags joined by
 the metadata scraper). The scraper also emits a per-namespace `aws_<ns>_info` series (gauge=1, no
-stat suffix, carries `tag_*`).
+stat suffix) with `scrape_job`; it does not add resource dimensions or `tag_VpcId`.
+
+> ✅ **SKT-0024 `_info` correction (EKS live-readback corpus captured 2026-08-27, reviewed
+> 2026-08-29):** eight observed `aws_*_info` families carry `scrape_job`, but not `tag_VpcId`; the
+> observed corpus deliberately elides its values. Current Grafana Cloud CloudWatch scrape
+> documentation (retrieved 2026-08-29) establishes that `scrape_job` is the configured CloudWatch
+> scrape-job value (for example, `scrape_job="myEC2Job"`). Synthkit therefore uses its stable
+> synthetic configured value `synthkit-cloudwatch` consistently, rather than claiming the elided
+> captured value. `aws_ebs_info` also omits `dimension_VolumeId`, which belongs only to EBS metric
+> families.
 
 > ⚠ **Per-period GAUGE invariant (I5).** `_sum`-suffixed CW series are per-period GAUGES — the
 > sum/count within the 1-minute reporting window, NOT a monotonic counter. **Never `rate()`/`increase()`
@@ -73,8 +82,19 @@ Series roots (all 5 stat suffixes apply per `[slug: cw-naming]`): `request_count
 `httpcode_elb_5_xx_count`, `healthy_host_count`, `un_healthy_host_count`, `active_connection_count`,
 `new_connection_count`, `processed_bytes`, `target_connection_error_count`. Plus `aws_applicationelb_info`.
 
-Dimensions: `dimension_LoadBalancer` (`app/<name>/<hex-id>`), `dimension_TargetGroup`
-(`targetgroup/<name>/<hex-id>`), `dimension_AvailabilityZone`.
+Dimensions are metric-family specific: every modelled ALB family has
+`dimension_LoadBalancer` (`app/<name>/<hex-id>`) and `dimension_AvailabilityZone`; only
+`request_count`, `target_response_time`, `httpcode_target_{2,4,5}_xx_count`,
+`healthy_host_count`, `un_healthy_host_count`, and `target_connection_error_count` carry
+`dimension_TargetGroup` (`targetgroup/<name>/<hex-id>`). `active_connection_count`,
+`httpcode_elb_5_xx_count`, `new_connection_count`, and `processed_bytes` are load-balancer
+families and must omit it.
+
+> ✅ **SKT-0024 correction (AWS docs retrieved 2026-08-29; EKS live-readback corpus captured
+> 2026-08-27):** AWS documents `AvailabilityZone, LoadBalancer` for the four load-balancer
+> families above, and target-group combinations for the retained families. The corpus independently
+> confirms the four load-balancer families omit `dimension_TargetGroup`; the target-group forms of
+> `request_count`, target response/HTTP code, and healthy-host families retain it.
 
 ⚠ Traps: `5_xx`/`4_xx` (NOT `5xx`/`4xx`); `un_healthy_host_count` (NOT `unhealthy`); `_sum` never
 `rate()`; `target_response_time` = target processing only (excludes LB queue time).
@@ -91,7 +111,7 @@ labels:
   job: cloud/aws/applicationelb
   name: <resource-arn>|global
   dimension_LoadBalancer: app/<name>/<hex-id>
-  dimension_TargetGroup: targetgroup/<name>/<hex-id>
+  dimension_TargetGroup: targetgroup/<name>/<hex-id> # only the target-group roots listed above
   dimension_AvailabilityZone: <az>
   tag_*: <resource-tags>
 metrics:
@@ -107,7 +127,7 @@ metrics:
   - {root: new_connection_count, type: gauge, unit: count, v: ok}
   - {root: processed_bytes, type: gauge, unit: bytes, v: ok}
   - {root: target_connection_error_count, type: gauge, unit: count, v: ok}
-info_series: aws_applicationelb_info   # gauge=1, no stat suffix, carries tag_*
+info_series: aws_applicationelb_info   # gauge=1, no stat suffix; no tag_VpcId
 ```
 
 ## NLB — `aws_networkelb_*` ✅ [slug: cw-nlb]
@@ -241,7 +261,7 @@ metrics:
   - {root: volume_avg_write_latency, type: gauge, unit: ms, v: ok, note: Nitro-only}
   - {root: volume_total_read_time, type: gauge, unit: seconds, v: ok}
   - {root: volume_total_write_time, type: gauge, unit: seconds, v: ok}
-info_series: aws_ebs_info
+info_series: aws_ebs_info # gauge=1, no stat suffix; no dimension_VolumeId or tag_VpcId
 ```
 
 ## NAT Gateway — `aws_natgateway_*` ✅ [slug: cw-natgw]

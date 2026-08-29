@@ -58,6 +58,23 @@ assert_absent_kind() {
   done
 }
 
+# assert_render_failure_contains <label> <expected text> <helm template args...>
+# The negative permutation loop below proves every invalid fixture fails. These focused checks
+# additionally prove the HTTPRoute/Ingress fixtures fail for the guard they are intended to pin,
+# rather than passing because some unrelated validation happened to reject them first.
+assert_render_failure_contains() {
+  local label="$1" expected="$2"; shift 2
+  local out
+  if out=$(render "$@"); then
+    bad "$label: rendered successfully"
+  elif grep -Fq -- "$expected" <<<"$out"; then
+    ok "$label: $expected"
+  else
+    bad "$label: missing '$expected'"
+    echo "$out" | tail -5 >&2
+  fi
+}
+
 # assert_secret_key <label> <rendered> <ENV_VAR> <expected secret name>
 # Confirms the env var is projected from exactly the named Secret. The three lines after the env
 # entry are `valueFrom:`, `secretKeyRef:` and `name:`.
@@ -155,6 +172,25 @@ assert_contains "tls-proxy" "$OUT" \
   'secretName: synthkit-tls'
 
 echo
+echo "== exposure: tls-proxy behind a Gateway API HTTPRoute =="
+OUT=$(render -f "$CI_DIR/10-exposed-tls-proxy-httproute-values.yaml")
+ROUTE=$(awk '/^# Source: synthkit\/templates\/httproute.yaml/,/^---$/' <<<"$OUT")
+assert_contains "http-route" "$ROUTE" \
+  'apiVersion: gateway.networking.k8s.io/v1' \
+  'kind: HTTPRoute' \
+  'name: "tailscale"' \
+  'namespace: "envoy-gateway-system"' \
+  'sectionName: "https"' \
+  '- "synthkit.k8s.m7kni.io"' \
+  'type: PathPrefix' \
+  'value: "/"' \
+  'backendRefs:' \
+  'name: "synthkit-test"' \
+  'port: 8088'
+assert_absent "http-route" "$ROUTE" 'filters:'
+assert_absent_kind "http-route" "$OUT" Ingress
+
+echo
 echo "== state volume =="
 OUT=$(render -f "$CI_DIR/07-ephemeral-values.yaml")
 assert_contains "ephemeral" "$OUT" 'emptyDir: {}'
@@ -198,10 +234,18 @@ echo "== rendered manifests validate against the Kubernetes API schemas =="
 KUBE_VERSION="${KUBE_VERSION:-1.25.0}"
 # NO -ignore-missing-schemas. That flag skips any resource kubeconform has no schema for, so a leg
 # carrying it can pass while validating nothing — the exact failure this suite already had, one
-# level down. Every kind this chart renders is core Kubernetes and has a schema; if a future
-# template adds a CRD, add its schema location with -schema-location rather than reinstating the
-# flag and losing coverage of everything else.
-KUBECONFORM_ARGS=(-strict -kubernetes-version "$KUBE_VERSION")
+# level down. Built-in resources use kubeconform's default schema; the current HTTPRoute CRD uses
+# the catalog location below. If a future template adds another CRD, add its schema location rather
+# than reinstating the flag and losing coverage of everything else.
+# The Gateway API HTTPRoute is a CRD, so the catalog schema location is required. Leaving this
+# out makes kubeconform report "could not find schema" (or adding -ignore-missing-schemas would
+# silently skip the route, which is the false pass this leg is meant to prevent).
+KUBECONFORM_ARGS=(
+  -strict
+  -kubernetes-version "$KUBE_VERSION"
+  -schema-location default
+  -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+)
 if command -v kubeconform >/dev/null 2>&1; then
   for f in "$CI_DIR"/*-values.yaml; do
     if render -f "$f" | kubeconform "${KUBECONFORM_ARGS[@]}" -summary - >/dev/null 2>&1; then
@@ -241,6 +285,24 @@ for f in "$INVALID_DIR"/*-values.yaml; do
     fi
   fi
 done
+
+echo
+echo "== exposure guard messages =="
+assert_render_failure_contains "same-host Ingress/HTTPRoute" \
+  "both publish host" \
+  -f "$INVALID_DIR/httproute-ingress-same-host-values.yaml"
+assert_render_failure_contains "HTTPRoute trusted-network" \
+  "Routed TLS termination requires tls-proxy" \
+  -f "$INVALID_DIR/httproute-trusted-network-values.yaml"
+assert_render_failure_contains "HTTPRoute without NetworkPolicy peer" \
+  "requires at least one networkPolicy.ingressFrom peer" \
+  -f "$INVALID_DIR/httproute-without-network-peer-values.yaml"
+assert_render_failure_contains "Ingress trusted-network" \
+  "a hostname is published through Ingress or HTTPRoute" \
+  -f "$INVALID_DIR/ingress-trusted-network-values.yaml"
+assert_render_failure_contains "Ingress without NetworkPolicy peer" \
+  "requires at least one networkPolicy.ingressFrom peer" \
+  -f "$INVALID_DIR/ingress-without-network-peer-values.yaml"
 
 echo
 echo "-------------------------------------------"

@@ -202,13 +202,15 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	}
 
 	// ── aws_ec2_info (metadata scraper) ──────────────────────────────────────────
-	// One info series per node. Carries tag_VpcId per signals/cw.md [slug: cw-ec2].
+	// The scraper info family has no resource dimensions or tag labels. It carries
+	// only the configured scrape job in addition to the shared CloudWatch labels.
 	// No stat suffix — info series are plain gauge=1 (I13: absent dim = omitted).
+	activeInfoNames := make(map[string]bool, len(nodes))
 	for _, n := range nodes {
 		arn := fmt.Sprintf("arn:aws:ec2:%s:%s:instance/%s", region, accountID, n.InstanceID)
+		activeInfoNames[arn] = true
 		infoLbls := cwBase(arn, "ec2", map[string]string{
-			"dimension_InstanceId": n.InstanceID,
-			"tag_VpcId":            cloud.VpcID,
+			"scrape_job": "synthkit-cloudwatch",
 		})
 		c.st.Set("aws_ec2_info", infoLbls, 1)
 	}
@@ -222,7 +224,11 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		active[n.InstanceID] = true
 	}
 	if len(nodes) < c.maxNodes {
-		c.st.DropWhere(func(_ string, lbls map[string]string) bool {
+		c.st.DropWhere(func(metric string, lbls map[string]string) bool {
+			if metric == "aws_ec2_info" {
+				name := lbls["name"]
+				return name != "" && !activeInfoNames[name]
+			}
 			id := lbls["dimension_InstanceId"]
 			return id != "" && !active[id]
 		})

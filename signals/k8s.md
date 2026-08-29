@@ -125,14 +125,16 @@ sources — recognise them and the rest of §2.2 reads cleanly:
 
 | Type | What it is | Where it lives | Example pair |
 |---|---|---|---|
-| **Ambient target labels** | added by Alloy/scrape relabelling on EVERY series in a job — NOT emitted by the exporter | all jobs | `…{cluster="<cluster>", k8s_cluster_name="<cluster>", job="integrations/kubernetes/kube-state-metrics", instance="10.1.30.7:8080", source="kubernetes"}` |
+| **Ambient target labels** | added by Alloy/scrape relabelling where that job supplies them — NOT emitted by the exporter | per job | `…{cluster="<cluster>", k8s_cluster_name="<cluster>", job="integrations/kubernetes/kube-state-metrics", instance="10.1.30.7:8080", source="kubernetes"}` |
 | **metric-specific dimension labels** | enum/numeric fan-out keys that define one series per value | per metric | `kube_node_status_capacity{resource="pods", unit="integer"} 35` · `kube_node_status_condition{condition="Ready", status="true"} 1` · `node_cpu_seconds_total{cpu="0", mode="idle"}` |
 | **histogram `le` buckets** | one cumulative bucket series per upper bound + the `_sum`/`_count` siblings | `*_bucket` | `kubelet_pod_worker_duration_seconds_bucket{operation_type="sync", le="0.5"}` |
 | **info-metric identity labels** | high-key-count carrier series, value always `1`, all identity in the labels | `*_info`, `kube_node_labels`, `*build_info` | `kube_node_info{provider_id="aws:///eu-west-1a/i-0f10bea2eb75b5660", kernel_version="6.12.88", …} 1` |
 | **`label_*` bags** | one label key per k8s object label — unbounded; provisioner-variant keys | `kube_node_labels`, `*_match_labels`, `*_selector_labels` | `kube_node_labels{label_node_kubernetes_io_instance_type="m6g.large", label_kubernetes_io_arch="arm64", …}` |
 
 - **Ambient set, exact:** `cluster` AND `k8s_cluster_name` (dual, same value — both required), `job`,
-  `instance`, `source="kubernetes"`. node-exporter additionally injects the DaemonSet pod labels
+  `instance`, and the job's documented source label. `source="kubernetes"` is job-scoped: the
+  2026-08-27 captures confirm it on kube-state-metrics, cadvisor, and kubelet jobs, and confirm its
+  absence on `integrations/kubernetes/kube-proxy`. node-exporter additionally injects the DaemonSet pod labels
   `app="node-exporter"`, `component="metrics"`, `container="node-exporter"`, `pod`,
   `namespace="monitoring"`, `workload="DaemonSet/<name>"`. (Real also carries `asserts_env` /
   `asserts_site` from the Asserts pipeline — synth does NOT emit Asserts labels.)
@@ -1082,6 +1084,8 @@ note: "Bottlerocket units live-confirmed 2026-06-15; non-Bottlerocket units PEND
 ## kube-proxy (→ Mimir) — ScopeSubstrate [slug: k8s-kube-proxy]
 
 *Provenance: live-evidenced the reference cluster 2026-06-15 (EXCEPT histogram bucket boundaries — see cantfind.md SK-51).
+The 2026-08-27 `gcx_live_readback` confirms this job has no `source` label and that
+`kubeproxy_conntrack_reconciler_deleted_entries_total` carries `ip_family="IPv4"`.*
 Gated by `control_plane.kube_proxy` (default depends on cluster config). Per node,
 `instance=<node.PrivateIP>:10249`, `job="integrations/kubernetes/kube-proxy"`.*
 
@@ -1095,12 +1099,12 @@ labels:
   job: integrations/kubernetes/kube-proxy
   instance: <nodePrivateIP>:10249    # one per node
 metrics:
-  # Histograms — ip_family ∈ {IPv4,IPv6} × histogram; conntrack has no ip_family
+  # Histograms — ip_family ∈ {IPv4,IPv6} × histogram; the captured conntrack reconciler uses IPv4
   - {root: kubeproxy_sync_proxy_rules_duration_seconds, type: histogram, unit: seconds, v: ok, note: "ip_family ∈ {IPv4,IPv6}; buckets v: PENDING (see SK-51)"}
   - {root: kubeproxy_sync_full_proxy_rules_duration_seconds, type: histogram, unit: seconds, v: ok, note: "ip_family; buckets PENDING"}
   - {root: kubeproxy_sync_partial_proxy_rules_duration_seconds, type: histogram, unit: seconds, v: ok, note: "ip_family; buckets PENDING"}
   - {root: kubeproxy_network_programming_duration_seconds, type: histogram, unit: seconds, v: ok, note: "ip_family; buckets PENDING"}
-  - {root: kubeproxy_conntrack_reconciler_sync_duration_seconds, type: histogram, unit: seconds, v: ok, note: "no ip_family; buckets PENDING"}
+  - {root: kubeproxy_conntrack_reconciler_sync_duration_seconds, type: histogram, unit: seconds, v: ok, note: "ip_family=IPv4 (gcx_live_readback 2026-08-27); buckets PENDING"}
   # Gauges — ip_family × table ∈ {filter,nat} where applicable
   - {root: kubeproxy_sync_proxy_rules_last_timestamp_seconds, type: gauge, unit: seconds, v: ok, note: "ip_family"}
   - {root: kubeproxy_sync_proxy_rules_last_queued_timestamp_seconds, type: gauge, unit: seconds, v: ok, note: "ip_family"}
@@ -1112,7 +1116,7 @@ metrics:
   - {root: kubeproxy_sync_proxy_rules_no_local_endpoints_total, type: counter, unit: count, v: ok, note: "ip_family × traffic_policy ∈ {external,internal}"}
   - {root: kubeproxy_sync_proxy_rules_endpoint_changes_total, type: counter, unit: count, v: ok}
   - {root: kubeproxy_sync_proxy_rules_service_changes_total, type: counter, unit: count, v: ok}
-  - {root: kubeproxy_conntrack_reconciler_deleted_entries_total, type: counter, unit: count, v: ok, note: "=0 at baseline"}
+  - {root: kubeproxy_conntrack_reconciler_deleted_entries_total, type: counter, unit: count, v: ok, note: "=0 at baseline; ip_family=IPv4 (gcx_live_readback 2026-08-27)"}
   - {root: kubeproxy_iptables_ct_state_invalid_dropped_packets_total, type: counter, unit: count, v: ok, note: "=0 at baseline"}
   - {root: kubeproxy_iptables_localhost_nodeports_accepted_packets_total, type: counter, unit: count, v: ok, note: "=0 at baseline"}
   - {root: rest_client_requests_total, type: counter, unit: requests, v: ok, note: "code=200,method=GET,host=<apiserver>:443"}
@@ -1122,7 +1126,7 @@ enums:
   ip_family: [IPv4, IPv6]
   table: [filter, nat]
   traffic_policy: [external, internal]
-note: "histogram buckets v: PENDING — see SK-51"
+note: "no source label (gcx_live_readback 2026-08-27); histogram buckets v: PENDING — see SK-51"
 ```
 
 ---

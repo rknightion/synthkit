@@ -1,4 +1,4 @@
-# Control plane behind a TLS-terminating Ingress.
+# Control plane behind a TLS-terminating Gateway API HTTPRoute.
 config:
   dryRun: false
   blueprintNames: otlp-native
@@ -14,21 +14,19 @@ controlPlane:
     ack: tls-proxy
   service:
     enabled: true
-  ingress:
+  httpRoute:
     enabled: true
-    className: nginx
-    hosts:
-      - host: synthkit.example.internal
-        paths:
-          - path: /
-            pathType: Prefix
-    tls:
-      - hosts:
-          - synthkit.example.internal
-        secretName: synthkit-tls
+    parentRefs:
+      - name: tailscale
+        namespace: envoy-gateway-system
+        sectionName: https
+    hostnames:
+      - synthkit.k8s.m7kni.io
+    rules:
+      - path: /
 networkPolicy:
   enabled: true
   ingressFrom:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: ingress-nginx
+          kubernetes.io/metadata.name: envoy-gateway-system

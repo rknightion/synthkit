@@ -311,8 +311,7 @@ func TestProberProbeDurationHistogram(t *testing.T) {
 	}
 }
 
-// TestProberProbeSourceLabel asserts prober series carry source="kubernetes" (I32: all k8s-monitoring
-// series must carry source).
+// TestProberProbeSourceLabel verifies prober series retain the captured source label.
 func TestProberProbeSourceLabel(t *testing.T) {
 	cl := coretest.Cluster()
 	cl.K8sMonitoring.ControlPlane.KubeletProbes = true // gate enabled for this assertion

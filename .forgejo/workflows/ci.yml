@@ -92,7 +92,8 @@ jobs:
       - run: just e2e
 
   # Credential-free, report-only comparison of the complete synthetic inventory with the
-  # committed substrate-scoped reality corpus. Findings are evidence and do not fail this wave.
+  # committed substrate-scoped reality corpus. Unexempted contradictions fail; coverage gaps and
+  # visible, reasoned exemptions remain report-only evidence.
   signal-fidelity:
     runs-on: ubuntu-latest
     steps:

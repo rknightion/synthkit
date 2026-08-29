@@ -554,11 +554,11 @@ func TestCompareCorpusExcludesDeclaredEnrichmentValues(t *testing.T) {
 	document.Inventory.Metrics[0].Labels[0].Values = []string{"<aggregated>", "IPv4", "IPv6", "IPv9"}
 	findings := CompareCorpus(synth, []CorpusDocument{document})
 	if len(findings) != 1 {
-		t.Fatalf("findings=%+v, an undeclared reality value must still contradict", findings)
+		t.Fatalf("findings=%+v, an undeclared reality value must remain visible", findings)
 	}
 	got := findings[0].Finding
-	if got.Kind != KindLabelValueContradiction || got.Disposition != DispositionContradiction {
-		t.Fatalf("finding=%+v, want a label-value contradiction", got)
+	if got.Kind != KindLabelValueContradiction || got.Disposition != DispositionCoverageGap {
+		t.Fatalf("finding=%+v, want a label-value coverage gap", got)
 	}
 	if !reflect.DeepEqual(got.RealityValues, []string{"IPv4", "IPv6", "IPv9"}) {
 		t.Fatalf("reality values=%v, want the declared enrichment value removed", got.RealityValues)

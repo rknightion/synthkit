@@ -1,0 +1,4 @@
+# MUST FAIL: the HTTPRoute values surface is intentionally narrower than the Gateway API object.
+controlPlane:
+  httpRoute:
+    unexpected: true

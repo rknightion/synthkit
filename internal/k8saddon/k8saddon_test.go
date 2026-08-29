@@ -11,7 +11,7 @@ import (
 )
 
 // buildCluster returns a Cluster with one substrate workload ("cert-manager", 2 pods)
-// and one real node so PodIdentities yields a non-empty Node and PodIP.
+// and one real node so PodIdentities yields a non-empty PodIP.
 func buildCluster() *fixture.Cluster {
 	nodes := []fixture.Node{
 		{Hostname: "ip-10-0-1-1.us-east-1.compute.internal"},
@@ -82,45 +82,34 @@ func TestStampPods_oneMapPerPod(t *testing.T) {
 	}
 }
 
-// TestStampPods_nodeLabel verifies node label is set when Node is non-empty.
-func TestStampPods_nodeLabel(t *testing.T) {
+// TestStampPods_noNodeLabel verifies addon scrape labels do not include the pod's node.
+func TestStampPods_noNodeLabel(t *testing.T) {
 	cl := buildCluster()
 	base := map[string]string{}
 	result := k8saddon.StampPods(cl, "cert-manager", base, 9402)
 	if len(result) < 1 {
 		t.Fatal("expected at least one result")
 	}
-	// All pods have a node assignment (NodeIdx=[0,1], nodes are non-empty)
 	for i, m := range result {
-		if m["node"] == "" {
-			t.Errorf("[%d] node label must not be empty when node is assigned, got %q", i, m["node"])
+		if _, hasNode := m["node"]; hasNode {
+			t.Errorf("[%d] node label must be omitted, got %q", i, m["node"])
 		}
 	}
 }
 
-// TestStampPods_nodeLabelOmittedWhenEmpty verifies that node is omitted when Node=="".
-func TestStampPods_nodeLabelOmittedWhenEmpty(t *testing.T) {
-	// Build a cluster with no nodes so PodIdentities returns Node=="".
-	wl := fixture.Workload{
-		Name:      "coredns",
-		Namespace: "kube-system",
-		Replicas:  1,
-		Container: "coredns",
-		PodNames:  []string{"coredns-abc-001"},
-		NodeIdx:   []int{}, // no node assignment
+// TestStampPods_sourceIsJobScoped verifies source is added only for captured jobs.
+func TestStampPods_sourceIsJobScoped(t *testing.T) {
+	cl := buildCluster()
+	kubeDNS := k8saddon.StampPods(cl, "cert-manager", map[string]string{
+		"job": "integrations/kubernetes/kube-dns",
+	}, 9153)
+	if got := kubeDNS[0]["source"]; got != "kubernetes" {
+		t.Errorf("kube-dns source=%q, want kubernetes", got)
 	}
-	cl := &fixture.Cluster{
-		Name:               "no-nodes",
-		Nodes:              nil,
-		SubstrateWorkloads: []fixture.Workload{wl},
-	}
-	base := map[string]string{"job": "coredns"}
-	result := k8saddon.StampPods(cl, "coredns", base, 9153)
-	if len(result) != 1 {
-		t.Fatalf("want 1 map, got %d", len(result))
-	}
-	if _, hasNode := result[0]["node"]; hasNode {
-		t.Errorf("node label must be omitted when Node is empty, got %q", result[0]["node"])
+
+	certManager := k8saddon.StampPods(cl, "cert-manager", map[string]string{"job": "cert-manager"}, 9402)
+	if _, hasSource := certManager[0]["source"]; hasSource {
+		t.Errorf("cert-manager must not acquire source, got %q", certManager[0]["source"])
 	}
 }
 

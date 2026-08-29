@@ -23,17 +23,16 @@ Control plane:
   interfaces and HTTP Basic (user "control") protects sensitive reads and mutations. Basic auth
   does not encrypt anything.
   {{- if .Values.controlPlane.ingress.enabled }}
-    {{- if eq .Values.controlPlane.exposure.ack "trusted-network" }}
-  WARNING: an Ingress normally terminates TLS in front of the pod, which is what "tls-proxy"
-  declares. You acknowledged "trusted-network", which asserts the whole path is trusted plaintext.
-    {{- end }}
+  Published through Ingress.
+  {{- else if .Values.controlPlane.httpRoute.enabled }}
+  Published through Gateway API HTTPRoute for hostnames: {{ join ", " .Values.controlPlane.httpRoute.hostnames }}.
   {{- else if .Values.controlPlane.service.enabled }}
   Reachable in-cluster at http://{{ include "synthkit.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.controlPlane.service.port }}
   {{- else }}
   No Service is rendered, so it is reachable only on the pod IP.
   {{- end }}
 {{- else }}
-  CLOSED. The container binds 127.0.0.1:8088, no Service or Ingress exists, and the NetworkPolicy
+  CLOSED. The container binds 127.0.0.1:8088, no Service, Ingress, or HTTPRoute exists, and the NetworkPolicy
   denies ingress. Reach the operator UI without opening anything:
 
     kubectl -n {{ .Release.Namespace }} port-forward deploy/{{ include "synthkit.fullname" . }} 8088:8088

@@ -395,12 +395,35 @@ func TestEKSToggle(t *testing.T) {
 
 func TestLabelKeys_ALB(t *testing.T) {
 	cap := runTick(t, nil, nil)
-	keys := cap.LabelKeys("aws_applicationelb_request_count_average")
-	wantKeys := []string{
+	wantLoadBalancerKeys := []string{
+		"account_id", "dimension_AvailabilityZone", "dimension_LoadBalancer",
+		"job", "name", "namespace", "region",
+	}
+	for _, name := range []string{
+		"aws_applicationelb_active_connection_count_average",
+		"aws_applicationelb_httpcode_elb_5_xx_count_average",
+		"aws_applicationelb_new_connection_count_average",
+		"aws_applicationelb_processed_bytes_average",
+	} {
+		assertExactKeys(t, name, cap.LabelKeys(name), wantLoadBalancerKeys)
+	}
+
+	wantTargetGroupKeys := []string{
 		"account_id", "dimension_AvailabilityZone", "dimension_LoadBalancer",
 		"dimension_TargetGroup", "job", "name", "namespace", "region",
 	}
-	assertContainsKeys(t, "aws_applicationelb_request_count_average", keys, wantKeys)
+	for _, name := range []string{
+		"aws_applicationelb_request_count_average",
+		"aws_applicationelb_target_response_time_average",
+		"aws_applicationelb_httpcode_target_2_xx_count_average",
+		"aws_applicationelb_httpcode_target_4_xx_count_average",
+		"aws_applicationelb_httpcode_target_5_xx_count_average",
+		"aws_applicationelb_healthy_host_count_average",
+		"aws_applicationelb_un_healthy_host_count_average",
+		"aws_applicationelb_target_connection_error_count_average",
+	} {
+		assertExactKeys(t, name, cap.LabelKeys(name), wantTargetGroupKeys)
+	}
 }
 
 func TestLabelKeys_NLB(t *testing.T) {
@@ -630,16 +653,19 @@ func TestEKSClusterNameDimension(t *testing.T) {
 	}
 }
 
-// ── Test: tag_VpcId on _info series ──────────────────────────────────────────
+// ── Test: _info series do not claim resource dimensions or VPC tags ──────────
 
-func TestInfoSeries_TagVpcId(t *testing.T) {
-	cloud := coretest.Cloud()
+func TestInfoSeries_NoInventedResourceLabels(t *testing.T) {
 	cap := runTick(t, nil, nil)
 	for _, infoName := range []string{
 		"aws_applicationelb_info",
+		"aws_ebs_info",
 		"aws_networkelb_info",
 		"aws_natgateway_info",
+		"aws_s3_info",
 		"aws_firehose_info",
+		"aws_privatelinkendpoints_info",
+		"aws_privatelinkservices_info",
 	} {
 		series := cap.Find(infoName)
 		if len(series) == 0 {
@@ -647,8 +673,14 @@ func TestInfoSeries_TagVpcId(t *testing.T) {
 			continue
 		}
 		for _, s := range series {
-			if s.Labels["tag_VpcId"] != cloud.VpcID {
-				t.Errorf("%q: tag_VpcId = %q, want %q", infoName, s.Labels["tag_VpcId"], cloud.VpcID)
+			if _, ok := s.Labels["tag_VpcId"]; ok {
+				t.Errorf("%q: unexpected tag_VpcId", infoName)
+			}
+			if _, ok := s.Labels["dimension_VolumeId"]; ok {
+				t.Errorf("%q: unexpected dimension_VolumeId", infoName)
+			}
+			if got := s.Labels["scrape_job"]; got != "synthkit-cloudwatch" {
+				t.Errorf("%q: scrape_job = %q, want synthkit-cloudwatch", infoName, got)
 			}
 		}
 	}
@@ -923,5 +955,16 @@ func assertContainsKeys(t *testing.T, ctx string, gotKeys, wantKeys []string) {
 		if !got[k] {
 			t.Errorf("%s: label key %q missing; got keys: %v", ctx, k, gotKeys)
 		}
+	}
+}
+
+// assertExactKeys verifies the complete label set because omitted dimensions are
+// part of the CloudWatch family contract, not merely an implementation detail.
+func assertExactKeys(t *testing.T, ctx string, gotKeys, wantKeys []string) {
+	t.Helper()
+	slices.Sort(gotKeys)
+	slices.Sort(wantKeys)
+	if !slices.Equal(gotKeys, wantKeys) {
+		t.Errorf("%s label keys = %v, want %v", ctx, gotKeys, wantKeys)
 	}
 }

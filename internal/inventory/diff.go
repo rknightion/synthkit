@@ -57,8 +57,9 @@ type Finding struct {
 // Absent evidence is never a contradiction. Attribute values marked
 // ValuesElided are deliberately treated as open-ended, an instrument-type set
 // that is exactly the unknown sentinel carries no evidence about instrument
-// shape, and label values compare as a subset because a capture observes only
-// part of the value space an emitter models. Diff reports only differences that
+// shape, and label values are compared in both directions: a value synthkit
+// emits that reality does not carry is a contradiction, while a reality value
+// synthkit does not emit is a coverage gap. Diff reports only differences that
 // remain certain after accounting for what the reality producer could observe.
 func Diff(synth, reality Schema) []Finding {
 	out := make([]Finding, 0)
@@ -420,32 +421,21 @@ func diffAttributes(out *[]Finding, signal, field string, synth, reality map[str
 	realityKeys := sortedAttributeKeys(reality)
 	appendDirectional(out, KindUnexpectedLabelKey, signal, field, synthKeys, realityKeys, true, true)
 	for _, key := range intersection(synthKeys, realityKeys) {
-		appendLabelValueSubset(out, signal, field+"."+key, synth[key], reality[key])
+		appendLabelValueDirectional(out, signal, field+"."+key, synth[key], reality[key])
 	}
 }
 
-// appendLabelValueSubset reports label-value evidence in one direction only. A capture
-// observes one account, region and moment, so it sees a subset of the value space an emitter
-// deliberately models: synth covering more values than reality observed is correct and stays
-// silent. Only a reality value synthkit cannot emit is a contradiction. An elided or empty
+// appendLabelValueDirectional compares observed label values in both directions. A synth-only
+// value is a synthetic claim absent from reality and is therefore a contradiction; a reality-only
+// value is a shape synthkit does not model and is therefore a coverage gap. An elided or empty
 // value set on either side is absent evidence and is not compared at all.
-func appendLabelValueSubset(out *[]Finding, signal, field string, synth, reality attributeView) {
+func appendLabelValueDirectional(out *[]Finding, signal, field string, synth, reality attributeView) {
 	if synth.elided || reality.elided || len(synth.values) == 0 || len(reality.values) == 0 {
 		return
 	}
 	synthValues := sortedStrings(synth.values)
 	realityValues := sortedStrings(reality.values)
-	if len(difference(realityValues, synthValues)) == 0 {
-		return
-	}
-	*out = append(*out, Finding{
-		Kind:          KindLabelValueContradiction,
-		Disposition:   DispositionContradiction,
-		Signal:        signal,
-		Field:         field,
-		SynthValues:   synthValues,
-		RealityValues: realityValues,
-	})
+	appendDirectional(out, KindLabelValueContradiction, signal, field, synthValues, realityValues, true, true)
 }
 
 // instrumentEvidenceAbsent reports whether an instrument-type set is exactly the unknown
@@ -600,7 +590,7 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 		appendDirectional(out, KindUnexpectedLabelKey, synth.name, "labels", synthKeys, realityKeys, true, true)
 
 		for _, key := range intersection(synthKeys, realityKeys) {
-			appendLabelValueSubset(out, synth.name, "labels."+key, synth.labels[key], reality.labels[key])
+			appendLabelValueDirectional(out, synth.name, "labels."+key, synth.labels[key], reality.labels[key])
 		}
 	}
 
@@ -639,7 +629,9 @@ func histogramRepresentations(histogram histogramView) []string {
 
 // appendDirectional emits one finding for each certain direction of a set
 // mismatch. synthCanProveMissing and realityCanProveMissing allow callers to
-// suppress a direction when the opposite inventory is explicitly elided.
+// suppress a direction when the opposite inventory is explicitly elided. Each
+// finding keeps both complete sets for diagnostic context; the report formatter
+// renders only the direction named by its disposition.
 func appendDirectional(out *[]Finding, kind FindingKind, signal, field string, synthValues, realityValues []string, synthCanProveMissing, realityCanProveMissing bool) {
 	synthOnly := difference(synthValues, realityValues)
 	realityOnly := difference(realityValues, synthValues)

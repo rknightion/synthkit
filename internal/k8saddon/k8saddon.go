@@ -125,19 +125,26 @@ func StampPodsContainer(cl *fixture.Cluster, name, container string, base map[st
 	return stampIdentities(overridden, base, port)
 }
 
+// StampSourceForJob adds the source label only for jobs where the capture confirms
+// that k8s-monitoring stamps it. The label is collector-side ambient metadata, not
+// an exporter-wide default.
+func StampSourceForJob(labels map[string]string) {
+	switch labels["job"] {
+	case "integrations/kubernetes/kube-dns", "integrations/kubernetes/kube-state-metrics":
+		labels["source"] = "kubernetes"
+	}
+}
+
 // stampIdentities converts a slice of PodIdentity values into cloned label maps.
-// Each map is a fresh clone of base with pod/namespace/container/node/instance added.
-// node is omitted when empty (ARCHITECTURE I13: absent dimension → omit, never "").
+// Each map is a fresh clone of base with pod/namespace/container/instance added.
 func stampIdentities(ids []fixture.PodIdentity, base map[string]string, port int) []map[string]string {
 	out := make([]map[string]string, 0, len(ids))
 	for _, id := range ids {
 		m := cloneMap(base)
+		StampSourceForJob(m)
 		m["pod"] = id.Pod
 		m["namespace"] = id.Namespace
 		m["container"] = id.Container
-		if id.Node != "" {
-			m["node"] = id.Node
-		}
 		m["instance"] = fmt.Sprintf("%s:%d", id.PodIP, port)
 		out = append(out, m)
 	}

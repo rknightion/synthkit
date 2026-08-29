@@ -6,7 +6,9 @@ description: How to refresh the credential-free reality corpus and review real s
 # Reality-corpus refresh and review
 
 The reality corpus is the committed, credential-free evidence used by the
-report-only signal-fidelity check. This page describes how to refresh it and
+signal-fidelity check. An unexempted contradiction fails that check; an
+explicit exemption remains visible in the Contradictions section, and a
+coverage gap is report-only. This page describes how to refresh the corpus and
 how to decide whether a candidate records real signal drift or only a different
 capture sample. The on-disk contract is defined in the
 [reality-corpus README](https://github.com/rknightion/synthkit/blob/main/reality-corpus/README.md); this page is the
@@ -24,6 +26,8 @@ The contract is deliberately narrow:
 - Documents from different substrates are never unioned before `Diff`.
 - Capture counts and receipts explain how an observation was collected; they
   are not signal-contract evidence.
+- Explicit contradiction decisions live in a separate versioned exemption
+  document. They are review records, not changes to captured reality.
 
 Use the [signal catalogue](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md), its
 [cross-cutting canon](https://github.com/rknightion/synthkit/blob/main/signals/00-canon.md), and the
@@ -150,7 +154,7 @@ and commit the reviewed per-area files.
 
 7. **Compare before accepting.** Compare the current document with the
    temporary merged result and classify every difference using the reviewer
-   table below. Then run the report-only fidelity comparison against the
+   table below. Then run the fidelity comparison against the
    synthetic inventory. Inspect the value-bearing canonical inventory with
    `DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -inventory-json`.
    The `-dump` path is label-key-only structural output and can help inspect
@@ -162,8 +166,11 @@ and commit the reviewed per-area files.
 8. **Review the candidate, not just the diff count.** Confirm that any proposed
    addition is supported by the same substrate and configuration, that stable
    values are genuinely stable, and that no removal or narrowing was inferred
-   from absence. The report is report-only: a finding does not authorize a
-   corpus edit, a synthetic-code edit, or a deployment change.
+   from absence. The report is evidence-only: a finding does not authorize a
+   corpus edit, a synthetic-code edit, or a deployment change. Once the corpus
+   and exemption document load and validate successfully, findings fail the
+   command only when an unexempted contradiction remains. Malformed input or a
+   stale, overlapping, or count-mismatched exemption rule also fails closed.
 
 9. **Commit only the accepted merge.** Update `captured_on` only when the
    reviewer accepts new structural evidence or confirmed stable-value evidence.
@@ -227,15 +234,67 @@ corpus producer must therefore understand what its output means:
   substrate can produce, such as a Kubernetes build string, is kept out of the
   comparison by the producer marking it `values_elided`, not by dropping the
   document that carries it.
-- **Label values compare as a subset.** A capture observes one account, one
-  region and one moment, so it sees a subset of the value space synthkit
-  deliberately models. Synth covering more values than reality observed is
-  correct and stays silent. Only a value reality carries that synthkit cannot
-  emit is a contradiction.
+- **Label values compare in both directions.** A value synthkit emits that
+  reality does not carry is a contradiction; a value reality carries that
+  synthkit does not emit is a coverage gap. A two-direction difference is
+  therefore represented by one finding in each report section, with each line
+  naming only its own direction. Empty or elided values remain absent evidence
+  and are not compared.
+- **The current `kube_pod_info` limits remain visible.** The EKS evidence
+  includes `created_by_kind` values `AutoscalingListener` and `EphemeralRunner`
+  beyond synthkit's four modeled owner kinds, and includes `host_network=true`
+  alongside `false`. These are coverage gaps, not contradictions, and are
+  tracked as accuracy limits under existing SKT-0010.13 (pods without a
+  Deployment owner or node, including the related host-network modeling work).
 - **Elided or empty value sets.** A label marked `values_elided` carries no
   value evidence at all and runs no value comparison, and neither does a key
   observed on either side without any value. Presence of the key is still
   evidence.
+
+## Explicit contradiction exemptions
+
+An exemption is a narrow, reviewable decision for a contradiction that is
+known and intentionally outside the current model. It must not hide a new
+finding or turn a coverage gap into a pass. The command loads a separate JSON
+document with this versioned shape:
+
+```json
+{
+  "version": "synthkit.telemetry.contradiction-exemptions/v1alpha1",
+  "exemptions": [
+    {
+      "id": "EX-001",
+      "reason": "The selected account is not the complete region universe.",
+      "area": "cw",
+      "source_kind": "gcx_live_readback",
+      "substrate": "eks",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.region",
+      "signal_prefix": "aws_",
+      "only_in_synth": ["eu-west-1", "us-east-1"],
+      "expected_matches": 2
+    }
+  ]
+}
+```
+
+`id`, `reason`, `area`, `source_kind`, `substrate`, `finding_kind`, `field`,
+`only_in_synth`, and `expected_matches` are required. Exactly one selector is
+also required: `signal` selects one exact signal, while `signal_prefix` selects
+a prefix. `only_in_synth` must be a non-empty, sorted, duplicate-free list
+that exactly equals `difference(synth_values, reality_values)` for each match.
+`expected_matches` must be positive and protects against a stale rule when the
+corpus changes. Unknown fields, duplicate IDs, malformed records, stale counts,
+overlapping rules, and rules that match the wrong finding kind are errors.
+
+Applying exemptions marks matching contradiction findings with the exemption ID
+and reason in place. It never removes or reclassifies a finding. A finding may
+match at most one rule, and every rule must match exactly its expected count.
+The report keeps exempted findings under `Contradictions`, with the ID and
+reason shown on the finding line. Only contradictions without an exemption ID
+fail the command. Coverage gaps remain visible and report-only. If the
+exemption document is intentionally optional, its caller may treat a missing
+file as an empty list; malformed or present documents must still fail closed.
 
 A declared enrichment label looks like this, and lives in the `source` block
 beside the rest of the producer provenance:
@@ -276,8 +335,9 @@ the same producer, substrate, and configuration changed.
 | Collector-version change | The collector/chart version, or another configuration component that defines the source, differs from the baseline. | Do not silently merge it as the same source/configuration. | Preserve the old baseline while the root reviews the new provenance. Accept it only as a separately identified producer/configuration or after an explicit baseline decision; retain the version in `source.collector_version`. |
 | Candidate removal or narrowing | A previously accepted identity, field, key, or value is absent from one later capture. | Absence in one capture is not deletion authority. Require separate confirmed drift evidence from the same substrate/configuration. | Do not remove or narrow the baseline during an ordinary refresh. If confirmed drift is later accepted, make that explicit review decision and update the affected document; otherwise retain the established evidence. |
 
-The report remains report-only in this wave. A report finding is an input to the
-review above, not permission to change captured reality. When an accepted,
+The report is an evidence record and an input to the review above, not
+permission to change captured reality. The command fails on an unexempted
+contradiction and reports coverage gaps without failing. When an accepted,
 substrate-scoped observation contradicts synthkit, the implementation and its
 authoritative [signal catalogue](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md) are corrected toward observed
 reality. Captured evidence is not rewritten merely to silence a finding.

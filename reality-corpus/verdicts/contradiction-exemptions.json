@@ -1,0 +1,161 @@
+{
+  "version": "synthkit.telemetry.contradiction-exemptions/v1alpha1",
+  "exemptions": [
+    {
+      "id": "capture-cw-region-five",
+      "reason": "The EKS readback observes eu-west-1 only; synthkit deliberately models five additional configured CloudWatch regions.",
+      "area": "cw",
+      "source_kind": "gcx_live_readback",
+      "substrate": "eks",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.region",
+      "signal_prefix": "aws_",
+      "only_in_synth": ["eu-central-1", "eu-west-3", "us-east-1", "us-east-2", "us-west-2"],
+      "expected_matches": 212
+    },
+    {
+      "id": "capture-cw-region-four",
+      "reason": "The EKS readback observes eu-west-1 and us-east-2 only; synthkit deliberately models four additional configured CloudWatch regions.",
+      "area": "cw",
+      "source_kind": "gcx_live_readback",
+      "substrate": "eks",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.region",
+      "signal_prefix": "aws_",
+      "only_in_synth": ["eu-central-1", "eu-west-3", "us-east-1", "us-west-2"],
+      "expected_matches": 31
+    },
+    {
+      "id": "capture-k8s-node-architecture",
+      "reason": "The captured EKS cluster contains arm64 nodes only; synthkit also models the valid amd64 node architecture.",
+      "area": "k8s",
+      "source_kind": "gcx_live_readback",
+      "substrate": "eks",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.label_kubernetes_io_arch",
+      "signal": "kube_node_labels",
+      "only_in_synth": ["amd64"],
+      "expected_matches": 1
+    },
+    {
+      "id": "capture-k8s-node-os",
+      "reason": "The captured EKS cluster contains Linux nodes only; synthkit also models the valid Windows node operating system.",
+      "area": "k8s",
+      "source_kind": "gcx_live_readback",
+      "substrate": "eks",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.label_kubernetes_io_os",
+      "signal": "kube_node_labels",
+      "only_in_synth": ["windows"],
+      "expected_matches": 1
+    },
+    {
+      "id": "capture-k8s-node-regions",
+      "reason": "The captured EKS cluster is in eu-west-1; synthkit also models nodes in five other configured regions.",
+      "area": "k8s",
+      "source_kind": "gcx_live_readback",
+      "substrate": "eks",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.label_topology_kubernetes_io_region",
+      "signal": "kube_node_labels",
+      "only_in_synth": ["eu-central-1", "eu-west-3", "us-east-1", "us-east-2", "us-west-2"],
+      "expected_matches": 1
+    },
+    {
+      "id": "capture-k8s-node-zones",
+      "reason": "The captured EKS cluster exposes eu-west-1 zones only; synthkit also models zones in five other configured regions.",
+      "area": "k8s",
+      "source_kind": "gcx_live_readback",
+      "substrate": "eks",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.label_topology_kubernetes_io_zone",
+      "signal": "kube_node_labels",
+      "only_in_synth": ["eu-central-1a", "eu-central-1b", "eu-central-1c", "eu-west-3a", "eu-west-3b", "eu-west-3c", "us-east-1a", "us-east-1b", "us-east-1c", "us-east-2a", "us-east-2b", "us-east-2c", "us-west-2a", "us-west-2b", "us-west-2c"],
+      "expected_matches": 1
+    },
+    {
+      "id": "capture-k8s-build-info-kubelet-job",
+      "reason": "The EKS readback did not observe the kubelet build-info job value that synthkit models alongside kube-proxy.",
+      "area": "k8s",
+      "source_kind": "gcx_live_readback",
+      "substrate": "eks",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.job",
+      "signal": "kubernetes_build_info",
+      "only_in_synth": ["integrations/kubernetes/kubelet"],
+      "expected_matches": 1
+    },
+    {
+      "id": "capture-coredns-protocol",
+      "reason": "The bounded k3d traffic capture exercised UDP DNS only; synthkit also models valid TCP DNS traffic.",
+      "area": "k8s-addons",
+      "source_kind": "k3d_lab",
+      "substrate": "k3s",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.proto",
+      "signal_prefix": "coredns_",
+      "only_in_synth": ["tcp"],
+      "expected_matches": 3
+    },
+    {
+      "id": "capture-coredns-request-types",
+      "reason": "The bounded k3d traffic capture did not exercise PTR or TXT requests; synthkit deliberately models both valid DNS types.",
+      "area": "k8s-addons",
+      "source_kind": "k3d_lab",
+      "substrate": "k3s",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.type",
+      "signal": "coredns_dns_requests_total",
+      "only_in_synth": ["PTR", "TXT"],
+      "expected_matches": 1
+    },
+    {
+      "id": "capture-coredns-proxy-rcode",
+      "reason": "The bounded k3d traffic capture did not produce a successful proxied request; synthkit deliberately models the valid NOERROR response code.",
+      "area": "k8s-addons",
+      "source_kind": "k3d_lab",
+      "substrate": "k3s",
+      "finding_kind": "label_value_contradiction",
+      "field": "labels.rcode",
+      "signal": "coredns_proxy_request_duration_seconds",
+      "only_in_synth": ["NOERROR"],
+      "expected_matches": 1
+    },
+    {
+      "id": "capture-k8s-build-info-source",
+      "reason": "The folded EKS build-info family combines jobs with different source-stamping behavior, so this capture does not retain source on the combined family.",
+      "area": "k8s",
+      "source_kind": "gcx_live_readback",
+      "substrate": "eks",
+      "finding_kind": "unexpected_label_key",
+      "field": "labels",
+      "signal": "kubernetes_build_info",
+      "only_in_synth": ["source"],
+      "expected_matches": 1
+    },
+    {
+      "id": "capture-manifest-service-name",
+      "reason": "The k3d Loki readback does not retain the service_name stream label that synthkit sets on the manifest stream.",
+      "area": "k8s",
+      "source_kind": "k3d_lab",
+      "substrate": "k3s",
+      "finding_kind": "unexpected_label_key",
+      "field": "stream_labels",
+      "signal": "loki[family=k8s_manifests]",
+      "only_in_synth": ["service_name"],
+      "expected_matches": 1
+    },
+    {
+      "id": "capture-coredns-build-server",
+      "reason": "The k3d CoreDNS build-info readback does not expose the server label that synthkit models for CoreDNS build identity.",
+      "area": "k8s-addons",
+      "source_kind": "k3d_lab",
+      "substrate": "k3s",
+      "finding_kind": "unexpected_label_key",
+      "field": "labels",
+      "signal": "coredns_build_info",
+      "only_in_synth": ["server"],
+      "expected_matches": 1
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{{- if .Values.controlPlane.httpRoute.enabled -}}
+{{- include "synthkit.validate" . -}}
+{{/*
+The control plane speaks plain HTTP. A Gateway API parent is expected to terminate TLS, which is
+why validation requires controlPlane.exposure.ack=tls-proxy for a published HTTPRoute. The route
+surface is intentionally narrow: parentRefs, hostnames, and PathPrefix matches to this release's
+one control-plane Service. Filters and alternate backends do not belong here.
+*/}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "synthkit.fullname" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    {{- range .Values.controlPlane.httpRoute.parentRefs }}
+    - name: {{ .name | quote }}
+      {{- with .namespace }}
+      namespace: {{ . | quote }}
+      {{- end }}
+      {{- with .sectionName }}
+      sectionName: {{ . | quote }}
+      {{- end }}
+    {{- end }}
+  hostnames:
+    {{- range .Values.controlPlane.httpRoute.hostnames }}
+    - {{ . | quote }}
+    {{- end }}
+  rules:
+    {{- range .Values.controlPlane.httpRoute.rules }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .path | quote }}
+      backendRefs:
+        - name: {{ include "synthkit.fullname" $ | quote }}
+          port: {{ $.Values.controlPlane.service.port }}
+    {{- end }}
+{{- end }}

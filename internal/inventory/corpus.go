@@ -1071,10 +1071,12 @@ func isSubset(candidate, existing []string) bool {
 // ScopedFinding carries the corpus document's ownership and provenance beside one inventory
 // finding. Area is authoritative; signal names are never used to infer it.
 type ScopedFinding struct {
-	Area      string       `json:"area"`
-	Source    CorpusSource `json:"source"`
-	Substrate string       `json:"substrate"`
-	Finding   Finding      `json:"finding"`
+	Area            string       `json:"area"`
+	Source          CorpusSource `json:"source"`
+	Substrate       string       `json:"substrate"`
+	Finding         Finding      `json:"finding"`
+	ExemptionID     string       `json:"exemption_id,omitempty"`
+	ExemptionReason string       `json:"exemption_reason,omitempty"`
 }
 
 // CompareCorpus compares each document independently. Documents from different substrates are
@@ -1308,5 +1310,20 @@ func compareScopedFindings(a, b ScopedFinding) int {
 	if result := compareStrings(left.SynthValues, right.SynthValues); result != 0 {
 		return result
 	}
-	return compareStrings(left.RealityValues, right.RealityValues)
+	if result := compareStrings(left.RealityValues, right.RealityValues); result != 0 {
+		return result
+	}
+	if leftScoped, rightScoped := a.ExemptionID, b.ExemptionID; leftScoped != rightScoped {
+		if leftScoped < rightScoped {
+			return -1
+		}
+		return 1
+	}
+	if a.ExemptionReason < b.ExemptionReason {
+		return -1
+	}
+	if a.ExemptionReason > b.ExemptionReason {
+		return 1
+	}
+	return 0
 }

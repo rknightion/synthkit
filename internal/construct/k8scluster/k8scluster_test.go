@@ -807,8 +807,8 @@ func TestBuildNilCluster(t *testing.T) {
 	}
 }
 
-// TestAllSeriesCarrySource verifies source="kubernetes" on all metric series.
-func TestAllSeriesCarrySource(t *testing.T) {
+// TestSourceIsJobScoped verifies collector-side source follows the captured job rule.
+func TestSourceIsJobScoped(t *testing.T) {
 	cl := coretest.Cluster()
 	c := buildConstruct(t, cl)
 	mc := &coretest.MetricCapture{}
@@ -816,8 +816,14 @@ func TestAllSeriesCarrySource(t *testing.T) {
 	tick(t, c, mc, lc)
 
 	for _, s := range mc.All() {
-		if s.Labels["source"] != "kubernetes" {
-			t.Errorf("series %q: source=%q, want kubernetes", s.Name, s.Labels["source"])
+		if s.Labels["job"] == "integrations/kubernetes/kube-proxy" {
+			if _, hasSource := s.Labels["source"]; hasSource {
+				t.Errorf("kube-proxy series %q unexpectedly carries source=%q", s.Name, s.Labels["source"])
+			}
+			continue
+		}
+		if got := s.Labels["source"]; got != "kubernetes" {
+			t.Errorf("series %q under job %q: source=%q, want kubernetes", s.Name, s.Labels["job"], got)
 		}
 	}
 }

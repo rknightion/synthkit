@@ -21,6 +21,7 @@ func TestRunPrintsCoverageFindingsWithoutFailing(t *testing.T) {
 	if err := os.Mkdir(corpusDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	writeExemptionsFile(t, corpusDir, nil)
 
 	synth := inventory.New()
 	writeJSONFile(t, synthPath, synth)
@@ -53,6 +54,70 @@ func TestRunPrintsCoverageFindingsWithoutFailing(t *testing.T) {
 	}
 }
 
+func TestRunFailsAfterPrintingUnexemptedContradiction(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	synthPath := filepath.Join(dir, "synth.json")
+	corpusDir := filepath.Join(dir, "corpus")
+	if err := os.Mkdir(corpusDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	synth := inventory.New()
+	synth.Metrics = []inventory.Metric{testMetric("shared_total", "eu-west-1")}
+	writeJSONFile(t, synthPath, synth)
+	writeCorpusMetric(t, corpusDir, testMetric("shared_total", "us-east-1"))
+	writeExemptionsFile(t, corpusDir, nil)
+
+	var output bytes.Buffer
+	err := run([]string{"-synth", synthPath, "-corpus", corpusDir}, &output)
+	if err == nil || !strings.Contains(err.Error(), "1 unexempted contradiction") {
+		t.Fatalf("run error = %v, want one unexempted contradiction", err)
+	}
+	for _, wanted := range []string{"## Contradictions", "## Coverage gaps", "signal `shared_total`", "field `labels.region`"} {
+		if !strings.Contains(output.String(), wanted) {
+			t.Fatalf("report missing %q:\n%s", wanted, output.String())
+		}
+	}
+}
+
+func TestRunKeepsExemptedContradictionVisibleWithoutFailing(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	synthPath := filepath.Join(dir, "synth.json")
+	corpusDir := filepath.Join(dir, "corpus")
+	if err := os.Mkdir(corpusDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	synth := inventory.New()
+	synth.Metrics = []inventory.Metric{testMetric("shared_total", "eu-west-1")}
+	writeJSONFile(t, synthPath, synth)
+	writeCorpusMetric(t, corpusDir, testMetric("shared_total", "us-east-1"))
+	writeExemptionsFile(t, corpusDir, []inventory.ContradictionExemption{{
+		ID:              "EX-TEST",
+		Reason:          "bounded test exemption",
+		Area:            "k8s",
+		SourceKind:      "k3d_lab",
+		Substrate:       "k3s",
+		FindingKind:     inventory.KindLabelValueContradiction,
+		Field:           "labels.region",
+		Signal:          "shared_total",
+		OnlyInSynth:     []string{"eu-west-1"},
+		ExpectedMatches: 1,
+	}})
+
+	var output bytes.Buffer
+	if err := run([]string{"-synth", synthPath, "-corpus", corpusDir}, &output); err != nil {
+		t.Fatalf("run returned an exempted contradiction or coverage gap as an error: %v", err)
+	}
+	for _, wanted := range []string{"[EXEMPTED: `EX-TEST`", "bounded test exemption", "only-in-reality=[us-east-1]"} {
+		if !strings.Contains(output.String(), wanted) {
+			t.Fatalf("report missing %q:\n%s", wanted, output.String())
+		}
+	}
+}
+
 func TestRunRejectsTrailingSynthJSON(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -77,4 +142,46 @@ func writeJSONFile(t *testing.T, path string, value any) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func testMetric(name, region string) inventory.Metric {
+	return inventory.Metric{
+		Name:            name,
+		Transports:      []string{inventory.TransportPrometheusRW1},
+		InstrumentTypes: []string{inventory.InstrumentCounter},
+		Labels:          []inventory.Attribute{{Key: "region", Values: []string{region}}},
+	}
+}
+
+func writeCorpusMetric(t *testing.T, corpusDir string, metric inventory.Metric) {
+	t.Helper()
+	document := inventory.CorpusDocument{
+		CorpusVersion: inventory.CorpusVersion,
+		Area:          "k8s",
+		Source: inventory.CorpusSource{
+			Kind: "k3d_lab", Substrate: "k3s", Collector: "collector",
+			CollectorRole:    inventory.CollectorRoleAudited,
+			CollectorVersion: "1.0.0", CapturedOn: "2026-08-25",
+		},
+		Authority:     inventory.CorpusAuthority{Substrates: []string{"k3s"}},
+		CaptureVolume: inventory.CaptureVolume{Runs: 1, ObservedContractCounts: []int{1}},
+		Inventory:     inventory.New(),
+	}
+	document.Inventory.Metrics = []inventory.Metric{metric}
+	writeJSONFile(t, filepath.Join(corpusDir, "k3d-lab.json"), document)
+}
+
+func writeExemptionsFile(t *testing.T, corpusDir string, exemptions []inventory.ContradictionExemption) {
+	t.Helper()
+	verdictsDir := filepath.Join(corpusDir, "verdicts")
+	if err := os.Mkdir(verdictsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if exemptions == nil {
+		exemptions = []inventory.ContradictionExemption{}
+	}
+	writeJSONFile(t, filepath.Join(verdictsDir, "contradiction-exemptions.json"), inventory.ContradictionExemptionDocument{
+		Version:    inventory.ContradictionExemptionsVersion,
+		Exemptions: exemptions,
+	})
 }

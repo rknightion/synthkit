@@ -129,7 +129,9 @@ func emitKubeProxy(
 
 		st.Add("kubeproxy_sync_proxy_rules_endpoint_changes_total", base, scale)
 		st.Add("kubeproxy_sync_proxy_rules_service_changes_total", base, scale)
-		st.Add("kubeproxy_conntrack_reconciler_deleted_entries_total", base, 0)
+		st.Add("kubeproxy_conntrack_reconciler_deleted_entries_total", merge(base, map[string]string{
+			"ip_family": "IPv4",
+		}), 0)
 		st.Add("kubeproxy_iptables_ct_state_invalid_dropped_packets_total", base, 0)
 		st.Add("kubeproxy_iptables_localhost_nodeports_accepted_packets_total", base, 0)
 

@@ -10,7 +10,8 @@
 #      the synthetic-data Secret, and the two Secrets may not be the same object.
 #
 #   2. THE CONTROL PLANE IS CLOSED BY DEFAULT. The process binds loopback inside the pod, no
-#      Service is rendered, and reaching the operator UI needs `kubectl port-forward`. Opening
+#      Service, Ingress, or HTTPRoute is rendered, and reaching the operator UI needs
+#      `kubectl port-forward`. Opening
 #      it takes three deliberate acts (an exact acknowledgement string, a control-token Secret,
 #      and enabling the Service) and the binary re-checks all of it at startup.
 
@@ -207,14 +208,30 @@ controlPlane:
     #      - path: /
     #        pathType: Prefix
     tls: []
+  # Gateway API route for the control plane. The chart owns the backend reference: every rule
+  # routes to this release's Service on controlPlane.service.port. Gateway API CRDs and the
+  # referenced Gateway are operator-managed and must already exist in the cluster.
+  httpRoute:
+    enabled: false
+    # - name: tailscale
+    #   namespace: envoy-gateway-system
+    #   sectionName: https
+    parentRefs: []
+    # - synthkit.example.internal
+    hostnames: []
+    # Each entry is a PathPrefix match. Filters, methods, headers, and alternate backends are
+    # deliberately not part of this chart's single-service control-plane surface.
+    # - path: /
+    rules: []
 
 # NetworkPolicy. Default-deny ingress to the pod, which matches the closed default and does not
 # constrain egress to the telemetry backends. Enforcement needs a policy-capable CNI; where none
 # is installed the policy is inert and the loopback bind is still the real control.
 networkPolicy:
   enabled: true
-  # Peers allowed to reach the control-plane port once exposure is acknowledged. Empty with
-  # exposure on means "any pod in the cluster", which is what a bare ClusterIP Service implies.
+  # Peers allowed to reach the control-plane port once exposure is acknowledged. A published
+  # Ingress or HTTPRoute with default-deny enabled must provide at least one peer; otherwise the
+  # chart fails the render rather than publishing a route to a blocked pod.
   ingressFrom: []
   #  - namespaceSelector:
   #      matchLabels:

@@ -9,16 +9,16 @@ import (
 	"strings"
 )
 
-// WriteFindingsReport writes the deterministic, report-only fidelity report. Findings are grouped
-// first by disposition and then by finding class; coverage gaps include unnumbered PENDING stubs
-// suitable for copying into cantfind.md.
+// WriteFindingsReport writes the deterministic fidelity report. Findings are grouped first by
+// disposition and then by finding class; coverage gaps include unnumbered PENDING stubs suitable
+// for copying into cantfind.md. Exempted contradictions remain in the contradiction section.
 func WriteFindingsReport(w io.Writer, findings []ScopedFinding) error {
 	ordered := append([]ScopedFinding{}, findings...)
 	sort.SliceStable(ordered, func(i, j int) bool { return compareScopedFindings(ordered[i], ordered[j]) < 0 })
 	if _, err := fmt.Fprintln(w, "# Signal fidelity findings"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(w, "\nThis report is report-only: findings do not fail the command."); err != nil {
+	if _, err := fmt.Fprintln(w, "\nUnexempted contradictions fail the fidelity command; explicit exemptions remain visible in Contradictions. Coverage gaps are report-only and do not fail the command."); err != nil {
 		return err
 	}
 	if len(ordered) == 0 {
@@ -99,9 +99,8 @@ func writeFinding(w io.Writer, scoped ScopedFinding) error {
 	finding := scoped.Finding
 	signalPath := signalPath(scoped.Area)
 	values := formatFindingValues(finding)
-	_, err := fmt.Fprintf(
-		w,
-		"- `%s` — on substrate `%s` from generic source `%s`: signal `%s`, field `%s` (%s).\n",
+	line := fmt.Sprintf(
+		"- `%s` — on substrate `%s` from generic source `%s`: signal `%s`, field `%s` (%s)",
 		signalPath,
 		scoped.Substrate,
 		scoped.Source.Kind,
@@ -109,6 +108,10 @@ func writeFinding(w io.Writer, scoped ScopedFinding) error {
 		finding.Field,
 		values,
 	)
+	if scoped.ExemptionID != "" {
+		line += fmt.Sprintf(" [EXEMPTED: `%s` — %s]", scoped.ExemptionID, scoped.ExemptionReason)
+	}
+	_, err := fmt.Fprintln(w, line+".")
 	return err
 }
 
@@ -133,16 +136,20 @@ func writePendingStubs(w io.Writer, findings []ScopedFinding) error {
 	return err
 }
 
-// formatFindingValues leads with the one-sided difference that produced the finding so a
-// maintainer reads the divergence itself rather than diffing two long sets by eye. Both full sets
-// still follow, unchanged, for anything reading the line for context.
+// formatFindingValues leads with only the direction represented by the finding so a maintainer
+// reads one verdict rather than seeing the same divergence repeated in both report sections. Both
+// full sets still follow, unchanged, for context.
 func formatFindingValues(finding Finding) string {
 	parts := make([]string, 0, 4)
-	if onlySynth := difference(finding.SynthValues, finding.RealityValues); len(onlySynth) > 0 {
-		parts = append(parts, "only-in-synth="+formatValues(onlySynth))
-	}
-	if onlyReality := difference(finding.RealityValues, finding.SynthValues); len(onlyReality) > 0 {
-		parts = append(parts, "only-in-reality="+formatValues(onlyReality))
+	switch finding.Disposition {
+	case DispositionContradiction:
+		if onlySynth := difference(finding.SynthValues, finding.RealityValues); len(onlySynth) > 0 {
+			parts = append(parts, "only-in-synth="+formatValues(onlySynth))
+		}
+	case DispositionCoverageGap:
+		if onlyReality := difference(finding.RealityValues, finding.SynthValues); len(onlyReality) > 0 {
+			parts = append(parts, "only-in-reality="+formatValues(onlyReality))
+		}
 	}
 	parts = append(parts, "synth="+formatValues(finding.SynthValues), "reality="+formatValues(finding.RealityValues))
 	return strings.Join(parts, "; ")

@@ -28,8 +28,8 @@ synthetic-data group's, because sharing one is how `GC_TOKEN` ends up authentica
 self-observability — which the architecture forbids. Both rules fail the render, not the runtime.
 
 **It never opens the control plane implicitly.** The default binds `127.0.0.1:8088`, renders no
-Service or Ingress, and applies a default-deny-ingress NetworkPolicy; `kubectl port-forward` reaches
-it because forwarding runs inside the pod's network namespace. Opening it needs an exact
+Service, Ingress, or HTTPRoute, and applies a default-deny-ingress NetworkPolicy; `kubectl
+port-forward` reaches it because forwarding runs inside the pod's network namespace. Opening it needs an exact
 acknowledgement string, a `CONTROL_TOKEN` Secret, and `service.enabled` — and the binary re-checks
 the token and acknowledgement at startup, independently of the chart.
 
@@ -200,8 +200,20 @@ Helm deep-merges maps, so dropping one of the chart's default `keys` entries nee
 | `controlPlane.service.enabled` | `false` | Requires a non-empty `ack` |
 | `controlPlane.service.type` / `.port` | `ClusterIP` / `8088` | |
 | `controlPlane.ingress.enabled` | `false` | Requires `service.enabled` and at least one host |
+| `controlPlane.httpRoute.enabled` | `false` | Requires `service.enabled`, `tls-proxy`, parentRefs, hostnames, rules, and, when NetworkPolicy is enabled, an ingress peer |
+| `controlPlane.httpRoute.parentRefs` | `[]` | Gateway API parent references: `name`, `namespace`, and optional `sectionName` |
+| `controlPlane.httpRoute.hostnames` | `[]` | Hostnames matched by the HTTPRoute; at least one is required when enabled |
+| `controlPlane.httpRoute.rules[].path` | unset | PathPrefix path to the chart-owned Service; filters and alternate backends are not exposed |
 | `networkPolicy.enabled` | `true` | Ingress-only; default-deny while closed |
 | `networkPolicy.ingressFrom` | `[]` | Peers allowed on 8088 once exposed |
+
+The chart does not install Gateway API CRDs or a Gateway. An enabled HTTPRoute attaches to the
+operator-supplied parent references and sends every configured `rules[].path` to this release's
+control-plane Service on `controlPlane.service.port`. Use `tls-proxy` whenever an Ingress or
+HTTPRoute publishes a hostname; `trusted-network` is reserved for an acknowledged plaintext
+Service path. With `networkPolicy.enabled`, a published Ingress or HTTPRoute also requires at
+least one `networkPolicy.ingressFrom` peer. Ingress and HTTPRoute may use different hosts, but
+the same hostname value in both paths fails the render.
 
 ### Persistence, scheduling, probes
 

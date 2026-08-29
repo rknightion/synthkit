@@ -1,6 +1,6 @@
 # Coverage-gap verdicts
 
-A coverage gap is an `extra_metric` finding from the report-only signal-fidelity check
+A coverage gap is an `extra_metric` finding from the report-only section of the signal-fidelity gate
 (`just signal-fidelity`): a metric family a real collector shipped that synthkit does not
 emit at all. This directory records a decided verdict for every one of them, so a reader
 can tell a genuine emission hole from a family synthkit deliberately does not model.

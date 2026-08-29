@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Command signal-fidelity compares a synthkit inventory export with the committed
-// substrate-scoped reality corpus and prints a report-only findings document.
+// substrate-scoped reality corpus, prints every finding, and fails when an
+// unexempted contradiction survives.
 package main
 
 import (
@@ -12,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/rknightion/synthkit/internal/inventory"
 )
@@ -28,6 +30,7 @@ func run(args []string, output io.Writer) error {
 	flags.SetOutput(io.Discard)
 	synthPath := flags.String("synth", "", "path to a synthkit -inventory-json export")
 	corpusPath := flags.String("corpus", "reality-corpus", "path to the committed reality corpus")
+	exemptionsPath := flags.String("exemptions", "", "path to the contradiction exemption document (defaults inside the corpus)")
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
 	}
@@ -49,7 +52,24 @@ func run(args []string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return inventory.WriteFindingsReport(output, inventory.CompareCorpus(synth, documents))
+	if *exemptionsPath == "" {
+		*exemptionsPath = filepath.Join(*corpusPath, "verdicts", "contradiction-exemptions.json")
+	}
+	exemptions, err := inventory.LoadContradictionExemptions(*exemptionsPath)
+	if err != nil {
+		return err
+	}
+	findings := inventory.CompareCorpus(synth, documents)
+	if err := inventory.ApplyContradictionExemptions(findings, exemptions); err != nil {
+		return err
+	}
+	if err := inventory.WriteFindingsReport(output, findings); err != nil {
+		return err
+	}
+	if count := inventory.CountUnexemptedContradictions(findings); count > 0 {
+		return fmt.Errorf("%d unexempted contradiction findings", count)
+	}
+	return nil
 }
 
 func loadSynthInventory(path string) (inventory.Schema, error) {

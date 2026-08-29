@@ -1,0 +1,23 @@
+# MUST FAIL: default-deny ingress cannot publish a route without the Gateway proxy peer.
+credentials:
+  control:
+    existingSecret: synthkit-control
+    keys:
+      CONTROL_TOKEN: CONTROL_TOKEN
+controlPlane:
+  exposure:
+    ack: tls-proxy
+  service:
+    enabled: true
+  httpRoute:
+    enabled: true
+    parentRefs:
+      - name: gateway
+        namespace: gateway-system
+    hostnames:
+      - synthkit.example.internal
+    rules:
+      - path: /
+networkPolicy:
+  enabled: true
+  ingressFrom: []

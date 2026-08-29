@@ -30,7 +30,7 @@ type Cloud struct {
 	Provider      string   // "aws"
 	AccountID     string   // CloudWatch account_id label
 	Region        string   // CloudWatch region label
-	VpcID         string   // tag_VpcId on *_info series
+	VpcID         string   // resolved VPC identity; never stamped on CloudWatch *_info series
 	NATGatewayIDs []string // resolved "nat-…" ids (dimension_NatGatewayId), one per declared gateway
 }
 
