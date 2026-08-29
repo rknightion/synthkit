@@ -103,25 +103,33 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - run: helm version
-      # kubeconform is what actually schema-validates the rendered manifests. It was absent on
-      # every runner, and the render suite skipped that leg silently, so the chart's output had
-      # never once been checked against the Kubernetes API schemas despite the check being part of
-      # the suite. REQUIRE_KUBECONFORM makes a missing binary fail instead of skip.
-      - name: install kubeconform
-        run: |
-          set -euo pipefail
-          version=v0.7.0
-          # Checksum verified locally against the published release before pinning. Piping the
-          # download straight into tar would execute whatever the URL served, which for a tool that
-          # gates a required check is a supply-chain hole rather than a convenience.
-          sha256=c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3
-          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${version}/kubeconform-linux-amd64.tar.gz" -o /tmp/kubeconform.tgz
-          echo "${sha256}  /tmp/kubeconform.tgz" | sha256sum -c -
-          tar -xzf /tmp/kubeconform.tgz -C /usr/local/bin kubeconform
-          kubeconform -v
+      # kubeconform moved to the shared helm-validate reusable below, which
+      # verifies the binary against the release's OWN CHECKSUMS file rather than a
+      # sha256 transcribed into this repo. The pin here was correct, but sf2loki's
+      # was not — right for its first 42 hex characters, confabulated after, and
+      # red for six days. A hash nobody types cannot be mistyped.
+      #
+      # This job keeps everything the reusable has no business knowing: the
+      # positive-permutation content assertions, the credential-separation and
+      # exposure-mode checks, and the tests/invalid/* fixtures that must FAIL to
+      # render. REQUIRE_KUBECONFORM is therefore no longer set — the schema leg is
+      # not silently skipped, it is covered by helm-validate.
       - run: make helm-test
-        env:
-          REQUIRE_KUBECONFORM: "1"
+
+  # Schema-validates every ci/*-values.yaml fixture against the API schemas.
+  # Pinned to 1.25.0 because Chart.yaml claims kubeVersion ">=1.25.0-0" and
+  # validating only against newer schemas passes manifests the oldest supported
+  # cluster would reject. -ignore-missing-schemas stays off, per this repo's own
+  # long-standing argument that the flag can pass while validating nothing.
+  helm-validate:
+    permissions:
+      contents: read
+    uses: rknightion/.github/.github/workflows/helm-validate.yml@97f4a7ad0cd1ddd83562a30b9061ef8295242405 # v1.14.0
+    with:
+      chart-path: charts/synthkit
+      release-name: synthkit
+      kubernetes-versions: "1.25.0"
+      values-glob: charts/synthkit/ci/*-values.yaml
 
   # Single aggregator the branch ruleset gates on (`ci-success` required status check). Keeping the
   # ruleset pinned to one check means the job list above can change without touching branch
@@ -130,7 +138,7 @@ jobs:
     name: ci-success
     runs-on: ubuntu-latest
     if: always()
-    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm]
+    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm, helm-validate]
     steps:
       - name: Fail if any required job did not pass
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
