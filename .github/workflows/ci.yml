@@ -167,6 +167,8 @@ jobs:
       release-name: synthkit
       kubernetes-versions: "1.25.0"
       values-glob: charts/synthkit/ci/*-values.yaml
+      schema-locations: >-
+        default https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
 
   # Single aggregator the branch ruleset gates on (`ci-success` required status check). Keeping the
   # ruleset pinned to one check means the job list above can change without touching branch
