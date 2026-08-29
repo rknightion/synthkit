@@ -3,10 +3,10 @@ id: SKT-0011
 title: >-
   User-acceptance round: agent-run scenarios on a clean machine and a fresh
   Grafana Cloud stack
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-27 07:06'
-updated_date: '2026-08-29 17:37'
+updated_date: '2026-08-29 17:59'
 labels: []
 dependencies: []
 priority: high
@@ -58,6 +58,12 @@ Do not name the stack, account or tenant in tracker text, code, docs or commit m
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Run all 46 frozen acceptance scenarios from a public clone inside a fresh Go 1.27 container using only shipped instructions, record one actionable verdict row per scenario without product fixes or identifiers, and return findings for root to track before teardown.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
