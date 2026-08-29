@@ -60,11 +60,12 @@ func run(args []string, output io.Writer) error {
 		return err
 	}
 	findings := inventory.CompareCorpus(synth, documents)
-	if err := inventory.ApplyContradictionExemptions(findings, exemptions); err != nil {
-		return err
-	}
+	exemptionErr := inventory.ApplyContradictionExemptions(findings, exemptions)
 	if err := inventory.WriteFindingsReport(output, findings); err != nil {
 		return err
+	}
+	if exemptionErr != nil {
+		return exemptionErr
 	}
 	if count := inventory.CountUnexemptedContradictions(findings); count > 0 {
 		return fmt.Errorf("%d unexempted contradiction findings", count)

@@ -3,9 +3,10 @@ id: SKT-0029
 title: >-
   Exemption drift aborts before the report, hiding every co-occurring
   contradiction
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-29 16:49'
+updated_date: '2026-08-29 17:59'
 labels: []
 dependencies: []
 priority: medium
@@ -42,3 +43,9 @@ Fix by collecting exemption drift as a finding rather than a fatal error: still 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+After SKT-0028, collect exemption-drift diagnostics without aborting report generation; retain fail-closed behavior while reporting stale rules and all co-occurring contradictions, with focused regression coverage.
+<!-- SECTION:PLAN:END -->

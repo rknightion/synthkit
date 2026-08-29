@@ -64,9 +64,9 @@ func TestRunFailsAfterPrintingUnexemptedContradiction(t *testing.T) {
 	}
 
 	synth := inventory.New()
-	synth.Metrics = []inventory.Metric{testMetric("shared_total", "eu-west-1")}
+	synth.Metrics = []inventory.Metric{testMetricWithLabel("coredns_dns_responses_total", "rcode", "NOT_A_DNS_RCODE")}
 	writeJSONFile(t, synthPath, synth)
-	writeCorpusMetric(t, corpusDir, testMetric("shared_total", "us-east-1"))
+	writeCorpusMetric(t, corpusDir, testMetricWithLabel("coredns_dns_responses_total", "rcode", "NOERROR"))
 	writeExemptionsFile(t, corpusDir, nil)
 
 	var output bytes.Buffer
@@ -74,9 +74,47 @@ func TestRunFailsAfterPrintingUnexemptedContradiction(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "1 unexempted contradiction") {
 		t.Fatalf("run error = %v, want one unexempted contradiction", err)
 	}
-	for _, wanted := range []string{"## Contradictions", "## Coverage gaps", "signal `shared_total`", "field `labels.region`"} {
+	for _, wanted := range []string{"## Contradictions", "## Coverage gaps", "signal `coredns_dns_responses_total`", "field `labels.rcode`"} {
 		if !strings.Contains(output.String(), wanted) {
 			t.Fatalf("report missing %q:\n%s", wanted, output.String())
+		}
+	}
+}
+
+func TestRunPrintsFullReportWhenExemptionDrifts(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	synthPath := filepath.Join(dir, "synth.json")
+	corpusDir := filepath.Join(dir, "corpus")
+	if err := os.Mkdir(corpusDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	synth := inventory.New()
+	synth.Metrics = []inventory.Metric{testMetric("unrelated_total", "eu-west-1")}
+	writeJSONFile(t, synthPath, synth)
+	writeCorpusMetric(t, corpusDir, testMetric("unrelated_total", "us-east-1"))
+	writeExemptionsFile(t, corpusDir, []inventory.ContradictionExemption{{
+		ID:              "EX-STALE",
+		Reason:          "deliberately stale test rule",
+		Area:            "k8s",
+		SourceKind:      "k3d_lab",
+		Substrate:       "k3s",
+		FindingKind:     inventory.KindLabelValueContradiction,
+		Field:           "labels.region",
+		Signal:          "stale_total",
+		OnlyInSynth:     []string{"eu-west-1"},
+		ExpectedMatches: 1,
+	}})
+
+	var output bytes.Buffer
+	err := run([]string{"-synth", synthPath, "-corpus", corpusDir}, &output)
+	if err == nil || !strings.Contains(err.Error(), `contradiction exemption "EX-STALE" expected_matches=1 but matched 0 findings`) {
+		t.Fatalf("run error=%v, want stale exemption error", err)
+	}
+	for _, wanted := range []string{"## Contradictions", "signal `unrelated_total`", "field `labels.region`"} {
+		if !strings.Contains(output.String(), wanted) {
+			t.Fatalf("report missing %q while exemption drifted:\n%s", wanted, output.String())
 		}
 	}
 }
@@ -91,9 +129,9 @@ func TestRunKeepsExemptedContradictionVisibleWithoutFailing(t *testing.T) {
 	}
 
 	synth := inventory.New()
-	synth.Metrics = []inventory.Metric{testMetric("shared_total", "eu-west-1")}
+	synth.Metrics = []inventory.Metric{testMetricWithLabel("coredns_dns_responses_total", "rcode", "NOT_A_DNS_RCODE")}
 	writeJSONFile(t, synthPath, synth)
-	writeCorpusMetric(t, corpusDir, testMetric("shared_total", "us-east-1"))
+	writeCorpusMetric(t, corpusDir, testMetricWithLabel("coredns_dns_responses_total", "rcode", "NOERROR"))
 	writeExemptionsFile(t, corpusDir, []inventory.ContradictionExemption{{
 		ID:              "EX-TEST",
 		Reason:          "bounded test exemption",
@@ -101,9 +139,9 @@ func TestRunKeepsExemptedContradictionVisibleWithoutFailing(t *testing.T) {
 		SourceKind:      "k3d_lab",
 		Substrate:       "k3s",
 		FindingKind:     inventory.KindLabelValueContradiction,
-		Field:           "labels.region",
-		Signal:          "shared_total",
-		OnlyInSynth:     []string{"eu-west-1"},
+		Field:           "labels.rcode",
+		Signal:          "coredns_dns_responses_total",
+		OnlyInSynth:     []string{"NOT_A_DNS_RCODE"},
 		ExpectedMatches: 1,
 	}})
 
@@ -111,7 +149,7 @@ func TestRunKeepsExemptedContradictionVisibleWithoutFailing(t *testing.T) {
 	if err := run([]string{"-synth", synthPath, "-corpus", corpusDir}, &output); err != nil {
 		t.Fatalf("run returned an exempted contradiction or coverage gap as an error: %v", err)
 	}
-	for _, wanted := range []string{"[EXEMPTED: `EX-TEST`", "bounded test exemption", "only-in-reality=[us-east-1]"} {
+	for _, wanted := range []string{"[EXEMPTED: `EX-TEST`", "bounded test exemption", "only-in-reality=[NOERROR]"} {
 		if !strings.Contains(output.String(), wanted) {
 			t.Fatalf("report missing %q:\n%s", wanted, output.String())
 		}
@@ -145,11 +183,15 @@ func writeJSONFile(t *testing.T, path string, value any) {
 }
 
 func testMetric(name, region string) inventory.Metric {
+	return testMetricWithLabel(name, "region", region)
+}
+
+func testMetricWithLabel(name, label, value string) inventory.Metric {
 	return inventory.Metric{
 		Name:            name,
 		Transports:      []string{inventory.TransportPrometheusRW1},
 		InstrumentTypes: []string{inventory.InstrumentCounter},
-		Labels:          []inventory.Attribute{{Key: "region", Values: []string{region}}},
+		Labels:          []inventory.Attribute{{Key: label, Values: []string{value}}},
 	}
 }
 

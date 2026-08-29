@@ -311,6 +311,9 @@ reason shown on the finding line. Only contradictions without an exemption ID
 fail the command. Coverage gaps remain visible and report-only. If the
 exemption document is intentionally optional, its caller may treat a missing
 file as an empty list; malformed or present documents must still fail closed.
+An exemption count mismatch also fails closed, but the command writes the full
+report before returning that drift diagnostic so a stale rule and every
+co-occurring contradiction are visible in the same run.
 
 A declared enrichment label looks like this, and lives in the `source` block
 beside the rest of the producer provenance:
