@@ -364,7 +364,10 @@ provision context base_url:
 # generate THIRD_PARTY_NOTICES.md from dependency licenses (release-time; not gated)
 [group('release')]
 notices:
-    go run github.com/google/go-licenses@{{ go_licenses_version }} csv ./... > THIRD_PARTY_NOTICES.md
+    # The module path carries the major version from v2 on; a bare
+    # github.com/google/go-licenses@v2.x resolves to "go.mod has post-v2 module
+    # path" and fails. A future v3 bump needs this /v2 updated to /v3.
+    go run github.com/google/go-licenses/v2@{{ go_licenses_version }} csv ./... > THIRD_PARTY_NOTICES.md
 
 # generate SPDX and CycloneDX SBOMs into dist/sbom/ (release-time; not gated)
 [group('release')]
