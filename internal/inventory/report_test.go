@@ -120,15 +120,49 @@ func TestWriteFindingsReportLeadsWithTheOneSidedDifference(t *testing.T) {
 	}
 }
 
+func TestWriteFindingsReportExplainsOpenValueSetCoverageGap(t *testing.T) {
+	findings := []ScopedFinding{
+		{Area: "cw", Source: CorpusSource{Kind: "gcx_live_readback", Substrate: "eks"}, Substrate: "eks", Finding: Finding{
+			Kind: KindLabelValueContradiction, Disposition: DispositionCoverageGap,
+			Signal: "aws_request_total", Field: "labels.region",
+			SynthValues: []string{"eu-west-1", "us-east-1"}, RealityValues: []string{"eu-west-1"},
+		}},
+	}
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatal(err)
+	}
+	if want := "only-in-synth=[us-east-1]; synth-only value has no closed-set evidence"; !strings.Contains(out.String(), want) {
+		t.Fatalf("report missing %q:\n%s", want, out.String())
+	}
+}
+
+func TestWriteFindingsReportDoesNotMislabelKeyCoverageAsOpenValueSet(t *testing.T) {
+	findings := []ScopedFinding{
+		{Area: "k8s", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{
+			Kind: KindUnexpectedLabelKey, Disposition: DispositionCoverageGap,
+			Signal: "kubernetes_build_info", Field: "labels",
+			SynthValues: []string{"job", "source"}, RealityValues: []string{"job"},
+		}},
+	}
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "synth-only value has no closed-set evidence") {
+		t.Fatalf("label-key coverage was described as an open value set:\n%s", out.String())
+	}
+}
+
 func TestWriteFindingsReportSplitsTwoDirectionalFindingLines(t *testing.T) {
 	findings := []ScopedFinding{
 		{Area: "cw", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{
 			Kind: KindUnexpectedLabelKey, Disposition: DispositionContradiction, Signal: "aws_applicationelb_info", Field: "labels",
-			SynthValues: []string{"job", "tag_VpcId"}, RealityValues: []string{"job", "scrape_job"},
+			SynthValues: []string{"job", "tag_VpcId"}, RealityValues: []string{"job"},
 		}},
 		{Area: "cw", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{
 			Kind: KindUnexpectedLabelKey, Disposition: DispositionCoverageGap, Signal: "aws_applicationelb_info", Field: "labels",
-			SynthValues: []string{"job", "tag_VpcId"}, RealityValues: []string{"job", "scrape_job"},
+			SynthValues: []string{"job"}, RealityValues: []string{"job", "scrape_job"},
 		}},
 	}
 

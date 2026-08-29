@@ -166,15 +166,32 @@ func TestDiffNonSharedMetricStillComparesLabels(t *testing.T) {
 func TestDiffLabelValuesCompareDirectionally(t *testing.T) {
 	for _, test := range []struct {
 		name      string
+		signal    string
 		synth     Attribute
 		reality   Attribute
 		wantCount int
 		want      map[Disposition]bool
 	}{
 		{
-			name:      "synth-only value is a contradiction",
+			name:      "unknown value set defaults synth-only value to a coverage gap",
 			synth:     Attribute{Key: "region", Values: []string{"eu-west-1", "us-east-1", "us-west-2"}},
 			reality:   Attribute{Key: "region", Values: []string{"us-east-1"}},
+			wantCount: 1,
+			want:      map[Disposition]bool{DispositionCoverageGap: true},
+		},
+		{
+			name:      "explicit closed value set keeps an impossible synth value contradictory",
+			signal:    "coredns_dns_responses_total",
+			synth:     Attribute{Key: "rcode", Values: []string{"NOERROR", "NOT_A_DNS_RCODE"}},
+			reality:   Attribute{Key: "rcode", Values: []string{"NOERROR"}},
+			wantCount: 1,
+			want:      map[Disposition]bool{DispositionContradiction: true},
+		},
+		{
+			name:      "reviewed build-info job set keeps an unobserved job contradictory",
+			signal:    "kubernetes_build_info",
+			synth:     Attribute{Key: "job", Values: []string{"integrations/kubernetes/kubelet", "integrations/kubernetes/kube-proxy"}},
+			reality:   Attribute{Key: "job", Values: []string{"integrations/kubernetes/kube-proxy"}},
 			wantCount: 1,
 			want:      map[Disposition]bool{DispositionContradiction: true},
 		},
@@ -186,14 +203,11 @@ func TestDiffLabelValuesCompareDirectionally(t *testing.T) {
 			want:      map[Disposition]bool{DispositionCoverageGap: true},
 		},
 		{
-			name:      "disjoint value sets split into contradiction and gap",
+			name:      "unknown disjoint value sets produce one coverage gap",
 			synth:     Attribute{Key: "environment", Values: []string{"prod"}},
 			reality:   Attribute{Key: "environment", Values: []string{"staging"}},
-			wantCount: 2,
-			want: map[Disposition]bool{
-				DispositionContradiction: true,
-				DispositionCoverageGap:   true,
-			},
+			wantCount: 1,
+			want:      map[Disposition]bool{DispositionCoverageGap: true},
 		},
 		{
 			name:      "elided reality values run no value comparison",
@@ -215,9 +229,13 @@ func TestDiffLabelValuesCompareDirectionally(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			signal := test.signal
+			if signal == "" {
+				signal = "requests_total"
+			}
 			findings := Diff(
-				metricSchema(Metric{Name: "requests_total", Labels: []Attribute{test.synth}}),
-				metricSchema(Metric{Name: "requests_total", Labels: []Attribute{test.reality}}),
+				metricSchema(Metric{Name: signal, Labels: []Attribute{test.synth}}),
+				metricSchema(Metric{Name: signal, Labels: []Attribute{test.reality}}),
 			)
 			if len(findings) != test.wantCount {
 				t.Fatalf("findings=%+v, want %d", findings, test.wantCount)
@@ -407,12 +425,14 @@ func TestDiffLogs(t *testing.T) {
 	}
 
 	findings := Diff(synth, reality)
-	if len(findings) != 2 {
-		t.Fatalf("findings=%+v, want one finding for each log stream-label direction", findings)
+	if len(findings) != 1 {
+		t.Fatalf("findings=%+v, want one open-set coverage gap carrying both directions", findings)
 	}
 	signal := "loki[stream_labels=cluster;structured_metadata_keys=trace_id]"
-	assertFinding(t, findings, KindLabelValueContradiction, DispositionContradiction, signal, "stream_labels.cluster")
 	assertFinding(t, findings, KindLabelValueContradiction, DispositionCoverageGap, signal, "stream_labels.cluster")
+	if !equalStrings(findings[0].SynthValues, []string{"synthetic"}) || !equalStrings(findings[0].RealityValues, []string{"real"}) {
+		t.Fatalf("findings=%+v, want both open-set directions preserved", findings)
+	}
 }
 
 func TestDiffLogSignalsIdentifyStructuralShapes(t *testing.T) {

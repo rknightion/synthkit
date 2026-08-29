@@ -3,9 +3,10 @@ id: SKT-0027
 title: >-
   The only-in-synth value rule is too blunt: deployment-specific values are
   absent evidence
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-29 16:49'
+updated_date: '2026-08-29 17:59'
 labels: []
 dependencies: []
 priority: high
@@ -47,3 +48,9 @@ This interacts directly with SKT-0020.05: once AKS and GKE captures exist, `regi
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Classify only-in-synth label values using explicit closed-value evidence; default unknown/open sets to absent-evidence gaps, delete the nine now-redundant exemption rules, document semantics, and prove both open and structurally impossible cases.
+<!-- SECTION:PLAN:END -->

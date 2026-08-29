@@ -234,11 +234,16 @@ corpus producer must therefore understand what its output means:
   substrate can produce, such as a Kubernetes build string, is kept out of the
   comparison by the producer marking it `values_elided`, not by dropping the
   document that carries it.
-- **Label values compare in both directions.** A value synthkit emits that
-  reality does not carry is a contradiction; a value reality carries that
-  synthkit does not emit is a coverage gap. A two-direction difference is
-  therefore represented by one finding in each report section, with each line
-  naming only its own direction. Empty or elided values remain absent evidence
+- **Label values need closed-set evidence before they contradict.** A value
+  synthkit emits that reality does not carry is a coverage gap by default: one
+  deployment capture cannot enumerate an open set such as region, topology,
+  protocol, operating system, or request type. The comparator keeps a short,
+  explicit signal-and-field allow-list for values whose owning signal contract
+  proves a closed enum; only those synth-only values are contradictions. A
+  reality-only value is always a coverage gap. An unknown value set therefore
+  follows the standing absent-evidence rule. Open two-way differences stay one
+  coverage gap and name both directions; closed two-way differences remain one
+  finding in each report section. Empty or elided values remain absent evidence
   and are not compared.
 - **The current `kube_pod_info` limits remain visible.** The EKS evidence
   includes `created_by_kind` values `AutoscalingListener` and `EphemeralRunner`

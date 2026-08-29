@@ -147,6 +147,12 @@ func formatFindingValues(finding Finding) string {
 			parts = append(parts, "only-in-synth="+formatValues(onlySynth))
 		}
 	case DispositionCoverageGap:
+		if onlySynth := difference(finding.SynthValues, finding.RealityValues); len(onlySynth) > 0 {
+			parts = append(parts, "only-in-synth="+formatValues(onlySynth))
+			if finding.Kind == KindLabelValueContradiction {
+				parts = append(parts, "synth-only value has no closed-set evidence")
+			}
+		}
 		if onlyReality := difference(finding.RealityValues, finding.SynthValues); len(onlyReality) > 0 {
 			parts = append(parts, "only-in-reality="+formatValues(onlyReality))
 		}

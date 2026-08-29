@@ -57,10 +57,11 @@ type Finding struct {
 // Absent evidence is never a contradiction. Attribute values marked
 // ValuesElided are deliberately treated as open-ended, an instrument-type set
 // that is exactly the unknown sentinel carries no evidence about instrument
-// shape, and label values are compared in both directions: a value synthkit
-// emits that reality does not carry is a contradiction, while a reality value
-// synthkit does not emit is a coverage gap. Diff reports only differences that
-// remain certain after accounting for what the reality producer could observe.
+// shape. Label values are open by default: a value synthkit emits that reality
+// does not carry is a coverage gap until the comparator has explicit closed-set
+// evidence for that signal and label. Reality-only values are coverage gaps.
+// Diff reports only differences that remain certain after accounting for what
+// the reality producer could observe.
 func Diff(synth, reality Schema) []Finding {
 	out := make([]Finding, 0)
 	diffMetrics(&out, synth.Metrics, reality.Metrics)
@@ -425,17 +426,45 @@ func diffAttributes(out *[]Finding, signal, field string, synth, reality map[str
 	}
 }
 
-// appendLabelValueDirectional compares observed label values in both directions. A synth-only
-// value is a synthetic claim absent from reality and is therefore a contradiction; a reality-only
-// value is a shape synthkit does not model and is therefore a coverage gap. An elided or empty
-// value set on either side is absent evidence and is not compared at all.
+// closedLabelValueSets is intentionally a short allow-list. A corpus capture enumerates one
+// deployment, not a label's valid universe, so unknown label values remain absent evidence. Add a
+// field only after its owning signal contract proves the values form a closed enum.
+var closedLabelValueSets = map[struct{ signal, field string }]struct{}{
+	{"coredns_dns_responses_total", "labels.rcode"}: {},
+	{"kubernetes_build_info", "labels.job"}:         {},
+}
+
+// appendLabelValueDirectional compares observed label values in both directions. An elided or
+// empty value set on either side is absent evidence and is not compared at all. A synth-only value
+// contradicts only an explicitly closed value set; otherwise it is a coverage gap because a bounded
+// capture cannot establish that the value is impossible.
 func appendLabelValueDirectional(out *[]Finding, signal, field string, synth, reality attributeView) {
 	if synth.elided || reality.elided || len(synth.values) == 0 || len(reality.values) == 0 {
 		return
 	}
 	synthValues := sortedStrings(synth.values)
 	realityValues := sortedStrings(reality.values)
+	if _, closed := closedLabelValueSets[struct{ signal, field string }{signal, field}]; !closed {
+		appendOpenValueSetCoverage(out, signal, field, synthValues, realityValues)
+		return
+	}
 	appendDirectional(out, KindLabelValueContradiction, signal, field, synthValues, realityValues, true, true)
+}
+
+// appendOpenValueSetCoverage writes one gap for either direction. Keeping the complete sets on a
+// single finding makes a two-way open-set difference legible without inventing a contradiction.
+func appendOpenValueSetCoverage(out *[]Finding, signal, field string, synthValues, realityValues []string) {
+	if len(difference(synthValues, realityValues)) == 0 && len(difference(realityValues, synthValues)) == 0 {
+		return
+	}
+	*out = append(*out, Finding{
+		Kind:          KindLabelValueContradiction,
+		Disposition:   DispositionCoverageGap,
+		Signal:        signal,
+		Field:         field,
+		SynthValues:   cloneStrings(synthValues),
+		RealityValues: cloneStrings(realityValues),
+	})
 }
 
 // instrumentEvidenceAbsent reports whether an instrument-type set is exactly the unknown
