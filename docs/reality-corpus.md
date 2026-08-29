@@ -9,7 +9,7 @@ The reality corpus is the committed, credential-free evidence used by the
 report-only signal-fidelity check. This page describes how to refresh it and
 how to decide whether a candidate records real signal drift or only a different
 capture sample. The on-disk contract is defined in the
-[reality-corpus README](../reality-corpus/README.md); this page is the
+[reality-corpus README](https://github.com/rknightion/synthkit/blob/main/reality-corpus/README.md); this page is the
 operating procedure built on that contract.
 
 The contract is deliberately narrow:
@@ -25,12 +25,12 @@ The contract is deliberately narrow:
 - Capture counts and receipts explain how an observation was collected; they
   are not signal-contract evidence.
 
-Use the [signal catalogue](../SIGNALS.md), its
-[cross-cutting canon](../signals/00-canon.md), and the
+Use the [signal catalogue](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md), its
+[cross-cutting canon](https://github.com/rknightion/synthkit/blob/main/signals/00-canon.md), and the
 [signal-area index](signal-areas.md) to identify the owning area and interpret
 an observed shape. The Kubernetes and CloudWatch catalogues are examples of
-area-level authorities: [Kubernetes](../signals/k8s.md) and
-[CloudWatch](../signals/cw.md).
+area-level authorities: [Kubernetes](https://github.com/rknightion/synthkit/blob/main/signals/k8s.md) and
+[CloudWatch](https://github.com/rknightion/synthkit/blob/main/signals/cw.md).
 
 ## The two producers
 
@@ -279,7 +279,7 @@ the same producer, substrate, and configuration changed.
 The report remains report-only in this wave. A report finding is an input to the
 review above, not permission to change captured reality. When an accepted,
 substrate-scoped observation contradicts synthkit, the implementation and its
-authoritative [signal catalogue](../SIGNALS.md) are corrected toward observed
+authoritative [signal catalogue](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md) are corrected toward observed
 reality. Captured evidence is not rewritten merely to silence a finding.
 
 ## Sticky values and `values_elided`
@@ -320,8 +320,8 @@ operator-selected target details in this page, a source ID, or a committed
 corpus document.
 
 For the exact envelope and path rules, see the
-[reality-corpus README](../reality-corpus/README.md). For capture tooling and
+[reality-corpus README](https://github.com/rknightion/synthkit/blob/main/reality-corpus/README.md). For capture tooling and
 inventory concepts, see [Capture & Tooling](tools.md) and
 [CLI & Commands](cli.md). For signal naming and scope, use the
-[catalogue contract](../SIGNALS.md), [cross-cutting canon](../signals/00-canon.md),
+[catalogue contract](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md), [cross-cutting canon](https://github.com/rknightion/synthkit/blob/main/signals/00-canon.md),
 and the relevant [signal area](signal-areas.md).
