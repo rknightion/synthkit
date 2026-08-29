@@ -21,6 +21,16 @@
     "gomodUpdateImportPaths"
   ],
   "internalChecksFilter": "strict",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^justfile$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s+\\w+_version := env\\('[^']+', '(?<currentValue>[^']+)'\\)"
+      ],
+      "versioningTemplate": "semver"
+    }
+  ],
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
     "labels": ["security"],

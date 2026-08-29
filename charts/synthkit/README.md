@@ -244,7 +244,7 @@ helm lint charts/synthkit
 helm template charts/synthkit
 bash charts/synthkit/tests/render_test.sh
 REQUIRE_KUBECONFORM=1 bash charts/synthkit/tests/render_test.sh   # what CI runs
-make helm-test                                                    # all of the above
+just helm-test                                                    # all of the above
 ```
 
 `values.schema.json` is structural validation and closes a gap the template guards cannot see. The

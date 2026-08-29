@@ -1,6 +1,6 @@
 ---
 title: CLI & Commands
-description: Reference for every synthkit command, flag, verification mode, and make target.
+description: Reference for every synthkit command, flag, verification mode, and just recipe.
 ---
 
 # CLI & Commands
@@ -116,7 +116,7 @@ Regenerates the blueprint schema artifacts from the live Go types: `BLUEPRINT-SC
 ```bash
 go run ./cmd/blueprint-schema
 # or
-make blueprint-schema
+just gen
 ```
 
 The gate test `TestSchemaCurrent` (run by `go test ./...`) fails if these artifacts drift from the live types. See [blueprint-reference.md](blueprint-reference.md).
@@ -202,38 +202,15 @@ go run ./cmd/synthkit-control-dash -ds-name <name> -out <dir> [flags]
 When `CONTROL_TOKEN` is set, protected GETs use the Infinity datasource's secure Basic auth and
 browser-direct POSTs use the browser's separate Basic challenge. No token is embedded in the dashboard.
 
-## make targets
+## just recipes
 
-| Target | Description |
+`just --list` is the authoritative recipe catalogue; use `just --show <recipe>` to inspect one
+without guessing its implementation. Run `just check` before committing. `just ci` is the
+Docker-capable CI superset.
+
+| Recipe | Detail not carried by the recipe list |
 |---|---|
-| `make build` | `go build ./...` |
-| `make test` | `go test ./...` |
-| `make deploy-tests` | Focused deployment-helper safety and identity tests. |
-| `make vet` | `go vet ./...` |
-| `make gate` | Full mandatory gate: build + vet + test + race + `rw-proto-check` + `spdx-check` + `forbidden-words`. Run before every commit. |
-| `make race` | Race-detector test run over the whole module. |
-| `make blueprint-schema` | Regenerate schema artifacts from live Go types. See [blueprint-reference.md](blueprint-reference.md). |
-| `make dump` | `DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -dump` — explicit full-catalog series/label inventory. |
-| `make run` | `go run ./cmd/synthkit` |
-| `make docker` | `docker compose up -d --wait` — pulls the selected `SYNTHKIT_IMAGE_REF` and waits for readiness. |
-| `make docker-build` | `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build` — build from source instead of pulling the published image. |
-| `make compose-check` | Validate Compose 2.24.4+, the default/profile render, and exact image selection using `.env.example`. |
-| `make skills-sync` | Regenerate the cross-harness skill symlink farm (`.claude/skills`, `.agents/skills`) from `plugins/synthkit/skills/`; `AGENTS.md` remains the canonical repository guidance. |
-| `make skills-check` | Verify the symlink farm matches the canonical source. Safe for CI. |
-| `make proto` | Regenerate vendored RW2 protobuf Go types (requires `protoc` + `protoc-gen-go`). |
-| `make pyroscope-proto` | Regenerate vendored Pyroscope pprof + push protobuf Go types. |
-| `make rw-proto-check` | Detect upstream RW2 proto drift (network; in `gate`). |
-| `make selfobs-dashboard` | Build and push the self-obs dashboard to `GCX_CONTEXT`. |
-| `GCX_CONTEXT=<operator-selected-context> make signal-fidelity-eks-readback` | Read EKS and core non-AI CloudWatch metric shapes through read-only gcx calls and cumulative-merge generic EKS corpus documents. |
-| `make ui` | Build the control-plane UI assets (runs `npm ci` + `npm run build`). |
-| `make gate-ui` | Control-plane UI test + typecheck + build. |
-| `make spdx-check` | Verify every `.go` file carries the AGPL-3.0-only SPDX header. |
-| `make forbidden-words` | Content guard for customer/deployment identifiers + credential shapes. |
-| `make hygiene` | `spdx-check` + `forbidden-words`. |
-| `make secret-scan` | Full-history secret scan via gitleaks (requires Docker). |
-| `make notices` | Generate `THIRD_PARTY_NOTICES.md` from dependency licenses. |
-| `make sbom` | Generate SPDX + CycloneDX SBOMs into `dist/sbom/`. |
-| `make e2e` | Docker-level end-to-end smoke test (requires Docker; `//go:build e2e`). |
-| `make published-e2e` | Exercise an exact published digest through committed Compose with writable state, health, and positive fake-sink receipts. Requires expected image/version/revision env vars. |
-| `make ci` | Local full-CI simulation: `ci-go` + `ci-ui` + `ci-docker`. |
-| `make env-check` | Env-surface drift guard: verifies all Go-read vars are documented in `.env.example`. |
+| `just corpus-gcx <context> [since]` | Requires an explicit gcx context and confirms before it cumulatively merges read-back evidence into `reality-corpus/`. |
+| `just published-e2e` | Requires `SYNTHKIT_PUBLISHED_IMAGE_REF`, `SYNTHKIT_EXPECTED_VERSION`, and `SYNTHKIT_EXPECTED_REVISION`; it exercises that exact published image through committed Compose. |
+| `just lab [permutations...]` | Long-running k3d capture matrix (about 45 minutes) requiring Docker, k3d, Helm, and kubectl. |
+| `just proto-drift-check` | Network call outside `just check`; run before re-vendoring the RW2 proto or cutting a release. |

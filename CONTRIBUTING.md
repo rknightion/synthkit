@@ -20,19 +20,19 @@ changes.
 Requires **Go 1.27+**. The single green-bar command is:
 
 ```bash
-make gate     # build + vet + test + lint + spdx-check + forbidden-words
+just check
 ```
 
 Other useful targets:
 
 ```bash
-make build    # -> bin/synthkit
-make test     # go test ./...
-make lint     # golangci-lint run
-DRY_RUN=true go run ./cmd/synthkit -once -dump   # series inventory — diff vs signals/
+just build
+just test
+just lint
+just dump     # series inventory — diff vs signals/
 ```
 
-`make gate` must pass before any change is merged. CI runs the same gate plus extended checks.
+`just check` must pass before any change is merged. `just ci` adds the Docker-dependent CI checks.
 
 ## Making a change
 
@@ -40,8 +40,8 @@ DRY_RUN=true go run ./cmd/synthkit -once -dump   # series inventory — diff vs 
 2. **Write tests first** (TDD): a failing test, then the minimal code to make it pass. Table-driven
    tests where they fit. Tests must not make live network calls.
 3. Every new `.go` file must carry the license header on line 1:
-   `// SPDX-License-Identifier: AGPL-3.0-only` (enforced by `scripts/spdx-check.sh`).
-4. Keep `make gate` green.
+   `// SPDX-License-Identifier: AGPL-3.0-only` (enforced by `just spdx-check`).
+4. Keep `just check` green.
 5. Open a pull request with a clear description of the change and its motivation.
 
 ## License agreement

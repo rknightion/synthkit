@@ -11,7 +11,7 @@
 # This is a lightweight guard, NOT a full secret scanner — gitleaks (CI) + GitHub secret scanning (once
 # public) are the comprehensive layer. See scripts/forbidden-words.local.example for the list format.
 #
-# Runs at two points: the pre-commit hook (staged files) and CI (`make forbidden-words`, via `make gate`).
+# Runs at two points: the pre-commit hook (staged files) and CI (`just forbidden-words`, via `just check`).
 # Portable (bash 3.2 / macOS): no mapfile / associative arrays.
 #
 # Usage:

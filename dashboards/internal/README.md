@@ -64,7 +64,7 @@ deep-link.
 
 ```bash
 # Quickest path — build + push in one shot (reads GCX_CONTEXT from env or defaults to your staff stack):
-make selfobs-dashboard
+just selfobs-dashboard
 
 # Or step-by-step:
 cd dashboards/internal

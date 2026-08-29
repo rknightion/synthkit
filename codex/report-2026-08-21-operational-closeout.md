@@ -69,7 +69,7 @@ The accepted `v1.3.1` image has the following closed identity:
 
 Publisher run `32489965091` passed index and platform identity, signature, provenance, version/revision, the committed published Compose path, health, writable private state, fake-sink delivery, and cleanup. Independent local `verify-image` also passed. Exact-SHA CI run `32491016936` passed every job, including the aggregate `ci-success` gate.
 
-The stable repository defaults were applied in `2e687c7195efb7c0fc7daacb7094b6316f3cc2c4`: both Compose fallbacks and the Makefile use `1.3.1`, while `.env.example` carries the exact stable index. Mutable `main` and `latest` remain documented edge/testing choices rather than standing-deployment defaults.
+The stable repository defaults were applied in `2e687c7195efb7c0fc7daacb7094b6316f3cc2c4`: both Compose fallbacks and the task surface use `1.3.1`, while `.env.example` carries the exact stable index. Mutable `main` and `latest` remain documented edge/testing choices rather than standing-deployment defaults.
 
 ## Standing-host upgrade and rollback proof
 
@@ -111,15 +111,15 @@ These artifacts preserve concrete rollback and forensic targets. They should not
 
 The final campaign reconciliation passed:
 
-- `make blueprint-schema`, with regenerated output producing no diff;
-- `make gate`;
+- `just gen`, with regenerated output producing no diff;
+- `just check`;
 - complete-catalog dry-run coverage of 26 blueprints, 2,644 distinct series names, and 15 profile types;
-- `make gate-ui`: 22 files and 169 tests, followed by typecheck and build;
-- `make docs-check`;
-- `make skills-check`;
-- `make compose-check`;
+- `just ui-check`: 22 files and 169 tests, followed by typecheck and build;
+- `just docs-check`;
+- `just skills-check`;
+- `just compose-check`;
 - `actionlint`;
-- `make e2e`; and
+- `just e2e`; and
 - exact-SHA hosted CI and the stable published-image gate described above.
 
 The local `TestPublishedCompose` leg was skipped only because its published-image environment was not set in that local invocation. This is not counted as local coverage: the stable publisher exercised and passed the same published-Compose behavior against the released image.

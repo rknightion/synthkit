@@ -2,9 +2,9 @@ project_name: "synthkit"
 default_status: "To Do"
 statuses: ["To Do", "In Progress", "Parked", "Done"]
 definition_of_done:
-  - "make gate (build vet test race rw-proto-check spdx-check forbidden-words)"
-  - "make blueprint-schema (only if a blueprint field or construct/workload config struct changed)"
-  - "DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/"
+  - "just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)"
+  - "just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)"
+  - "just dump — inventory diffed against signals/"
 labels: []
 date_format: yyyy-mm-dd
 max_column_width: 20

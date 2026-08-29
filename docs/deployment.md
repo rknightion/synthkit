@@ -42,7 +42,7 @@ from outside the process.
     # GC_LOKI/USER at minimum. Empty BLUEPRINT_NAMES emits nothing.
 
     # 4. Validate the committed pin and start it, waiting for delivery readiness
-    make compose-check
+    just compose-check
     docker compose up -d --wait
 
     # 5. Verify
@@ -293,7 +293,7 @@ both stamped by CI.
     behavior, or preferably list the exact blueprint identities you intend to emit.
 
 Use Docker Compose 2.24.4 or later. Never run raw `docker compose config` against the real `.env`;
-render with `.env.example` or generated fake inputs through `make compose-check`.
+render with `.env.example` or generated fake inputs through `just compose-check`.
 
 Set the candidate identity from the verified release, and the current expected identity from its
 previous deployment record. Records and snapshots belong outside the checkout:
@@ -318,7 +318,7 @@ case "$CURRENT_REF" in
   *) echo "previous deployment record is not digest-bound" >&2; exit 1 ;;
 esac
 
-make compose-check
+just compose-check
 python3 scripts/synthkit-deploy.py verify-image \
   --reference "$CANDIDATE_REF" --expected-version "$CANDIDATE_VERSION" \
   --expected-oci-version "v$CANDIDATE_VERSION" --expected-revision "$CANDIDATE_REVISION" \

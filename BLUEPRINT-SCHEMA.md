@@ -1,7 +1,7 @@
 # synthkit blueprint schema (generated)
 
 > **Generated** by `internal/blueprintschema` from the live Go types — do NOT edit by hand.
-> Regenerate with `make blueprint-schema`; the `TestSchemaCurrent` gate fails on drift.
+> Regenerate with `just gen`; the `TestSchemaCurrent` gate fails on drift.
 > Every key a blueprint may contain is listed below. Strict-decoded: unknown keys fail to load.
 
 ## Blueprint document

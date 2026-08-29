@@ -24,12 +24,11 @@ queries. There is **no pdc-agent**, no Tailscale Funnel, and no self-signed cert
 ## Usage
 
 ```bash
-provisioning/provision.sh --context <customer-stack> \
-  --base-url https://<host>.<tailnet>.ts.net
+just provision <customer-stack> https://<host>.<tailnet>.ts.net
 
 # Authenticated control plane: export the SAME secret synthkit uses (HTTP Basic, user "control"):
 export CONTROL_TOKEN=…           # never committed; matches synthkit's .env CONTROL_TOKEN
-provisioning/provision.sh --context <customer-stack> --base-url https://<host>.<tailnet>.ts.net
+just provision <customer-stack> https://<host>.<tailnet>.ts.net
 ```
 
 The script is idempotent: it PUTs an existing `synthkit (Infinity)` datasource or POSTs a new one,

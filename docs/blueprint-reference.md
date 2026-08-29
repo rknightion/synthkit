@@ -5,10 +5,10 @@ description: Complete key-by-key reference for every field a synthkit blueprint 
 
 # Blueprint Schema Reference
 
-This reference is generated from the live Go types via `make blueprint-schema` and reflects the schema enforced at load time. Decoding is strict: any key not listed here causes a loud load error. If you hit an unexpected load failure, check that your key spellings match exactly.
+This reference is generated from the live Go types via `just gen` and reflects the schema enforced at load time. Decoding is strict: any key not listed here causes a loud load error. If you hit an unexpected load failure, check that your key spellings match exactly.
 
 !!! info "Regenerating the schema"
-    Run `make blueprint-schema` to regenerate [BLUEPRINT-SCHEMA.md](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md) from the source types. The `TestSchemaCurrent` gate fails if the committed file drifts from the live types.
+    Run `just gen` to regenerate [BLUEPRINT-SCHEMA.md](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md) from the source types. The `TestSchemaCurrent` gate fails if the committed file drifts from the live types.
 
 ---
 

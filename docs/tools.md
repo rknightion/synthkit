@@ -160,7 +160,7 @@ browser-direct action POSTs use their own native Basic challenge. No token is em
 
 ## LLM-assisted skills
 
-synthkit ships agent skills for Claude Code, Codex, and OpenCode. Skills are authored once under `plugins/synthkit/skills/`; `make skills-sync` creates symlinks in `.claude/skills/` and `.agents/skills/` so the same skills are available in all three harnesses. `make skills-check` verifies the symlink farm and is safe for CI.
+synthkit ships agent skills for Claude Code, Codex, and OpenCode. Skills are authored once under `plugins/synthkit/skills/`; `just skills-sync` creates symlinks in `.claude/skills/` and `.agents/skills/` so the same skills are available in all three harnesses. `just skills-check` verifies the symlink farm and is safe for CI.
 
 ### Available skills
 
@@ -194,7 +194,7 @@ After installation the skills are available as `/synthkit:initial-setup`, `/synt
 
 ### Cross-harness compatibility
 
-The same skills work in Codex (reads `.agents/skills/`) and OpenCode (reads `.claude/skills/`). Both directories are populated by `make skills-sync`. Install the tool on a new machine and run `make skills-sync` to get the skills available immediately.
+The same skills work in Codex (reads `.agents/skills/`) and OpenCode (reads `.claude/skills/`). Both directories are populated by `just skills-sync`. Install the tool on a new machine and run `just skills-sync` to get the skills available immediately.
 
 For more on authoring custom blueprints, see [custom-blueprints.md](custom-blueprints.md). For Fleet Management setup, see [fleet-management.md](fleet-management.md). For the full CLI reference, see [cli.md](cli.md).
 
@@ -205,7 +205,7 @@ fresh clone cannot run that private build locally. Validate the repository-owned
 navigation, every relative Markdown/HTML link, and the intentional `404.md` page with:
 
 ```bash
-make docs-check
+just docs-check
 ```
 
 The command uses only Python 3.11+ standard-library `tomllib`; it does not install

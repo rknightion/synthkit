@@ -20,7 +20,7 @@ and for a failure, **what a new user would have seen**. That last column is the 
 `fail` is not actionable.
 
 Read-back against the stack uses `gcx` with the operator-selected context. **Never write a stack,
-account or tenant identifier into any committed file** — this repository is public and `make hygiene`
+account or tenant identifier into any committed file** — this repository is public and `just hygiene`
 carries a forbidden-words guard that fails CI on every subsequent push until the term is removed.
 
 Findings become tracked work. Do not fix defects inline during the round: a round that repairs as it

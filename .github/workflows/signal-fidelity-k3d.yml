@@ -21,6 +21,9 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
 
       - name: Install pinned cluster tools
         shell: bash
@@ -48,7 +51,7 @@ jobs:
         env:
           LAB_CAPTURE_TIMEOUT_SECONDS: "600"
           LAB_OUTPUT_DIR: ${{ runner.temp }}/signal-fidelity-k3d
-        run: make signal-fidelity-k3d
+        run: just lab
 
       - name: Publish candidate and findings
         if: always()

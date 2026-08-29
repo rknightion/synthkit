@@ -136,7 +136,7 @@ func scoreValue(genID string, ev EvalDecl, regress float64) (float64, bool) {
 		if ev.Threshold > 5 {
 			maxScale = 10.0
 		}
-		base := 0.55 - 0.45*regress              // baseline 0.55 → 0.10 at full regression
+		base := 0.55 - 0.45*regress                 // baseline 0.55 → 0.10 at full regression
 		v := math.Round(maxScale * (base + 0.42*u)) // rounded to a rubric point
 		v = math.Max(1, math.Min(maxScale, v))
 		return v, v >= ev.Threshold

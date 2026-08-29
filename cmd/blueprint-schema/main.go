@@ -2,7 +2,7 @@
 
 // Command blueprint-schema regenerates the committed blueprint-schema artifacts from the live
 // Go types: the embedded field-description index (internal/blueprintschema/fielddocs.json) and
-// the human reference (BLUEPRINT-SCHEMA.md). Run via `make blueprint-schema`. The
+// the human reference (BLUEPRINT-SCHEMA.md). Run via `just gen`. The
 // TestSchemaCurrent gate fails if these drift from the live types/doc comments.
 package main
 

@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -30,7 +33,7 @@ jobs:
           python-version: '3.14'
 
       - name: Validate repository documentation
-        run: python3 scripts/validate-docs.py
+        run: just docs-check
 
       # Mints a GitHub App installation token carrying contents:write on the docs
       # hub ONLY, replacing DOCS_SYNC_PAT. Nothing durable is stored in this repo.

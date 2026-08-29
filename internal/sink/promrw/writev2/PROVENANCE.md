@@ -8,7 +8,7 @@
 - Transformation: removed `import "gogoproto/gogo.proto";` and all `[(gogoproto.*) = ...]` field options (they affect only generated-Go ergonomics, NOT wire bytes); set `option go_package = "github.com/rknightion/synthkit/internal/sink/promrw/writev2;writev2";`. All field numbers and types copied verbatim — the wire contract is unchanged.
 - Toolchain: protoc libprotoc 35.0, protoc-gen-go v1.36.11
 - Install (regen only): `go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11`
-- Regenerate: `make proto`
+- Regenerate: `just proto`
 - Spec: https://prometheus.io/docs/concepts/remote_write_spec_2_0/
 
 ## Wire-contract notes

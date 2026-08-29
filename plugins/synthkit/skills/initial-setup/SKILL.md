@@ -121,7 +121,7 @@ The container runs as uid 65532 and must own the persisted control-state volume.
 recursive ownership change here; runtime manages the files beneath this dedicated directory.
 
 ## Step 6 — Dry-run gate (before any live push)
-First run `make compose-check`. It requires Compose 2.24.4 or later and renders the default and
+First run `just compose-check`. It requires Compose 2.24.4 or later and renders the default and
 `sm-provision` profile with `.env.example` fake inputs; never substitute the real credential file or
 run raw `docker compose config` against it.
 
@@ -130,7 +130,7 @@ run raw `docker compose config` against it.
 the service env file selected by `SYNTHKIT_ENV_FILE`, and appends `-once -dump` to the entrypoint).
 When an override is configured, retain the same `SYNTHKIT_ENV_FILE` value for this command and every
 later Compose command. Confirm the config parses and the series inventory looks
-right. `make dump` is an equivalent **only if Go is installed locally** — the docker form is the
+right. `just dump` is an equivalent **only if Go is installed locally** — the docker form is the
 no-toolchain path. With exact names, require a non-empty selected inventory. With intentional setup
 mode, require the actionable `no blueprints selected` warning and an empty inventory; do not claim
 signal verification. Only then set `DRY_RUN false` via `set-env.sh` when live delivery was requested.

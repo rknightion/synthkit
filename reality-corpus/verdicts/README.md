@@ -1,7 +1,7 @@
 # Coverage-gap verdicts
 
 A coverage gap is an `extra_metric` finding from the report-only signal-fidelity check
-(`make signal-fidelity`): a metric family a real collector shipped that synthkit does not
+(`just signal-fidelity`): a metric family a real collector shipped that synthkit does not
 emit at all. This directory records a decided verdict for every one of them, so a reader
 can tell a genuine emission hole from a family synthkit deliberately does not model.
 
@@ -30,7 +30,7 @@ not emit read-path enrichment. The split follows the corpus document's own
 
 ## Triage of 2026-08-27
 
-Measured against `make signal-fidelity` on `main`, 2026-08-27: **367** `extra_metric`
+Measured against `just signal-fidelity` on `main`, 2026-08-27: **367** `extra_metric`
 findings, which fold to **77** distinct metric families.
 
 **15 of the 367 findings are not coverage gaps at all.** They are five kube-proxy histogram

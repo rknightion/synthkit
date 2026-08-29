@@ -121,7 +121,7 @@ These values are consumed by Docker Compose, not by the synthkit binary itself.
 
 The committed default is a published image with the current healthcheck and rollback contract, not
 `main` or `latest`. Prefer the verified index digest. Never run raw `docker compose config` against a
-real credential file; `make compose-check` renders the deployment using `.env.example` as fake input.
+real credential file; `just compose-check` renders the deployment using `.env.example` as fake input.
 Selector assignments may be quoted or prefixed with `export`, matching Compose, but the deployment
 helper requires the selected value itself to be a direct literal image reference. Do not build it
 through interpolation from another environment variable.

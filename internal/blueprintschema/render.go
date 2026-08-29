@@ -14,7 +14,7 @@ func RenderMarkdown(d Doc) string {
 	var b strings.Builder
 	b.WriteString("# synthkit blueprint schema (generated)\n\n")
 	b.WriteString("> **Generated** by `internal/blueprintschema` from the live Go types — do NOT edit by hand.\n")
-	b.WriteString("> Regenerate with `make blueprint-schema`; the `TestSchemaCurrent` gate fails on drift.\n")
+	b.WriteString("> Regenerate with `just gen`; the `TestSchemaCurrent` gate fails on drift.\n")
 	b.WriteString("> Every key a blueprint may contain is listed below. Strict-decoded: unknown keys fail to load.\n\n")
 
 	for _, s := range d.Sections {

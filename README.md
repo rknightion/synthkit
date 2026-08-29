@@ -73,7 +73,7 @@ synthkit ships agent skills for deployment and operation. In **Claude Code**, op
 
 The same skills work in **Codex** (`.agents/skills/`) and **OpenCode** (reads `.claude/skills/`).
 Skills are authored once under `plugins/synthkit/skills/`; `.claude/skills` and `.agents/skills` are
-symlinks kept in sync by `make skills-sync` (verified by `make skills-check`).
+symlinks kept in sync by `just skills-sync` (verified by `just skills-check`).
 
 ## Synthetic Monitoring — two-phase startup
 

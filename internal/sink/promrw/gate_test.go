@@ -23,7 +23,7 @@ func TestRemoteWriteVersionPinned(t *testing.T) {
 
 // TestVendoredProtoUnchanged detects accidental local edits to the vendored proto. The
 // recorded hash MUST match PROVENANCE.md VendoredDegogodSHA256. Hermetic (no network) —
-// this catches LOCAL drift only; detecting a NEW upstream release is `make rw-proto-check`.
+// this catches LOCAL drift only; detecting a NEW upstream release is `just proto-drift-check`.
 func TestVendoredProtoUnchanged(t *testing.T) {
 	const wantSHA = "1d1167389ed90cff530249e3196fd7381120f49d09584b1e5358ee4791cd642e"
 	b, err := os.ReadFile("writev2/types.proto") // path is relative to the package dir (where go test runs)

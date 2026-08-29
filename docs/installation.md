@@ -35,7 +35,7 @@ go build ./cmd/synthkit
 This produces a `synthkit` binary in the current directory.
 
 !!! tip "Full gate"
-    Before shipping changes, run `make gate` — that runs `build`, `vet`, `test` (with the race detector), and the SPDX + hygiene checks. For a quick sanity check, `go build ./... && go vet ./... && go test ./...` is sufficient.
+    Before shipping changes, run `just check` — the pre-commit gate. Use `just ci` on a Docker-capable host for its CI-only Docker checks. For a quick sanity check, `just test` is sufficient.
 
 ---
 
@@ -83,7 +83,7 @@ if [ -L control-state-data ] || { [ -e control-state-data ] && [ ! -d control-st
 sudo install -d -o 65532 -g 65532 -m 700 control-state-data
 
 # 4. Validate the committed eligible release pin, pull it, and wait for readiness
-make compose-check
+just compose-check
 docker compose up -d --wait
 ```
 

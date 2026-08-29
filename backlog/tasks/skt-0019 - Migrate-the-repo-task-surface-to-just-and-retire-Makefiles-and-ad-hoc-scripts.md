@@ -1,10 +1,10 @@
 ---
 id: SKT-0019
 title: Migrate the repo task surface to just and retire Makefiles and ad-hoc scripts
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-28 19:06'
-updated_date: '2026-08-29 10:42'
+updated_date: '2026-08-29 13:07'
 labels:
   - 'wave:2-fleet'
 dependencies: []
@@ -855,6 +855,24 @@ Do not touch:
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Preserve the pre-existing untracked runtime/ path and baseline the current Makefile, scripts, workflow callers, and references.
+2. Add the fixed justfile surface using the ratified gate model from comment #2: check runs bare-toolchain legs; ci extends it only with explicitly documented Docker/service/cross-compilation legs.
+3. Replace Makefile and the absorbable SPDX helper only after callers, workflows, docs, generated schema sources, and backlog configuration refer to recipes; retain every KEEP script.
+4. Validate parsing, formatting, targeted recipes, generated-artifact idempotence, the bare-toolchain check and CI superset as available; then run the repository gate and inspect the exact diff.
+5. Commit explicit task paths on main, push, and verify the resulting CI run at the exact commit before finalizing.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Validated the new lint leg before retiring Makefile. golangci-lint reports 74 pre-existing findings across unrelated packages (15 errcheck, 2 gofmt, 3 ineffassign, 2 misspell, 26 staticcheck, 26 unused); no existing tracker task covers the cleanup. Per the task fallback, .golangci.yml remains unchanged and just lint retains go vet only; linter enablement needs a separately owned follow-up.
+
+Implemented the migration under ratified comment #2: just check is the no-Docker-daemon pre-commit gate, and just ci is check plus the documented Docker-daemon image, e2e, and secret-scan legs. Added the SHA-pinned setup-just v4 action at version 1.58.0, updated active command references including doc-0002 through the CLI, regenerated the schema artifacts twice without drift, and deleted Makefile plus scripts/spdx-check.sh only after the command-reference scan was clean. Local evidence before commit: just --list, JSON dump, formatter, build, cover, check, and ci passed; actionlint passed; zizmor completed with existing permission/persist-credential warnings constrained by the task. CodeRabbit reported one minor stale comment in untouched e2e/readiness_test.go, left out of scope.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

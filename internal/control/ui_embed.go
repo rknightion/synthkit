@@ -24,7 +24,7 @@ func spaHandler() http.Handler {
 	index, idxErr := fs.ReadFile(sub, "index.html")
 	notBuilt := []byte(`<!doctype html><meta charset="utf-8"><title>synthkit control plane</title>` +
 		`<body style="font-family:system-ui;background:#0b0c14;color:#e8e9f2;padding:40px">` +
-		`<h1>synthkit control plane</h1><p>UI assets not built. Run <code>make ui</code> ` +
+		`<h1>synthkit control plane</h1><p>UI assets not built. Run <code>just ui</code> ` +
 		`(or rebuild the Docker image).</p></body>`)
 	serveIndex := func(w http.ResponseWriter) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -14,7 +14,7 @@
 //     on the host (DRY_RUN=true, isolated blueprint dir), and asserts expected ⊆ received.
 //
 // Tagged //go:build e2e so it is excluded from `go test ./...` (the normal gate).
-// Run via `make e2e` which passes -tags e2e -timeout 15m.
+// Run via `just e2e` which passes -tags e2e -timeout 15m.
 package e2e
 
 import (

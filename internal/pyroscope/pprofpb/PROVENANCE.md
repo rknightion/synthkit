@@ -8,5 +8,5 @@
 - Transformation: set `option go_package = "synthkit/internal/pyroscope/pprofpb;pprofpb";`. Added a comment header noting the vendored provenance. All message field numbers, types, and wire contract are identical to upstream. No gogoproto or other external options were present in the original — no stripping required.
 - Toolchain: protoc libprotoc 35.0, protoc-gen-go v1.36.11
 - Install (regen only): `go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11`
-- Regenerate: `make pyroscope-proto`
+- Regenerate: `just pyroscope-proto`
 - Spec: docs/superpowers/specs/2026-06-15-pyroscope-profiling-signal-type-design.md

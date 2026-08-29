@@ -402,7 +402,7 @@ never the turn that issued the call, because that is when the model actually see
 inherits nothing and the final turn's results stay on its own `Input` rather than being dropped —
 `internal/sigil/assemble.go`).
 
-Plus the **e2e sigil receiver** (the `make e2e` Docker harness decodes the three sigil ingest
+Plus the **e2e sigil receiver** (the `just e2e` Docker harness decodes the three sigil ingest
 endpoints + correlates ingest kinds; see `e2e/receiver`) and the **live-captured eval families**
 (`sigil_eval_*` promoted to `v: ok` with corrected label shapes from `emea-cloud-demokit`).
 

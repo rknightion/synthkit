@@ -34,7 +34,7 @@ dependency are introduced — consistent with the RW2/OTLP/Pyroscope hand-encode
 ## Regeneration
 
 ```sh
-make sigil-proto   # requires protoc + protoc-gen-go on PATH; see Makefile
+just sigil-proto   # requires protoc + protoc-gen-go on PATH
 ```
 
 The service definitions in the `.proto` files (`GenerationIngestService`,

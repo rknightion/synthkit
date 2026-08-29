@@ -3,7 +3,7 @@ id: doc-0002
 title: Wave operating model
 type: guide
 created_date: '2026-08-14 16:07'
-updated_date: '2026-08-14 16:11'
+updated_date: '2026-08-29 12:59'
 ---
 # Wave operating model — synthkit
 
@@ -88,7 +88,7 @@ an inline `value # comment`, so an inline comment becomes part of the value.
 These are the things that have actually gone wrong here. A lane brief that omits them gets them
 back.
 
-**A new `.go` file without the SPDX header.** `scripts/spdx-check.sh` requires
+**A new `.go` file without the SPDX header.** `just spdx-check` requires
 `// SPDX-License-Identifier: AGPL-3.0-only` on **line 1** of every tracked `.go` file, including
 files that also carry a `//go:build` constraint (the constraint goes on line 3). Vendored
 `*.pb.go` are excluded. This fails the gate at the very end of a wave, after every lane has
@@ -96,7 +96,7 @@ finished, and it fails for *every* lane that created a file — so it reads as o
 when it is N independent omissions.
 
 **Blueprint field changes without regenerating the schema.** Any change to a blueprint field or
-to a construct/workload config struct requires `make blueprint-schema`; `TestSchemaCurrent` (in
+to a construct/workload config struct requires `just gen`; `TestSchemaCurrent` (in
 `internal/blueprintschema`, inside the ordinary `test` leg) fails on drift. The regeneration is a
 **wiring-pass action**, not a lane action — `BLUEPRINT-SCHEMA.md` and the embedded `fielddocs.json`
 are single-owner files and several lanes changing fields means one regen at the end, not N.
@@ -122,7 +122,7 @@ with final pre-mangled names; OTLP carries traces only, hand-encoded. `internal/
 sole sanctioned OTel SDK user and instruments the *process*, not the data. Constructs and
 workloads must never import the OTel SDK, `selfobs`, or profiling.
 
-**The race leg's deliberate exclusion.** `make race` excludes `internal/integration` — it builds
+**The race leg's deliberate exclusion.** `just race` excludes `internal/integration` — it builds
 the full estate and OOM-reaps a 16 GB runner under the race detector's shadow memory. That package
 still runs under the plain `test` target. A lane "fixing" the exclusion to be thorough breaks CI
 with a SIGTERM/143 that does not look like an OOM.
@@ -159,13 +159,13 @@ pass exists:**
   are read-only and return **findings**, not repo writes: the main thread applies the resulting
   `signals/` edits, because those files are serialized above. Stack names, tenant IDs and namespaces
   are identifiers — they go in the run contract, never into a task, a doc or a commit message.
-- **Docker.** `make e2e` and `make secret-scan` both need it; one at a time.
+- **Docker.** `just e2e` and `just secret-scan` both need it; one at a time.
 - **The reference EKS / Windows capture clusters** are provisioned on demand and torn down. Treat
   any of them as absent unless a lane has just confirmed otherwise, and never assume a previous
   wave left one running.
 
 **Verification a lane runs itself:** the packages it owns. `go build ./... && go vet ./... &&
-go test ./...` scoped to its own packages. **The full `make gate` is a wiring-pass action**, once,
+go test ./...` scoped to its own packages. **The full `just check` is a wiring-pass action**, once,
 at the end — it includes the race leg, the SPDX sweep and the forbidden-words guard, and running
 it per lane is minutes of wall clock buying nothing a scoped run did not already prove.
 
@@ -207,7 +207,7 @@ cross-cutting the architecture — is built on a **feature branch and submitted 
 CI and chore work, doc tweaks and single-construct touch-ups go straight to `main`. A wave is
 almost always in the first category; decide it in the run contract, not at commit time.
 
-Green — `make gate` — is mandatory before every commit, as **evidence**, not assertion. Paste the
+Green — `just check` — is mandatory before every commit, as **evidence**, not assertion. Paste the
 output.
 
 ---

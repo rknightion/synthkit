@@ -1,7 +1,6 @@
-# GitHub Actions CI — mirrors .forgejo/workflows/ci.yml. Both call identical `make` targets;
-# only the four standard actions (checkout/setup-go/setup-node/cache) are used so the bare
-# `uses:` names resolve on both GitHub and Forgejo (data.forgejo.org mirror). Keep the two
-# files in sync; they diverge only if a third-party action is added (Forgejo needs a full URL).
+# GitHub Actions CI — mirrors .forgejo/workflows/ci.yml. Both call identical `just` recipes.
+# setup-just is the one third-party action: GitHub can use its bare name, while Forgejo needs a
+# full URL. Keep the two files in sync; the documented Forgejo-only secret-scan omission remains.
 name: ci
 
 on:
@@ -14,13 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           cache: true
-      - run: make ci-go
+      - run: just fmt-check
+      - run: just lint
+      - run: just gen-check
+      - run: just env-check
+      - run: just docs-check
+      - run: just cover
+      - run: just race
       # Go coverage upload to Codacy. GitHub-only (third-party action → not mirrored to
-      # .forgejo, per the header note); make ci-go already emitted coverage.out via `cover`.
+      # .forgejo, per the header note); just cover already emitted coverage.out.
       # Skipped on forks where the secret is unavailable.
       - name: Upload coverage to Codacy
         if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
@@ -37,7 +45,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - run: make hygiene
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
+      - run: just hygiene
         env:
           FORBIDDEN_WORDS_PATTERN: ${{ secrets.FORBIDDEN_WORDS_PATTERN }}
 
@@ -49,35 +60,48 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
-      - run: make secret-scan
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
+      - run: just secret-scan
 
   ui:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: internal/control/ui/package-lock.json
-      - run: make ci-ui
+      - run: just ui-check
 
   docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - run: make ci-docker
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
+      - run: just image
+      - run: just compose-check
 
   e2e:
     runs-on: ubuntu-latest   # must be docker-capable (automount socket or DinD on Forgejo)
     needs: [go]              # warm the module cache + fail fast on a broken build first
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           cache: true
-      - run: make e2e
+      - run: just e2e
 
   # Credential-free, report-only comparison of the complete synthetic inventory with the
   # committed substrate-scoped reality corpus. Findings are evidence and do not fail this wave.
@@ -85,11 +109,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           cache: true
-      - run: make signal-fidelity
+      - run: just signal-fidelity
 
   # Helm chart: lint plus the credential and exposure render permutations. helm is preinstalled on
   # GitHub's ubuntu images, so no third-party action is needed — which also keeps this mirror-safe.
@@ -97,6 +124,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: '1.58.0'
       - run: helm version
       # kubeconform is what actually schema-validates the rendered manifests. It was absent on
       # every runner, and the render suite skipped that leg silently, so the chart's output had
@@ -114,9 +144,10 @@ jobs:
           echo "${sha256}  /tmp/kubeconform.tgz" | sha256sum -c -
           tar -xzf /tmp/kubeconform.tgz -C /usr/local/bin kubeconform
           kubeconform -v
-      - run: make helm-test
+      - run: just helm-test
         env:
           REQUIRE_KUBECONFORM: "1"
+      - run: just lab-check
 
   # Single aggregator the branch ruleset gates on (`ci-success` required status check). Keeping the
   # ruleset pinned to one check means the job list above can change without touching branch

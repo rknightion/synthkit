@@ -103,8 +103,8 @@ type node struct {
 	// are Prometheus-oriented and intentionally remain on the promrw path when native OTLP
 	// is enabled; only the blueprint-declared inline DSL instruments are native candidates.
 	nativeMetricStart int
-	logs    []telemetryspec.LogSpec
-	spans   []telemetryspec.SpanSpec
+	logs              []telemetryspec.LogSpec
+	spans             []telemetryspec.SpanSpec
 	// agenticFlow, when non-nil, makes projectTraces emit a nested in-process gen_ai span subtree
 	// (invoke_workflow→invoke_agent→execute_tool*→chat) under this node's structural span.
 	agenticFlow *AgenticFlow

@@ -11,7 +11,7 @@
 #             control plane behind a Service with no acknowledgement, is the specific defect these
 #             cover.
 #
-# Usage: bash charts/synthkit/tests/render_test.sh
+# Usage: just helm-test (or bash charts/synthkit/tests/render_test.sh)
 set -uo pipefail
 
 CHART_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

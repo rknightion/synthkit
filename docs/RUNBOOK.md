@@ -125,7 +125,7 @@ inputs, and wait for delivery-aware health:
 
 ```bash
 # on the host clone (e.g. /opt/synthkit):
-make compose-check
+just compose-check
 docker compose up -d --wait
 ```
 

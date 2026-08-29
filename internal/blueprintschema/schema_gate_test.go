@@ -29,7 +29,7 @@ func moduleRoot(t *testing.T) string {
 // TestSchemaCurrent is the drift gate: the committed BLUEPRINT-SCHEMA.md + the embedded
 // fielddocs.json MUST match what regenerating from the live Go types produces. A new/changed
 // blueprint or construct/workload config field, or an edited doc comment, fails this test until
-// `make blueprint-schema` is re-run — the same drift-proof pattern as TestEnvSurfaceAligned.
+// `just gen` is re-run — the same drift-proof pattern as TestEnvSurfaceAligned.
 func TestSchemaCurrent(t *testing.T) {
 	root := moduleRoot(t)
 	docsJSON, markdown, err := blueprintschema.Generate(runner.Catalog(), root)
@@ -49,7 +49,7 @@ func TestSchemaCurrent(t *testing.T) {
 			t.Fatalf("read %s: %v", tc.path, err)
 		}
 		if string(got) != string(tc.want) {
-			t.Errorf("%s is STALE — regenerate with `make blueprint-schema` (go run ./cmd/blueprint-schema)", tc.path)
+			t.Errorf("%s is STALE — regenerate with `just gen`", tc.path)
 		}
 	}
 }

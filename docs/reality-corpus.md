@@ -56,10 +56,10 @@ limit which synthetic claims each document may contradict.
 
 The EKS producer is manual and credentialed. The root must receive the target
 selection from the operator and pass it explicitly; the target rejects the
-Makefile's unrelated default context rather than querying it:
+former task-runner's unrelated default context rather than querying it:
 
 ```bash
-GCX_CONTEXT=<operator-selected-context> make signal-fidelity-eks-readback
+just corpus-gcx <operator-selected-context>
 ```
 
 `GCX_SINCE` optionally changes the bounded lookback from its `24h` default.

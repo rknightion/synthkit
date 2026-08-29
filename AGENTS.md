@@ -105,15 +105,31 @@ values in blueprints, docs, or instructions.
 
 Logic changes use focused tests; renderers use `-once -dump` inventory comparison against
 `signals/`. New Go files need the SPDX header. Blueprint fields/config structs require the wiring
-pass `make blueprint-schema`. The race leg intentionally excludes `internal/integration`; the
+pass `just gen`. The race leg intentionally excludes `internal/integration`; the
 plain test leg still covers it. Run the proportionate check during work and the root-owned final
 gate once:
 
 ```bash
-go build ./... && go vet ./... && go test ./...
-DRY_RUN=true go run ./cmd/synthkit -once -dump
-make gate
+just test
+just dump
+just check
 ```
+
+## Task interface
+
+This repo's task surface is a `justfile`. Discover it, don't guess it:
+
+    just --list                        # human-readable
+    just --dump --dump-format json     # machine-readable
+    just --show <recipe>               # what a recipe actually runs
+
+- `just check` is the pre-commit gate. `just ci` is its CI superset and adds the Docker-daemon
+  legs.
+- Prefer `just <recipe>` over the underlying tool. If you are typing `go test`, you want `just test`.
+- Run `just` with stdin from `/dev/null`. Recipes marked `[confirm]` are destructive — stop and ask
+  before running one; never pass `--yes` or `JUST_YES=1`.
+- If a task you need does not exist, add a recipe with a `#` doc comment and a `[group(...)]`
+  rather than running a bare command.
 
 ## Backlog.md workflow
 
