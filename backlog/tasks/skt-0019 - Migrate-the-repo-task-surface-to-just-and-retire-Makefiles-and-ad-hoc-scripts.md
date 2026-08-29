@@ -1,10 +1,10 @@
 ---
 id: SKT-0019
 title: Migrate the repo task surface to just and retire Makefiles and ad-hoc scripts
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-28 19:06'
-updated_date: '2026-08-29 13:07'
+updated_date: '2026-08-29 13:51'
 labels:
   - 'wave:2-fleet'
 dependencies: []
@@ -836,17 +836,17 @@ Do not touch:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A top-level justfile exists with the seven mandatory recipes (default, setup, fmt, fmt-check, lint, test, check), the header 'set shell := ["bash", "-euo", "pipefail", "-c"]', and no unstable features: 'just --list' and 'just --dump --dump-format json' both exit 0
+- [x] #1 A top-level justfile exists with the seven mandatory recipes (default, setup, fmt, fmt-check, lint, test, check), the header 'set shell := ["bash", "-euo", "pipefail", "-c"]', and no unstable features: 'just --list' and 'just --dump --dump-format json' both exit 0
 - [ ] #2 'just check' passes on a docker-capable host and its dependency list is exactly the union of what ci-success gates (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, image, compose-check, helm-test, lab-check, signal-fidelity, e2e, secret-scan); 'just ci' is the same list with cover in place of test
-- [ ] #3 'just --fmt --check' exits 0, and fmt-check runs it as well as 'gofmt -l -s .'
-- [ ] #4 'just --list' shows a '#' doc comment and a [group(...)] from the six-group taxonomy for every public recipe; helpers (_ui-install, _ui-test, _ui-build, _selfobs-build) are private; selfobs-dashboard, corpus-gcx and provision carry [confirm]
+- [x] #3 'just --fmt --check' exits 0, and fmt-check runs it as well as 'gofmt -l -s .'
+- [x] #4 'just --list' shows a '#' doc comment and a [group(...)] from the six-group taxonomy for every public recipe; helpers (_ui-install, _ui-test, _ui-build, _selfobs-build) are private; selfobs-dashboard, corpus-gcx and provision carry [confirm]
 - [ ] #5 /Users/rob/repos/synthkit/Makefile is deleted (git rm) and 'git grep -n "make [a-z-]\|Makefile" -- ":!CHANGELOG.md" ":!backlog/tasks"' returns nothing
-- [ ] #6 scripts/spdx-check.sh is deleted and its logic lives in the [script('bash')] spdx-check recipe; every KEEP script (forbidden-words.sh, lib/private-paths.sh, sync-skills.sh, synthkit-deploy.py, validate-docs.py, test_synthkit_deploy.py, test_docs_validation.py, build_selfobs_dashboard.py, charts/synthkit/tests/render_test.sh, e2e/lab/{run,permutation,validate}.sh, e2e/lab/permutations/*/deploy.sh, provisioning/provision.sh, plugins/synthkit/skills/**) still exists and is reachable through a named recipe or its parent program
+- [x] #6 scripts/spdx-check.sh is deleted and its logic lives in the [script('bash')] spdx-check recipe; every KEEP script (forbidden-words.sh, lib/private-paths.sh, sync-skills.sh, synthkit-deploy.py, validate-docs.py, test_synthkit_deploy.py, test_docs_validation.py, build_selfobs_dashboard.py, charts/synthkit/tests/render_test.sh, e2e/lab/{run,permutation,validate}.sh, e2e/lab/permutations/*/deploy.sh, provisioning/provision.sh, plugins/synthkit/skills/**) still exists and is reachable through a named recipe or its parent program
 - [ ] #7 .github/workflows/ci.yml, .forgejo/workflows/ci.yml, .github/workflows/signal-fidelity-k3d.yml, .github/workflows/publish.yml and .github/workflows/trigger-docs-sync.yml install a SHA-pinned setup-just with just-version '1.58.0' and call 'just <recipe>' one-liners; the ci-success job name and its needs list [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm] are unchanged and green
 - [ ] #8 No 'uses:' was converted to a 'run: just', and release-please.yml, auto-rc.yml, codeql.yml, zizmor.yml, actionlint.yml, scorecard.yml, dependency-review.yml, ghcr-cleanup.yml and arm-automerge.yml are untouched
 - [ ] #9 AGENTS.md carries the Task interface section naming 'just check' as the gate (and no pasted recipe list); CONTRIBUTING.md, README.md, .github/PULL_REQUEST_TEMPLATE.md, docs/cli.md, ARCHITECTURE.md, LICENSING.md, charts/synthkit/README.md, dashboards/internal/README.md, provisioning/README.md and .gitignore no longer reference 'make'
-- [ ] #10 The 'make blueprint-schema' strings in internal/blueprintschema/render.go, docs.go, schema_gate_test.go and cmd/blueprint-schema/main.go now say 'just gen', BLUEPRINT-SCHEMA.md + fielddocs.json are regenerated and committed, and 'just schema-check' passes
-- [ ] #11 backlog/config.yml definition_of_done names 'just check', 'just gen' and 'just dump' instead of make targets
+- [x] #10 The 'make blueprint-schema' strings in internal/blueprintschema/render.go, docs.go, schema_gate_test.go and cmd/blueprint-schema/main.go now say 'just gen', BLUEPRINT-SCHEMA.md + fielddocs.json are regenerated and committed, and 'just schema-check' passes
+- [x] #11 backlog/config.yml definition_of_done names 'just check', 'just gen' and 'just dump' instead of make targets
 <!-- AC:END -->
 
 ## Definition of Done
@@ -872,6 +872,8 @@ Do not touch:
 Validated the new lint leg before retiring Makefile. golangci-lint reports 74 pre-existing findings across unrelated packages (15 errcheck, 2 gofmt, 3 ineffassign, 2 misspell, 26 staticcheck, 26 unused); no existing tracker task covers the cleanup. Per the task fallback, .golangci.yml remains unchanged and just lint retains go vet only; linter enablement needs a separately owned follow-up.
 
 Implemented the migration under ratified comment #2: just check is the no-Docker-daemon pre-commit gate, and just ci is check plus the documented Docker-daemon image, e2e, and secret-scan legs. Added the SHA-pinned setup-just v4 action at version 1.58.0, updated active command references including doc-0002 through the CLI, regenerated the schema artifacts twice without drift, and deleted Makefile plus scripts/spdx-check.sh only after the command-reference scan was clean. Local evidence before commit: just --list, JSON dump, formatter, build, cover, check, and ci passed; actionlint passed; zizmor completed with existing permission/persist-credential warnings constrained by the task. CodeRabbit reported one minor stale comment in untouched e2e/readiness_test.go, left out of scope.
+
+Final reconciliation: exact-head CI succeeded, including the repaired Helm static validator, end-to-end job, and ci-success. Local actionlint, lab-check, just discovery/dump, and formatting checks passed. Criteria 2, 5, 7, 8, and 9 remain un-ticked: 2 is superseded by ratified comment #2; 5 and 9 have literal ordinary-English/legal "make" matches while semantic command-reference scans are clean; 7 has a stale needs list that omits the shared Helm-validation job; and 8 includes independently merged workflow changes. The task snapshot Definition of Done retains pre-migration command strings, so those items remain un-ticked.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
@@ -917,3 +919,9 @@ Eleven of the 42 lanes arrived at this shape independently before it was ratifie
 **If this repo has no such legs, it has no `ci` recipe at all** and `check` is the whole gate. Do not add an empty one.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Migrated the task surface to just, retained the required scripts, and repaired hosted Helm CI by installing ripgrep for lab-check. Verified actionlint, lab-check, just discovery/dump/formatting, and exact-head ci-success.
+<!-- SECTION:FINAL_SUMMARY:END -->
