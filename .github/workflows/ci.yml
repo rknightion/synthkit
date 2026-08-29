@@ -9,6 +9,11 @@ on:
   push:
     branches: [main]
 
+# Cancel a superseded run on the same ref (rapid pushes / PR updates) to free runners.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   go:
     runs-on: ubuntu-latest
