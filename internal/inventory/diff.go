@@ -639,19 +639,20 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 // the document cannot retain a label that only one job emits; source is a corpus modelling gap,
 // not evidence that the synthetic producer invented it.
 func appendMetricLabelKeyDirectional(out *[]Finding, signal string, synthKeys, realityKeys []string) {
-	if signal == "kubernetes_build_info" && equalStrings(difference(synthKeys, realityKeys), []string{"source"}) {
+	synthOnly := difference(synthKeys, realityKeys)
+	if signal == "kubernetes_build_info" && containsString(synthOnly, "source") {
+		synthWithoutSource := difference(synthKeys, []string{"source"})
+		sourceOnlySynth := append(cloneStrings(realityKeys), "source")
+		sort.Strings(sourceOnlySynth)
 		*out = append(*out, Finding{
 			Kind:          KindUnexpectedLabelKey,
 			Disposition:   DispositionCoverageGap,
 			Signal:        signal,
 			Field:         "labels",
-			SynthValues:   cloneStrings(synthKeys),
+			SynthValues:   sourceOnlySynth,
 			RealityValues: cloneStrings(realityKeys),
 		})
-		if len(difference(realityKeys, synthKeys)) == 0 {
-			return
-		}
-		appendDirectional(out, KindUnexpectedLabelKey, signal, "labels", synthKeys, realityKeys, false, true)
+		appendDirectional(out, KindUnexpectedLabelKey, signal, "labels", synthWithoutSource, realityKeys, true, true)
 		return
 	}
 	appendDirectional(out, KindUnexpectedLabelKey, signal, "labels", synthKeys, realityKeys, true, true)

@@ -176,6 +176,27 @@ func TestDiffFoldedBuildInfoSourceIsCoverageGap(t *testing.T) {
 	}
 }
 
+func TestDiffFoldedBuildInfoSourceStaysSeparateFromInventedKeys(t *testing.T) {
+	findings := Diff(
+		metricSchema(Metric{Name: "kubernetes_build_info", Labels: []Attribute{{Key: "source"}, {Key: "invented"}, {Key: "job"}}}),
+		metricSchema(Metric{Name: "kubernetes_build_info", Labels: []Attribute{{Key: "job"}}}),
+	)
+
+	var sourceGap, inventedContradiction bool
+	for _, finding := range findings {
+		onlySynth := difference(finding.SynthValues, finding.RealityValues)
+		if finding.Disposition == DispositionCoverageGap && equalStrings(onlySynth, []string{"source"}) {
+			sourceGap = true
+		}
+		if finding.Disposition == DispositionContradiction && equalStrings(onlySynth, []string{"invented"}) {
+			inventedContradiction = true
+		}
+	}
+	if !sourceGap || !inventedContradiction {
+		t.Fatalf("findings=%+v, want an independent source gap and invented-key contradiction", findings)
+	}
+}
+
 func TestDiffLabelValuesCompareDirectionally(t *testing.T) {
 	for _, test := range []struct {
 		name      string
