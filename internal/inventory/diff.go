@@ -616,7 +616,7 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 	if !sharedLibraryMultiProducerFamily(synth.name) {
 		synthKeys := sortedAttributeKeys(synth.labels)
 		realityKeys := sortedAttributeKeys(reality.labels)
-		appendDirectional(out, KindUnexpectedLabelKey, synth.name, "labels", synthKeys, realityKeys, true, true)
+		appendMetricLabelKeyDirectional(out, synth.name, synthKeys, realityKeys)
 
 		for _, key := range intersection(synthKeys, realityKeys) {
 			appendLabelValueDirectional(out, synth.name, "labels."+key, synth.labels[key], reality.labels[key])
@@ -632,6 +632,29 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 	if len(synthBounds) > 0 && len(realityBounds) > 0 {
 		appendDirectional(out, KindBucketBoundMismatch, synth.name, "histogram.bucket_bounds", formatBounds(synthBounds), formatBounds(realityBounds), true, true)
 	}
+}
+
+// appendMetricLabelKeyDirectional preserves the normal never-invent-a-key rule except for an
+// explicitly folded corpus family. kubernetes_build_info combines kubelet and kube-proxy jobs, so
+// the document cannot retain a label that only one job emits; source is a corpus modelling gap,
+// not evidence that the synthetic producer invented it.
+func appendMetricLabelKeyDirectional(out *[]Finding, signal string, synthKeys, realityKeys []string) {
+	if signal == "kubernetes_build_info" && equalStrings(difference(synthKeys, realityKeys), []string{"source"}) {
+		*out = append(*out, Finding{
+			Kind:          KindUnexpectedLabelKey,
+			Disposition:   DispositionCoverageGap,
+			Signal:        signal,
+			Field:         "labels",
+			SynthValues:   cloneStrings(synthKeys),
+			RealityValues: cloneStrings(realityKeys),
+		})
+		if len(difference(realityKeys, synthKeys)) == 0 {
+			return
+		}
+		appendDirectional(out, KindUnexpectedLabelKey, signal, "labels", synthKeys, realityKeys, false, true)
+		return
+	}
+	appendDirectional(out, KindUnexpectedLabelKey, signal, "labels", synthKeys, realityKeys, true, true)
 }
 
 // sharedLibraryMultiProducerFamily identifies process-wide library metrics whose global family

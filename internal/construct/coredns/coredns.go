@@ -241,9 +241,9 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// Baseline DNS request rate (req/s equivalent per tick), shared across all per-pod calls.
 	reqRate := 50.0 + factor*200
 
-	// ── coredns_build_info (G; static=1, core labels + server) ─────────────────
-	// Emitted per pod (recon §A2: one per-pod series).
-	withEach(map[string]string{"server": coreDNSServer}, func(lbls map[string]string) {
+	// ── coredns_build_info (G; static=1, startup registration) ──────────────────
+	// Build information is registered at startup, not served per DNS server.
+	withEach(nil, func(lbls map[string]string) {
 		c.st.Set("coredns_build_info", lbls, 1)
 	})
 

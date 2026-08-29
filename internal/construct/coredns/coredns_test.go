@@ -566,6 +566,14 @@ func TestServerLabel(t *testing.T) {
 	}
 }
 
+func TestBuildInfoHasNoServerLabel(t *testing.T) {
+	for _, labels := range labelsFor(tickOnce(t, buildDefault(t)).All(), "coredns_build_info") {
+		if _, ok := labels["server"]; ok {
+			t.Fatalf("coredns_build_info labels=%v include server; build identity is registered at startup, not served per DNS server", labels)
+		}
+	}
+}
+
 // ─── (k) proxy upstream labels ───────────────────────────────────────────────
 
 // TestProxyUpstreamLabel verifies the proxy upstream is the VPC DNS resolver

@@ -3,9 +3,10 @@ id: SKT-0028
 title: >-
   Three exemption rules exempt a likely defect or modelling gap, not capture
   narrowness
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-29 16:49'
+updated_date: '2026-08-29 17:59'
 labels: []
 dependencies: []
 priority: medium
@@ -47,3 +48,9 @@ None of this undermines the gate. The mechanism keeps all three visible with the
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+After SKT-0027, remove the invented CoreDNS build-info server label, decide and resolve the manifest stream divergence, represent the folded build-info per-job limitation as a corpus modelling gap rather than an exemption, then delete obsolete rules and validate counts.
+<!-- SECTION:PLAN:END -->

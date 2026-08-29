@@ -172,7 +172,7 @@ note: "⚠ no controller-runtime / no rest_client_*"
 
 ---
 
-## CoreDNS (✅ real `job="integrations/kubernetes/kube-dns"`, app=`kube-dns`, container=`coredns`, ns `kube-system`, instance `<podIP>:9153`; ~~`integrations/coredns`~~; base label `server="dns://:53"`) [slug: k8s-coredns]
+## CoreDNS (✅ real `job="integrations/kubernetes/kube-dns"`, app=`kube-dns`, container=`coredns`, ns `kube-system`, instance `<podIP>:9153`; ~~`integrations/coredns`~~) [slug: k8s-coredns]
 
 `coredns_dns_requests_total` (C; `zone=".",view="",proto,family,type`), `coredns_dns_responses_total`
 (C; `rcode,plugin="forward"`), `coredns_dns_request_duration_seconds` (H), `_request_size_bytes` (H),
@@ -183,6 +183,10 @@ note: "⚠ no controller-runtime / no rest_client_*"
 `coredns_panics_total` (C; =0 always), `coredns_plugin_enabled` (G). Enums: `rcode` ∈ {NOERROR(93%),
 NXDOMAIN(6%),SERVFAIL(1%)}, `proto` ∈ {udp(90%),tcp(10%)}, query `type` ∈ {A,AAAA,PTR,SRV,HTTPS},
 `family="1"`, upstream `to` ∈ {8.8.8.8:53, 8.8.4.4:53}.
+
+> `coredns_build_info` is startup-registered build identity: the k3d capture carries
+> `goversion` and no `server`. CoreDNS's metrics plugin adds `server="dns://:53"` to
+> served metrics, not to build identity (CoreDNS 1.1.3 release notes, read 2026-08-29).
 
 > ⚠ **`coredns_hosts_*` is NOT emitted.** synthkit models a Corefile that does not load the
 > `hosts` plugin, and a real CoreDNS registers that plugin's metrics only when the plugin loads.
@@ -202,8 +206,8 @@ labels:
   source: kubernetes              # k3d_lab capture 2026-08-27; job-scoped collector label
   namespace: kube-system
   instance: <podIP>:9153
-  server: "dns://:53"
 metrics:
+  - {root: coredns_build_info, type: gauge, unit: info, v: ok, note: "startup build identity; goversion; no server label"}
   - {root: coredns_dns_requests_total, type: counter, unit: requests, v: ok, note: 'zone=".",view="",proto,family,type labels'}
   - {root: coredns_dns_responses_total, type: counter, unit: responses, v: ok, note: 'rcode,plugin="forward"'}
   - {root: coredns_dns_request_duration_seconds, type: histogram, unit: seconds, v: ok}

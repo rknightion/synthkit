@@ -163,6 +163,19 @@ func TestDiffNonSharedMetricStillComparesLabels(t *testing.T) {
 	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionCoverageGap, "application_process_state", "labels")
 }
 
+func TestDiffFoldedBuildInfoSourceIsCoverageGap(t *testing.T) {
+	findings := Diff(
+		metricSchema(Metric{Name: "kubernetes_build_info", Labels: []Attribute{{Key: "source"}}}),
+		metricSchema(Metric{Name: "kubernetes_build_info", Labels: []Attribute{{Key: "job"}}}),
+	)
+	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionCoverageGap, "kubernetes_build_info", "labels")
+	for _, finding := range findings {
+		if finding.Disposition == DispositionContradiction {
+			t.Fatalf("findings=%+v, folded build-info source must not contradict the combined corpus family", findings)
+		}
+	}
+}
+
 func TestDiffLabelValuesCompareDirectionally(t *testing.T) {
 	for _, test := range []struct {
 		name      string

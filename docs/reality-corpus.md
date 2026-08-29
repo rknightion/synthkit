@@ -197,6 +197,10 @@ corpus producer must therefore understand what its output means:
 - **Label keys.** A key synthkit emits that the reality view does not carry is a
   contradiction; that is the never-invent-a-name rule and it is not relaxed. A
   key reality carries that synthkit does not emit is a coverage gap.
+- **Folded producer families.** A corpus family that combines several jobs cannot
+  establish the absence of a job-specific key. `kubernetes_build_info` currently
+  folds kubelet and kube-proxy, so its `source` difference is a coverage gap that
+  records the corpus modelling limit, not an exemption or a synth defect.
 - **Read-path enrichment labels.** A label a producer's read path adds after
   collector egress is not evidence about the emitted shape. Declare it in that
   producer's `source.enrichment_labels`, with the provenance that says why the
@@ -204,6 +208,13 @@ corpus producer must therefore understand what its output means:
   before comparison, in both the key and the value comparison. The declaration is
   per producer on purpose: one producer's read-path quirk must never govern
   another producer that does not add the key.
+- **Destination-derived labels.** The corpus normally records collector egress,
+  while synthkit may intentionally model a final destination shape. Loki derives
+  `service_name` after ingestion when it is absent from an incoming stream. The
+  manifest-stream exemption records that exact pre-ingest/post-ingest boundary;
+  it does not claim that either the capture or synthkit is defective. The same
+  finding's reality-only `instance` key remains a separate coverage gap under
+  absent-evidence semantics and is not hidden by the exemption.
 - **Read-path enrichment values.** A read path also writes markers into the
   value of a label that is otherwise genuine collector-egress evidence: Grafana
   Cloud Adaptive Metrics replaces a retained label's value with `<aggregated>`

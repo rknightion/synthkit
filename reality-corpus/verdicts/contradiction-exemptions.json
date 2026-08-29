@@ -14,20 +14,8 @@
       "expected_matches": 1
     },
     {
-      "id": "capture-k8s-build-info-source",
-      "reason": "The folded EKS build-info family combines jobs with different source-stamping behavior, so this capture does not retain source on the combined family.",
-      "area": "k8s",
-      "source_kind": "gcx_live_readback",
-      "substrate": "eks",
-      "finding_kind": "unexpected_label_key",
-      "field": "labels",
-      "signal": "kubernetes_build_info",
-      "only_in_synth": ["source"],
-      "expected_matches": 1
-    },
-    {
       "id": "capture-manifest-service-name",
-      "reason": "The k3d Loki readback does not retain the service_name stream label that synthkit sets on the manifest stream.",
+      "reason": "The corpus observes collector egress before Loki derives service_name; synthkit intentionally models the final ingested stream after that destination-side derivation.",
       "area": "k8s",
       "source_kind": "k3d_lab",
       "substrate": "k3s",
@@ -35,18 +23,6 @@
       "field": "stream_labels",
       "signal": "loki[family=k8s_manifests]",
       "only_in_synth": ["service_name"],
-      "expected_matches": 1
-    },
-    {
-      "id": "capture-coredns-build-server",
-      "reason": "The k3d CoreDNS build-info readback does not expose the server label that synthkit models for CoreDNS build identity.",
-      "area": "k8s-addons",
-      "source_kind": "k3d_lab",
-      "substrate": "k3s",
-      "finding_kind": "unexpected_label_key",
-      "field": "labels",
-      "signal": "coredns_build_info",
-      "only_in_synth": ["server"],
       "expected_matches": 1
     }
   ]
