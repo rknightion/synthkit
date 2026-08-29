@@ -3,10 +3,10 @@ id: SKT-0027
 title: >-
   The only-in-synth value rule is too blunt: deployment-specific values are
   absent evidence
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-29 16:49'
-updated_date: '2026-08-29 17:59'
+updated_date: '2026-08-29 19:27'
 labels: []
 dependencies: []
 priority: high
@@ -34,19 +34,19 @@ This interacts directly with SKT-0020.05: once AKS and GKE captures exist, `regi
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A label whose value set is deployment-specific reports its only-in-synth values as a coverage gap, not a contradiction
-- [ ] #2 A label whose value set is closed and enumerable still reports an impossible synth value as a contradiction
-- [ ] #3 Where the corpus cannot distinguish the two, absent evidence wins, consistent with SKT-0010.01
-- [ ] #4 The exemption rules the change makes redundant are deleted, not left matching zero findings
-- [ ] #5 The remaining exemption count reflects genuine reviewed differences rather than capture narrowness
-- [ ] #6 docs/reality-corpus.md states the open-versus-closed value-set distinction and how a label is classified
+- [x] #1 A label whose value set is deployment-specific reports its only-in-synth values as a coverage gap, not a contradiction
+- [x] #2 A label whose value set is closed and enumerable still reports an impossible synth value as a contradiction
+- [x] #3 Where the corpus cannot distinguish the two, absent evidence wins, consistent with SKT-0010.01
+- [x] #4 The exemption rules the change makes redundant are deleted, not left matching zero findings
+- [x] #5 The remaining exemption count reflects genuine reviewed differences rather than capture narrowness
+- [x] #6 docs/reality-corpus.md states the open-versus-closed value-set distinction and how a label is classified
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -54,3 +54,15 @@ This interacts directly with SKT-0020.05: once AKS and GKE captures exist, `regi
 <!-- SECTION:PLAN:BEGIN -->
 Classify only-in-synth label values using explicit closed-value evidence; default unknown/open sets to absent-evidence gaps, delete the nine now-redundant exemption rules, document semantics, and prove both open and structurally impossible cases.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Completed 2026-08-29. Label values are open by default and only explicit signal-and-field closed sets contradict. Removed nine rules accounting for 251 matches; the exemption surface moved from 13 rules/256 matches to 4 rules/5 matches at this task boundary. Focused tests covered open region values, closed CoreDNS rcode values, the reviewed build-info job set, and two-way open sets. Final wave gates: just check, just dump, and just signal-fidelity passed; just gen was not required because no blueprint/config/skill surface changed.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Changed synth-only values from contradictions to coverage gaps unless the signal contract explicitly proves a closed set. Deleted the nine redundant capture-narrowness rules and documented the rule. Verified by focused comparator/report tests and the full final gates.
+<!-- SECTION:FINAL_SUMMARY:END -->

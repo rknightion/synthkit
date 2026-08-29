@@ -3,10 +3,10 @@ id: SKT-0028
 title: >-
   Three exemption rules exempt a likely defect or modelling gap, not capture
   narrowness
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-29 16:49'
-updated_date: '2026-08-29 17:59'
+updated_date: '2026-08-29 19:27'
 labels: []
 dependencies: []
 priority: medium
@@ -36,17 +36,17 @@ None of this undermines the gate. The mechanism keeps all three visible with the
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 coredns_build_info no longer carries an invented server label, or evidence is produced that real CoreDNS does carry it
-- [ ] #2 Whether synthkit sets service_name on the Loki manifest stream is decided with its reason, and the instance divergence in the same finding is resolved
-- [ ] #3 The folded build-info family's inability to represent per-job labels is recorded as a corpus modelling gap rather than left as an exemption
-- [ ] #4 Every exemption rule that survives describes capture narrowness, and its reason does not assign to the capture a limitation that belongs to synthkit
+- [x] #1 coredns_build_info no longer carries an invented server label, or evidence is produced that real CoreDNS does carry it
+- [x] #2 Whether synthkit sets service_name on the Loki manifest stream is decided with its reason, and the instance divergence in the same finding is resolved
+- [x] #3 The folded build-info family's inability to represent per-job labels is recorded as a corpus modelling gap rather than left as an exemption
+- [x] #4 Every exemption rule that survives describes capture narrowness, and its reason does not assign to the capture a limitation that belongs to synthkit
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -54,3 +54,15 @@ None of this undermines the gate. The mechanism keeps all three visible with the
 <!-- SECTION:PLAN:BEGIN -->
 After SKT-0027, remove the invented CoreDNS build-info server label, decide and resolve the manifest stream divergence, represent the folded build-info per-job limitation as a corpus modelling gap rather than an exemption, then delete obsolete rules and validate counts.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Completed 2026-08-29. Removed server from coredns_build_info and its exemption. Kept manifest service_name as an exact pre-ingest versus destination-derived boundary while leaving reality-only instance visible as a coverage gap. Reclassified folded kubernetes_build_info source as a corpus-modelling gap and removed its exemption. CodeRabbit found that source could be conflated with a second invented key; a failing regression reproduced it, the comparator now separates the source gap from the invented-key contradiction, and the focused test passes. Final state: 2 rules/2 matches. Final wave gates passed; just gen was not required.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Resolved all three reviewed exemptions: corrected CoreDNS build identity, documented the manifest destination boundary, and represented folded build-info source as a coverage gap. Verified with focused emitter/comparator tests, adversarial fidelity runs, CodeRabbit review, and the full final gates.
+<!-- SECTION:FINAL_SUMMARY:END -->

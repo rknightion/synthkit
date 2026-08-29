@@ -3,10 +3,10 @@ id: SKT-0029
 title: >-
   Exemption drift aborts before the report, hiding every co-occurring
   contradiction
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-29 16:49'
-updated_date: '2026-08-29 17:59'
+updated_date: '2026-08-29 19:27'
 labels: []
 dependencies: []
 priority: medium
@@ -32,16 +32,16 @@ Fix by collecting exemption drift as a finding rather than a fatal error: still 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An exemption count mismatch still fails the build and still names the stale rule
-- [ ] #2 The full report is printed alongside it, so co-occurring contradictions are visible in the same run
-- [ ] #3 A run with both an exemption drift and an unrelated new contradiction names both
+- [x] #1 An exemption count mismatch still fails the build and still names the stale rule
+- [x] #2 The full report is printed alongside it, so co-occurring contradictions are visible in the same run
+- [x] #3 A run with both an exemption drift and an unrelated new contradiction names both
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -49,3 +49,15 @@ Fix by collecting exemption drift as a finding rather than a fatal error: still 
 <!-- SECTION:PLAN:BEGIN -->
 After SKT-0028, collect exemption-drift diagnostics without aborting report generation; retain fail-closed behavior while reporting stale rules and all co-occurring contradictions, with focused regression coverage.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Completed 2026-08-29. signal-fidelity now applies exemptions, writes the complete report, then returns any drift error. Adversarial runs proved a dropped rule still fails after printing the report, a corrupted expected_matches still names the stale rule, an injected CoreDNS label regression names the signal/field/label, and combined drift plus regression names both. Final wave gates passed; just gen was not required.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Moved exemption-drift failure after report generation without weakening fail-closed behavior. Verified standalone and combined drift/regression paths plus the full final gates.
+<!-- SECTION:FINAL_SUMMARY:END -->

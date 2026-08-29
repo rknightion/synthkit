@@ -3,10 +3,10 @@ id: SKT-0011
 title: >-
   User-acceptance round: agent-run scenarios on a clean machine and a fresh
   Grafana Cloud stack
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-27 07:06'
-updated_date: '2026-08-29 17:59'
+updated_date: '2026-08-29 19:27'
 labels: []
 dependencies: []
 priority: high
@@ -40,23 +40,23 @@ Do not name the stack, account or tenant in tracker text, code, docs or commit m
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A durable scenario catalogue exists that an agent can execute end to end without a human filling in gaps
-- [ ] #2 Each scenario states its precondition, the action, and an observable assertion against the live stack rather than a local exit code
+- [x] #1 A durable scenario catalogue exists that an agent can execute end to end without a human filling in gaps
+- [x] #2 Each scenario states its precondition, the action, and an observable assertion against the live stack rather than a local exit code
 - [ ] #3 Every shipped blueprint is deployed and its declared signals confirmed arriving
 - [ ] #4 Every optional lane is exercised with real credentials, including the lanes that silently disable themselves when unconfigured
-- [ ] #5 Anything synthkit needs on a stack but does not create is identified, since the existing lab environment hides that class of defect
-- [ ] #6 Generated dashboards are pushed to the fresh stack and panels that render empty against real synthkit output are recorded
-- [ ] #7 Every scenario carries a pass or fail verdict, and failures record what a new user would have seen
-- [ ] #8 Findings become tracked work rather than living only in the run output
-- [ ] #9 The catalogue is re-runnable for a future release without being rewritten
-- [ ] #10 No stack, account or tenant identifier appears in any committed text
+- [x] #5 Anything synthkit needs on a stack but does not create is identified, since the existing lab environment hides that class of defect
+- [x] #6 Generated dashboards are pushed to the fresh stack and panels that render empty against real synthkit output are recorded
+- [x] #7 Every scenario carries a pass or fail verdict, and failures record what a new user would have seen
+- [x] #8 Findings become tracked work rather than living only in the run output
+- [x] #9 The catalogue is re-runnable for a future release without being rewritten
+- [x] #10 No stack, account or tenant identifier appears in any committed text
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
-- [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -109,4 +109,12 @@ Shape that satisfies group A: a container with no synthkit history, carrying Go 
 **Caveat a runner must record rather than trip over:** the mounted socket means the host Docker daemon's image cache is shared, so `docker pull ghcr.io/rknightion/synthkit` may resolve locally and prove nothing about a cold pull. Remove the image from the daemon before any scenario that claims to test pulling, or mark that scenario partially covered and say why.
 
 Installing the toolchain inside the container is setup, not a finding. Anything the shipped documentation fails to tell a user to install **is** a finding — `installation.md` references `just check` at line 38, so whether it tells a new user how to obtain `just` is exactly the class of gap group A exists to catch. Record it; do not fix it.
+
+Completed 2026-08-29 from a public clone in a disposable Go 1.27 container, following shipped instructions without product fixes. All 46 scenario IDs have recorded new-user-visible outcomes: 14 pass, 22 fail, 10 blocked. All 26 blueprints were exercised individually, but declared-signal arrival was not proved for every blueprint, so acceptance criterion 3 remains unchecked. Optional products were classified before verdicts; profiles lacked write authority and other scenarios hit unsupported-product boundaries, so criterion 4 remains unchecked. The 22 failures are tracked by SKT-0030 through SKT-0038. just check, just dump, just signal-fidelity, and Docker-backed just e2e passed for the completed wave; no generation surface changed.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Executed and recorded the 46-scenario fresh-container/fresh-stack round with actionable user-visible evidence. Logged 14 passes, 22 failures, and 10 blocked outcomes; converted every failure into SKT-0030 through SKT-0038. Left the two unproved acceptance criteria unchecked.
+<!-- SECTION:FINAL_SUMMARY:END -->
