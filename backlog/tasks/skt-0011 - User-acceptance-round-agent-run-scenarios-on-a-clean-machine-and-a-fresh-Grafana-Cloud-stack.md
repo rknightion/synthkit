@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 07:06'
-updated_date: '2026-08-29 17:33'
+updated_date: '2026-08-29 17:37'
 labels: []
 dependencies: []
 priority: high
@@ -95,4 +95,12 @@ Consequence a runner should expect and not report as a defect: the vending claim
 **Still needed before the round runs: the clean machine.** Group A requires a host with no synthkit history, since its whole purpose is that the agent follows the shipped instructions literally and records every improvised step. The remaining decision is whether that is a throwaway VM or a clean container.
 
 Reminder for whoever runs this: the credentials cover the required lanes, but group B also exercises the optional ones that silently disable themselves when unconfigured. Check which of those the vended stack actually supports before recording a lane as failed — an unsupported product on the stack is a different verdict from a synthkit defect.
+
+2026-08-29, decided by Rob: the clean machine is a **fresh container on his Mac**. Both blockers are now cleared and this round is runnable.
+
+Shape that satisfies group A: a container with no synthkit history, carrying Go 1.27 (`installation.md` says earlier toolchains are rejected), git, and the Docker CLI plus Compose with the host Docker socket mounted, since A6 exercises the documented Compose path and `installation.md` requires Compose 2.24.4 or later. Clone from the public GitHub URL exactly as the docs instruct rather than mounting the local checkout — a bind mount carries the working tree's state and defeats the point.
+
+**Caveat a runner must record rather than trip over:** the mounted socket means the host Docker daemon's image cache is shared, so `docker pull ghcr.io/rknightion/synthkit` may resolve locally and prove nothing about a cold pull. Remove the image from the daemon before any scenario that claims to test pulling, or mark that scenario partially covered and say why.
+
+Installing the toolchain inside the container is setup, not a finding. Anything the shipped documentation fails to tell a user to install **is** a finding — `installation.md` references `just check` at line 38, so whether it tells a new user how to obtain `just` is exactly the class of gap group A exists to catch. Record it; do not fix it.
 <!-- SECTION:NOTES:END -->
