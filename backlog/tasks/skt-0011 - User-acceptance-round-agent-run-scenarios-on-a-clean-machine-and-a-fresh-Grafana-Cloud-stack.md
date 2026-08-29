@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-27 07:06'
-updated_date: '2026-08-28 10:07'
+updated_date: '2026-08-29 17:33'
 labels: []
 dependencies: []
 priority: high
@@ -83,4 +83,16 @@ Why this round still needs a THIRD, FRESH stack rather than reusing the emission
 So the division for this round: the fresh stack is the one-off cold-start test, and the existing emission-test stack remains the everyday check for whether emission looks right. Do not substitute one for the other.
 
 Credentials for the emission path already exist on that deployment host if a comparison against the established stack is useful mid-round.
+
+2026-08-29 — UNBLOCKED on the stack half. A dedicated bare Grafana Cloud stack has been vended for this round. Its slug, region, and the Secrets Manager paths holding its telemetry and admin credentials are recorded on **EKS-0069 in the private infrastructure tracker**, deliberately not here: this repository is public and the standing rule is that no stack, account or tenant identifier appears in committed text.
+
+**It is genuinely bare, which took an extra step.** Both catalogs the vending machine ships set `baselineDashboards.enabled: true`, which creates three starter folders and dashboards. That is exactly the pre-existing structure group G5 must not have, so the request uses the minimal catalog *and* patches that field to false. A stack that arrives with folders already in it cannot reveal a folder synthkit fails to create.
+
+Consequence a runner should expect and not report as a defect: the vending claim shows `Ready=False`. The only unready composed resource is the per-stack ProviderConfig, which nothing references because there are no dashboards or folders to manage. The stack, its credentials and its ingest endpoints are live and usable.
+
+**The stack is temporary.** It is destroyed once this round completes, through a three-stage decommission recorded on EKS-0069. Do not treat it as a durable environment or build anything on it that needs to survive.
+
+**Still needed before the round runs: the clean machine.** Group A requires a host with no synthkit history, since its whole purpose is that the agent follows the shipped instructions literally and records every improvised step. The remaining decision is whether that is a throwaway VM or a clean container.
+
+Reminder for whoever runs this: the credentials cover the required lanes, but group B also exercises the optional ones that silently disable themselves when unconfigured. Check which of those the vended stack actually supports before recording a lane as failed — an unsupported product on the stack is a different verdict from a synthkit defect.
 <!-- SECTION:NOTES:END -->
