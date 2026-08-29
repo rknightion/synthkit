@@ -315,7 +315,12 @@ func startReadinessSynthkitForBlueprint(
 			Env:      env,
 			Files:    files,
 			Networks: networks,
-			WaitingFor: wait.ForListeningPort("8088/tcp").
+			// A listening-port probe only proves Docker's published port accepts a
+			// dial, which it does before the control listener serves. Wait on a real
+			// HTTP answer instead, accepting 503: fresh readiness is legitimately red.
+			WaitingFor: wait.ForHTTP(readinessPath).
+				WithPort("8088/tcp").
+				WithStatusCodeMatcher(func(int) bool { return true }).
 				WithStartupTimeout(2 * time.Minute),
 		},
 		Started: true,
@@ -403,30 +408,40 @@ func getReadiness(ctx context.Context, client *http.Client, baseURL string) (int
 	return resp.StatusCode, report, string(body), nil
 }
 
-func getDetailedReadiness(t *testing.T, ctx context.Context, client *http.Client, baseURL string) readinessReport {
-	t.Helper()
+// tryDetailedReadiness fetches the authenticated status without failing the test, so a caller
+// polling towards a deadline can absorb a transient blip instead of ending the run on it.
+func tryDetailedReadiness(ctx context.Context, client *http.Client, baseURL string) (readinessReport, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+controlStatusPath, nil)
 	if err != nil {
-		t.Fatalf("create authenticated status request: %v", err)
+		return readinessReport{}, fmt.Errorf("create authenticated status request: %w", err)
 	}
 	req.SetBasicAuth("control", controlToken)
 	resp, err := client.Do(req)
 	if err != nil {
-		t.Fatalf("get authenticated status: %v", err)
+		return readinessReport{}, fmt.Errorf("get authenticated status: %w", err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Fatalf("read authenticated status: %v", err)
+		return readinessReport{}, fmt.Errorf("read authenticated status: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("authenticated status HTTP status = %d, want 200; body=%s", resp.StatusCode, body)
+		return readinessReport{}, fmt.Errorf("authenticated status HTTP status = %d, want 200; body=%s", resp.StatusCode, body)
 	}
 	var status readinessStatus
 	if err := json.Unmarshal(body, &status); err != nil {
-		t.Fatalf("decode authenticated status: %v; body=%s", err, body)
+		return readinessReport{}, fmt.Errorf("decode authenticated status: %w; body=%s", err, body)
 	}
-	return status.Readiness
+	return status.Readiness, nil
+}
+
+func getDetailedReadiness(t *testing.T, ctx context.Context, client *http.Client, baseURL string) readinessReport {
+	t.Helper()
+	report, err := tryDetailedReadiness(ctx, client, baseURL)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	return report
 }
 
 func assertDetailedReadinessRequiresAuth(t *testing.T, ctx context.Context, client *http.Client, baseURL string) {
@@ -464,16 +479,28 @@ func waitForDetailedReadiness(
 	t.Helper()
 	deadline := time.Now().Add(readinessTimeout)
 	var lastReport readinessReport
+	var lastErr error
 	for time.Now().Before(deadline) {
-		lastReport = getDetailedReadiness(t, ctx, client, baseURL)
-		if done(lastReport) {
-			return lastReport
+		report, err := tryDetailedReadiness(ctx, client, baseURL)
+		if err != nil {
+			// A transient error during container warm-up is expected; only a
+			// persistent one reaches the deadline below, carrying its reason.
+			lastErr = err
+		} else {
+			lastErr = nil
+			lastReport = report
+			if done(lastReport) {
+				return lastReport
+			}
 		}
 		select {
 		case <-ctx.Done():
 			t.Fatalf("wait for readiness: %v", ctx.Err())
 		case <-time.After(500 * time.Millisecond):
 		}
+	}
+	if lastErr != nil {
+		t.Fatalf("detailed readiness never became readable within %s: %v", readinessTimeout, lastErr)
 	}
 	t.Fatalf("detailed readiness condition not met within %s: report=%+v", readinessTimeout, lastReport)
 	return readinessReport{}
