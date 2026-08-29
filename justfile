@@ -2,7 +2,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 # Tooling pins. Overridable from the environment and Renovate-managed from this file.
 # renovate: datasource=github-releases depName=golangci/golangci-lint
-golangci_version := env('GOLANGCI_LINT_VERSION', 'v2.6.0')
+golangci_version := env('GOLANGCI_LINT_VERSION', 'v2.13.2')
 # renovate: datasource=github-releases depName=google/go-licenses
 go_licenses_version := env('GO_LICENSES_VERSION', 'v2.0.1')
 # renovate: datasource=github-releases depName=anchore/syft
