@@ -11,7 +11,7 @@ go 1.27.0
 //   github.com/grafana/grafana-foundation-sdk/go  — Grafana dashboard builder (GA v2 schema), TOOLING ONLY (cmd/synthkit-dash; never the emit binary)
 
 require (
-	filippo.io/age v1.3.1
+	filippo.io/age v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.18
 	github.com/grafana/nanogit v1.4.2
