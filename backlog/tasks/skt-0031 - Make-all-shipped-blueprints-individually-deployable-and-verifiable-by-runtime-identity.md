@@ -7,7 +7,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-08-29 19:05'
-updated_date: '2026-08-30 14:17'
+updated_date: '2026-08-30 18:42'
 labels: []
 dependencies: []
 references:
@@ -53,6 +53,33 @@ Lane B exposes canonical runtime identity and declared signal verification; root
 2026-08-30 closeout: runtime identity, declared-signal verification, live query mapping, and identity projections landed and passed the final gates. Live verification covered the eight-blueprint acceptance deployment, not every one of the 26 shipped blueprints individually.
 
 2026-08-31 verification: the canonical verifier enumerated all 28 runtime identities with bounded concurrency. Twenty completed every declared live signal assertion; eight returned explicit named lane failures: missing traces_host_info in two identities, missing gen-AI bucket in one, stale Loki success in four, and a Sigil error in one. The verifier did not hide or infer any identity.
+
+2026-08-30, Wave A triage. NOT finalised, and the blocker is a deliberate decision rather than
+missing work.
+
+Every acceptance criterion and every Definition-of-Done item is already ticked. What keeps this
+Parked is the resume boundary itself: it requires just e2e-identity to be re-run for the eight
+identities that returned named lane failures, and that recipe needs a synthkit control plane on
+127.0.0.1:8088 plus GC_PROM_RW / GC_PROM_USER / GC_TOKEN.
+
+The local Docker deployment was TORN DOWN on Rob instruction the same day - "we should leave the
+EKS lab running only the local one can be stopped" - so finishing this means standing the local
+deployment back up, which reverses a decision he made rather than completing work he asked for.
+Flagging instead of doing it.
+
+The eight retained failures, so the resume needs no re-discovery:
+  missing traces_host_info   2 identities
+  missing gen-AI bucket      1
+  stale Loki success         4
+  Sigil error                1  -- owned by SKT-0043, which has already established the Sigil
+                                   endpoint and payload contract changed under the Agent
+                                   Observability rebrand. Do not debug this one here.
+
+So seven identities are genuinely this task, and the eighth resolves when SKT-0043 lands. Worth
+sequencing SKT-0043 first to avoid chasing a failure whose cause is already known.
+
+The EKS lab is not a substitute host: it runs a fixed six-lane blueprint selection under ArgoCD,
+not the 26 shipped blueprints this task enumerates.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
