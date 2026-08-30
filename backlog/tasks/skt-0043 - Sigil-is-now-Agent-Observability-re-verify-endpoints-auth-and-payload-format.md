@@ -4,7 +4,7 @@ title: 'Sigil is now Agent Observability: re-verify endpoints, auth and payload 
 status: To Do
 assignee: []
 created_date: '2026-08-30 12:35'
-updated_date: '2026-08-30 12:36'
+updated_date: '2026-08-30 14:29'
 labels: []
 dependencies: []
 ordinal: 134000
@@ -30,7 +30,7 @@ Scope, and none of it should be taken from memory or from the existing code, whi
   - whether the vocabulary the construct emits still matches the product's schema
   - whether the emitted signal is still a distinct product surface at all, or has folded into an existing OTLP or Prometheus path, which would change the design rather than the endpoint
 
-Also re-check the credential topology while in here: the same local deployment had GC_PROFILES_USER=1319552 (robk) and GC_PYROSCOPE_USER=1802885 (rkaidev) pointed at the SAME profiles host. Two tenants for one signal in one process; one of them is wrong.
+Also re-check the credential topology while in here. The generated-profiles sink and process self-profiling sink use separate credential triplets and may deliberately target different stacks even when they share a regional profiles host. Do not infer a mismatch from the shared host.
 
 A rejected sink must not be able to fail silently for hours again. Whatever the fix, the readiness or self-observability surface should make a persistently failing sink visible without reading container logs.
 <!-- SECTION:DESCRIPTION:END -->
@@ -40,7 +40,7 @@ A rejected sink must not be able to fail silently for hours again. Whatever the 
 - [ ] #1 Current endpoints, auth and payload format are confirmed against the live product or current vendor docs, with provenance recorded
 - [ ] #2 An actual rejection response body is captured and the cause named, not inferred from the status code
 - [ ] #3 The sigil construct and its signals entry are corrected to match, or the lane is explicitly retired if the product surface no longer exists
-- [ ] #4 The profiles/pyroscope tenant mismatch is resolved
+- [x] #4 The profiles/pyroscope tenant mismatch is resolved
 - [ ] #5 A persistently failing sink is visible without reading container logs
 <!-- AC:END -->
 
@@ -58,30 +58,47 @@ Restoring one line the description lost to shell substitution when this task was
 
 The same container was also logging a faro sink flush failure with code=transport, which is a DIFFERENT failure mode from the sigil rejection and probably a separate problem — do not assume one fix covers both. A transport code means the request did not complete; a rejected code means the endpoint answered and refused the payload.
 
-Full context on where synthkit was running when this was found, 2026-08-30:
-  local Docker      -> robk    (metrics, OTLP, profiles) — this is the one that was failing; now STOPPED
-  EKS lab robknight -> rkaidev (GC_PROM_USER 3529994, GC_OTLP_USER and GC_PROFILES_USER 1802885) — left running deliberately
-  jules             -> nothing
-  camden            -> synthetic-monitoring-agent only, not synthkit
+Privacy-safe context on where synthkit was running when this was found, 2026-08-30:
+  local acceptance deployment -> selected synthetic target; this is the one that was failing and was stopped
+  separate lab deployment     -> different selected target; left running deliberately
+  other reviewed hosts        -> no synthkit process
 
-So the sigil rejection was observed against the robk-targeted local deployment. Whether the rkaidev-targeted EKS deployment is failing the same way has NOT been checked and should be, because it has been running 42 hours and nothing surfaces a per-sink failure except the container log.
+So the sigil rejection was observed against the local acceptance deployment. Whether the separate lab deployment was failing the same way had not yet been checked, and nothing surfaced a per-sink failure except the container log.
 
-Answered the open question above, same day. The EKS deployment is NOT failing the same way, and the reason is which blueprints each runs:
+Answered the open question above, same day. The separate lab deployment was not failing the same way, and the reason was which blueprints each selected:
 
-  local Docker -> robk, 8 blueprints:
+  local acceptance deployment, 8 blueprints:
     k8s-full-stack, aws-cloud-services, dbo11y-mysql, netobs-enterprise,
     profiling-demo, otlp-native, acme-ai-platform, synthetic-checks
     Result: readiness 503, sigil rejected continuously, faro transport errors.
 
-  EKS robknight -> rkaidev, 7 blueprints:
+  separate lab deployment, 7 blueprints:
     k8s-full-stack, k8s-logs-events, aws-cloud-services, dbo11y-mysql,
     netobs-enterprise, otlp-native, profiling-demo
     Result: 1/1 Running 42h, ZERO lines matching failed or error in a 10 minute window,
     heartbeat healthy.
 
-The two sets differ: EKS has k8s-logs-events and does NOT have acme-ai-platform or synthetic-checks. acme-ai-platform is the blueprint that carries the sigil lane, so the EKS deployment never exercises it — that is why it is clean, not because the sigil lane works there.
+The two sets differ: the separate lab deployment has k8s-logs-events and does not have acme-ai-platform or synthetic-checks. acme-ai-platform is the blueprint that carries the sigil lane, so that deployment never exercises it — that is why it is clean, not because the sigil lane works there.
 
 Two consequences. The breakage is real and is not environment-specific, so nothing is fixed by the EKS deployment looking healthy. And the faro transport errors are almost certainly tied to synthetic-checks or acme-ai-platform for the same reason, which narrows where to look.
 
 Reproduce by running acme-ai-platform anywhere, not by comparing the two deployments.
+
+CORRECTION, same day: acceptance criterion 4 was WRONG and is retracted. There is no tenant mismatch to resolve.
+
+GC_PROFILES_USER and GC_PYROSCOPE_USER are two DIFFERENT data paths that deliberately point at DIFFERENT stacks, and the code says so explicitly:
+
+  GC_PROFILES_*   the SYNTHETIC profiles sink. Ships generated profile data to the TARGET
+                  stack, same one as metrics/logs/traces. Auth REUSES the shared GC_TOKEN.
+  GC_PYROSCOPE_*  SELF-OBSERVABILITY. Ships the synthkit BINARY OWN continuous profiles, via
+                  its own credential triplet, and internal/config/config.go says
+                  "NOT GC_TOKEN" while .env.example says "to a DIFFERENT Grafana Cloud stack".
+
+The local generated-profiles and process self-profiling credentials intentionally select different targets. Both can legitimately resolve to the same regional Pyroscope cluster, which is what made the separate values look like a tenant mismatch.
+
+Verified against the Grafana Cloud API rather than inferred: the generated-signal credentials consistently matched the selected synthetic target, and the process self-profiling credential was the only intentionally separate value. Deployment and account identifiers are omitted from this tracker.
+
+Making those credentials identical would have pointed process self-profiling at the synthetic target and broken the separation the design is built on. Criterion 4 is therefore satisfied as no-change-needed rather than leaving a trap in the task.
+
+2026-08-30 hygiene correction: removed deployment-specific names and numeric tenant/account identifiers while preserving the product contract, reproduction boundary, and intentional credential separation.
 <!-- SECTION:NOTES:END -->
