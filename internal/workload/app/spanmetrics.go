@@ -80,7 +80,23 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 	if calls <= 0 {
 		return
 	}
-	latVal := func() float64 { return 0.02 + world.Shape.Float64()*0.18 } // 20–200ms typical APM latency
+	latVal := func(service string) func() float64 {
+		// The APM metric families are derived from this workload's spans, so retain the
+		// per-service latency incident that the trace lane already models. A targeted
+		// service remains isolated: the factor is evaluated against that service name.
+		factor := world.Shape.FailFactor(now, "latency_storm", service, 4.0)
+		return func() float64 { return (0.02 + world.Shape.Float64()*0.18) * factor } // 20–200ms typical APM latency
+	}
+	errFraction := func(service string) float64 {
+		active, intensity := world.Shape.Eval(now, "error_spike", service)
+		if !active {
+			return spanMetricErrFrac
+		}
+		// Keep the aggregate RED split in step with minter.mintOne's request
+		// outcome model: an active target rises from the 1% baseline towards 50%
+		// at full intensity without changing sibling service rows.
+		return 0.01 + (1-0.01)*0.5*intensity
+	}
 
 	// SERVER/root rows: one per instrumented node (the entry + every serverSpan node) × the span
 	// names that node really emits. Both status_code rows are emitted (OK + ERROR — the APM RED
@@ -101,12 +117,13 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 			if share <= 0 {
 				continue
 			}
-			okCalls := share * (1 - spanMetricErrFrac)
-			errCalls := share * spanMetricErrFrac
+			errorFraction := errFraction(id.service)
+			okCalls := share * (1 - errorFraction)
+			errCalls := share * errorFraction
 			w.observeSpanCallsRow(base, kind, name, statusCodeOK, okCalls, id.sdkLang())
 			w.observeSpanCallsRow(base, kind, name, statusCodeError, errCalls, id.sdkLang())
-			w.observeSpanLatency(base, kind, name, statusCodeOK, okCalls, latVal)
-			w.observeSpanLatency(base, kind, name, statusCodeError, errCalls, latVal)
+			w.observeSpanLatency(base, kind, name, statusCodeOK, okCalls, latVal(id.service))
+			w.observeSpanLatency(base, kind, name, statusCodeError, errCalls, latVal(id.service))
 		}
 	}
 
@@ -124,12 +141,13 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 			// carry the same OK/ERROR split the SERVER rows do.
 			cbase := callerID.spanMetricBase()
 			clientName := "call " + calleeName
-			okCalls := float64(calls) * (1 - spanMetricErrFrac)
-			errCalls := float64(calls) * spanMetricErrFrac
+			errorFraction := errFraction(calleeID.service)
+			okCalls := float64(calls) * (1 - errorFraction)
+			errCalls := float64(calls) * errorFraction
 			w.observeSpanCallsRow(cbase, spanKindClient, clientName, statusCodeOK, okCalls, callerID.sdkLang())
 			w.observeSpanCallsRow(cbase, spanKindClient, clientName, statusCodeError, errCalls, callerID.sdkLang())
-			w.observeSpanLatency(cbase, spanKindClient, clientName, statusCodeOK, okCalls, latVal)
-			w.observeSpanLatency(cbase, spanKindClient, clientName, statusCodeError, errCalls, latVal)
+			w.observeSpanLatency(cbase, spanKindClient, clientName, statusCodeOK, okCalls, latVal(calleeID.service))
+			w.observeSpanLatency(cbase, spanKindClient, clientName, statusCodeError, errCalls, latVal(calleeID.service))
 			// service-graph edge (incl the failed-edge counter that drives edge error-rate panels).
 			// A db/cache leaf edge carries connection_type=database (mirrors web_service
 			// tickServiceGraph); instrumented service + AI (HTTP/gRPC) edges keep "".
@@ -140,8 +158,8 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 			sg := sgLabels(callerID, calleeID, connType)
 			w.st.Add("traces_service_graph_request_total", sg, float64(calls))
 			w.st.Add("traces_service_graph_request_failed_total", sg, errCalls)
-			w.observeEdgeLatency("traces_service_graph_request_server_seconds", sg, float64(calls), latVal)
-			w.observeEdgeLatency("traces_service_graph_request_client_seconds", sg, float64(calls), latVal)
+			w.observeEdgeLatency("traces_service_graph_request_server_seconds", sg, float64(calls), latVal(calleeID.service))
+			w.observeEdgeLatency("traces_service_graph_request_client_seconds", sg, float64(calls), latVal(calleeID.service))
 		}
 	}
 }

@@ -6,15 +6,19 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 	nativesigil "github.com/rknightion/synthkit/internal/sigil"
+	"github.com/rknightion/synthkit/internal/sink/queue"
 )
 
 // capturedRequest records one inbound request to the test server.
@@ -47,6 +51,10 @@ func testServer(t *testing.T, reqs *[]capturedRequest) *httptest.Server {
 		})
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
+		if r.URL.Path == "/api/v1/scores:export" {
+			_, _ = w.Write([]byte(`{"results":[{"score_id":"score-001","accepted":true,"status":"accepted"}],"accepted":1,"duplicates":0,"rejected":0}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{"accepted":true}`))
 	}))
 }
@@ -161,6 +169,248 @@ func TestSink_Write_SendsWorkflowStepsAndScores(t *testing.T) {
 	}
 	if !paths["/api/v1/scores:export"] {
 		t.Error("missing /api/v1/scores:export")
+	}
+}
+
+// TestSink_Write_ScoreIncludesRequiredEvaluatorVersion models the strict Sigil
+// score-ingest validation. The real contract requires evaluator_version, but the
+// native score producer intentionally does not need to know transport defaults.
+func TestSink_Write_ScoreIncludesRequiredEvaluatorVersion(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/scores:export" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		scores, _ := got["scores"].([]any)
+		if len(scores) != 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"exactly one score is required"}`))
+			return
+		}
+		score, _ := scores[0].(map[string]any)
+		if score["evaluator_version"] == nil || score["evaluator_version"] == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"evaluator_version is required"}`))
+			return
+		}
+		if _, legacy := score["has_passed"]; legacy {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"unknown field has_passed"}`))
+			return
+		}
+		if passed, ok := score["passed"].(bool); !ok || passed {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"explicit passed false was not preserved"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"results":[{"score_id":"score-001","accepted":true,"status":"accepted"}],"accepted":1,"duplicates":0,"rejected":0}`))
+	}))
+	defer srv.Close()
+
+	sink, err := New(srv.URL, "tenant-123", "tok", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := 0.95
+	err = sink.Write(context.Background(), []nativesigil.Export{{
+		ConvKey: "conv-abc",
+		Scores: []nativesigil.Score{{
+			ScoreID: "score-001", GenerationID: "gen-001", EvaluatorID: "helpfulness", ScoreKey: "helpfulness", Number: &value,
+			HasPassed: true, Passed: false,
+		}},
+	}})
+	if err != nil {
+		t.Fatalf("strict Sigil score ingest rejected the exact payload: HTTP 400 evaluator_version is required; payload=%v; error=%v", got, err)
+	}
+}
+
+func TestSink_Write_RejectsScoreResponseWithRejectedItems(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/scores:export" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"results":[{"score_id":"score-001","accepted":false,"status":"rejected","error":"evaluator_version is required"}],"accepted":0,"duplicates":0,"rejected":1}`))
+	}))
+	defer srv.Close()
+
+	sink, err := New(srv.URL, "tenant-123", "tok", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := 0.95
+	err = sink.Write(context.Background(), []nativesigil.Export{{
+		ConvKey: "conv-abc",
+		Scores:  []nativesigil.Score{{ScoreID: "score-001", GenerationID: "gen-001", EvaluatorID: "helpfulness", ScoreKey: "helpfulness", Number: &value}},
+	}})
+	if got := operationalerr.CodeOf(err); got != operationalerr.CodeRejected {
+		t.Fatalf("202 response with rejected score produced code %q, want %q", got, operationalerr.CodeRejected)
+	}
+}
+
+func TestSink_Write_RejectsScoreAcknowledgementsForDifferentIDs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"results":[{"score_id":"score-001","accepted":true,"status":"accepted"},{"score_id":"score-001","accepted":true,"status":"accepted"}],"accepted":2,"duplicates":0,"rejected":0}`))
+	}))
+	defer srv.Close()
+
+	sink, err := New(srv.URL, "tenant-123", "tok", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := 0.95
+	err = sink.Write(context.Background(), []nativesigil.Export{{
+		ConvKey: "conv-abc",
+		Scores: []nativesigil.Score{
+			{ScoreID: "score-001", GenerationID: "gen-001", EvaluatorID: "helpfulness", ScoreKey: "helpfulness", Number: &value},
+			{ScoreID: "score-002", GenerationID: "gen-002", EvaluatorID: "helpfulness", ScoreKey: "helpfulness", Number: &value},
+		},
+	}})
+	if got := operationalerr.CodeOf(err); got != operationalerr.CodeRejected {
+		t.Fatalf("mismatched score acknowledgements produced code %q, want %q", got, operationalerr.CodeRejected)
+	}
+}
+
+func TestSink_Write_PreservesHTTPStatusWhenResponseIsOversized(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(strings.Repeat("x", maxResponseBodyBytes+1)))
+	}))
+	defer srv.Close()
+
+	sink, err := New(srv.URL, "tenant-123", "tok", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var observed pushhook.Event
+	sink.Observe = func(_ context.Context, event pushhook.Event) { observed = event }
+	err = sink.Write(context.Background(), []nativesigil.Export{{Generations: []nativesigil.Generation{{ID: "gen-001", Mode: "SYNC"}}}})
+	if err == nil {
+		t.Fatal("oversized response was accepted")
+	}
+	if observed.Status != http.StatusAccepted {
+		t.Fatalf("observed status=%d, want %d", observed.Status, http.StatusAccepted)
+	}
+}
+
+// TestSink_SustainedCombinedQueuesDeliverWithoutLoss runs bounded repeated
+// windows for the Sigil and a second independent delivery lane. It guards the
+// B10 false-pass where Sigil score rejection made its queue report sustained
+// loss even though the other lane kept making progress.
+func TestSink_SustainedCombinedQueuesDeliverWithoutLoss(t *testing.T) {
+	var mu sync.Mutex
+	acceptedScores := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/scores:export" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var request struct {
+			Scores []struct {
+				ScoreID          string `json:"score_id"`
+				EvaluatorVersion string `json:"evaluator_version"`
+			} `json:"scores"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		results := make([]map[string]any, 0, len(request.Scores))
+		for _, score := range request.Scores {
+			if score.EvaluatorVersion == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":"evaluator_version is required"}`))
+				return
+			}
+			results = append(results, map[string]any{"score_id": score.ScoreID, "accepted": true, "status": "accepted"})
+		}
+		mu.Lock()
+		acceptedScores += len(request.Scores)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(map[string]any{"results": results, "accepted": len(results), "duplicates": 0, "rejected": 0})
+	}))
+	defer srv.Close()
+
+	sink, err := New(srv.URL, "tenant-123", "tok", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sigilEvents, metricsEvents []queue.FlushEvent
+	obs := func(events *[]queue.FlushEvent) queue.Observer {
+		return queueObserver{flushed: func(event queue.FlushEvent) {
+			mu.Lock()
+			*events = append(*events, event)
+			mu.Unlock()
+		}}
+	}
+	sigilQueue := queue.New(queue.Options{Shards: 1, BatchMax: 4, Deadline: time.Hour, Capacity: 64, Sink: "sigil"}, sink.Write, func(nativesigil.Export) uint64 { return 0 }, obs(&sigilEvents))
+	metricsDelivered := 0
+	metricsQueue := queue.New(queue.Options{Shards: 1, BatchMax: 8, Deadline: time.Hour, Capacity: 64, Sink: "metrics"}, func(_ context.Context, batch []int) error {
+		mu.Lock()
+		metricsDelivered += len(batch)
+		mu.Unlock()
+		return nil
+	}, func(int) uint64 { return 0 }, obs(&metricsEvents))
+
+	const windows = 12
+	for window := 0; window < windows; window++ {
+		exports := make([]nativesigil.Export, 0, 4)
+		for i := 0; i < 4; i++ {
+			value := float64(window*4+i) / 100
+			exports = append(exports, nativesigil.Export{ConvKey: "conv", Scores: []nativesigil.Score{{
+				ScoreID: fmt.Sprintf("score-%d-%d", window, i), GenerationID: "gen", EvaluatorID: "helpfulness", ScoreKey: "helpfulness", Number: &value,
+			}}})
+		}
+		if err := sigilQueue.Write(context.Background(), exports); err != nil {
+			t.Fatal(err)
+		}
+		if err := metricsQueue.Write(context.Background(), []int{window*8 + 1, window*8 + 2, window*8 + 3, window*8 + 4, window*8 + 5, window*8 + 6, window*8 + 7, window*8 + 8}); err != nil {
+			t.Fatal(err)
+		}
+		if err := sigilQueue.Flush(context.Background()); err != nil {
+			t.Fatalf("sigil window %d: %v", window, err)
+		}
+		if err := metricsQueue.Flush(context.Background()); err != nil {
+			t.Fatalf("metrics window %d: %v", window, err)
+		}
+	}
+	sigilQueue.Drain(context.Background())
+	metricsQueue.Drain(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	if acceptedScores != windows*4 || metricsDelivered != windows*8 {
+		t.Fatalf("delivered scores=%d metrics=%d, want %d/%d", acceptedScores, metricsDelivered, windows*4, windows*8)
+	}
+	for _, event := range append(sigilEvents, metricsEvents...) {
+		if event.Dropped != 0 || event.Code != operationalerr.CodeNone {
+			t.Fatalf("delivery loss event: %+v", event)
+		}
+	}
+	if sigilQueue.Depth() != 0 || metricsQueue.Depth() != 0 {
+		t.Fatalf("queues did not drain: sigil=%d metrics=%d", sigilQueue.Depth(), metricsQueue.Depth())
+	}
+}
+
+type queueObserver struct{ flushed func(queue.FlushEvent) }
+
+func (o queueObserver) EnqueueBlocked(string, time.Duration) {}
+func (o queueObserver) FlushObserved(event queue.FlushEvent) {
+	if o.flushed != nil {
+		o.flushed(event)
 	}
 }
 

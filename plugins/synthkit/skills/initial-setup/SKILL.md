@@ -168,6 +168,11 @@ Fleet registration is valid when the operator chose metrics-only mode.
 The image is pulled from `ghcr.io/rknightion/synthkit`. Keep the eligible published
 `SYNTHKIT_IMAGE_REF` copied from `.env.example`, or replace it only with a release that has already
 passed `scripts/synthkit-deploy.py verify-image`. Prefer the exact index digest.
+That verification trusts the reusable
+`rknightion/.github/.github/workflows/container-publish.yml` path across signer revisions, making
+Rob's continued control of that workflow repository part of the trust boundary. It still enforces
+the GitHub Actions OIDC issuer, synthkit source repository/digest/ref, OCI version/revision labels,
+selected platform, and binary identity.
 `SYNTHKIT_IMAGE_TAG` is a legacy bare-tag fallback used only when the preferred selector is empty;
 a malformed or unavailable preferred value never falls back. `main` and `latest` are mutable edge
 tags and require deliberate `set-image --allow-mutable` plus an explicit pull. To build from local

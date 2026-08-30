@@ -99,6 +99,34 @@ func (m *fakeMinter) Mint(now time.Time, tickSec float64, _ *shape.Engine) []*le
 	return []*ledger.Request{{Correlation: ledger.NewCorrelation(), Workload: m.workload, Start: now}}
 }
 
+type cadenceMinter struct{ workload string }
+
+func (m *cadenceMinter) Workload() string { return m.workload }
+func (m *cadenceMinter) Mint(now time.Time, tickSec float64, _ *shape.Engine) []*ledger.Request {
+	out := make([]*ledger.Request, int(tickSec))
+	for i := range out {
+		out[i] = &ledger.Request{Correlation: ledger.NewCorrelation(), Workload: m.workload, Start: now}
+	}
+	return out
+}
+
+type cadenceWorkload struct{ binding core.Binding }
+
+func (w *cadenceWorkload) Kind() string                { return "cadence_workload" }
+func (w *cadenceWorkload) Name() string                { return w.binding.Name }
+func (w *cadenceWorkload) Signals() []core.SignalClass { return []core.SignalClass{core.Traces} }
+func (w *cadenceWorkload) Interval() time.Duration     { return time.Minute }
+func (w *cadenceWorkload) Minter() ledger.Minter {
+	return &cadenceMinter{workload: w.binding.Name}
+}
+func (w *cadenceWorkload) ScaleTargets() map[string]int {
+	return map[string]int{"service": 2}
+}
+func (w *cadenceWorkload) Tick(context.Context, time.Time, *core.World) error { return nil }
+func (w *cadenceWorkload) ProjectBatch(context.Context, time.Time, *core.World, []*ledger.Request) error {
+	return nil
+}
+
 type lifecycleConstruct struct {
 	cluster *fixture.Cluster
 	start   time.Time
@@ -536,6 +564,39 @@ func TestApplyControlScalingPropagates(t *testing.T) {
 	}
 	if got := r.bps[0].scale.Count("other", 3); got != 3 {
 		t.Fatalf("unset key must fall back to default: got %d want 3", got)
+	}
+}
+
+func TestApplyControlScalingChangesWorkloadMintRateAndReset(t *testing.T) {
+	reg := core.NewRegistry()
+	reg.RegisterWorkload(core.WorkloadReg{
+		Kind: "cadence_workload", Doc: "test", Scope: core.ScopeBlueprint,
+		NewConfig: func() any { return &struct{}{} },
+		Build: func(_ any, binding core.Binding) (core.Workload, error) {
+			return &cadenceWorkload{binding: binding}, nil
+		},
+	})
+	r := New(Sinks{}, reg, Options{MasterTick: 2 * time.Second})
+	res := &blueprint.Resolved{
+		Name: "scaled", Label: "scaled",
+		Workloads: []blueprint.WorkloadInstance{{
+			Kind: "cadence_workload", Name: "api", Config: &struct{}{}, Replicas: 2,
+		}},
+	}
+	if err := r.AddBlueprint(res); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_700_000_000, 0)
+	if got := len(r.bps[0].ledger.Mint(now)); got != 2 {
+		t.Fatalf("baseline mint count = %d, want 2", got)
+	}
+	r.ApplyControl(control.State{VolumeMultiplier: 1, Scaling: map[string]int{"scaled/service": 4}})
+	if got := len(r.bps[0].ledger.Mint(now.Add(2 * time.Second))); got != 4 {
+		t.Fatalf("scaled mint count = %d, want 4", got)
+	}
+	r.ApplyControl(control.State{VolumeMultiplier: 1})
+	if got := len(r.bps[0].ledger.Mint(now.Add(4 * time.Second))); got != 2 {
+		t.Fatalf("reset mint count = %d, want 2", got)
 	}
 }
 

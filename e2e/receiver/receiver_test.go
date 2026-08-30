@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -595,7 +596,8 @@ func TestReceiverTypesFromSeriesEvidenceNotNames(t *testing.T) {
 
 	var samples []byte
 	for _, labels := range []map[string]string{
-		{"__name__": "evidence_latency_seconds_bucket", "job": "lab", "le": "2.5"},
+		{"__name__": "evidence_latency_seconds_bucket", "job": "lab", "le": "0.005", "node": "synthkit-lab-alloy-default-server-0"},
+		{"__name__": "evidence_latency_seconds_bucket", "job": "lab", "le": "+Inf", "node": "synthkit-lab-alloy-default-server-0"},
 		{"__name__": "evidence_latency_seconds_sum", "job": "lab"},
 		{"__name__": "evidence_latency_seconds_count", "job": "lab"},
 		{"__name__": "evidence_gc_pause_seconds", "job": "lab", "quantile": "0.99"},
@@ -632,8 +634,21 @@ func TestReceiverTypesFromSeriesEvidenceNotNames(t *testing.T) {
 		}
 	}
 	histogram := findMetric(got, "evidence_latency_seconds")
-	if histogram.Histogram == nil || !contains2point5(histogram.Histogram.BucketBounds) {
+	if histogram.Histogram == nil || !contains0point005(histogram.Histogram.BucketBounds) {
 		t.Errorf("bucket shape lost: %#v", histogram.Histogram)
+	}
+	leFound := false
+	for _, label := range histogram.Labels {
+		if label.Key != inventory.BucketBoundLabel {
+			continue
+		}
+		leFound = true
+		if label.ValuesElided || !reflect.DeepEqual(label.Values, []string{"+Inf", "0.005"}) {
+			t.Errorf("le=%+v, want observed finite and +Inf bounds retained", label)
+		}
+	}
+	if !leFound {
+		t.Errorf("labels=%+v, want observed le label", histogram.Labels)
 	}
 	if folded := findMetric(got, "evidence_pool_bytes"); folded != nil {
 		t.Errorf("a family was invented from a _sum suffix with no bucket series behind it: %#v", folded)
@@ -643,9 +658,9 @@ func TestReceiverTypesFromSeriesEvidenceNotNames(t *testing.T) {
 	}
 }
 
-func contains2point5(bounds []float64) bool {
+func contains0point005(bounds []float64) bool {
 	for _, bound := range bounds {
-		if bound == 2.5 {
+		if bound == 0.005 {
 			return true
 		}
 	}

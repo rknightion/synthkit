@@ -149,7 +149,9 @@ func TestVolumeManagerTotalVolumes(t *testing.T) {
 }
 
 // TestStorageOperationDurationCount asserts that storage_operation_duration_seconds_count is
-// emitted per node with the required operation_name, status, volume_plugin, migrated labels.
+// emitted per node with the required operation_name, status, volume_plugin, migrated, and node
+// labels. The node label is observed at k8s-monitoring egress even though the no-bucket family
+// remains a literal counter.
 func TestStorageOperationDurationCount(t *testing.T) {
 	cl := coretest.Cluster()
 	c := buildConstruct(t, cl)
@@ -163,7 +165,7 @@ func TestStorageOperationDurationCount(t *testing.T) {
 	}
 
 	// Required label keys
-	requiredKeys := []string{"operation_name", "status", "volume_plugin", "migrated"}
+	requiredKeys := []string{"operation_name", "status", "volume_plugin", "migrated", "node"}
 	for _, s := range series {
 		for _, k := range requiredKeys {
 			if _, ok := s.Labels[k]; !ok {
@@ -181,6 +183,9 @@ func TestStorageOperationDurationCount(t *testing.T) {
 		// migrated must be "false"
 		if s.Labels["migrated"] != "false" {
 			t.Errorf("storage_operation_duration_seconds_count: migrated=%q, want false", s.Labels["migrated"])
+		}
+		if s.Labels["node"] == "" {
+			t.Errorf("storage_operation_duration_seconds_count: node is empty")
 		}
 	}
 

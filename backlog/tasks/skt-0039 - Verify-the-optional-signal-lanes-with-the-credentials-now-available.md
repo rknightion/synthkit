@@ -1,11 +1,11 @@
 ---
 id: SKT-0039
 title: Verify the optional signal lanes with the credentials now available
-status: Parked
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-08-29 23:15'
-updated_date: '2026-08-30 01:39'
+updated_date: '2026-08-30 14:17'
 labels: []
 dependencies: []
 references:
@@ -26,11 +26,11 @@ Re-run acceptance scenarios B4 through B10 against the designated acceptance sta
 <!-- AC:BEGIN -->
 - [x] #1 B4: synthetic profiles are visible for each selected language and profile type
 - [x] #2 B5: Faro sessions and page views arrive, and the unconfigured-lane diagnostic remains discoverable
-- [ ] #3 B6: Synthetic Monitoring checks are registered, reporting, and the provisioner behavior is observed
+- [x] #3 B6: Synthetic Monitoring checks are registered, reporting, and the provisioner behavior is observed
 - [x] #4 B7: Fleet Management collectors are registered and show fresh heartbeats
-- [ ] #5 B8: sigil generations, workflow steps, and scores arrive
+- [x] #5 B8: sigil generations, workflow steps, and scores arrive
 - [x] #6 B9: process self-observability reaches the separate self-observability stack and does not enter the synthetic-data stack
-- [ ] #7 B10: all optional lanes run together without sustained delivery loss or starvation
+- [x] #7 B10: all optional lanes run together without sustained delivery loss or starvation
 - [x] #8 Every scenario is recorded as pass or fail with its observable assertion; unsupported behavior is a failure with a reason, not a skip
 <!-- AC:END -->
 
@@ -45,16 +45,22 @@ Re-run acceptance scenarios B4 through B10 against the designated acceptance sta
 
 <!-- SECTION:PLAN:BEGIN -->
 Root runs B4 through B10 after integration against the designated synthetic and separate self-observability destinations, recording observable pass or fail evidence for every row.
+
+2026-08-31 Lane D: reproduce sigil score HTTP 400 and queue loss, correct the accepted score/body and delivery behavior, and prepare B6/B8/B10 executable checks; root replays SM and runs the combined live pass.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-08-30 closeout: B4 profiles pass, B5 Faro pass, B6 SM fail on missing check/probe write authority, B7 Fleet pass, B8 sigil partial/fail because scores return HTTP 400, B9 separate self-observability pass, B10 fail because the sigil queue has sustained loss. Every row has an observable verdict in the rerun register.
+
+2026-08-31 verification: three uniquely named private probes and five checks registered and reported five fresh probe_success series; fresh Sigil traffic contained two generations, one linked workflow step, and an accepted synthkit-v1 score with passed=true; three combined-lane samples over 60 seconds showed no current loss, affected shards, or cumulative drops.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 Parked at B6, B8, and B10. Resume with an SM token carrying check/probe write authority and a product-accepted sigil score body; then require all optional queues to show no current loss over a full delivery window.
+
+2026-08-31: Verified B4-B10 against the designated live destinations. Synthetic Monitoring, Sigil, Fleet, Faro, profiles, self-observability, and the combined optional-lane delivery window all produced observable pass evidence with no sustained delivery loss.
 <!-- SECTION:FINAL_SUMMARY:END -->

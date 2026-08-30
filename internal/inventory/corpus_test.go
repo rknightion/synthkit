@@ -275,6 +275,67 @@ func TestCompareCorpusDoesNotUnionSubstratesAndUsesArea(t *testing.T) {
 	}
 }
 
+func TestCompareCorpusNamesMatchingAndAbsentSubstrateEvidence(t *testing.T) {
+	synth := New()
+	// The clean GCP capture records label_cloud_google_com_gke_nodepool on
+	// kube_node_labels; the committed EKS corpus records
+	// label_eks_amazonaws_com_nodegroup for the same family. These are observed
+	// cloud-specific label keys, not invented fixture values.
+	synth.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
+
+	eks := validCorpusDocument("k8s", "producer-eks", "eks")
+	eks.Inventory.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
+	gcp := validCorpusDocument("k8s", "producer-gcp", "gcp")
+	gcp.Inventory.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_cloud_google_com_gke_nodepool": ""}, nil)
+	k3s := validCorpusDocument("k8s", "producer-k3s", "k3s")
+	k3s.Inventory.AddMetric("kube_node_info", TransportPrometheusRW2, InstrumentGauge, nil, nil)
+
+	findings := CompareCorpus(synth, []CorpusDocument{gcp, k3s, eks})
+	var contradiction *ScopedFinding
+	for i := range findings {
+		if findings[i].Substrate == "gcp" && findings[i].Finding.Disposition == DispositionContradiction && findings[i].Finding.Field == "labels" {
+			contradiction = &findings[i]
+			break
+		}
+	}
+	if contradiction == nil {
+		t.Fatalf("findings=%+v, want GCP kube_node_labels contradiction", findings)
+	}
+	if got, want := contradiction.MatchingSubstrates, []string{"eks"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("matching substrates=%v, want %v", got, want)
+	}
+	if got, want := contradiction.AbsentEvidenceSubstrates, []string{"k3s"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("absent-evidence substrates=%v, want %v", got, want)
+	}
+}
+
+func TestCompareCorpusRequiresEverySubstrateDocumentToContainSignalBeforeMatching(t *testing.T) {
+	synth := New()
+	synth.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
+
+	gcp := validCorpusDocument("k8s", "producer-gcp", "gcp")
+	gcp.Inventory.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_cloud_google_com_gke_nodepool": ""}, nil)
+	eksWithSignal := validCorpusDocument("k8s", "producer-eks-default", "eks")
+	eksWithSignal.Inventory.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
+	eksWithoutSignal := validCorpusDocument("k8s", "producer-eks-alternate", "eks")
+	eksWithoutSignal.Inventory.AddMetric("kube_node_info", TransportPrometheusRW2, InstrumentGauge, nil, nil)
+
+	findings := CompareCorpus(synth, []CorpusDocument{gcp, eksWithSignal, eksWithoutSignal})
+	for _, finding := range findings {
+		if finding.Substrate != "gcp" || finding.Finding.Disposition != DispositionContradiction || finding.Finding.Field != "labels" {
+			continue
+		}
+		if len(finding.MatchingSubstrates) != 0 {
+			t.Fatalf("matching substrates=%v, want none when one EKS document lacks the signal", finding.MatchingSubstrates)
+		}
+		if got, want := finding.AbsentEvidenceSubstrates, []string{"eks"}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("absent-evidence substrates=%v, want %v", got, want)
+		}
+		return
+	}
+	t.Fatalf("findings=%+v, want GCP label contradiction", findings)
+}
+
 func validCorpusDocument(area, source, substrate string) CorpusDocument {
 	return CorpusDocument{
 		CorpusVersion: CorpusVersion,
@@ -899,5 +960,33 @@ func TestHistogramRepresentationIsAbsentEvidenceNotAClaim(t *testing.T) {
 	}
 	if !gap {
 		t.Fatal("a representation only reality has stopped being reported as a coverage gap")
+	}
+}
+
+func TestLiteralStorageCountPairsWithoutInventingHistogramFamily(t *testing.T) {
+	synth := New()
+	synth.AddMetric("storage_operation_duration_seconds_count", TransportPrometheusRW2, InstrumentCounter,
+		map[string]string{
+			"cluster": "", "instance": "", "job": "", "k8s_cluster_name": "", "migrated": "",
+			"node": "", "operation_name": "", "source": "", "status": "", "volume_plugin": "",
+		}, nil)
+	reality := New()
+	reality.AddMetric("storage_operation_duration_seconds_count", TransportPrometheusRW1, InstrumentUnknown,
+		map[string]string{
+			"cluster": "", "instance": "", "job": "", "k8s_cluster_name": "", "migrated": "",
+			"node": "", "operation_name": "", "source": "", "status": "", "volume_plugin": "",
+		}, nil)
+
+	sawUnknownEvidence := false
+	for _, finding := range Diff(synth, reality) {
+		if finding.Kind == KindMissingMetric || finding.Kind == KindExtraMetric || finding.Kind == KindInstrumentMismatch {
+			t.Fatalf("literal storage count was folded or contradicted: %+v", finding)
+		}
+		if finding.Kind == KindUnknownInstrumentEvidence && finding.Signal == "storage_operation_duration_seconds_count" {
+			sawUnknownEvidence = true
+		}
+	}
+	if !sawUnknownEvidence {
+		t.Fatal("unknown capture instrument evidence was hidden instead of reported as a coverage gap")
 	}
 }

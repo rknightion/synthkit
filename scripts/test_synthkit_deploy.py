@@ -708,10 +708,98 @@ class DeployCLITest(unittest.TestCase):
             )
             signature = next(index for index, event in enumerate(events) if COSIGN_IMAGE in event)
             provenance = next(index for index, event in enumerate(events) if event.startswith("gh attestation verify"))
+            signature_event = events[signature]
+            provenance_event = events[provenance]
             self.assertLess(signature, candidate_probe)
             self.assertLess(provenance, candidate_probe)
+            self.assertIn("--certificate-identity-regexp", signature_event)
+            self.assertIn(
+                r"^https://github\.com/rknightion/\.github/\.github/workflows/"
+                r"container-publish\.yml@[A-Za-z0-9._/-]+$",
+                signature_event,
+            )
+            self.assertIn(
+                "--certificate-oidc-issuer https://token.actions.githubusercontent.com",
+                signature_event,
+            )
+            self.assertNotIn("f31690684f4292d1fe8e528618f7c8306fe27d9a", signature_event + provenance_event)
+            self.assertIn("--cert-oidc-issuer https://token.actions.githubusercontent.com", provenance_event)
+            self.assertIn("--repo rknightion/synthkit", provenance_event)
+            self.assertIn(
+                "--signer-workflow rknightion/.github/.github/workflows/container-publish.yml",
+                provenance_event,
+            )
+            self.assertNotIn("--signer-digest", provenance_event)
+            self.assertIn(f"--source-digest {revision}", provenance_event)
+            self.assertIn("--source-ref refs/heads/main", provenance_event)
             self.assertNotIn(f" {reference} -version", events[candidate_probe])
             self.assertIn("--network none --read-only --cap-drop ALL --security-opt no-new-privileges", events[candidate_probe])
+
+    def test_verify_image_rejects_oci_label_and_binary_identity_mismatches(self) -> None:
+        deploy = load_deploy_module()
+        manifest = "sha256:" + "c" * 64
+        config = "sha256:" + "d" * 64
+        revision = "b" * 40
+        version = "1.3.0-rc.99"
+        oci_version = "v" + version
+        reference = f"{IMAGE}@{DIGEST}"
+        index_raw = json.dumps(
+            {
+                "mediaType": "application/vnd.oci.image.index.v1+json",
+                "manifests": [
+                    {"digest": manifest, "platform": {"os": "linux", "architecture": "amd64"}}
+                ],
+            }
+        )
+        platform_raw = json.dumps(
+            {
+                "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                "config": {"digest": config},
+            }
+        )
+
+        cases = (
+            (
+                "version label",
+                {"org.opencontainers.image.version": "v9.9.9", "org.opencontainers.image.revision": revision},
+                {"version": version, "revision": revision},
+                "oci_version_mismatch",
+            ),
+            (
+                "revision label",
+                {"org.opencontainers.image.version": oci_version, "org.opencontainers.image.revision": "e" * 40},
+                {"version": version, "revision": revision},
+                "oci_revision_mismatch",
+            ),
+            (
+                "binary identity",
+                {"org.opencontainers.image.version": oci_version, "org.opencontainers.image.revision": revision},
+                {"version": version, "revision": "e" * 40},
+                "binary_identity_mismatch",
+            ),
+        )
+        for name, labels, binary, error_code in cases:
+            with self.subTest(name=name):
+                outputs = [
+                    index_raw,
+                    platform_raw,
+                    json.dumps({"config": {"Labels": labels}}),
+                    "",
+                    "",
+                    json.dumps(binary),
+                ]
+                with mock.patch.object(deploy, "run_closed", side_effect=outputs):
+                    with self.assertRaisesRegex(deploy.DeployError, error_code):
+                        deploy.verify_image(
+                            reference,
+                            version,
+                            oci_version,
+                            revision,
+                            "refs/heads/main",
+                            "linux/amd64",
+                            "docker",
+                            "gh",
+                        )
 
     def test_check_compose_renders_default_and_profile_with_one_exact_image(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

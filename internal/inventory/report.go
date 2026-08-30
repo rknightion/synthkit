@@ -108,6 +108,12 @@ func writeFinding(w io.Writer, scoped ScopedFinding) error {
 		finding.Field,
 		values,
 	)
+	if len(scoped.MatchingSubstrates) > 0 {
+		line += fmt.Sprintf("; matching evidence on substrate(s) `%s`", strings.Join(scoped.MatchingSubstrates, "`, `"))
+	}
+	if len(scoped.AbsentEvidenceSubstrates) > 0 {
+		line += fmt.Sprintf("; absent evidence on substrate(s) `%s`", strings.Join(scoped.AbsentEvidenceSubstrates, "`, `"))
+	}
 	if scoped.ExemptionID != "" {
 		line += fmt.Sprintf(" [EXEMPTED: `%s` — %s]", scoped.ExemptionID, scoped.ExemptionReason)
 	}

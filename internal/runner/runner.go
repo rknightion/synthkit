@@ -183,6 +183,43 @@ type bpRuntime struct {
 	rtEng     atomic.Pointer[shape.Engine]
 }
 
+// scaledMinter applies a workload target's live replica ratio at the composition root, where the
+// blueprint-owned target name and declared replica count are both available. Minters are required
+// to be cadence-invariant (I10), so scaling tickSec preserves their stochastic rounding and mints
+// fresh correlated identities rather than copying requests after the fact.
+type scaledMinter struct {
+	inner   ledger.Minter
+	source  *scale.Source
+	targets map[string]int
+}
+
+func (m *scaledMinter) Workload() string { return m.inner.Workload() }
+
+func (m *scaledMinter) Mint(now time.Time, tickSec float64, eng *shape.Engine) []*ledger.Request {
+	// A simple workload has one target. A service-graph workload exposes every internal service
+	// target: one request is projected coherently through the whole graph, so an explicit service
+	// scale changes mint volume rather than copying only that service's spans after correlation.
+	// Multiple simultaneous overrides use their mean replica ratio; the ordinary one-target control
+	// mutation therefore tracks its configured multiplier exactly without compounding graph nodes.
+	ratioSum := 0.0
+	overrides := 0
+	for target, declared := range m.targets {
+		current, ok := m.source.Lookup(target)
+		if !ok {
+			continue
+		}
+		if declared < 1 {
+			declared = 1
+		}
+		ratioSum += float64(current) / float64(declared)
+		overrides++
+	}
+	if overrides == 0 {
+		return m.inner.Mint(now, tickSec, eng)
+	}
+	return m.inner.Mint(now, tickSec*ratioSum/float64(overrides), eng)
+}
+
 // fleetProvider composes the blueprint's standalone roster + dynamic mirror contributors into one
 // provider. Returns nil when the blueprint declares no fleet collectors (so Run starts no controller).
 func (bp *bpRuntime) fleetProvider() fleet.RosterProvider {
@@ -454,7 +491,13 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		if err != nil {
 			return fmt.Errorf("runner: blueprint %q workload %q (%s): %w", res.Name, wi.Name, wi.Kind, err)
 		}
-		led.AddMinter(w.Minter())
+		scaleTargets := map[string]int{wi.Name: wi.Replicas}
+		if sw, ok := w.(interface{ ScaleTargets() map[string]int }); ok {
+			if declared := sw.ScaleTargets(); len(declared) > 0 {
+				scaleTargets = declared
+			}
+		}
+		led.AddMinter(&scaledMinter{inner: w.Minter(), source: bp.scale, targets: scaleTargets})
 		wlabel := res.Label // workload signals are blueprint-scoped by default…
 		if wreg.Scope == core.ScopeSubstrate {
 			wlabel = "" // …except substrate-scoped workloads (ai_agent/sigil): no blueprint label

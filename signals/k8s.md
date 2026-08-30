@@ -668,10 +668,13 @@ All carry `node`. Histograms emit `_bucket{le}` + `_sum` + `_count`.
   compiler="gc", git_commit, git_tree_state="clean", git_version, go_version, major, minor,
   platform="linux/<arch>"`; 1/node), `volume_manager_total_volumes` (`plugin_name="kubernetes.io/csi",
   state` ∈ {actual_state_of_world, desired_state_of_world}), `storage_operation_duration_seconds_count` (C;
-  `operation_name` ∈ {volume_mount, volume_unmount, unmount_device, verify_controller_attached_volume,
+  `node`; `operation_name` ∈ {volume_mount, volume_unmount, unmount_device, verify_controller_attached_volume,
   volume_apply_access_control} (a reference cluster EBS-CSI recon 2026-06-16 — legacy in-tree `volume_attach` absent
   from the CSI path), `status="success"`, `volume_plugin="kubernetes.io/csi"`,
-  `migrated="false"`). ⚠ real `storage_operation_errors_total` not present (synth omits — matches).
+  `migrated="false"`). The 2026-08-30 k3d `alloy-default` refresh captured 22,219 RW1 series over
+  300 seconds with this `_count` active, but no `_bucket`, `_sum`, histogram block, or `le` reached
+  egress; retain the literal counter and do not choose bounds. ⚠ real `storage_operation_errors_total`
+  not present (synth omits — matches).
 - **Probes sub-family** (`job=integrations/kubernetes/probes`; **gated by `control_plane.kubelet_probes`, chart default OFF**):
   `prober_probe_total` **(C)** (`container, namespace, pod, pod_uid, probe_type, result="successful"`;
   `probe_type` ∈ {readiness, liveness, startup}; ⚠ `pod_uid` high-card), `prober_probe_duration_seconds`
@@ -720,7 +723,7 @@ metrics:
   - {root: kubelet_server_expiration_renew_errors, type: gauge, unit: count, v: ok, note: "=0 at baseline"}
   - {root: kubernetes_build_info, type: gauge, unit: bool, v: ok, note: "info; build_date,compiler=gc,git_commit,git_tree_state=clean,git_version,go_version,major,minor,platform=linux/<arch>; 1/node"}
   - {root: volume_manager_total_volumes, type: gauge, unit: count, v: ok, note: "plugin_name=kubernetes.io/csi; state∈{actual_state_of_world,desired_state_of_world}"}
-  - {root: storage_operation_duration_seconds_count, type: counter, unit: count, v: ok, note: "operation_name∈{volume_mount,volume_unmount,unmount_device,verify_controller_attached_volume,volume_apply_access_control} (a reference cluster EBS-CSI recon 2026-06-16; legacy volume_attach absent); status=success; volume_plugin=kubernetes.io/csi; migrated=false"}
+  - {root: storage_operation_duration_seconds_count, type: counter, unit: count, v: ok, note: "node; operation_name∈{volume_mount,volume_unmount,unmount_device,verify_controller_attached_volume,volume_apply_access_control} (a reference cluster EBS-CSI recon 2026-06-16; legacy volume_attach absent); status=success; volume_plugin=kubernetes.io/csi; migrated=false. 2026-08-30 k3d alloy-default, 300s, 22,219 RW1 series: active _count only; no _bucket, _sum, histogram block, or le reached egress; retain the literal counter and do not choose bounds"}
 
 # Probes sub-family (job=integrations/kubernetes/probes)
 # prober_probe_total: counter; container,namespace,pod,pod_uid(⚠ high-card),probe_type,result=successful; probe_type∈{readiness,liveness,startup}

@@ -32,6 +32,72 @@ func TestPromoteRetainsOnlyContractFixedAttributeValues(t *testing.T) {
 	}
 }
 
+// A finite bucket and +Inf are capture evidence, not deployment identity. The node value must
+// be elided, while `le` remains so a later emitter either uses this exact observed shape or
+// leaves an unbucketed family alone. This fixture pins the corpus-facing policy end to end.
+func TestPromoteRetainsObservedClassicHistogramBoundsAndElidesDeploymentIdentity(t *testing.T) {
+	candidate := inventory.New()
+	candidate.AddMetric("kubelet_pod_worker_duration_seconds_bucket", inventory.TransportPrometheusRW1,
+		inventory.InstrumentHistogram,
+		map[string]string{"le": "0.005", "node": "synthkit-lab-alloy-default-server-0"},
+		&inventory.Histogram{Classic: true, BucketBounds: []float64{0.005}})
+	candidate.AddMetric("kubelet_pod_worker_duration_seconds_bucket", inventory.TransportPrometheusRW1,
+		inventory.InstrumentHistogram,
+		map[string]string{"le": "+Inf", "node": "synthkit-lab-alloy-default-server-0"},
+		&inventory.Histogram{Classic: true})
+
+	promoted, err := PromoteCandidate(candidate, PromoteOptions{Metrics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(promoted.Metrics) != 1 {
+		t.Fatalf("metrics=%d, want one promoted histogram", len(promoted.Metrics))
+	}
+	metric := promoted.Metrics[0]
+	if metric.Histogram == nil || !metric.Histogram.Classic || !reflect.DeepEqual(metric.Histogram.BucketBounds, []float64{0.005}) {
+		t.Fatalf("histogram=%+v, want observed classic finite bound", metric.Histogram)
+	}
+	leFound, nodeFound := false, false
+	for _, label := range metric.Labels {
+		switch label.Key {
+		case inventory.BucketBoundLabel:
+			leFound = true
+			if label.ValuesElided || !reflect.DeepEqual(label.Values, []string{"+Inf", "0.005"}) {
+				t.Fatalf("le=%+v, want the observed finite and +Inf bounds retained", label)
+			}
+		case "node":
+			nodeFound = true
+			if !label.ValuesElided || len(label.Values) != 0 {
+				t.Fatalf("node=%+v, want deployment identity elided", label)
+			}
+		}
+	}
+	if !leFound || !nodeFound {
+		t.Fatalf("labels=%+v, want both le and node evidence", metric.Labels)
+	}
+}
+
+func TestPromoteDoesNotAddBucketEvidenceWhenNoBucketSeriesWasObserved(t *testing.T) {
+	candidate := inventory.New()
+	candidate.AddMetric("storage_operation_duration_seconds_count", inventory.TransportPrometheusRW1,
+		inventory.InstrumentUnknown,
+		map[string]string{"node": "synthkit-lab-alloy-default-server-0", "operation_name": "volume_mount"}, nil)
+
+	promoted, err := PromoteCandidate(candidate, PromoteOptions{Metrics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	metric := promoted.Metrics[0]
+	if metric.Histogram != nil {
+		t.Fatalf("histogram=%+v, want no histogram evidence without an observed bucket", metric.Histogram)
+	}
+	for _, label := range metric.Labels {
+		if label.Key == inventory.BucketBoundLabel {
+			t.Fatalf("unexpected le label without an observed bucket series: %+v", label)
+		}
+	}
+}
+
 // A prefix that matches nothing would otherwise write a well-formed corpus document recording a
 // capture that never happened, and the corpus is the repository's only ground truth.
 func TestPromoteRefusesToWriteAnEmptyMetricDocument(t *testing.T) {

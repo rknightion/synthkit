@@ -27,7 +27,7 @@ features:
       - name: synmon-api-health
         target: "https://api.synmon.example.com/health"
         frequency: 60000
-        probe: synthkit-private
+        probe: synthkit-private-emea
         region: EMEA
         labels:
           team: platform
@@ -36,7 +36,7 @@ features:
       - name: synmon-login
         target: "https://app.synmon.example.com/login"
         frequency: 60000
-        probe: synthkit-private
+        probe: synthkit-private-emea
         region: EMEA
         labels:
           team: frontend
@@ -45,7 +45,7 @@ features:
       - name: synmon-checkout
         target: "https://app.synmon.example.com/checkout"
         frequency: 120000
-        probe: synthkit-private
+        probe: synthkit-private-us
         region: US
         labels:
           team: commerce
@@ -54,7 +54,7 @@ features:
       - name: synmon-docs
         target: "https://docs.synmon.example.com/health"
         frequency: 300000
-        probe: synthkit-private
+        probe: synthkit-private-emea
         region: EMEA
         labels:
           team: platform

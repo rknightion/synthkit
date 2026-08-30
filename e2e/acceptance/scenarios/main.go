@@ -68,7 +68,7 @@ func main() {
 	flag.StringVar(&cfg.lokiUser, "loki-user", os.Getenv("GC_LOKI_USER"), "Loki Basic-auth user")
 	flag.StringVar(&cfg.lokiToken, "loki-token", os.Getenv("GC_TOKEN"), "Loki Basic-auth password")
 	flag.StringVar(&cfg.siblingEnv, "sibling-env", "", "sibling environment used to prove environment isolation")
-	flag.DurationVar(&cfg.settle, "settle", 70*time.Second, "wait after each control mutation for emission and ingestion")
+	flag.DurationVar(&cfg.settle, "settle", 130*time.Second, "wait after each control mutation for two 60-second emissions and ingestion")
 	flag.Float64Var(&cfg.minChange, "min-change", 0.20, "minimum proportional movement required for an active assertion")
 	flag.Parse()
 
@@ -267,6 +267,9 @@ func observe(ctx context.Context, c *http.Client, cfg config, a failuremode.Asse
 		v, err := strconv.ParseFloat(text, 64)
 		if err != nil {
 			return 0, fmt.Errorf("parse query value %q: %w", text, err)
+		}
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return 0, fmt.Errorf("query value is non-finite: %q", text)
 		}
 		sum += v
 	}

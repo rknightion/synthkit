@@ -3,9 +3,11 @@
 package app
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/core/coretest"
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/shape"
 )
@@ -82,5 +84,73 @@ func TestApp_PerServiceIncidentLocalizesToNode(t *testing.T) {
 	}
 	if got := hopFailRate(errReqs, "pg"); got > 0.2 {
 		t.Errorf("error_spike@api: sibling pg hop fail rate=%.2f, want ~unaffected", got)
+	}
+}
+
+// TestAppSpanMetricsFollowServiceIncidents keeps the emitted APM RED families aligned with the
+// incident-responsive trace lane. The acceptance harness observes these metric families, not the
+// in-memory request samples, so a latency_storm/error_spike must move its target's server rows.
+func TestAppSpanMetricsFollowServiceIncidents(t *testing.T) {
+	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
+
+	tick := func(live map[string][]shape.LiveFailure) *coretest.MetricCapture {
+		t.Helper()
+		w := buildApp(t, graphCfg())
+		mc := &coretest.MetricCapture{}
+		world := coretest.World(mc, nil, nil)
+		world.Shape.Live = func(mode string) []shape.LiveFailure { return live[mode] }
+		if err := w.Tick(context.Background(), now, world); err != nil {
+			t.Fatalf("Tick: %v", err)
+		}
+		return mc
+	}
+
+	calm := tick(nil)
+	storm := tick(map[string][]shape.LiveFailure{
+		"latency_storm": {{Enabled: true, Intensity: 0.8, Scope: "api"}},
+		"error_spike":   {{Enabled: true, Intensity: 0.8, Scope: "api"}},
+	})
+
+	latencyMean := func(mc *coretest.MetricCapture, service string) float64 {
+		t.Helper()
+		var sum, count float64
+		for _, s := range mc.Find("traces_spanmetrics_latency_sum") {
+			if s.Labels["service_name"] == service && s.Labels["span_kind"] == spanKindServer {
+				sum += s.Value
+			}
+		}
+		for _, s := range mc.Find("traces_spanmetrics_latency_count") {
+			if s.Labels["service_name"] == service && s.Labels["span_kind"] == spanKindServer {
+				count += s.Value
+			}
+		}
+		if count == 0 {
+			t.Fatalf("no spanmetric latency observations for %q", service)
+		}
+		return sum / count
+	}
+	errorRate := func(mc *coretest.MetricCapture, service string) float64 {
+		t.Helper()
+		var errors, calls float64
+		for _, s := range mc.Find("traces_spanmetrics_calls_total") {
+			if s.Labels["service_name"] != service || s.Labels["span_kind"] != spanKindServer {
+				continue
+			}
+			calls += s.Value
+			if s.Labels["status_code"] == statusCodeError {
+				errors += s.Value
+			}
+		}
+		if calls == 0 {
+			t.Fatalf("no spanmetric calls for %q", service)
+		}
+		return errors / calls
+	}
+
+	if got, want := latencyMean(storm, "api"), latencyMean(calm, "api"); got < want*2 {
+		t.Errorf("latency_storm target mean=%0.3f, baseline=%0.3f; want >=2x", got, want)
+	}
+	if got := errorRate(storm, "api"); got < 0.2 {
+		t.Errorf("error_spike target error rate=%0.3f, want >=0.2", got)
 	}
 }

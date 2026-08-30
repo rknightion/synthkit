@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -143,6 +144,44 @@ func TestLockAndJournalCrashBoundary(t *testing.T) {
 	}
 	if err := RemoveJournal(dir); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestJournalReplayHandoffPreservesExactExpectedSpec proves that a retained
+// journal gives the provisioner an exact, hash-bound operation to inspect and
+// replay after a credential or transport failure; it is not merely a marker.
+func TestJournalReplayHandoffPreservesExactExpectedSpec(t *testing.T) {
+	dir := privateTempDir(t)
+	expected := json.RawMessage(`{"job":"api","target":"https://api.example/health"}`)
+	journal := Journal{
+		SchemaVersion: SchemaVersion,
+		Operation:     "create",
+		Kind:          "check",
+		Key:           CheckKey("api", "https://api.example/health"),
+		SnapshotHash:  "snapshot",
+		ExpectedHash:  SpecHash(expected),
+		ExpectedSpec:  expected,
+		StartedUnixMS: 1,
+	}
+	if err := WriteJournal(dir, journal); err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := ReadJournal(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expectedObject, replayedObject map[string]string
+	if err := json.Unmarshal(expected, &expectedObject); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(replayed.ExpectedSpec, &replayedObject); err != nil {
+		t.Fatal(err)
+	}
+	if replayed.Operation != journal.Operation || replayed.Kind != journal.Kind || replayed.Key != journal.Key || !reflect.DeepEqual(replayedObject, expectedObject) || replayed.ExpectedHash != SpecHash(expected) {
+		t.Fatalf("replay handoff changed: %+v", replayed)
+	}
+	if _, err := os.Lstat(filepath.Join(dir, JournalFilename)); err != nil {
+		t.Fatalf("replay journal was removed before provisioner acknowledgement: %v", err)
 	}
 }
 

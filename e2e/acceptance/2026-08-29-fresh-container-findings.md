@@ -107,3 +107,28 @@ remain omitted. Rows not touched by this wave retain their 2026-08-29 verdict ab
 | H2 | pass | Every documented symptom is represented by an executable fixture in the troubleshooting matrix. | None. |
 | H3 | pass | The RUNBOOK route now delegates to the executable deployment and verification checks exercised in this run. | None. |
 | H4 | pass | Marketplace instructions name the supported plugin hosts and separate shell commands from host commands. | None. |
+
+## Re-run register - 2026-08-31
+
+The heading is the campaign date required by the run contract; execution occurred on 2026-08-30.
+This re-run used the accumulated wave image and the designated live destination. Credential values,
+tenant identifiers, and deployment-selected values remain omitted. Rows not touched by this wave
+retain their earlier verdicts.
+
+| ID | New verdict | Observable assertion and evidence | Remaining boundary |
+| --- | --- | --- | --- |
+| B6 | pass | The reviewed provisioner plan registered three uniquely named private probes and five checks. The emitter reported `enabled/verified`; five `probe_success` series were present and the freshest sample was 51.5 seconds old. | None. |
+| B8 | pass | A fresh post-rebuild conversation contained two generations, one linked workflow step, and an accepted score with evaluator version `synthkit-v1` and `passed=true`. | None. |
+| B10 | pass | Three status samples spanning 60 seconds showed zero queues with current loss, zero affected shards, and zero cumulative drops; queue depths drained and refilled normally. | None. |
+| C1 | partial | All 28 resolved runtime identities loaded individually. Twenty completed the full live identity assertion; eight returned named live lane failures rather than disappearing or being inferred from filenames. | Resume from the eight retained lane-failure rows and correct their independent delivery defects. |
+| D6 | pass | Scaling the declared application service from 2 to 4 produced a 2.29x two-minute server-span increase; reset returned to 1.04x baseline and cleared the control scaling map. | None. |
+| E1 | pass | Twelve scenarios passed the complete schema-derived harness; the two corrected observations then passed focused live activation and clearance checks with the same 20% threshold and 130-second waits. | None. |
+| E2 | pass | Every declared scenario now has an emitted-data movement assertion. The corrected OOM rate moved 0.1131 to 1.1083 restarts/s and exact-target LCP moved 1391.82 to 3057.54 ms. | None. |
+| E3 | pass | Environment-scoped sibling assertions remained near baseline in the complete run, and exact parsed application identity prevents the similarly prefixed frontend sibling from entering the web-vitals result. | None. |
+| E4 | pass | The twelve complete-run observations cleared near baseline; focused OOM cleared to zero and exact-target LCP returned to 1390.50 ms after unchanged 130-second waits. | None. |
+| F2 | pass | Independent `verify-image` runs for rc.37 and rc.38 each verified signature, provenance, source ref/revision, OCI labels, selected platform manifest, and binary identity. | None. |
+
+Wave-specific fidelity evidence: the five-minute k3d capture contained 22,219 RW1 series and only the
+literal `storage_operation_duration_seconds_count` storage family, with no bucket, sum, histogram
+block, or `le` label. No histogram bounds were chosen. The short mixed-substrate capture was not
+ingested or relabelled; it remains absent evidence pending an unambiguous recapture.

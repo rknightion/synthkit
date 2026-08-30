@@ -10,6 +10,12 @@ import (
 	sigilv1 "github.com/rknightion/synthkit/internal/sink/sigil/v1"
 )
 
+// defaultEvaluatorVersion identifies synthkit's built-in deterministic evaluator
+// implementation when a native score has no explicit version. Sigil requires a
+// non-empty evaluator_version for score ingestion, while the frozen native seam
+// keeps evaluator mechanics independent from transport-specific requirements.
+const defaultEvaluatorVersion = "synthkit-v1"
+
 // modeEnum maps native Mode strings to the proto GenerationMode enum.
 var modeEnum = map[string]sigilv1.GenerationMode{
 	"SYNC":   sigilv1.GenerationMode_GENERATION_MODE_SYNC,
@@ -202,6 +208,9 @@ func toProtoScores(scores []nativesigil.Score) []*sigilv1.ScoreItem {
 			GraderConversationId: sc.GraderConversationID,
 			GraderGenerationId:   sc.GraderGenerationID,
 			GraderTraceId:        sc.GraderTraceID,
+		}
+		if ps.EvaluatorVersion == "" {
+			ps.EvaluatorVersion = defaultEvaluatorVersion
 		}
 
 		// ScoreValue oneof: Number takes precedence, then Bool, then String

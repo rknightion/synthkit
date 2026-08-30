@@ -1075,12 +1075,19 @@ func isSubset(candidate, existing []string) bool {
 // ScopedFinding carries the corpus document's ownership and provenance beside one inventory
 // finding. Area is authoritative; signal names are never used to infer it.
 type ScopedFinding struct {
-	Area            string       `json:"area"`
-	Source          CorpusSource `json:"source"`
-	Substrate       string       `json:"substrate"`
-	Finding         Finding      `json:"finding"`
-	ExemptionID     string       `json:"exemption_id,omitempty"`
-	ExemptionReason string       `json:"exemption_reason,omitempty"`
+	Area                     string       `json:"area"`
+	Source                   CorpusSource `json:"source"`
+	Substrate                string       `json:"substrate"`
+	MatchingSubstrates       []string     `json:"matching_substrates,omitempty"`
+	AbsentEvidenceSubstrates []string     `json:"absent_evidence_substrates,omitempty"`
+	Finding                  Finding      `json:"finding"`
+	ExemptionID              string       `json:"exemption_id,omitempty"`
+	ExemptionReason          string       `json:"exemption_reason,omitempty"`
+}
+
+type corpusComparison struct {
+	document CorpusDocument
+	findings []Finding
 }
 
 // CompareCorpus compares each document independently. Documents from different substrates are
@@ -1098,6 +1105,7 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 	})
 
 	out := make([]ScopedFinding, 0)
+	comparisons := make([]corpusComparison, 0, len(ordered))
 	for _, document := range ordered {
 		if synth.Provenance != nil && synth.Provenance.Substrate != "" &&
 			!containsString(document.Authority.Substrates, synth.Provenance.Substrate) {
@@ -1105,7 +1113,9 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 		}
 		reality := withoutEnrichmentLabels(document.Inventory, document.Source.EnrichmentLabels)
 		comparison := scopedSynthSchema(withoutSelectorLabels(synthCopy), reality)
-		for _, finding := range Diff(comparison, reality) {
+		findings := Diff(comparison, reality)
+		comparisons = append(comparisons, corpusComparison{document: document, findings: findings})
+		for _, finding := range findings {
 			finding = dispositionAgainstPermutation(finding, document.Source.Permutation)
 			out = append(out, ScopedFinding{
 				Area:      document.Area,
@@ -1115,8 +1125,102 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 			})
 		}
 	}
+	annotateSubstrateEvidence(out, comparisons)
 	sort.SliceStable(out, func(i, j int) bool { return compareScopedFindings(out[i], out[j]) < 0 })
 	return out
+}
+
+// annotateSubstrateEvidence keeps the comparison documents separate while making the evidence
+// boundary legible on each finding. A counterpart is a match only when it captured the same
+// signal and produced no difference for this field; a document that did not capture the signal
+// is explicitly absent evidence, never an implicit agreement.
+func annotateSubstrateEvidence(findings []ScopedFinding, comparisons []corpusComparison) {
+	for i := range findings {
+		matching := make(map[string]struct{})
+		absent := make(map[string]struct{})
+		for _, substrate := range comparisonSubstrates(comparisons, findings[i].Area, findings[i].Substrate) {
+			sawSignal := false
+			missedSignal := false
+			differed := false
+			for _, comparison := range comparisons {
+				if comparison.document.Area != findings[i].Area || comparison.document.Source.Substrate != substrate {
+					continue
+				}
+				if !schemaContainsSignal(comparison.document.Inventory, findings[i].Finding.Signal) {
+					missedSignal = true
+					continue
+				}
+				sawSignal = true
+				if hasFindingField(comparison.findings, findings[i].Finding) {
+					differed = true
+				}
+			}
+			if !sawSignal || missedSignal {
+				absent[substrate] = struct{}{}
+			} else if !differed {
+				matching[substrate] = struct{}{}
+			}
+		}
+		findings[i].MatchingSubstrates = sortedStringSet(matching)
+		findings[i].AbsentEvidenceSubstrates = sortedStringSet(absent)
+	}
+}
+
+func comparisonSubstrates(comparisons []corpusComparison, area, excluded string) []string {
+	set := make(map[string]struct{})
+	for _, comparison := range comparisons {
+		if comparison.document.Area == area && comparison.document.Source.Substrate != excluded {
+			set[comparison.document.Source.Substrate] = struct{}{}
+		}
+	}
+	return sortedStringSet(set)
+}
+
+func schemaContainsSignal(schema Schema, signal string) bool {
+	for _, metric := range schema.Metrics {
+		if metric.Name == signal {
+			return true
+		}
+	}
+	for _, log := range schema.Logs {
+		if log.Source == signal {
+			return true
+		}
+	}
+	for _, trace := range schema.Traces {
+		if trace.Service == signal {
+			return true
+		}
+	}
+	for _, profile := range schema.Profiles {
+		if profile.ProfileType == signal {
+			return true
+		}
+	}
+	for _, sigil := range schema.Sigil {
+		if sigil.IngestKind == signal {
+			return true
+		}
+	}
+	return false
+}
+
+func hasFindingField(findings []Finding, target Finding) bool {
+	for _, finding := range findings {
+		if finding.Signal == target.Signal && finding.Field == target.Field {
+			return true
+		}
+	}
+	return false
+}
+
+func sortedStringSet(set map[string]struct{}) []string {
+	values := make([]string, 0, len(set))
+	for value := range set {
+		values = append(values, value)
+	}
+	sort.Strings(values)
+	return values
 }
 
 // dispositionAgainstPermutation demotes every finding from a permutation-tagged document to

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/control"
+	"github.com/rknightion/synthkit/internal/failuremode"
 )
 
 func TestRunDerivesIDsAndContinuesAfterFailures(t *testing.T) {
@@ -76,5 +77,19 @@ func TestMovementAndClearSemantics(t *testing.T) {
 func TestQueryLabelValueEscapesSchemaNames(t *testing.T) {
 	if got, want := queryLabelValue("quote\" slash\\"), "quote\\\" slash\\\\"; got != want {
 		t.Fatalf("queryLabelValue = %q, want %q", got, want)
+	}
+}
+
+func TestObserveRejectsNonFiniteQueryValues(t *testing.T) {
+	queryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "success",
+			"data":   map[string]any{"result": []any{map[string]any{"value": []any{0, "NaN"}}}},
+		})
+	}))
+	defer queryServer.Close()
+	_, err := observe(context.Background(), queryServer.Client(), config{promURL: queryServer.URL}, failuremode.Assertion{Mode: "latency_storm", QueryAPI: "prometheus", Query: "vector(0)"}, "", "")
+	if err == nil {
+		t.Fatal("non-finite query value was accepted")
 	}
 }

@@ -351,3 +351,20 @@ func (w *Workload) Interval() time.Duration { return interval }
 
 // Minter implements core.Workload.
 func (w *Workload) Minter() ledger.Minter { return w.m }
+
+// ScaleTargets exposes the service-graph replica defaults to the composition root. The app remains
+// one workload and one correlated request minter; the runner owns the live control mapping.
+func (w *Workload) ScaleTargets() map[string]int {
+	targets := make(map[string]int, len(w.cfg.Services))
+	for _, svc := range w.cfg.Services {
+		if svc.External {
+			continue
+		}
+		replicas := svc.Replicas
+		if replicas < 1 {
+			replicas = 2
+		}
+		targets[svc.Name] = replicas
+	}
+	return targets
+}

@@ -275,7 +275,12 @@ python3 scripts/synthkit-deploy.py verify-image \
 
 This checks the exact index and selected manifest/config, `synthkit -version`, the keyless cosign
 signature, and GitHub provenance bound to the repository, tag ref, source SHA, reusable signer
-workflow, and pinned signer revision. Its output contains closed statuses and non-secret identities.
+workflow path, and GitHub Actions OIDC issuer. The signer workflow revision is deliberately not
+pinned: verification accepts any revision of
+`rknightion/.github/.github/workflows/container-publish.yml`, so the trust boundary includes Rob's
+continued control of that repository and workflow. The source repository, source revision and ref,
+OCI version/revision labels, selected platform identity, and binary-reported identity remain exact
+requirements. Its output contains closed statuses and non-secret identities.
 
 **Building from source (opt-in).** If you need to test local changes, override the compose file:
 

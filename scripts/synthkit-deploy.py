@@ -43,9 +43,11 @@ RECORD_FIELDS = {
     "state_manifest_sha256",
 }
 COSIGN_IMAGE = "ghcr.io/sigstore/cosign/cosign@sha256:de9c65609e6bde17e6b48de485ee788407c9502fa08b8f4459f595b21f56cd00"
-SIGNER_IDENTITY = "https://github.com/rknightion/.github/.github/workflows/container-publish.yml@f31690684f4292d1fe8e528618f7c8306fe27d9a"
+SIGNER_IDENTITY_PATTERN = (
+    r"^https://github\.com/rknightion/\.github/\.github/workflows/"
+    r"container-publish\.yml@[A-Za-z0-9._/-]+$"
+)
 SIGNER_WORKFLOW = "rknightion/.github/.github/workflows/container-publish.yml"
-SIGNER_DIGEST = "f31690684f4292d1fe8e528618f7c8306fe27d9a"
 
 
 class DeployError(Exception):
@@ -1077,8 +1079,8 @@ def verify_image(
             "--rm",
             COSIGN_IMAGE,
             "verify",
-            "--certificate-identity",
-            SIGNER_IDENTITY,
+            "--certificate-identity-regexp",
+            SIGNER_IDENTITY_PATTERN,
             "--certificate-oidc-issuer",
             "https://token.actions.githubusercontent.com",
             reference,
@@ -1092,12 +1094,12 @@ def verify_image(
             "attestation",
             "verify",
             "oci://" + reference,
+            "--cert-oidc-issuer",
+            "https://token.actions.githubusercontent.com",
             "--repo",
             "rknightion/synthkit",
             "--signer-workflow",
             SIGNER_WORKFLOW,
-            "--signer-digest",
-            SIGNER_DIGEST,
             "--source-digest",
             expected_revision,
             "--source-ref",

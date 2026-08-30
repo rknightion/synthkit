@@ -27,7 +27,9 @@ import (
 // cluster's choice says nothing about the next one's.
 //
 // Retaining a value is therefore a positive claim that the enum is closed, and each entry
-// below carries the reason it qualifies.
+// below carries the reason it qualifies. Classic-histogram `le` is the one deliberately
+// separate case: it is not a deployment identity or an enum, but the observed bucket boundary
+// itself. Keeping its values is what makes the corpus state the bounds actually seen at egress.
 var contractFixedAttributeValues = map[string]string{
 	// OpenTelemetry semantic conventions: os.type is a closed enum of operating-system
 	// families, and no deployment can invent a new member of it.
@@ -101,7 +103,7 @@ func PromoteCandidate(candidate inventory.Schema, options PromoteOptions) (inven
 		promoted.Labels = make([]inventory.Attribute, 0, len(metric.Labels))
 		for _, attribute := range metric.Labels {
 			kept := inventory.Attribute{Key: attribute.Key}
-			if _, contractFixed := ContractFixedAttribute(attribute.Key); contractFixed && !attribute.ValuesElided {
+			if retainObservedMetricValues(metric, attribute) {
 				kept.Values = append([]string{}, attribute.Values...)
 				sort.Strings(kept.Values)
 			} else {
@@ -178,6 +180,21 @@ func PromoteCandidate(candidate inventory.Schema, options PromoteOptions) (inven
 
 	out.Normalize()
 	return out, nil
+}
+
+// retainObservedMetricValues identifies the two value classes a k3d corpus promotion may keep.
+// A contract-fixed attribute is a closed enum. `le` is not an enum: it remains only when the
+// captured metric is already proved classic, so every retained value is an observed bucket
+// boundary (including +Inf), never a bound selected by this producer.
+func retainObservedMetricValues(metric inventory.Metric, attribute inventory.Attribute) bool {
+	if attribute.ValuesElided {
+		return false
+	}
+	if metric.Histogram != nil && metric.Histogram.Classic && attribute.Key == inventory.BucketBoundLabel {
+		return true
+	}
+	_, contractFixed := ContractFixedAttribute(attribute.Key)
+	return contractFixed
 }
 
 func hasAnyPrefix(name string, prefixes []string) bool {

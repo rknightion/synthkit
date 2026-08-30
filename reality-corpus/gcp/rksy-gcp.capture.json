@@ -1,0 +1,29 @@
+{
+  "record_version": "synthkit.telemetry.capture-provenance/v1alpha1",
+  "record_kind": "source-capture-provenance",
+  "source_artifact": {
+    "schema_version": "1.0.0",
+    "repository": "rknightion/synthkit-terraform",
+    "repository_commit": "66c09a751d2be5b5afb16da2725ac03d11a3c611",
+    "path": "captures/rksy-gcp.capture.json",
+    "sha256": "759b0bf99afef3a34d4f49828d65d931bf4aa8c83707589cba714b1c15818b87",
+    "tool": {
+      "name": "synthkit-shape-capture",
+      "source": "scripts/capture/shape_capture.py",
+      "version": "1.0.0"
+    }
+  },
+  "provenance": {
+    "substrate": "gcp",
+    "captured_at": "2026-08-29T23:43:17Z",
+    "capture_duration_seconds": 25.7,
+    "request_count": 595
+  },
+  "signal_status": {
+    "metrics": "ok",
+    "logs": "ok",
+    "profiles": "unavailable",
+    "traces": "unavailable"
+  },
+  "comparison_status": "source capture only; not a comparator corpus document until its observations are normalized per signals area"
+}

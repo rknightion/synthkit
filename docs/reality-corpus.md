@@ -56,6 +56,39 @@ cannot correct an EKS-scoped claim, and evidence from EKS cannot correct a
 k3s-scoped claim. Keep the documents separate and let `authority.substrates`
 limit which synthetic claims each document may contradict.
 
+## Cross-substrate findings
+
+The comparator never merges evidence across substrates. A finding originates
+from one document and names that document's substrate. When another captured
+substrate contains the same signal and has no difference for the same field,
+the finding reports it as `matching evidence on substrate(s)`. When a captured
+substrate did not contain the signal, it reports `absent evidence on
+substrate(s)`. Absence is not agreement and it never changes a contradiction
+into a coverage gap or an exemption.
+
+For example, the clean GCP capture observed
+`label_cloud_google_com_gke_nodepool` on `kube_node_labels`, while the EKS
+corpus observed `label_eks_amazonaws_com_nodegroup` on that family. This is a
+recorded cross-cloud divergence: a synthkit claim that matches EKS but
+contradicts the GCP label field names both substrates. It is not proof that
+either capture is defective, and a short capture that omitted
+`kube_node_labels` on a third substrate supplies no verdict at all. A synthkit
+defect is established only by the evidence for the substrate to which the
+finding applies; matching evidence elsewhere neither suppresses nor broadens
+it.
+
+`reality-corpus/gcp/rksy-gcp.capture.json` records the provenance of the first
+clean GCP source capture. It is deliberately a capture-provenance record rather
+than a comparator document: its metrics and logs still need area-by-area,
+identity-safe normalization into the inventory envelope, while its profiles
+and traces were status-only `unavailable` observations and therefore are
+absent evidence, not negative evidence. The mixed AWS/Azure candidate is not
+represented in the corpus and remains pending a clean recapture under SKT-0042.
+Resume GCP normalization only when the root assigns a privacy-safe mapper that
+splits the source-capture metrics and logs into reviewed per-area
+`CorpusDocument` candidates, elides deployment-selected values, and validates
+each accepted document through the normal corpus loader.
+
 ### EKS live read-back command
 
 The EKS producer is manual and credentialed. The root must receive the target

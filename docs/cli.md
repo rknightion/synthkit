@@ -83,6 +83,12 @@ private state content.
 | `check-compose` | Read-only minimum-version and default/profile rendering check with a fake env file. |
 | `inspect-running` | Read-only cross-check of configured index, platform/config/image ID, health, binary version, and revision against expected values. |
 
+`verify-image` trusts the reusable
+`rknightion/.github/.github/workflows/container-publish.yml` workflow path across signer revisions.
+That trade-off puts control of the workflow repository inside the trust boundary; it does not relax
+the GitHub Actions OIDC issuer, synthkit source repository/digest/ref, OCI version/revision labels,
+selected platform, or binary identity checks.
+
 See [Deployment](deployment.md#reproducible-upgrade) for the ordered upgrade and rollback commands.
 
 ## sm-provision — Synthetic Monitoring provisioner

@@ -240,6 +240,17 @@ e2e-scenarios control_url="http://127.0.0.1:8088" sibling_env="":
     loki_query="${GC_LOKI%/api/v1/push}"
     go run ./e2e/acceptance/scenarios -control-url {{ quote(control_url) }} -prom-url "$prom_query" -loki-url "$loki_query" -sibling-env {{ quote(sibling_env) }}
 
+# prove one selected runtime blueprint identity is ready and its inventory is queryable
+[group('check')]
+e2e-identity runtime_name control_url="http://127.0.0.1:8088" expected_count="1":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${GC_PROM_RW:?GC_PROM_RW is required}"
+    : "${GC_PROM_USER:?GC_PROM_USER is required}"
+    : "${GC_TOKEN:?GC_TOKEN is required}"
+    prom_query="${GC_PROM_RW%/push}"
+    go run ./e2e/acceptance/identity -control-url {{ quote(control_url) }} -prom-url "$prom_query" -expected-blueprint {{ quote(runtime_name) }} -expected-count {{ quote(expected_count) }}
+
 # exercise the local troubleshooting symptom matrix; external rows emit explicit dispositions
 [group('check')]
 troubleshooting-check:

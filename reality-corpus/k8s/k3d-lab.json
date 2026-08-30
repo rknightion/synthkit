@@ -7,8 +7,8 @@
     "collector": "grafana/k8s-monitoring",
     "collector_role": "audited",
     "collector_version": "4.4.0",
-    "captured_on": "2026-08-28",
-    "instrument_type_source": "Decoded at the capture receiver from the producer own evidence, never a metric name: Remote-Write v2 symbol-table metadata where the producer sends it, and otherwise the reserved label names of the Prometheus exposition contract — `le` for a classic-histogram bucket series and `quantile` for a summary quantile series. grafana/k8s-monitoring 4.4.0 sends ZERO Remote-Write v1 metadata (12,651 series decoded, 0 MetricMetadata records), so on the protocol this lab pins the reserved-label mechanism is the only one available and a series carrying neither keeps the unknown sentinel."
+    "captured_on": "2026-08-30",
+    "instrument_type_source": "Decoded at the capture receiver from the producer own evidence, never a metric name: Remote-Write v2 symbol-table metadata where the producer sends it, and otherwise the reserved label names of the Prometheus exposition contract — `le` for a classic-histogram bucket series and `quantile` for a summary quantile series. grafana/k8s-monitoring 4.4.0 sends ZERO Remote-Write v1 metadata (12,651 series decoded, 0 MetricMetadata records), so on the protocol this lab pins the reserved-label mechanism is the only one available and a series carrying neither keeps the unknown sentinel. The 2026-08-30 alloy-default refresh captured 22,219 Remote-Write v1 series across its 300-second window: storage_operation_duration_seconds_count was active, but no storage _bucket, _sum, histogram block, or `le` label reached egress; the privacy-safe corpus therefore retains the literal counter and its label keys with all deployment values elided."
   },
   "authority": {
     "substrates": [
@@ -16,13 +16,14 @@
     ]
   },
   "capture_volume": {
-    "runs": 5,
+    "runs": 6,
     "observed_contract_counts": [
       3,
       39,
       75,
       103,
-      105
+      105,
+      107
     ]
   },
   "inventory": {

@@ -255,7 +255,7 @@ func emitKubelet(
 		emitVolumeManagerTotalVolumes(st, kubBase)
 
 		// storage_operation_duration_seconds_count (per node, cumulative)
-		emitStorageOperationDuration(st, kubBase, scale, w)
+		emitStorageOperationDuration(st, kubBase, node, scale, w)
 	}
 
 	// prober_* (pod-scoped) — gated by KubeletProbes; off by default.
@@ -304,11 +304,13 @@ func emitVolumeManagerTotalVolumes(st *state.State, kubBase map[string]string) {
 }
 
 // emitStorageOperationDuration emits storage_operation_duration_seconds_count per node,
-// cumulative counter. Labels: operation_name, status="success", volume_plugin="kubernetes.io/csi",
-// migrated="false". Source: the live-reference audit §storage_operation_duration_seconds_count.
-func emitStorageOperationDuration(st *state.State, kubBase map[string]string, scale float64, w *core.World) {
+// cumulative counter. The 2026-08-30 k3d collector-egress refresh observed this active family
+// with node, operation_name, status, volume_plugin, and migrated but no _bucket or `le` series,
+// so it remains a literal counter and this function never chooses histogram bounds.
+func emitStorageOperationDuration(st *state.State, kubBase map[string]string, node string, scale float64, w *core.World) {
 	for _, op := range storageOps {
 		lbls := merge(kubBase, map[string]string{
+			"node":           node,
 			"operation_name": op,
 			"status":         "success",
 			"volume_plugin":  "kubernetes.io/csi",

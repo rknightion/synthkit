@@ -120,6 +120,28 @@ func TestWriteFindingsReportLeadsWithTheOneSidedDifference(t *testing.T) {
 	}
 }
 
+func TestWriteFindingsReportNamesCrossSubstrateMatchAndAbsentEvidence(t *testing.T) {
+	findings := []ScopedFinding{{
+		Area: "k8s", Source: CorpusSource{Kind: "capture", Substrate: "gcp"}, Substrate: "gcp",
+		MatchingSubstrates:       []string{"eks"},
+		AbsentEvidenceSubstrates: []string{"k3s"},
+		Finding: Finding{
+			Kind: KindUnexpectedLabelKey, Disposition: DispositionContradiction,
+			Signal: "kube_pod_info", Field: "labels", SynthValues: []string{"job", "source"}, RealityValues: []string{"job"},
+		},
+	}}
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatal(err)
+	}
+	report := out.String()
+	for _, want := range []string{"on substrate `gcp`", "matching evidence on substrate(s) `eks`", "absent evidence on substrate(s) `k3s`"} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report missing %q:\n%s", want, report)
+		}
+	}
+}
+
 func TestWriteFindingsReportExplainsOpenValueSetCoverageGap(t *testing.T) {
 	findings := []ScopedFinding{
 		{Area: "cw", Source: CorpusSource{Kind: "gcx_live_readback", Substrate: "eks"}, Substrate: "eks", Finding: Finding{

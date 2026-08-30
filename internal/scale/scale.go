@@ -41,3 +41,15 @@ func (s *Source) Count(target string, declaredDefault int) int {
 	}
 	return declaredDefault
 }
+
+// Lookup returns a live override and whether the control state explicitly carries it. Callers
+// composing several independently scalable targets need to distinguish an untouched target from
+// one explicitly reset to its declared default.
+func (s *Source) Lookup(target string) (int, bool) {
+	m := s.m.Load()
+	if m == nil {
+		return 0, false
+	}
+	v, ok := (*m)[target]
+	return v, ok
+}
