@@ -26,10 +26,12 @@ type MetricProjection struct {
 }
 
 type LogProjection struct {
-	Source                 string   `json:"source"`
-	Transport              string   `json:"transport"`
-	StreamLabelKeys        []string `json:"stream_label_keys"`
-	StructuredMetadataKeys []string `json:"structured_metadata_keys"`
+	Source                         string   `json:"source"`
+	Transport                      string   `json:"transport"`
+	StreamLabelKeys                []string `json:"stream_label_keys"`
+	StructuredMetadataKeys         []string `json:"structured_metadata_keys"`
+	OptionalStreamLabelKeys        []string `json:"optional_stream_label_keys"`
+	OptionalStructuredMetadataKeys []string `json:"optional_structured_metadata_keys"`
 }
 
 type TraceProjection struct {
@@ -59,7 +61,7 @@ func (s Schema) Project() StructuralProjection {
 		out.Metrics = append(out.Metrics, p)
 	}
 	for _, log := range s.Logs {
-		p := LogProjection{Source: log.Source, Transport: log.Transport, StreamLabelKeys: []string{}, StructuredMetadataKeys: append([]string(nil), log.StructuredMetadataKeys...)}
+		p := LogProjection{Source: log.Source, Transport: log.Transport, StreamLabelKeys: []string{}, StructuredMetadataKeys: append([]string(nil), log.StructuredMetadataKeys...), OptionalStreamLabelKeys: append([]string(nil), log.OptionalStreamLabelKeys...), OptionalStructuredMetadataKeys: append([]string(nil), log.OptionalStructuredMetadataKeys...)}
 		for _, label := range log.StreamLabels {
 			p.StreamLabelKeys = append(p.StreamLabelKeys, label.Key)
 		}

@@ -19,11 +19,15 @@ const (
 	KindUnexpectedLabelKey      FindingKind = "unexpected_label_key"
 	KindLabelValueContradiction FindingKind = "label_value_contradiction"
 	KindInstrumentMismatch      FindingKind = "instrument_mismatch"
-	KindBucketBoundMismatch     FindingKind = "bucket_bound_mismatch"
-	KindExtraLog                FindingKind = "extra_log"
-	KindExtraTrace              FindingKind = "extra_trace"
-	KindExtraProfile            FindingKind = "extra_profile"
-	KindExtraSigil              FindingKind = "extra_sigil"
+	// KindUnknownInstrumentEvidence records that the corpus could not observe an
+	// instrument type. It is deliberately distinct from instrument_mismatch: unknown
+	// is absent evidence, not a claim that the synthetic instrument is wrong.
+	KindUnknownInstrumentEvidence FindingKind = "unknown_instrument_evidence"
+	KindBucketBoundMismatch       FindingKind = "bucket_bound_mismatch"
+	KindExtraLog                  FindingKind = "extra_log"
+	KindExtraTrace                FindingKind = "extra_trace"
+	KindExtraProfile              FindingKind = "extra_profile"
+	KindExtraSigil                FindingKind = "extra_sigil"
 )
 
 // Disposition says which side of the comparison is unsupported by the other
@@ -209,9 +213,14 @@ func identifyLog(log Log, labels map[string]attributeView, metadata map[string]s
 }
 
 type logView struct {
-	signal       string
-	streamLabels map[string]attributeView
-	metadata     map[string]struct{}
+	signal               string
+	streamLabels         map[string]attributeView
+	metadata             map[string]struct{}
+	optionalStreamLabels map[string]struct{}
+	optionalMetadata     map[string]struct{}
+	streamLabelCounts    map[string]int
+	metadataCounts       map[string]int
+	variants             int
 }
 
 func indexLogs(logs []Log) map[logIdentity]logView {
@@ -223,14 +232,42 @@ func indexLogs(logs []Log) map[logIdentity]logView {
 		view, ok := out[key]
 		if !ok {
 			view = logView{
-				signal:       logSignal(key),
-				streamLabels: make(map[string]attributeView),
-				metadata:     make(map[string]struct{}),
+				signal:               logSignal(key),
+				streamLabels:         make(map[string]attributeView),
+				metadata:             make(map[string]struct{}),
+				optionalStreamLabels: make(map[string]struct{}),
+				optionalMetadata:     make(map[string]struct{}),
+				streamLabelCounts:    make(map[string]int),
+				metadataCounts:       make(map[string]int),
 			}
 		}
+		view.variants++
 		mergeAttributeViews(view.streamLabels, labels)
+		for label := range labels {
+			view.streamLabelCounts[label]++
+		}
 		for value := range metadata {
 			view.metadata[value] = struct{}{}
+			view.metadataCounts[value]++
+		}
+		for _, label := range log.OptionalStreamLabelKeys {
+			view.optionalStreamLabels[label] = struct{}{}
+		}
+		for _, metadataKey := range log.OptionalStructuredMetadataKeys {
+			view.optionalMetadata[metadataKey] = struct{}{}
+		}
+		out[key] = view
+	}
+	for key, view := range out {
+		for label := range view.streamLabels {
+			if view.streamLabelCounts[label] < view.variants {
+				view.optionalStreamLabels[label] = struct{}{}
+			}
+		}
+		for metadataKey := range view.metadata {
+			if view.metadataCounts[metadataKey] < view.variants {
+				view.optionalMetadata[metadataKey] = struct{}{}
+			}
 		}
 		out[key] = view
 	}
@@ -332,7 +369,30 @@ func diffLogs(out *[]Finding, synthLogs, realityLogs []Log) {
 			appendFamilyCoverage(out, KindExtraLog, reality.signal, "transport")
 			continue
 		}
-		diffAttributes(out, reality.signal, "stream_labels", synth.streamLabels, reality.streamLabels)
+		diffLogAttributes(out, reality.signal, synth, reality)
+		// Presence in a captured member does not prove every member must carry the key.
+		// Optionality is therefore absent evidence in the synth-only direction, while a
+		// real optional variant missing from synth remains a visible coverage gap.
+		appendDirectional(
+			out,
+			KindUnexpectedLabelKey,
+			reality.signal,
+			"optional_stream_label_keys",
+			sortedStrings(synth.optionalStreamLabels),
+			sortedStrings(reality.optionalStreamLabels),
+			false,
+			true,
+		)
+		appendDirectional(
+			out,
+			KindUnexpectedLabelKey,
+			reality.signal,
+			"optional_structured_metadata_keys",
+			sortedStrings(synth.optionalMetadata),
+			sortedStrings(reality.optionalMetadata),
+			false,
+			true,
+		)
 		appendDirectional(
 			out,
 			KindUnexpectedLabelKey,
@@ -423,6 +483,38 @@ func diffAttributes(out *[]Finding, signal, field string, synth, reality map[str
 	appendDirectional(out, KindUnexpectedLabelKey, signal, field, synthKeys, realityKeys, true, true)
 	for _, key := range intersection(synthKeys, realityKeys) {
 		appendLabelValueDirectional(out, signal, field+"."+key, synth[key], reality[key])
+	}
+}
+
+func diffLogAttributes(out *[]Finding, signal string, synth, reality logView) {
+	synthKeys := sortedAttributeKeys(synth.streamLabels)
+	realityKeys := sortedAttributeKeys(reality.streamLabels)
+	synthOnly := difference(synthKeys, realityKeys)
+	for _, optional := range sortedStrings(synth.optionalStreamLabels) {
+		synthOnly = difference(synthOnly, []string{optional})
+	}
+	if len(synthOnly) > 0 {
+		*out = append(*out, Finding{
+			Kind:          KindUnexpectedLabelKey,
+			Disposition:   DispositionContradiction,
+			Signal:        signal,
+			Field:         "stream_labels",
+			SynthValues:   cloneStrings(synthKeys),
+			RealityValues: cloneStrings(realityKeys),
+		})
+	}
+	if len(difference(realityKeys, synthKeys)) > 0 {
+		*out = append(*out, Finding{
+			Kind:          KindUnexpectedLabelKey,
+			Disposition:   DispositionCoverageGap,
+			Signal:        signal,
+			Field:         "stream_labels",
+			SynthValues:   cloneStrings(synthKeys),
+			RealityValues: cloneStrings(realityKeys),
+		})
+	}
+	for _, key := range intersection(synthKeys, realityKeys) {
+		appendLabelValueDirectional(out, signal, "stream_labels."+key, synth.streamLabels[key], reality.streamLabels[key])
 	}
 }
 
@@ -573,8 +665,21 @@ func sortedSigilSignals(sigil map[string]sigilView) []string {
 func diffMetric(out *[]Finding, synth, reality metricView) {
 	synthInstruments := sortedStrings(synth.instruments)
 	realityInstruments := sortedStrings(reality.instruments)
-	instrumentEvidence := !instrumentEvidenceAbsent(synthInstruments) && !instrumentEvidenceAbsent(realityInstruments)
-	appendDirectional(out, KindInstrumentMismatch, synth.name, "instrument_types", synthInstruments, realityInstruments, instrumentEvidence, true)
+	if instrumentEvidenceAbsent(realityInstruments) && !instrumentEvidenceAbsent(synthInstruments) {
+		// The corpus explicitly records that it did not observe an instrument shape. Keep
+		// that fact visible, but never describe absent evidence as an instrument mismatch.
+		*out = append(*out, Finding{
+			Kind:          KindUnknownInstrumentEvidence,
+			Disposition:   DispositionCoverageGap,
+			Signal:        synth.name,
+			Field:         "instrument_types",
+			SynthValues:   cloneStrings(synthInstruments),
+			RealityValues: cloneStrings(realityInstruments),
+		})
+	} else {
+		instrumentEvidence := !instrumentEvidenceAbsent(synthInstruments) && !instrumentEvidenceAbsent(realityInstruments)
+		appendDirectional(out, KindInstrumentMismatch, synth.name, "instrument_types", synthInstruments, realityInstruments, instrumentEvidence, true)
+	}
 	// An EMPTY representation set is absent evidence, not a claim that the family has no
 	// representation — the same reading instrumentEvidenceAbsent already gives the unknown
 	// instrument sentinel. A capture records a representation only where it observed one: `le`

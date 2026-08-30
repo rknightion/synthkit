@@ -166,6 +166,18 @@ func buildPodLogEntries(now time.Time, cl *fixture.Cluster) []podLogEntry {
 			}
 		}
 	}
+	if len(out) > 0 {
+		// The capture records a normal pod-log member with neither a Deployment owner nor
+		// a scheduling node. Model that genuine lifecycle state once per cluster, deriving
+		// its stable identity from an already declared workload so this adds no blueprint
+		// surface or synthetic label vocabulary. Both transports project this same entry.
+		base := out[0]
+		base.Pod = synthPodName(base.Container+"-unowned", 0)
+		base.Deployment = ""
+		base.Node = ""
+		base.ServiceInstanceID = fmt.Sprintf("%s.%s.%s", base.Namespace, base.Pod, base.Container)
+		out = append(out, base)
+	}
 	return out
 }
 

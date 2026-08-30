@@ -34,8 +34,12 @@ And locally/on the host: the **operator UI** at `/control/ui` with a green sink-
 
 ## 1. Prerequisites
 
-- Go 1.27 (for local runs) or Docker (for the containerised deploy).
-- `gcx` configured with a context for the customer stack (and optionally the staff stack). See the
+- Go 1.27 (for local runs) or Docker Engine 24.0+ with Docker Compose 2.24.4+ (for the
+  containerised deploy).
+- Bash 5.0+, Python 3.11+, and `just` 1.58.0+ for the supported Compose path. The literal clean
+  host bootstrap is [Installation](installation.md#clean-public-clone-to-healthy-compose).
+- `gcx` 1.2.0+ configured with a context for the customer stack (and optionally the staff stack)
+  only when remote verification is requested. See the
   `gcx:setup-gcx` skill if it is not yet set up.
 - The credential set for the customer stack. synthkit reads **three independent destinations**, each
   with its own token — never share `GC_TOKEN` across them:
@@ -114,11 +118,9 @@ container's user.** The image is distroless and runs as **uid 65532 (nonroot)**;
 the state file directly inspectable/editable on the host, but the dir must be writable by 65532 or
 every save fails (silently except for the surfaced error — see below):
 
-```bash
-# on the host clone (e.g. /opt/synthkit), ONCE:
-if [ -L control-state-data ] || { [ -e control-state-data ] && [ ! -d control-state-data ]; }; then echo 'refusing unsafe state path' >&2; exit 1; fi
-sudo install -d -o 65532 -g 65532 -m 700 control-state-data
-```
+Use the no-`sudo`, pinned-helper state preparation in
+[Installation](installation.md#clean-public-clone-to-healthy-compose) before the first Compose
+command. It rejects a symlink or non-directory and leaves `/data` owned by uid 65532.
 
 For a first deployment, retain the image pin copied from `.env.example`, validate Compose with fake
 inputs, and wait for delivery-aware health:

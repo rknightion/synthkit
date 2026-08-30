@@ -137,6 +137,23 @@ func TestWriteFindingsReportExplainsOpenValueSetCoverageGap(t *testing.T) {
 	}
 }
 
+func TestWriteFindingsReportMakesUnknownInstrumentEvidenceExplicit(t *testing.T) {
+	findings := []ScopedFinding{
+		{Area: "k8s", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{
+			Kind: KindUnknownInstrumentEvidence, Disposition: DispositionCoverageGap,
+			Signal: "kube_pod_info", Field: "instrument_types",
+			SynthValues: []string{InstrumentGauge}, RealityValues: []string{InstrumentUnknown},
+		}},
+	}
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatal(err)
+	}
+	if want := "corpus did not observe an instrument type"; !strings.Contains(out.String(), want) {
+		t.Fatalf("report missing %q:\n%s", want, out.String())
+	}
+}
+
 func TestWriteFindingsReportDoesNotMislabelKeyCoverageAsOpenValueSet(t *testing.T) {
 	findings := []ScopedFinding{
 		{Area: "k8s", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s", Finding: Finding{

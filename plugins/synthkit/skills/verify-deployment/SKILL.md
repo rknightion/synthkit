@@ -99,10 +99,23 @@ and/or the required emitter restart remains. This read-only skill does not run t
 The master cadence is not a promise that every series appears every master tick: metric-producing
 constructs/workloads have their own intervals and the runner clamps metric lanes to a 60-second
 DPM floor with deterministic phase offsets. After a new deployment or configuration change, wait
-**one declared emission interval plus the configured delivery deadline** for the selected lane.
+**two declared emission intervals plus the configured delivery deadline** for every declared lane.
 Use the per-construct/workload interval from the schema/catalogue, or 60 seconds when it is a
-metric lane below that floor; add `SEND_BATCH_DEADLINE` (default `5s`). Do not claim “one or two
-ticks” is enough.
+metric lane below that floor; add `SEND_BATCH_DEADLINE` (default `5s`). A master tick is not an
+emission proof.
+
+Before building a query, read authenticated `GET /control/inventory`. It is the mapping source:
+each construct lists the metric names it has emitted and, when available, a low-cardinality
+`identity` object with its explicit `scope` plus query labels. Use the exact metric name with those
+labels. A blueprint-scoped identity includes `blueprint`; a substrate identity deliberately does
+not, and is queried with its declared cluster/account/database identity instead. This avoids a
+hand-built family-to-blueprint table and never promotes high-cardinality values into selectors.
+
+In the same two-interval window, read `/control/status`, `/control/health`, and
+`/control/diagnostics`: status identifies a blocked delivery lane, health identifies a failing
+blueprint/construct tick, and diagnostics identifies a rejected load. A mutation returning `200`
+only proves control-state acceptance. Reset and scaling require an explicit before/after emitted-data
+assertion from the inventory-backed query before they can be called successful.
 
 For the customer metric lane, choose a real expected metric family from the active blueprint's
 relevant `signals/` page. Substitute only the placeholders shown here:

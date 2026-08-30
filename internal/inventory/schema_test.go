@@ -51,6 +51,29 @@ func TestHistogramCanBeClassicAndNative(t *testing.T) {
 	}
 }
 
+func TestLogOptionalKeysRecordMembersThatDoNotCarryThem(t *testing.T) {
+	s := New()
+	s.AddLog(LogFamilyPodLogs, TransportOTLPLogs, map[string]string{
+		"k8s.pod.name":        "owned-0",
+		"k8s.deployment.name": "api",
+		"k8s.node.name":       "node-0",
+	}, []string{"log.iostream", "logtag"})
+	s.AddLog(LogFamilyPodLogs, TransportOTLPLogs, map[string]string{
+		"k8s.pod.name": "unowned-0",
+	}, []string{"log.iostream"})
+
+	if len(s.Logs) != 1 {
+		t.Fatalf("logs=%+v, want one merged pod-log family", s.Logs)
+	}
+	log := s.Logs[0]
+	if got, want := log.OptionalStreamLabelKeys, []string{"k8s.deployment.name", "k8s.node.name"}; !equalStrings(got, want) {
+		t.Fatalf("optional stream label keys=%v, want %v", got, want)
+	}
+	if got, want := log.OptionalStructuredMetadataKeys, []string{"logtag"}; !equalStrings(got, want) {
+		t.Fatalf("optional metadata keys=%v, want %v", got, want)
+	}
+}
+
 func TestNewSchemaWritesEmptyArrays(t *testing.T) {
 	var out bytes.Buffer
 	if err := New().WriteJSON(&out); err != nil {

@@ -412,7 +412,8 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		if reg.Scope == core.ScopeBlueprint {
 			label = res.Label
 		}
-		world, inv := r.buildWorld(bp, ci.Kind, ci.Name, c.Signals(), label, nil)
+		identity := queryIdentity(reg.Scope, res.Label, ci.Fixtures)
+		world, inv := r.buildWorld(bp, ci.Kind, ci.Name, c.Signals(), label, identity, nil)
 		bp.constructs = append(bp.constructs, &boundConstruct{
 			name:      ci.Name,
 			kind:      ci.Kind,
@@ -458,7 +459,8 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		if wreg.Scope == core.ScopeSubstrate {
 			wlabel = "" // …except substrate-scoped workloads (ai_agent/sigil): no blueprint label
 		}
-		wworld, winv := r.buildWorld(bp, wi.Kind, wi.Name, w.Signals(), wlabel, led)
+		identity := queryIdentity(wreg.Scope, res.Label, &fixture.Set{Cluster: wi.Cluster})
+		wworld, winv := r.buildWorld(bp, wi.Kind, wi.Name, w.Signals(), wlabel, identity, led)
 		bp.workloads = append(bp.workloads, &boundWorkload{
 			workload: w,
 			kind:     wi.Kind,
@@ -531,8 +533,20 @@ func projectHighDPMCost(bp *bpRuntime, seriesBudget int, interval time.Duration)
 // buildWorld wires the writers an instance declared — nothing more (the framework
 // only asks for what Signals() promises). label "" = substrate (no stamping).
 // kind/name identify the instance for the internal emission inventory (never stamped on the wire).
-func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.SignalClass, label string, led *ledger.Ledger) (*core.World, *constructInv) {
-	inv := newConstructInv(bp.name, kind, name)
+func queryIdentity(scope core.Scope, blueprintLabel string, fixtures *fixture.Set) *control.QueryIdentity {
+	if scope == core.ScopeBlueprint {
+		return &control.QueryIdentity{Scope: "blueprint", Labels: map[string]string{"blueprint": blueprintLabel}}
+	}
+	if fixtures != nil && fixtures.Cluster != nil {
+		return &control.QueryIdentity{Scope: "substrate", Labels: map[string]string{
+			"cluster": fixtures.Cluster.Name, "k8s_cluster_name": fixtures.Cluster.Name,
+		}}
+	}
+	return nil
+}
+
+func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.SignalClass, label string, identity *control.QueryIdentity, led *ledger.Ledger) (*core.World, *constructInv) {
+	inv := newConstructInv(bp.name, kind, name, identity)
 	w := &core.World{Shape: bp.eng, Ledger: led, Scaling: bp.scale}
 	// Wire the stamped writers at the delivery QUEUES (decorators of the raw sinks), not the
 	// raw sinks — so Write enqueues and background senders ship (I41). Gated on the raw sink's

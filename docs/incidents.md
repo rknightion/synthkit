@@ -166,6 +166,24 @@ The `scenarios:` and `incidents:` blocks are the **definition** layer: they desc
 
 For live activation, see [Control Plane](control-plane.md). The control plane also exposes `GET /control/schema`, which returns the complete derived vocabulary — modes, addressable targets with current scaling state, and all named scenarios — for the loaded blueprints.
 
+## Emitted-data acceptance evidence
+
+An HTTP success or the `active_scenarios` control field is not scenario evidence. The
+schema-derived acceptance harness selects a sourced observation for every declared scenario,
+records a baseline, activates the scenario, and verifies the observation moves in the documented
+direction. It then deactivates the scenario and verifies that the observation returns near its
+baseline. Counter and histogram totals are never expected to decrease: their assertions use a
+windowed rate or a reversible gauge instead.
+
+Run the root-owned `just e2e-scenarios` recipe against a deployment with both query endpoints
+configured. The harness discovers IDs from `GET /control/schema`, continues after failures, and
+prints one disposition per ID. For `eval_quality_degraded` and `portkey_scrape_degraded`, pass a
+sibling environment: their observations prove the target moves while that sibling remains at its
+baseline. The current query catalogue is sourced from `signals/agentcore.md`, `signals/cw.md`,
+`signals/apm.md`, `signals/k8s.md`, `signals/langsmith.md`, `signals/portkey.md`, and
+`signals/logs.md`; adding a scenario whose effects have no catalogue entry is a failed disposition,
+not a control-plane pass.
+
 ## Complete example
 
 ```yaml

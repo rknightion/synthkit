@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/control"
+	"github.com/rknightion/synthkit/internal/core"
+	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 )
 
@@ -18,9 +20,38 @@ func (c *capSink) Write(_ context.Context, b []promrw.Series) error {
 	return nil
 }
 
+func TestQueryIdentityForBlueprintAndSubstrateScope(t *testing.T) {
+	blueprint := queryIdentity(core.ScopeBlueprint, "team-a", nil)
+	if blueprint == nil || blueprint.Scope != "blueprint" || blueprint.Labels["blueprint"] != "team-a" {
+		t.Fatalf("blueprint identity = %+v", blueprint)
+	}
+	cluster := &fixture.Cluster{Name: "cluster-a"}
+	substrate := queryIdentity(core.ScopeSubstrate, "ignored", &fixture.Set{Cluster: cluster})
+	if substrate == nil || substrate.Scope != "substrate" || substrate.Labels["cluster"] != cluster.Name || substrate.Labels["k8s_cluster_name"] != cluster.Name {
+		t.Fatalf("substrate identity = %+v", substrate)
+	}
+	if got := queryIdentity(core.ScopeSubstrate, "ignored", nil); got != nil {
+		t.Fatalf("substrate identity without sourced fixture = %+v, want nil", got)
+	}
+}
+
+func TestConstructInventoryClonesQueryIdentity(t *testing.T) {
+	identity := &control.QueryIdentity{Scope: "blueprint", Labels: map[string]string{"blueprint": "bp-a"}}
+	inv := newConstructInv("bp-a", "kind", "name", identity)
+	identity.Labels["blueprint"] = "mutated"
+	snapshot := inv.snapshot()
+	if snapshot.Identity == nil || snapshot.Identity.Labels["blueprint"] != "bp-a" {
+		t.Fatalf("inventory identity = %+v", snapshot.Identity)
+	}
+	snapshot.Identity.Labels["blueprint"] = "snapshot-mutation"
+	if got := inv.snapshot().Identity.Labels["blueprint"]; got != "bp-a" {
+		t.Fatalf("snapshot mutation leaked into inventory: %q", got)
+	}
+}
+
 func TestWriterInventoryRecordsAndDoesNotLeakLabels(t *testing.T) {
 	cap := &capSink{}
-	inv := newConstructInv("bpA", "cloudflare", "cf1")
+	inv := newConstructInv("bpA", "cloudflare", "cf1", nil)
 	w := &stampedMetrics{sink: cap, label: "bpA", bp: "bpA", budget: newSeriesBudget(0), inv: inv}
 	err := w.Write(context.Background(), []promrw.Series{
 		{Name: "http_requests_total", Labels: map[string]string{"method": "GET", "code": "200"}},
@@ -51,7 +82,7 @@ func TestWriterInventoryRecordsAndDoesNotLeakLabels(t *testing.T) {
 
 // identical signatures must not double-count.
 func TestDistinctSeriesDedup(t *testing.T) {
-	inv := newConstructInv("b", "k", "n")
+	inv := newConstructInv("b", "k", "n", nil)
 	inv.recordMetric("m", [][2]string{{"a", "v1"}, {"b", "v2"}})
 	inv.recordMetric("m", [][2]string{{"a", "v1"}, {"b", "v2"}})
 	if got := inv.snapshot().DistinctSeries; got != 1 {
@@ -64,7 +95,7 @@ func TestDistinctSeriesDedup(t *testing.T) {
 // showing what the blueprint contains). Guards the "disabled stats never drop to zero" bug.
 func TestInventoryDisabledBlueprintZeroesEmissionKeepsConstructs(t *testing.T) {
 	mk := func(bp string) *bpRuntime {
-		ci := newConstructInv(bp, "cloudflare", bp+"-cf")
+		ci := newConstructInv(bp, "cloudflare", bp+"-cf", nil)
 		ci.recordMetric("http_requests_total", [][2]string{{"code", "200"}})
 		ci.recordMetric("http_requests_total", [][2]string{{"code", "500"}})
 		return &bpRuntime{name: bp, constructs: []*boundConstruct{{name: bp + "-cf", kind: "cloudflare", inv: ci}}}
@@ -106,7 +137,7 @@ func TestInventoryDisabledBlueprintZeroesEmissionKeepsConstructs(t *testing.T) {
 // Same metric name + same label KEYS but DIFFERENT values must count as distinct series — this is
 // why the signature hashes values, not just keys. (Guards the keys-only undercounting bug.)
 func TestDistinctSeriesValuesMatter(t *testing.T) {
-	inv := newConstructInv("b", "k", "n")
+	inv := newConstructInv("b", "k", "n", nil)
 	inv.recordMetric("m", [][2]string{{"method", "GET"}, {"code", "200"}})
 	inv.recordMetric("m", [][2]string{{"method", "POST"}, {"code", "200"}})
 	snap := inv.snapshot()

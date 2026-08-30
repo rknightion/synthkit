@@ -409,7 +409,7 @@ test_add_secret_interrupt_cleanup() {
 test_secret_recipes() {
   local skill_file="$script_dir/../SKILL.md"
   local credentials_file="$script_dir/../references/credentials.md"
-  local state_block symlink_line nondir_line sudo_line
+  local state_block symlink_line nondir_line mkdir_line chmod_line helper_line
   if grep -Eq 'grep -v .*CONTROL_TOKEN|\.env\.tmp' "$skill_file"; then
     fail 'SKILL.md still contains the unsafe CONTROL_TOKEN .env.tmp recipe'
   fi
@@ -433,11 +433,13 @@ test_secret_recipes() {
   state_block="$(sed -n '/^## Step 5 /,/^## Step 6 /p' "$skill_file")"
   symlink_line="$(printf '%s\n' "$state_block" | grep -nF '[ -L "$state_dir" ]' | cut -d: -f1)"
   nondir_line="$(printf '%s\n' "$state_block" | grep -nF '[ ! -d "$state_dir" ]' | cut -d: -f1)"
-  sudo_line="$(printf '%s\n' "$state_block" | grep -nF 'sudo install -d -o 65532 -g 65532 -m 700 "$state_dir"' | cut -d: -f1)"
-  [ -n "$symlink_line" ] && [ -n "$nondir_line" ] && [ -n "$sudo_line" ] ||
-    fail 'SKILL.md state setup is missing its path guards or narrow install command'
-  [ "$symlink_line" -lt "$sudo_line" ] && [ "$nondir_line" -lt "$sudo_line" ] ||
-    fail 'SKILL.md must reject symlink and non-directory paths before sudo'
+  mkdir_line="$(printf '%s\n' "$state_block" | grep -nF 'mkdir -p "$state_dir"' | cut -d: -f1)"
+  chmod_line="$(printf '%s\n' "$state_block" | grep -nF 'chmod 700 "$state_dir"' | cut -d: -f1)"
+  helper_line="$(printf '%s\n' "$state_block" | grep -nF 'node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43' | cut -d: -f1)"
+  [ -n "$symlink_line" ] && [ -n "$nondir_line" ] && [ -n "$mkdir_line" ] && [ -n "$chmod_line" ] && [ -n "$helper_line" ] ||
+    fail 'SKILL.md state setup is missing its guards or pinned Docker helper'
+  [ "$symlink_line" -lt "$helper_line" ] && [ "$nondir_line" -lt "$helper_line" ] ||
+    fail 'SKILL.md must reject symlink and non-directory paths before the Docker helper'
   grep -Fq 'CONTROL_EXPOSURE_ACK=trusted-network|tls-proxy' "$skill_file" ||
     fail 'SKILL.md does not document the exact non-loopback acknowledgement contract'
   pass 'SKILL.md routes operator secrets through atomic add-secret.sh handling'

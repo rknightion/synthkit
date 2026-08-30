@@ -1,10 +1,11 @@
 ---
 id: SKT-0015
 title: 'Emit high-DPM and high-churn series on demand, for testing detection tooling'
-status: In Progress
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-28 08:56'
-updated_date: '2026-08-28 13:56'
+updated_date: '2026-08-30 01:39'
 labels: []
 dependencies: []
 priority: high
@@ -56,6 +57,8 @@ Cardinality alone (many series at a normal cadence) is explicitly NOT the target
 
 <!-- SECTION:PLAN:BEGIN -->
 Root implements the epic sequentially: .01 per-blueprint fast cadence with a fixed one-minute series-budget window; .02 truthful lifecycle churn; .03 a small reference blueprint with projected-cost surfaces; then integrated schema, dump, fidelity and CI gates.
+
+Root rechecks all six subtask states and closes the epic only if each remains Done with existing acceptance evidence.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -64,10 +67,16 @@ Root implements the epic sequentially: .01 per-blueprint fast cadence with a fix
 Final evidence: SKT-0015.01-.03 are complete. The reference blueprint projects 115 series at 6 DPM and 690 data points/minute with declarable topology churn; non-opted blueprints retain the default floor. make blueprint-schema, targeted/full-catalog inventories, report-only fidelity and the integrated make gate passed. Fidelity delta versus baseline: extra_metric 466 to 411, unexpected-label coverage 87 to 86, contradictions 69 to 68; instrument_mismatch 103 and extra_log 2 unchanged.
 
 2026-08-28: reopened. Two decisions taken after the first three subtasks landed add SKT-0015.04 (high_dpm must be a floor, not a forced cadence) and SKT-0015.05 (pod lifecycle churn, since edge churn alone is too narrow for the detectors this epic exists to test).
+
+Closeout re-query on 2026-08-30: SKT-0015.01 through SKT-0015.06 are all Done; no subtask reopened.
+
+2026-08-30 closeout: all six subtasks were already Done; final just check, just dump, just e2e, and exact rc.38 published-e2e exited 0.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Delivered opt-in high-DPM and high-churn generation using the existing catalog, with a default 6-DPM ceiling, fixed-minute budget semantics, truthful series retirement, a small cost-labelled reference blueprint, and startup/control-plane cost projection.
+Closed the epic after a current-state re-query confirmed all six subtasks remain Done and the epic acceptance criteria and repository gates were already recorded complete.
+
+Epic closed after all six high-DPM/high-churn subtasks and the final integration gates completed.
 <!-- SECTION:FINAL_SUMMARY:END -->

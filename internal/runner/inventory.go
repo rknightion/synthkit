@@ -20,6 +20,7 @@ const maxSigsPerConstruct = 200_000
 // effectively no cross-construct contention. NOTHING here is ever stamped on the wire.
 type constructInv struct {
 	bp, kind, name string
+	identity       *control.QueryIdentity
 
 	mu           sync.Mutex
 	seed         maphash.Seed
@@ -34,13 +35,24 @@ type constructInv struct {
 	spanAttrKeys map[string]struct{}
 }
 
-func newConstructInv(bp, kind, name string) *constructInv {
+func newConstructInv(bp, kind, name string, identity *control.QueryIdentity) *constructInv {
 	return &constructInv{
-		bp: bp, kind: kind, name: name, seed: maphash.MakeSeed(),
+		bp: bp, kind: kind, name: name, identity: cloneQueryIdentity(identity), seed: maphash.MakeSeed(),
 		sigs: map[uint64]struct{}{}, metricNames: map[string]struct{}{}, metricLabels: map[string]struct{}{},
 		logSources: map[string]struct{}{}, logLabelKeys: map[string]struct{}{},
 		spanServices: map[string]struct{}{}, spanNames: map[string]struct{}{}, spanAttrKeys: map[string]struct{}{},
 	}
+}
+
+func cloneQueryIdentity(identity *control.QueryIdentity) *control.QueryIdentity {
+	if identity == nil {
+		return nil
+	}
+	cloned := &control.QueryIdentity{Scope: identity.Scope, Labels: make(map[string]string, len(identity.Labels))}
+	for key, value := range identity.Labels {
+		cloned.Labels[key] = value
+	}
+	return cloned
 }
 
 // recordMetric folds one emitted series (PRE-stamp; label values hashed but never stored) into the inventory.
@@ -111,7 +123,7 @@ func (ci *constructInv) snapshot() control.ConstructInventory {
 	ci.mu.Lock()
 	defer ci.mu.Unlock()
 	return control.ConstructInventory{
-		Kind: ci.kind, Name: ci.name, DistinctSeries: int64(len(ci.sigs)), Capped: ci.capped,
+		Kind: ci.kind, Name: ci.name, Identity: cloneQueryIdentity(ci.identity), DistinctSeries: int64(len(ci.sigs)), Capped: ci.capped,
 		MetricNames: sortedKeys(ci.metricNames), MetricLabels: sortedKeys(ci.metricLabels),
 		LogSources: sortedKeys(ci.logSources), LogLabelKeys: sortedKeys(ci.logLabelKeys),
 		SpanServices: sortedKeys(ci.spanServices), SpanNames: sortedKeys(ci.spanNames),

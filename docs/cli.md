@@ -172,7 +172,7 @@ See [tools.md](tools.md) for the full skcapture → skforge → blueprint workfl
 Generates Grafana v2 dashboards for a blueprint's synthetic telemetry. Resolves the blueprint, derives the signal manifest, runs registered templates, and writes dashboard JSON files.
 
 ```bash
-go run ./cmd/synthkit-dash -blueprint <path> -out <dir> [flags]
+just dashgen -blueprint <path> -out <dir> -datasource <group=name> [flags]
 ```
 
 | Flag | Required | Description |
@@ -180,9 +180,10 @@ go run ./cmd/synthkit-dash -blueprint <path> -out <dir> [flags]
 | `-blueprint <path>` | yes | Path to the blueprint YAML. |
 | `-out <dir>` | yes | Output directory for generated JSON files. |
 | `-integrations <path>` | no | Optional integrations config YAML for deep-link index. |
-| `-folder <uid>` | no | Grafana folder UID to place every dashboard in (must already exist). |
+| `-folder <uid>` | no | UID for the generated Folder resource (defaults to `<blueprint>-dashboards`). |
+| `-datasource <group=name>` | yes, repeated | Explicit datasource binding for every rendered query group. |
 
-Always emits a thin index dashboard and a metrics dashboard. Per-blueprint templates produce additional dashboards when registered. Generated files are named `<dashboard-uid>.json`. Push and validate with `gcx`. See [tools.md](tools.md).
+Always emits a Folder resource, a thin index dashboard, a metrics dashboard, and a panel inventory. Per-blueprint templates produce additional dashboards when registered. Use `-verify-inventory` and `-observations` to classify every panel as rendered, empty, or errored from normalized read-only observations. Push and validate with `gcx`. See [tools.md](tools.md).
 
 ## synthkit-control-dash — control dashboard generator
 
@@ -214,3 +215,33 @@ Docker-capable CI superset.
 | `just published-e2e` | Requires `SYNTHKIT_PUBLISHED_IMAGE_REF`, `SYNTHKIT_EXPECTED_VERSION`, and `SYNTHKIT_EXPECTED_REVISION`; it exercises that exact published image through committed Compose. |
 | `just lab [permutations...]` | Long-running k3d capture matrix (about 45 minutes) requiring Docker, k3d, Helm, and kubectl. |
 | `just proto-drift-check` | Network call outside `just check`; run before re-vendoring the RW2 proto or cutting a release. |
+
+## Claude Code marketplace plugin
+
+The supported marketplace host is **Claude Code** with plugin marketplace support. It is a host
+application prerequisite; the following are **not shell commands**. Open Claude Code, focus its
+chat input, and enter each slash command there:
+
+```text
+/plugin marketplace add rknightion/synthkit
+/plugin install synthkit@synthkit
+```
+
+After installation, start each bundled skill from the Claude Code chat input (again, not from a
+shell):
+
+```text
+/synthkit:initial-setup
+/synthkit:verify-deployment
+/synthkit:create-blueprint
+/synthkit:setup-fleet-management
+```
+
+The plugin supplies guidance and helper scripts only. It does not clone synthkit or install its
+binary. Clone or locate the checkout separately, then open that checkout in Claude Code before
+starting a deployment or blueprint skill.
+
+Plugin installation is relocation-safe: install it from any directory, then later open or `cd` to
+the synthkit checkout and invoke a namespaced skill. The skill resolves its own helper files from
+the installed plugin and verifies the checkout root before touching repository files. Do not copy
+the plugin directory into the checkout or try to paste `/plugin …` commands into a terminal.

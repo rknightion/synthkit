@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func repoRoot(t *testing.T) string {
@@ -252,6 +254,54 @@ func TestDashboardSDKIsolation(t *testing.T) {
 					t.Errorf("%s imports %q — the synthetic-emit path must stay off the dashboard SDK/generator (dashboard generation is cmd/synthkit-dash tooling)", f, path)
 				}
 			}
+		}
+	}
+}
+
+func TestPodLogTransportsAreExplicitAndExclusive(t *testing.T) {
+	type monitoring struct {
+		Features struct {
+			PodLogs bool `yaml:"pod_logs"`
+		} `yaml:"features"`
+		PodLogsMethod *string `yaml:"pod_logs_method"`
+	}
+	type document struct {
+		Environments []struct {
+			Cluster *struct {
+				K8sMonitoring *monitoring `yaml:"k8s_monitoring"`
+			} `yaml:"cluster"`
+		} `yaml:"environments"`
+	}
+
+	paths, err := filepath.Glob(filepath.Join(repoRoot(t), "blueprints", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc document
+		if err := yaml.Unmarshal(data, &doc); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		for index, env := range doc.Environments {
+			if env.Cluster == nil || env.Cluster.K8sMonitoring == nil || !env.Cluster.K8sMonitoring.Features.PodLogs {
+				continue
+			}
+			method := env.Cluster.K8sMonitoring.PodLogsMethod
+			if method == nil || (*method != "loki" && *method != "opentelemetry") {
+				t.Errorf("%s environment %d enables pod_logs without exactly one explicit pod_logs_method (loki or opentelemetry)", path, index)
+				continue
+			}
+			seen[*method] = true
+		}
+	}
+	for _, method := range []string{"loki", "opentelemetry"} {
+		if !seen[method] {
+			t.Errorf("blueprint catalogue has no explicit pod_logs_method %q", method)
 		}
 	}
 }

@@ -811,9 +811,65 @@ class DeployCLITest(unittest.TestCase):
             self.assertEqual(report["platform_manifest_digest"], manifest)
             self.assertEqual(report["oci_config_digest"], config)
             self.assertEqual(report["running_image_id"], config)
+            self.assertEqual(report["runtime_identity"], "oci_config_digest")
             self.assertEqual(report["version"], version)
             self.assertEqual(report["revision"], revision)
             self.assertEqual(report["health"], "healthy")
+
+    def test_inspect_running_accepts_containerd_index_id_with_selected_platform_descriptor(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            docker = root / "docker"
+            index = DIGEST
+            manifest = "sha256:" + "c" * 64
+            config = "sha256:" + "d" * 64
+            revision = "b" * 40
+            version = "1.3.0"
+            reference = f"{IMAGE}@{index}"
+            docker.write_text(
+                PYTHON_SHEBANG
+                +
+                "import json, sys\n"
+                f"index={index!r}; manifest={manifest!r}; config={config!r}; revision={revision!r}; version={version!r}; reference={reference!r}\n"
+                "args=sys.argv[1:]\n"
+                "if args[:2] == ['inspect','--format']:\n"
+                "  template=args[2]\n"
+                "  if template == '{{.Config.Image}}': print(reference)\n"
+                "  elif template == '{{.Image}}': print(index)\n"
+                "  elif template == '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}': print('unhealthy')\n"
+                "  elif template == '{{json .ImageManifestDescriptor}}': print(json.dumps({'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}))\n"
+                "elif args[:3] == ['image','inspect','--format']:\n"
+                "  template=args[3]\n"
+                "  if template == '{{json .RepoDigests}}': print(json.dumps([reference]))\n"
+                "  elif template == '{{.Os}}/{{.Architecture}}': print('linux/amd64')\n"
+                "elif args[:4] == ['buildx','imagetools','inspect','--raw']:\n"
+                "  if args[4].endswith(index): print(json.dumps({'mediaType':'application/vnd.oci.image.index.v1+json','manifests':[{'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}]}))\n"
+                "  else: print(json.dumps({'mediaType':'application/vnd.oci.image.manifest.v1+json','config':{'digest':config}}))\n"
+                "elif args and args[0] == 'exec': print(json.dumps({'version':version,'revision':revision}))\n"
+                "else: sys.exit(2)\n",
+                encoding="utf-8",
+            )
+            docker.chmod(0o700)
+
+            result = self.run_cli(
+                "inspect-running",
+                "--container",
+                "container-id",
+                "--expected-reference",
+                reference,
+                "--expected-version",
+                version,
+                "--expected-revision",
+                revision,
+                "--docker-bin",
+                str(docker),
+            )
+
+            report = json.loads(result.stdout)
+            self.assertEqual(report["oci_config_digest"], config)
+            self.assertEqual(report["running_image_id"], index)
+            self.assertEqual(report["runtime_identity"], "index_with_platform_descriptor")
+            self.assertEqual(report["platform_manifest_digest"], manifest)
 
     def test_inspect_running_rejects_invalid_health_before_registry_requests(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

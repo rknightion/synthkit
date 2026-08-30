@@ -60,7 +60,7 @@ func appMetricPods(mc *coretest.MetricCapture, namespace string) map[string]bool
 func appLokiPods(lc *coretest.LogCapture, namespace string) map[string]bool {
 	got := map[string]bool{}
 	for _, stream := range lc.Streams {
-		if stream.Labels["namespace"] != namespace {
+		if stream.Labels["namespace"] != namespace || stream.Labels["app_kubernetes_io_name"] == "" {
 			continue
 		}
 		for _, line := range stream.Lines {
@@ -75,7 +75,7 @@ func appLokiPods(lc *coretest.LogCapture, namespace string) map[string]bool {
 func appOTLPLogPods(oc *otlpLogCapture, namespace string) map[string]bool {
 	got := map[string]bool{}
 	for _, resource := range oc.Resources {
-		if resource.Attrs["k8s.namespace.name"] != namespace {
+		if resource.Attrs["k8s.namespace.name"] != namespace || resource.Attrs["k8s.deployment.name"] == nil {
 			continue
 		}
 		if pod, ok := resource.Attrs["k8s.pod.name"].(string); ok {

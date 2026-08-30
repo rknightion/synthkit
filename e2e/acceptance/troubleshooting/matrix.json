@@ -1,0 +1,189 @@
+{
+  "schema_version": "synthkit.troubleshooting/v1",
+  "source_file": "docs/troubleshooting.md",
+  "source_marker": "troubleshooting-symptom",
+  "rows": [
+    {
+      "id": "TS-01",
+      "source_heading": "### `DRY_RUN` is still `true`",
+      "scope": "local startup",
+      "precondition": "A selected blueprint is configured while DRY_RUN is unset or true.",
+      "action": "Run the selected blueprint through the offline one-cycle path and inspect the effective run mode or control status.",
+      "expected_diagnostic": "The run is explicitly dry-run; the status response reports dry_run=true and no live sink delivery is attempted.",
+      "remedy": "Set DRY_RUN=false in the environment file and restart the process or container.",
+      "post_remedy_assertion": "A local startup/status check reports dry_run=false. This does not prove that a remote sink accepted data.",
+      "proof_boundary": "local-startup-only",
+      "external_prerequisite": "Live proof additionally needs the complete mandatory GC_TOKEN, endpoint, and numeric-user set plus reachable Grafana ingestion endpoints.",
+      "disposition": "executable-local; live-delivery-proof-blocked-without-external-prerequisite",
+      "check": "dry_run"
+    },
+    {
+      "id": "TS-02",
+      "source_heading": "### Credentials are wrong or missing",
+      "scope": "local startup and live delivery",
+      "precondition": "DRY_RUN=false is selected and one or more mandatory sink credentials or endpoint/user pairs are empty, malformed, or unauthorized.",
+      "action": "Start once with the mandatory set absent, then inspect the redacted sink status fields rather than remote response text.",
+      "expected_diagnostic": "Startup names missing mandatory variables; after startup, an affected sink reports a non-zero failure count and last_error_code=authentication without exposing a token or response body.",
+      "remedy": "Fill GC_TOKEN, GC_PROM_RW/GC_PROM_USER, GC_OTLP_ENDPOINT/GC_OTLP_USER, and GC_LOKI/GC_LOKI_USER; use numeric positive-decimal users and grant the required metrics:write, logs:write, and traces:write scopes.",
+      "post_remedy_assertion": "Local validation accepts the endpoint and identifier shapes. Live proof requires every configured sink's last_success_ms to advance with no current authentication error.",
+      "proof_boundary": "live-delivery-required",
+      "external_prerequisite": "A credentialed customer Grafana stack and the scopes named in the remedy are required; optional product prerequisites are listed separately below and are never inferred from the mandatory token.",
+      "disposition": "executable-local; live-delivery-proof-blocked-without-external-prerequisite",
+      "check": "credentials"
+    },
+    {
+      "id": "TS-03",
+      "source_heading": "### Inline comment in `.env` corrupted a value",
+      "scope": "local startup",
+      "precondition": "An unquoted env-file value contains an inline `#` comment, or a quoted value intentionally contains `#`.",
+      "action": "Load a temporary env file containing both forms and compare the parsed values without printing them.",
+      "expected_diagnostic": "The unquoted value retains the comment text and causes an invalid credential or endpoint; a quoted hash remains part of the value.",
+      "remedy": "Move comments onto their own lines, or quote a value when the hash is data, then restart.",
+      "post_remedy_assertion": "The unquoted value ends before ` #` and the quoted value retains its hash; this proves parsing only, not remote delivery.",
+      "proof_boundary": "local-startup-only",
+      "external_prerequisite": "None for parsing. Any live sink assertion still needs the destination credentials and endpoint.",
+      "disposition": "executable-local",
+      "check": "inline_comment"
+    },
+    {
+      "id": "TS-04",
+      "source_heading": "### Metrics arrive but traces or logs are missing",
+      "scope": "live delivery",
+      "precondition": "The process is running with independent metric, trace, and log sink configuration, but one endpoint/user pair is absent or rejected.",
+      "action": "Inspect each sink independently in GET /control/status and compare failure codes and last-success timestamps.",
+      "expected_diagnostic": "Only the affected sink shows the authentication or transport failure; successful sinks continue to report their own last-success timestamps.",
+      "remedy": "Correct the missing endpoint/user pair or token scope for the affected sink and restart the process or container.",
+      "post_remedy_assertion": "A local status-shape check can establish independent sink accounting; live proof requires traces/logs/metrics to be queryable at their respective destinations.",
+      "proof_boundary": "live-delivery-required",
+      "external_prerequisite": "A reachable customer Grafana stack with separate Prometheus Remote-Write, OTLP, and Loki authorities is required. This clean check performs no remote query.",
+      "disposition": "executable-local; live-delivery-proof-blocked-without-external-prerequisite",
+      "check": "independent_sinks"
+    },
+    {
+      "id": "TS-05",
+      "source_heading": "## Series cap / kill switch",
+      "scope": "local configuration and live delivery",
+      "precondition": "SERIES_CAP is a positive value below the selected blueprint's projected series count.",
+      "action": "Run the bounded-series behavior and inspect the promrw warning or inventory; distinguish the global per-push cap from MAX_DPM_PER_SERIES.",
+      "expected_diagnostic": "The promrw sink reports a series-cap hit and truncates the push, so lower-priority constructs can be absent even though startup succeeded.",
+      "remedy": "Increase or unset SERIES_CAP, or reduce the blueprint's declared constructs; for high-DPM blueprints also size series_budget for projected series multiplied by DPM.",
+      "post_remedy_assertion": "Local cap tests show the configured bound is removed or raised. Only a live delivery read-back can prove that every intended family now arrives.",
+      "proof_boundary": "live-delivery-required",
+      "external_prerequisite": "No external product is needed for the cap decision; live family-by-family proof needs the selected blueprint's customer Grafana stack.",
+      "disposition": "executable-local; live-delivery-proof-blocked-without-external-prerequisite",
+      "check": "series_cap"
+    },
+    {
+      "id": "TS-06",
+      "source_heading": "## Loki rejected high-cardinality stream labels",
+      "scope": "local startup",
+      "precondition": "A custom app telemetry declaration places a high-cardinality reference such as trace_id or request_id in a metric or Loki stream label.",
+      "action": "Load the declaration through the capability and sink validation paths.",
+      "expected_diagnostic": "Validation rejects the high-cardinality reference as a label or stream label and names the offending field class.",
+      "remedy": "Move the high-cardinality field into the log body, structured metadata, or span attributes; retain only bounded low-cardinality stream labels.",
+      "post_remedy_assertion": "Local validation accepts the corrected placement and the Loki stream contains no forbidden high-cardinality label; no remote stack is needed for this assertion.",
+      "proof_boundary": "local-startup-only",
+      "external_prerequisite": "None for the contract check. A live log query is an additional delivery assertion, not part of this clean check.",
+      "disposition": "executable-local",
+      "check": "high_cardinality"
+    },
+    {
+      "id": "TS-07",
+      "source_heading": "## Control plane unreachable",
+      "scope": "local startup and operator access",
+      "precondition": "JSON_HTTP_ADDR or the effective Compose SYNTHKIT_BIND is loopback-only when remote access is attempted, or is non-loopback without both required safeguards.",
+      "action": "Validate loopback, non-loopback, token, and acknowledgement combinations before attempting to use the control UI or API.",
+      "expected_diagnostic": "Unsafe non-loopback startup fails closed and names CONTROL_TOKEN, CONTROL_EXPOSURE_ACK, or SYNTHKIT_BIND as appropriate.",
+      "remedy": "Use an SSH tunnel or private PDC/Tailscale path for remote access; for deliberate exposure set a non-empty CONTROL_TOKEN and CONTROL_EXPOSURE_ACK=trusted-network or tls-proxy, then use trusted HTTPS.",
+      "post_remedy_assertion": "Local exposure validation accepts the safe loopback/tunnel configuration or the fully acknowledged bind. Remote reachability remains unproven without the named network path.",
+      "proof_boundary": "local-startup-only",
+      "external_prerequisite": "Remote proof needs an SSH host or private PDC/Tailscale connection and, for browser access, a trusted HTTPS endpoint. This check does not open a listener beyond the local process tests.",
+      "disposition": "executable-local; remote-access-proof-blocked-without-external-prerequisite",
+      "check": "control_exposure"
+    },
+    {
+      "id": "TS-08",
+      "source_heading": "## Control-plane state not persisting across restarts",
+      "scope": "local filesystem and container restart",
+      "precondition": "CONFIG_SNAPSHOT_PATH is backed by a single file or by a directory that the runtime uid cannot write.",
+      "action": "Perform an atomic temp-file-to-snapshot rename and inspect persist.last_error after a control mutation; never delete state as a diagnostic.",
+      "expected_diagnostic": "The single-file mount cannot be atomically replaced, or an unwritable directory surfaces permission denied in persisted-state health.",
+      "remedy": "Use a real /data directory, reject symlink or non-directory state paths, and create the host bind directory owned by uid 65532 before restarting the container.",
+      "post_remedy_assertion": "A local atomic-write probe succeeds and leaves the snapshot at its target path. Only a Docker restart with the production uid can prove the mounted deployment persists state.",
+      "proof_boundary": "local-startup-only",
+      "external_prerequisite": "Production proof needs Docker/Compose and a host directory whose ownership can be set to uid 65532; those external operations are deliberately not run here.",
+      "disposition": "executable-local; container-persistence-proof-blocked-without-external-prerequisite",
+      "check": "state_persistence"
+    },
+    {
+      "id": "TS-09",
+      "source_heading": "## Off-tailnet / offline push failures",
+      "scope": "live delivery",
+      "precondition": "A sink or the host's Forgejo hook cannot reach its remote endpoint, or sink retries have exhausted while the process remains running.",
+      "action": "Inspect queue depth, blocked_enqueues, dropped_items, last_loss_ms, last_recovery_ms, current_loss, and affected_shards separately from push-attempt history.",
+      "expected_diagnostic": "The queue reports current pressure or loss; dropped_items is cumulative, and current_loss=false with a non-zero dropped count means later delivery recovered without replaying discarded items.",
+      "remedy": "Restore the affected network path or endpoint and continue observing the bounded queue; do not assume a drained queue replayed historical loss.",
+      "post_remedy_assertion": "Local retry and queue-state checks establish the recovery semantics. Live proof requires the remote endpoint to accept a later batch and the authenticated status to show recovery.",
+      "proof_boundary": "live-delivery-required",
+      "external_prerequisite": "Live proof needs the relevant tailnet/private network and remote sink authority. No real endpoint or Forgejo hook is contacted by this check.",
+      "disposition": "executable-local; live-delivery-proof-blocked-without-external-prerequisite",
+      "check": "offline_push"
+    },
+    {
+      "id": "TS-10",
+      "source_heading": "## Using `-once -dump` as an offline diagnostic",
+      "scope": "local startup",
+      "precondition": "Blueprint selection or emitted series shape is uncertain, and no remote connectivity should be required for diagnosis.",
+      "action": "Run DRY_RUN=true with one exact blueprint and -once -dump; if selection is blank, observe the setup-mode warning.",
+      "expected_diagnostic": "The selected run prints its selected and loaded blueprint, synthkit up summary, and dry-run sink summaries; blank selection prints WARNING: no blueprints selected and emits nothing.",
+      "remedy": "Set BLUEPRINT_NAMES to exact runtime names, or use * only when the full catalog is deliberate, then rerun the offline command.",
+      "post_remedy_assertion": "The clean run produces a deterministic local inventory and no network push. This proves startup and shape inventory only, not remote landing.",
+      "proof_boundary": "local-startup-only",
+      "external_prerequisite": "None for the offline diagnostic; live delivery still requires the mandatory sink authorities.",
+      "disposition": "executable-local",
+      "check": "offline_dump"
+    }
+  ],
+  "external_dispositions": [
+    {
+      "lane": "Synthetic profiles",
+      "prerequisite": "GC_PROFILES_URL and GC_PROFILES_USER, shared GC_TOKEN, and a blueprint/workload that declares profiles on the target stack.",
+      "disposition": "blocked-external-in-clean-check: no profile endpoint or live authority is contacted"
+    },
+    {
+      "lane": "Faro/RUM",
+      "prerequisite": "GC_FARO_COLLECTOR and GC_FARO_APP_KEY, a RUM-enabled workload, and a customer tenant that accepts Faro beacons.",
+      "disposition": "blocked-external-in-clean-check: no Faro collector is contacted"
+    },
+    {
+      "lane": "Synthetic Monitoring",
+      "prerequisite": "GC_SM_URL and GC_SM_TOKEN, a selected synthetic_monitoring declaration, the matching sm-provision image, and permission to make the documented remote registration write.",
+      "disposition": "blocked-external-in-clean-check: provisioning is an external write and is not run"
+    },
+    {
+      "lane": "Fleet Management",
+      "prerequisite": "GC_FM_URL, GC_FM_STACK_ID, GC_FM_TOKEN, a fleet_management declaration, and a tenant with Fleet registration authority.",
+      "disposition": "blocked-external-in-clean-check: no Fleet API is contacted"
+    },
+    {
+      "lane": "sigil AI observability",
+      "prerequisite": "GC_SIGIL_ENDPOINT, GC_SIGIL_TENANT_ID, GC_SIGIL_TOKEN, and a tenant with the sigil ingest scope.",
+      "disposition": "blocked-external-in-clean-check: no sigil endpoint is contacted"
+    },
+    {
+      "lane": "Self-observability OTLP",
+      "prerequisite": "SELFOBS_ENABLED=true plus GC_SELF_OTLP_ENDPOINT, GC_SELF_OTLP_USER, GC_SELF_OTLP_PASSWORD and a separate staff destination with metrics:write, logs:write, and traces:write.",
+      "disposition": "blocked-external-in-clean-check: no self-observability destination is contacted"
+    },
+    {
+      "lane": "Process profiling",
+      "prerequisite": "SELFOBS_ENABLED=true plus GC_PYROSCOPE_URL, GC_PYROSCOPE_USER, GC_PYROSCOPE_PASSWORD and profiles:write on the separate staff destination.",
+      "disposition": "blocked-external-in-clean-check: no Pyroscope destination is contacted"
+    },
+    {
+      "lane": "All optional lanes together",
+      "prerequisite": "Every lane-specific prerequisite above, valid target declarations, and a bounded observation window at each destination.",
+      "disposition": "blocked-external-in-clean-check: capability cannot be inferred from absent credentials"
+    }
+  ]
+}

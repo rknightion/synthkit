@@ -100,6 +100,21 @@ Sends the synthkit process's continuous profiles to a **separate** stack. Follow
 If you use `gcx`, `gcx config view` shows the active configuration with secret values redacted;
 use `gcx config list-contexts` and `gcx config current-context` to select the intended stack deliberately.
 
+## Finding the three required numeric identifiers
+
+The three user fields are different, but each must be a **positive decimal identifier**: digits
+only, greater than zero. Do not put an endpoint URL, a Grafana organisation ID, a slug, or a token
+in any of them.
+
+1. In the synthetic-data stack, open **Connections** → **Prometheus** and copy its displayed
+   instance ID into `GC_PROM_USER`.
+2. Open **Connections** → **OpenTelemetry** and copy its displayed stack ID into `GC_OTLP_USER`.
+3. Open **Connections** → **Loki** and copy its displayed instance ID into `GC_LOKI_USER`.
+
+The adjacent connection panels also provide `GC_PROM_RW`, `GC_OTLP_ENDPOINT`, and `GC_LOKI`.
+Use the endpoint and numeric identifier from the same stack. Presence checks may confirm that a
+value is non-empty; never print `.env` or a token while diagnosing a failed identifier check.
+
 ---
 
 ## Filling in `.env`

@@ -189,11 +189,15 @@ corpus producer must therefore understand what its output means:
 
 - **Instrument type.** A metric whose `instrument_types` is exactly
   `["unknown"]` records that the producer could not observe an instrument shape.
-  It yields a coverage gap and a PENDING stub, never a contradiction. Any entry
+  It yields a visible `unknown_instrument_evidence` coverage gap and PENDING
+  stub, never an `instrument_mismatch` or contradiction. The report says that
+  the corpus does not know; it does not silently filter the family. Any entry
   recording a real type contradicts normally when synth disagrees, including a
   set that mixes a real type with the sentinel. A producer that learns to read
-  instrument types therefore turns silent gaps into real verdicts without any
-  comparator change.
+  instrument types therefore turns absent evidence into real verdicts without
+  any comparator change. This is the SKT-0021.01 decision: use absent evidence
+  because the producer did not observe a type; inferring one from a metric-name
+  suffix would invent evidence rather than enrich the corpus.
 - **Label keys.** A key synthkit emits that the reality view does not carry is a
   contradiction; that is the never-invent-a-name rule and it is not relaxed. A
   key reality carries that synthkit does not emit is a coverage gap.

@@ -45,12 +45,17 @@ function ConstructCard(props: { cst: ConstructInventory; bpKey: string }): JSX.E
   if (cst.span_services?.length)    drills.push({ label: "span services",      items: cst.span_services,    id: `${keyPrefix}:span-services` });
   if (cst.span_names?.length)       drills.push({ label: "span names",         items: cst.span_names,       id: `${keyPrefix}:span-names` });
   if (cst.span_attr_keys?.length)   drills.push({ label: "span attr keys",     items: cst.span_attr_keys,   id: `${keyPrefix}:span-attr-keys` });
+  const identity = () => cst.identity;
+  const selector = () => Object.entries(identity()?.labels ?? {}).map(([key, value]) => `${key}=${value}`).sort();
 
   return (
     <div class="xr-cst" data-testid={`cst-card-${cst.kind}-${cst.name}`}>
       <div class="xr-cst-head">
         <span class="xr-kind">{cst.kind}</span>
         <span class="xr-name">{cst.name}</span>
+        <Show when={identity()}>
+          <span class="xr-scope" data-testid={`identity-scope-${cst.kind}-${cst.name}`}>{identity()!.scope}</span>
+        </Show>
         <span class="xr-series">
           {fmtNum(cst.distinct_series ?? 0)} series
           <Show when={cst.capped}>
@@ -65,6 +70,11 @@ function ConstructCard(props: { cst: ConstructInventory; bpKey: string }): JSX.E
           </Show>
         </span>
       </div>
+      <Show when={selector().length > 0}>
+        <div class="xr-identity" data-testid={`identity-${cst.kind}-${cst.name}`}>
+          query identity: {selector().join(", ")}
+        </div>
+      </Show>
       <Show when={drills.length > 0}>
         <div class="xr-drills">
           <For each={drills}>

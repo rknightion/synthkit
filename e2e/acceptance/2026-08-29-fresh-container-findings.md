@@ -63,3 +63,47 @@ Run from a disposable Go 1.27 container with git, Docker CLI, Compose 2.33, and 
 The 46-row round is complete. Retain the bare stack only until findings are tracked, then let root perform the approved teardown.
 
 Further stack evidence was deliberately abandoned after bounded attempts for C4/C5, D5, D8, F4, G2/G4, and E1-E3. Those rows are failures, not unattempted blocks. Blocks remain only for unavailable optional-lane authority or capability (B4-B10), no scalable target (D6), and no verified second published digest (F2/F3).
+
+## Re-run register - 2026-08-30
+
+This re-run used the repository's executable checks, one local wave image, two immutable published
+release digests, and an operator-supplied environment. Product identifiers and credential values
+remain omitted. Rows not touched by this wave retain their 2026-08-29 verdict above.
+
+| ID | New verdict | Observable assertion and evidence | Remaining boundary |
+| --- | --- | --- | --- |
+| A1 | pass | The public getting-started route now leads to one executable clean-container deployment path. | None. |
+| A2 | pass | The shipped helper's clean-container fixture completed with its documented tool bootstrap. | None. |
+| A6 | pass | `just clean-container` completed against the public-clone fixture after the state-volume and Compose-version paths were corrected. | None. |
+| B4 | pass | A synthetic profile was queried from the separately configured profiling destination. | None. |
+| B5 | pass | A Faro event emitted by the selected frontend application was read back from the live destination. | None. |
+| B6 | fail | Registration preview reached the Synthetic Monitoring API, but create authority was rejected; the pending journal was retained. | Resume with a token carrying check and probe write authority, then apply and read back the registered check. |
+| B7 | pass | The fake collector registered and was read back from Fleet Management. | None. |
+| B8 | fail | Generations and workflow steps arrived, but score export returned HTTP 400 and no product-side score was present. | Resume from the rejected score request body and prove a product-side score on the same generation. |
+| B9 | pass | Process self-observability families landed in the separate destination and process-only families were absent from the synthetic-data destination. | None. |
+| B10 | fail | Required lanes and most optional lanes ran together, but the score queue reported sustained HTTP 400 failures and item loss. | Resume after B8 accepts scores; require every queue to report no current loss over one delivery window. |
+| C1 | partial | Eight representative shipped blueprints ran together and exposed runtime identity; all 26 individual live identities were not re-run. | Run the executable identity check for every shipped blueprint and retain the exact result set. |
+| C2 | pass | The shipped verification procedure executed with an explicit live context and returned signal evidence. | None. |
+| C4 | pass | The inventory comparison and live signal reads established declared-family coverage for the selected deployment. | None. |
+| C5 | pass | Inventory responses now expose per-blueprint identity projections used by the verification procedure. | None. |
+| D3 | pass | A valid namespaced custom blueprint staged with HTTP 200, survived restart, and appeared in the live schema as `acceptance/copied`. | None. |
+| D5 | pass | Executable UI tests enumerate the shipped control views and the built SPA passed the UI gate. | None. |
+| D6 | fail | Scale 2 to 4 and reset were accepted and read back, but the emitted rate ratio was 0.978 while scaled and 0.996 after reset. | Resume at the runner scaling path; require the live series rate to track the configured multiplier before closing. |
+| D8 | pass | Diagnostics and inventory now return typed, per-blueprint debugging detail and the UI renders it. | None. |
+| E1 | partial | Seven of fourteen scenario assertions changed emitted data as registered; seven failed their observable assertions. | Fix and re-run the seven named scenario mappings without weakening thresholds. |
+| E2 | partial | The bounded scenario harness observed ambient effects for seven scenarios; two active-value checks and two baseline queries still failed. | Resume from the failed assertion output retained by the harness. |
+| E3 | partial | Sibling-environment comparisons passed where baseline series existed; two scenario baselines returned no series. | Emit or source the missing baseline series, then repeat the sibling comparison. |
+| E4 | fail | Deactivation requests cleared control state, but three cumulative assertions did not return near baseline. | Correct reset/deactivation emission semantics; do not reinterpret cumulative residue as cleared state. |
+| F1 | pass | Published rc.37 and rc.38 each closed configured index, selected platform manifest, runtime identity, binary version, and complete revision. | None. |
+| F2 | pass | The immutable rc.37 to rc.38 transition completed; both exact published identities were inspected at runtime. | Signature verification for rc.37 separately failed and remains recorded as a release-evidence defect. |
+| F3 | pass | The retained rc.37 snapshot restored, rc.37 restarted, and its exact identity matched after rollback. | None. |
+| F4 | pass | The eight-blueprint selection and a `1.25` control-state marker matched before upgrade, after upgrade, and after rollback; live counters reported resets and a nonzero rate. | None. |
+| G1 | pass | The generated folder and all fifteen dashboards validated, dry-ran, and pushed to the fresh destination. | None. |
+| G2 | pass | The verifier produced 1,351 query observations with no empty ref IDs and no duplicate observation keys. | None. |
+| G3 | pass | Generation used explicit Prometheus, Loki, Tempo, Pyroscope, and Infinity datasource mappings. | None. |
+| G4 | pass | A native-histogram quantile query returned data and the rendered panel showed p50, p95, and p99 lines. | None. |
+| G5 | pass | The generated folder manifest created the destination folder before dashboard push. | None. |
+| H1 | pass | The executable clean-container path validates and supplies its stated prerequisite route. | None. |
+| H2 | pass | Every documented symptom is represented by an executable fixture in the troubleshooting matrix. | None. |
+| H3 | pass | The RUNBOOK route now delegates to the executable deployment and verification checks exercised in this run. | None. |
+| H4 | pass | Marketplace instructions name the supported plugin hosts and separate shell commands from host commands. | None. |

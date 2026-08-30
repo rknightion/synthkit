@@ -141,6 +141,9 @@ func writePendingStubs(w io.Writer, findings []ScopedFinding) error {
 // full sets still follow, unchanged, for context.
 func formatFindingValues(finding Finding) string {
 	parts := make([]string, 0, 4)
+	if finding.Kind == KindUnknownInstrumentEvidence {
+		parts = append(parts, "corpus did not observe an instrument type")
+	}
 	switch finding.Disposition {
 	case DispositionContradiction:
 		if onlySynth := difference(finding.SynthValues, finding.RealityValues); len(onlySynth) > 0 {

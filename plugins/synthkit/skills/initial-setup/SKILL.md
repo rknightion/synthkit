@@ -26,6 +26,24 @@ cd "$SYNTHKIT_CHECKOUT"
 Use `$SYNTHKIT_CHECKOUT` for every repository file and command. Invoke plugin-owned helpers through
 `${CLAUDE_PLUGIN_ROOT}` and pass them absolute targets under `$SYNTHKIT_CHECKOUT`.
 
+## Host tools (before the checkout path)
+
+The supported clean Linux host has Git 2.39+, Docker Engine 24.0+, and Docker Compose 2.24.4+.
+Install Bash 5.0+, Python 3.11+, and `just` 1.58.0+ before following this skill. In the supported
+clean Go 1.27 container, this bootstraps the missing tools without `sudo`:
+
+```bash
+apt-get update
+apt-get install -y --no-install-recommends bash ca-certificates curl python3
+curl --proto '=https' --tlsv1.2 -fsSL https://just.systems/install.sh \
+  | bash -s -- --tag 1.58.0 --to "$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
+bash --version && python3 --version && just --version && docker --version && docker compose version
+```
+
+Remote Grafana verification additionally needs `gcx` 1.2.0+ and an explicitly selected context;
+it is not required for local Compose deployment.
+
 **Core rules**
 - NEVER invent an env-var name. Use only the vars in `references/credentials.md` (they are gate-enforced).
 - The customer/synthetic stack and the staff stack NEVER share a token.
@@ -106,7 +124,8 @@ Everything else is non-secret config, written by the agent with
 
 ## Step 5 — Host prep (once per host)
 
-Reject path surprises before invoking `sudo`, then create or tighten only the dedicated directory:
+Reject path surprises, then create or tighten only the dedicated directory through the pinned
+helper container:
 
 ```bash
 state_dir="$SYNTHKIT_CHECKOUT/control-state-data"
@@ -114,11 +133,17 @@ if [ -L "$state_dir" ] || { [ -e "$state_dir" ] && [ ! -d "$state_dir" ]; }; the
   echo "refusing non-directory or symlink state path: $state_dir" >&2
   exit 1
 fi
-sudo install -d -o 65532 -g 65532 -m 700 "$state_dir"
+mkdir -p "$state_dir"
+chmod 700 "$state_dir"
+docker run --rm --volume "$state_dir:/data" --entrypoint /bin/sh \
+  node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 \
+  -ceu 'chown 65532:65532 /data; chmod 0700 /data'
 ```
 
-The container runs as uid 65532 and must own the persisted control-state volume. Do not use a
-recursive ownership change here; runtime manages the files beneath this dedicated directory.
+The container runs as uid 65532 and must own the persisted control-state volume. The pinned helper
+performs ownership setup through Docker, so this works without `sudo` on a socket-mounted clean
+container and a normal Docker host. Do not use a recursive ownership change here; runtime manages
+the files beneath this dedicated directory.
 
 ## Step 6 — Dry-run gate (before any live push)
 First run `just compose-check`. It requires Compose 2.24.4 or later and renders the default and
@@ -192,7 +217,7 @@ landing in the right stack(s). Do not hand-roll verification here.
 - Using `GC_PROM_USER` as the FM user (FM uses `GC_FM_STACK_ID`).
 - Transposing the customer and staff OTLP creds (`GC_OTLP_ENDPOINT`/`GC_OTLP_USER` = customer;
   `GC_SELF_OTLP_ENDPOINT`/`GC_SELF_OTLP_USER` = staff) — self-obs metrics then land in the wrong stack.
-- Forgetting the `control-state-data` chown (container can't write its snapshot).
+- Skipping the `control-state-data` helper step (container can't write its snapshot).
 - Leaving `BLUEPRINT_NAMES` empty while expecting telemetry (empty is intentional setup mode).
 - Setting `BLUEPRINT_NAMES=*` without explicitly choosing the complete catalog.
 - Going live with `DRY_RUN=true` still set, or skipping the dry-run gate.

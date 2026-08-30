@@ -47,6 +47,7 @@ environments:
           node_logs: true                 # alloy-logs: node-level journal logs
           profiling: true                 # alloy-profiles: eBPF continuous profiling per pod
           application_observability: true # alloy-receiver: OTLP ingest from instrumented apps
+        pod_logs_method: opentelemetry
         control_plane:
           api_server: true
           kube_proxy: true

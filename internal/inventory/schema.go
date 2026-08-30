@@ -94,6 +94,13 @@ type Log struct {
 	Transport              string      `json:"transport"`
 	StreamLabels           []Attribute `json:"stream_labels"`
 	StructuredMetadataKeys []string    `json:"structured_metadata_keys"`
+	// OptionalStreamLabelKeys and OptionalStructuredMetadataKeys record keys carried by
+	// some, but not every, observed member of this logical log family. They preserve
+	// a real ownerless or unscheduled-pod shape after family matching instead of letting
+	// a union of all member keys silently make it look mandatory.
+	OptionalStreamLabelKeys        []string `json:"optional_stream_label_keys,omitempty"`
+	OptionalStructuredMetadataKeys []string `json:"optional_structured_metadata_keys,omitempty"`
+	observations                   int
 }
 
 type Trace struct {
@@ -228,12 +235,40 @@ func (s *Schema) AddLog(source, transport string, streamLabels map[string]string
 		i = len(s.Logs) - 1
 	}
 	l := &s.Logs[i]
+	if l.observations > 0 {
+		existingLabels := make(map[string]struct{}, len(l.StreamLabels))
+		for _, label := range l.StreamLabels {
+			existingLabels[label.Key] = struct{}{}
+			if _, present := streamLabels[label.Key]; !present {
+				addString(&l.OptionalStreamLabelKeys, label.Key)
+			}
+		}
+		for key := range streamLabels {
+			if _, present := existingLabels[key]; !present {
+				addString(&l.OptionalStreamLabelKeys, key)
+			}
+		}
+
+		existingMetadata := indexStrings(l.StructuredMetadataKeys)
+		currentMetadata := indexStrings(metadataKeys)
+		for key := range existingMetadata {
+			if _, present := currentMetadata[key]; !present {
+				addString(&l.OptionalStructuredMetadataKeys, key)
+			}
+		}
+		for key := range currentMetadata {
+			if _, present := existingMetadata[key]; !present {
+				addString(&l.OptionalStructuredMetadataKeys, key)
+			}
+		}
+	}
 	for key, value := range streamLabels {
 		mergeAttribute(&l.StreamLabels, key, value)
 	}
 	for _, key := range metadataKeys {
 		addString(&l.StructuredMetadataKeys, key)
 	}
+	l.observations++
 	sort.Slice(s.Logs, func(i, j int) bool {
 		if s.Logs[i].Transport == s.Logs[j].Transport {
 			return s.Logs[i].Source < s.Logs[j].Source
@@ -343,6 +378,8 @@ func (s *Schema) Normalize() {
 	for i := range s.Logs {
 		normalizeAttributes(&s.Logs[i].StreamLabels)
 		normalizeStrings(&s.Logs[i].StructuredMetadataKeys)
+		normalizeStrings(&s.Logs[i].OptionalStreamLabelKeys)
+		normalizeStrings(&s.Logs[i].OptionalStructuredMetadataKeys)
 	}
 	for i := range s.Traces {
 		normalizeAttributes(&s.Traces[i].ResourceAttributes)

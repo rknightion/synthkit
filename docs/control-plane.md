@@ -31,7 +31,7 @@ These terms describe different points in the blueprint lifecycle:
   `blueprint/scenario` ID.
 
 Use `GET /control/status` for sink readiness and per-blueprint emission, `GET /control/inventory`
-for the live emission/cardinality inventory, `GET /control/health` for per-construct tick and
+for the live emission/cardinality inventory and safe query identity, `GET /control/health` for per-construct tick and
 process health, `GET /control/diagnostics` for startup/load problems, and
 `GET /control/blueprints/pending` for staged-versus-running changes. `GET /control/blueprints/staged`
 lists staged custom/git blueprints.
@@ -119,7 +119,7 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
 | `GET /control/status` | Sink readiness strip: `last_success_ms`, failure counts, dry-run flag, per-blueprint emission, Fleet Management health, persist health. |
 | `GET /control/health` | Per-construct tick health and process metrics. |
 | `GET /control/config` | Redacted runtime configuration (secrets replaced with `[redacted]`). |
-| `GET /control/inventory` | Live emission and cardinality inventory per blueprint and construct. |
+| `GET /control/inventory` | Live emission and cardinality inventory per blueprint and construct. Each construct may expose a low-cardinality query identity: its explicit scope plus only the declared selectors needed to query it. Blueprint-scoped output has its `blueprint` selector; substrate output instead names its declared substrate identity and never gains a blueprint selector. |
 | `GET /control/diagnostics` | Load-time problems: skipped blueprints, dropped config entries, warnings. Errors first. |
 | `GET /control/incidents` | Declared and runtime incidents with authoritative `active_now` flags. |
 | `GET /control/blueprint?blueprint=NAME` | Raw YAML of a named blueprint (text/plain). |
@@ -166,6 +166,21 @@ another operator's change.
 ---
 
 ## Common operations
+
+### Verify a selected blueprint without container shell access
+
+Use the control surfaces in this order: `/control/readiness`, authenticated `/control/status`,
+`/control/diagnostics`, `/control/inventory`, and `/control/health`. The status payload names a
+blocked delivery lane; diagnostics names a rejected blueprint or load problem; health names a
+failing construct tick. The X-ray view renders the same inventory, including each construct's
+scope and safe query identity, so a blueprint-scoped family can be queried with its declared
+`blueprint` selector while a substrate family is queried by declared substrate identity.
+
+After readiness, wait two declared emission intervals plus the delivery deadline before treating a
+missing declared signal class as evidence. Use the inventory's exact metric names and query identity
+instead of inventing a hand-maintained mapping. Logs and traces are checked by their listed source or
+service identity in the same bounded window. A `200` from a mutation only proves that control state
+changed; the before/after emitted-data observation remains a separate acceptance check.
 
 ### Activate a scenario
 

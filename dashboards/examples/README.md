@@ -13,19 +13,45 @@ composes its own cross-construct views.
 ## Generate → validate → push → verify
 
 ```bash
-# 1. Generate (offline; dry-run derive, no creds needed). Writes <uid>.json into -out.
+# 1. Generate (offline; dry-run derive, no creds needed). Datasource names are
+# explicit so a stack with multiple same-type datasources cannot choose one by accident.
 go run ./cmd/synthkit-dash -blueprint blueprints/acme-ai-platform.yaml -out dashboards/examples/acme_ai_platform \
-  [-integrations dashboards/examples/integrations.yaml]   # optional: thin-index deep-link targets
+  -datasource prometheus='<target Prometheus datasource name>' \
+  -datasource loki='<target Loki datasource name>' \
+  -datasource tempo='<target Tempo datasource name>'
+# Optional thin-index deep-link targets:
+#   -integrations dashboards/examples/integrations.yaml
 
-# 2. Validate / 3. push / 4. snapshot AND READ the PNG — same discipline as ../internal/ (see ../CLAUDE.md)
-gcx --context <target-stack> resources validate -p dashboards/examples/acme_ai_platform/acme_ai_platform-index.json
-gcx --context <target-stack> resources push     -p dashboards/examples/acme_ai_platform/acme_ai_platform-index.json
+# 2. Create the generated folder before its dashboards, then validate/push every dashboard JSON.
+# Exclude only *-panel-inventory.json, which is verification input rather than a Grafana resource.
+gcx --context <target-stack> resources validate -p dashboards/examples/acme_ai_platform/acme-ai-platform-dashboards-folder.json
+gcx --context <target-stack> resources push     -p dashboards/examples/acme_ai_platform/acme-ai-platform-dashboards-folder.json
+for dashboard in dashboards/examples/acme_ai_platform/*.json; do
+  case "$dashboard" in *-dashboards-folder.json|*-panel-inventory.json) continue ;; esac
+  gcx --context <target-stack> resources validate -p "$dashboard"
+  gcx --context <target-stack> resources push -p "$dashboard"
+done
 GCX_AGENT_MODE=true gcx dashboards snapshot acme_ai_platform-index --context <target-stack> \
   --output-dir dashboards/examples/acme_ai_platform/snapshots --since 3h --width 1600 --theme dark
 ```
 
 Synthetic data is **forward-only** (no backfill): snapshot with a bounded recent window (`--since 3h`)
 during the modelled peak. Overnight volume is low by design (the diurnal shape engine).
+
+Generation also writes `<blueprint>-panel-inventory.json`, which lists every panel, target, datasource,
+and rendered query. Capture one read-only result per listed target into `observations.json`, then require a
+complete disposition report before treating a dashboard-level snapshot as verified:
+
+```bash
+go run ./cmd/synthkit-dash \
+  -verify-inventory dashboards/examples/acme_ai_platform/acme-ai-platform-panel-inventory.json \
+  -observations observations.json
+```
+
+Each observation has `dashboard`, `panel_id`, `ref_id`, `state` (`rendered`, `empty`, or `errored`), and
+verbatim `evidence`. Successful empty results classify as `emission_gap`; datasource-resolution evidence
+classifies as `missing_datasource`; query errors classify as `query_defect`. The command fails if an
+inventory query is unobserved or an observation does not match a generated query.
 
 ## Adding a blueprint's dashboards (the pluggable path)
 

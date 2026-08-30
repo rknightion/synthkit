@@ -206,6 +206,45 @@ published-e2e:
     DH="${DOCKER_HOST:-$(docker context inspect --format '{{{{.Endpoints.docker.Host}}' "$(docker context show)" 2>/dev/null)}"
     DOCKER_HOST="$DH" go test -tags e2e -run '^TestPublishedCompose$' -v -timeout 15m ./e2e/
 
+# execute the public-clone deployment path in a clean Go 1.27 container (needs Docker)
+[group('check')]
+[no-exit-message]
+[script('bash')]
+clean-container:
+    set -euo pipefail
+    image=synthkit-clean-container:local
+    docker build -t "$image" -f e2e/acceptance/clean-container/Dockerfile e2e/acceptance/clean-container
+    socket="$(docker context inspect --format '{{{{.Endpoints.docker.Host}}' "$(docker context show)")"
+    socket="${socket#unix://}"
+    [ -S "$socket" ] || { echo "clean-container: Docker context is not a local Unix socket" >&2; exit 1; }
+    shared_tmp="$(mktemp -d)"
+    trap 'rm -rf -- "$shared_tmp"' EXIT
+    docker run --rm \
+      -e TMPDIR="$shared_tmp" \
+      -v "$shared_tmp:$shared_tmp" \
+      -v "$socket:/var/run/docker.sock" \
+      -v "{{ justfile_directory() }}:{{ justfile_directory() }}:ro" \
+      "$image" "{{ justfile_directory() }}/e2e/acceptance/clean-container/run.sh"
+
+# prove schema-derived scenario effects from emitted data
+[group('check')]
+e2e-scenarios control_url="http://127.0.0.1:8088" sibling_env="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${GC_PROM_RW:?GC_PROM_RW is required}"
+    : "${GC_PROM_USER:?GC_PROM_USER is required}"
+    : "${GC_LOKI:?GC_LOKI is required}"
+    : "${GC_LOKI_USER:?GC_LOKI_USER is required}"
+    : "${GC_TOKEN:?GC_TOKEN is required}"
+    prom_query="${GC_PROM_RW%/push}"
+    loki_query="${GC_LOKI%/api/v1/push}"
+    go run ./e2e/acceptance/scenarios -control-url {{ quote(control_url) }} -prom-url "$prom_query" -loki-url "$loki_query" -sibling-env {{ quote(sibling_env) }}
+
+# exercise the local troubleshooting symptom matrix; external rows emit explicit dispositions
+[group('check')]
+troubleshooting-check:
+    bash e2e/acceptance/troubleshooting/check.sh
+
 # synth-vs-reality gate: unexempted contradictions fail; gaps and visible exemptions report
 [group('check')]
 [no-exit-message]
@@ -255,11 +294,11 @@ proto-drift-check:
 
 # pre-commit gate: every CI validation that runs without a Docker daemon or service container
 [group('check')]
-check: fmt-check lint gen-check env-check docs-check test race hygiene ui-check compose-check helm-test lab-check signal-fidelity
+check: fmt-check lint gen-check env-check docs-check test race hygiene ui-check compose-check helm-test lab-check signal-fidelity troubleshooting-check
 
 # CI superset: `check` plus the Docker-daemon legs marked above
 [group('check')]
-ci: check image e2e secret-scan
+ci: check image e2e secret-scan clean-container
 
 # compile every package
 [group('build')]
@@ -314,6 +353,11 @@ lab *permutations:
 # regenerate every committed generated artifact; idempotent (running twice yields no diff)
 [group('gen')]
 gen: blueprint-schema skills-sync
+
+# generate or verify synthkit dashboards
+[group('gen')]
+dashgen *args:
+    go run ./cmd/synthkit-dash {{ args }}
 
 # regenerate BLUEPRINT-SCHEMA.md and internal/blueprintschema/fielddocs.json from the live Go types
 [group('gen')]

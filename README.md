@@ -64,9 +64,10 @@ curl -fsS http://localhost:8088/control/status | jq -e '.dry_run == false'
 
 ## LLM-assisted setup (Claude Code / Codex / OpenCode)
 
-synthkit ships agent skills for deployment and operation. In **Claude Code**, open this repo and run
+synthkit ships agent skills for deployment and operation. In **Claude Code**, open this repo and enter
 `/initial-setup` (also `/verify-deployment`, `/create-blueprint`,
-`/setup-fleet-management`). Or install as a plugin from anywhere:
+`/setup-fleet-management`) in the chat input. To install as a plugin from anywhere, enter these in
+Claude Code chat; they are not shell commands:
 
     /plugin marketplace add rknightion/synthkit
     /plugin install synthkit@synthkit      # → /synthkit:initial-setup, etc.

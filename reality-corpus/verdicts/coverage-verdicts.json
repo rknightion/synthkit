@@ -103,7 +103,7 @@
         {
           "type": "source",
           "path": "internal/construct/coredns/coredns.go",
-          "note": "coredns_hosts_reload_timestamp_seconds pinned at 0; comment records the hosts plugin as not used"
+          "note": "coredns_hosts_reload_timestamp_seconds is absent because the modelled Corefile does not load the hosts plugin"
         },
         {
           "type": "vendor_doc",
@@ -122,7 +122,7 @@
       },
       "group": "coredns/hosts-plugin",
       "modelled_claim": "synthkit models a CoreDNS Corefile that does not load the hosts plugin.",
-      "rationale": "Reality produces this from the CoreDNS hosts plugin, which the corpus shows loaded against /etc/coredns/NodeHosts - a k3s-specific Corefile. The corpus authority is k3s only; no EKS-substrate evidence covers CoreDNS. synthkit deliberately models a Corefile with no hosts block, a decision already recorded in internal/construct/coredns/coredns.go where coredns_hosts_reload_timestamp_seconds is pinned at 0 with the comment \"hosts plugin not used\". Do not re-litigate without EKS-substrate evidence that the modelled Corefile loads the plugin.",
+      "rationale": "Reality produces this from the CoreDNS hosts plugin, which the corpus shows loaded against /etc/coredns/NodeHosts - a k3s-specific Corefile. The corpus authority is k3s only; no EKS-substrate evidence covers CoreDNS. synthkit deliberately models a Corefile with no hosts block and does not emit coredns_hosts_reload_timestamp_seconds. Do not re-litigate without EKS-substrate evidence that the modelled Corefile loads the plugin.",
       "cantfind_pending": null
     },
     {
@@ -4748,7 +4748,7 @@
       },
       "group": "k8scluster/kubelet-storage",
       "modelled_claim": "synthkit models the kubelet scrape and already emits a counter named storage_operation_duration_seconds_count with the captured label set (operation_name, status, volume_plugin, migrated, node).",
-      "rationale": "The real kubelet publishes this as a classic histogram (corpus instrument_types=[histogram], histogram.classic=true). synthkit publishes a standalone counter named storage_operation_duration_seconds_count, so the _bucket and _sum components of the family are absent and no quantile can be computed. Same resource, same labels, same scrape.",
+      "rationale": "The historic classic-histogram verdict was inferred from component name suffixes, not an observed _bucket series: the corpus has no bucket bounds or le key. The k8s-monitoring 4.4.0 kubelet allow-list carries only storage_operation_duration_seconds_COUNT, and the follow-up capture observed active storage operations with no le output. synthkit's counter shape is correct; do not select or synthesize histogram bounds. Remaining work is to settle the comparator le-evidence policy and the family/name join.",
       "cantfind_pending": null
     }
   ],

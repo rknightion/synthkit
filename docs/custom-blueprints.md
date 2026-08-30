@@ -15,7 +15,7 @@ Custom blueprints use the same YAML format as the bundled set. They are managed 
 
 ## Control-plane upload
 
-The simplest way to add a blueprint is `POST /control/blueprints/custom` with a JSON body carrying the namespace, name, and blueprint YAML. The form `name` is required to exactly match the YAML's top-level `name:`. This deliberately removes the former ambiguity: the effective runtime identity is always `{sanitised namespace}/{name}` (or `custom/{name}` when the namespace is empty).
+The simplest way to add a blueprint is `POST /control/blueprints/custom` with a JSON body carrying the namespace, name, and blueprint YAML. The form `name` may be the YAML's bare top-level `name:` or its exact effective runtime identity. The latter makes a copied blueprint's destination explicit: `{sanitised namespace}/{bare-name}` (or `custom/{bare-name}` when the namespace is empty).
 
 Save is the authoritative preflight. Before it writes, synthkit loads the submitted YAML with that effective identity and validates the prospective built-in + staged custom + staged git set, including substrate identity collisions. A rejected save leaves the existing staged file unchanged and returns `400`.
 
@@ -25,7 +25,7 @@ Content-Type: application/json
 
 {
   "namespace": "mine",
-  "name": "my-blueprint",
+  "name": "mine/my-blueprint",
   "yaml": "name: my-blueprint\n..."
 }
 ```
@@ -96,11 +96,12 @@ data/blueprints/
 
 Every custom blueprint is prefixed with its effective namespace: `{namespace}/{name}`. For uploads, the
 submitted namespace is sanitised; if sanitisation produces an empty value, it falls back to `custom`, so
-the runtime identity is `custom/{name}`. For git sources, the configured namespace must already be a
-non-empty valid lowercase slug and is rejected if it is not—it is never rewritten. This prevents
-collision between blueprints from different sources. The form name must exactly match YAML `name:`; it is
-never a second rename. The namespace is applied at load time, not inside the YAML file — the file's `name:`
-field is the bare blueprint name; the namespace wraps it.
+the runtime identity is `custom/{name}`. The form name may be either the YAML's bare `name:` or that exact
+effective identity; any other value is rejected. This is not a second rename. For git sources, the
+configured namespace must already be a non-empty valid lowercase slug and is rejected if it is not—it is
+never rewritten. This prevents collision between blueprints from different sources. The namespace is
+applied at load time, not inside the YAML file — the file's `name:` field is the bare blueprint name; the
+namespace wraps it.
 
 Blueprint identity (the determinism seed root) includes the namespaced name, so blueprints from different namespaces with the same bare name produce distinct identities and series.
 

@@ -638,6 +638,8 @@ func mergeLog(existing *Log, candidate Log) bool {
 		changed = mergeAttributeValues(&existing.StreamLabels[i], candidateAttribute) || changed
 	}
 	changed = corpusMergeStringSet(&existing.StructuredMetadataKeys, candidate.StructuredMetadataKeys) || changed
+	changed = corpusMergeStringSet(&existing.OptionalStreamLabelKeys, candidate.OptionalStreamLabelKeys) || changed
+	changed = corpusMergeStringSet(&existing.OptionalStructuredMetadataKeys, candidate.OptionalStructuredMetadataKeys) || changed
 	sortAttributes(&existing.StreamLabels)
 	return changed
 }
@@ -847,6 +849,8 @@ func cloneLog(log Log) Log {
 	out := log
 	out.StreamLabels = cloneAttributes(log.StreamLabels)
 	out.StructuredMetadataKeys = append([]string{}, log.StructuredMetadataKeys...)
+	out.OptionalStreamLabelKeys = append([]string{}, log.OptionalStreamLabelKeys...)
+	out.OptionalStructuredMetadataKeys = append([]string{}, log.OptionalStructuredMetadataKeys...)
 	return out
 }
 

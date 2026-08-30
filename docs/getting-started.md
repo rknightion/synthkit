@@ -84,7 +84,7 @@ Fixtures (pod names, node IDs, instance keys, IP addresses) are derived determin
 
 ## What to read next
 
-- [Installation](installation.md) — prerequisites and build instructions
+- [Installation](installation.md#clean-public-clone-to-healthy-compose) — the single supported clean-host path from a public clone to a healthy Compose deployment
 - [Quick Start](quickstart.md) — from binary to live data in five steps
 - [Blueprints overview](blueprints.md) — the full blueprint schema
 - [Credentials](credentials.md) — which env vars go where

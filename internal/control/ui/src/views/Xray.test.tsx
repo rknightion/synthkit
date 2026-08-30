@@ -41,6 +41,7 @@ const FAKE_INVENTORY: InventoryReport = {
         {
           kind: "ec2",
           name: "web",
+          identity: { scope: "blueprint", labels: { blueprint: "acme" } },
           distinct_series: 800,
           capped: false,
           metric_names: ["aws_ec2_cpu_utilization", "aws_ec2_network_in"],
@@ -73,6 +74,7 @@ const FAKE_INVENTORY: InventoryReport = {
         {
           kind: "k8s_cluster",
           name: "prod",
+          identity: { scope: "substrate", labels: { cluster: "acme-prod" } },
           distinct_series: 300,
           capped: false,
           metric_names: ["kube_pod_status_phase"],
@@ -125,6 +127,14 @@ test("renders a construct card from the inventory snapshot", () => {
   expect(card.textContent).toContain("ec2");
   expect(card.textContent).toContain("web");
   expect(card.textContent).toContain("800");
+});
+
+test("renders declared query identity without inventing a blueprint selector for substrate output", () => {
+  const store = fakeStore({ inventory: FAKE_INVENTORY });
+  const { getByTestId } = renderXray(store);
+  expect(getByTestId("identity-ec2-web").textContent).toContain("blueprint=acme");
+  expect(getByTestId("identity-k8s_cluster-prod").textContent).toContain("cluster=acme-prod");
+  expect(getByTestId("identity-scope-k8s_cluster-prod").textContent).toBe("substrate");
 });
 
 test("renders the metric-names drill for a construct card", () => {

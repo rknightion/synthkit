@@ -125,6 +125,17 @@ var corpusResourceAttrs = []string{
 	"service.namespace",
 }
 
+var corpusUnownedResourceAttrs = []string{
+	"cluster",
+	"k8s.cluster.name",
+	"k8s.container.name",
+	"k8s.namespace.name",
+	"k8s.pod.name",
+	"service.instance.id",
+	"service.name",
+	"service.namespace",
+}
+
 // corpusRecordAttrs is the record-attribute key set: the same corpus entry's structured metadata.
 // The filelog `container` parser puts exactly these two on the log RECORD (the k8s identity goes
 // on the resource), and Loki drops every record attribute into structured metadata.
@@ -141,8 +152,12 @@ func TestPodLogsOTLPNativeShape(t *testing.T) {
 		t.Fatal("otlp pod logs: no LogResource emitted")
 	}
 	for _, r := range resources {
-		if got := sortedKeys(r.Attrs); !equalStrings(got, corpusResourceAttrs) {
-			t.Errorf("resource attrs = %v, want %v", got, corpusResourceAttrs)
+		wantAttrs := corpusResourceAttrs
+		if _, owned := r.Attrs["k8s.deployment.name"]; !owned {
+			wantAttrs = corpusUnownedResourceAttrs
+		}
+		if got := sortedKeys(r.Attrs); !equalStrings(got, wantAttrs) {
+			t.Errorf("resource attrs = %v, want %v", got, wantAttrs)
 		}
 		if r.Attrs["cluster"] != cl.Name || r.Attrs["k8s.cluster.name"] != cl.Name {
 			t.Errorf("cluster identity wrong: cluster=%v k8s.cluster.name=%v want %q",
@@ -372,15 +387,22 @@ func TestPodLogsClassicStructuredMeta(t *testing.T) {
 // the native stream.
 func TestPodLogsClassicCapturedShape(t *testing.T) {
 	streams := podLogStreamsForMethod(t, "loki", true)
-	wantLabels := []string{
+	ownedLabels := []string{
 		"app_kubernetes_io_name", "cluster", "container", "flags", "job", "k8s_cluster_name",
 		"namespace", "service_name", "service_namespace", "stream",
+	}
+	unownedLabels := []string{
+		"cluster", "container", "flags", "job", "k8s_cluster_name", "namespace", "service_namespace", "stream",
 	}
 	wantMeta := []string{"pod", "service_instance_id"}
 	if len(streams) == 0 {
 		t.Fatal("classic pod logs: no streams captured")
 	}
 	for i, stream := range streams {
+		wantLabels := ownedLabels
+		if _, owned := stream.Labels["app_kubernetes_io_name"]; !owned {
+			wantLabels = unownedLabels
+		}
 		if got := sortedStringKeys(stream.Labels); !equalStrings(got, wantLabels) {
 			t.Errorf("stream %d labels = %v, want exactly %v", i, got, wantLabels)
 		}
@@ -400,6 +422,44 @@ func TestPodLogsClassicCapturedShape(t *testing.T) {
 				t.Errorf("stream %d line %d metadata values must be non-empty: %v", i, j, line.Meta)
 			}
 		}
+	}
+}
+
+func TestPodLogsEmitUnownedUnscheduledVariantOnBothTransports(t *testing.T) {
+	_, resources := tickBothLanes(t, clusterWithPodLogs("opentelemetry", true))
+	foundOTLP := false
+	for _, resource := range resources {
+		if _, hasOwner := resource.Attrs["k8s.deployment.name"]; hasOwner {
+			continue
+		}
+		if _, hasNode := resource.Attrs["k8s.node.name"]; hasNode {
+			continue
+		}
+		for _, absent := range []string{"app_kubernetes_io_name"} {
+			if _, present := resource.Attrs[absent]; present {
+				t.Errorf("unowned OTLP pod log must omit %q: %v", absent, resource.Attrs)
+			}
+		}
+		foundOTLP = true
+	}
+	if !foundOTLP {
+		t.Fatal("OTLP transport emitted no unowned/unscheduled pod-log variant")
+	}
+
+	streams := podLogStreamsForMethod(t, "loki", true)
+	foundLoki := false
+	for _, stream := range streams {
+		if _, hasOwner := stream.Labels["app_kubernetes_io_name"]; hasOwner {
+			continue
+		}
+		if _, hasService := stream.Labels["service_name"]; hasService {
+			t.Errorf("unowned Loki pod log must omit service_name: %v", stream.Labels)
+			continue
+		}
+		foundLoki = true
+	}
+	if !foundLoki {
+		t.Fatal("Loki transport emitted no unowned/unscheduled pod-log variant")
 	}
 }
 

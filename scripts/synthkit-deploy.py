@@ -943,7 +943,7 @@ def parse_record_fields(values: list[str]) -> dict[str, str]:
         raise DeployError("record_version_invalid")
     if "@" in fields["configured_ref"] and fields["configured_ref"].rsplit("@", 1)[1] != fields["index_digest"]:
         raise DeployError("record_index_mismatch")
-    if fields["oci_config_digest"] != fields["running_image_id"]:
+    if fields["running_image_id"] not in {fields["oci_config_digest"], fields["index_digest"]}:
         raise DeployError("record_runtime_identity_mismatch")
     return fields
 
@@ -1299,7 +1299,23 @@ def inspect_running(
         oci_config_digest = platform_manifest["config"]["digest"]
     except (json.JSONDecodeError, KeyError, TypeError) as exc:
         raise DeployError("oci_config_invalid") from exc
-    if oci_config_digest != running_image_id:
+    if oci_config_digest == running_image_id:
+        runtime_identity = "oci_config_digest"
+    elif index_digest == running_image_id:
+        descriptor_raw = run_closed(
+            [docker_bin, "inspect", "--format", "{{json .ImageManifestDescriptor}}", container],
+            "running_inspection_failed",
+        )
+        try:
+            descriptor = json.loads(descriptor_raw)
+        except json.JSONDecodeError as exc:
+            raise DeployError("running_manifest_descriptor_invalid") from exc
+        if not isinstance(descriptor, dict) or not descriptor:
+            raise DeployError("running_manifest_descriptor_unavailable")
+        if descriptor.get("digest") != platform_digest:
+            raise DeployError("running_config_mismatch")
+        runtime_identity = "index_with_platform_descriptor"
+    else:
         raise DeployError("running_config_mismatch")
     binary_raw = run_closed(
         [docker_bin, "exec", container, "/app/synthkit", "-version"],
@@ -1323,6 +1339,7 @@ def inspect_running(
         "platform": platform,
         "platform_manifest_digest": platform_digest,
         "revision": binary_revision,
+        "runtime_identity": runtime_identity,
         "running_image_id": running_image_id,
         "status": "ok",
         "version": binary_version,

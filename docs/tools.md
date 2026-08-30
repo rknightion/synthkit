@@ -116,9 +116,12 @@ See [custom-blueprints.md](custom-blueprints.md) for how to add custom blueprint
 `synthkit-dash` generates Grafana v2 dashboard JSON for a blueprint's synthetic telemetry. It resolves the blueprint, derives the signal manifest (via `internal/dashgen`), runs registered per-blueprint templates, and writes dashboard JSON files to an output directory.
 
 ```bash
-go run ./cmd/synthkit-dash \
+just dashgen \
   -blueprint blueprints/my-service.yaml \
-  -out dashboards/my-service/
+  -out dashboards/my-service/ \
+  -datasource metrics=grafanacloud-prom \
+  -datasource logs=grafanacloud-logs \
+  -datasource traces=grafanacloud-traces
 ```
 
 | Flag | Required | Description |
@@ -126,9 +129,10 @@ go run ./cmd/synthkit-dash \
 | `-blueprint <path>` | yes | Path to the blueprint YAML. |
 | `-out <dir>` | yes | Output directory for generated dashboard JSON files. |
 | `-integrations <path>` | no | Optional integrations config YAML for thin-index deep-links. |
-| `-folder <uid>` | no | Grafana folder UID to place every dashboard in. The folder must already exist in Grafana. |
+| `-folder <uid>` | no | UID for the generated Folder resource (defaults to `<blueprint>-dashboards`). |
+| `-datasource <group=name>` | yes, repeated | Explicit datasource name for every rendered query group. Generation fails if any group is unmapped. |
 
-`synthkit-dash` always emits a thin index dashboard and a metrics dashboard. Additional per-blueprint dashboards are generated when templates are registered for that blueprint. Files are named `<dashboard-uid>.json` and written to explicit `--out` paths (never stdout).
+`synthkit-dash` emits a Folder resource, a thin index dashboard, a metrics dashboard, and a panel inventory. Additional per-blueprint dashboards are generated when templates are registered for that blueprint. Files are written to the explicit output directory (never stdout). Every inventory row records its dashboard, panel, datasource, ref ID, and rendered query.
 
 For blueprints that define recording/alert rules, `synthkit-dash` also emits a `<blueprint>-rules.json` file.
 
@@ -136,6 +140,14 @@ Push generated dashboards to Grafana with `gcx`:
 
 ```bash
 gcx resources push -p dashboards/my-service/
+```
+
+After collecting one normalized observation per inventory query, classify every panel:
+
+```bash
+just dashgen -verify-inventory dashboards/my-service/panel-inventory.json \
+  -observations observations.json \
+  -verification-out verification.json
 ```
 
 ## synthkit-control-dash — control dashboard generator
@@ -183,7 +195,8 @@ Open the synthkit repository in Claude Code and run a skill directly:
 
 ### Using skills from outside the repo (plugin install)
 
-Install synthkit as a Claude Code plugin from any directory:
+Install synthkit as a Claude Code plugin from any directory. Enter these slash commands in Claude
+Code chat; they are not shell commands:
 
 ```text
 /plugin marketplace add rknightion/synthkit

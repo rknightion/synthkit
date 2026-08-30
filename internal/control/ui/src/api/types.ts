@@ -33,6 +33,7 @@ export interface RuntimeIncident {
 export interface ConstructInventory {
   kind: string;
   name: string;
+  identity?: QueryIdentity;
   distinct_series?: number;
   capped?: boolean;
   metric_names?: string[];
@@ -42,6 +43,10 @@ export interface ConstructInventory {
   span_services?: string[];
   span_names?: string[];
   span_attr_keys?: string[];
+}
+export interface QueryIdentity {
+  scope: "blueprint" | "substrate";
+  labels: Record<string, string>;
 }
 export interface BlueprintInventory {
   blueprint: string;

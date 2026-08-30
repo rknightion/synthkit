@@ -3,9 +3,11 @@ id: SKT-0031
 title: >-
   Make all shipped blueprints individually deployable and verifiable by runtime
   identity
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - '@codex'
 created_date: '2026-08-29 19:05'
+updated_date: '2026-08-30 01:39'
 labels: []
 dependencies: []
 references:
@@ -23,16 +25,34 @@ SKT-0011 scenarios C1, C4, and C5 selected every shipped blueprint individually.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The canonical selectable runtime name for every shipped blueprint is discoverable without inferring it from the filename
+- [x] #1 The canonical selectable runtime name for every shipped blueprint is discoverable without inferring it from the filename
 - [ ] #2 Every shipped blueprint reaches a truthful healthy or setup state individually within a documented bound, or reports the lane preventing readiness
-- [ ] #3 The verification path waits for two tick intervals and proves each declared signal class arrived
-- [ ] #4 Dump families can be compared to live queryability per blueprint without a hand-built mapping
-- [ ] #5 Representative substrate-scoped and blueprint-scoped families expose enough evidence to verify label separation
+- [x] #3 The verification path waits for two tick intervals and proves each declared signal class arrived
+- [x] #4 Dump families can be compared to live queryability per blueprint without a hand-built mapping
+- [x] #5 Representative substrate-scoped and blueprint-scoped families expose enough evidence to verify label separation
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Lane B exposes canonical runtime identity and declared signal verification; root proves all shipped blueprints live after integration.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-08-30 closeout: runtime identity, declared-signal verification, live query mapping, and identity projections landed and passed the final gates. Live verification covered the eight-blueprint acceptance deployment, not every one of the 26 shipped blueprints individually.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Parked at AC#2. Resume by running the executable identity/readiness check for all 26 canonical runtime names, retaining each truthful healthy/setup result or named lane failure within the documented bound.
+<!-- SECTION:FINAL_SUMMARY:END -->

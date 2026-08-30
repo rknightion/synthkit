@@ -1,10 +1,11 @@
 ---
 id: SKT-0038
 title: Make marketplace installation instructions executable from a clean host
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-29 19:05'
-updated_date: '2026-08-29 19:22'
+updated_date: '2026-08-30 01:39'
 labels: []
 dependencies: []
 references:
@@ -22,15 +23,33 @@ SKT-0011 scenario H4 found that the documented marketplace path consists of slas
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Marketplace instructions state the supported host, installation prerequisite, and where slash commands must be entered
-- [ ] #2 A clean supported host can add the marketplace, install the plugin, and invoke each bundled skill
-- [ ] #3 The installed plugin remains functional after relocation
-- [ ] #4 Shell examples are separated from host UI or slash-command instructions so they cannot be mistaken for executable shell commands
+- [x] #1 Marketplace instructions state the supported host, installation prerequisite, and where slash commands must be entered
+- [x] #2 A clean supported host can add the marketplace, install the plugin, and invoke each bundled skill
+- [x] #3 The installed plugin remains functional after relocation
+- [x] #4 Shell examples are separated from host UI or slash-command instructions so they cannot be mistaken for executable shell commands
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check </dev/null (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen </dev/null (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump </dev/null — inventory diffed against signals/
+- [x] #1 just check </dev/null (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen </dev/null (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump </dev/null — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Lane A corrects marketplace host and relocation instructions and validates the non-Docker host flow.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-08-30 closeout: supported host, prerequisites, slash-command location, relocation behavior, and shell-versus-host boundaries are documented and validated by the final documentation/skill gates.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Marketplace installation now names and validates the supported plugin-host workflow, including relocation.
+<!-- SECTION:FINAL_SUMMARY:END -->

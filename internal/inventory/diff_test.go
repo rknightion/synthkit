@@ -326,9 +326,10 @@ func TestDiffUnobservedInstrumentTypeIsCoverageGapNotContradiction(t *testing.T)
 		name    string
 		synth   []string
 		reality []string
+		kind    FindingKind
 	}{
-		{name: "reality never observed an instrument type", synth: []string{InstrumentGauge}, reality: []string{InstrumentUnknown}},
-		{name: "synth never observed an instrument type", synth: []string{InstrumentUnknown}, reality: []string{InstrumentGauge}},
+		{name: "reality never observed an instrument type", synth: []string{InstrumentGauge}, reality: []string{InstrumentUnknown}, kind: KindUnknownInstrumentEvidence},
+		{name: "synth never observed an instrument type", synth: []string{InstrumentUnknown}, reality: []string{InstrumentGauge}, kind: KindInstrumentMismatch},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			findings := Diff(
@@ -343,7 +344,7 @@ func TestDiffUnobservedInstrumentTypeIsCoverageGapNotContradiction(t *testing.T)
 			if len(findings) != 1 {
 				t.Fatalf("findings=%+v, want exactly one coverage gap", findings)
 			}
-			assertFinding(t, findings, KindInstrumentMismatch, DispositionCoverageGap, "node_cpu_seconds_total", "instrument_types")
+			assertFinding(t, findings, test.kind, DispositionCoverageGap, "node_cpu_seconds_total", "instrument_types")
 		})
 	}
 }
@@ -734,6 +735,30 @@ func TestDiffJoinsPodLogShapeVariantsIntoOneFamily(t *testing.T) {
 	for _, finding := range findings {
 		if finding.Kind == KindExtraLog {
 			t.Fatalf("findings=%+v, want no extra_log: both shapes are the %s family", findings, LogFamilyPodLogs)
+		}
+	}
+}
+
+func TestDiffReportsOptionalPodLogKeysRatherThanAbsorbingTheirVariant(t *testing.T) {
+	// The owner/node shape and the unowned/unscheduled shape are one family, but the
+	// latter must remain comparable. A union alone would make the optional keys look
+	// mandatory and conceal a synth inventory that emitted only the owned variant.
+	reality := logSchema(
+		podLogEntry("k8s.deployment.name", "k8s.node.name", "app_kubernetes_io_name"),
+		podLogEntry(),
+	)
+	synth := logSchema(podLogEntry("k8s.deployment.name", "k8s.node.name", "app_kubernetes_io_name"))
+
+	findings := Diff(synth, reality)
+	signal := TransportOTLPLogs + "[family=" + LogFamilyPodLogs + "]"
+	assertFinding(t, findings, KindUnexpectedLabelKey, DispositionCoverageGap, signal, "optional_stream_label_keys")
+
+	// The reverse direction is absent evidence: synth declaring both shapes does not
+	// contradict a capture that happened to observe only the owned shape.
+	reverse := Diff(reality, synth)
+	for _, finding := range reverse {
+		if finding.Signal == signal && (finding.Field == "stream_labels" || finding.Field == "optional_stream_label_keys") {
+			t.Fatalf("reverse findings=%+v, optional synth-only keys must not contradict reality", reverse)
 		}
 	}
 }

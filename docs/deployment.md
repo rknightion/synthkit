@@ -30,10 +30,9 @@ from outside the process.
     git clone https://github.com/rknightion/synthkit.git
     cd synthkit
 
-    # 2. Create the state bind-mount directory, owned by the container's uid
-    #    (distroless nonroot = uid 65532). This is a one-time step per host.
-    if [ -L control-state-data ] || { [ -e control-state-data ] && [ ! -d control-state-data ]; }; then echo 'refusing unsafe state path' >&2; exit 1; fi
-    sudo install -d -o 65532 -g 65532 -m 700 control-state-data
+    # 2. Follow Installation's clean-host state preparation exactly. It uses a pinned helper
+    #    container and works without sudo, including through a mounted Docker socket.
+    #    https://github.com/rknightion/synthkit/blob/main/docs/installation.md#clean-public-clone-to-healthy-compose
 
     # 3. Configure credentials
     install -m 600 .env.example .env
@@ -102,11 +101,16 @@ The `/data` directory holds:
   ledger, adoption-preview marker, lock, and pending journal used by the version-matched one-shot
   provisioner.
 
-The container image runs as **uid 65532** (distroless nonroot). The bind-mount directory must be owned by this uid or state saves fail:
+The container image runs as **uid 65532** (distroless nonroot). The bind-mount directory must be owned by this uid or state saves fail. Use the pinned helper command in [Installation](installation.md#clean-public-clone-to-healthy-compose), which avoids `sudo` and works when Docker owns the bind-mount filesystem:
 
 ```bash
-if [ -L control-state-data ] || { [ -e control-state-data ] && [ ! -d control-state-data ]; }; then echo 'refusing unsafe state path' >&2; exit 1; fi
-sudo install -d -o 65532 -g 65532 -m 700 control-state-data
+state_dir="$PWD/control-state-data"
+if [ -L "$state_dir" ] || { [ -e "$state_dir" ] && [ ! -d "$state_dir" ]; }; then echo 'refusing unsafe state path' >&2; exit 1; fi
+mkdir -p "$state_dir"
+chmod 700 "$state_dir"
+docker run --rm --volume "$state_dir:/data" --entrypoint /bin/sh \
+  node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 \
+  -ceu 'chown 65532:65532 /data; chmod 0700 /data'
 ```
 
 If a control-plane change made in the operator UI doesn't survive a restart, check `persist.last_error` in `/control/status` — a `permission denied` there confirms the ownership problem.
@@ -295,6 +299,37 @@ both stamped by CI.
 Use Docker Compose 2.24.4 or later. Never run raw `docker compose config` against the real `.env`;
 render with `.env.example` or generated fake inputs through `just compose-check`.
 
+### Public release ledger for the tested transition
+
+The following public GHCR index digests were resolved from the registry on 2026-08-30. They are
+immutable references; the tag column is provenance only and must not be substituted into an
+upgrade or rollback command.
+
+| Release | Immutable index reference | Version | Complete revision |
+|---|---|---|---|
+| `1.4.0-rc.38` | `ghcr.io/rknightion/synthkit@sha256:3a434bfbde910c71d7f98c81968f92a68a7bb854d563dcf1b34f4a622043c2cf` | `1.4.0-rc.38` | `c6e4d1fa1776e4f7589acbb82bfde75f4773ccb2` |
+| `1.4.0-rc.37` | `ghcr.io/rknightion/synthkit@sha256:f3598bc125d40e82ac820a3ad971266838da2427daa727a29ec941ed41c28a66` | `1.4.0-rc.37` | `0683180cc71e3aa2cbea3a8bfcf42a9ec85ae30b` |
+
+Use rc.37 → rc.38 for the reproducible upgrade, then rc.38 → rc.37 for the rollback below. Before
+each selector change, verify the exact digest and its complete revision from public registry,
+signature, and provenance evidence:
+
+```bash
+python3 scripts/synthkit-deploy.py verify-image \
+  --reference ghcr.io/rknightion/synthkit@sha256:f3598bc125d40e82ac820a3ad971266838da2427daa727a29ec941ed41c28a66 \
+  --expected-version 1.4.0-rc.37 --expected-oci-version v1.4.0-rc.37 \
+  --expected-revision 0683180cc71e3aa2cbea3a8bfcf42a9ec85ae30b \
+  --source-ref refs/tags/v1.4.0-rc.37 --platform linux/amd64
+python3 scripts/synthkit-deploy.py verify-image \
+  --reference ghcr.io/rknightion/synthkit@sha256:3a434bfbde910c71d7f98c81968f92a68a7bb854d563dcf1b34f4a622043c2cf \
+  --expected-version 1.4.0-rc.38 --expected-oci-version v1.4.0-rc.38 \
+  --expected-revision c6e4d1fa1776e4f7589acbb82bfde75f4773ccb2 \
+  --source-ref refs/tags/v1.4.0-rc.38 --platform linux/amd64
+```
+
+The helper's successful closed reports are the release evidence. Do not use private release
+metadata, image cache observations, a mutable tag, or a shortened revision as a substitute.
+
 Set the candidate identity from the verified release, and the current expected identity from its
 previous deployment record. Records and snapshots belong outside the checkout:
 
@@ -304,9 +339,9 @@ STATE_DIR="$(cd control-state-data && pwd -P)"
 DEPLOYMENT_ROOT="$(dirname "$STATE_DIR")"
 RECORDS_DIR="/absolute/private/path/synthkit-deployment-records"
 CONTAINER_ID="$(docker compose ps -q synthkit)"
-CANDIDATE_REF="ghcr.io/rknightion/synthkit@sha256:<candidate-index>"
-CANDIDATE_VERSION="X.Y.Z"
-CANDIDATE_REVISION="<40-hex-source-sha>"
+CANDIDATE_REF="ghcr.io/rknightion/synthkit@sha256:3a434bfbde910c71d7f98c81968f92a68a7bb854d563dcf1b34f4a622043c2cf"
+CANDIDATE_VERSION="1.4.0-rc.38"
+CANDIDATE_REVISION="c6e4d1fa1776e4f7589acbb82bfde75f4773ccb2"
 PREVIOUS_RECORD="$RECORDS_DIR/current.json"
 
 test -f "$PREVIOUS_RECORD" && test ! -L "$PREVIOUS_RECORD" || exit 1
@@ -329,8 +364,28 @@ If the previous record contains a tag rather than an index digest, stop here. Re
 its exact index digest, verify the artifact and source identity, and write a replacement
 digest-bound record before continuing; `inspect-running` deliberately does not accept a tag.
 
-Inspect the current deployment with its recorded expected values, stop it, and snapshot `/data`
-before any selector mutation:
+Before stopping it, record the selected blueprint set and force a small, explicit control-state
+change. These authenticated reads are the config-snapshot persistence assertion; they do not read
+or print credentials. `curl -u control` prompts for `CONTROL_TOKEN` rather than placing it in a
+command line.
+
+```bash
+curl -fsS -u control http://127.0.0.1:8088/control/schema \
+  > "$RECORDS_DIR/schema-before-upgrade.json"
+jq -e '.blueprints | index("otlp-native")' \
+  "$RECORDS_DIR/schema-before-upgrade.json" > /dev/null
+curl -fsS -u control -X POST http://127.0.0.1:8088/control/load \
+  -H 'Content-Type: application/json' -d '{"volume_multiplier":1.25}' \
+  > /dev/null
+curl -fsS -u control http://127.0.0.1:8088/control/state \
+  > "$RECORDS_DIR/control-state-before-upgrade.json"
+jq -e '.volume_multiplier == 1.25' \
+  "$RECORDS_DIR/control-state-before-upgrade.json" > /dev/null
+```
+
+Now inspect the current deployment with its recorded expected values, stop it, and snapshot `/data`.
+The snapshot is deliberately taken after the state readback, so its retained manifest contains the
+same persisted control state that the candidate and rollback checks compare:
 
 ```bash
 CURRENT_JSON="$(python3 scripts/synthkit-deploy.py inspect-running \
@@ -381,6 +436,34 @@ declared by the selected blueprints after its emission interval plus delivery de
 public issue. A legacy image without `-version` cannot produce a fully bound record; document that
 gap and first upgrade to a versioned known-good target before treating rollback as proven.
 
+Read back the same selected blueprint and persisted control state after the candidate restart. The
+byte-for-byte control-state comparison proves that the `/data` snapshot survived; the schema check
+proves the selected bundled blueprint was loaded again.
+
+```bash
+curl -fsS -u control http://127.0.0.1:8088/control/schema \
+  > "$RECORDS_DIR/schema-after-upgrade.json"
+jq -e '.blueprints | index("otlp-native")' \
+  "$RECORDS_DIR/schema-after-upgrade.json" > /dev/null
+jq -S '.blueprints' "$RECORDS_DIR/schema-before-upgrade.json" \
+  | cmp - <(jq -S '.blueprints' "$RECORDS_DIR/schema-after-upgrade.json")
+curl -fsS -u control http://127.0.0.1:8088/control/state \
+  | jq -S . > "$RECORDS_DIR/control-state-after-upgrade.json"
+jq -S . "$RECORDS_DIR/control-state-before-upgrade.json" \
+  | cmp - "$RECORDS_DIR/control-state-after-upgrade.json"
+```
+
+For a live deployment, use `gcx` 1.2.0+ and an explicitly selected customer-stack context to
+observe the intentional counter reset. `resets()` should identify the restart; use `rate()` or
+`increase()` for operational interpretation, never the raw post-restart counter value as a spike:
+
+```bash
+gcx --context <customer-stack> metrics query \
+  'resets(http_server_request_duration_seconds_count{service_name="otlp-api-enriched"}[10m])'
+gcx --context <customer-stack> metrics query \
+  'sum(rate(http_server_request_duration_seconds_count{service_name="otlp-api-enriched"}[5m]))'
+```
+
 ## Rollback
 
 Stop the candidate, snapshot its quiesced state, and write its exact identity record before any
@@ -415,6 +498,11 @@ python3 scripts/synthkit-deploy.py inspect-running \
   --container "$(docker compose ps -q synthkit)" --expected-reference "$CURRENT_REF" \
   --expected-version "$CURRENT_VERSION" --expected-revision "$CURRENT_REVISION"
 ```
+
+Repeat the schema, state, and reset-aware counter checks above after rollback. The control snapshot
+must still match the record captured before the upgrade, and the verified output of
+`inspect-running` must report rc.37 with revision `0683180cc71e3aa2cbea3a8bfcf42a9ec85ae30b` for
+the published transition documented here.
 
 The restore retains the candidate state beside the live tree as an exact
 `.control-state-data.displaced-*` directory. Re-run the same readiness, writability, authenticated

@@ -57,7 +57,7 @@ environments:
       type: eks
       name: acme-eks-dev1
       node_groups: &ngdev [{ name: general, instance_type: m7g.2xlarge, desired: 3 }]   # dev tier: Graviton, pinned 3 nodes
-      k8s_monitoring: &k8sm { enabled: true, chart_version: "4.1.4", alloy: true, features: { cluster_metrics: true, cluster_events: true, pod_logs: true, node_logs: true, application_observability: true } }   # full Alloy collector set (cost/power deliberately OFF)
+      k8s_monitoring: &k8sm { enabled: true, chart_version: "4.1.4", alloy: true, features: { cluster_metrics: true, cluster_events: true, pod_logs: true, node_logs: true, application_observability: true }, pod_logs_method: opentelemetry }   # full Alloy collector set (cost/power deliberately OFF)
       addons: &addons [core_dns, vpc_cni, ebs_csi, cert_manager, alloy_health, karpenter, argocd, envoy_gateway, external_dns, load_balancer_controller]
     databases:
       - { engine: postgres, version: "17.7", name: acme-aurora-dev1, instance_class: db.r6g.large, observability: &obs_dbo11y { cloudwatch: true, dbo11y: true, digests: 30 } }   # Aurora PG: aws_rds_* CW + dbo11y pg_stat_statements

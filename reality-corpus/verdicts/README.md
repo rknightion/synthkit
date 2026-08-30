@@ -110,22 +110,23 @@ side (`incoming_*`, `put_record_*`, `put_record_batch_*`, `describe_delivery_str
 `dimension_VolumeId` co-labelled with `dimension_InstanceId`, which `signals/cw.md` already
 documents as live-verified.
 
-`k8scluster/kubelet-storage` — 1 family, and a shape defect rather than a plain absence.
-The real kubelet publishes `storage_operation_duration_seconds` as a classic histogram
-(corpus `instrument_types: ["histogram"]`, `histogram.classic: true`). synthkit publishes a
-standalone **counter** named `storage_operation_duration_seconds_count`, so the `_bucket`
-and `_sum` components do not exist and no quantile can be computed. Same resource, same
-scrape, same label set (`operation_name`, `status`, `volume_plugin`, `migrated`, `node`).
+`k8scluster/kubelet-storage` — 1 family whose old histogram verdict is superseded by
+the evidence review recorded on SKT-0010.07. The earlier `histogram.classic: true` fact
+was inferred from a component-name suffix, not an observed `_bucket` series; the corpus
+has neither bucket bounds nor an `le` key. The k8s-monitoring 4.4.0 kubelet allow-list
+contains only `storage_operation_duration_seconds_COUNT`, and a fresh capture showed
+active storage operations with no `le` output. The counter shape is therefore correct.
+Follow-up work is limited to the comparator's `le`-evidence policy and the emitted
+family/name join; it must not synthesize histogram bounds.
 
 ## Out of scope
 
 `coredns_hosts_entries` — the CoreDNS `hosts` plugin exports it, and the corpus shows the
 plugin loaded against `/etc/coredns/NodeHosts`, a k3s-specific Corefile. Corpus authority is
 `k3s` only; no EKS-substrate evidence covers CoreDNS. synthkit models a Corefile with no
-`hosts` block, a decision already recorded in `internal/construct/coredns/coredns.go`, where
-`coredns_hosts_reload_timestamp_seconds` is pinned at 0 with the comment "hosts plugin not
-used". Do not re-litigate without EKS-substrate evidence that the modelled Corefile loads
-the plugin.
+`hosts` block. `coredns_hosts_reload_timestamp_seconds` is absent from the model, so it
+does not invent the former zero-valued third state. Do not re-litigate without EKS-substrate
+evidence that the modelled Corefile loads the plugin.
 
 ## Unresolved
 

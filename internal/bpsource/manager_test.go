@@ -331,6 +331,23 @@ hosts: [{name: pasted-host, os: linux}]
 	}
 }
 
+// TestStageUploadAcceptsDocumentedNamespacedIdentity reproduces the D3 request:
+// the YAML keeps its portable bare name while the form names the exact runtime identity
+// that will be selected after restart.
+func TestStageUploadAcceptsDocumentedNamespacedIdentity(t *testing.T) {
+	m := NewManager(Options{DataDir: t.TempDir(), BlueprintNames: []string{"*"}, Registry: runner.Catalog(), Config: &fakeConfig{}})
+	paste := []byte(`name: copied
+hosts: [{name: copied-host, os: linux}]
+`)
+	if err := m.StageUpload("acceptance", "acceptance/copied", paste); err != nil {
+		t.Fatalf("StageUpload(namespaced identity): %v", err)
+	}
+	staged := m.ListStaged()
+	if len(staged) != 1 || staged[0].Name != "acceptance/copied" {
+		t.Fatalf("ListStaged() = %+v, want acceptance/copied", staged)
+	}
+}
+
 func TestRemoveUpload(t *testing.T) {
 	data := t.TempDir()
 	m := NewManager(Options{DataDir: data, Registry: runner.Catalog(), Config: &fakeConfig{}})
