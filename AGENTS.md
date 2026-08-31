@@ -49,6 +49,18 @@ Non-negotiable data-path rules:
   if unconfirmed, add a PENDING to `cantfind.md` and flag it. The signals catalogue grows with
   every discovered real signal, including provenance/date; correct synth output to observed data,
   never captured data to the synth. `cantfind.md` `SK-N` IDs are stable and separate from tasks.
+- **Rates and volumes in a shipped blueprint must be plausible for the thing being modelled**, not
+  tuned to make something show up. Names are not the only thing that can be invented: a rate that no
+  real deployment produces is fabricated data too, and it is worse because it looks legitimate.
+  A real coding agent is around `sessions_per_min: 0.5` with `turns_p50` in the tens
+  (`blueprints/grafana-ai-o11y.yaml`, drawn from captures); `sessions_per_min: 600` with
+  `turns_p50: 2` is 1200x the rate at a twentieth of the depth, and shipping it in the
+  focused-first-workload blueprint sent fabricated traffic into a real Grafana product until it was
+  caught. State the real-world basis for any rate, count or cardinality in a comment beside it.
+- **Never force emission by raising a blueprint's rates.** If a test needs a lane to fire inside one
+  tick, that belongs in a fixture under `e2e/fixtures/`, outside `blueprints/`, labelled as such —
+  see `e2e/fixtures/e2e-agents.yaml`. Anything in `blueprints/` is loadable by `BLUEPRINT_NAMES=*`
+  and deployable by an operator, so a test-shaped value there reaches production.
 
 ## Construct boundaries and identity
 

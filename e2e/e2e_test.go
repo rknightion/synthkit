@@ -51,6 +51,25 @@ import (
 // byte-identical (deterministic seeding), so correlation is stable.
 const e2eBlueprint = "otlp-native"
 
+// e2eAgentFixture supplies the three sigil lanes, and it is a TEST FIXTURE rather than a shipped
+// blueprint — e2e/fixtures/, not blueprints/. Its agent activity rates are set absurdly high so a
+// single -once tick cannot produce zero generations; that is only acceptable because nothing
+// deploys it. The rates used to live in otlp-native, which the standing lab deployment loads, so
+// they ran continuously against a real stack and caused problems in the Agent Observability
+// product. Realistic agent telemetry lives in blueprints/grafana-ai-o11y.yaml.
+const e2eAgentFixture = "e2e-agents"
+
+// e2eBlueprintNames is what BLUEPRINT_NAMES is set to everywhere in this suite. Both entries are
+// required: otlp-native carries the metric/log/trace lanes, the fixture carries the sigil lanes.
+var e2eBlueprintNames = e2eBlueprint + "," + e2eAgentFixture
+
+// e2eBlueprintSources maps each name to the repo-relative file it is copied from, so the container
+// and the local -dump run always see the same set.
+var e2eBlueprintSources = map[string]string{
+	e2eBlueprint:    "../blueprints/" + e2eBlueprint + ".yaml",
+	e2eAgentFixture: "../e2e/fixtures/" + e2eAgentFixture + ".yaml",
+}
+
 // TestDockerE2E is the integration capstone: builds both images, runs them, and
 // asserts that every metric / log source / trace service declared by -dump arrived
 // at the receiver.
@@ -120,12 +139,20 @@ func TestDockerE2E(t *testing.T) {
 	//
 	// The file must be readable by the distroless nonroot uid (65532); FileMode
 	// 0o644 satisfies that without needing ownership change in a shell.
-	blueprintHostPath, err := filepath.Abs("../blueprints/" + e2eBlueprint + ".yaml")
-	if err != nil {
-		t.Fatalf("resolve blueprint path: %v", err)
-	}
-	if _, err := os.Stat(blueprintHostPath); err != nil {
-		t.Fatalf("blueprint file not found at %s: %v", blueprintHostPath, err)
+	var blueprintFiles []testcontainers.ContainerFile
+	for name, rel := range e2eBlueprintSources {
+		abs, err := filepath.Abs(rel)
+		if err != nil {
+			t.Fatalf("resolve blueprint path for %s: %v", name, err)
+		}
+		if _, err := os.Stat(abs); err != nil {
+			t.Fatalf("blueprint file not found at %s: %v", abs, err)
+		}
+		blueprintFiles = append(blueprintFiles, testcontainers.ContainerFile{
+			HostFilePath:      abs,
+			ContainerFilePath: "/app/blueprints-e2e/" + name + ".yaml",
+			FileMode:          0o644,
+		})
 	}
 
 	t.Log("building synthkit image and running -once…")
@@ -139,7 +166,7 @@ func TestDockerE2E(t *testing.T) {
 			Networks: []string{net.Name},
 			Env: map[string]string{
 				"DRY_RUN":            "false",
-				"BLUEPRINT_NAMES":    e2eBlueprint,
+				"BLUEPRINT_NAMES":    e2eBlueprintNames,
 				"GC_TOKEN":           "e2e",
 				"GC_PROM_RW":         "https://receiver:9099/api/prom/push",
 				"GC_PROM_USER":       "1",
@@ -153,18 +180,11 @@ func TestDockerE2E(t *testing.T) {
 				"SSL_CERT_FILE":      "/tmp/e2e-ca.crt",
 				"BLUEPRINTS":         "/app/blueprints-e2e",
 			},
-			Files: []testcontainers.ContainerFile{
-				{
-					HostFilePath:      blueprintHostPath,
-					ContainerFilePath: "/app/blueprints-e2e/" + e2eBlueprint + ".yaml",
-					FileMode:          0o644,
-				},
-				{
-					HostFilePath:      testTLS.caPath,
-					ContainerFilePath: "/tmp/e2e-ca.crt",
-					FileMode:          0o644,
-				},
-			},
+			Files: append(blueprintFiles, testcontainers.ContainerFile{
+				HostFilePath:      testTLS.caPath,
+				ContainerFilePath: "/tmp/e2e-ca.crt",
+				FileMode:          0o644,
+			}),
 			Cmd: []string{"-once"},
 			// RunOnce flushes the delivery queue before returning → exit = pushes done.
 			WaitingFor: wait.ForExit().WithExitTimeout(5 * time.Minute),
@@ -337,13 +357,15 @@ func dumpSchema(t *testing.T) inventory.Schema {
 	// Isolate: copy only the smoke blueprint into a temp dir so -dump reflects
 	// exactly what the e2e container will emit.
 	dir := t.TempDir()
-	blueprintSrc, err := filepath.Abs("../blueprints/" + e2eBlueprint + ".yaml")
-	if err != nil {
-		t.Fatalf("resolve blueprint src: %v", err)
-	}
-	blueprintDst := filepath.Join(dir, e2eBlueprint+".yaml")
-	if out, err := exec.Command("cp", blueprintSrc, blueprintDst).CombinedOutput(); err != nil {
-		t.Fatalf("cp blueprint: %v (%s)", err, out)
+	for name, rel := range e2eBlueprintSources {
+		src, err := filepath.Abs(rel)
+		if err != nil {
+			t.Fatalf("resolve blueprint src for %s: %v", name, err)
+		}
+		dst := filepath.Join(dir, name+".yaml")
+		if out, err := exec.Command("cp", src, dst).CombinedOutput(); err != nil {
+			t.Fatalf("cp blueprint %s: %v (%s)", name, err, out)
+		}
 	}
 
 	cmd := exec.Command("go", "run", "../cmd/synthkit", "-once", "-dump")
@@ -352,7 +374,7 @@ func dumpSchema(t *testing.T) inventory.Schema {
 	env := os.Environ()
 	env = setEnv(env, "DRY_RUN", "true")
 	env = setEnv(env, "BLUEPRINTS", dir)
-	env = setEnv(env, "BLUEPRINT_NAMES", e2eBlueprint)
+	env = setEnv(env, "BLUEPRINT_NAMES", e2eBlueprintNames)
 	// Keep synthkit's runtime state under the temp dir — the default ./data/blueprints
 	// is relative to cwd (the e2e package dir), so without this the dump run litters an
 	// e2e/data/ artifact into the repo tree.

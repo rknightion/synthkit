@@ -69,8 +69,28 @@ func TestPublishedCompose(t *testing.T) {
 	if err := os.WriteFile(envFile, []byte(publishedComposeEnv(receiverURL)), 0o600); err != nil {
 		t.Fatalf("write fake env file: %v", err)
 	}
+	// Stage exactly the blueprints this suite loads, from the repo rather than from the image.
+	blueprintDir := filepath.Join(tmp, "blueprints")
+	if err := os.Mkdir(blueprintDir, 0o755); err != nil {
+		t.Fatalf("create blueprint directory: %v", err)
+	}
+	for name, rel := range e2eBlueprintSources {
+		src, err := filepath.Abs(rel)
+		if err != nil {
+			t.Fatalf("resolve blueprint src for %s: %v", name, err)
+		}
+		data, err := os.ReadFile(src)
+		if err != nil {
+			t.Fatalf("read blueprint %s: %v", name, err)
+		}
+		// 0o644: readable by the distroless nonroot uid inside the container.
+		if err := os.WriteFile(filepath.Join(blueprintDir, name+".yaml"), data, 0o644); err != nil {
+			t.Fatalf("stage blueprint %s: %v", name, err)
+		}
+	}
+
 	override := filepath.Join(tmp, "published.override.yml")
-	if err := os.WriteFile(override, []byte(publishedComposeOverride(imageRef, net.Name, stateDir, tlsFiles.caPath)), 0o600); err != nil {
+	if err := os.WriteFile(override, []byte(publishedComposeOverride(imageRef, net.Name, stateDir, tlsFiles.caPath, blueprintDir)), 0o600); err != nil {
 		t.Fatalf("write Compose override: %v", err)
 	}
 
@@ -241,9 +261,15 @@ func runDocker(t *testing.T, ctx context.Context, dir string, args ...string) []
 }
 
 func publishedComposeEnv(receiverURL string) string {
-	return "DRY_RUN=false\nBLUEPRINT_NAMES=otlp-native\nJSON_HTTP_ADDR=0.0.0.0:8088\nSYNTHKIT_BIND=127.0.0.1\nSSL_CERT_FILE=/tmp/e2e-ca.crt\nGC_TOKEN=e2e\nGC_PROM_RW=" + receiverURL + "/api/prom/push\nGC_PROM_USER=1\nGC_OTLP_ENDPOINT=" + receiverURL + "/otlp\nGC_OTLP_USER=2\nGC_LOKI=" + receiverURL + "/loki/api/v1/push\nGC_LOKI_USER=3\nGC_SIGIL_ENDPOINT=" + receiverURL + "\nGC_SIGIL_TENANT_ID=e2e\nGC_SIGIL_TOKEN=e2e\n"
+	return "DRY_RUN=false\nBLUEPRINT_NAMES=" + e2eBlueprintNames + "\nJSON_HTTP_ADDR=0.0.0.0:8088\nSYNTHKIT_BIND=127.0.0.1\nSSL_CERT_FILE=/tmp/e2e-ca.crt\nGC_TOKEN=e2e\nGC_PROM_RW=" + receiverURL + "/api/prom/push\nGC_PROM_USER=1\nGC_OTLP_ENDPOINT=" + receiverURL + "/otlp\nGC_OTLP_USER=2\nGC_LOKI=" + receiverURL + "/loki/api/v1/push\nGC_LOKI_USER=3\nGC_SIGIL_ENDPOINT=" + receiverURL + "\nGC_SIGIL_TENANT_ID=e2e\nGC_SIGIL_TOKEN=e2e\n"
 }
 
-func publishedComposeOverride(image, networkName, stateDir, caPath string) string {
-	return fmt.Sprintf("services:\n  synthkit:\n    image: %s\n    networks: [published-test]\n    ports: !override [\"127.0.0.1::8088\"]\n    volumes:\n      - %s:/data\n      - %s:/tmp/e2e-ca.crt:ro\nnetworks:\n  published-test:\n    external: true\n    name: %s\n", image, stateDir, caPath, networkName)
+// blueprintDir is mounted read-only and BLUEPRINTS is pointed at it, because docker-compose.yml
+// sets `BLUEPRINTS: /app/blueprints` as a literal service environment value — an --env-file cannot
+// override that, only a Compose override can. The directory holds the repo's own copies of exactly
+// the blueprints this suite loads, which also removes a latent skew: `expected` comes from
+// dumpSchema running against the repo files while `received` came from whatever the published image
+// baked, so the two could drift between a blueprint edit and the next image publish.
+func publishedComposeOverride(image, networkName, stateDir, caPath, blueprintDir string) string {
+	return fmt.Sprintf("services:\n  synthkit:\n    image: %s\n    networks: [published-test]\n    ports: !override [\"127.0.0.1::8088\"]\n    environment:\n      BLUEPRINTS: /tmp/e2e-blueprints\n    volumes:\n      - %s:/data\n      - %s:/tmp/e2e-ca.crt:ro\n      - %s:/tmp/e2e-blueprints:ro\nnetworks:\n  published-test:\n    external: true\n    name: %s\n", image, stateDir, caPath, blueprintDir, networkName)
 }
