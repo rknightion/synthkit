@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/m7kni-design-system-v2-a03561c4-ff48-4ee7-8eb6-2f2a21c7ee72/tokens/tokens.css">
+  <link rel="stylesheet" href="_ds/m7kni-design-system-v2-a03561c4-ff48-4ee7-8eb6-2f2a21c7ee72/styles/fonts.css">
+  <link rel="stylesheet" href="_ds/m7kni-design-system-v2-a03561c4-ff48-4ee7-8eb6-2f2a21c7ee72/styles.css">
+  <script src="icons/sprite.js"></script>
+  <style>
+    body { margin: 0; background: oklch(0.905 0.006 227); }
+    a { color: var(--color-bg-accent); text-decoration: none; }
+    a:hover { color: var(--color-accent-hover); text-decoration: underline; }
+  </style>
+</helmet>
+
+<div style="padding:40px;font-family:var(--font-family-sans);color:oklch(0.24 0.012 227)">
+
+  <div style="max-width:760px;margin:0 0 32px">
+    <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:oklch(0.45 0.018 227)">Screen 01 &middot; shell chrome</div>
+    <h1 style="font-size:24px;font-weight:600;margin:6px 0 8px;letter-spacing:-0.01em">Shell and nav rail</h1>
+    <p style="font-size:13.5px;line-height:1.5;margin:0;color:oklch(0.37 0.015 227);text-wrap:pretty">Fixed 200px sidebar, one-row top bar, telemetry status pinned to the sidebar foot, and a 24px status bar across the content region. The content region is the only thing that scrolls. Light is the default; the toggle and its localStorage key are kept.</p>
+  </div>
+
+  <div style="display:flex;gap:40px;align-items:flex-start">
+
+    <div>
+      <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:oklch(0.45 0.018 227);margin-bottom:8px">Light &middot; default</div>
+      <div data-screen-label="01 shell light" style="width:1440px;height:900px;display:grid;grid-template-columns:200px 1fr;background:var(--color-bg-canvas);color:var(--color-fg-default);font-size:13.5px;border:1px solid oklch(0.78 0.01 227);overflow:hidden">
+
+        <aside style="display:flex;flex-direction:column;background:var(--color-bg-surface);border-right:1px solid var(--color-border-default)">
+          <div style="display:flex;align-items:center;gap:8px;height:48px;padding:0 12px;border-bottom:1px solid var(--color-border-default)">
+            <span style="width:12px;height:12px;flex:none;background:var(--color-bg-accent)"></span>
+            <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em">synthkit</span>
+            <span style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-left:auto">v1</span>
+          </div>
+
+          <div style="flex:1;overflow:hidden;padding-bottom:8px">
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Views</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-default);background:var(--color-bg-selected);box-shadow:inset 2px 0 0 var(--color-bg-accent);font-weight:600">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-squares-four"></use></svg>
+              <span>Overview</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-bg-accent);margin-left:auto">6</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-gear"></use></svg>
+              <span>Config</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">142</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft);background:var(--color-bg-hover)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+              <span>Health</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">86</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-crosshair"></use></svg>
+              <span>X-ray</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">48.2k</span>
+            </a>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Global</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-faders"></use></svg>
+              <span>Global controls</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-book-open"></use></svg>
+              <span>Blueprint schema</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">214</span>
+            </a>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Chaos</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-lightning"></use></svg>
+              <span>Incidents</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-weight:600;color:var(--color-status-fail);margin-left:auto">&#9679; 2</span>
+            </a>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Manage</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-package"></use></svg>
+              <span>Custom blueprints</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">3</span>
+            </a>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Blueprints</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-ok)"></span>
+              <span>aws-estate</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-muted);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-bg-track)"></span>
+              <span>azure-csp</span>
+              <span style="margin-left:auto;font-size:10px;text-transform:uppercase;letter-spacing:0.13em">off</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-ok)"></span>
+              <span>edge-fleet</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-fail)"></span>
+              <span>k8s-minimal</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-ok)"></span>
+              <span>otlp-native</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-ok)"></span>
+              <span>rum-webshop</span>
+            </a>
+          </div>
+
+          <div style="border-top:1px solid var(--color-border-default);padding:10px 12px">
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);margin-bottom:6px">Posture</div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div style="display:flex;gap:6px;align-items:baseline;font-size:11px">
+                <span style="font-family:var(--font-family-mono);font-weight:600;color:var(--color-status-fail);flex:none">&#9679; LIVE</span>
+                <span style="color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:11px">db-pressure</span>
+              </div>
+              <div style="display:flex;gap:6px;align-items:baseline;font-size:11px">
+                <span style="font-family:var(--font-family-mono);font-weight:600;color:var(--color-status-warn);flex:none">&#9670; MOD</span>
+                <span style="color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:11px">volume 2&times;</span>
+              </div>
+              <div style="display:flex;gap:6px;align-items:baseline;font-size:11px">
+                <span style="font-family:var(--font-family-mono);font-weight:600;color:var(--color-status-warn);flex:none">&#9670; MOD</span>
+                <span style="color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:11px">mine-api &rarr; 8</span>
+              </div>
+              <div style="display:flex;gap:6px;align-items:baseline;font-size:11px">
+                <span style="font-family:var(--font-family-mono);font-weight:600;color:var(--color-fg-muted);flex:none">&#9632; OFF</span>
+                <span style="color:var(--color-fg-muted);font-family:var(--font-family-mono);font-size:11px">azure-csp</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid var(--color-border-default);padding:10px 12px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              <span style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted)">Telemetry</span>
+              <span style="font-family:var(--font-family-mono);font-size:9.5px;text-transform:uppercase;letter-spacing:0.1em;padding:1px 5px;border-radius:var(--radius-control);background:var(--color-bg-accent-soft);color:var(--color-bg-accent);border:1px solid var(--color-bg-accent)">live push</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;font-weight:600;color:var(--color-status-ok);flex:none">&#9632; OK</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;color:var(--color-fg-default)">metrics</span>
+                  <span style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-left:auto">4s ago</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-top:1px">
+                  <span>48.2k series &middot; ~9.6k/min</span>
+                  <svg width="40" height="12" viewBox="0 0 40 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" style="margin-left:auto;display:block">
+                    <polyline points="0,8 5,7 10,9 15,5 20,6 25,4 30,5 35,3 40,4"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;font-weight:600;color:var(--color-status-ok);flex:none">&#9632; OK</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;color:var(--color-fg-default)">logs</span>
+                  <span style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-left:auto">4s ago</span>
+                </div>
+                <div style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-top:1px">12.4k lines &middot; ~2.1k/min</div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;font-weight:600;color:var(--color-status-fail);flex:none">&#9679; FAIL</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;color:var(--color-fg-default)">traces</span>
+                  <span style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-left:auto">9s ago</span>
+                </div>
+                <div style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-status-fail);margin-top:1px">rate limited &middot; 3 failed pushes</div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;font-weight:600;color:var(--color-fg-muted);flex:none">&#9632; IDLE</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;color:var(--color-fg-soft)">rum</span>
+                </div>
+                <div style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-top:1px">pending &middot; no beacons yet</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div style="display:grid;grid-template-rows:48px 1fr 24px;min-width:0">
+          <header style="display:flex;align-items:center;gap:12px;padding:0 20px;background:var(--color-bg-surface);border-bottom:1px solid var(--color-border-default)">
+            <h2 style="font-size:18px;font-weight:600;margin:0;letter-spacing:-0.01em">Overview</h2>
+            <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted)">control / overview</span>
+            <span style="margin-left:auto;font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted)">polled 3s ago</span>
+            <button type="button" title="Reload state" style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--color-border-strong);border-radius:var(--radius-control);background:transparent;color:var(--color-fg-soft);cursor:pointer">
+              <svg width="15" height="15" fill="currentColor" style="display:block"><use href="#i-arrows-clockwise"></use></svg>
+            </button>
+            <button type="button" title="Switch to dark theme" style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--color-border-strong);border-radius:var(--radius-control);background:transparent;color:var(--color-fg-soft);cursor:pointer">
+              <svg width="15" height="15" fill="currentColor" style="display:block"><use href="#i-moon"></use></svg>
+            </button>
+            <button type="button" style="height:28px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border:1px solid var(--color-bg-accent);border-radius:var(--radius-control);background:var(--color-bg-accent);color:var(--color-fg-on-accent);font-family:var(--font-family-sans);font-size:12.5px;font-weight:600;cursor:pointer">
+              <svg width="14" height="14" fill="currentColor" style="display:block"><use href="#i-arrow-square-out"></use></svg>
+              Open self-obs
+            </button>
+          </header>
+
+          <main style="overflow:hidden;padding:20px 20px 0">
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);margin-bottom:10px">Shell anatomy</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+              <thead>
+                <tr>
+                  <th style="text-align:left;font-family:var(--font-family-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:0 12px 6px 0;border-bottom:1px solid var(--color-border-strong)">Piece</th>
+                  <th style="text-align:left;font-family:var(--font-family-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:0 12px 6px 0;border-bottom:1px solid var(--color-border-strong)">v2 treatment</th>
+                  <th style="text-align:left;font-family:var(--font-family-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:0 0 6px;border-bottom:1px solid var(--color-border-strong)">Removed</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">nav rail</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">200px, bg-surface, hairline right edge. Active item: accent left edge plus bg-selected</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">rail-grad, nav-active-grad, 8px radii</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">posture</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">Shape plus word per knob: LIVE, MOD, OFF. Mono target names</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">clean gradient, pulsing blip, live-glow</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">telemetry</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">Sidebar foot. One status word per lane, mono counts, 40px sparkline</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">coloured dots as the only signal</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">top bar</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">48px. Title, mono breadcrumb, last poll, refresh, theme, one primary</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">rail-hosted refresh and reset buttons</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">status bar</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">24px foot. Push mode, control token, state file, palette hint</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">auth note buried in the rail panel</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">content</td>
+                  <td style="padding-right:12px">The only scroller. Stat strip and filter row stay fixed above it</td>
+                  <td style="color:var(--color-fg-muted)">card shadows, 12px radii, panel gradients</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);margin:24px 0 10px">Nav item states</div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="width:200px;background:var(--color-bg-surface);border:1px solid var(--color-border-default)">
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+                  <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+                  <span>Rest</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted);margin-left:auto">86</span>
+                </a>
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-default);background:var(--color-bg-hover)">
+                  <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+                  <span>Hover</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted);margin-left:auto">86</span>
+                </a>
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-default);background:var(--color-bg-selected);box-shadow:inset 2px 0 0 var(--color-bg-accent);font-weight:600">
+                  <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+                  <span>Active</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-bg-accent);margin-left:auto">86</span>
+                </a>
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-default);outline:2px solid color-mix(in oklab, var(--color-bg-accent) 60%, transparent);outline-offset:-2px">
+                  <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+                  <span>Focus</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted);margin-left:auto">86</span>
+                </a>
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-muted);font-family:var(--font-family-mono);font-size:12.5px">
+                  <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-bg-track)"></span>
+                  <span>disabled-bp</span>
+                  <span style="margin-left:auto;font-size:10px;text-transform:uppercase;letter-spacing:0.13em">off</span>
+                </a>
+              </div>
+              <p style="max-width:340px;margin:0;font-size:12.5px;line-height:1.55;color:var(--color-fg-soft);text-wrap:pretty">A disabled blueprint keeps its name legible and carries the word <span style="font-family:var(--font-family-mono);font-size:11.5px">off</span> instead of a strike-through, so the state survives greyscale and screen readers.</p>
+            </div>
+          </main>
+
+          <footer style="display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--color-bg-surface);border-top:1px solid var(--color-border-default);font-family:var(--font-family-mono);font-size:10.5px;color:var(--color-fg-muted)">
+            <span style="color:var(--color-status-ok)">&#9632; OK</span>
+            <span>live push</span>
+            <span>&middot;</span>
+            <span>token: set (user control)</span>
+            <span>&middot;</span>
+            <span>state: writable</span>
+            <span style="margin-left:auto">&#8984;K search</span>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:oklch(0.45 0.018 227);margin-bottom:8px">Dark &middot; first class</div>
+      <div data-theme="dark" data-screen-label="01 shell dark" style="width:1440px;height:900px;display:grid;grid-template-columns:200px 1fr;background:var(--color-bg-canvas);color:var(--color-fg-default);font-size:13.5px;border:1px solid oklch(0.4 0.014 227);overflow:hidden">
+
+        <aside style="display:flex;flex-direction:column;background:var(--color-bg-surface);border-right:1px solid var(--color-border-default)">
+          <div style="display:flex;align-items:center;gap:8px;height:48px;padding:0 12px;border-bottom:1px solid var(--color-border-default)">
+            <span style="width:12px;height:12px;flex:none;background:var(--color-bg-accent)"></span>
+            <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em">synthkit</span>
+            <span style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-left:auto">v1</span>
+          </div>
+
+          <div style="flex:1;overflow:hidden;padding-bottom:8px">
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Views</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-default);background:var(--color-bg-selected);box-shadow:inset 2px 0 0 var(--color-bg-accent);font-weight:600">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-squares-four"></use></svg>
+              <span>Overview</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-bg-accent);margin-left:auto">6</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-gear"></use></svg>
+              <span>Config</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">142</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft);background:var(--color-bg-hover)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+              <span>Health</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">86</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-crosshair"></use></svg>
+              <span>X-ray</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">48.2k</span>
+            </a>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Global</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-faders"></use></svg>
+              <span>Global controls</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-book-open"></use></svg>
+              <span>Blueprint schema</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">214</span>
+            </a>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Chaos</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-lightning"></use></svg>
+              <span>Incidents</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-weight:600;color:var(--color-status-fail);margin-left:auto">&#9679; 2</span>
+            </a>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Manage</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+              <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-package"></use></svg>
+              <span>Custom blueprints</span>
+              <span style="font-family:var(--font-family-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-left:auto">3</span>
+            </a>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:14px 12px 4px">Blueprints</div>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-ok)"></span>
+              <span>aws-estate</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-muted);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-bg-track)"></span>
+              <span>azure-csp</span>
+              <span style="margin-left:auto;font-size:10px;text-transform:uppercase;letter-spacing:0.13em">off</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-ok)"></span>
+              <span>edge-fleet</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-fail)"></span>
+              <span>k8s-minimal</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-ok)"></span>
+              <span>otlp-native</span>
+            </a>
+            <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:12.5px">
+              <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-status-ok)"></span>
+              <span>rum-webshop</span>
+            </a>
+          </div>
+
+          <div style="border-top:1px solid var(--color-border-default);padding:10px 12px">
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);margin-bottom:6px">Posture</div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div style="display:flex;gap:6px;align-items:baseline;font-size:11px">
+                <span style="font-family:var(--font-family-mono);font-weight:600;color:var(--color-status-fail);flex:none">&#9679; LIVE</span>
+                <span style="color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:11px">db-pressure</span>
+              </div>
+              <div style="display:flex;gap:6px;align-items:baseline;font-size:11px">
+                <span style="font-family:var(--font-family-mono);font-weight:600;color:var(--color-status-warn);flex:none">&#9670; MOD</span>
+                <span style="color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:11px">volume 2&times;</span>
+              </div>
+              <div style="display:flex;gap:6px;align-items:baseline;font-size:11px">
+                <span style="font-family:var(--font-family-mono);font-weight:600;color:var(--color-status-warn);flex:none">&#9670; MOD</span>
+                <span style="color:var(--color-fg-soft);font-family:var(--font-family-mono);font-size:11px">mine-api &rarr; 8</span>
+              </div>
+              <div style="display:flex;gap:6px;align-items:baseline;font-size:11px">
+                <span style="font-family:var(--font-family-mono);font-weight:600;color:var(--color-fg-muted);flex:none">&#9632; OFF</span>
+                <span style="color:var(--color-fg-muted);font-family:var(--font-family-mono);font-size:11px">azure-csp</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid var(--color-border-default);padding:10px 12px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              <span style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted)">Telemetry</span>
+              <span style="font-family:var(--font-family-mono);font-size:9.5px;text-transform:uppercase;letter-spacing:0.1em;padding:1px 5px;border-radius:var(--radius-control);background:var(--color-bg-accent-soft);color:var(--color-bg-accent);border:1px solid var(--color-bg-accent)">live push</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;font-weight:600;color:var(--color-status-ok);flex:none">&#9632; OK</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;color:var(--color-fg-default)">metrics</span>
+                  <span style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-left:auto">4s ago</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-top:1px">
+                  <span>48.2k series &middot; ~9.6k/min</span>
+                  <svg width="40" height="12" viewBox="0 0 40 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" style="margin-left:auto;display:block">
+                    <polyline points="0,8 5,7 10,9 15,5 20,6 25,4 30,5 35,3 40,4"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;font-weight:600;color:var(--color-status-ok);flex:none">&#9632; OK</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;color:var(--color-fg-default)">logs</span>
+                  <span style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-left:auto">4s ago</span>
+                </div>
+                <div style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-top:1px">12.4k lines &middot; ~2.1k/min</div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;font-weight:600;color:var(--color-status-fail);flex:none">&#9679; FAIL</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;color:var(--color-fg-default)">traces</span>
+                  <span style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-left:auto">9s ago</span>
+                </div>
+                <div style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-status-fail);margin-top:1px">rate limited &middot; 3 failed pushes</div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;font-weight:600;color:var(--color-fg-muted);flex:none">&#9632; IDLE</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11.5px;color:var(--color-fg-soft)">rum</span>
+                </div>
+                <div style="font-family:var(--font-family-mono);font-size:10px;color:var(--color-fg-muted);margin-top:1px">pending &middot; no beacons yet</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div style="display:grid;grid-template-rows:48px 1fr 24px;min-width:0">
+          <header style="display:flex;align-items:center;gap:12px;padding:0 20px;background:var(--color-bg-surface);border-bottom:1px solid var(--color-border-default)">
+            <h2 style="font-size:18px;font-weight:600;margin:0;letter-spacing:-0.01em">Overview</h2>
+            <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted)">control / overview</span>
+            <span style="margin-left:auto;font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted)">polled 3s ago</span>
+            <button type="button" title="Reload state" style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--color-border-strong);border-radius:var(--radius-control);background:transparent;color:var(--color-fg-soft);cursor:pointer">
+              <svg width="15" height="15" fill="currentColor" style="display:block"><use href="#i-arrows-clockwise"></use></svg>
+            </button>
+            <button type="button" title="Switch to light theme" style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--color-border-strong);border-radius:var(--radius-control);background:transparent;color:var(--color-fg-soft);cursor:pointer">
+              <svg width="15" height="15" fill="currentColor" style="display:block"><use href="#i-sun"></use></svg>
+            </button>
+            <button type="button" style="height:28px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border:1px solid var(--color-bg-accent);border-radius:var(--radius-control);background:var(--color-bg-accent);color:var(--color-fg-on-accent);font-family:var(--font-family-sans);font-size:12.5px;font-weight:600;cursor:pointer">
+              <svg width="14" height="14" fill="currentColor" style="display:block"><use href="#i-arrow-square-out"></use></svg>
+              Open self-obs
+            </button>
+          </header>
+
+          <main style="overflow:hidden;padding:20px 20px 0">
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);margin-bottom:10px">Shell anatomy</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+              <thead>
+                <tr>
+                  <th style="text-align:left;font-family:var(--font-family-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:0 12px 6px 0;border-bottom:1px solid var(--color-border-strong)">Piece</th>
+                  <th style="text-align:left;font-family:var(--font-family-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:0 12px 6px 0;border-bottom:1px solid var(--color-border-strong)">v2 treatment</th>
+                  <th style="text-align:left;font-family:var(--font-family-mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);padding:0 0 6px;border-bottom:1px solid var(--color-border-strong)">Removed</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">nav rail</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">200px, bg-surface, hairline right edge. Active item: accent left edge plus bg-selected</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">rail-grad, nav-active-grad, 8px radii</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">posture</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">Shape plus word per knob: LIVE, MOD, OFF. Mono target names</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">clean gradient, pulsing blip, live-glow</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">telemetry</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">Sidebar foot. One status word per lane, mono counts, 40px sparkline</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">coloured dots as the only signal</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">top bar</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">48px. Title, mono breadcrumb, last poll, refresh, theme, one primary</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">rail-hosted refresh and reset buttons</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">status bar</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);padding-right:12px">24px foot. Push mode, control token, state file, palette hint</td>
+                  <td style="border-bottom:1px solid var(--color-border-default);color:var(--color-fg-muted)">auth note buried in the rail panel</td>
+                </tr>
+                <tr style="height:36px">
+                  <td style="padding-right:12px;font-family:var(--font-family-mono);font-size:12.5px">content</td>
+                  <td style="padding-right:12px">The only scroller. Stat strip and filter row stay fixed above it</td>
+                  <td style="color:var(--color-fg-muted)">card shadows, 12px radii, panel gradients</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:var(--color-fg-muted);margin:24px 0 10px">Nav item states</div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="width:200px;background:var(--color-bg-surface);border:1px solid var(--color-border-default)">
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-soft)">
+                  <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+                  <span>Rest</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted);margin-left:auto">86</span>
+                </a>
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-default);background:var(--color-bg-hover)">
+                  <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+                  <span>Hover</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted);margin-left:auto">86</span>
+                </a>
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-default);background:var(--color-bg-selected);box-shadow:inset 2px 0 0 var(--color-bg-accent);font-weight:600">
+                  <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+                  <span>Active</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-bg-accent);margin-left:auto">86</span>
+                </a>
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;color:var(--color-fg-default);outline:2px solid color-mix(in oklab, var(--color-bg-accent) 60%, transparent);outline-offset:-2px">
+                  <svg width="15" height="15" fill="currentColor" style="flex:none"><use href="#i-pulse"></use></svg>
+                  <span>Focus</span>
+                  <span style="font-family:var(--font-family-mono);font-size:11px;color:var(--color-fg-muted);margin-left:auto">86</span>
+                </a>
+                <a href="#" style="display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;color:var(--color-fg-muted);font-family:var(--font-family-mono);font-size:12.5px">
+                  <span style="width:6px;height:6px;flex:none;border-radius:var(--radius-full);background:var(--color-bg-track)"></span>
+                  <span>disabled-bp</span>
+                  <span style="margin-left:auto;font-size:10px;text-transform:uppercase;letter-spacing:0.13em">off</span>
+                </a>
+              </div>
+              <p style="max-width:340px;margin:0;font-size:12.5px;line-height:1.55;color:var(--color-fg-soft);text-wrap:pretty">A disabled blueprint keeps its name legible and carries the word <span style="font-family:var(--font-family-mono);font-size:11.5px">off</span> instead of a strike-through, so the state survives greyscale and screen readers.</p>
+            </div>
+          </main>
+
+          <footer style="display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--color-bg-surface);border-top:1px solid var(--color-border-default);font-family:var(--font-family-mono);font-size:10.5px;color:var(--color-fg-muted)">
+            <span style="color:var(--color-status-ok)">&#9632; OK</span>
+            <span>live push</span>
+            <span>&middot;</span>
+            <span>token: set (user control)</span>
+            <span>&middot;</span>
+            <span>state: writable</span>
+            <span style="margin-left:auto">&#8984;K search</span>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:900px;margin:32px 0 0">
+    <div style="font-family:var(--font-family-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.13em;color:oklch(0.45 0.018 227);margin-bottom:8px">Accessibility</div>
+    <p style="font-size:12.5px;line-height:1.6;margin:0;color:oklch(0.37 0.015 227);text-wrap:pretty">Nav landmarks: one <span style="font-family:var(--font-family-mono);font-size:11.5px">nav</span> per group with an accessible name from its mono label. The active item carries <span style="font-family:var(--font-family-mono);font-size:11.5px">aria-current="page"</span>; the accent left edge is decorative. Posture and telemetry rows read shape, word, then note, so state never depends on colour or on the retired pulse animation. The status bar is a <span style="font-family:var(--font-family-mono);font-size:11.5px">role="status"</span> region with <span style="font-family:var(--font-family-mono);font-size:11.5px">aria-live="polite"</span>. Focus is a 2px accent outline at 2px offset on every interactive element, never removed. Sidebar text sits on bg-surface in both themes: fg-soft on surface is 7.4:1 light and 8.1:1 dark.</p>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
