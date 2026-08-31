@@ -4,7 +4,7 @@ title: Recapture mixed-substrate corpus input with unambiguous provenance
 status: To Do
 assignee: []
 created_date: '2026-08-30 08:40'
-updated_date: '2026-08-31 10:32'
+updated_date: '2026-08-31 12:36'
 labels:
   - needs-triage
 dependencies: []
@@ -112,4 +112,66 @@ difference, not an exact partition, because the four captures ran sequentially o
 each took its own 3h window ending at its own start. Yesterday exact match came from pinning
 --end. Pin it when a partition proof is wanted; every file is internally self-consistent either
 way, and each carries its own window in provenance.
+
+## Superseded by a larger set, 2026-08-31. Use these, not the 2026-08-30 three.
+
+The 30 August captures remain valid and are still per-substrate-clean, but the estate has since
+grown three ingest lanes they cannot contain. A new set of SEVEN was taken, all sharing ONE PINNED
+`--end` of 2026-08-31T12:03:05Z so the scopes partition exactly rather than sliding against each
+other. In `~/repos/synthkit-terraform/captures/` (gitignored there; promote deliberately).
+
+    file                             scope              families
+    rksy-20260831T120310Z            cluster rksy-aws        1447
+    rksy-20260831T120454Z            cluster rksy-azure-aks  1437
+    rksy-20260831T120750Z            cluster rksy-gcp-gke    1038
+    rksy-20260831T120943Z            cloud   aws             1455
+    rksy-20260831T121127Z            cloud   azure           2171
+    rksy-20260831T121351Z            cloud   gcp             1509
+    rksy-20260831T122931Z            FULL                    5204
+
+BOTH SCOPES ARE NEEDED NOW, and that is new. Three of the six ingest lanes carry a `cloud` label and
+NO `cluster` label — the two managed cloud scrapers, the Alloy Azure Monitor exporter and the
+standalone dbo11y collectors all live outside the cluster or stamp their own external labels. A
+cluster-scoped capture correctly excludes every one of them. So the per-substrate files are the
+Kubernetes/host/application statement, the per-cloud files are the provider statement, and neither
+is a superset of the other. The FULL file is the only one containing all six lanes at once.
+
+IGNORE rksy-20260831T121706Z AND rksy-20260831T122247Z. They are earlier attempts at the same FULL
+capture, kept rather than deleted, whose `metadata_by_ingest_path` block failed with a 400. The
+canonical FULL capture is 122931Z. All three share the same pinned window.
+
+## What is in this set that was not in the last one
+
+  - `signals.metrics.metadata_by_ingest_path` — metadata coverage attributed to the INGEST PATH,
+    which the tool previously said it could not see. Six paths in the full capture:
+
+        ingest_path              families  with_metadata  only_here  only_here_with_metadata
+        (no label)                   3882           2534       2888                     2253
+        promrw                       1504            281        877                        0
+        azure-monitor-managed         712              1          0                        0
+        dbo11y                        351              0          8                        0
+        azure-monitor-alloy           202              0         20                        0
+        otlp-native                     1              1          0                        0
+
+    Read the *only_here* columns: they attribute. Only the unlabelled CloudWatch metric stream and
+    the OTLP gateway supply metadata. Every Alloy path and BOTH managed cloud scrapers supply none.
+
+  - limitation `UNTYPED_FAMILIES_ARE_A_SENDER_PROPERTY`, which states that an `unknown` type is
+    absent evidence rather than a measured one, names which senders do and do not supply metadata,
+    and says explicitly not to resolve it by inventing a type. It counts only families with NO
+    metadata behind them: a family whose metadata DECLARES the type `unknown` is a measured answer
+    and is reported separately (0 in this set). This is the direct input to SKT-0045.
+
+  - three ingest lanes that did not exist on 30 August: `azure-monitor-alloy` (Alloy
+    prometheus.exporter.azure beside the managed Azure scraper — RKSY-0023), and `dbo11y` on both
+    RDS and Azure Flexible Server, 326 and 314 metric families plus 16 Loki streams under
+    `job="integrations/db-o11y"` (RKSY-0021 AC#1).
+
+AC#1 and AC#2 hold as before: every scoped file records its own scope, `scope.not_applied` is empty
+on the per-substrate three, and the declared soak is 30m against a 1h window — which is why every
+file carries `WINDOW_EXCEEDS_SOAK`. That warning is CORRECT and deliberate: the three newest lanes
+had genuinely only been shipping for about half an hour, and declaring the estate's 24h age would
+have overstated them.
+
+AC#3 remains the open one. Nothing has been ingested into synthkit's corpus yet.
 <!-- SECTION:NOTES:END -->
