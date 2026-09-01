@@ -4,7 +4,7 @@ title: Teach the fidelity comparator what an unknown metric type means
 status: To Do
 assignee: []
 created_date: '2026-08-30 18:41'
-updated_date: '2026-08-30 18:46'
+updated_date: '2026-09-01 18:26'
 labels: []
 dependencies: []
 ordinal: 136000
@@ -60,8 +60,8 @@ synthkit-terraform RKSY-0013, which was closed on it and then reopened.
 A second explanation fits the identical measurements: the scraped lane ships over Prometheus
 REMOTE WRITE v2, whose metadata support Mimir documents as limited and experimental, while the
 OTLP lane goes through the OTLP gateway, which is not remote write. The pointer that it is the
-protocol rather than the collector is that the robk stack is also Alloy-shipped and does carry
-metadata for the same scraped families. An experiment to decide it is wired and pending.
+protocol rather than the collector is that the project's other staff stack is also Alloy-shipped
+and does carry metadata for the same scraped families. An experiment to decide it is wired and pending.
 
 WHY THIS TASK IS UNAFFECTED AND SHOULD STILL PROCEED. Under BOTH explanations the corpus contains
 a large share of families typed unknown, that typing is honest, and it is not recoverable by
@@ -73,4 +73,6 @@ the cause, a stack ingesting over RW1 or over OTLP would carry metadata for thos
 unknown share is a property of a wire-format choice rather than a permanent fact about Alloy
 estates. Do not encode "Alloy estates have no scraped metadata" as a durable assumption anywhere
 in the comparator or in signals documentation.
+
+2026-09-01 privacy redaction. The 'CORRECTION, same day as filing' note named a Grafana Cloud stack by name. That identifier is on the repository's forbidden-words list, so this file failed the hosted hygiene job and left main red from 8e9c5b7 through e2ab3ce — five consecutive ci runs. The Backlog CLI offers no append-only redaction, so the name was removed by a narrow in-place edit and replaced with 'the project's other staff stack'; the technical claim it supports is unchanged. No acceptance criterion, plan or status was touched.
 <!-- SECTION:NOTES:END -->
