@@ -99,6 +99,12 @@ func TestAppSpanMetricsFollowServiceIncidents(t *testing.T) {
 		mc := &coretest.MetricCapture{}
 		world := coretest.World(mc, nil, nil)
 		world.Shape.Live = func(mode string) []shape.LiveFailure { return live[mode] }
+		led := ledger.New(world.Shape, 0, 0)
+		led.AddMinter(w.Minter())
+		if batch := led.Mint(now); len(batch) == 0 {
+			t.Fatal("incident ledger minted no requests")
+		}
+		world.Ledger = led
 		if err := w.Tick(context.Background(), now, world); err != nil {
 			t.Fatalf("Tick: %v", err)
 		}

@@ -14,6 +14,7 @@ import (
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/semconv"
 	"github.com/rknightion/synthkit/internal/shape"
+	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/state"
 )
 
@@ -136,7 +137,7 @@ func (w *Workload) activeRoutes(now time.Time, world *core.World) []routeStat {
 				stats[r.Route] = rs
 			}
 			rs.total++
-			if r.Outcome != ledger.OutcomeSuccess {
+			if spanStatus(r.Outcome) == otlp.StatusError {
 				rs.errors++
 			}
 		}
@@ -182,6 +183,7 @@ type reqSample struct {
 	traceID string
 	start   time.Time
 	route   string
+	status  string
 }
 
 // sampleRequests pulls the NEWEST real requests from this workload's ledger window for
@@ -198,7 +200,12 @@ func (w *Workload) sampleRequests(now time.Time, world *core.World) []reqSample 
 		if r.TraceID == "" {
 			continue
 		}
-		out = append(out, reqSample{traceID: r.TraceID, start: r.Start, route: r.Route})
+		out = append(out, reqSample{
+			traceID: r.TraceID,
+			start:   r.Start,
+			route:   r.Route,
+			status:  spanMetricStatus(spanStatus(r.Outcome)),
+		})
 	}
 	// newest first; ActiveFor returns ring order (oldest-first), so sort by Start desc.
 	sort.Slice(out, func(i, j int) bool { return out[i].start.After(out[j].start) })
@@ -219,6 +226,16 @@ func samplesForRoute(samples []reqSample, route string) []reqSample {
 	for _, s := range samples {
 		if s.route == route {
 			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func samplesForStatus(samples []reqSample, status string) []reqSample {
+	out := make([]reqSample, 0, len(samples))
+	for _, sample := range samples {
+		if sample.status == status {
+			out = append(out, sample)
 		}
 	}
 	return out
@@ -316,23 +333,33 @@ func (w *Workload) tickSpanMetrics(now time.Time, totalCalls int, routes []route
 
 		// SERVER span row per status_code.
 		serverName := rs.route
-		w.emitCallsRow(spanKindServer, serverName, statusCodeOK, backendSDKLanguage, perRoute*okFrac)
-		w.emitCallsRow(spanKindServer, serverName, statusCodeError, backendSDKLanguage, perRoute*errFrac)
+		okStatus := spanMetricStatus(spanStatus(ledger.OutcomeSuccess))
+		errStatus := spanMetricStatus(spanStatus(ledger.OutcomeServerError))
+		w.emitCallsRow(spanKindServer, serverName, okStatus, backendSDKLanguage, perRoute*okFrac)
+		w.emitCallsRow(spanKindServer, serverName, errStatus, backendSDKLanguage, perRoute*errFrac)
 
 		// latency + size for the SERVER span (no telemetry_sdk_language on these).
 		// Exemplars from requests on THIS route only (M-3b: no cross-route smear).
 		rsamples := samplesForRoute(samples, serverName)
-		w.observeWithExemplars("traces_spanmetrics_latency", w.spanLabels(spanKindServer, serverName, statusCodeOK), int(perRoute), apmLatencyBuckets, state.LEDotZero, rsamples, latVal, true)
-		w.addSize(spanKindServer, serverName, statusCodeOK, perRoute)
-		// Counter exemplar: mark one representative real trace on the calls_total + size_total rows.
-		// The exemplar VALUE (1) is nominal — Grafana links via the trace_id label, not the value,
-		// and Mimir does not bucket counter exemplars; do NOT "fix" it to the real delta.
-		if len(rsamples) > 0 {
-			sl := w.spanLabels(spanKindServer, serverName, statusCodeOK)
-			cll := w.spanLabels(spanKindServer, serverName, statusCodeOK)
-			cll["telemetry_sdk_language"] = backendSDKLanguage
-			w.st.CounterExemplar("traces_spanmetrics_calls_total", cll, map[string]string{"trace_id": rsamples[0].traceID}, 1, rsamples[0].start)
-			w.st.CounterExemplar("traces_spanmetrics_size_total", sl, map[string]string{"trace_id": rsamples[0].traceID}, 1, rsamples[0].start)
+		for _, split := range []struct {
+			status  string
+			calls   float64
+			samples []reqSample
+		}{
+			{status: okStatus, calls: perRoute * okFrac, samples: samplesForStatus(rsamples, okStatus)},
+			{status: errStatus, calls: perRoute * errFrac, samples: samplesForStatus(rsamples, errStatus)},
+		} {
+			w.observeWithExemplars("traces_spanmetrics_latency", w.spanLabels(spanKindServer, serverName, split.status), boundedN(split.calls), apmLatencyBuckets, state.LEDotZero, split.samples, latVal, true)
+			w.addSize(spanKindServer, serverName, split.status, split.calls)
+			// Counter exemplars stay attached to a representative trace from the same status row.
+			// The exemplar VALUE (1) is nominal — Grafana links via the trace_id label.
+			if len(split.samples) > 0 {
+				sl := w.spanLabels(spanKindServer, serverName, split.status)
+				cll := w.spanLabels(spanKindServer, serverName, split.status)
+				cll["telemetry_sdk_language"] = backendSDKLanguage
+				w.st.CounterExemplar("traces_spanmetrics_calls_total", cll, map[string]string{"trace_id": split.samples[0].traceID}, 1, split.samples[0].start)
+				w.st.CounterExemplar("traces_spanmetrics_size_total", sl, map[string]string{"trace_id": split.samples[0].traceID}, 1, split.samples[0].start)
+			}
 		}
 	}
 
@@ -340,16 +367,30 @@ func (w *Workload) tickSpanMetrics(now time.Time, totalCalls int, routes []route
 	// traverses the hop template, so client-hop latency uses ALL samples (no route filter).
 	for _, cs := range w.m.calls {
 		clientName := clientSpanName(cs)
-		w.emitCallsRow(spanKindClient, clientName, statusCodeOK, backendSDKLanguage, float64(totalCalls))
-		w.observeWithExemplars("traces_spanmetrics_latency", w.spanLabels(spanKindClient, clientName, statusCodeOK), totalCalls, apmLatencyBuckets, state.LEDotZero, samples, latVal, true)
-		w.addSize(spanKindClient, clientName, statusCodeOK, float64(totalCalls))
+		clientStatus := spanMetricStatus(callStatus(ledger.Call{}))
+		w.emitCallsRow(spanKindClient, clientName, clientStatus, backendSDKLanguage, float64(totalCalls))
+		w.observeWithExemplars("traces_spanmetrics_latency", w.spanLabels(spanKindClient, clientName, clientStatus), totalCalls, apmLatencyBuckets, state.LEDotZero, samples, latVal, true)
+		w.addSize(spanKindClient, clientName, clientStatus, float64(totalCalls))
 		if len(samples) > 0 {
-			sl := w.spanLabels(spanKindClient, clientName, statusCodeOK)
-			cll := w.spanLabels(spanKindClient, clientName, statusCodeOK)
+			sl := w.spanLabels(spanKindClient, clientName, clientStatus)
+			cll := w.spanLabels(spanKindClient, clientName, clientStatus)
 			cll["telemetry_sdk_language"] = backendSDKLanguage
 			w.st.CounterExemplar("traces_spanmetrics_calls_total", cll, map[string]string{"trace_id": samples[0].traceID}, 1, samples[0].start)
 			w.st.CounterExemplar("traces_spanmetrics_size_total", sl, map[string]string{"trace_id": samples[0].traceID}, 1, samples[0].start)
 		}
+	}
+}
+
+// spanMetricStatus converts the exact OTLP status selected by the trace lane into the proto enum
+// string the Tempo metrics-generator exposes as its status_code label.
+func spanMetricStatus(status otlp.StatusCode) string {
+	switch status {
+	case otlp.StatusError:
+		return statusCodeError
+	case otlp.StatusOK:
+		return statusCodeOK
+	default:
+		return statusCodeUnset
 	}
 }
 

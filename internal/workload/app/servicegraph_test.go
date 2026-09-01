@@ -270,16 +270,6 @@ func TestApp_EmitSpanMetricsParity(t *testing.T) {
 			t.Errorf("EmitSpanMetrics ON: missing %s", name)
 		}
 	}
-	// review H2: the APM RED error dimension — a STATUS_CODE_ERROR calls row must be present.
-	var hasErrRow bool
-	for _, s := range mcOn.Find("traces_spanmetrics_calls_total") {
-		if s.Labels["status_code"] == "STATUS_CODE_ERROR" {
-			hasErrRow = true
-		}
-	}
-	if !hasErrRow {
-		t.Error("EmitSpanMetrics ON: no STATUS_CODE_ERROR calls_total row (APM error dimension missing)")
-	}
 	// no duplicate series in the synthesized output.
 	sigs := map[string]bool{}
 	for _, s := range mcOn.All() {

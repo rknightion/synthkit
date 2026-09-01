@@ -34,6 +34,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 	if world.EmitSpanMetrics {
 		w.tickSpanMetrics(now, world)
 	}
+	w.tickTargetInfo()
 	if world.Metrics != nil {
 		if err := world.Metrics.Write(ctx, w.st.Collect(now)); err != nil {
 			return err

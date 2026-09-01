@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
+	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/semconv"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/state"
@@ -30,6 +31,7 @@ var apmLatencyBuckets = []float64{
 const (
 	statusCodeOK    = "STATUS_CODE_OK"
 	statusCodeError = "STATUS_CODE_ERROR"
+	statusCodeUnset = "STATUS_CODE_UNSET"
 
 	// The proto span-kind enum strings. Both real producers stamp this exact form: the Tempo
 	// metrics-generator (live-verified, SK-28) and the collector-side spanmetrics connector
@@ -41,10 +43,6 @@ const (
 	spanKindConsumer = "SPAN_KIND_CONSUMER"
 
 	tempoSource = "tempo"
-
-	// spanMetricErrFrac is the synthesized error fraction of calls (the OK/ERROR split on
-	// calls_total + the service-graph failed edge), matching web_service's ~1% baseline.
-	spanMetricErrFrac = 0.01
 
 	// spanMetricObsCap bounds the per-row latency observation budget for one tick, mirroring the
 	// identical per-call budget in the web_service lane. A real producer observes the duration of
@@ -87,20 +85,9 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 		factor := world.Shape.FailFactor(now, "latency_storm", service, 4.0)
 		return func() float64 { return (0.02 + world.Shape.Float64()*0.18) * factor } // 20–200ms typical APM latency
 	}
-	errFraction := func(service string) float64 {
-		active, intensity := world.Shape.Eval(now, "error_spike", service)
-		if !active {
-			return spanMetricErrFrac
-		}
-		// Keep the aggregate RED split in step with minter.mintOne's request
-		// outcome model: an active target rises from the 1% baseline towards 50%
-		// at full intensity without changing sibling service rows.
-		return 0.01 + (1-0.01)*0.5*intensity
-	}
-
 	// SERVER/root rows: one per instrumented node (the entry + every serverSpan node) × the span
-	// names that node really emits. Both status_code rows are emitted (OK + ERROR — the APM RED
-	// error dimension), matching web_service.
+	// names that node really emits. Their status split comes from the same ledger requests and
+	// trace-lane status helper that ProjectBatch uses.
 	for _, n := range w.graph.nodes {
 		if !n.kind.serverSpan && n != w.graph.entry {
 			continue // db/cache leaves have no SERVER span
@@ -117,13 +104,11 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 			if share <= 0 {
 				continue
 			}
-			errorFraction := errFraction(id.service)
-			okCalls := share * (1 - errorFraction)
-			errCalls := share * errorFraction
-			w.observeSpanCallsRow(base, kind, name, statusCodeOK, okCalls, id.sdkLang())
-			w.observeSpanCallsRow(base, kind, name, statusCodeError, errCalls, id.sdkLang())
-			w.observeSpanLatency(base, kind, name, statusCodeOK, okCalls, latVal(id.service))
-			w.observeSpanLatency(base, kind, name, statusCodeError, errCalls, latVal(id.service))
+			okStatus, errStatus, okCalls, errCalls := w.serverSpanSplit(now, world, n, share)
+			w.observeSpanCallsRow(base, kind, name, okStatus, okCalls, id.sdkLang())
+			w.observeSpanCallsRow(base, kind, name, errStatus, errCalls, id.sdkLang())
+			w.observeSpanLatency(base, kind, name, okStatus, okCalls, latVal(id.service))
+			w.observeSpanLatency(base, kind, name, errStatus, errCalls, latVal(id.service))
 		}
 	}
 
@@ -136,18 +121,15 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 				continue
 			}
 			calleeID := w.identity(callee)
-			// CLIENT span row (the caller's view of the call). The projected CLIENT span carries
-			// callStatus(call), which is an ERROR status on a failed hop — so the derived rows
-			// carry the same OK/ERROR split the SERVER rows do.
+			// CLIENT span row (the caller's view of the call). Its split uses matching ledger hops
+			// and callStatus, exactly as the trace projector does.
 			cbase := callerID.spanMetricBase()
 			clientName := "call " + calleeName
-			errorFraction := errFraction(calleeID.service)
-			okCalls := float64(calls) * (1 - errorFraction)
-			errCalls := float64(calls) * errorFraction
-			w.observeSpanCallsRow(cbase, spanKindClient, clientName, statusCodeOK, okCalls, callerID.sdkLang())
-			w.observeSpanCallsRow(cbase, spanKindClient, clientName, statusCodeError, errCalls, callerID.sdkLang())
-			w.observeSpanLatency(cbase, spanKindClient, clientName, statusCodeOK, okCalls, latVal(calleeID.service))
-			w.observeSpanLatency(cbase, spanKindClient, clientName, statusCodeError, errCalls, latVal(calleeID.service))
+			okStatus, errStatus, okCalls, errCalls := w.callSpanSplit(now, world, calleeName, float64(calls))
+			w.observeSpanCallsRow(cbase, spanKindClient, clientName, okStatus, okCalls, callerID.sdkLang())
+			w.observeSpanCallsRow(cbase, spanKindClient, clientName, errStatus, errCalls, callerID.sdkLang())
+			w.observeSpanLatency(cbase, spanKindClient, clientName, okStatus, okCalls, latVal(calleeID.service))
+			w.observeSpanLatency(cbase, spanKindClient, clientName, errStatus, errCalls, latVal(calleeID.service))
 			// service-graph edge (incl the failed-edge counter that drives edge error-rate panels).
 			// A db/cache leaf edge carries connection_type=database (mirrors web_service
 			// tickServiceGraph); instrumented service + AI (HTTP/gRPC) edges keep "".
@@ -161,6 +143,72 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 			w.observeEdgeLatency("traces_service_graph_request_server_seconds", sg, float64(calls), latVal(calleeID.service))
 			w.observeEdgeLatency("traces_service_graph_request_client_seconds", sg, float64(calls), latVal(calleeID.service))
 		}
+	}
+}
+
+func (w *Workload) serverSpanSplit(now time.Time, world *core.World, n *node, volume float64) (okStatus, errStatus string, okCalls, errCalls float64) {
+	return splitSpanMetricVolume(volume, w.nodeTraceStatuses(now, world, n))
+}
+
+func (w *Workload) callSpanSplit(now time.Time, world *core.World, target string, volume float64) (okStatus, errStatus string, okCalls, errCalls float64) {
+	if world.Ledger == nil {
+		return splitSpanMetricVolume(volume, nil)
+	}
+	var statuses []otlp.StatusCode
+	for _, r := range world.Ledger.ActiveFor(w.Name(), now, interval) {
+		for _, call := range r.Calls {
+			if call.Target == target {
+				statuses = append(statuses, callStatus(call))
+			}
+		}
+	}
+	return splitSpanMetricVolume(volume, statuses)
+}
+
+func (w *Workload) nodeTraceStatuses(now time.Time, world *core.World, n *node) []otlp.StatusCode {
+	if world.Ledger == nil {
+		return nil
+	}
+	var statuses []otlp.StatusCode
+	for _, r := range world.Ledger.ActiveFor(w.Name(), now, interval) {
+		if n == w.graph.entry {
+			statuses = append(statuses, spanStatus(r.Outcome))
+			continue
+		}
+		for _, call := range r.Calls {
+			if call.Target == n.decl.Name && call.PeerSpanID != "" {
+				statuses = append(statuses, callStatus(call))
+			}
+		}
+	}
+	return statuses
+}
+
+func splitSpanMetricVolume(volume float64, statuses []otlp.StatusCode) (okStatus, errStatus string, okCalls, errCalls float64) {
+	okStatus = spanMetricStatus(spanStatus(ledger.OutcomeSuccess))
+	errStatus = spanMetricStatus(spanStatus(ledger.OutcomeServerError))
+	if len(statuses) == 0 {
+		return okStatus, errStatus, volume, 0
+	}
+	for _, status := range statuses {
+		if status == otlp.StatusError {
+			errCalls++
+		}
+	}
+	errCalls = volume * errCalls / float64(len(statuses))
+	return okStatus, errStatus, volume - errCalls, errCalls
+}
+
+// spanMetricStatus converts the exact OTLP status selected by the trace lane into the proto enum
+// string the Tempo metrics-generator exposes as its status_code label.
+func spanMetricStatus(status otlp.StatusCode) string {
+	switch status {
+	case otlp.StatusError:
+		return statusCodeError
+	case otlp.StatusOK:
+		return statusCodeOK
+	default:
+		return statusCodeUnset
 	}
 }
 
@@ -222,6 +270,9 @@ func shareOf(total, n, i int) int {
 // traces_spanmetrics_size_total row (without it) — matching the web_service trap that the language
 // label is on calls_total/size... (size omits it; calls includes it).
 func (w *Workload) observeSpanCallsRow(base map[string]string, kind, name, status string, n float64, lang string) {
+	if n <= 0 {
+		return
+	}
 	calls := spanLabels(base, kind, name, status)
 	calls["telemetry_sdk_language"] = lang
 	w.st.Add("traces_spanmetrics_calls_total", calls, n)
@@ -301,6 +352,42 @@ func (id nodeIdentity) sdkLang() string {
 		return l
 	}
 	return "go"
+}
+
+// tickTargetInfo emits the resource identity rows Tempo and the entity graph use to join every
+// app service to its placed pod. The labels deliberately mirror web_service's target-info contract.
+func (w *Workload) tickTargetInfo() {
+	for _, n := range w.graph.nodes {
+		if n.decl.External {
+			continue
+		}
+		id := w.identity(n)
+		w.st.Set("target_info", id.targetInfoLabels(), 1)
+		labels := id.targetInfoLabels()
+		labels["telemetry_sdk_name"] = "opentelemetry"
+		w.st.Set("traces_target_info", labels, 1)
+	}
+}
+
+func (id nodeIdentity) targetInfoLabels() map[string]string {
+	return pruneEmpty(map[string]string{
+		semconv.LabelServiceName:               id.service,
+		semconv.LabelServiceNamespace:          id.namespace,
+		semconv.LabelServiceVersion:            id.version,
+		semconv.LabelDeploymentEnvironmentName: id.env,
+		semconv.LabelContext:                   id.context,
+		semconv.LabelUseCase:                   id.useCase,
+		semconv.LabelTeam:                      id.team,
+		"k8s_cluster_name":                     id.cluster,
+		"k8s_namespace_name":                   id.namespace,
+		"k8s_pod_name":                         id.podName,
+		"k8s_deployment_name":                  id.service,
+		"k8s_node_name":                        id.nodeName,
+		"service_instance_id":                  id.podName,
+		"cluster":                              id.cluster,
+		"job":                                  id.job(),
+		"telemetry_sdk_language":               id.sdkLang(),
+	})
 }
 
 // sgLabels builds the service-graph edge labels (client/server identity prefixes + the shared

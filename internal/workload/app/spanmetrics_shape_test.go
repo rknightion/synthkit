@@ -13,6 +13,7 @@ package app
 
 import (
 	"context"
+	"math"
 	"sort"
 	"strings"
 	"testing"
@@ -20,7 +21,9 @@ import (
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/core/coretest"
+	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/shape"
+	"github.com/rknightion/synthkit/internal/sink/otlp"
 )
 
 // spanDerivedFamilies are every family gated by the EmitSpanMetrics opt-in, in the wire forms
@@ -181,7 +184,6 @@ func TestSpanMetricLatencySharesCallsLabelSet(t *testing.T) {
 	}
 
 	callsSigs := map[string]bool{}
-	var sawError bool
 	for _, s := range mc.Find("traces_spanmetrics_calls_total") {
 		lbls := map[string]string{}
 		for k, v := range s.Labels {
@@ -191,12 +193,6 @@ func TestSpanMetricLatencySharesCallsLabelSet(t *testing.T) {
 			lbls[k] = v
 		}
 		callsSigs[labelSig(lbls)] = true
-		if s.Labels["status_code"] == statusCodeError {
-			sawError = true
-		}
-	}
-	if !sawError {
-		t.Fatal("no STATUS_CODE_ERROR calls_total row — the APM RED error dimension is missing")
 	}
 	latSigs := map[string]bool{}
 	for _, s := range mc.Find("traces_spanmetrics_latency_count") {
@@ -214,10 +210,10 @@ func TestSpanMetricLatencySharesCallsLabelSet(t *testing.T) {
 	}
 
 	// One observation per tick would leave every _count at 1; a real producer observes every
-	// span it counts. Assert the busiest OK row tracked its call volume (up to the budget).
+	// span it counts. Assert the busiest non-error row tracked its call volume (up to the budget).
 	var maxCount float64
 	for _, s := range mc.Find("traces_spanmetrics_latency_count") {
-		if s.Labels["status_code"] == statusCodeOK && s.Value > maxCount {
+		if s.Labels["status_code"] == statusCodeUnset && s.Value > maxCount {
 			maxCount = s.Value
 		}
 	}
@@ -266,6 +262,118 @@ func tickCallsTotal(t *testing.T, now time.Time, routes []string) float64 {
 		total += s.Value
 	}
 	return total
+}
+
+// TestSpanMetricsUseTheTraceStatus verifies that the synthetic RED rows are derived from the
+// exact status source used when projecting the entry span. A successful app span is UNSET, not
+// explicitly OK: the OTel semantic convention reserves OK for instrumentation that sets it.
+func TestSpanMetricsUseTheTraceStatus(t *testing.T) {
+	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
+	w := buildApp(t, &Config{
+		Traffic:  Traffic{OffPeakRPS: 20, PeakRPS: 50},
+		Services: []ServiceNode{{Name: "entry", Type: "web", Entry: true}},
+	})
+	mc := &coretest.MetricCapture{}
+	if err := w.Tick(context.Background(), now, coretest.World(mc, nil, nil)); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+	for _, s := range mc.Find("traces_spanmetrics_calls_total") {
+		if s.Labels["service_name"] == "entry" && s.Labels["status_code"] == "STATUS_CODE_UNSET" {
+			return
+		}
+	}
+	t.Fatal("successful entry span-metric row is not STATUS_CODE_UNSET like the projected trace")
+}
+
+// TestAppTargetInfoCarriesPodJoinIdentity protects the service-to-pod entity-graph join. Every
+// graph node is an independently placed service, so each must publish the same resource identity
+// contract as web_service, including its pod and deployment identity.
+func TestAppTargetInfoCarriesPodJoinIdentity(t *testing.T) {
+	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
+	mc := &coretest.MetricCapture{}
+	if err := buildApp(t, graphCfg()).Tick(context.Background(), now, coretest.World(mc, nil, nil)); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+	for _, name := range []string{"target_info", "traces_target_info"} {
+		rows := mc.Find(name)
+		if len(rows) == 0 {
+			t.Fatalf("%s absent", name)
+		}
+		for _, s := range rows {
+			service := s.Labels["service_name"]
+			if service == "" || s.Labels["k8s_pod_name"] == "" || s.Labels["k8s_deployment_name"] != service || s.Labels["service_instance_id"] != s.Labels["k8s_pod_name"] {
+				t.Errorf("%s has no usable service-to-pod join identity: %v", name, s.Labels)
+			}
+		}
+	}
+}
+
+func TestAppTargetInfoOmitsExternalNodesWithoutPodPlacement(t *testing.T) {
+	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
+	w := buildApp(t, &Config{Services: []ServiceNode{
+		{Name: "entry", Type: "web", Entry: true, Calls: []string{"managed-db"}},
+		{Name: "managed-db", Type: "db", External: true},
+	}})
+	mc := &coretest.MetricCapture{}
+	if err := w.Tick(context.Background(), now, coretest.World(mc, nil, nil)); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+	for _, name := range []string{"target_info", "traces_target_info"} {
+		for _, series := range mc.Find(name) {
+			if series.Labels["service_name"] == "managed-db" {
+				t.Fatalf("%s emitted pod identity for external node: %v", name, series.Labels)
+			}
+		}
+	}
+}
+
+// TestAppSpanMetricErrorFractionFollowsLedgerOutcomes proves an active error condition changes
+// the emitted RED rate by way of the same ledger requests that the trace lane projects, rather
+// than from a separate fixed or shape-derived aggregate fraction.
+func TestAppSpanMetricErrorFractionFollowsLedgerOutcomes(t *testing.T) {
+	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
+	eng := shape.New("", []string{"error_spike@2026-06-15T13:00:00Z/1h@entry"})
+	w := buildApp(t, &Config{
+		Traffic:  Traffic{OffPeakRPS: 50, PeakRPS: 50},
+		Services: []ServiceNode{{Name: "entry", Type: "web", Entry: true}},
+	})
+	led := ledger.New(eng, 0, 0)
+	led.AddMinter(w.Minter())
+	batch := led.Mint(now)
+	if len(batch) == 0 {
+		t.Fatal("incident ledger minted no requests")
+	}
+	var traceErrors float64
+	for _, r := range batch {
+		if spanStatus(r.Outcome) == otlp.StatusError {
+			traceErrors++
+		}
+	}
+	want := traceErrors / float64(len(batch))
+
+	mc := &coretest.MetricCapture{}
+	world := coretest.World(mc, nil, nil)
+	world.Shape = eng
+	world.Ledger = led
+	if err := w.Tick(context.Background(), now, world); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+	var calls, errors float64
+	for _, s := range mc.Find("traces_spanmetrics_calls_total") {
+		if s.Labels["service_name"] != "entry" || s.Labels["span_kind"] != spanKindServer {
+			continue
+		}
+		calls += s.Value
+		if s.Labels["status_code"] == statusCodeError {
+			errors += s.Value
+		}
+	}
+	if calls == 0 {
+		t.Fatal("no entry span-metric calls")
+	}
+	if got := errors / calls; math.Abs(got-want) > 1e-9 {
+		t.Fatalf("span-metric error fraction = %v, want ledger trace-outcome fraction %v", got, want)
+	}
 }
 
 func labelSig(l map[string]string) string {

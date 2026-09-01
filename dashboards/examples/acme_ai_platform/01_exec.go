@@ -239,7 +239,7 @@ func Exec(m *dashboard.Manifest) (dashboard.Dashboard, error) {
 	dashboard.AddPanel(&d, "ct-apm-err", dashboard.StatTile(
 		"APM error rate", "percent",
 		dashboard.PromTarget(
-			`100 * sum(rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR"}[$__rate_interval])) / clamp_min(sum(rate(traces_spanmetrics_calls_total{status_code!="STATUS_CODE_UNSET"}[$__rate_interval])), 0.001)`,
+			`100 * sum(rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR"}[$__rate_interval])) / clamp_min(sum(rate(traces_spanmetrics_calls_total{status_code!="STATUS_CODE_ERROR"}[$__rate_interval])), 0.001)`,
 			""),
 		dashboard.Threshold{Value: 0, Color: "green"}, dashboard.Threshold{Value: 1, Color: "yellow"}, dashboard.Threshold{Value: 5, Color: "red"}))
 

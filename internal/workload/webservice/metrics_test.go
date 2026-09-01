@@ -111,6 +111,52 @@ func TestCallsTotalLabelSet(t *testing.T) {
 	}
 }
 
+// TestSpanMetricSuccessStatusMatchesTraceLane guards the cross-lane contract: the success row
+// must use the same status helper as the projected server span, rather than a metric-only enum.
+func TestSpanMetricSuccessStatusMatchesTraceLane(t *testing.T) {
+	_, mc := tickWS(t, nil)
+	want := spanMetricStatus(spanStatus(ledger.OutcomeSuccess))
+	var found bool
+	for _, s := range mc.Find("traces_spanmetrics_calls_total") {
+		if s.Labels["span_kind"] != spanKindServer || s.Labels["status_code"] != want {
+			continue
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("no server span-metric row with trace-lane success status %q", want)
+	}
+}
+
+func TestSpanMetricLatencyAndSizeSplitByTraceStatus(t *testing.T) {
+	w, _ := buildWS(t, nil)
+	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
+	w.tickSpanMetrics(now, 10, []routeStat{{route: "GET /split", errorRate: 0.4}}, shape.New("", nil), nil)
+
+	series := w.st.Collect(now)
+	wantStatus := map[string]bool{
+		spanMetricStatus(spanStatus(ledger.OutcomeSuccess)):     false,
+		spanMetricStatus(spanStatus(ledger.OutcomeServerError)): false,
+	}
+	for _, sample := range series {
+		if sample.Labels["span_kind"] != spanKindServer || sample.Labels["span_name"] != "GET /split" {
+			continue
+		}
+		if sample.Name != "traces_spanmetrics_latency_count" && sample.Name != "traces_spanmetrics_size_total" {
+			continue
+		}
+		status := sample.Labels["status_code"]
+		if _, ok := wantStatus[status]; ok && sample.Value > 0 {
+			wantStatus[status] = true
+		}
+	}
+	for status, found := range wantStatus {
+		if !found {
+			t.Errorf("latency/size rows missing positive server volume for status_code=%q", status)
+		}
+	}
+}
+
 // TestLatencyAndSizeOmitSDKLanguage: telemetry_sdk_language is on calls_total ONLY (trap §8).
 func TestLatencyAndSizeOmitSDKLanguage(t *testing.T) {
 	_, mc := tickWS(t, nil)

@@ -102,9 +102,13 @@ Consequences to keep in mind:
   `histogram_count(rate(...))` under-reads `rate(calls_total)` above the budget.
 - **`traces_spanmetrics_size_total` is `calls × 256` bytes**, a constant — synthkit has no per-span
   wire size. The family is present and monotone; its magnitude is not meaningful.
-- **The error fraction is a fixed ~1%** on `calls_total{status_code="STATUS_CODE_ERROR"}` and the
-  service-graph failed edge, decoupled from the ledger outcomes that drive the trace lane — so an
-  active incident moves trace errors but not this family. Tracked as follow-up work.
+- **Status and error fraction are trace-derived.** Span-metric `status_code` is the proto enum of
+  the exact status helper used by the workload trace lane (so an unset successful HTTP span remains
+  `STATUS_CODE_UNSET`, while instrumentation that explicitly marks success remains
+  `STATUS_CODE_OK`). The app workload derives its `STATUS_CODE_ERROR` fraction and service-graph
+  failed edge from active ledger outcomes using those same helpers; an active failure scenario
+  therefore moves trace and span-metric errors together. A dashboard success denominator selects
+  `status_code!="STATUS_CODE_ERROR"`, never an arbitrary success enum.
 - **`connection_type=""` is emitted as a present, empty dimension**, which is the generator's real
   behaviour (`store/edge.go` `Unknown ConnectionType = ""`) and a deliberate exception to the
   omit-absent-dimensions rule.

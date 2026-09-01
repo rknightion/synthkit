@@ -23,6 +23,7 @@ type nodeIdentity struct {
 	env       string
 	runtime   string
 	podName   string
+	nodeName  string
 	context   string // §5 canon (optional)
 	useCase   string // §5 canon (optional)
 	team      string // §5 canon (optional)
@@ -34,7 +35,7 @@ func (w *Workload) identity(n *node) nodeIdentity {
 	if ns == "" {
 		ns = n.decl.Name // default namespace = node name (one deployment per service)
 	}
-	return nodeIdentity{
+	id := nodeIdentity{
 		service:   n.decl.Name,
 		namespace: ns,
 		cluster:   w.cluster,
@@ -46,6 +47,21 @@ func (w *Workload) identity(n *node) nodeIdentity {
 		team:      n.decl.Team,
 		version:   versionOr(n.decl.Version),
 	}
+	if w.b.Cluster != nil {
+		for _, placed := range w.b.Cluster.Workloads {
+			if placed.Name != n.decl.Name {
+				continue
+			}
+			if len(placed.PodNames) > 0 {
+				id.podName = placed.PodNames[0]
+			}
+			if len(placed.NodeIdx) > 0 && placed.NodeIdx[0] >= 0 && placed.NodeIdx[0] < len(w.b.Cluster.Nodes) {
+				id.nodeName = w.b.Cluster.Nodes[placed.NodeIdx[0]].Hostname
+			}
+			break
+		}
+	}
+	return id
 }
 
 func (id nodeIdentity) job() string { return id.namespace + "/" + id.service }
