@@ -183,6 +183,22 @@ type bpRuntime struct {
 	rtEng     atomic.Pointer[shape.Engine]
 }
 
+type metricProducerSet struct {
+	promRW                 string
+	promRWAllowListVersion string
+	promRWAllowListVariant string
+	otlp                   string
+}
+
+// MetricSuppression is one explicit collector-boundary absence observation.
+// Producer is the generic catalog-wired producer path, never a deployment ID.
+type MetricSuppression struct {
+	Name             string
+	Producer         string
+	AllowListVersion string
+	AllowListVariant string
+}
+
 // scaledMinter applies a workload target's live replica ratio at the composition root, where the
 // blueprint-owned target name and declared replica count are both available. Minters are required
 // to be cadence-invariant (I10), so scaling tickSec preserves their stochastic rounding and mints
@@ -275,6 +291,9 @@ type Runner struct {
 	// shapeWarnings accumulates per-blueprint shape-engine warnings (incident-schedule entries the
 	// engine skipped during AddBlueprint) so the composition root can surface them as diagnostics.
 	shapeWarnings []ShapeWarning
+
+	suppressionMu sync.Mutex
+	suppressions  []MetricSuppression
 }
 
 // ShapeWarning is one shape-engine incident-schedule warning, tagged with its blueprint.
@@ -450,7 +469,11 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 			label = res.Label
 		}
 		identity := queryIdentity(reg.Scope, res.Label, ci.Fixtures)
-		world, inv := r.buildWorld(bp, ci.Kind, ci.Name, c.Signals(), label, identity, nil)
+		producers, err := resolveMetricProducers(ci.Kind, ci.Config, c.Signals(), reg.MetricProducer, reg.OTLPMetricProducer, reg.MetricAllowListProvenance)
+		if err != nil {
+			return fmt.Errorf("runner: blueprint %q construct %q: %w", res.Name, ci.Name, err)
+		}
+		world, inv := r.buildWorld(bp, ci.Kind, ci.Name, c.Signals(), label, identity, nil, producers)
 		bp.constructs = append(bp.constructs, &boundConstruct{
 			name:      ci.Name,
 			kind:      ci.Kind,
@@ -503,7 +526,11 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 			wlabel = "" // …except substrate-scoped workloads (ai_agent/sigil): no blueprint label
 		}
 		identity := queryIdentity(wreg.Scope, res.Label, &fixture.Set{Cluster: wi.Cluster})
-		wworld, winv := r.buildWorld(bp, wi.Kind, wi.Name, w.Signals(), wlabel, identity, led)
+		producers, err := resolveMetricProducers(wi.Kind, wi.Config, w.Signals(), wreg.MetricProducer, wreg.OTLPMetricProducer, nil)
+		if err != nil {
+			return fmt.Errorf("runner: blueprint %q workload %q: %w", res.Name, wi.Name, err)
+		}
+		wworld, winv := r.buildWorld(bp, wi.Kind, wi.Name, w.Signals(), wlabel, identity, led, producers)
 		bp.workloads = append(bp.workloads, &boundWorkload{
 			workload: w,
 			kind:     wi.Kind,
@@ -588,14 +615,74 @@ func queryIdentity(scope core.Scope, blueprintLabel string, fixtures *fixture.Se
 	return nil
 }
 
-func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.SignalClass, label string, identity *control.QueryIdentity, led *ledger.Ledger) (*core.World, *constructInv) {
+func resolveMetricProducers(kind string, cfg any, signals []core.SignalClass, metric, native func(any) string, allowList func(any) (string, string)) (metricProducerSet, error) {
+	var out metricProducerSet
+	if slices.Contains(signals, core.Metrics) {
+		if metric == nil {
+			return out, fmt.Errorf("metric producer is not declared for kind %q", kind)
+		}
+		out.promRW = strings.TrimSpace(metric(cfg))
+		if out.promRW == "" {
+			return out, fmt.Errorf("metric producer resolved empty for kind %q", kind)
+		}
+		if allowList != nil {
+			out.promRWAllowListVersion, out.promRWAllowListVariant = allowList(cfg)
+			if (out.promRWAllowListVersion == "") != (out.promRWAllowListVariant == "") {
+				return out, fmt.Errorf("metric allow-list provenance is incomplete for kind %q", kind)
+			}
+		}
+	}
+	if slices.Contains(signals, core.OTLPMetrics) {
+		if native == nil {
+			return out, fmt.Errorf("OTLP metric producer is not declared for kind %q", kind)
+		}
+		out.otlp = strings.TrimSpace(native(cfg))
+		if out.otlp == "" {
+			return out, fmt.Errorf("OTLP metric producer resolved empty for kind %q", kind)
+		}
+	}
+	return out, nil
+}
+
+func (r *Runner) recordMetricSuppression(suppression MetricSuppression) {
+	if suppression.Name == "" || suppression.Producer == "" || suppression.AllowListVersion == "" || suppression.AllowListVariant == "" {
+		return
+	}
+	r.suppressionMu.Lock()
+	defer r.suppressionMu.Unlock()
+	if !slices.Contains(r.suppressions, suppression) {
+		r.suppressions = append(r.suppressions, suppression)
+	}
+}
+
+// MetricSuppressions returns a stable snapshot for dry-run inventory export.
+func (r *Runner) MetricSuppressions() []MetricSuppression {
+	r.suppressionMu.Lock()
+	defer r.suppressionMu.Unlock()
+	out := append([]MetricSuppression(nil), r.suppressions...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		if out[i].Producer != out[j].Producer {
+			return out[i].Producer < out[j].Producer
+		}
+		if out[i].AllowListVersion != out[j].AllowListVersion {
+			return out[i].AllowListVersion < out[j].AllowListVersion
+		}
+		return out[i].AllowListVariant < out[j].AllowListVariant
+	})
+	return out
+}
+
+func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.SignalClass, label string, identity *control.QueryIdentity, led *ledger.Ledger, producers metricProducerSet) (*core.World, *constructInv) {
 	inv := newConstructInv(bp.name, kind, name, identity)
 	w := &core.World{Shape: bp.eng, Ledger: led, Scaling: bp.scale}
 	// Wire the stamped writers at the delivery QUEUES (decorators of the raw sinks), not the
 	// raw sinks — so Write enqueues and background senders ship (I41). Gated on the raw sink's
 	// presence (the queue is non-nil iff its raw sink is).
 	if slices.Contains(signals, core.Metrics) && r.sinks.Metrics != nil {
-		w.Metrics = &stampedMetrics{sink: r.queues.Metrics, label: label, bp: bp.name, budget: bp.budget, inv: inv}
+		w.Metrics = &stampedMetrics{sink: r.queues.Metrics, label: label, bp: bp.name, budget: bp.budget, inv: inv, producer: producers.promRW, allowListVersion: producers.promRWAllowListVersion, allowListVariant: producers.promRWAllowListVariant, recordSuppression: r.recordMetricSuppression}
 	}
 	if slices.Contains(signals, core.Logs) && r.sinks.Logs != nil {
 		w.Logs = &stampedLogs{sink: r.queues.Logs, label: label, inv: inv}
@@ -607,7 +694,7 @@ func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.Sig
 		w.Pyroscope = &stampedProfiles{sink: r.queues.Profiles, label: label}
 	}
 	if slices.Contains(signals, core.OTLPMetrics) && r.sinks.OTLPMetrics != nil {
-		w.OTLPMetrics = &stampedOTLPMetrics{sink: r.queues.OTLPMetrics, label: label}
+		w.OTLPMetrics = &stampedOTLPMetrics{sink: r.queues.OTLPMetrics, label: label, producer: producers.otlp}
 	}
 	if slices.Contains(signals, core.OTLPLogs) && r.sinks.OTLPLogs != nil {
 		w.OTLPLogs = &stampedOTLPLogs{sink: r.queues.OTLPLogs, label: label}

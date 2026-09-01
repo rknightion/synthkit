@@ -78,13 +78,21 @@ defect is established only by the evidence for the substrate to which the
 finding applies; matching evidence elsewhere neither suppresses nor broadens
 it.
 
-Reviewed schema-2 captures can be converted into generic candidate records,
-but the multi-cloud set is not yet admitted to the gated corpus. Its privacy
-promotion elides producer-selecting label values, so the comparator cannot
-truthfully pair a captured family with the synthetic producer that owns it.
-Resume promotion only after the capture/export contract carries direct
-per-family producer identity through the privacy boundary. Do not reconstruct
-that identity from metric names or omitted label values.
+Reviewed schema-2 captures can be converted into generic candidate records.
+Promotion receives the capture-declared per-family producer-label key as
+reviewed configuration, copies only its generic value(s) into each metric's
+`producers` field, and omits that label from the privacy-safe label projection.
+The comparator pairs metrics only where both sides carry a matching explicit
+producer. It never reconstructs a producer from a metric name, prefix, or
+elided label value; a family without a matching producer is absent evidence.
+
+When a synth producer selects the k8s-monitoring default allow-list, its metric
+producer provenance also records the pinned chart version and selected variant
+(`cluster-metrics`, `node-exporter=default`, or `node-exporter=integration`).
+That provenance is a configuration fact, not a claim that a missing family was
+filtered: the comparator records an allow-list absence only when direct
+producer/source evidence proves the selected list owns that family. Otherwise
+the two possible causes of missing metadata remain unresolved evidence.
 
 The converter currently projects metrics only and preserves the raw content
 hash, scope class, source schema/tool versions, warning IDs, and each family's

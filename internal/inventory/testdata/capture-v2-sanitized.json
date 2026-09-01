@@ -16,20 +16,20 @@
           "type": "unknown",
           "type_source": "undetermined",
           "name_suffix_hint": "counter",
-          "labels": [{"key": "instance", "values": ["private-host"]}]
+          "labels": [{"key": "instance", "values": ["private-host"]}, {"key": "ingest_path", "values": ["promrw"]}]
         },
         {
           "name": "example_duration_seconds",
           "type": "histogram",
           "type_source": "observed",
           "classic_histogram": {"le_values": ["0.5", "+Inf"]},
-          "labels": [{"key": "state", "values": ["ready"]}]
+          "labels": [{"key": "state", "values": ["ready"]}, {"key": "ingest_path", "values": ["promrw"]}]
         },
         {
           "name": "example_declared_unknown",
           "type": "unknown",
           "type_source": "metadata",
-          "labels": [{"key": "tag_private_capture", "values": ["private"]}]
+          "labels": [{"key": "tag_private_capture", "values": ["private"]}, {"key": "ingest_path", "values": ["promrw"]}]
         }
       ]
     }

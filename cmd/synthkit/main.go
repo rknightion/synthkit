@@ -578,7 +578,9 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			printInventory(prom, lokiSink, otlpSink, otlpMetricsSink, otlpLogsSink, profSink, sigilSink)
 		}
 		if inventoryJSON {
-			schema := withSynthProvenance(inventory.FromSinks(prom, lokiSink, otlpSink, otlpMetricsSink, otlpLogsSink, profSink, sigilSink))
+			schema := inventory.FromSinks(prom, lokiSink, otlpSink, otlpMetricsSink, otlpLogsSink, profSink, sigilSink)
+			schema = withMetricSuppressions(schema, r.MetricSuppressions())
+			schema = withSynthProvenance(schema)
 			if err := schema.WriteJSON(os.Stdout); err != nil {
 				return fmt.Errorf("inventory JSON: %w", err)
 			}

@@ -61,11 +61,15 @@ func (b *seriesBudget) reset() {
 // stampedMetrics is the scoped metric writer: clones labels before stamping (Collect()
 // output aliases live cumulative state — I17) and enforces the per-blueprint budget.
 type stampedMetrics struct {
-	sink   core.MetricWriter
-	label  string // "" = substrate: never stamp
-	bp     string // blueprint name, for log attribution
-	budget *seriesBudget
-	inv    *constructInv
+	sink              core.MetricWriter
+	label             string // "" = substrate: never stamp
+	bp                string // blueprint name, for log attribution
+	budget            *seriesBudget
+	inv               *constructInv
+	producer          string
+	allowListVersion  string
+	allowListVariant  string
+	recordSuppression func(MetricSuppression)
 }
 
 func (w *stampedMetrics) Write(ctx context.Context, batch []promrw.Series) error {
@@ -74,17 +78,21 @@ func (w *stampedMetrics) Write(ctx context.Context, batch []promrw.Series) error
 	for _, s := range batch {
 		w.inv.recordMetric(s.Name, sortedLabelPairs(s.Labels))
 	}
-	if w.label != "" {
-		stamped := make([]promrw.Series, len(batch))
-		for i, s := range batch {
+	stamped := make([]promrw.Series, len(batch))
+	for i, s := range batch {
+		s.Producer = w.producer
+		s.ProducerAllowListVersion = w.allowListVersion
+		s.ProducerAllowListVariant = w.allowListVariant
+		if w.label != "" {
 			lbls := make(map[string]string, len(s.Labels)+1)
 			maps.Copy(lbls, s.Labels)
 			lbls[BlueprintLabel] = w.label
-			// Exemplars pass through unstamped — never aliased; no blueprint label on exemplars.
-			stamped[i] = promrw.Series{Name: s.Name, Labels: lbls, Value: s.Value, T: s.T, Kind: s.Kind, Exemplars: s.Exemplars, Native: s.Native}
+			s.Labels = lbls
 		}
-		batch = stamped
+		// Exemplars pass through unstamped — never aliased; no blueprint label on exemplars.
+		stamped[i] = s
 	}
+	batch = stamped
 	if allowed := w.budget.take(len(batch)); allowed < len(batch) {
 		log.Printf("runner: blueprint %q over series budget — dropping %d of %d series this window", w.bp, len(batch)-allowed, len(batch))
 		batch = batch[:allowed]
@@ -93,6 +101,19 @@ func (w *stampedMetrics) Write(ctx context.Context, batch []promrw.Series) error
 		return nil
 	}
 	return w.sink.Write(ctx, batch)
+}
+
+// RecordMetricSuppression implements core.MetricSuppressionRecorder. The
+// construct supplies only the direct allow-list decision; this composition-root
+// writer adds the catalog-declared producer identity.
+func (w *stampedMetrics) RecordMetricSuppression(name, allowListVersion, allowListVariant string) {
+	if w.recordSuppression == nil {
+		return
+	}
+	w.recordSuppression(MetricSuppression{
+		Name: name, Producer: w.producer,
+		AllowListVersion: allowListVersion, AllowListVariant: allowListVariant,
+	})
 }
 
 // stampedLogs stamps the blueprint label onto STREAM labels for blueprint-scoped
@@ -200,21 +221,24 @@ func sortedAnyKeys(m map[string]any) []string {
 // (cloned before stamping; the emitter's resource attrs alias nothing the writer mutates).
 // Substrate instances (label "") pass through untouched. Mirrors stampedTraces.
 type stampedOTLPMetrics struct {
-	sink  core.OTLPMetricWriter
-	label string
+	sink     core.OTLPMetricWriter
+	label    string
+	producer string
 }
 
 func (w *stampedOTLPMetrics) Write(ctx context.Context, resources []otlp.MetricResource) error {
-	if w.label != "" {
-		stamped := make([]otlp.MetricResource, len(resources))
-		for i, r := range resources {
+	stamped := make([]otlp.MetricResource, len(resources))
+	for i, r := range resources {
+		r.Producer = w.producer
+		if w.label != "" {
 			attrs := make(map[string]any, len(r.Attrs)+1)
 			maps.Copy(attrs, r.Attrs)
 			attrs[BlueprintLabel] = w.label
-			stamped[i] = otlp.MetricResource{Attrs: attrs, Scope: r.Scope, Metrics: r.Metrics}
+			r.Attrs = attrs
 		}
-		resources = stamped
+		stamped[i] = r
 	}
+	resources = stamped
 	return w.sink.Write(ctx, resources)
 }
 

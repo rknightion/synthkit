@@ -57,6 +57,27 @@ type K8sMonitoringSelection struct {
 	NodeExporter   NodeExporterMode `yaml:"node_exporter"`
 }
 
+// Provenance returns the pinned chart version and the selected, stable variant
+// identifier for inventory comparison. An unfiltered selection returns empty
+// values because it did not select an allow-list at all.
+func (selection K8sMonitoringSelection) Provenance() (version, variant string) {
+	if !selection.ClusterMetrics && selection.NodeExporter == "" {
+		return "", ""
+	}
+	nodeExporter := selection.NodeExporter
+	if nodeExporter == "" && selection.ClusterMetrics {
+		nodeExporter = NodeExporterDefault
+	}
+	parts := make([]string, 0, 2)
+	if selection.ClusterMetrics {
+		parts = append(parts, "cluster-metrics")
+	}
+	if nodeExporter != "" {
+		parts = append(parts, "node-exporter="+string(nodeExporter))
+	}
+	return K8sMonitoringChartVersion, strings.Join(parts, ",")
+}
+
 // Projection applies the selected upstream lists by collector source. A source not
 // selected remains untouched, so choosing a host-metrics node-exporter list does not
 // accidentally remove unrelated cluster-metrics families.

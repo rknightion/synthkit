@@ -90,6 +90,14 @@ type MetricWriter interface {
 	Write(ctx context.Context, batch []promrw.Series) error
 }
 
+// MetricSuppressionRecorder is the optional inventory seam implemented by the
+// composition root's metric writer. A construct calls it only when an explicit
+// upstream allow-list rejects a whole family before delivery. It records no
+// deployment identity and does not change MetricWriter's wire contract.
+type MetricSuppressionRecorder interface {
+	RecordMetricSuppression(name, allowListVersion, allowListVariant string)
+}
+
 // LogWriter writes Loki streams (low-card stream labels; high-card keys in structured
 // metadata — the sink asserts).
 type LogWriter interface {
@@ -252,6 +260,16 @@ type ConstructReg struct {
 	Group     Group // declaration section (feature|integration); empty for topology/add-on kinds
 	NewConfig func() any
 	Build     func(cfg any, fx *fixture.Set) (Construct, error)
+	// MetricProducer and OTLPMetricProducer are composition-root inventory
+	// declarations. They return generic producer-path identities and are never
+	// stamped on the wire. A metric-bearing registration must declare the
+	// applicable callback; comparison never guesses from metric names or labels.
+	MetricProducer     func(cfg any) string
+	OTLPMetricProducer func(cfg any) string
+	// MetricAllowListProvenance returns the selected list version and variant when
+	// this instance filters its PromRW family surface. Both values are empty when
+	// no list was selected.
+	MetricAllowListProvenance func(cfg any) (version, variant string)
 	// FailureModes declares the failure modes this construct kind responds to (each tagged with
 	// its scope axis). The blueprint resolver validates scenario/incident references against the
 	// union of these; the construct implements each via shape.Eval(now, Mode.Name, scope). nil =
@@ -265,6 +283,10 @@ type WorkloadReg struct {
 	Doc       string
 	NewConfig func() any
 	Build     func(cfg any, b Binding) (Workload, error)
+	// See ConstructReg. These callbacks belong to registry wiring, not workload
+	// implementations, so producer identity stays explicit at the composition root.
+	MetricProducer     func(cfg any) string
+	OTLPMetricProducer func(cfg any) string
 	// FailureModes — see ConstructReg.FailureModes (workload axis).
 	FailureModes []failuremode.Mode
 	// Scope decides blueprint-label stamping for this workload's lanes (default ScopeBlueprint).

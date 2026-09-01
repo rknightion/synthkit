@@ -145,7 +145,10 @@ type Metric struct {
 // surface otel_scope_name/otel_scope_version as Prometheus labels (live-validated 2026-06-18),
 // so no synthkit-emitted shape, dashboard or query may depend on scope becoming a label.
 type MetricResource struct {
-	Attrs   map[string]any
-	Scope   Scope
-	Metrics []Metric
+	Attrs map[string]any
+	Scope Scope
+	// Producer is composition-root inventory metadata. It is deliberately absent
+	// from the hand-encoded OTLP request and exists only in dry-run capture.
+	Producer string
+	Metrics  []Metric
 }

@@ -25,3 +25,13 @@ func withSynthProvenance(schema inventory.Schema) inventory.Schema {
 	schema.Provenance = &inventory.Provenance{SelectorLabels: []string{runner.BlueprintLabel}}
 	return schema
 }
+
+func withMetricSuppressions(schema inventory.Schema, suppressions []runner.MetricSuppression) inventory.Schema {
+	for _, suppression := range suppressions {
+		schema.AddAllowListSuppression(suppression.Name, inventory.Producer{
+			Name: suppression.Producer, AllowListVersion: suppression.AllowListVersion,
+			AllowListVariant: suppression.AllowListVariant,
+		})
+	}
+	return schema
+}

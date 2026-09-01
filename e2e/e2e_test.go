@@ -59,15 +59,23 @@ const e2eBlueprint = "otlp-native"
 // product. Realistic agent telemetry lives in blueprints/grafana-ai-o11y.yaml.
 const e2eAgentFixture = "e2e-agents"
 
-// e2eBlueprintNames is what BLUEPRINT_NAMES is set to everywhere in this suite. Both entries are
-// required: otlp-native carries the metric/log/trace lanes, the fixture carries the sigil lanes.
-var e2eBlueprintNames = e2eBlueprint + "," + e2eAgentFixture
+// e2eBlueprintNames is what BLUEPRINT_NAMES is set to everywhere in this suite. CI's default
+// includes the dedicated sigil fixture. A bounded run may set SYNTHKIT_E2E_INCLUDE_AGENT=false
+// to exercise the complete non-agent metric/log/trace surface without loading any ai_agent
+// declaration; this is an explicit topology, not a silent skip.
+var e2eBlueprintNames, e2eBlueprintSources = e2eBlueprintConfig(os.Getenv("SYNTHKIT_E2E_INCLUDE_AGENT"))
 
-// e2eBlueprintSources maps each name to the repo-relative file it is copied from, so the container
-// and the local -dump run always see the same set.
-var e2eBlueprintSources = map[string]string{
-	e2eBlueprint:    "../blueprints/" + e2eBlueprint + ".yaml",
-	e2eAgentFixture: "../e2e/fixtures/" + e2eAgentFixture + ".yaml",
+func e2eBlueprintConfig(raw string) (string, map[string]string) {
+	sources := map[string]string{e2eBlueprint: "../blueprints/" + e2eBlueprint + ".yaml"}
+	switch strings.TrimSpace(raw) {
+	case "", "true":
+		sources[e2eAgentFixture] = "../e2e/fixtures/" + e2eAgentFixture + ".yaml"
+		return e2eBlueprint + "," + e2eAgentFixture, sources
+	case "false":
+		return e2eBlueprint, sources
+	default:
+		panic("SYNTHKIT_E2E_INCLUDE_AGENT must be true or false")
+	}
 }
 
 // TestDockerE2E is the integration capstone: builds both images, runs them, and

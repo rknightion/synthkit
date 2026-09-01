@@ -6,6 +6,7 @@ import (
 	"context"
 	"reflect"
 	"slices"
+	"sort"
 	"testing"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/rknightion/synthkit/internal/core/coretest"
 	"github.com/rknightion/synthkit/internal/shape"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
+	"github.com/rknightion/synthkit/internal/sink/promrw"
+	"github.com/rknightion/synthkit/internal/state"
 	"github.com/rknightion/synthkit/internal/telemetryspec"
 )
 
@@ -200,8 +203,16 @@ func TestAppNativeSwitchLeavesPromrwPayloadUnchanged(t *testing.T) {
 	if err := on.Tick(context.Background(), now, appNativeWorld(onCapture, &appNativeMetricCapture{})); err != nil {
 		t.Fatalf("on Tick: %v", err)
 	}
-	if !reflect.DeepEqual(offCapture.All(), onCapture.All()) {
-		t.Fatal("enabling native OTLP changed the Prometheus payload")
+	offSeries, onSeries := offCapture.All(), onCapture.All()
+	for _, series := range [][]promrw.Series{offSeries, onSeries} {
+		sort.Slice(series, func(i, j int) bool {
+			left := series[i].Name + "|" + state.LabelSig(series[i].Labels)
+			right := series[j].Name + "|" + state.LabelSig(series[j].Labels)
+			return left < right
+		})
+	}
+	if !reflect.DeepEqual(offSeries, onSeries) {
+		t.Fatalf("enabling native OTLP changed the Prometheus payload\noff=%#v\non=%#v", offSeries, onSeries)
 	}
 }
 

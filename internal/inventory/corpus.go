@@ -420,11 +420,25 @@ func validateCapturedOn(value string) error {
 }
 
 func validateInventory(schema Schema) error {
+	for i, suppression := range schema.AllowListSuppressions {
+		if err := validateNonEmpty(suppression.Name, fmt.Sprintf("inventory.allow_list_suppressions[%d].name", i)); err != nil {
+			return err
+		}
+		if err := validateProducers([]Producer{suppression.Producer}, fmt.Sprintf("inventory.allow_list_suppressions[%d].producer", i)); err != nil {
+			return err
+		}
+		if suppression.Producer.AllowListVersion == "" || suppression.Producer.AllowListVariant == "" {
+			return fmt.Errorf("inventory.allow_list_suppressions[%d].producer: selected allow-list version and variant are required", i)
+		}
+	}
 	for i, metric := range schema.Metrics {
 		if err := validateNonEmpty(metric.Name, fmt.Sprintf("inventory.metrics[%d].name", i)); err != nil {
 			return err
 		}
 		if err := validateAttributes(metric.Labels, fmt.Sprintf("inventory.metrics[%d].labels", i)); err != nil {
+			return err
+		}
+		if err := validateProducers(metric.Producers, fmt.Sprintf("inventory.metrics[%d].producers", i)); err != nil {
 			return err
 		}
 	}
@@ -455,6 +469,21 @@ func validateInventory(schema Schema) error {
 	for i, sigil := range schema.Sigil {
 		if err := validateNonEmpty(sigil.IngestKind, fmt.Sprintf("inventory.sigil[%d].ingest_kind", i)); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func validateProducers(producers []Producer, field string) error {
+	for i, producer := range producers {
+		if err := validateNonEmpty(producer.Name, fmt.Sprintf("%s[%d].name", field, i)); err != nil {
+			return err
+		}
+		if producer.AllowListVersion != "" && strings.TrimSpace(producer.AllowListVersion) == "" {
+			return fmt.Errorf("%s[%d].allow_list_version: must not be blank when present", field, i)
+		}
+		if producer.AllowListVariant != "" && strings.TrimSpace(producer.AllowListVariant) == "" {
+			return fmt.Errorf("%s[%d].allow_list_variant: must not be blank when present", field, i)
 		}
 	}
 	return nil
@@ -655,7 +684,8 @@ func mergeSchemas(existing *Schema, candidate Schema) bool {
 }
 
 func mergeMetric(existing *Metric, candidate Metric) bool {
-	changed := corpusMergeStringSet(&existing.Transports, candidate.Transports)
+	changed := mergeProducers(&existing.Producers, candidate.Producers)
+	changed = corpusMergeStringSet(&existing.Transports, candidate.Transports) || changed
 	changed = corpusMergeStringSet(&existing.InstrumentTypes, candidate.InstrumentTypes) || changed
 	if candidate.InstrumentTypeSource != "" && existing.InstrumentTypeSource != candidate.InstrumentTypeSource {
 		if existing.InstrumentTypeSource == "" || existing.InstrumentTypeSource == "undetermined" {
@@ -675,6 +705,27 @@ func mergeMetric(existing *Metric, candidate Metric) bool {
 	changed = mergeHistogram(&existing.Histogram, candidate.Histogram) || changed
 	sortAttributes(&existing.Labels)
 	return changed
+}
+
+func mergeProducers(existing *[]Producer, candidate []Producer) bool {
+	changed := false
+	for _, producer := range candidate {
+		if !containsProducer(*existing, producer) {
+			*existing = append(*existing, producer)
+			changed = true
+		}
+	}
+	normalizeProducers(existing)
+	return changed
+}
+
+func containsProducer(producers []Producer, wanted Producer) bool {
+	for _, producer := range producers {
+		if compareProducer(producer, wanted) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func mergeLog(existing *Log, candidate Log) bool {
@@ -865,6 +916,7 @@ func cloneCorpusDocument(document CorpusDocument) CorpusDocument {
 
 func cloneSchema(schema Schema) Schema {
 	out := schema
+	out.AllowListSuppressions = append([]MetricSuppression{}, schema.AllowListSuppressions...)
 	out.Metrics = make([]Metric, len(schema.Metrics))
 	for i, metric := range schema.Metrics {
 		out.Metrics[i] = cloneMetric(metric)
@@ -891,6 +943,7 @@ func cloneSchema(schema Schema) Schema {
 
 func cloneMetric(metric Metric) Metric {
 	out := metric
+	out.Producers = append([]Producer{}, metric.Producers...)
 	out.Transports = append([]string{}, metric.Transports...)
 	out.InstrumentTypes = append([]string{}, metric.InstrumentTypes...)
 	out.Labels = cloneAttributes(metric.Labels)
@@ -1164,9 +1217,10 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 			!containsString(document.Authority.Substrates, synth.Provenance.Substrate) {
 			continue
 		}
-		reality := withoutEnrichmentLabels(document.Inventory, document.Source.EnrichmentLabels)
+		reality := producerScopedReality(synthCopy, withoutEnrichmentLabels(document.Inventory, document.Source.EnrichmentLabels))
 		comparison := scopedSynthSchema(withoutSelectorLabels(synthCopy), reality)
 		findings := Diff(comparison, reality)
+		findings = classifyAllowListAbsences(findings, synthCopy, reality)
 		comparisons = append(comparisons, corpusComparison{document: document, findings: findings})
 		for _, finding := range findings {
 			finding = dispositionAgainstPermutation(finding, document.Source.Permutation)
@@ -1181,6 +1235,97 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 	annotateSubstrateEvidence(out, comparisons)
 	sort.SliceStable(out, func(i, j int) bool { return compareScopedFindings(out[i], out[j]) < 0 })
 	return out
+}
+
+// classifyAllowListAbsences keeps allow-list absence in the existing
+// extra_metric/coverage_gap finding taxonomy. It changes only the field detail
+// when the synthetic emission boundary recorded the exact family and selected
+// list that suppressed it; a missing family without that record remains the
+// ordinary "name" coverage gap.
+func classifyAllowListAbsences(findings []Finding, synth, reality Schema) []Finding {
+	if len(synth.AllowListSuppressions) == 0 {
+		return findings
+	}
+	byName := make(map[string]Metric, len(reality.Metrics))
+	for _, metric := range reality.Metrics {
+		byName[metric.Name] = metric
+	}
+	for i := range findings {
+		finding := &findings[i]
+		if finding.Kind != KindExtraMetric || finding.Disposition != DispositionCoverageGap || finding.Field != "name" {
+			continue
+		}
+		realityMetric, found := byName[finding.Signal]
+		if !found {
+			continue
+		}
+		for _, suppression := range synth.AllowListSuppressions {
+			if suppression.Name != finding.Signal || !producersIntersect([]Producer{suppression.Producer}, realityMetric.Producers) {
+				continue
+			}
+			finding.Field = "allow_list"
+			finding.SynthValues = []string{formatAllowListSuppression(suppression.Producer)}
+			break
+		}
+	}
+	return findings
+}
+
+func formatAllowListSuppression(producer Producer) string {
+	return producer.Name + "@" + producer.AllowListVersion + "/" + producer.AllowListVariant
+}
+
+// producerScopedReality retains a family only when its direct producer identity
+// can be paired with the synth family that has the same logical name. A missing
+// synth family remains a coverage gap: no synthetic producer emitted it. Legacy
+// documents that predate this evidence retain their former comparison behaviour.
+//
+// This intentionally consults only explicit Producer values. Metric names are
+// used solely for the existing family join; they never select a producer.
+func producerScopedReality(synth, reality Schema) Schema {
+	if len(reality.Metrics) == 0 {
+		return reality
+	}
+	synthByName := make(map[string]Metric, len(synth.Metrics))
+	for _, metric := range synth.Metrics {
+		synthByName[metric.Name] = metric
+	}
+	out := cloneSchema(reality)
+	out.Metrics = out.Metrics[:0]
+	for _, metric := range reality.Metrics {
+		if len(metric.Producers) == 0 {
+			out.Metrics = append(out.Metrics, cloneMetric(metric))
+			continue
+		}
+		synthMetric, found := synthByName[metric.Name]
+		if !found {
+			// Nothing synthetic emitted this family, so it remains a real coverage gap.
+			out.Metrics = append(out.Metrics, cloneMetric(metric))
+			continue
+		}
+		if len(synthMetric.Producers) == 0 {
+			// Legacy synthetic inventories have no producer evidence. Treat those
+			// families as unscoped instead of suppressing directly-attributed reality.
+			out.Metrics = append(out.Metrics, cloneMetric(metric))
+			continue
+		}
+		if producersIntersect(synthMetric.Producers, metric.Producers) {
+			out.Metrics = append(out.Metrics, cloneMetric(metric))
+		}
+	}
+	out.Normalize()
+	return out
+}
+
+func producersIntersect(left, right []Producer) bool {
+	for _, candidate := range left {
+		for _, observed := range right {
+			if candidate.Name == observed.Name {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // annotateSubstrateEvidence keeps the comparison documents separate while making the evidence

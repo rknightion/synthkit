@@ -73,9 +73,10 @@ type Construct struct {
 
 	// otelMetrics is resolved once at construction. The OTLP lane owns a separate cumulative
 	// state store so enabling it cannot perturb the established Prometheus state or draw order.
-	otelMetrics bool
-	otlpState   *nativeOTLPState
-	allowLists  allowlist.Projection
+	otelMetrics        bool
+	otlpState          *nativeOTLPState
+	allowLists         allowlist.Projection
+	allowListSelection allowlist.K8sMonitoringSelection
 
 	// High-water marks for scale-down retirement: the largest pod count ever seen per workload
 	// and the largest node count ever derived. On a scale-down, ordinals/nodes that existed at the
@@ -110,16 +111,17 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 	}
 	baseNames, spans := initPodLifecycleState(fx.Cluster)
 	return &Construct{
-		clust:             fx.Cluster,
-		st:                state.NewState(),
-		otelMetrics:       otelMetrics,
-		otlpState:         newNativeOTLPState(),
-		allowLists:        projection,
-		maxPods:           map[string]int{},
-		podChurnPerMinute: podChurnPerMinute,
-		podChurnActive:    map[string]bool{},
-		podChurnBaseNames: baseNames,
-		podChurnSpans:     spans,
+		clust:              fx.Cluster,
+		st:                 state.NewState(),
+		otelMetrics:        otelMetrics,
+		otlpState:          newNativeOTLPState(),
+		allowLists:         projection,
+		allowListSelection: selection,
+		maxPods:            map[string]int{},
+		podChurnPerMinute:  podChurnPerMinute,
+		podChurnActive:     map[string]bool{},
+		podChurnBaseNames:  baseNames,
+		podChurnSpans:      spans,
 	}, nil
 }
 
@@ -227,7 +229,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	c.retireScaledAway(&lc)
 
 	// ── metrics flush ────────────────────────────────────────────────────────
-	if err := w.Metrics.Write(ctx, c.projectMetrics(c.st.Collect(now))); err != nil {
+	if err := w.Metrics.Write(ctx, c.projectMetrics(w.Metrics, c.st.Collect(now))); err != nil {
 		return err
 	}
 	if err := c.tickOTLPMetrics(ctx, now, cl, nodes, replicas, factor, tickSec, w); err != nil {
@@ -246,14 +248,18 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 // projectMetrics filters only source-selected metric FAMILIES. All series for a
 // source/name pair take the same path; labels and metric names are never altered.
-func (c *Construct) projectMetrics(batch []promrw.Series) []promrw.Series {
+func (c *Construct) projectMetrics(writer core.MetricWriter, batch []promrw.Series) []promrw.Series {
 	if !c.allowLists.Enabled() {
 		return batch
 	}
+	version, variant := c.allowListSelection.Provenance()
+	recorder, recordsSuppressions := writer.(core.MetricSuppressionRecorder)
 	out := make([]promrw.Series, 0, len(batch))
 	for _, series := range batch {
 		if source, ok := allowListSourceForJob(series.Labels["job"]); !ok || c.allowLists.Keep(source, series.Name) {
 			out = append(out, series)
+		} else if recordsSuppressions {
+			recorder.RecordMetricSuppression(series.Name, version, variant)
 		}
 	}
 	return out

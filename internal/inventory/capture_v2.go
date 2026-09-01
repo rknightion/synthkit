@@ -26,6 +26,14 @@ type CaptureV2PromotionSource struct {
 	Collector        string
 	CollectorVersion string
 	CapturedOn       string
+	// MetricProducerLabel identifies the capture-provided family label whose
+	// values are the producer identity. It is promotion configuration, never
+	// persisted, so the privacy-safe corpus retains only its generic values.
+	MetricProducerLabel string
+	// MetricProducerWhenAbsent is the reviewed generic identity for the path that
+	// directly omits MetricProducerLabel. Empty preserves fail-closed conversion.
+	// Supplying it is explicit promotion configuration, never a family-name guess.
+	MetricProducerWhenAbsent string
 }
 
 type captureV2 struct {
@@ -53,7 +61,8 @@ type captureV2Metric struct {
 	Type       string `json:"type"`
 	TypeSource string `json:"type_source"`
 	Labels     []struct {
-		Key string `json:"key"`
+		Key    string   `json:"key"`
+		Values []string `json:"values"`
 	} `json:"labels"`
 	ClassicHistogram *struct {
 		LEValues []string `json:"le_values"`
@@ -85,11 +94,14 @@ func ConvertCaptureV2(data []byte, source CaptureV2PromotionSource) (CorpusDocum
 	if capture.Capture.Scope.IsScoped != (source.Scope != "full") {
 		return CorpusDocument{}, fmt.Errorf("capture scope and reviewed promotion scope disagree")
 	}
+	if strings.TrimSpace(source.MetricProducerLabel) == "" {
+		return CorpusDocument{}, fmt.Errorf("promotion metric producer label: must not be empty")
+	}
 
 	schema := New()
 	seen := make(map[string]struct{}, len(capture.Signals.Metrics.Families))
 	for _, family := range capture.Signals.Metrics.Families {
-		metric, err := convertCaptureV2Metric(family)
+		metric, err := convertCaptureV2Metric(family, source.MetricProducerLabel, source.MetricProducerWhenAbsent)
 		if err != nil {
 			return CorpusDocument{}, err
 		}
@@ -128,7 +140,7 @@ func ConvertCaptureV2(data []byte, source CaptureV2PromotionSource) (CorpusDocum
 	return document, nil
 }
 
-func convertCaptureV2Metric(family captureV2Metric) (Metric, error) {
+func convertCaptureV2Metric(family captureV2Metric, producerLabel, producerWhenAbsent string) (Metric, error) {
 	if family.Name == "" {
 		return Metric{}, fmt.Errorf("capture metric: name must not be empty")
 	}
@@ -143,16 +155,34 @@ func convertCaptureV2Metric(family captureV2Metric) (Metric, error) {
 	}
 	metric := Metric{
 		Name:                 family.Name,
+		Producers:            []Producer{},
 		Transports:           []string{},
 		InstrumentTypes:      []string{family.Type},
 		InstrumentTypeSource: family.TypeSource,
 		Labels:               []Attribute{},
 	}
 	for _, label := range family.Labels {
+		if label.Key == producerLabel {
+			for _, value := range label.Values {
+				value = strings.TrimSpace(value)
+				if value == "" {
+					continue
+				}
+				metric.Producers = append(metric.Producers, Producer{Name: value})
+			}
+			continue
+		}
 		if label.Key == "" || strings.HasPrefix(label.Key, "tag_") {
 			continue
 		}
 		metric.Labels = append(metric.Labels, Attribute{Key: label.Key, Values: []string{}, ValuesElided: true})
+	}
+	normalizeProducers(&metric.Producers)
+	if len(metric.Producers) == 0 && strings.TrimSpace(producerWhenAbsent) != "" {
+		metric.Producers = []Producer{{Name: strings.TrimSpace(producerWhenAbsent)}}
+	}
+	if len(metric.Producers) == 0 {
+		return Metric{}, fmt.Errorf("capture metric %q: direct producer identity is absent", family.Name)
 	}
 	if family.ClassicHistogram != nil {
 		bounds, err := captureV2Bounds(family.ClassicHistogram.LEValues)

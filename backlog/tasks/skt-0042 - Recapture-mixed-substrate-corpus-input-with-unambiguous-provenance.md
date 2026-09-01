@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-08-30 08:40'
-updated_date: '2026-09-01 20:42'
+updated_date: '2026-09-01 23:02'
 labels:
   - needs-triage
 dependencies: []
@@ -38,6 +38,8 @@ A captured corpus document declares one substrate in provenance while containing
 
 <!-- SECTION:PLAN:BEGIN -->
 After SKT-0045 is integrated, resolve the canonical seven-document set from the sibling tracker, ingest it without source mutation or inferred relabelling, and run the comparator at real corpus scale.
+
+After SKT-0010.19 is proven, regenerate the canonical seven projections from immutable captures, ingest only with explicit producer-scoped comparison, and rerun signal-fidelity with zero exemptions.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -183,10 +185,14 @@ have overstated them.
 AC#3 remains the open one. Nothing has been ingested into synthkit's corpus yet.
 
 Wave result: the schema-2 converter preserved capture hashes, scope, warnings, schema/tool versions, instrument type source, and structural histogram bounds. Seven canonical source projections were generated and audited only as candidates, then excluded from reality-corpus because privacy promotion removes the producer-selecting label values used by the comparator. Comparing each candidate against the global synth union produced 304 false producer comparisons. No capture was modified and no fidelity exemption was added. Resume when direct per-family producer identity survives privacy promotion; regenerate the seven projections and rerun signal-fidelity before checking AC #3.
+
+2026-09-02 resume boundary: the seven canonical immutable captures expose explicit producer identities but no reviewed hash-keyed family-to-signals-area routing manifest. Conversion has no production routing caller, so promotion would still guess document ownership. No capture or candidate corpus file was modified. Resume by reviewing a family-to-area projection keyed to the seven capture hashes, then regenerate the per-area projections and rerun producer-scoped fidelity with zero exemptions.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 Parked after source provenance and capture conditions were verified and the ingestion path was implemented and validated. AC #3 remains open because the privacy-safe projection cannot yet retain direct per-family producer identity; ingesting now would turn producer ambiguity into false contradictions. Resume at the producer-identity boundary, regenerate candidates, and rerun fidelity.
+
+2026-09-02: Parked after producer identity was unblocked but before ingestion: explicit source identity exists, while the reviewed family-to-area routing manifest required for non-inferred promotion does not.
 <!-- SECTION:FINAL_SUMMARY:END -->

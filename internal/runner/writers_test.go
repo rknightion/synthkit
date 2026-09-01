@@ -74,13 +74,16 @@ func TestStampedProfiles(t *testing.T) {
 func TestStampedOTLPMetricsStampsBlueprintAttr(t *testing.T) {
 	var got []otlp.MetricResource
 	fake := otlpMetricWriterFunc(func(ctx context.Context, rs []otlp.MetricResource) error { got = rs; return nil })
-	w := &stampedOTLPMetrics{sink: fake, label: "acme"}
+	w := &stampedOTLPMetrics{sink: fake, label: "acme", producer: producerOTLPNative}
 	in := []otlp.MetricResource{{Attrs: map[string]any{"service.name": "svc"}}}
 	if err := w.Write(context.Background(), in); err != nil {
 		t.Fatal(err)
 	}
 	if got[0].Attrs["blueprint"] != "acme" {
 		t.Errorf("blueprint attr = %v, want acme", got[0].Attrs["blueprint"])
+	}
+	if got[0].Producer != producerOTLPNative {
+		t.Errorf("producer = %q, want %q", got[0].Producer, producerOTLPNative)
 	}
 	if _, ok := in[0].Attrs["blueprint"]; ok {
 		t.Error("source resource was mutated (must clone before stamp)")
@@ -90,10 +93,31 @@ func TestStampedOTLPMetricsStampsBlueprintAttr(t *testing.T) {
 func TestStampedOTLPMetricsSubstrateNoStamp(t *testing.T) {
 	var got []otlp.MetricResource
 	fake := otlpMetricWriterFunc(func(ctx context.Context, rs []otlp.MetricResource) error { got = rs; return nil })
-	w := &stampedOTLPMetrics{sink: fake, label: ""}
+	w := &stampedOTLPMetrics{sink: fake, label: "", producer: producerOTLPNative}
 	_ = w.Write(context.Background(), []otlp.MetricResource{{Attrs: map[string]any{"service.name": "svc"}}})
 	if _, ok := got[0].Attrs["blueprint"]; ok {
 		t.Error("substrate writer must not stamp blueprint")
+	}
+	if got[0].Producer != producerOTLPNative {
+		t.Errorf("producer = %q, want %q", got[0].Producer, producerOTLPNative)
+	}
+}
+
+func TestStampedMetricsRecordsAllowListSuppressionWithCatalogProducer(t *testing.T) {
+	var got MetricSuppression
+	w := &stampedMetrics{
+		producer: producerPromRW,
+		recordSuppression: func(suppression MetricSuppression) {
+			got = suppression
+		},
+	}
+	w.RecordMetricSuppression("node_disk_read_bytes_total", "4.5.0", "node-exporter=default")
+	want := MetricSuppression{
+		Name: "node_disk_read_bytes_total", Producer: producerPromRW,
+		AllowListVersion: "4.5.0", AllowListVariant: "node-exporter=default",
+	}
+	if got != want {
+		t.Fatalf("suppression=%+v, want %+v", got, want)
 	}
 }
 

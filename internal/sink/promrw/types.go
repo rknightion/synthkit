@@ -17,12 +17,18 @@ import "time"
 // maps. Anything that mutates labels (the blueprint-selector stamping writer, tests) MUST
 // clone the map first — never mutate in place.
 type Series struct {
-	Name      string
-	Labels    map[string]string
-	Value     float64
-	T         time.Time
-	Kind      Kind       // instrument type (set by state.Collect); zero value KindGauge
-	Exemplars []Exemplar // optional; nil for series without exemplars. See Exemplar.
+	Name   string
+	Labels map[string]string
+	Value  float64
+	T      time.Time
+	// Producer fields are composition-root inventory metadata. They are never
+	// encoded on the remote-write wire and must be supplied explicitly rather than
+	// recovered from a metric name or label value.
+	Producer                 string
+	ProducerAllowListVersion string
+	ProducerAllowListVariant string
+	Kind                     Kind       // instrument type (set by state.Collect); zero value KindGauge
+	Exemplars                []Exemplar // optional; nil for series without exemplars. See Exemplar.
 	// Native, when non-nil, makes this Series a native histogram: the encoder emits a
 	// writev2 Histogram on TimeSeries.Histograms and omits the float Sample. Value is
 	// ignored in that case. When set, Kind should be KindHistogram.

@@ -103,3 +103,24 @@ func TestK8sMonitoringProjectionRejectsUnknownNodeExporterMode(t *testing.T) {
 		t.Fatal("unknown node-exporter mode was accepted")
 	}
 }
+
+func TestK8sMonitoringSelectionProvenance(t *testing.T) {
+	tests := []struct {
+		name      string
+		selection K8sMonitoringSelection
+		version   string
+		variant   string
+	}{
+		{name: "full", selection: K8sMonitoringSelection{}, version: "", variant: ""},
+		{name: "cluster defaults", selection: K8sMonitoringSelection{ClusterMetrics: true}, version: K8sMonitoringChartVersion, variant: "cluster-metrics,node-exporter=default"},
+		{name: "integration node exporter", selection: K8sMonitoringSelection{NodeExporter: NodeExporterIntegration}, version: K8sMonitoringChartVersion, variant: "node-exporter=integration"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			version, variant := test.selection.Provenance()
+			if version != test.version || variant != test.variant {
+				t.Fatalf("Provenance() = (%q, %q), want (%q, %q)", version, variant, test.version, test.variant)
+			}
+		})
+	}
+}

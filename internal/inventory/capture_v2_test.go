@@ -18,13 +18,14 @@ func TestConvertCaptureV2PreservesTypeEvidenceAndSanitizesIdentity(t *testing.T)
 	}
 
 	document, err := ConvertCaptureV2(data, CaptureV2PromotionSource{
-		Area:             "00-canon",
-		Kind:             "synthkit_terraform_capture",
-		Substrate:        "eks",
-		Scope:            "cluster",
-		Collector:        "grafana/k8s-monitoring",
-		CollectorVersion: "4.5.0",
-		CapturedOn:       "2026-08-31",
+		Area:                "00-canon",
+		Kind:                "synthkit_terraform_capture",
+		Substrate:           "eks",
+		Scope:               "cluster",
+		Collector:           "grafana/k8s-monitoring",
+		CollectorVersion:    "4.5.0",
+		CapturedOn:          "2026-08-31",
+		MetricProducerLabel: "ingest_path",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -43,6 +44,9 @@ func TestConvertCaptureV2PreservesTypeEvidenceAndSanitizesIdentity(t *testing.T)
 	}
 
 	unknown := metricByName(t, document.Inventory, "example_requests_total")
+	if got, want := unknown.Producers, []Producer{{Name: "promrw"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("producer=%+v, want direct privacy-safe identity %v", got, want)
+	}
 	if got, want := unknown.InstrumentTypes, []string{InstrumentUnknown}; !reflect.DeepEqual(got, want) || unknown.InstrumentTypeSource != "undetermined" {
 		t.Fatalf("unknown metric=%+v, want undetermined unknown evidence", unknown)
 	}
@@ -74,6 +78,9 @@ func TestConvertCaptureV2PreservesTypeEvidenceAndSanitizesIdentity(t *testing.T)
 			if label.Key == "tag_private_capture" {
 				t.Fatalf("identity-bearing tag label must be omitted: %+v", metric)
 			}
+			if label.Key == "ingest_path" {
+				t.Fatalf("producer selector must not remain a corpus label: %+v", metric)
+			}
 		}
 	}
 }
@@ -94,10 +101,90 @@ func TestConvertCaptureV2RejectsDuplicateMetricFamilies(t *testing.T) {
 	}
 	_, err = ConvertCaptureV2(data, CaptureV2PromotionSource{
 		Area: "00-canon", Kind: "synthkit_terraform_capture", Substrate: "eks", Scope: "cluster",
-		Collector: "grafana/k8s-monitoring", CollectorVersion: "4.5.0", CapturedOn: "2026-08-31",
+		Collector: "grafana/k8s-monitoring", CollectorVersion: "4.5.0", CapturedOn: "2026-08-31", MetricProducerLabel: "ingest_path",
 	})
 	if err == nil || !strings.Contains(err.Error(), "duplicate family name") {
 		t.Fatalf("error=%v, want duplicate family rejection", err)
+	}
+}
+
+func TestConvertCaptureV2RejectsMissingDirectProducerIdentity(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ConvertCaptureV2(data, CaptureV2PromotionSource{
+		Area: "00-canon", Kind: "synthkit_terraform_capture", Substrate: "eks", Scope: "cluster",
+		Collector: "grafana/k8s-monitoring", CollectorVersion: "4.5.0", CapturedOn: "2026-08-31", MetricProducerLabel: "missing",
+	})
+	if err == nil || !strings.Contains(err.Error(), "direct producer identity is absent") {
+		t.Fatalf("error=%v, want rejection when the configured direct producer identity is absent", err)
+	}
+}
+
+func TestConvertCaptureV2UsesReviewedUnlabelledProducerIdentity(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture captureV2
+	if err := json.Unmarshal(data, &capture); err != nil {
+		t.Fatal(err)
+	}
+	name := capture.Signals.Metrics.Families[0].Name
+	for i := range capture.Signals.Metrics.Families[0].Labels {
+		if capture.Signals.Metrics.Families[0].Labels[i].Key == "ingest_path" {
+			capture.Signals.Metrics.Families[0].Labels = append(capture.Signals.Metrics.Families[0].Labels[:i], capture.Signals.Metrics.Families[0].Labels[i+1:]...)
+			break
+		}
+	}
+	data, err = json.Marshal(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := ConvertCaptureV2(data, CaptureV2PromotionSource{
+		Area: "00-canon", Kind: "synthkit_terraform_capture", Substrate: "eks", Scope: "cluster",
+		Collector: "grafana/k8s-monitoring", CollectorVersion: "4.5.0", CapturedOn: "2026-08-31",
+		MetricProducerLabel: "ingest_path", MetricProducerWhenAbsent: "unlabelled",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := metricByName(t, document.Inventory, name).Producers, []Producer{{Name: "unlabelled"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("producer=%+v, want reviewed absent-label identity %+v", got, want)
+	}
+}
+
+func TestConvertCaptureV2UsesReviewedProducerWhenLabelValuesAreBlank(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture captureV2
+	if err := json.Unmarshal(data, &capture); err != nil {
+		t.Fatal(err)
+	}
+	name := capture.Signals.Metrics.Families[0].Name
+	for i := range capture.Signals.Metrics.Families[0].Labels {
+		if capture.Signals.Metrics.Families[0].Labels[i].Key == "ingest_path" {
+			capture.Signals.Metrics.Families[0].Labels[i].Values = []string{"", "  "}
+			break
+		}
+	}
+	data, err = json.Marshal(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := ConvertCaptureV2(data, CaptureV2PromotionSource{
+		Area: "00-canon", Kind: "synthkit_terraform_capture", Substrate: "eks", Scope: "cluster",
+		Collector: "grafana/k8s-monitoring", CollectorVersion: "4.5.0", CapturedOn: "2026-08-31",
+		MetricProducerLabel: "ingest_path", MetricProducerWhenAbsent: "unlabelled",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := metricByName(t, document.Inventory, name).Producers, []Producer{{Name: "unlabelled"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("producer=%+v, want reviewed fallback identity %+v", got, want)
 	}
 }
 

@@ -51,6 +51,62 @@ import (
 	"github.com/rknightion/synthkit/internal/workload/webservice"
 )
 
+const (
+	producerPromRW              = "promrw"
+	producerUnlabelled          = "unlabelled"
+	producerDBO11y              = "dbo11y"
+	producerAzureMonitorManaged = "azure-monitor-managed"
+	producerAzureMonitorAlloy   = "azure-monitor-alloy"
+	producerOTLPNative          = "otlp-native"
+)
+
+func fixedMetricProducer(name string) func(any) string {
+	return func(any) string { return name }
+}
+
+func withMetricProducer(reg core.ConstructReg, producer string) core.ConstructReg {
+	reg.MetricProducer = fixedMetricProducer(producer)
+	return reg
+}
+
+func withMetricProducers(reg core.ConstructReg, metric, native string) core.ConstructReg {
+	reg.MetricProducer = fixedMetricProducer(metric)
+	reg.OTLPMetricProducer = fixedMetricProducer(native)
+	return reg
+}
+
+func k8sMetricAllowListProvenance(cfg any) (version, variant string) {
+	configured, ok := cfg.(*k8scluster.Config)
+	if !ok || configured == nil || configured.DefaultAllowLists == nil {
+		return "", ""
+	}
+	return configured.DefaultAllowLists.Provenance()
+}
+
+func withWorkloadMetricProducers(reg core.WorkloadReg, metric, native string) core.WorkloadReg {
+	reg.MetricProducer = fixedMetricProducer(metric)
+	reg.OTLPMetricProducer = fixedMetricProducer(native)
+	return reg
+}
+
+// azureMetricProducer follows the blueprint's explicit ingestion_path. The
+// configuration value is direct producer wiring; no metric name, prefix, or
+// emitted label is inspected.
+func azureMetricProducer(cfg any) string {
+	configured, ok := cfg.(*cspazure.Config)
+	if !ok || configured == nil {
+		return ""
+	}
+	switch configured.IngestionPath {
+	case "serverless":
+		return producerAzureMonitorManaged
+	case "azure_exporter":
+		return producerAzureMonitorAlloy
+	default:
+		return ""
+	}
+}
+
 // Catalog assembles the v1 registry — the ONLY place construct/workload kinds are
 // wired into the framework (single-owner wiring file; no init() self-registration
 // anywhere). The blueprint loader validates YAML against exactly this set.
@@ -58,59 +114,63 @@ func Catalog() *core.Registry {
 	reg := core.NewRegistry()
 
 	// Topology constructs (resolver-emitted; empty configs, fixture-driven).
-	reg.RegisterConstruct(k8scluster.Registration())
-	reg.RegisterConstruct(k8sprofiling.Registration())
-	reg.RegisterConstruct(ec2.Registration())
-	reg.RegisterConstruct(cwinfra.Registration())
-	reg.RegisterConstruct(rds.Registration())
-	reg.RegisterConstruct(host.Registration())
-	reg.RegisterConstruct(elasticache.Registration())
-	reg.RegisterConstruct(dbo11ymysql.Registration())
-	reg.RegisterConstruct(dbo11ypg.Registration())
-	reg.RegisterConstruct(docdb.Registration())
-	reg.RegisterConstruct(neptune.Registration())
-	reg.RegisterConstruct(aoss.Registration())
-	reg.RegisterConstruct(mwaa.Registration())
-	reg.RegisterConstruct(glue.Registration())
-	reg.RegisterConstruct(bedrock.Registration())
-	reg.RegisterConstruct(agentcore.Registration())
+	k8s := withMetricProducers(k8scluster.Registration(), producerPromRW, producerOTLPNative)
+	k8s.MetricAllowListProvenance = k8sMetricAllowListProvenance
+	reg.RegisterConstruct(k8s)
+	reg.RegisterConstruct(withMetricProducer(k8sprofiling.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(ec2.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(cwinfra.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(rds.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducers(host.Registration(), producerPromRW, producerOTLPNative))
+	reg.RegisterConstruct(withMetricProducer(elasticache.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(dbo11ymysql.Registration(), producerDBO11y))
+	reg.RegisterConstruct(withMetricProducer(dbo11ypg.Registration(), producerDBO11y))
+	reg.RegisterConstruct(withMetricProducer(docdb.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(neptune.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(aoss.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(mwaa.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(glue.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(bedrock.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(agentcore.Registration(), producerUnlabelled))
 
 	// Cluster add-ons (blueprint addons: list).
-	reg.RegisterConstruct(lbc.Registration())
-	reg.RegisterConstruct(extdns.Registration())
-	reg.RegisterConstruct(coredns.Registration())
-	reg.RegisterConstruct(vpccni.Registration())
-	reg.RegisterConstruct(certmanager.Registration())
-	reg.RegisterConstruct(etcd.Registration())
-	reg.RegisterConstruct(clusterautoscaler.Registration())
-	reg.RegisterConstruct(karpenter.Registration())
-	reg.RegisterConstruct(argocd.Registration())
-	reg.RegisterConstruct(envoygateway.Registration())
-	reg.RegisterConstruct(ebscsi.Registration())
-	reg.RegisterConstruct(ksmingress.Registration())
-	reg.RegisterConstruct(alloyhealth.Registration())
+	reg.RegisterConstruct(withMetricProducer(lbc.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(extdns.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(coredns.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(vpccni.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(certmanager.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(etcd.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(clusterautoscaler.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(karpenter.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(argocd.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(envoygateway.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(ebscsi.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(ksmingress.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(alloyhealth.Registration(), producerPromRW))
 
 	// Feature constructs (blueprint features: map).
-	reg.RegisterConstruct(sm.Registration())
-	reg.RegisterConstruct(fleetmgmt.Registration())
-	reg.RegisterConstruct(cloudflare.Registration())
-	reg.RegisterConstruct(cspazure.Registration())
-	reg.RegisterConstruct(cspgcp.Registration())
+	reg.RegisterConstruct(withMetricProducer(sm.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(fleetmgmt.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(cloudflare.Registration(), producerPromRW))
+	azure := cspazure.Registration()
+	azure.MetricProducer = azureMetricProducer
+	reg.RegisterConstruct(azure)
+	reg.RegisterConstruct(withMetricProducer(cspgcp.Registration(), producerUnlabelled))
 
 	// AI integration constructs (blueprint integrations: map — Spec 2b scrape/poll sources).
-	reg.RegisterConstruct(portkeygateway.Registration())
-	reg.RegisterConstruct(portkeypoller.Registration())
-	reg.RegisterConstruct(langsmithplatform.Registration())
-	reg.RegisterConstruct(langsmitheval.Registration())
-	reg.RegisterConstruct(snowflake.Registration())
-	reg.RegisterConstruct(qualificationpipeline.Registration())
-	reg.RegisterConstruct(beylaagent.Registration())
-	reg.RegisterConstruct(nettopo.Registration())
+	reg.RegisterConstruct(withMetricProducer(portkeygateway.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(portkeypoller.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(langsmithplatform.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(langsmitheval.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(snowflake.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(qualificationpipeline.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(beylaagent.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(nettopo.Registration(), producerPromRW))
 
 	// Workloads.
-	reg.RegisterWorkload(webservice.Registration())
-	reg.RegisterWorkload(app.Registration())
-	reg.RegisterWorkload(aiagent.Registration())
+	reg.RegisterWorkload(withWorkloadMetricProducers(webservice.Registration(), producerPromRW, producerOTLPNative))
+	reg.RegisterWorkload(withWorkloadMetricProducers(app.Registration(), producerPromRW, producerOTLPNative))
+	reg.RegisterWorkload(withWorkloadMetricProducers(aiagent.Registration(), producerPromRW, producerOTLPNative))
 
 	return reg
 }

@@ -175,8 +175,9 @@ func TestPodLifecyclePreparedBeforeProjection(t *testing.T) {
 	cluster := &fixture.Cluster{Name: "c", Env: &fixture.Env{Name: "prod", Weight: 1}, Workloads: []fixture.Workload{{Name: "api", Namespace: "ns", Replicas: 1, PodNames: []string{"api-old"}}}}
 	reg := core.NewRegistry()
 	reg.RegisterConstruct(core.ConstructReg{Kind: "lifecycle_k8s", Doc: "test", Scope: core.ScopeSubstrate,
-		NewConfig: func() any { return &struct{}{} },
-		Build:     func(any, *fixture.Set) (core.Construct, error) { return &lifecycleConstruct{cluster: cluster}, nil }})
+		NewConfig:      func() any { return &struct{}{} },
+		Build:          func(any, *fixture.Set) (core.Construct, error) { return &lifecycleConstruct{cluster: cluster}, nil },
+		MetricProducer: fixedMetricProducer(producerPromRW)})
 	reg.RegisterWorkload(core.WorkloadReg{Kind: "lifecycle_workload", Doc: "test",
 		NewConfig: func() any { return &struct{}{} },
 		Build: func(_ any, binding core.Binding) (core.Workload, error) {
@@ -239,7 +240,8 @@ func testRegistry(subs, scs *[]*fakeConstruct, wls *[]*fakeWorkload) *core.Regis
 	reg := core.NewRegistry()
 	reg.RegisterConstruct(core.ConstructReg{
 		Kind: "fake_substrate", Doc: "t", Scope: core.ScopeSubstrate,
-		NewConfig: func() any { return &struct{}{} },
+		NewConfig:      func() any { return &struct{}{} },
+		MetricProducer: fixedMetricProducer(producerPromRW),
 		Build: func(cfg any, fx *fixture.Set) (core.Construct, error) {
 			c := &fakeConstruct{kind: "fake_substrate", signals: []core.SignalClass{core.Metrics, core.Logs}}
 			*subs = append(*subs, c)
@@ -248,7 +250,8 @@ func testRegistry(subs, scs *[]*fakeConstruct, wls *[]*fakeWorkload) *core.Regis
 	})
 	reg.RegisterConstruct(core.ConstructReg{
 		Kind: "fake_scoped", Doc: "t", Scope: core.ScopeBlueprint,
-		NewConfig: func() any { return &struct{}{} },
+		NewConfig:      func() any { return &struct{}{} },
+		MetricProducer: fixedMetricProducer(producerPromRW),
 		Build: func(cfg any, fx *fixture.Set) (core.Construct, error) {
 			c := &fakeConstruct{kind: "fake_scoped", signals: []core.SignalClass{core.Metrics}}
 			*scs = append(*scs, c)
@@ -257,7 +260,8 @@ func testRegistry(subs, scs *[]*fakeConstruct, wls *[]*fakeWorkload) *core.Regis
 	})
 	reg.RegisterWorkload(core.WorkloadReg{
 		Kind: "fake_workload", Doc: "t",
-		NewConfig: func() any { return &struct{}{} },
+		NewConfig:      func() any { return &struct{}{} },
+		MetricProducer: fixedMetricProducer(producerPromRW),
 		Build: func(cfg any, b core.Binding) (core.Workload, error) {
 			w := &fakeWorkload{name: b.Name}
 			*wls = append(*wls, w)
@@ -571,7 +575,8 @@ func TestApplyControlScalingChangesWorkloadMintRateAndReset(t *testing.T) {
 	reg := core.NewRegistry()
 	reg.RegisterWorkload(core.WorkloadReg{
 		Kind: "cadence_workload", Doc: "test", Scope: core.ScopeBlueprint,
-		NewConfig: func() any { return &struct{}{} },
+		NewConfig:      func() any { return &struct{}{} },
+		MetricProducer: fixedMetricProducer(producerPromRW),
 		Build: func(_ any, binding core.Binding) (core.Workload, error) {
 			return &cadenceWorkload{binding: binding}, nil
 		},
@@ -821,7 +826,7 @@ func TestBlueprintSource(t *testing.T) {
 func fleetRegistry(t *testing.T) *core.Registry {
 	t.Helper()
 	reg := core.NewRegistry()
-	reg.RegisterConstruct(fleetmgmt.Registration())
+	reg.RegisterConstruct(withMetricProducer(fleetmgmt.Registration(), producerPromRW))
 	return reg
 }
 
@@ -1040,10 +1045,11 @@ func (f metricWriterFunc) Write(ctx context.Context, b []promrw.Series) error { 
 func TestStampedMetricsPreservesExemplars(t *testing.T) {
 	var got []promrw.Series
 	w := &stampedMetrics{
-		sink:   metricWriterFunc(func(_ context.Context, b []promrw.Series) error { got = b; return nil }),
-		label:  "bp-x",
-		bp:     "bp-x",
-		budget: newSeriesBudget(0), // unlimited
+		sink:     metricWriterFunc(func(_ context.Context, b []promrw.Series) error { got = b; return nil }),
+		label:    "bp-x",
+		bp:       "bp-x",
+		budget:   newSeriesBudget(0), // unlimited
+		producer: producerPromRW,
 	}
 	in := []promrw.Series{{
 		Name: "m", Labels: map[string]string{"job": "api"}, Value: 1, T: time.UnixMilli(1),
@@ -1058,6 +1064,9 @@ func TestStampedMetricsPreservesExemplars(t *testing.T) {
 	if got[0].Labels[BlueprintLabel] != "bp-x" {
 		t.Fatalf("blueprint label not stamped: %v", got[0].Labels)
 	}
+	if got[0].Producer != producerPromRW {
+		t.Fatalf("producer = %q, want %q", got[0].Producer, producerPromRW)
+	}
 }
 
 // TestStampedMetricsPreservesNative guards the same field-by-field clone branch for the
@@ -1066,10 +1075,11 @@ func TestStampedMetricsPreservesExemplars(t *testing.T) {
 func TestStampedMetricsPreservesNative(t *testing.T) {
 	var got []promrw.Series
 	w := &stampedMetrics{
-		sink:   metricWriterFunc(func(_ context.Context, b []promrw.Series) error { got = b; return nil }),
-		label:  "bp-x",
-		bp:     "bp-x",
-		budget: newSeriesBudget(0), // unlimited
+		sink:     metricWriterFunc(func(_ context.Context, b []promrw.Series) error { got = b; return nil }),
+		label:    "bp-x",
+		bp:       "bp-x",
+		budget:   newSeriesBudget(0), // unlimited
+		producer: producerPromRW,
 	}
 	in := []promrw.Series{{
 		Name: "traces_spanmetrics_latency", Labels: map[string]string{"service": "checkout"},

@@ -305,6 +305,57 @@ func TestCompareCorpusDoesNotUnionSubstratesAndUsesArea(t *testing.T) {
 	}
 }
 
+func TestCompareCorpusDoesNotCompareCrossProducerFamilies(t *testing.T) {
+	synth := New()
+	synth.AddMetric("shared_total", TransportPrometheusRW2, InstrumentCounter, map[string]string{"synth_key": ""}, nil)
+	synth.AddMetricProducer("shared_total", Producer{Name: "synth-producer"})
+
+	reality := validCorpusDocument("k8s", "producer", "k3s")
+	reality.Inventory.AddMetric("shared_total", TransportPrometheusRW2, InstrumentGauge, map[string]string{"reality_key": ""}, nil)
+	reality.Inventory.AddMetricProducer("shared_total", Producer{Name: "reality-producer"})
+
+	if findings := CompareCorpus(synth, []CorpusDocument{reality}); len(findings) != 0 {
+		t.Fatalf("findings=%+v, cross-producer family must not compare", findings)
+	}
+}
+
+func TestCompareCorpusTreatsSynthWithoutProducerEvidenceAsUnscoped(t *testing.T) {
+	synth := New()
+	synth.AddMetric("shared_total", TransportPrometheusRW2, InstrumentCounter, map[string]string{"synth_key": ""}, nil)
+
+	reality := validCorpusDocument("k8s", "producer", "k3s")
+	reality.Inventory.AddMetric("shared_total", TransportPrometheusRW2, InstrumentGauge, map[string]string{"reality_key": ""}, nil)
+	reality.Inventory.AddMetricProducer("shared_total", Producer{Name: "reality-producer"})
+
+	findings := CompareCorpus(synth, []CorpusDocument{reality})
+	if len(findings) == 0 {
+		t.Fatal("unscoped synthetic family suppressed producer-scoped reality evidence")
+	}
+}
+
+func TestCompareCorpusClassifiesExplicitAllowListAbsenceInsideCoverageTaxonomy(t *testing.T) {
+	synth := New()
+	synth.AddAllowListSuppression("filtered_total", Producer{
+		Name: "promrw", AllowListVersion: "4.5.0", AllowListVariant: "cluster-metrics,node-exporter=default",
+	})
+
+	reality := validCorpusDocument("k8s", "producer", "k3s")
+	reality.Inventory.AddMetric("filtered_total", TransportPrometheusRW2, InstrumentCounter, nil, nil)
+	reality.Inventory.AddMetricProducer("filtered_total", Producer{Name: "promrw"})
+
+	findings := CompareCorpus(synth, []CorpusDocument{reality})
+	if len(findings) != 1 {
+		t.Fatalf("findings=%+v, want one allow-list coverage finding", findings)
+	}
+	got := findings[0].Finding
+	if got.Kind != KindExtraMetric || got.Disposition != DispositionCoverageGap || got.Field != "allow_list" {
+		t.Fatalf("finding=%+v, want existing extra_metric coverage taxonomy with allow_list field", got)
+	}
+	if want := []string{"promrw@4.5.0/cluster-metrics,node-exporter=default"}; !reflect.DeepEqual(got.SynthValues, want) {
+		t.Fatalf("synth values=%v, want %v", got.SynthValues, want)
+	}
+}
+
 func TestCompareCorpusNamesMatchingAndAbsentSubstrateEvidence(t *testing.T) {
 	synth := New()
 	// The clean GCP capture records label_cloud_google_com_gke_nodepool on

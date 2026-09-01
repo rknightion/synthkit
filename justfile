@@ -10,6 +10,8 @@ syft_version := env('SYFT_VERSION', 'v1.51.1')
 # renovate: datasource=github-releases depName=gitleaks/gitleaks
 gitleaks_version := env('GITLEAKS_VERSION', 'v8.21.2')
 gcx_context := env('GCX_CONTEXT', 'default')
+signal_fidelity_blueprints := env('SIGNAL_FIDELITY_BLUEPRINTS', '*')
+dump_blueprints := env('DUMP_BLUEPRINTS', '*')
 
 # show the task surface
 default:
@@ -264,7 +266,7 @@ signal-fidelity:
     set -euo pipefail
     tmp=$(mktemp)
     trap 'rm -f "$tmp"' EXIT
-    DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -inventory-json >"$tmp"
+    DRY_RUN=true BLUEPRINT_NAMES={{ quote(signal_fidelity_blueprints) }} go run ./cmd/synthkit -once -inventory-json >"$tmp"
     go run ./cmd/signal-fidelity -synth "$tmp" -corpus reality-corpus
 
 # lint the chart and assert the credential and exposure render permutations (needs helm)
@@ -338,7 +340,7 @@ run:
 # print the full catalog series/label inventory for offline diff against signals/
 [group('dev')]
 dump:
-    DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -dump
+    DRY_RUN=true BLUEPRINT_NAMES={{ quote(dump_blueprints) }} go run ./cmd/synthkit -once -dump
 
 # start the local Compose stack from the selected published image and wait for readiness
 [group('dev')]

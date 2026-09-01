@@ -46,11 +46,15 @@ type Schema struct {
 	SchemaVersion string      `json:"schema_version"`
 	Provenance    *Provenance `json:"provenance,omitempty"`
 	Metrics       []Metric    `json:"metrics"`
-	Logs          []Log       `json:"logs"`
-	Traces        []Trace     `json:"traces"`
-	Profiles      []Profile   `json:"profiles"`
-	Sigil         []Sigil     `json:"sigil"`
-	Receipts      []Receipt   `json:"receipts"`
+	// AllowListSuppressions are direct emission-boundary records for metric
+	// families a selected upstream allow-list dropped. They make absence visible
+	// without trying to recover it from the final inventory.
+	AllowListSuppressions []MetricSuppression `json:"allow_list_suppressions,omitempty"`
+	Logs                  []Log               `json:"logs"`
+	Traces                []Trace             `json:"traces"`
+	Profiles              []Profile           `json:"profiles"`
+	Sigil                 []Sigil             `json:"sigil"`
+	Receipts              []Receipt           `json:"receipts"`
 }
 
 type Provenance struct {
@@ -75,12 +79,33 @@ type Attribute struct {
 }
 
 type Metric struct {
-	Name                 string      `json:"name"`
+	Name string `json:"name"`
+	// Producers records the direct, privacy-safe identities of the producers that
+	// emitted this family. It is distinct from labels: promotion copies this
+	// evidence before label values are elided, and comparison never derives it
+	// from a family name, prefix, or label value.
+	Producers            []Producer  `json:"producers,omitempty"`
 	Transports           []string    `json:"transports"`
 	InstrumentTypes      []string    `json:"instrument_types"`
 	InstrumentTypeSource string      `json:"instrument_type_source,omitempty"`
 	Labels               []Attribute `json:"labels"`
 	Histogram            *Histogram  `json:"histogram,omitempty"`
+}
+
+// Producer is the direct identity of one metric producer. Name is a generic
+// source-contract value, never a deployment identity. Allow-list provenance is
+// present only when the producer selected the named version and variant.
+type Producer struct {
+	Name             string `json:"name"`
+	AllowListVersion string `json:"allow_list_version,omitempty"`
+	AllowListVariant string `json:"allow_list_variant,omitempty"`
+}
+
+// MetricSuppression records a whole-family allow-list decision made before the
+// metric reached a sink. Producer must carry the selected list provenance.
+type MetricSuppression struct {
+	Name     string   `json:"name"`
+	Producer Producer `json:"producer"`
 }
 
 type Histogram struct {
@@ -129,14 +154,33 @@ type Receipt struct {
 // New returns an empty, versioned schema whose collection fields encode as [] rather than null.
 func New() Schema {
 	return Schema{
-		SchemaVersion: SchemaVersion,
-		Metrics:       []Metric{},
-		Logs:          []Log{},
-		Traces:        []Trace{},
-		Profiles:      []Profile{},
-		Sigil:         []Sigil{},
-		Receipts:      []Receipt{},
+		SchemaVersion:         SchemaVersion,
+		Metrics:               []Metric{},
+		AllowListSuppressions: []MetricSuppression{},
+		Logs:                  []Log{},
+		Traces:                []Trace{},
+		Profiles:              []Profile{},
+		Sigil:                 []Sigil{},
+		Receipts:              []Receipt{},
 	}
+}
+
+// AddAllowListSuppression records an explicit collector-boundary decision. It
+// does not inspect a metric's spelling or labels to discover the decision.
+func (s *Schema) AddAllowListSuppression(name string, producer Producer) {
+	if name == "" || producer.Name == "" || producer.AllowListVersion == "" || producer.AllowListVariant == "" {
+		return
+	}
+	suppression := MetricSuppression{Name: name, Producer: producer}
+	if !slices.Contains(s.AllowListSuppressions, suppression) {
+		s.AllowListSuppressions = append(s.AllowListSuppressions, suppression)
+	}
+	sort.Slice(s.AllowListSuppressions, func(i, j int) bool {
+		if s.AllowListSuppressions[i].Name != s.AllowListSuppressions[j].Name {
+			return s.AllowListSuppressions[i].Name < s.AllowListSuppressions[j].Name
+		}
+		return compareProducer(s.AllowListSuppressions[i].Producer, s.AllowListSuppressions[j].Producer) < 0
+	})
 }
 
 // WriteJSON normalizes then writes stable, indented JSON with one trailing newline.
@@ -224,6 +268,27 @@ func (s *Schema) AddMetric(name, transport, instrument string, labels map[string
 			addInt32(&m.Histogram.NativeSchemas, schema)
 		}
 	}
+	sort.Slice(s.Metrics, func(i, j int) bool { return s.Metrics[i].Name < s.Metrics[j].Name })
+}
+
+// AddMetricProducer records direct producer provenance for a family already
+// observed by this schema. Callers must pass source evidence; this API does not
+// inspect the metric name, prefixes, or labels.
+func (s *Schema) AddMetricProducer(name string, producer Producer) {
+	if name == "" || producer.Name == "" {
+		return
+	}
+	i := slices.IndexFunc(s.Metrics, func(m Metric) bool { return m.Name == name })
+	if i < 0 {
+		s.Metrics = append(s.Metrics, Metric{Name: name, Producers: []Producer{}, Transports: []string{}, InstrumentTypes: []string{}, Labels: []Attribute{}})
+		i = len(s.Metrics) - 1
+	}
+	if !slices.Contains(s.Metrics[i].Producers, producer) {
+		s.Metrics[i].Producers = append(s.Metrics[i].Producers, producer)
+	}
+	sort.Slice(s.Metrics[i].Producers, func(left, right int) bool {
+		return compareProducer(s.Metrics[i].Producers[left], s.Metrics[i].Producers[right]) < 0
+	})
 	sort.Slice(s.Metrics, func(i, j int) bool { return s.Metrics[i].Name < s.Metrics[j].Name })
 }
 
@@ -344,6 +409,9 @@ func (s *Schema) Normalize() {
 	if s.Metrics == nil {
 		s.Metrics = []Metric{}
 	}
+	if s.AllowListSuppressions == nil {
+		s.AllowListSuppressions = []MetricSuppression{}
+	}
 	if s.Logs == nil {
 		s.Logs = []Log{}
 	}
@@ -360,6 +428,7 @@ func (s *Schema) Normalize() {
 		s.Receipts = []Receipt{}
 	}
 	for i := range s.Metrics {
+		normalizeProducers(&s.Metrics[i].Producers)
 		normalizeStrings(&s.Metrics[i].Transports)
 		normalizeStrings(&s.Metrics[i].InstrumentTypes)
 		normalizeAttributes(&s.Metrics[i].Labels)
@@ -375,6 +444,11 @@ func (s *Schema) Normalize() {
 				h.NativeSchemas = []int32{}
 			}
 		}
+	}
+	for i := range s.AllowListSuppressions {
+		normalizeProducer := []Producer{s.AllowListSuppressions[i].Producer}
+		normalizeProducers(&normalizeProducer)
+		s.AllowListSuppressions[i].Producer = normalizeProducer[0]
 	}
 	for i := range s.Logs {
 		normalizeAttributes(&s.Logs[i].StreamLabels)
@@ -394,6 +468,12 @@ func (s *Schema) Normalize() {
 		normalizeStrings(&s.Sigil[i].OperationNames)
 	}
 	sort.Slice(s.Metrics, func(i, j int) bool { return s.Metrics[i].Name < s.Metrics[j].Name })
+	sort.Slice(s.AllowListSuppressions, func(i, j int) bool {
+		if s.AllowListSuppressions[i].Name != s.AllowListSuppressions[j].Name {
+			return s.AllowListSuppressions[i].Name < s.AllowListSuppressions[j].Name
+		}
+		return compareProducer(s.AllowListSuppressions[i].Producer, s.AllowListSuppressions[j].Producer) < 0
+	})
 	sort.Slice(s.Logs, func(i, j int) bool {
 		if s.Logs[i].Transport == s.Logs[j].Transport {
 			return s.Logs[i].Source < s.Logs[j].Source
@@ -404,6 +484,27 @@ func (s *Schema) Normalize() {
 	sort.Slice(s.Profiles, func(i, j int) bool { return s.Profiles[i].ProfileType < s.Profiles[j].ProfileType })
 	sort.Slice(s.Sigil, func(i, j int) bool { return s.Sigil[i].IngestKind < s.Sigil[j].IngestKind })
 	sort.Slice(s.Receipts, func(i, j int) bool { return s.Receipts[i].Protocol < s.Receipts[j].Protocol })
+}
+
+func normalizeProducers(producers *[]Producer) {
+	if *producers == nil {
+		*producers = []Producer{}
+		return
+	}
+	sort.Slice(*producers, func(i, j int) bool { return compareProducer((*producers)[i], (*producers)[j]) < 0 })
+	*producers = slices.CompactFunc(*producers, func(left, right Producer) bool { return compareProducer(left, right) == 0 })
+}
+
+func compareProducer(left, right Producer) int {
+	for _, pair := range [][2]string{{left.Name, right.Name}, {left.AllowListVersion, right.AllowListVersion}, {left.AllowListVariant, right.AllowListVariant}} {
+		if pair[0] < pair[1] {
+			return -1
+		}
+		if pair[0] > pair[1] {
+			return 1
+		}
+	}
+	return 0
 }
 
 func normalizeStrings(values *[]string) {

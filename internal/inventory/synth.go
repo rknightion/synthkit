@@ -126,6 +126,12 @@ func addPromSeries(out *Schema, series promrw.Series) {
 		instrument = InstrumentSummary
 	}
 	out.AddMetric(name, TransportPrometheusRW2, instrument, series.Labels, histogram)
+	if series.Producer != "" {
+		out.AddMetricProducer(name, Producer{
+			Name: series.Producer, AllowListVersion: series.ProducerAllowListVersion,
+			AllowListVariant: series.ProducerAllowListVariant,
+		})
+	}
 }
 
 func addOTLPMetricResource(out *Schema, resource otlp.MetricResource) {
@@ -143,11 +149,17 @@ func addOTLPMetricResource(out *Schema, resource otlp.MetricResource) {
 		for _, point := range metric.Numbers {
 			attrs := mergeStrings(resourceAttrs, stringify(point.Attrs))
 			out.AddMetric(metric.Name, TransportOTLPMetrics, instrument, attrs, nil)
+			if resource.Producer != "" {
+				out.AddMetricProducer(metric.Name, Producer{Name: resource.Producer})
+			}
 		}
 		for _, point := range metric.Histograms {
 			attrs := mergeStrings(resourceAttrs, stringify(point.Attrs))
 			out.AddMetric(metric.Name, TransportOTLPMetrics, instrument, attrs,
 				&Histogram{Classic: true, BucketBounds: point.Bounds})
+			if resource.Producer != "" {
+				out.AddMetricProducer(metric.Name, Producer{Name: resource.Producer})
+			}
 		}
 		for _, point := range metric.ExpHistograms {
 			attrs := mergeStrings(resourceAttrs, stringify(point.Attrs))
@@ -156,9 +168,15 @@ func addOTLPMetricResource(out *Schema, resource otlp.MetricResource) {
 			// e2e receiver records the same shape, so the two sides of the diff agree.
 			out.AddMetric(metric.Name, TransportOTLPMetrics, instrument, attrs,
 				&Histogram{Native: true, NativeSchemas: []int32{point.Scale}})
+			if resource.Producer != "" {
+				out.AddMetricProducer(metric.Name, Producer{Name: resource.Producer})
+			}
 		}
 		if len(metric.Numbers) == 0 && len(metric.Histograms) == 0 && len(metric.ExpHistograms) == 0 {
 			out.AddMetric(metric.Name, TransportOTLPMetrics, instrument, resourceAttrs, nil)
+			if resource.Producer != "" {
+				out.AddMetricProducer(metric.Name, Producer{Name: resource.Producer})
+			}
 		}
 	}
 }
