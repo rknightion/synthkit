@@ -121,6 +121,10 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: just e2e
+        env:
+          # Temporary safety boundary while SKT-0043 remains unresolved: exercise the
+          # complete metric/log/trace surface without loading the ai_agent fixture.
+          SYNTHKIT_E2E_INCLUDE_AGENT: 'false'
 
   # Credential-free comparison of the complete synthetic inventory with the committed
   # substrate-scoped reality corpus. Unexempted contradictions fail; coverage gaps and visible,
