@@ -1,9 +1,11 @@
 ---
 id: SKT-0049
 title: Restore otlp-native to the lab deployment once a fixed image ships
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - '@codex'
 created_date: '2026-08-31 15:13'
+updated_date: '2026-09-01 23:02'
 labels: []
 dependencies: []
 ordinal: 140000
@@ -43,14 +45,32 @@ because ArgoCD had not yet polled. Git and the cluster agree, so ArgoCD selfHeal
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 image.tag in rkps-awsinfra points at a build containing commit 187b7f0 or later
-- [ ] #2 otlp-native is back in blueprintNames and the temporary removal note is deleted
-- [ ] #3 The running pod's log shows 7 selected blueprints and no gen_ai or agent emission
+- [x] #1 image.tag in rkps-awsinfra points at a build containing commit 187b7f0 or later
+- [x] #2 otlp-native is back in blueprintNames and the temporary removal note is deleted
+- [x] #3 The running pod's log shows 7 selected blueprints and no gen_ai or agent emission
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Confirm the fixed immutable image is published, then change only the standing deployment values file: set image.tag to main-4fe898f, restore otlp-native in blueprintNames, and remove the temporary emergency note. Commit and push that repository, wait for ArgoCD synchronization, then verify the running revision, selected set, health, absence of agent/Sigil emission, and restored two-mode native-OTLP data. Revert the values change if health does not converge.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-02 evidence: the bounded values-only change is committed and synchronized. The workload is healthy on the fixed immutable image, selects seven safe blueprints including otlp-native, and logs show no agent or Sigil emission. The tracker ACs are met. The overnight goal's additional two-mode far-side data proof remains unproven because no authorized query path was established; resume with explicit access to the standing lab data destination and prove both enriched and naked native-OTLP series after synchronization. Synthkit just check and just dump passed; generation was not applicable.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+2026-09-02: Parked at the goal's stricter live-data boundary after the tracker ACs passed: the lab is healthy on the fixed image with otlp-native restored and no agent emission, but far-side two-mode data remains unproven.
+<!-- SECTION:FINAL_SUMMARY:END -->
