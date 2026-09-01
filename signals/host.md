@@ -584,3 +584,28 @@ recorded as absent from the contract. Tracked as cantfind SK-100.
 
 `system.paging.*` and `system.processes.*` were not observed either; their scrapers are not in
 the documented values, so their absence is expected and needs no follow-up.
+
+### Coverage-audit triage — native hostmetrics permutation (2026-09-01)
+
+The 19 rows in the table above are **not Prometheus-family omissions from the `host` construct**.
+With `otel.metrics: true`, `internal/construct/host/native_otlp.go` emits this exact `system.*`
+set as the separate native-OTLP lane; the established `node_*` / `windows_*` / cAdvisor lane
+retains `(job, instance)` identity.  The captured k3d receiver additionally carries
+`k8s.node.name` and `k8s.cluster.name` because collector processors enrich its resource.  The
+standalone host emitter deliberately carries only `host.name` and `os.type`, so those two keys
+must not be copied into a non-Kubernetes fixture.
+
+| Rows | Count | Triage | Disposition |
+|---|---:|---|---|
+| `system.cpu.time`, `system.cpu.load_average.{1m,5m,15m}`, `system.cpu.logical.count` | 5 | known native instrument and resource attributes | emitted by the native OTel lane; k3d-only `k8s.*` resource enrichment is not a standalone-host label |
+| `system.memory.usage`, `system.memory.limit` | 2 | known native instrument and resource attributes | emitted by the native OTel lane; k3d-only `k8s.*` resource enrichment is not a standalone-host label |
+| `system.disk.{io,merged,operation_time,operations,io_time,weighted_io_time,pending_operations}` | 7 | known native instrument plus `device`/`direction` attributes | emitted by the native OTel lane; not a missing Prometheus host family |
+| `system.network.{io,packets,dropped,errors,connections}` | 5 | known native instrument plus `device`/`direction` or `protocol`/`state` attributes | emitted by the native OTel lane; not a missing Prometheus host family |
+
+The label portion of all 19 findings is closed by the documented standalone-versus-k3d resource
+boundary. Five families (`system.cpu.logical.count`, `system.memory.limit`,
+`system.memory.usage`, `system.disk.pending_operations`, and `system.network.connections`) are
+non-monotonic cumulative OTLP Sums in the emitter while the corpus's Prometheus-shaped vocabulary
+records them as `gauge`; that type distinction is capture-blocked by existing SK-103, not a reason
+to alter their emitted wire shape. No family is missing, and no new capture or emitter change is
+made by this triage.

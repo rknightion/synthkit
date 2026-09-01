@@ -195,6 +195,16 @@ NXDOMAIN(6%),SERVFAIL(1%)}, `proto` ∈ {udp(90%),tcp(10%)}, query `type` ∈ {A
 > `coredns_hosts_reload_timestamp_seconds` are present in the k3d capture (k3s ships a NodeHosts
 > hostsfile) and are accepted coverage gaps, per SKT-0010.04. SKT-0010.07.
 
+### Coverage-audit disposition — CoreDNS hosts plugin (2026-09-01)
+
+| Raw row | Verdict | Reason |
+|---|---|---|
+| `coredns_hosts_entries` | deliberately out of scope | `reality-corpus/k8s-addons/k3d-lab.json` captures the k3s NodeHosts Corefile plugin. The synthkit CoreDNS contract models no `hosts` block, so it has no entry-count state to emit. |
+| `coredns_hosts_reload_timestamp_seconds` | deliberately out of scope | The same plugin-only condition applies. A synthetic zero would be a fabricated third state; the emitter intentionally omits it (SKT-0010.07). |
+
+These are the two current k8s-addon `extra_metric` rows. They are a deliberate Corefile-model
+boundary, not a request to add a synthetic hostsfile or to reuse identity from another add-on.
+
 ```yaml signals
 family: coredns
 scope: substrate

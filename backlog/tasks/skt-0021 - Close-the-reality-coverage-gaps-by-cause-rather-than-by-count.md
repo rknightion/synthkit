@@ -1,9 +1,11 @@
 ---
 id: SKT-0021
 title: 'Close the reality coverage gaps, by cause rather than by count'
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-29 09:21'
+updated_date: '2026-09-01 23:02'
 labels: []
 dependencies: []
 priority: medium
@@ -31,12 +33,30 @@ Also measured: **33 findings are byte-identical in both the Contradictions and t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each of the three gap classes has a recorded verdict: closed, deliberately out of scope with a reason, or blocked on capture
-- [ ] #2 No class is closed by suppressing findings rather than changing what synthkit emits or what the corpus records
-- [ ] #3 The gap count is reported per class and per substrate, so a change is attributable
+- [x] #1 Each of the three gap classes has a recorded verdict: closed, deliberately out of scope with a reason, or blocked on capture
+- [x] #2 No class is closed by suppressing findings rather than changing what synthkit emits or what the corpus records
+- [x] #3 The gap count is reported per class and per substrate, so a change is attributable
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make signal-fidelity runs and the count movement is attributed to a cause
+- [x] #1 make signal-fidelity runs and the count movement is attributed to a cause
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+After the CloudWatch and k8s/host child counts return, record one coherent parent verdict across extra_metric, instrument_mismatch, and unexpected_label_key classes, with attributable per-substrate movement and no suppressed findings.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-02 parent verdict: the current 648 findings are 420 extra_metric, 118 instrument_mismatch, and 110 unexpected_label_key; 499 are EKS and 149 k3s. The 420 extra_metric rows resolve to 280 emit-candidate CloudWatch expansions, 50 deliberate exclusions, 75 PENDING expansions, and 15 already-emitted kube-proxy component rows. The 118 unknown-type rows remain absent evidence/capture quality, and the 110 label rows retain their recorded systematic causes. No finding or threshold was suppressed; zero exemptions were added. Integrated signal-fidelity passed.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+2026-09-02: Recorded all three coverage classes and current substrate counts with attributable causes; no class was closed by suppression and the integrated fidelity gate passed with zero new exemptions.
+<!-- SECTION:FINAL_SUMMARY:END -->

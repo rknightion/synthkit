@@ -690,6 +690,26 @@ All carry `node`. Histograms emit `_bucket{le}` + `_sum` + `_count`.
 > rules, and `asserts:*` series. These are Prometheus/Asserts pipeline artefacts, not exporter scrape output,
 > and synth does not (and should not) emit them.
 
+### Coverage-audit disposition — exporter self-metrics and kube-proxy components (2026-09-01)
+
+The current corpus has **43 raw k8s `extra_metric` rows**, not the 41 in the
+SKT-0021.03 prose.  The 2026-08-30 `alloy-default` refresh added
+`process_network_receive_bytes_total` and `process_network_transmit_bytes_total`; they use the
+same disposition as the other captured process self-metrics.  This table is the row-by-row
+disposition, sourced from `reality-corpus/k8s/eks-live-readback.json` and
+`reality-corpus/k8s/k3d-lab.json`.  It does not change either capture.
+
+| Raw rows | Count | Verdict | Reason |
+|---|---:|---|---|
+| `kubeproxy_{conntrack_reconciler_sync,network_programming,sync_full_proxy_rules,sync_partial_proxy_rules,sync_proxy_rules}_duration_seconds_{bucket,count,sum}` | 15 | closed — already emitted | These are five classic-histogram families already emitted by `internal/construct/k8scluster/kubeproxy.go`. The EKS read-back retains their three Prometheus components as separate metric entries, while synth inventory folds them to their family base. This is producer-side component folding, not absent emission. |
+| `go_gc_gogc_percent`, `go_gc_gomemlimit_bytes`, `go_info`, `go_memstats_alloc_bytes_total`, `go_memstats_buck_hash_sys_bytes`, `go_memstats_frees_total`, `go_memstats_gc_sys_bytes`, `go_memstats_heap_idle_bytes`, `go_memstats_heap_objects`, `go_memstats_heap_released_bytes`, `go_memstats_heap_sys_bytes`, `go_memstats_last_gc_time_seconds`, `go_memstats_mallocs_total`, `go_memstats_mcache_inuse_bytes`, `go_memstats_mcache_sys_bytes`, `go_memstats_mspan_inuse_bytes`, `go_memstats_mspan_sys_bytes`, `go_memstats_next_gc_bytes`, `go_memstats_other_sys_bytes`, `go_memstats_stack_inuse_bytes`, `go_memstats_stack_sys_bytes`, `go_memstats_sys_bytes`, `go_sched_gomaxprocs_threads` | 23 | deliberately out of scope | These are the kubelet/exporter process's Go runtime self-metrics. The construct models Kubernetes substrate telemetry, not the implementation-runtime telemetry of every scraped binary; this is the existing `go_goroutines` / `process_*` boundary above. |
+| `process_network_receive_bytes_total`, `process_network_transmit_bytes_total`, `process_start_time_seconds`, `process_virtual_memory_bytes`, `process_virtual_memory_max_bytes` | 5 | deliberately out of scope | These are likewise process self-metrics, with no Kubernetes resource contract or construct-owned identity. The two network rows are the post-task capture addition that makes the current total 43. |
+
+No k8s missing-family row is emitted by this disposition: 15 rows are closed as already
+emitted and 28 are deliberate exporter-self-metric exclusions.  A future decision to model a
+specific collector binary's runtime surface must introduce that binary's declared identity and
+cannot borrow it from a sibling construct.
+
 ```yaml signals
 family: kubelet
 scope: substrate
