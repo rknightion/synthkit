@@ -868,3 +868,116 @@ metrics:
   - {root: rst_packets_sent, type: gauge, unit: count, v: ok}
 info_series: aws_privatelinkservices_info
 ```
+
+
+---
+
+## SKT-0021.02 CloudWatch coverage reconciliation (2026-09-01)
+
+This is the durable source-family record for the measured **375** CloudWatch
+`extra_metric` findings. It was derived by comparing the 618 CloudWatch series in
+`reality-corpus/cw/eks-live-readback.json` with an inventory generated from only
+`aws-cloudwatch-infra,aws-cloud-services` (`SELFOBS_ENABLED=false DRY_RUN=true`).
+The fold is exactly the naming law's five statistics:
+`_sum/_average/_maximum/_minimum/_sample_count`. Thus the finding denominator is
+**75 source families × 5 = 375 findings**, not 375 independent source families.
+
+The existing coverage record supplies 70 of the 75 source-family decisions. They
+reconcile to SKT-0010.06's CloudWatch scope: its description enumerates 56
+CloudWatch `should_emit` roots (the headline's 57th family is the separate
+kubelet-storage item). This reconciliation emits no code: an `emit` verdict is
+an input to SKT-0010.06, not an assertion that the root now exists in synth output.
+
+| Source family | Verdict | findings | Evidence / durable reason |
+| --- | --- | ---: | --- |
+| `aws_applicationelb_anomalous_host_count` | PENDING SK-92 | 5 | optional ALB target-health/zonal publication condition remains unconfirmed |
+| `aws_applicationelb_capacity_utilization` | PENDING SK-93 | 5 | unit and capacity-reservation publication condition remain unconfirmed |
+| `aws_applicationelb_client_tlsnegotiation_error_count` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_consumed_lcus` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_desync_mitigation_mode_non_compliant_request_count` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_healthy_state_dns` | PENDING SK-92 | 5 | optional ALB target-health/zonal publication condition remains unconfirmed |
+| `aws_applicationelb_healthy_state_routing` | PENDING SK-92 | 5 | optional ALB target-health/zonal publication condition remains unconfirmed |
+| `aws_applicationelb_http_fixed_response_count` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_http_redirect_count` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_httpcode_elb_3_xx_count` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_httpcode_elb_4_xx_count` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_httpcode_elb_503_count` | PENDING (new) | 5 | captured root; neither `signals/cw.md` nor the existing verdict record establishes its independent publication/dimension contract |
+| `aws_applicationelb_mitigated_host_count` | PENDING SK-92 | 5 | optional ALB target-health/zonal publication condition remains unconfirmed |
+| `aws_applicationelb_peak_lcus` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_request_count_per_target` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_rule_evaluations` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_applicationelb_unhealthy_state_dns` | PENDING SK-92 | 5 | optional ALB target-health/zonal publication condition remains unconfirmed |
+| `aws_applicationelb_unhealthy_state_routing` | PENDING SK-92 | 5 | optional ALB target-health/zonal publication condition remains unconfirmed |
+| `aws_ebs_volume_avg_iops` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ebs_volume_avg_throughput` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ebs_volume_idle_time` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ebs_volume_iopsexceeded_check` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ebs_volume_stalled_iocheck` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ebs_volume_throughput_exceeded_check` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_cpucredit_usage` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_cpusurplus_credit_balance` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_cpusurplus_credits_charged` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_disk_read_bytes` | out of scope | 5 | EC2 instance-store root; modelled node fixtures cover EBS-backed nodes only |
+| `aws_ec2_disk_read_ops` | out of scope | 5 | EC2 instance-store root; modelled node fixtures cover EBS-backed nodes only |
+| `aws_ec2_disk_write_bytes` | out of scope | 5 | EC2 instance-store root; modelled node fixtures cover EBS-backed nodes only |
+| `aws_ec2_disk_write_ops` | out of scope | 5 | EC2 instance-store root; modelled node fixtures cover EBS-backed nodes only |
+| `aws_ec2_ebsbyte_balance_percent` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_ebsiobalance_percent` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_instance_ebsiopsexceeded_check` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_instance_ebsthroughput_exceeded_check` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_metadata_no_token_rejected` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_metadata_no_token` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_network_packets_in` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_ec2_network_packets_out` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_bytes_per_second_limit` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_delivery_to_http_endpoint_bytes` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_delivery_to_http_endpoint_processed_bytes` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_delivery_to_http_endpoint_processed_records` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_delivery_to_http_endpoint_records` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_describe_delivery_stream_latency` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_describe_delivery_stream_requests` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_failed_validation_bytes` | PENDING SK-95 | 5 | requires `dimension_SourcePartitionId`, a stream capability not modelled |
+| `aws_firehose_failed_validation_records` | PENDING SK-95 | 5 | requires `dimension_SourcePartitionId`, a stream capability not modelled |
+| `aws_firehose_incoming_bytes` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_incoming_put_requests` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_incoming_records` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_kmskey_access_denied` | PENDING SK-94 | 5 | error-only versus continuous-zero publication remains unconfirmed |
+| `aws_firehose_kmskey_disabled` | PENDING SK-94 | 5 | error-only versus continuous-zero publication remains unconfirmed |
+| `aws_firehose_kmskey_invalid_state` | PENDING SK-94 | 5 | error-only versus continuous-zero publication remains unconfirmed |
+| `aws_firehose_kmskey_not_found` | PENDING SK-94 | 5 | error-only versus continuous-zero publication remains unconfirmed |
+| `aws_firehose_put_record_batch_bytes` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_put_record_batch_latency` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_put_record_batch_records` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_put_record_batch_requests` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_put_record_bytes` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_put_record_latency` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_put_record_requests` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_put_requests_per_second_limit` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_records_per_second_limit` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_firehose_secrets_manager_access_denied_exception` | PENDING SK-94 | 5 | error-only versus continuous-zero publication remains unconfirmed |
+| `aws_firehose_throttled_records` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_natgateway_bytes_in_from_destination` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_natgateway_bytes_in_from_source` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_natgateway_bytes_out_to_source` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_natgateway_packets_in_from_destination` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_natgateway_packets_in_from_source` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_natgateway_packets_out_to_destination` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_natgateway_packets_out_to_source` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_natgateway_peak_bytes_per_second` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+| `aws_natgateway_peak_packets_per_second` | emit | 5 | Existing `should_emit`: `reality-corpus/verdicts/coverage-verdicts.json`; SKT-0010.06 |
+
+**Counts:** 75 source families verdicted; 56 `emit` verdicts; 4 deliberately
+out of scope; 15 PENDING (including one new row awaiting root-assigned `SK-N`);
+0 source families emitted by this reconciliation; 375 expanded findings. The four
+out-of-scope EC2 roots are `Disk{Read,Write}{Bytes,Ops}`: the EC2 contract models
+EBS-backed worker nodes and already emits the EBS-specific roots. The current Amazon
+CloudWatch documentation retrieved through Context7 on 2026-09-01 independently
+describes NVMe metrics for **instance-store** volumes; that is a different fixture
+capability, not a missing EBS sibling.
+
+Every source family in the table expands only through `cw.EmitStats`; its
+`_sum` is a per-period gauge (`state.Set`), never a counter or rate. The new
+`aws_applicationelb_httpcode_elb_503_count` row is intentionally PENDING rather
+than inferred from the existing aggregate `httpcode_elb_5_xx_count`: the captured
+name alone does not establish the independent root's publication condition or exact
+dimension form.
