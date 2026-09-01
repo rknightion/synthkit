@@ -5,7 +5,7 @@
 # with a second --values, so a permutation is selected explicitly rather than by editing
 # this file in place.
 #
-# Chart pin: grafana/k8s-monitoring 4.4.0 from https://grafana.github.io/helm-charts.
+# Chart pin: grafana/k8s-monitoring 4.5.0 from https://grafana.github.io/helm-charts.
 # Each permutation's deploy.sh passes --version as a second, executable pin. Every enabled
 # destination below is the in-cluster capture receiver; no hosted destination or
 # credential is valid in this file.

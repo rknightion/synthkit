@@ -1,0 +1,19 @@
+# The lab-catalog Service already exposes its named metrics port. This ServiceMonitor deliberately
+# leaves jobLabel unset, so Prometheus Operator's documented default maps the Service name to job.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: lab-catalog-remote-write
+  namespace: otel-demo
+  labels:
+    release: synthkit-prometheus-operator
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lab-catalog
+  namespaceSelector:
+    matchNames:
+      - otel-demo
+  endpoints:
+    - port: metrics
+      interval: 15s

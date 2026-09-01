@@ -187,7 +187,7 @@ check_chart_pin() {
     fi
   done < <(permutations)
 
-  if rg -q 'grafana/k8s-monitoring 4\.4\.0' "$VALUES_FILE"; then
+  if rg -q 'grafana/k8s-monitoring 4\.5\.0' "$VALUES_FILE"; then
     pass "base values record the Alloy chart pin"
   else
     fail "base values do not record the Alloy chart pin"

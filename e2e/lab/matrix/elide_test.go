@@ -165,7 +165,7 @@ func TestNormalizeCandidateStampsProvenanceAndElides(t *testing.T) {
 	raw := buildInfoFixture()
 	candidate := NormalizeCandidate(raw, inventory.Provenance{
 		Substrate:    "k3s",
-		ChartVersion: "4.4.0",
+		ChartVersion: "4.5.0",
 		CapturedAt:   "2026-08-27T00:00:00Z",
 	})
 	if candidate.Provenance == nil || candidate.Provenance.Substrate != "k3s" {

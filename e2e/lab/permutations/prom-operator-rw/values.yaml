@@ -1,0 +1,29 @@
+# The chart supplies Prometheus and the Operator only. Disabling the bundled exporters keeps the
+# capture about one ServiceMonitor's remote-write envelope rather than their separate catalogues.
+grafana:
+  enabled: false
+alertmanager:
+  enabled: false
+kubeStateMetrics:
+  enabled: false
+nodeExporter:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+kubelet:
+  enabled: false
+prometheus:
+  enabled: true
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector:
+      matchLabels:
+        release: synthkit-prometheus-operator
+    serviceMonitorNamespaceSelector: {}
+    externalLabels: {}
+    prometheusExternalLabelName: prometheus
+    replicaExternalLabelName: prometheus_replica
+    remoteWrite:
+      - url: https://synthkit-skt000603-receiver.monitoring.svc.cluster.local:9099/api/prom/push
+        tlsConfig:
+          insecureSkipVerify: true

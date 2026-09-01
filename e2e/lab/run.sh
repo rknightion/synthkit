@@ -38,7 +38,7 @@ readonly CAPTURED_AT="${LAB_CAPTURED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 readonly RESULTS_DIR="$LAB_OUTPUT_DIR/results-$RUN_ID"
 readonly REPORT_MD="$LAB_OUTPUT_DIR/matrix-report-$RUN_ID.md"
 readonly REPORT_JSON="$LAB_OUTPUT_DIR/matrix-report-$RUN_ID.json"
-readonly RECEIVER_IMAGE="synthkit-skt000603/receiver:4.4.0-lab"
+readonly RECEIVER_IMAGE="synthkit-skt000603/receiver:4.5.0-lab"
 readonly WORKLOAD_IMAGE="docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"
 readonly PORT_BASE="${LAB_RECEIVER_PORT_BASE:-19099}"
 

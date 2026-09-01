@@ -29,7 +29,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: receiver
-          image: synthkit-skt000603/receiver:4.4.0-lab
+          image: synthkit-skt000603/receiver:4.5.0-lab
           imagePullPolicy: Never
           env:
             - name: RECEIVER_ADDR

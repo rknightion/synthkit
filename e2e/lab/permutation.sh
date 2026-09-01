@@ -44,7 +44,7 @@ readonly CONFORMANCE_SOURCE="$REPO_ROOT/internal/construct/k8scluster/conformanc
 # prefix is short for that reason and require_commands enforces the limit at preflight.
 readonly LAB_CLUSTER_NAME="synthkit-lab-$PERMUTATION"
 readonly AUX_CONTAINER_NAME="synthkit-skt000603-receiver-$PERMUTATION"
-readonly RECEIVER_IMAGE="${LAB_RECEIVER_IMAGE:-synthkit-skt000603/receiver:4.4.0-lab}"
+readonly RECEIVER_IMAGE="${LAB_RECEIVER_IMAGE:-synthkit-skt000603/receiver:4.5.0-lab}"
 readonly WORKLOAD_IMAGE="docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"
 readonly RECEIVER_SERVICE="synthkit-skt000603-receiver"
 readonly RECEIVER_NAMESPACE="monitoring"

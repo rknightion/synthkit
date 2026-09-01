@@ -1,7 +1,7 @@
 # Minimal otel-demo-shaped workload deck for the k3s capture lab.
 #
 # Both application images are pinned to the immutable multi-platform BusyBox image
-# index below. The chart itself is independently pinned to k8s-monitoring 4.4.0 by
+# index below. The chart itself is independently pinned to k8s-monitoring 4.5.0 by
 # values.yaml and run.sh. Each pod writes stdout continuously, serves a tiny
 # Prometheus endpoint, and carries the standard prometheus.io/* annotations consumed
 # by annotationAutodiscovery.
