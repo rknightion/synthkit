@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { Icon } from "./Icon";
 
 const THEME_STORAGE_NAME = "synthkit-control-theme";
 
@@ -6,7 +7,7 @@ const THEME_STORAGE_NAME = "synthkit-control-theme";
 // localStorage under the legacy key, so a reload restores the operator's theme.
 export function ThemeToggle() {
   const [theme, setTheme] = createSignal(
-    document.documentElement.getAttribute("data-theme") ?? "dark",
+    document.documentElement.getAttribute("data-theme") ?? "light",
   );
   const toggle = () => {
     const next = theme() === "dark" ? "light" : "dark";
@@ -21,8 +22,8 @@ export function ThemeToggle() {
     setTheme(next);
   };
   return (
-    <button type="button" aria-label="Toggle light/dark theme" onClick={toggle}>
-      {theme() === "dark" ? "☾" : "☀"}
+    <button class="icon-btn" type="button" aria-label="Toggle light/dark theme" onClick={toggle}>
+      <Icon name={theme() === "dark" ? "moon" : "sun"} />
     </button>
   );
 }

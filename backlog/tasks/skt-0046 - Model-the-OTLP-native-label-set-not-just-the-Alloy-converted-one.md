@@ -1,9 +1,11 @@
 ---
 id: SKT-0046
 title: 'Model the OTLP-native label set, not just the Alloy-converted one'
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-31 10:40'
+updated_date: '2026-09-01 20:42'
 labels: []
 dependencies: []
 ordinal: 137000
@@ -45,15 +47,33 @@ Relates to SKT-0007, whose measured finding is that 44 of 45 catalog packages em
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The resource attributes the OTLP gateway promotes are enumerated from the capture, not from the specification
-- [ ] #2 A blueprint declaring OTLP-native ingest emits application metrics carrying the promoted label set
-- [ ] #3 The Alloy-converted lane keeps its current shape, so both realities remain modellable
+- [x] #1 The resource attributes the OTLP gateway promotes are enumerated from the capture, not from the specification
+- [x] #2 A blueprint declaring OTLP-native ingest emits application metrics carrying the promoted label set
+- [x] #3 The Alloy-converted lane keeps its current shape, so both realities remain modellable
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
-- [ ] #4 just check
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
+- [x] #4 just check
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Enumerate the native gateway-promoted application metric labels from capture evidence, add them only to the OTLP-native lane, preserve the converted lane, and prove the distinction with focused tests.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented the capture-enumerated promoted set on native OTLP application metric datapoints only: k8s_deployment_name, k8s_namespace_name, k8s_pod_name, service_name, and service_version. The converted lane remains unchanged and keeps full identity on target_info. Focused tests plus just check, just dump, and just e2e passed. New emission was not proved live because the standing lab deployment pins an immutable image outside this wave.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Done: native OTLP application metrics carry exactly the gateway-promoted resource labels enumerated from capture evidence, while the converted lane and target_info shape remain intact. Verified by focused tests and full check/dump/e2e gates; live proof awaits a later immutable-image promotion.
+<!-- SECTION:FINAL_SUMMARY:END -->

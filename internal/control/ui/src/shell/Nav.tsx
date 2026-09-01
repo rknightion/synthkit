@@ -1,11 +1,12 @@
 import { For, Show, type JSX } from "solid-js";
 import { A } from "@solidjs/router";
 import { useStore } from "../store/store";
+import { Icon, type IconName } from "./Icon";
 
 interface NavItem {
   path: string;
   label: string;
-  icon: string;
+  icon: IconName;
 }
 
 interface NavGroup {
@@ -19,26 +20,26 @@ const GROUPS: NavGroup[] = [
   {
     label: "Views",
     items: [
-      { path: "/", label: "Overview", icon: "▦" },
-      { path: "/config", label: "Config", icon: "⚙" },
-      { path: "/health", label: "Health", icon: "❤" },
-      { path: "/xray", label: "X-ray", icon: "🔬" },
+      { path: "/", label: "Overview", icon: "squares-four" },
+      { path: "/config", label: "Config", icon: "gear" },
+      { path: "/health", label: "Health", icon: "pulse" },
+      { path: "/xray", label: "X-ray", icon: "crosshair" },
     ],
   },
   {
     label: "Global",
     items: [
-      { path: "/global", label: "Global controls", icon: "⚙" },
-      { path: "/schema", label: "Blueprint schema", icon: "📖" },
+      { path: "/global", label: "Global controls", icon: "faders" },
+      { path: "/schema", label: "Blueprint schema", icon: "book-open" },
     ],
   },
   {
     label: "Chaos",
-    items: [{ path: "/incidents", label: "Incidents", icon: "💥" }],
+    items: [{ path: "/incidents", label: "Incidents", icon: "lightning" }],
   },
   {
     label: "Manage",
-    items: [{ path: "/blueprints", label: "Custom blueprints", icon: "📦" }],
+    items: [{ path: "/blueprints", label: "Custom blueprints", icon: "package" }],
   },
 ];
 
@@ -74,10 +75,10 @@ export function Nav(): JSX.Element {
                   activeClass="active"
                 >
                   <span class="nm">
-                    {item.icon} {item.label}
+                    <Icon name={item.icon} class="nav-icon" /> {item.label}
                   </span>
                   <Show when={item.path === "/incidents" && anyLive()}>
-                    <span class="navdot on" aria-label="live incident" />
+                    <span class="status-word live" aria-label="live incident">● LIVE</span>
                   </Show>
                 </A>
               )}

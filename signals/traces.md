@@ -113,6 +113,20 @@ placement) **`k8s.node.name`** (omitted when empty, I13). Browser spans addition
 `telemetry.sdk.language=webjs`, `telemetry.sdk.name=opentelemetry`, `telemetry.distro.name=faro-web-sdk`,
 `telemetry.distro.version`, `browser.{language,mobile,platform}`, `gf.feo11y.app.id`, `gf.feo11y.app.name`.
 
+**Collector-processed backend resource shape (measured 2026-08-31).** When the
+`application_observability` collector is enabled, a near-default k8s-monitoring receiver does not
+produce a uniform cloud resource. Only Node-runtime services on
+AKS/GKE carry `cloud.provider` (`azure`/`gcp`); non-Node services omit it, and EKS services omit it
+entirely. Detected `cloud.*` is therefore never a reliable provider-scoping key. The receiver's
+resource-detection override also stamps collector identity: `host.name` is one deterministic
+collector-shaped value shared by every application in a cluster, `host.arch` follows the
+collector node architecture, and `os.type="linux"`. These attributes contribute zero
+per-application cardinality. Absent attributes are omitted rather than sentinelled (I13).
+
+*Provenance: canonical per-substrate capture set and its recorded span-resource measurements,
+2026-08-31. Values in synthkit are deterministic synthetic identities; no captured identity is
+copied.*
+
 ## Correlation fields on every span (§1.4) [slug: traces-correlation]
 
 `app.correlation_id` (universal UUID — vendor-neutral application-level correlation, 2026-06-23),

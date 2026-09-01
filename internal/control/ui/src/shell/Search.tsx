@@ -2,6 +2,7 @@ import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import { useNavigate } from "@solidjs/router";
 import { useStore } from "../store/store";
 import { buildSearchIndex, type SearchEntry } from "./searchIndex";
+import { Icon } from "./Icon";
 
 // Simple subsequence fuzzy match: every char of query appears, in order, in the
 // target. Ported verbatim from the legacy UI.
@@ -73,7 +74,11 @@ export function Search(): JSX.Element {
 
   onMount(() => {
     window.addEventListener("keydown", onKeyDown);
-    onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+    window.addEventListener("synthkit:open-search", openSearch);
+    onCleanup(() => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("synthkit:open-search", openSearch);
+    });
   });
 
   return (
@@ -88,20 +93,28 @@ export function Search(): JSX.Element {
         }}
       >
         <div class="search-box">
-          <input
-            ref={inputRef}
-            class="search-input"
-            type="text"
-            placeholder="Search blueprints, kinds, constructs, config, metrics…"
-            autocomplete="off"
-            spellcheck={false}
-            value={query()}
-            onInput={(e) => {
-              setSel(-1);
-              setQuery(e.currentTarget.value);
-            }}
-          />
-          <div class="search-results">
+          <div class="search-input-row">
+            <Icon name="magnifying-glass" />
+            <input
+			  ref={inputRef}
+			  class="search-input"
+			  type="text"
+			  role="combobox"
+			  aria-controls="search-results"
+			  aria-expanded="true"
+			  placeholder="Search blueprints, kinds, constructs, config, metrics…"
+			  autocomplete="off"
+			  spellcheck={false}
+			  value={query()}
+			  onInput={(e) => {
+			    setSel(-1);
+			    setQuery(e.currentTarget.value);
+			  }}
+			  aria-activedescendant={sel() >= 0 ? `search-result-${sel()}` : undefined}
+			/>
+            <span class="search-count">{results().length}</span>
+          </div>
+          <div class="search-results" id="search-results" role="listbox">
             <Show
               when={results().length}
               fallback={
@@ -114,11 +127,13 @@ export function Search(): JSX.Element {
                 {(item, i) => (
                   <div
                     class={`search-result${i() === sel() ? " sel" : ""}`}
-                    role="button"
+                    id={`search-result-${i()}`}
+					role="option"
+					aria-selected={i() === sel()}
                     tabindex="-1"
                     onClick={() => go(item)}
                   >
-                    <span class="sr-icon">{item.icon}</span>
+                    <Icon name={item.icon as "squares-four" | "cube" | "hexagon" | "gear" | "chart-line"} class="sr-icon" />
                     <span class="sr-label">{item.label}</span>
                     <span class="sr-type">{item.type}</span>
                   </div>

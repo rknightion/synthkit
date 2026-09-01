@@ -1,10 +1,11 @@
 ---
 id: SKT-0045
 title: Teach the fidelity comparator what an unknown metric type means
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-30 18:41'
-updated_date: '2026-09-01 18:26'
+updated_date: '2026-09-01 20:42'
 labels: []
 dependencies: []
 ordinal: 136000
@@ -36,19 +37,25 @@ Check whether type_source is already carried through corpus ingestion, since the
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A corpus family typed unknown never produces a fidelity contradiction against any emitted type
-- [ ] #2 The distinction between an undetermined type and an observed one survives corpus ingestion and is available to the comparator
-- [ ] #3 name_suffix_hint is not used to infer a type anywhere in the comparison path
-- [ ] #4 A test pins the unknown-is-absent-evidence semantics so a later change cannot silently reintroduce the contradiction
+- [x] #1 A corpus family typed unknown never produces a fidelity contradiction against any emitted type
+- [x] #2 The distinction between an undetermined type and an observed one survives corpus ingestion and is available to the comparator
+- [x] #3 name_suffix_hint is not used to infer a type anywhere in the comparison path
+- [x] #4 A test pins the unknown-is-absent-evidence semantics so a later change cannot silently reintroduce the contradiction
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
-- [ ] #4 just check
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
+- [x] #4 just check
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Add a failing comparator fixture for an unknown metric type, preserve type-source evidence through ingestion, implement absent-evidence verdict semantics without suffix inference, then run focused comparator tests before corpus ingestion.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
@@ -75,4 +82,12 @@ estates. Do not encode "Alloy estates have no scraped metadata" as a durable ass
 in the comparator or in signals documentation.
 
 2026-09-01 privacy redaction. The 'CORRECTION, same day as filing' note named a Grafana Cloud stack by name. That identifier is on the repository's forbidden-words list, so this file failed the hosted hygiene job and left main red from 8e9c5b7 through e2ab3ce — five consecutive ci runs. The Backlog CLI offers no append-only redaction, so the name was removed by a narrow in-place edit and replaced with 'the project's other staff stack'; the technical claim it supports is unchanged. No acceptance criterion, plan or status was touched.
+
+Implemented and verified schema-2 metric-type ingestion with instrument_type_source preserved. Unknown type remains absent evidence and name suffix hints never manufacture a type. Focused fixtures cover the verdict and duplicate-family rejection; just check, just dump, and just e2e passed.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Done: unknown metric type is preserved as absent evidence rather than a contradiction, instrument type source survives ingestion, suffix hints remain non-normative, and regression fixtures pin the behavior. Verified by focused inventory tests and the full check/dump/e2e gates.
+<!-- SECTION:FINAL_SUMMARY:END -->

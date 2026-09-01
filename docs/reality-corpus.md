@@ -45,6 +45,7 @@ different evidence and must remain distinguishable in the envelope.
 | --- | --- | --- |
 | Credential-free k3d capture | Runs the disposable k3d capture lab and records collector-egress inventory. Its provenance uses the generic `k3d_lab` producer kind and the `k3s` substrate. | Root-owned and exclusive. It needs no service credentials. It may establish k3s-scoped shapes, but it cannot establish claims about another substrate. |
 | Operator-selected live read-back | Reads the operator-selected live source through read-only queries and records the resulting inventory. Its provenance uses the generic `gcx_live_readback` producer kind and the substrate selected for that read-back. | Root-owned and exclusive. The operator chooses the target before the read-back; queries must not mutate the source. Credentials are used only by the root operation, never copied into a candidate, corpus document, or this page. |
+| Reviewed external capture | Converts a reviewed schema-2 capture into a generic metric-only record. Its provenance uses `synthkit_terraform_capture`, an SHA-256 content identity, a scope class, and the source schema/tool versions. | The raw artefact stays outside this repository. Every promoted label value is elided, `tag_*` keys are omitted, and source scope/warning IDs remain visible. A source with an unknown metric type retains its `instrument_type_source`; no metric-name suffix is used to manufacture a type. |
 
 The producer kind, substrate, collector name, collector version, and capture date
 are part of the evidence. A source ID is a generic producer name, not a stack,
@@ -77,17 +78,21 @@ defect is established only by the evidence for the substrate to which the
 finding applies; matching evidence elsewhere neither suppresses nor broadens
 it.
 
-`reality-corpus/gcp/rksy-gcp.capture.json` records the provenance of the first
-clean GCP source capture. It is deliberately a capture-provenance record rather
-than a comparator document: its metrics and logs still need area-by-area,
-identity-safe normalization into the inventory envelope, while its profiles
-and traces were status-only `unavailable` observations and therefore are
-absent evidence, not negative evidence. The mixed AWS/Azure candidate is not
-represented in the corpus and remains pending a clean recapture under SKT-0042.
-Resume GCP normalization only when the root assigns a privacy-safe mapper that
-splits the source-capture metrics and logs into reviewed per-area
-`CorpusDocument` candidates, elides deployment-selected values, and validates
-each accepted document through the normal corpus loader.
+Reviewed schema-2 captures can be converted into generic candidate records,
+but the multi-cloud set is not yet admitted to the gated corpus. Its privacy
+promotion elides producer-selecting label values, so the comparator cannot
+truthfully pair a captured family with the synthetic producer that owns it.
+Resume promotion only after the capture/export contract carries direct
+per-family producer identity through the privacy boundary. Do not reconstruct
+that identity from metric names or omitted label values.
+
+The converter currently projects metrics only and preserves the raw content
+hash, scope class, source schema/tool versions, warning IDs, and each family's
+`instrument_type_source`, including
+`WINDOW_EXCEEDS_SOAK`. The source logs, traces, and profiles remain absent
+evidence until they have an identity-safe, area-owned mapping into the
+inventory envelope; their omission does not assert that the source emitted no
+such signals. Superseded attempts remain excluded.
 
 ### EKS live read-back command
 

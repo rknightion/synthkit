@@ -2,7 +2,7 @@ import { test, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent } from "@solidjs/testing-library";
 import { MemoryRouter, Route } from "@solidjs/router";
 import { StoreProvider, type ControlStore, type Snapshot } from "../store/store";
-import { Rail } from "./Rail";
+import { TopBar } from "./TopBar";
 import type { State } from "../api/types";
 
 beforeEach(() => {
@@ -50,7 +50,7 @@ function renderRail(store: ControlStore) {
   return render(() => (
     <StoreProvider store={store}>
       <MemoryRouter>
-        <Route path="/" component={Rail} />
+        <Route path="/" component={TopBar} />
       </MemoryRouter>
     </StoreProvider>
   ));
@@ -58,9 +58,9 @@ function renderRail(store: ControlStore) {
 
 test("Reset posts to /control/reset (body null) after confirm", async () => {
   const fn = stubFetchOK();
-  const { getByTestId, getByText } = renderRail(fakeStore({ state: defaultState({ disabled_blueprints: ["a"] }) }));
+  const { getByTestId, getByRole } = renderRail(fakeStore({ state: defaultState({ disabled_blueprints: ["a"] }) }));
   fireEvent.click(getByTestId("rail-reset"));
-  fireEvent.click(getByText("Reset all"));
+  fireEvent.click(getByRole("dialog").querySelector(".cfm-btn.danger")!);
   await flush();
   const call = fn.mock.calls.find((c) => c[0] === "/control/reset");
   expect(call).toBeTruthy();
@@ -82,9 +82,9 @@ test("Reset confirm message reflects the deviation count", () => {
 
 test("Reset surfaces an inline error when the POST fails", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 500 })));
-  const { getByTestId, getByText } = renderRail(fakeStore({ state: defaultState() }));
+  const { getByTestId, getByRole } = renderRail(fakeStore({ state: defaultState() }));
   fireEvent.click(getByTestId("rail-reset"));
-  fireEvent.click(getByText("Reset all"));
+  fireEvent.click(getByRole("dialog").querySelector(".cfm-btn.danger")!);
   await flush();
   expect(getByTestId("rail-reset-err")).toBeInTheDocument();
 });

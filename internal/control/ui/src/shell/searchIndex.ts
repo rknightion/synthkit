@@ -1,7 +1,7 @@
 import type { Snapshot } from "../store/store";
 
 export interface SearchEntry {
-  icon: string;
+  icon: "squares-four" | "cube" | "hexagon" | "gear" | "chart-line";
   label: string;
   type: string;
   path: string;
@@ -20,18 +20,18 @@ export function buildSearchIndex(snap: Snapshot): SearchEntry[] {
   for (const b of snap.inventory?.blueprints ?? []) bps.add(b.blueprint);
   for (const d of st?.disabled_blueprints ?? []) bps.add(d);
   for (const bp of [...bps].sort()) {
-    idx.push({ icon: "▦", label: bp, type: "blueprint", path: `/bp/${encodeURIComponent(bp)}` });
+    idx.push({ icon: "squares-four", label: bp, type: "blueprint", path: `/bp/${encodeURIComponent(bp)}` });
   }
 
   // ALL construct kinds (schema), not just the disabled ones.
   for (const k of snap.schema?.kinds ?? []) {
-    idx.push({ icon: "⬡", label: k, type: "kind", path: "/global" });
+    idx.push({ icon: "cube", label: k, type: "kind", path: "/global" });
   }
 
   // ALL per-blueprint construct instances (schema), routed to the owning blueprint view.
   for (const c of snap.schema?.constructs ?? []) {
     idx.push({
-      icon: "⬡",
+      icon: "hexagon",
       label: `${c.kind} · ${c.name}`,
       type: "construct",
       path: `/bp/${encodeURIComponent(c.blueprint)}`,
@@ -41,7 +41,7 @@ export function buildSearchIndex(snap: Snapshot): SearchEntry[] {
   // config keys → Config view.
   for (const g of snap.config?.groups ?? []) {
     for (const f of g.fields ?? []) {
-      idx.push({ icon: "⚙", label: f.key, type: "config", path: "/config" });
+      idx.push({ icon: "gear", label: f.key, type: "config", path: "/config" });
     }
   }
 
@@ -52,7 +52,7 @@ export function buildSearchIndex(snap: Snapshot): SearchEntry[] {
       for (const mn of cst.metric_names ?? []) {
         if (!seen.has(mn)) {
           seen.add(mn);
-          idx.push({ icon: "📈", label: mn, type: "metric", path: "/xray" });
+          idx.push({ icon: "chart-line", label: mn, type: "metric", path: "/xray" });
         }
       }
     }

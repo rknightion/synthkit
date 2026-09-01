@@ -24,8 +24,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/allowlist"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/sink/promrw"
 	"github.com/rknightion/synthkit/internal/state"
 )
 
@@ -38,6 +40,9 @@ const (
 // fx.Cluster; the switch only changes which signal classes this construct declares/emits.
 type Config struct {
 	OTel *OTelObs `yaml:"otel"`
+	// DefaultAllowLists projects the k8s-monitoring chart's pinned default
+	// allow-lists at the Prometheus emission boundary. Nil preserves full emission.
+	DefaultAllowLists *allowlist.K8sMonitoringSelection `yaml:"default_allow_lists"`
 	// SeriesChurnPerMinute rotates this many declared application-pod identities per minute. The
 	// active set stays bounded: retired pods stop emitting and replacement identities are derived
 	// from the cluster-scoped seed. It deliberately uses the same blueprint seam shape as
@@ -70,6 +75,7 @@ type Construct struct {
 	// state store so enabling it cannot perturb the established Prometheus state or draw order.
 	otelMetrics bool
 	otlpState   *nativeOTLPState
+	allowLists  allowlist.Projection
 
 	// High-water marks for scale-down retirement: the largest pod count ever seen per workload
 	// and the largest node count ever derived. On a scale-down, ordinals/nodes that existed at the
@@ -88,11 +94,19 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 	conf, _ := cfg.(*Config)
 	otelMetrics := conf != nil && conf.OTel != nil && conf.OTel.Metrics
 	podChurnPerMinute := 0
+	selection := allowlist.K8sMonitoringSelection{}
 	if conf != nil {
 		if conf.SeriesChurnPerMinute < 0 {
 			return nil, errors.New("k8s_cluster: series_churn_per_minute must be >= 0")
 		}
 		podChurnPerMinute = conf.SeriesChurnPerMinute
+		if conf.DefaultAllowLists != nil {
+			selection = *conf.DefaultAllowLists
+		}
+	}
+	projection, err := allowlist.NewK8sMonitoringProjection(selection)
+	if err != nil {
+		return nil, err
 	}
 	baseNames, spans := initPodLifecycleState(fx.Cluster)
 	return &Construct{
@@ -100,6 +114,7 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 		st:                state.NewState(),
 		otelMetrics:       otelMetrics,
 		otlpState:         newNativeOTLPState(),
+		allowLists:        projection,
 		maxPods:           map[string]int{},
 		podChurnPerMinute: podChurnPerMinute,
 		podChurnActive:    map[string]bool{},
@@ -212,7 +227,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	c.retireScaledAway(&lc)
 
 	// ── metrics flush ────────────────────────────────────────────────────────
-	if err := w.Metrics.Write(ctx, c.st.Collect(now)); err != nil {
+	if err := w.Metrics.Write(ctx, c.projectMetrics(c.st.Collect(now))); err != nil {
 		return err
 	}
 	if err := c.tickOTLPMetrics(ctx, now, cl, nodes, replicas, factor, tickSec, w); err != nil {
@@ -227,6 +242,46 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		return err
 	}
 	return emitPodLogs(ctx, now, cluster, cl, w)
+}
+
+// projectMetrics filters only source-selected metric FAMILIES. All series for a
+// source/name pair take the same path; labels and metric names are never altered.
+func (c *Construct) projectMetrics(batch []promrw.Series) []promrw.Series {
+	if !c.allowLists.Enabled() {
+		return batch
+	}
+	out := make([]promrw.Series, 0, len(batch))
+	for _, series := range batch {
+		if source, ok := allowListSourceForJob(series.Labels["job"]); !ok || c.allowLists.Keep(source, series.Name) {
+			out = append(out, series)
+		}
+	}
+	return out
+}
+
+func allowListSourceForJob(job string) (string, bool) {
+	switch job {
+	case jobKSM:
+		return allowlist.SourceKubeStateMetrics, true
+	case jobCAdvisor:
+		return allowlist.SourceCadvisor, true
+	case jobNodeExporter:
+		return allowlist.SourceNodeExporter, true
+	case jobKubelet:
+		return allowlist.SourceKubelet, true
+	case jobKubeletResource:
+		return allowlist.SourceKubeletResource, true
+	case jobProbes:
+		return allowlist.SourceKubeletProbes, true
+	case jobOpenCost:
+		return allowlist.SourceOpenCost, true
+	case jobKepler:
+		return allowlist.SourceKepler, true
+	case jobWindowsExporter:
+		return allowlist.SourceWindowsExporter, true
+	default:
+		return "", false
+	}
 }
 
 // PreparePodLifecycle advances the shared cluster placement before the runner projects workload

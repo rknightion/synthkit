@@ -1,4 +1,5 @@
 import { Show, type Accessor, type JSX } from "solid-js";
+import { Icon } from "./Icon";
 
 // Shared dismissible action-error banner. Replaces the byte-identical inline
 // `actionErr` banners previously copied across Overview/Blueprint/Incidents/Global/
@@ -24,7 +25,7 @@ export function ActionError(props: ActionErrorProps): JSX.Element {
             aria-label="Dismiss"
             onClick={() => props.onDismiss()}
           >
-            ×
+            <Icon name="x" />
           </button>
         </div>
       )}

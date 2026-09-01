@@ -3,9 +3,11 @@ id: SKT-0048
 title: >-
   Model observed span resource attributes: cloud.* is a minority, and host.name
   is the collector
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-08-31 12:40'
+updated_date: '2026-09-01 20:42'
 labels: []
 dependencies: []
 ordinal: 139000
@@ -86,14 +88,32 @@ without deciding deliberately: both would record an estate that does not exist.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The catalog's span resource attributes reflect the measured mix rather than a uniform ideal, with a stated rule for which services carry cloud.* and which do not
-- [ ] #2 A decision is recorded on whether synthkit models the collector-identity override of host.name/host.arch/os.*, with its reason
-- [ ] #3 Nothing in synthkit or its dashboards scopes per-cloud behaviour off a detected span resource attribute
+- [x] #1 The catalog's span resource attributes reflect the measured mix rather than a uniform ideal, with a stated rule for which services carry cloud.* and which do not
+- [x] #2 A decision is recorded on whether synthkit models the collector-identity override of host.name/host.arch/os.*, with its reason
+- [x] #3 Nothing in synthkit or its dashboards scopes per-cloud behaviour off a detected span resource attribute
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+After SKT-0046, implement the measured minority/asymmetric cloud resource rule and deterministic collector host identity, audit provider scoping, and prove cardinality/determinism with focused tests.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented the measured mixed span-resource policy: only Node-runtime services on two non-AWS substrates receive cloud.provider; AWS and non-Node services omit it. Collector host.name, host.arch and os.type are deterministic per cluster and shared across applications, gated by application_observability. os.version is omitted because no sourced deterministic contract exists. Dashboard audit found no universal scoping on detected span cloud attributes. Focused tests plus just check, just dump, and just e2e passed; new emission was not proved live because the standing deployment pins an immutable image.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Done: span resources now model the observed cloud-provider minority and collector-identity override instead of a uniform ideal, and the dashboard audit found no detected-cloud universal scope. Verified by focused tests and full check/dump/e2e gates; live proof awaits a later immutable-image promotion.
+<!-- SECTION:FINAL_SUMMARY:END -->

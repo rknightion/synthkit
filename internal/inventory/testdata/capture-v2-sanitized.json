@@ -1,0 +1,37 @@
+{
+  "schema_version": "2.0.0",
+  "tool": {"version": "2.1.0"},
+  "capture": {
+    "scope": {"is_scoped": true},
+    "limitations": [
+      {"id": "WINDOW_EXCEEDS_SOAK"},
+      {"id": "UNTYPED_FAMILIES_ARE_A_SENDER_PROPERTY"}
+    ]
+  },
+  "signals": {
+    "metrics": {
+      "families": [
+        {
+          "name": "example_requests_total",
+          "type": "unknown",
+          "type_source": "undetermined",
+          "name_suffix_hint": "counter",
+          "labels": [{"key": "instance", "values": ["private-host"]}]
+        },
+        {
+          "name": "example_duration_seconds",
+          "type": "histogram",
+          "type_source": "observed",
+          "classic_histogram": {"le_values": ["0.5", "+Inf"]},
+          "labels": [{"key": "state", "values": ["ready"]}]
+        },
+        {
+          "name": "example_declared_unknown",
+          "type": "unknown",
+          "type_source": "metadata",
+          "labels": [{"key": "tag_private_capture", "values": ["private"]}]
+        }
+      ]
+    }
+  }
+}

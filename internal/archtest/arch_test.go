@@ -143,6 +143,7 @@ func TestCatalogImportIsolation(t *testing.T) {
 		"github.com/rknightion/synthkit/internal/semconv/",   // shared OTEL semconv resource-attr + correlation key names (peer lib, like genai/cw); emit lanes build identity labels/attrs from it
 		"github.com/rknightion/synthkit/internal/nodeexp/",   // shared node/windows/macos/cadvisor emission mechanic (peer lib, like cw/genai); host construct + k8scluster adapters delegate here
 		"github.com/rknightion/synthkit/internal/k8saddon/",  // shared k8s-addon pod↔metric correlation mechanic (peer lib, like cw/genai); addon constructs stamp per-pod join labels from it
+		"github.com/rknightion/synthkit/internal/allowlist/", // version-pinned upstream family projections shared by isolated catalog emitters
 		"github.com/rknightion/synthkit/internal/failuremode",
 		"github.com/rknightion/synthkit/internal/fixture",
 		"github.com/rknightion/synthkit/internal/ledger",

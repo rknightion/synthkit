@@ -32,6 +32,19 @@ func buildConstruct(t *testing.T, cl *fixture.Cluster) core.Construct {
 	return c
 }
 
+func buildConstructWithConfig(t *testing.T, cfg *k8scluster.Config, cl *fixture.Cluster) core.Construct {
+	t.Helper()
+	c, err := k8scluster.New(cfg, &fixture.Set{
+		Cluster: cl,
+		Env:     cl.Env,
+		Cloud:   cl.Cloud,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return c
+}
+
 func tick(t *testing.T, c core.Construct, mc *coretest.MetricCapture, lc *coretest.LogCapture) {
 	t.Helper()
 	ctx := context.Background()

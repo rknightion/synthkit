@@ -62,7 +62,15 @@ type CorpusSource struct {
 	// InstrumentTypeSource names the mechanism this producer read instrument types from, or
 	// states why it could not observe them. It applies to every metric entry in the document
 	// and is the recorded reason behind any entry still carrying the unknown sentinel.
-	InstrumentTypeSource string            `json:"instrument_type_source,omitempty"`
+	InstrumentTypeSource string `json:"instrument_type_source,omitempty"`
+	// CaptureSchemaVersion, CaptureToolVersion, CaptureSHA256, CaptureScope and
+	// CaptureWarnings preserve the identity and evidence boundary of a promoted external
+	// capture without copying its deployment-specific provenance into this repository.
+	CaptureSchemaVersion string            `json:"capture_schema_version,omitempty"`
+	CaptureToolVersion   string            `json:"capture_tool_version,omitempty"`
+	CaptureSHA256        string            `json:"capture_sha256,omitempty"`
+	CaptureScope         string            `json:"capture_scope,omitempty"`
+	CaptureWarnings      []string          `json:"capture_warnings,omitempty"`
 	EnrichmentLabels     []EnrichmentLabel `json:"enrichment_labels,omitempty"`
 }
 
@@ -299,6 +307,9 @@ func validateCorpusDocument(document CorpusDocument) error {
 	if document.Source.InstrumentTypeSource != "" && strings.TrimSpace(document.Source.InstrumentTypeSource) == "" {
 		return errors.New("source.instrument_type_source: must not be blank when present")
 	}
+	if err := validateCaptureIdentity(document.Source); err != nil {
+		return err
+	}
 	if err := validateCapturedOn(document.Source.CapturedOn); err != nil {
 		return err
 	}
@@ -332,6 +343,35 @@ func validateCorpusDocument(document CorpusDocument) error {
 		return fmt.Errorf("inventory.schema_version: got %q, want %q", document.Inventory.SchemaVersion, SchemaVersion)
 	}
 	return validateInventory(document.Inventory)
+}
+
+func validateCaptureIdentity(source CorpusSource) error {
+	fields := []struct {
+		name  string
+		value string
+	}{
+		{"source.capture_schema_version", source.CaptureSchemaVersion},
+		{"source.capture_tool_version", source.CaptureToolVersion},
+		{"source.capture_sha256", source.CaptureSHA256},
+		{"source.capture_scope", source.CaptureScope},
+	}
+	for _, field := range fields {
+		if field.value != "" && strings.TrimSpace(field.value) == "" {
+			return fmt.Errorf("%s: must not be blank when present", field.name)
+		}
+	}
+	if source.CaptureSHA256 != "" && (len(source.CaptureSHA256) != 64 || strings.Trim(source.CaptureSHA256, "0123456789abcdef") != "") {
+		return errors.New("source.capture_sha256: must be a lowercase SHA-256 digest")
+	}
+	if source.CaptureScope != "" && source.CaptureScope != "cluster" && source.CaptureScope != "cloud" && source.CaptureScope != "full" {
+		return fmt.Errorf("source.capture_scope: must be cluster, cloud, or full, got %q", source.CaptureScope)
+	}
+	for i, warning := range source.CaptureWarnings {
+		if strings.TrimSpace(warning) == "" {
+			return fmt.Errorf("source.capture_warnings[%d]: must not be blank", i)
+		}
+	}
+	return nil
 }
 
 func validateNonEmpty(value, field string) error {
@@ -473,6 +513,11 @@ func CanonicalMerge(existing, candidate CorpusDocument) (CorpusDocument, error) 
 		mergeCaptureVolume(&out.CaptureVolume, candidate.CaptureVolume)
 		mergeReceipts(&out.Inventory, &candidate.Inventory)
 		out.Source.CapturedOn = candidate.Source.CapturedOn
+		out.Source.CaptureSchemaVersion = candidate.Source.CaptureSchemaVersion
+		out.Source.CaptureToolVersion = candidate.Source.CaptureToolVersion
+		out.Source.CaptureSHA256 = candidate.Source.CaptureSHA256
+		out.Source.CaptureScope = candidate.Source.CaptureScope
+		out.Source.CaptureWarnings = sortedUniqueStrings(append(out.Source.CaptureWarnings, candidate.Source.CaptureWarnings...))
 	}
 	normalizeCorpusDocument(&out)
 	return out, nil
@@ -612,6 +657,12 @@ func mergeSchemas(existing *Schema, candidate Schema) bool {
 func mergeMetric(existing *Metric, candidate Metric) bool {
 	changed := corpusMergeStringSet(&existing.Transports, candidate.Transports)
 	changed = corpusMergeStringSet(&existing.InstrumentTypes, candidate.InstrumentTypes) || changed
+	if candidate.InstrumentTypeSource != "" && existing.InstrumentTypeSource != candidate.InstrumentTypeSource {
+		if existing.InstrumentTypeSource == "" || existing.InstrumentTypeSource == "undetermined" {
+			existing.InstrumentTypeSource = candidate.InstrumentTypeSource
+			changed = true
+		}
+	}
 	for _, candidateAttribute := range candidate.Labels {
 		i := indexAttribute(existing.Labels, candidateAttribute.Key)
 		if i < 0 {
@@ -755,6 +806,7 @@ func mergeReceipts(existing, candidate *Schema) {
 }
 
 func normalizeCorpusDocument(document *CorpusDocument) {
+	document.Source.CaptureWarnings = sortedUniqueStrings(document.Source.CaptureWarnings)
 	for i := range document.Source.EnrichmentLabels {
 		if len(document.Source.EnrichmentLabels[i].Values) == 0 {
 			document.Source.EnrichmentLabels[i].Values = nil
@@ -797,6 +849,7 @@ func normalizeElidedAttributes(attributes []Attribute) {
 
 func cloneCorpusDocument(document CorpusDocument) CorpusDocument {
 	out := document
+	out.Source.CaptureWarnings = append([]string{}, document.Source.CaptureWarnings...)
 	out.Source.EnrichmentLabels = make([]EnrichmentLabel, len(document.Source.EnrichmentLabels))
 	for i, label := range document.Source.EnrichmentLabels {
 		out.Source.EnrichmentLabels[i] = cloneEnrichmentLabel(label)

@@ -1,10 +1,11 @@
 ---
 id: SKT-0042
 title: Recapture mixed-substrate corpus input with unambiguous provenance
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - '@codex'
 created_date: '2026-08-30 08:40'
-updated_date: '2026-08-31 12:36'
+updated_date: '2026-09-01 20:42'
 labels:
   - needs-triage
 dependencies: []
@@ -21,17 +22,23 @@ A captured corpus document declares one substrate in provenance while containing
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each captured document has provenance that unambiguously identifies every substrate represented by its signal families
-- [ ] #2 Capture duration and load/soak conditions are retained for each substrate
+- [x] #1 Each captured document has provenance that unambiguously identifies every substrate represented by its signal families
+- [x] #2 Capture duration and load/soak conditions are retained for each substrate
 - [ ] #3 The synthkit corpus ingests the replacement without relabelling or splitting the source artefact by inference
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+After SKT-0045 is integrated, resolve the canonical seven-document set from the sibling tracker, ingest it without source mutation or inferred relabelling, and run the comparator at real corpus scale.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
@@ -174,4 +181,12 @@ had genuinely only been shipping for about half an hour, and declaring the estat
 have overstated them.
 
 AC#3 remains the open one. Nothing has been ingested into synthkit's corpus yet.
+
+Wave result: the schema-2 converter preserved capture hashes, scope, warnings, schema/tool versions, instrument type source, and structural histogram bounds. Seven canonical source projections were generated and audited only as candidates, then excluded from reality-corpus because privacy promotion removes the producer-selecting label values used by the comparator. Comparing each candidate against the global synth union produced 304 false producer comparisons. No capture was modified and no fidelity exemption was added. Resume when direct per-family producer identity survives privacy promotion; regenerate the seven projections and rerun signal-fidelity before checking AC #3.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Parked after source provenance and capture conditions were verified and the ingestion path was implemented and validated. AC #3 remains open because the privacy-safe projection cannot yet retain direct per-family producer identity; ingesting now would turn producer ambiguity into false contradictions. Resume at the producer-identity boundary, regenerate candidates, and rerun fidelity.
+<!-- SECTION:FINAL_SUMMARY:END -->

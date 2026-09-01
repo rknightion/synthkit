@@ -198,6 +198,9 @@ func (w *Workload) backendResourceAttrs() map[string]any {
 	if w.team != "" {
 		attrs[semconv.AttrTeam] = w.team
 	}
+	for key, value := range w.observedSpanResourceAttrs() {
+		attrs[key] = value
+	}
 	return attrs
 }
 

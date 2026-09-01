@@ -37,6 +37,10 @@ type testK8sConfig struct {
 	OTel *struct {
 		Metrics bool `yaml:"metrics"`
 	} `yaml:"otel"`
+	DefaultAllowLists *struct {
+		ClusterMetrics bool   `yaml:"cluster_metrics"`
+		NodeExporter   string `yaml:"node_exporter"`
+	} `yaml:"default_allow_lists"`
 }
 
 type testHostConfig struct {
@@ -163,6 +167,32 @@ environments:
 		cfg, ok := instance.Config.(*testK8sConfig)
 		if !ok || cfg.OTel == nil || !cfg.OTel.Metrics {
 			t.Fatalf("k8s_cluster config = %#v, want otel.metrics=true", instance.Config)
+		}
+		return
+	}
+	t.Fatal("no k8s_cluster construct resolved")
+}
+
+func TestResolveK8sDefaultAllowLists(t *testing.T) {
+	y := `
+name: k8s-default-lists
+environments:
+  - name: prod
+    cloud: {provider: aws, account_id: "111122223333", region: us-east-1, vpc_id: vpc-test}
+    cluster:
+      type: eks
+      name: allow-list-cluster
+      node_groups: [{name: general, instance_type: m6i.large, desired: 3}]
+      default_allow_lists: {cluster_metrics: true, node_exporter: integration}
+`
+	r := load(t, y)
+	for _, instance := range r.Constructs {
+		if instance.Kind != KindK8sCluster {
+			continue
+		}
+		cfg, ok := instance.Config.(*testK8sConfig)
+		if !ok || cfg.DefaultAllowLists == nil || !cfg.DefaultAllowLists.ClusterMetrics || cfg.DefaultAllowLists.NodeExporter != "integration" {
+			t.Fatalf("k8s_cluster config = %#v, want default allow-list selection", instance.Config)
 		}
 		return
 	}

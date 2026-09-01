@@ -75,11 +75,12 @@ type Attribute struct {
 }
 
 type Metric struct {
-	Name            string      `json:"name"`
-	Transports      []string    `json:"transports"`
-	InstrumentTypes []string    `json:"instrument_types"`
-	Labels          []Attribute `json:"labels"`
-	Histogram       *Histogram  `json:"histogram,omitempty"`
+	Name                 string      `json:"name"`
+	Transports           []string    `json:"transports"`
+	InstrumentTypes      []string    `json:"instrument_types"`
+	InstrumentTypeSource string      `json:"instrument_type_source,omitempty"`
+	Labels               []Attribute `json:"labels"`
+	Histogram            *Histogram  `json:"histogram,omitempty"`
 }
 
 type Histogram struct {

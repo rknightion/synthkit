@@ -197,6 +197,36 @@ func TestCanonicalMergeIsCumulativeIdempotentAndElidesVaryingValues(t *testing.T
 	}
 }
 
+func TestCanonicalMergeRefreshesCaptureMetadataWithStructuralEvidence(t *testing.T) {
+	existing := validCorpusDocument("k8s", "producer", "k3s")
+	existing.Source.CaptureSchemaVersion = "2.0.0"
+	existing.Source.CaptureToolVersion = "2.0.0"
+	existing.Source.CaptureSHA256 = strings.Repeat("a", 64)
+	existing.Source.CaptureScope = "cluster"
+	existing.Source.CaptureWarnings = []string{"OLD_WARNING"}
+	existing.Inventory.AddMetric("requests_total", TransportPrometheusRW2, InstrumentCounter, nil, nil)
+
+	candidate := validCorpusDocument("k8s", "producer", "k3s")
+	candidate.Source.CapturedOn = "2026-08-31"
+	candidate.Source.CaptureSchemaVersion = "2.1.0"
+	candidate.Source.CaptureToolVersion = "3.0.0"
+	candidate.Source.CaptureSHA256 = strings.Repeat("b", 64)
+	candidate.Source.CaptureScope = "cluster"
+	candidate.Source.CaptureWarnings = []string{"NEW_WARNING", "OLD_WARNING"}
+	candidate.Inventory.AddMetric("requests_total", TransportPrometheusRW2, InstrumentCounter, map[string]string{"method": "GET"}, nil)
+
+	merged, err := CanonicalMerge(existing, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if merged.Source.CaptureSchemaVersion != "2.1.0" || merged.Source.CaptureToolVersion != "3.0.0" || merged.Source.CaptureSHA256 != strings.Repeat("b", 64) {
+		t.Fatalf("capture metadata was not refreshed: %+v", merged.Source)
+	}
+	if got, want := merged.Source.CaptureWarnings, []string{"NEW_WARNING", "OLD_WARNING"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("capture warnings=%v, want %v", got, want)
+	}
+}
+
 func TestCanonicalMergeRejectsConfigurationMismatchAndSeparatesLogShapes(t *testing.T) {
 	existing := validCorpusDocument("logs", "producer", "k3s")
 	existing.Inventory.Logs = []Log{{

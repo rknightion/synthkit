@@ -1,9 +1,15 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>synthkit · control plane</title>
+    <script>
+      try {
+        const stored = localStorage.getItem("synthkit-control-theme");
+        document.documentElement.setAttribute("data-theme", stored === "dark" ? "dark" : "light");
+      } catch { /* light remains the safe default */ }
+    </script>
   </head>
   <body>
     <div id="root"></div>

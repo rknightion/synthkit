@@ -2,6 +2,7 @@ import { For, Show, type JSX } from "solid-js";
 import { useStore } from "../store/store";
 import type { FleetStat, OptionalLaneDisposition, QueueStat, SinkStat } from "../api/types";
 import { fmtNum } from "../utils/fmt";
+import { StatusWord } from "./StatusWord";
 
 // Always-visible rail telemetry surface (ported from the legacy ui.html renderStatus,
 // ~785-842): per-sink readiness rows, the Fleet (FM) lifecycle line, persist health, and
@@ -109,7 +110,7 @@ function EmitterRow(props: {
   return (
     <div class={`emit ${props.cls}`}>
       <div class="ehead">
-        <span class={`dot ${props.cls}`} />
+        <StatusWord status={props.cls === "ok" ? "OK" : props.cls === "err" ? "FAIL" : "IDLE"} />
         <span class="name">{props.name}</span>
         <Show when={props.ago}>
           <span class="ago">{props.ago}</span>
@@ -165,7 +166,7 @@ function optionalLaneRow(lane: OptionalLaneDisposition): JSX.Element {
   if (lane.missing_fields?.length) detail.push(`missing ${lane.missing_fields.join(", ")}`);
   return (
     <div class={`optional-lane ${cls}`} data-testid={`optional-lane-${lane.lane}`}>
-      <span class={`dot ${cls}`} /> <span class="name">{lane.lane}</span>
+      <StatusWord status={cls === "ok" ? "OK" : cls === "err" ? "FAIL" : "OFF"} /> <span class="name">{lane.lane}</span>
       <div class="esub">{detail.join(" · ")}</div>
       <Show when={lane.lane === "synthetic_monitoring" && lane.requested && lane.state !== "enabled"}>
         <div class="esub">↳ provision/apply, then restart synthkit</div>
@@ -228,7 +229,7 @@ export function Status(): JSX.Element {
             </div>
 
             <Show when={sinks().length === 0}>
-              <div class="ptag muted">{st().dry_run ? "no pushes (dry run)" : "no pushes yet"}</div>
+              <div class="ptag muted"><StatusWord status="IDLE" note={st().dry_run ? "no pushes (dry run)" : "no pushes yet"} /></div>
             </Show>
             <For each={sinks()}>{(s) => sinkRow(s)}</For>
             <For each={queues()}>{(q) => queueRow(q)}</For>
@@ -261,14 +262,12 @@ export function Status(): JSX.Element {
 
             <Show when={persist()?.last_error}>
               <div class="ptag err">
-                <span class="dot err" />
-                persist: error — {persist()!.last_error}
+                <StatusWord status="FAIL" /> <span>persist: error — {persist()!.last_error}</span>
               </div>
             </Show>
             <Show when={!persist()?.last_error && persist()?.last_ok_ms}>
               <div class="ptag ok">
-                <span class="dot ok" />
-                persist: ok {agoMs(persist()!.last_ok_ms)}
+                <StatusWord status="OK" note={`persist ${agoMs(persist()!.last_ok_ms)}`} />
               </div>
             </Show>
           </>

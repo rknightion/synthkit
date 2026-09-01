@@ -100,7 +100,7 @@ export function BpManage(): JSX.Element {
     <section>
       <style>{VIEW_CSS}</style>
       <div class="pane-head">
-        <h1>📦 Custom blueprints</h1>
+        <h1>Custom blueprints</h1>
         <span class="sub">paste, validate, and manage external blueprint sources</span>
       </div>
       <p class="pane-lead">

@@ -319,6 +319,16 @@ All naked attrs PLUS:
 
 The OTLP gateway (Grafana Cloud's OTLP endpoint) normalizes the ResourceMetrics into:
 
+For ordinary application datapoint series (excluding `target_info`), the native gateway promotes
+exactly five measured resource attributes: `k8s_deployment_name`, `k8s_namespace_name`, `k8s_pod_name`, `service_name`, and
+`service_version`. The Alloy-converted promrw lane keeps these resource attributes on
+`target_info`; it does not promote them onto each application datapoint series. Metric names are identical
+on both lanes. `target_info` remains present on the native lane and continues to carry the full
+resource identity below.
+
+*Provenance: same-source dual-ingest capture, 2026-08-31. The promoted set is enumerated from the
+capture rather than inferred from the OTel specification or gateway documentation.*
+
 ### `target_info` [slug: otlp-target-info]
 
 One gauge-1 series per resource (service instance), carrying ALL promoted resource attrs as

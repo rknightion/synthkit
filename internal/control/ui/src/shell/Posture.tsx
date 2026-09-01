@@ -1,10 +1,10 @@
 import { For, Show, type JSX } from "solid-js";
 import { useStore } from "../store/store";
 import type { Schema, State } from "../api/types";
+import { StatusWord } from "./StatusWord";
 
 interface PostureTag {
   cls: "live" | "mod" | "muted";
-  blip?: boolean;
   text: string;
 }
 
@@ -22,7 +22,7 @@ export function deriveTags(state: State | undefined, schema?: Schema): PostureTa
   const scnName = (id: string): string =>
     schema?.scenarios?.find((s) => `${s.blueprint}/${s.name}` === id)?.name ?? id;
   for (const id of state.active_scenarios ?? []) {
-    tags.push({ cls: "live", blip: true, text: `scenario: ${scnName(id)}` });
+    tags.push({ cls: "live", text: `scenario: ${scnName(id)}` });
   }
 
   const volDefault = (schema?.volume_multiplier?.default as number | undefined) ?? 1;
@@ -56,7 +56,7 @@ export function Posture(): JSX.Element {
       fallback={
         <div class="posture clean">
           <div class="ph">Posture</div>
-          <div class="ptag muted">✓ all at baseline</div>
+          <div class="ptag muted"><StatusWord status="OK" note="all at baseline" /></div>
         </div>
       }
     >
@@ -65,10 +65,7 @@ export function Posture(): JSX.Element {
         <For each={tags()}>
           {(t) => (
             <div class={`ptag ${t.cls}`}>
-              <Show when={t.blip}>
-                <span class="blip" />
-              </Show>
-              {t.text}
+              <StatusWord status={t.cls === "live" ? "LIVE" : t.cls === "mod" ? "MOD" : "OFF"} note={t.text} />
             </div>
           )}
         </For>

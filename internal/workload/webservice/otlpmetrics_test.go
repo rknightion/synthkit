@@ -9,6 +9,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/core/coretest"
+	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 )
 
@@ -158,6 +159,100 @@ func TestTickOTLPMetricsEnrichedAddsK8sAttrs(t *testing.T) {
 	for _, k := range []string{"k8s.namespace.name", "k8s.pod.name", "k8s.deployment.name", "host.name", "os.type"} {
 		if _, ok := a[k]; !ok {
 			t.Errorf("enriched mode missing %q", k)
+		}
+	}
+}
+
+// TestNativeOTLPGatewayPromotedResourceAttrs pins the exact resource-attribute subset the
+// canonical dual-ingest capture measured as appearing on every native OTLP metric series. The
+// gateway performs that promotion; synthkit sends these as resource attributes and keeps the
+// converted promrw target_info path separate.
+func TestNativeOTLPGatewayPromotedResourceAttrs(t *testing.T) {
+	w, _, _ := newOTLPTestWorkload(t, otelModeK8sMonitoring)
+	attrs := w.otelResourceAttrs(otelModeK8sMonitoring)
+	want := []string{
+		"k8s.deployment.name",
+		"k8s.namespace.name",
+		"k8s.pod.name",
+		"service.name",
+		"service.version",
+	}
+	for _, key := range want {
+		if got, ok := attrs[key].(string); !ok || got == "" {
+			t.Errorf("native OTLP resource attr %q = %v, want non-empty string", key, attrs[key])
+		}
+	}
+
+	// These are resource attributes, not copied into promrw span-metric labels. The converted
+	// path retains target_info for identity recovery, matching the capture's two-lane result.
+	converted := w.spanMetricBase()
+	for _, key := range []string{"k8s_pod_name", "k8s_deployment_name"} {
+		if _, ok := converted[key]; ok {
+			t.Errorf("converted promrw span metric unexpectedly carries %q", key)
+		}
+	}
+	targetInfo := w.targetInfoLabels(false)
+	for _, key := range []string{"service_name", "service_version", "k8s_namespace_name", "k8s_pod_name", "k8s_deployment_name"} {
+		if targetInfo[key] == "" {
+			t.Errorf("converted target_info omitted %q", key)
+		}
+	}
+}
+
+func TestObservedSpanResourceAttrsModelsMeasuredMinorityAndCollector(t *testing.T) {
+	newWorkload := func(t *testing.T, name, clusterType, runtime string) *Workload {
+		t.Helper()
+		b := testBinding(nil)
+		b.Name = name
+		b.Seed = "observed-span-resource-policy"
+		b.Cluster.Type = clusterType
+		b.Cluster.Seed = "observed-span-resource-policy-cluster"
+		b.Cluster.K8sMonitoring.Features = map[string]bool{"application_observability": true}
+		b.Cluster.Workloads = []fixture.Workload{{Name: name, Runtime: runtime}}
+		w, err := build(NewConfig(), b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return w.(*Workload)
+	}
+
+	disabled := newWorkload(t, "disabled-collector", "gke", "node")
+	disabled.b.Cluster.K8sMonitoring.Features["application_observability"] = false
+	if attrs := disabled.observedSpanResourceAttrs(); len(attrs) != 0 {
+		t.Fatalf("disabled application-observability collector attrs=%v, want none", attrs)
+	}
+
+	cases := []struct {
+		name, clusterType, runtime, wantProvider string
+	}{
+		{name: "eks-node", clusterType: "eks", runtime: "node"},
+		{name: "aks-node", clusterType: "aks", runtime: "node", wantProvider: "azure"},
+		{name: "gke-node", clusterType: "gke", runtime: "node", wantProvider: "gcp"},
+		{name: "gke-go", clusterType: "gke", runtime: "go"},
+		{name: "unknown-node", clusterType: "other", runtime: "node"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			attrs := newWorkload(t, tc.name, tc.clusterType, tc.runtime).observedSpanResourceAttrs()
+			got, _ := attrs["cloud.provider"].(string)
+			if got != tc.wantProvider {
+				t.Errorf("cloud.provider = %q, want %q", got, tc.wantProvider)
+			}
+			for _, key := range []string{"host.name", "host.arch", "os.type"} {
+				if got, ok := attrs[key].(string); !ok || got == "" || got == "NA" {
+					t.Errorf("collector resource attr %q = %v, want non-empty non-sentinel string", key, attrs[key])
+				}
+			}
+		})
+	}
+
+	// Distinct applications in the same cluster share precisely one collector identity. That
+	// rules out the former per-application host cardinality model and is deterministic.
+	first := newWorkload(t, "first-service", "gke", "node").observedSpanResourceAttrs()
+	second := newWorkload(t, "second-service", "gke", "node").observedSpanResourceAttrs()
+	for _, key := range []string{"host.name", "host.arch", "os.type"} {
+		if first[key] != second[key] {
+			t.Errorf("collector %q differs by application: %v vs %v", key, first[key], second[key])
 		}
 	}
 }

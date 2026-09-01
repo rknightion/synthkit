@@ -149,6 +149,9 @@ type ClusterDecl struct {
 	NodeGroups    []NodeGroupDecl   `yaml:"node_groups"`
 	K8sMonitoring K8sMonitoringDecl `yaml:"k8s_monitoring"`
 	OTel          yaml.Node         `yaml:"otel"` // k8s_cluster receiver-native emission switches; decoded via registry
+	// DefaultAllowLists selects the version-pinned k8s-monitoring chart family
+	// projection; decoded through the k8s_cluster registry config.
+	DefaultAllowLists yaml.Node `yaml:"default_allow_lists"`
 	// SeriesChurnPerMinute rotates bounded pod identities through the same declarative seam used
 	// by network_topology. Zero preserves the resolved cluster identity set.
 	SeriesChurnPerMinute int               `yaml:"series_churn_per_minute"`

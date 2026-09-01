@@ -79,6 +79,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cluster.k8s_monitoring.control_plane.kubelet_probes` | bool |  |  |
 | `environments[].cluster.k8s_monitoring.pod_logs_method` | string |  | PodLogsMethod selects the pod-log CHART FEATURE and therefore the TRANSPORT, cluster-wide. "opentelemetry" (the default when "" and pod_logs is on) is podLogsViaOpenTelemetry: OTLP log records to /v1/logs, with the destination promoting an allowlisted subset of the resource attributes to Loki stream labels. "kubernetes_api"/"loki" is podLogsViaLoki: a Loki-native push carrying stream labels and structured metadata on the wire. "none"/"objects" emit nothing (objects deferred). Absent pod_logs ⇒ "none". Both transports carry identical content; only the observable shape differs. See signals/k8s.md [slug: k8s-pod-logs]. |
 | `environments[].cluster.otel` | raw yaml (see per-kind config sections) |  | k8s_cluster receiver-native emission switches; decoded via registry |
+| `environments[].cluster.default_allow_lists` | raw yaml (see per-kind config sections) |  | DefaultAllowLists selects the version-pinned k8s-monitoring chart family projection; decoded through the k8s_cluster registry config. |
 | `environments[].cluster.series_churn_per_minute` | int |  | SeriesChurnPerMinute rotates bounded pod identities through the same declarative seam used by network_topology. Zero preserves the resolved cluster identity set. |
 | `environments[].cluster.observability` | object | yes | gates the per-node ec2 CloudWatch lane |
 | `environments[].cluster.observability.cloudwatch` | bool | yes | emit the CloudWatch lane (default true) |
@@ -410,6 +411,9 @@ k8s-monitoring substrate (KSM/cAdvisor/kubelet/node-exporter + conformance + eve
 |---|---|---|---|
 | `otel` | object | yes |  |
 | `otel.metrics` | bool |  |  |
+| `default_allow_lists` | object | yes | DefaultAllowLists projects the k8s-monitoring chart's pinned default allow-lists at the Prometheus emission boundary. Nil preserves full emission. |
+| `default_allow_lists.cluster_metrics` | bool |  |  |
+| `default_allow_lists.node_exporter` | string |  |  |
 | `series_churn_per_minute` | int |  | SeriesChurnPerMinute rotates this many declared application-pod identities per minute. The active set stays bounded: retired pods stop emitting and replacement identities are derived from the cluster-scoped seed. It deliberately uses the same blueprint seam shape as network_topology churn. Zero preserves the resolved pod set byte-for-byte. |
 
 ## k8s_profiling config

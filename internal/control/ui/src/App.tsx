@@ -2,6 +2,8 @@ import { onMount, onCleanup, type ParentProps } from "solid-js";
 import { Router, Route } from "@solidjs/router";
 import { StoreProvider, createControlStore } from "./store/store";
 import { Rail } from "./shell/Rail";
+import { TopBar } from "./shell/TopBar";
+import { StatusBar } from "./shell/StatusBar";
 import { Overview } from "./views/Overview";
 import { Config } from "./views/Config";
 import { Health } from "./views/Health";
@@ -30,7 +32,9 @@ export default function App() {
   const Shell = (props: ParentProps) => (
     <div class="app">
       <Rail />
+      <TopBar />
       <main class="pane">{props.children}</main>
+      <StatusBar />
     </div>
   );
   return (
