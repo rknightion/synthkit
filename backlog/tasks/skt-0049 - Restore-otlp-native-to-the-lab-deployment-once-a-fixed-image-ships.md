@@ -1,11 +1,11 @@
 ---
 id: SKT-0049
 title: Restore otlp-native to the lab deployment once a fixed image ships
-status: Parked
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-08-31 15:13'
-updated_date: '2026-09-02 08:31'
+updated_date: '2026-09-02 21:14'
 labels: []
 dependencies: []
 ordinal: 140000
@@ -69,6 +69,12 @@ Confirm the fixed immutable image is published, then change only the standing de
 2026-09-02 evidence: the bounded values-only change is committed and synchronized. The workload is healthy on the fixed immutable image, selects seven safe blueprints including otlp-native, and logs show no agent or Sigil emission. The tracker ACs are met. The overnight goal's additional two-mode far-side data proof remains unproven because no authorized query path was established; resume with explicit access to the standing lab data destination and prove both enriched and naked native-OTLP series after synchronization. Synthkit just check and just dump passed; generation was not applicable.
 
 2026-09-03 read-back evidence: the distinct enriched/naked native-OTLP query was attempted against the named lab context with the captured http_server_request_duration_seconds_count family and the two declared service identities. The context was online, but datasource discovery and the explicit Prometheus datasource path both returned Unauthorized. The standing-cluster read path also stopped at an expired AWS SSO session. Therefore the goal-level far-side proof for the two modes, SKT-0046 promoted labels, and SKT-0048 span-resource changes remains unproven; no infrastructure write was made. Resume with a fresh noninteractive metrics-read credential or refreshed standing-lab read session, then query both declared services in one bounded window and compare the sourced label/resource sets.
+
+2026-09-02: far-side proof obtained; the read-credential blocker is resolved. A CAP token with metrics:read and logs:read on every instance in the org is stored at /Users/rob/repos/chat-personal/grafana/cap_token_metrics_read (chmod 600, policy 2nd-sept-2026-token), verified HTTP 200 on Mimir and Loki query for all four instances.
+
+Root cause of the three previous read parks was not a missing credential. The Mimir Basic-auth username is the Prometheus instance id (hmInstancePromId), not the stack id; Loki wants hlInstanceId. Both differ from the stack id. Using the stack id returns 401 with the same body a revoked credential produces, so a working one reads as dead. Lab stack 1802885 maps to prom tenant 3529994 and loki tenant 1760672. Resolve tenant ids from the Cloud API instances endpoint at run time.
+
+Two-mode read-back, one bounded window, http_server_request_duration_seconds_count by service_name: otlp-api-enriched returned 6 series carrying k8s_cluster_name, k8s_deployment_name, k8s_namespace_name and k8s_pod_name; otlp-api-naked returned 4 series with no k8s_* label at all. Shared on both: deployment_environment_name, http_request_method, http_response_status_code, http_route, instance, job, service_instance_id, service_name, service_namespace, service_version. The two declared modes are therefore distinguishable in live gateway-translated data, which is what this blueprint exists to show. Same result is the first live proof of SKT-0046 promoted resource labels, recorded as not-proven-live in two consecutive wave reports. SKT-0048 span-resource proof needs a traces-side query and is not covered here.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -77,4 +83,6 @@ Confirm the fixed immutable image is published, then change only the standing de
 2026-09-02: Parked at the goal's stricter live-data boundary after the tracker ACs passed: the lab is healthy on the fixed image with otlp-native restored and no agent emission, but far-side two-mode data remains unproven.
 
 2026-09-03: Parked at the unauthorized/expired live read boundary. The deployment remains previously proven healthy, but the two-mode far-side data and SKT-0046/SKT-0048 live emission are not proved by this wave.
+
+2026-09-02 closeout: closed on live far-side evidence. A bounded read-back proves the two declared native-OTLP modes produce distinguishable label sets: otlp-api-enriched carries the four k8s_* resource labels, otlp-api-naked carries none. The blocker was the Mimir Basic-auth username, which is the Prometheus instance id rather than the stack id, not a missing credential.
 <!-- SECTION:FINAL_SUMMARY:END -->
