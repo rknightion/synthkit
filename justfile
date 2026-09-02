@@ -8,7 +8,7 @@ go_licenses_version := env('GO_LICENSES_VERSION', 'v2.0.1')
 # renovate: datasource=github-releases depName=anchore/syft
 syft_version := env('SYFT_VERSION', 'v1.51.1')
 # renovate: datasource=github-releases depName=gitleaks/gitleaks
-gitleaks_version := env('GITLEAKS_VERSION', 'v8.21.2')
+gitleaks_version := env('GITLEAKS_VERSION', 'v8.30.1')
 gcx_context := env('GCX_CONTEXT', 'default')
 # SKT-0043: keep the agent-observability blueprint out of unattended fidelity
 # runs until its rejected-payload defect is fixed. An intentional agent audit can
