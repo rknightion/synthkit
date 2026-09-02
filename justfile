@@ -200,6 +200,15 @@ e2e:
     DH="${DOCKER_HOST:-$(docker context inspect --format '{{{{.Endpoints.docker.Host}}' "$(docker context show)" 2>/dev/null)}"
     DOCKER_HOST="$DH" go test -tags e2e -v -timeout 15m ./e2e/...
 
+# deploy the Helm chart into disposable k3d and prove receiver schema plus counter reset
+[group('check')]
+[no-exit-message]
+[script('bash')]
+chart-e2e:
+    set -euo pipefail
+    DH="${DOCKER_HOST:-$(docker context inspect --format '{{{{.Endpoints.docker.Host}}' "$(docker context show)" 2>/dev/null)}"
+    DOCKER_HOST="$DH" SYNTHKIT_CHART_E2E=true SYNTHKIT_E2E_INCLUDE_AGENT=false go test -tags e2e -run '^TestChartE2E$' -v -timeout 15m ./e2e/
+
 # exercise an exact published digest through committed Compose (release verification)
 [group('check')]
 [no-exit-message]

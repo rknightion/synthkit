@@ -125,6 +125,50 @@ func TestReceiverCapturesAllLanes(t *testing.T) {
 	}
 }
 
+func TestReceiverPreservesExactCounterSamples(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	first := time.UnixMilli(1_700_000_000_001)
+	second := time.UnixMilli(1_700_000_000_002)
+	metrics := promrw.New(srv.URL+"/api/prom/push", "u", "tok", false, func() int { return 0 })
+	for _, series := range []promrw.Series{
+		{Name: "restart_proof_total", Labels: map[string]string{"cluster": "e2e", "job": "synthkit"}, Value: 17, T: first, Kind: promrw.KindCounter},
+		{Name: "restart_proof_total", Labels: map[string]string{"cluster": "e2e", "job": "synthkit"}, Value: 3, T: second, Kind: promrw.KindCounter},
+		{Name: "restart_proof_gauge", Labels: map[string]string{"cluster": "e2e"}, Value: 99, T: second, Kind: promrw.KindGauge},
+	} {
+		if err := metrics.Write(context.Background(), []promrw.Series{series}); err != nil {
+			t.Fatalf("write %s: %v", series.Name, err)
+		}
+	}
+
+	got := rec.CounterSamples()
+	want := []CounterSample{
+		{Name: "restart_proof_total", Labels: map[string]string{"cluster": "e2e", "job": "synthkit"}, Value: 17, Timestamp: first.UnixMilli()},
+		{Name: "restart_proof_total", Labels: map[string]string{"cluster": "e2e", "job": "synthkit"}, Value: 3, Timestamp: second.UnixMilli()},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("counter samples = %#v, want %#v", got, want)
+	}
+
+	resp, err := srv.Client().Get(srv.URL + "/__counter_samples")
+	if err != nil {
+		t.Fatalf("GET /__counter_samples: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("/__counter_samples status = %d, want 200", resp.StatusCode)
+	}
+	var served []CounterSample
+	if err := json.NewDecoder(resp.Body).Decode(&served); err != nil {
+		t.Fatalf("decode /__counter_samples: %v", err)
+	}
+	if !reflect.DeepEqual(served, want) {
+		t.Fatalf("served counter samples = %#v, want %#v", served, want)
+	}
+}
+
 func TestReceiverCapturesSigilGenerations(t *testing.T) {
 	rec := New()
 	srv := httptest.NewServer(rec.Handler())

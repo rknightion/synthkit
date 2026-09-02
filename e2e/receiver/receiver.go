@@ -15,6 +15,7 @@ import (
 	"math"
 	"mime"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -64,6 +65,19 @@ type Receiver struct {
 	// component series into their family against it; a family that never proved stays as the
 	// component names the capture actually saw.
 	histogramProof inventory.ClassicHistogramProof
+	// counterSamples retains the exact RW2 counter observations the receiver saw. The
+	// inventory intentionally records only structural facts, so restart evidence must
+	// live beside it rather than smuggling values or timestamps into Schema.
+	counterSamples []CounterSample
+}
+
+// CounterSample is one producer-declared RW2 counter observation. Timestamp is Unix
+// milliseconds, exactly as carried by the remote-write payload.
+type CounterSample struct {
+	Name      string            `json:"name"`
+	Labels    map[string]string `json:"labels"`
+	Value     float64           `json:"value"`
+	Timestamp int64             `json:"timestamp"`
 }
 
 // New returns a zero-state Receiver ready to use.
@@ -90,6 +104,7 @@ func (r *Receiver) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/workflow-steps:export", r.handleSigilWorkflowSteps)
 	mux.HandleFunc("POST /api/v1/scores:export", r.handleSigilScores)
 	mux.HandleFunc("GET /__inventory", r.handleInventory)
+	mux.HandleFunc("GET /__counter_samples", r.handleCounterSamples)
 	return mux
 }
 
@@ -200,6 +215,19 @@ func (r *Receiver) decodeRW2(raw []byte) (int, int) {
 			}
 		}
 		r.inv.AddMetric(name, inventory.TransportPrometheusRW2, instrument, labels, histogram)
+		if instrument == inventory.InstrumentCounter {
+			for _, sample := range ts.Samples {
+				if sample == nil {
+					continue
+				}
+				r.counterSamples = append(r.counterSamples, CounterSample{
+					Name:      name,
+					Labels:    cloneLabelMap(labels),
+					Value:     sample.Value,
+					Timestamp: sample.Timestamp,
+				})
+			}
+		}
 		decoded++
 		if len(ts.Histograms) > 0 {
 			natives++
@@ -1218,6 +1246,63 @@ func (r *Receiver) handleInventory(w http.ResponseWriter, _ *http.Request) {
 	if err := r.Snapshot().WriteJSON(w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// CounterSamples returns a stable deep copy of every exact counter observation.
+func (r *Receiver) CounterSamples() []CounterSample {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]CounterSample, len(r.counterSamples))
+	for i, sample := range r.counterSamples {
+		out[i] = CounterSample{
+			Name:      sample.Name,
+			Labels:    cloneLabelMap(sample.Labels),
+			Value:     sample.Value,
+			Timestamp: sample.Timestamp,
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Timestamp != out[j].Timestamp {
+			return out[i].Timestamp < out[j].Timestamp
+		}
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return counterSampleLabels(out[i]) < counterSampleLabels(out[j])
+	})
+	return out
+}
+
+// handleCounterSamples returns exact receiver-observed RW2 counter values and timestamps.
+func (r *Receiver) handleCounterSamples(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(r.CounterSamples()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func cloneLabelMap(src map[string]string) map[string]string {
+	dst := make(map[string]string, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func counterSampleLabels(sample CounterSample) string {
+	keys := make([]string, 0, len(sample.Labels))
+	for key := range sample.Labels {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, key := range keys {
+		b.WriteString(key)
+		b.WriteByte('=')
+		b.WriteString(sample.Labels[key])
+		b.WriteByte('\x00')
+	}
+	return b.String()
 }
 
 func cloneSchema(src inventory.Schema) inventory.Schema {
