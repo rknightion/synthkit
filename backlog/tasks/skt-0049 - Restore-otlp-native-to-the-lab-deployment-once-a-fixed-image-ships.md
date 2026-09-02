@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-08-31 15:13'
-updated_date: '2026-09-01 23:02'
+updated_date: '2026-09-02 08:31'
 labels: []
 dependencies: []
 ordinal: 140000
@@ -67,10 +67,14 @@ Confirm the fixed immutable image is published, then change only the standing de
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-09-02 evidence: the bounded values-only change is committed and synchronized. The workload is healthy on the fixed immutable image, selects seven safe blueprints including otlp-native, and logs show no agent or Sigil emission. The tracker ACs are met. The overnight goal's additional two-mode far-side data proof remains unproven because no authorized query path was established; resume with explicit access to the standing lab data destination and prove both enriched and naked native-OTLP series after synchronization. Synthkit just check and just dump passed; generation was not applicable.
+
+2026-09-03 read-back evidence: the distinct enriched/naked native-OTLP query was attempted against the named lab context with the captured http_server_request_duration_seconds_count family and the two declared service identities. The context was online, but datasource discovery and the explicit Prometheus datasource path both returned Unauthorized. The standing-cluster read path also stopped at an expired AWS SSO session. Therefore the goal-level far-side proof for the two modes, SKT-0046 promoted labels, and SKT-0048 span-resource changes remains unproven; no infrastructure write was made. Resume with a fresh noninteractive metrics-read credential or refreshed standing-lab read session, then query both declared services in one bounded window and compare the sourced label/resource sets.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 2026-09-02: Parked at the goal's stricter live-data boundary after the tracker ACs passed: the lab is healthy on the fixed image with otlp-native restored and no agent emission, but far-side two-mode data remains unproven.
+
+2026-09-03: Parked at the unauthorized/expired live read boundary. The deployment remains previously proven healthy, but the two-mode far-side data and SKT-0046/SKT-0048 live emission are not proved by this wave.
 <!-- SECTION:FINAL_SUMMARY:END -->
