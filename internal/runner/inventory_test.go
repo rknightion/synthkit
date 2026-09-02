@@ -33,25 +33,51 @@ func TestQueryIdentityForBlueprintAndSubstrateScope(t *testing.T) {
 	if got := queryIdentity(core.ScopeSubstrate, "ignored", nil); got != nil {
 		t.Fatalf("substrate identity without sourced fixture = %+v, want nil", got)
 	}
+
+	perFamily, err := queryMetricIdentities(core.ScopeSubstrate, substrate, map[string][]string{
+		"kube_node_info":   {"cluster", "k8s_cluster_name"},
+		"traces_host_info": {},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := perFamily["kube_node_info"]; got == nil || len(got.Labels) != 2 || got.Labels["cluster"] != cluster.Name {
+		t.Fatalf("cluster family identity = %+v, want both declared cluster labels", got)
+	}
+	if got := perFamily["traces_host_info"]; got == nil || got.Scope != "substrate" || len(got.Labels) != 0 {
+		t.Fatalf("host-info identity = %+v, want an explicit empty substrate selector", got)
+	}
+	if _, err := queryMetricIdentities(core.ScopeSubstrate, substrate, map[string][]string{"bad": {"grafana_host_id"}}); err == nil {
+		t.Fatal("undeclared high-cardinality selector must be rejected")
+	}
 }
 
 func TestConstructInventoryClonesQueryIdentity(t *testing.T) {
 	identity := &control.QueryIdentity{Scope: "blueprint", Labels: map[string]string{"blueprint": "bp-a"}}
-	inv := newConstructInv("bp-a", "kind", "name", identity)
+	metricIdentities := map[string]*control.QueryIdentity{"family": {Scope: "blueprint", Labels: map[string]string{}}}
+	inv := newConstructInv("bp-a", "kind", "name", identity, metricIdentities)
 	identity.Labels["blueprint"] = "mutated"
+	metricIdentities["family"].Labels["blueprint"] = "mutated"
 	snapshot := inv.snapshot()
 	if snapshot.Identity == nil || snapshot.Identity.Labels["blueprint"] != "bp-a" {
 		t.Fatalf("inventory identity = %+v", snapshot.Identity)
 	}
+	if got := snapshot.MetricIdentities["family"]; got == nil || len(got.Labels) != 0 {
+		t.Fatalf("metric identity = %+v, want cloned explicit empty selector", got)
+	}
 	snapshot.Identity.Labels["blueprint"] = "snapshot-mutation"
+	snapshot.MetricIdentities["family"].Labels["blueprint"] = "snapshot-mutation"
 	if got := inv.snapshot().Identity.Labels["blueprint"]; got != "bp-a" {
 		t.Fatalf("snapshot mutation leaked into inventory: %q", got)
+	}
+	if got := inv.snapshot().MetricIdentities["family"].Labels; len(got) != 0 {
+		t.Fatalf("metric-identity snapshot mutation leaked into inventory: %v", got)
 	}
 }
 
 func TestWriterInventoryRecordsAndDoesNotLeakLabels(t *testing.T) {
 	cap := &capSink{}
-	inv := newConstructInv("bpA", "cloudflare", "cf1", nil)
+	inv := newConstructInv("bpA", "cloudflare", "cf1", nil, nil)
 	w := &stampedMetrics{sink: cap, label: "bpA", bp: "bpA", budget: newSeriesBudget(0), inv: inv}
 	err := w.Write(context.Background(), []promrw.Series{
 		{Name: "http_requests_total", Labels: map[string]string{"method": "GET", "code": "200"}},
@@ -82,7 +108,7 @@ func TestWriterInventoryRecordsAndDoesNotLeakLabels(t *testing.T) {
 
 // identical signatures must not double-count.
 func TestDistinctSeriesDedup(t *testing.T) {
-	inv := newConstructInv("b", "k", "n", nil)
+	inv := newConstructInv("b", "k", "n", nil, nil)
 	inv.recordMetric("m", [][2]string{{"a", "v1"}, {"b", "v2"}})
 	inv.recordMetric("m", [][2]string{{"a", "v1"}, {"b", "v2"}})
 	if got := inv.snapshot().DistinctSeries; got != 1 {
@@ -95,7 +121,7 @@ func TestDistinctSeriesDedup(t *testing.T) {
 // showing what the blueprint contains). Guards the "disabled stats never drop to zero" bug.
 func TestInventoryDisabledBlueprintZeroesEmissionKeepsConstructs(t *testing.T) {
 	mk := func(bp string) *bpRuntime {
-		ci := newConstructInv(bp, "cloudflare", bp+"-cf", nil)
+		ci := newConstructInv(bp, "cloudflare", bp+"-cf", nil, nil)
 		ci.recordMetric("http_requests_total", [][2]string{{"code", "200"}})
 		ci.recordMetric("http_requests_total", [][2]string{{"code", "500"}})
 		return &bpRuntime{name: bp, constructs: []*boundConstruct{{name: bp + "-cf", kind: "cloudflare", inv: ci}}}
@@ -137,7 +163,7 @@ func TestInventoryDisabledBlueprintZeroesEmissionKeepsConstructs(t *testing.T) {
 // Same metric name + same label KEYS but DIFFERENT values must count as distinct series — this is
 // why the signature hashes values, not just keys. (Guards the keys-only undercounting bug.)
 func TestDistinctSeriesValuesMatter(t *testing.T) {
-	inv := newConstructInv("b", "k", "n", nil)
+	inv := newConstructInv("b", "k", "n", nil, nil)
 	inv.recordMetric("m", [][2]string{{"method", "GET"}, {"code", "200"}})
 	inv.recordMetric("m", [][2]string{{"method", "POST"}, {"code", "200"}})
 	snap := inv.snapshot()

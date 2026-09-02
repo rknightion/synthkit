@@ -190,7 +190,11 @@ func evaluate(ctx context.Context, c *http.Client, cfg config, name string, load
 	checks := make([]metricCheck, 0)
 	for _, construct := range bp.Constructs {
 		for _, metric := range construct.MetricNames {
-			checks = append(checks, metricCheck{metric: metric, kind: construct.Kind, name: construct.Name, identity: construct.Identity})
+			identity := construct.Identity
+			if perFamily, ok := construct.MetricIdentities[metric]; ok {
+				identity = perFamily
+			}
+			checks = append(checks, metricCheck{metric: metric, kind: construct.Kind, name: construct.Name, identity: identity})
 		}
 	}
 	r.MetricChecks = len(checks)

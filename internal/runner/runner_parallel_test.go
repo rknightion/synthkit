@@ -49,7 +49,7 @@ func injectConstruct(t *testing.T, r *Runner, bpName, instName string, c core.Co
 	t.Helper()
 	for _, bp := range r.bps {
 		if bp.name == bpName {
-			world, _ := r.buildWorld(bp, c.Kind(), instName, c.Signals(), "", nil, nil, metricProducerSet{promRW: producerPromRW})
+			world, _ := r.buildWorld(bp, c.Kind(), instName, c.Signals(), "", nil, nil, nil, metricProducerSet{promRW: producerPromRW})
 			bp.constructs = append(bp.constructs, &boundConstruct{
 				name:      instName,
 				construct: c,

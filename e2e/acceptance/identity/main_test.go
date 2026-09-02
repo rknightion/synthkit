@@ -171,6 +171,48 @@ func TestEvaluateQueriesEveryInventoryMetricWithBoundedConcurrency(t *testing.T)
 	}
 }
 
+func TestEvaluateUsesExplicitPerFamilyQueryIdentity(t *testing.T) {
+	queries := make(chan string, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queries <- r.URL.Query().Get("query")
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": map[string]any{"result": []any{map[string]any{"value": []any{0, "1"}}}}})
+	}))
+	defer server.Close()
+
+	clusterIdentity := &control.QueryIdentity{Scope: "substrate", Labels: map[string]string{
+		"cluster": "cluster-a", "k8s_cluster_name": "cluster-a",
+	}}
+	inventory := control.InventoryReport{Blueprints: []control.BlueprintInventory{{
+		Blueprint: "one",
+		Constructs: []control.ConstructInventory{{
+			Kind:        "k8s_cluster",
+			Name:        "cluster-a",
+			Identity:    clusterIdentity,
+			MetricNames: []string{"kube_node_info", "traces_host_info"},
+			MetricIdentities: map[string]*control.QueryIdentity{
+				"traces_host_info": {Scope: "substrate", Labels: map[string]string{}},
+			},
+		}},
+	}}}
+	got := evaluate(context.Background(), server.Client(), config{promURL: server.URL}, "one", true, false,
+		control.Schema{Blueprints: []string{"one"}}, inventory,
+		control.StatusReport{Readiness: &control.ReadinessReport{LiveReady: true}}, 1, true)
+	if got.Verdict != verdictHealthy {
+		t.Fatalf("row=%+v, want family-specific query identities to be queryable", got)
+	}
+
+	seen := map[string]bool{}
+	for range 2 {
+		seen[<-queries] = true
+	}
+	if !seen[`{__name__="kube_node_info",cluster="cluster-a",k8s_cluster_name="cluster-a"}`] {
+		t.Fatalf("queries=%v, want cluster-scoped family to retain declared cluster selectors", seen)
+	}
+	if !seen[`{__name__="traces_host_info"}`] {
+		t.Fatalf("queries=%v, want traces_host_info to use its explicit empty selector", seen)
+	}
+}
+
 func identityServer(t *testing.T, names []string, ready bool) *httptest.Server {
 	t.Helper()
 	sort.Strings(names)

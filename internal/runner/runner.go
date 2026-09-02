@@ -469,11 +469,15 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 			label = res.Label
 		}
 		identity := queryIdentity(reg.Scope, res.Label, ci.Fixtures)
+		metricIdentities, err := queryMetricIdentities(reg.Scope, identity, reg.MetricQueryLabels)
+		if err != nil {
+			return fmt.Errorf("runner: blueprint %q construct %q: %w", res.Name, ci.Name, err)
+		}
 		producers, err := resolveMetricProducers(ci.Kind, ci.Config, c.Signals(), reg.MetricProducer, reg.OTLPMetricProducer, reg.MetricAllowListProvenance)
 		if err != nil {
 			return fmt.Errorf("runner: blueprint %q construct %q: %w", res.Name, ci.Name, err)
 		}
-		world, inv := r.buildWorld(bp, ci.Kind, ci.Name, c.Signals(), label, identity, nil, producers)
+		world, inv := r.buildWorld(bp, ci.Kind, ci.Name, c.Signals(), label, identity, metricIdentities, nil, producers)
 		bp.constructs = append(bp.constructs, &boundConstruct{
 			name:      ci.Name,
 			kind:      ci.Kind,
@@ -526,11 +530,15 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 			wlabel = "" // …except substrate-scoped workloads (ai_agent/sigil): no blueprint label
 		}
 		identity := queryIdentity(wreg.Scope, res.Label, &fixture.Set{Cluster: wi.Cluster})
+		metricIdentities, err := queryMetricIdentities(wreg.Scope, identity, wreg.MetricQueryLabels)
+		if err != nil {
+			return fmt.Errorf("runner: blueprint %q workload %q: %w", res.Name, wi.Name, err)
+		}
 		producers, err := resolveMetricProducers(wi.Kind, wi.Config, w.Signals(), wreg.MetricProducer, wreg.OTLPMetricProducer, nil)
 		if err != nil {
 			return fmt.Errorf("runner: blueprint %q workload %q: %w", res.Name, wi.Name, err)
 		}
-		wworld, winv := r.buildWorld(bp, wi.Kind, wi.Name, w.Signals(), wlabel, identity, led, producers)
+		wworld, winv := r.buildWorld(bp, wi.Kind, wi.Name, w.Signals(), wlabel, identity, metricIdentities, led, producers)
 		bp.workloads = append(bp.workloads, &boundWorkload{
 			workload: w,
 			kind:     wi.Kind,
@@ -615,6 +623,35 @@ func queryIdentity(scope core.Scope, blueprintLabel string, fixtures *fixture.Se
 	return nil
 }
 
+func queryMetricIdentities(scope core.Scope, base *control.QueryIdentity, declarations map[string][]string) (map[string]*control.QueryIdentity, error) {
+	if len(declarations) == 0 {
+		return nil, nil
+	}
+	queryScope := "substrate"
+	if scope == core.ScopeBlueprint {
+		queryScope = "blueprint"
+	}
+	out := make(map[string]*control.QueryIdentity, len(declarations))
+	for family, keys := range declarations {
+		if strings.TrimSpace(family) == "" {
+			return nil, fmt.Errorf("metric query identity has a blank family")
+		}
+		labels := make(map[string]string, len(keys))
+		for _, key := range keys {
+			if base == nil {
+				return nil, fmt.Errorf("metric query identity for %q selects %q without a default identity", family, key)
+			}
+			value, ok := base.Labels[key]
+			if !ok {
+				return nil, fmt.Errorf("metric query identity for %q selects undeclared label %q", family, key)
+			}
+			labels[key] = value
+		}
+		out[family] = &control.QueryIdentity{Scope: queryScope, Labels: labels}
+	}
+	return out, nil
+}
+
 func resolveMetricProducers(kind string, cfg any, signals []core.SignalClass, metric, native func(any) string, allowList func(any) (string, string)) (metricProducerSet, error) {
 	var out metricProducerSet
 	if slices.Contains(signals, core.Metrics) {
@@ -675,8 +712,8 @@ func (r *Runner) MetricSuppressions() []MetricSuppression {
 	return out
 }
 
-func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.SignalClass, label string, identity *control.QueryIdentity, led *ledger.Ledger, producers metricProducerSet) (*core.World, *constructInv) {
-	inv := newConstructInv(bp.name, kind, name, identity)
+func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.SignalClass, label string, identity *control.QueryIdentity, metricIdentities map[string]*control.QueryIdentity, led *ledger.Ledger, producers metricProducerSet) (*core.World, *constructInv) {
+	inv := newConstructInv(bp.name, kind, name, identity, metricIdentities)
 	w := &core.World{Shape: bp.eng, Ledger: led, Scaling: bp.scale}
 	// Wire the stamped writers at the delivery QUEUES (decorators of the raw sinks), not the
 	// raw sinks — so Write enqueues and background senders ship (I41). Gated on the raw sink's

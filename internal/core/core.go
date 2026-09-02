@@ -266,6 +266,11 @@ type ConstructReg struct {
 	// applicable callback; comparison never guesses from metric names or labels.
 	MetricProducer     func(cfg any) string
 	OTLPMetricProducer func(cfg any) string
+	// MetricQueryLabels explicitly narrows the default instance identity for named
+	// metric families. Each listed key must come from the default declared identity;
+	// an explicit empty slice means query the family by name only. Unlisted families
+	// retain the default. Never populate this from emitted label values.
+	MetricQueryLabels map[string][]string
 	// MetricAllowListProvenance returns the selected list version and variant when
 	// this instance filters its PromRW family surface. Both values are empty when
 	// no list was selected.
@@ -287,6 +292,8 @@ type WorkloadReg struct {
 	// implementations, so producer identity stays explicit at the composition root.
 	MetricProducer     func(cfg any) string
 	OTLPMetricProducer func(cfg any) string
+	// MetricQueryLabels has the same explicit per-family selector contract as ConstructReg.
+	MetricQueryLabels map[string][]string
 	// FailureModes — see ConstructReg.FailureModes (workload axis).
 	FailureModes []failuremode.Mode
 	// Scope decides blueprint-label stamping for this workload's lanes (default ScopeBlueprint).

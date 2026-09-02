@@ -23,21 +23,22 @@ type BlueprintInventory struct {
 // ConstructInventory is one construct/workload instance's emitted shape (names + label KEYS only —
 // never values; this is internal bookkeeping, never stamped on the wire).
 type ConstructInventory struct {
-	Kind           string         `json:"kind"`
-	Name           string         `json:"name"`
-	Identity       *QueryIdentity `json:"identity,omitempty"` // declared low-cardinality selector evidence
-	DistinctSeries int64          `json:"distinct_series"`    // metrics signature count (capped; see Capped)
-	Capped         bool           `json:"capped"`             // true once the signature set hit its cap
-	MetricNames    []string       `json:"metric_names"`       // sorted
-	MetricLabels   []string       `json:"metric_label_keys"`  // sorted union of metric label keys
-	LogSources     []string       `json:"log_sources"`        // sorted
-	LogLabelKeys   []string       `json:"log_label_keys"`     // sorted union (stream + structured-metadata keys)
-	SpanServices   []string       `json:"span_services"`      // sorted
-	SpanNames      []string       `json:"span_names"`         // sorted
-	SpanAttrKeys   []string       `json:"span_attr_keys"`     // sorted union (span + resource attr keys)
+	Kind             string                    `json:"kind"`
+	Name             string                    `json:"name"`
+	Identity         *QueryIdentity            `json:"identity,omitempty"`          // default declared low-cardinality selector evidence
+	MetricIdentities map[string]*QueryIdentity `json:"metric_identities,omitempty"` // explicit per-family overrides; an empty Labels map is meaningful
+	DistinctSeries   int64                     `json:"distinct_series"`             // metrics signature count (capped; see Capped)
+	Capped           bool                      `json:"capped"`                      // true once the signature set hit its cap
+	MetricNames      []string                  `json:"metric_names"`                // sorted
+	MetricLabels     []string                  `json:"metric_label_keys"`           // sorted union of metric label keys
+	LogSources       []string                  `json:"log_sources"`                 // sorted
+	LogLabelKeys     []string                  `json:"log_label_keys"`              // sorted union (stream + structured-metadata keys)
+	SpanServices     []string                  `json:"span_services"`               // sorted
+	SpanNames        []string                  `json:"span_names"`                  // sorted
+	SpanAttrKeys     []string                  `json:"span_attr_keys"`              // sorted union (span + resource attr keys)
 }
 
-// QueryIdentity is the safe live-query selector for one construct instance. Scope is explicit
+// QueryIdentity is a safe live-query selector. Scope is explicit
 // because substrate output deliberately omits blueprint; Labels contains only declared,
 // low-cardinality identity needed to query the emitted family (never request IDs, secrets, or
 // arbitrary emitted label values). Missing dimensions are absent from Labels, never sentinels.
