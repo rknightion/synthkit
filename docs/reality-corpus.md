@@ -78,13 +78,17 @@ defect is established only by the evidence for the substrate to which the
 finding applies; matching evidence elsewhere neither suppresses nor broadens
 it.
 
-Reviewed schema-2 captures can be converted into generic candidate records.
-Promotion receives the capture-declared per-family producer-label key as
-reviewed configuration, copies only its generic value(s) into each metric's
-`producers` field, and omits that label from the privacy-safe label projection.
-The comparator pairs metrics only where both sides carry a matching explicit
-producer. It never reconstructs a producer from a metric name, prefix, or
-elided label value; a family without a matching producer is absent evidence.
+Reviewed schema-2 captures can be converted into generic candidate records only
+through a reviewed, hash-keyed routing manifest. The manifest names the
+capture-provided producer-label key, then explicitly records each exact family,
+its generic producer identity, and its owning signals area. Promotion checks
+the reviewed producer against the capture's direct label when that label is
+present; a family without it needs its own explicit manifest identity before
+the label is omitted from the privacy-safe projection. The comparator pairs metrics only where
+both sides carry a matching explicit producer. It never reconstructs a producer
+or an area from a metric name, prefix, document position, or elided label value;
+an unmapped family is a conversion error and a family without a matching
+producer is absent evidence.
 
 When a synth producer selects the k8s-monitoring default allow-list, its metric
 producer provenance also records the pinned chart version and selected variant
@@ -95,12 +99,50 @@ producer/source evidence proves the selected list owns that family. Otherwise
 the two possible causes of missing metadata remain unresolved evidence.
 
 The converter currently projects metrics only and preserves the raw content
-hash, scope class, source schema/tool versions, warning IDs, and each family's
-`instrument_type_source`, including
+hash, scope class, source schema/tool versions, warning IDs, source capture
+duration/window/soak/load declaration, and each family's `instrument_type_source`, including
 `WINDOW_EXCEEDS_SOAK`. The source logs, traces, and profiles remain absent
 evidence until they have an identity-safe, area-owned mapping into the
 inventory envelope; their omission does not assert that the source emitted no
 such signals. Superseded attempts remain excluded.
+
+### Schema-2 fixed-capture routing manifest
+
+The manifest belongs at
+`reality-corpus/manifests/capture-v2-routing.json`; `manifests/` is not a
+signals area, so the corpus loader deliberately does not treat it as an evidence
+document. Its version is
+`synthkit.telemetry.capture-v2-routing/v1alpha1`. It contains one route for
+each immutable raw-capture SHA-256 and, for every metric family in that capture,
+an exact `name`, `area`, and non-empty `producers` array. A capture route also
+records only generic promotion provenance: kind, substrate, scope,
+collector/version, capture date, and the capture-provided producer-label key.
+
+A manifest is complete only when it includes every family from all seven
+canonical 2026-08-31 captures. The converter rejects a missing capture hash, a
+family absent from its hash route, a stale route naming a family no longer in the
+capture, duplicate routes, an unknown area, or a reviewed producer that does
+not equal the raw capture's direct producer identity. It has no partial-mode,
+prefix fallback, source splitting, or default area. Do not create a placeholder
+or infer a row from the synthetic union: an unreviewed row is a PENDING review
+item, not corpus evidence.
+
+The seven reviewed-input hashes are:
+
+| Scope | SHA-256 |
+| --- | --- |
+| cluster EKS | `c01efa82a07645a295e8a810ee6ca004f4a3628cac8a78813eb2e1727c3a1a9f` |
+| cluster AKS | `173dc9fdcf828762cecb8d089e0745c7a20416f42ffbea317ce41641be5c81db` |
+| cluster GKE | `a5ef809344ac23b907edd096d771ea7910b845ecbd9be68a4adcf07fb1c31967` |
+| cloud AWS | `a38163f5306d92c0b9b698745a57bde788a60e8229967938797e6d51d1df3133` |
+| cloud Azure | `c425f16d70ad75fcc5dfa6cc0c110b2b212fb382eefc37f2234d201e435aaf27` |
+| cloud GCP | `3904edb0183aadd3e3b5680e0f31d7655c21cac278fb3a877eb57c0e8a6ded78` |
+| canonical full | `d740d6f2d6058989ad16ba59ac567953a26865360587199d8789c43dd35d6155` |
+
+The two failed full-capture attempts are not rows in this manifest. All
+canonical raw captures remain immutable in the sibling capture repository; a
+promotion caller reads them and writes only new per-area corpus documents after
+the complete manifest validates. `reality-corpus/00-canon/` remains empty.
 
 ### EKS live read-back command
 

@@ -66,12 +66,18 @@ type CorpusSource struct {
 	// CaptureSchemaVersion, CaptureToolVersion, CaptureSHA256, CaptureScope and
 	// CaptureWarnings preserve the identity and evidence boundary of a promoted external
 	// capture without copying its deployment-specific provenance into this repository.
-	CaptureSchemaVersion string            `json:"capture_schema_version,omitempty"`
-	CaptureToolVersion   string            `json:"capture_tool_version,omitempty"`
-	CaptureSHA256        string            `json:"capture_sha256,omitempty"`
-	CaptureScope         string            `json:"capture_scope,omitempty"`
-	CaptureWarnings      []string          `json:"capture_warnings,omitempty"`
-	EnrichmentLabels     []EnrichmentLabel `json:"enrichment_labels,omitempty"`
+	CaptureSchemaVersion string   `json:"capture_schema_version,omitempty"`
+	CaptureToolVersion   string   `json:"capture_tool_version,omitempty"`
+	CaptureSHA256        string   `json:"capture_sha256,omitempty"`
+	CaptureScope         string   `json:"capture_scope,omitempty"`
+	CaptureWarnings      []string `json:"capture_warnings,omitempty"`
+	// Capture conditions retain the source-declared collection evidence without
+	// copying an estate or load-driver identity into the corpus.
+	CaptureDurationSeconds float64           `json:"capture_duration_seconds,omitempty"`
+	CaptureWindow          string            `json:"capture_window,omitempty"`
+	CaptureSoakDuration    string            `json:"capture_soak_duration,omitempty"`
+	CaptureLoadDriven      string            `json:"capture_load_driven,omitempty"`
+	EnrichmentLabels       []EnrichmentLabel `json:"enrichment_labels,omitempty"`
 }
 
 // The two roles source.collector_role may declare. See CorpusSource.CollectorRole.
@@ -371,6 +377,21 @@ func validateCaptureIdentity(source CorpusSource) error {
 			return fmt.Errorf("source.capture_warnings[%d]: must not be blank", i)
 		}
 	}
+	if source.CaptureDurationSeconds < 0 {
+		return errors.New("source.capture_duration_seconds: must not be negative")
+	}
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{"source.capture_window", source.CaptureWindow},
+		{"source.capture_soak_duration", source.CaptureSoakDuration},
+		{"source.capture_load_driven", source.CaptureLoadDriven},
+	} {
+		if field.value != "" && strings.TrimSpace(field.value) == "" {
+			return fmt.Errorf("%s: must not be blank when present", field.name)
+		}
+	}
 	return nil
 }
 
@@ -547,6 +568,10 @@ func CanonicalMerge(existing, candidate CorpusDocument) (CorpusDocument, error) 
 		out.Source.CaptureSHA256 = candidate.Source.CaptureSHA256
 		out.Source.CaptureScope = candidate.Source.CaptureScope
 		out.Source.CaptureWarnings = sortedUniqueStrings(append(out.Source.CaptureWarnings, candidate.Source.CaptureWarnings...))
+		out.Source.CaptureDurationSeconds = candidate.Source.CaptureDurationSeconds
+		out.Source.CaptureWindow = candidate.Source.CaptureWindow
+		out.Source.CaptureSoakDuration = candidate.Source.CaptureSoakDuration
+		out.Source.CaptureLoadDriven = candidate.Source.CaptureLoadDriven
 	}
 	normalizeCorpusDocument(&out)
 	return out, nil

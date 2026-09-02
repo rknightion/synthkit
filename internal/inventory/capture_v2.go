@@ -41,6 +41,18 @@ type captureV2 struct {
 	Tool          struct {
 		Version string `json:"version"`
 	} `json:"tool"`
+	Provenance struct {
+		CaptureDurationSeconds float64 `json:"capture_duration_seconds"`
+		Window                 struct {
+			Duration string `json:"duration"`
+		} `json:"window"`
+		Estate struct {
+			Load struct {
+				SoakDuration string `json:"soak_duration"`
+				LoadDriven   string `json:"load_driven"`
+			} `json:"load"`
+		} `json:"estate"`
+	} `json:"provenance"`
 	Capture struct {
 		Scope struct {
 			IsScoped bool `json:"is_scoped"`
@@ -117,17 +129,21 @@ func ConvertCaptureV2(data []byte, source CaptureV2PromotionSource) (CorpusDocum
 		CorpusVersion: CorpusVersion,
 		Area:          source.Area,
 		Source: CorpusSource{
-			Kind:                 source.Kind,
-			Substrate:            source.Substrate,
-			Collector:            source.Collector,
-			CollectorRole:        CollectorRoleAudited,
-			CollectorVersion:     source.CollectorVersion,
-			CapturedOn:           source.CapturedOn,
-			CaptureSchemaVersion: capture.SchemaVersion,
-			CaptureToolVersion:   capture.Tool.Version,
-			CaptureSHA256:        hex.EncodeToString(hash[:]),
-			CaptureScope:         source.Scope,
-			CaptureWarnings:      captureV2WarningIDs(capture.Capture.Limitations),
+			Kind:                   source.Kind,
+			Substrate:              source.Substrate,
+			Collector:              source.Collector,
+			CollectorRole:          CollectorRoleAudited,
+			CollectorVersion:       source.CollectorVersion,
+			CapturedOn:             source.CapturedOn,
+			CaptureSchemaVersion:   capture.SchemaVersion,
+			CaptureToolVersion:     capture.Tool.Version,
+			CaptureSHA256:          hex.EncodeToString(hash[:]),
+			CaptureScope:           source.Scope,
+			CaptureWarnings:        captureV2WarningIDs(capture.Capture.Limitations),
+			CaptureDurationSeconds: capture.Provenance.CaptureDurationSeconds,
+			CaptureWindow:          capture.Provenance.Window.Duration,
+			CaptureSoakDuration:    capture.Provenance.Estate.Load.SoakDuration,
+			CaptureLoadDriven:      capture.Provenance.Estate.Load.LoadDriven,
 		},
 		Authority:     CorpusAuthority{Substrates: []string{source.Substrate}},
 		CaptureVolume: CaptureVolume{Runs: 1, ObservedContractCounts: []int{len(schema.Metrics)}},

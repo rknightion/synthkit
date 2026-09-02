@@ -1,6 +1,13 @@
 {
   "schema_version": "2.0.0",
   "tool": {"version": "2.1.0"},
+  "provenance": {
+    "capture_duration_seconds": 12.5,
+    "window": {"duration": "1h"},
+    "estate": {
+      "load": {"soak_duration": "30m", "load_driven": "yes"}
+    }
+  },
   "capture": {
     "scope": {"is_scoped": true},
     "limitations": [

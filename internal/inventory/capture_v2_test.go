@@ -39,6 +39,9 @@ func TestConvertCaptureV2PreservesTypeEvidenceAndSanitizesIdentity(t *testing.T)
 	if document.Source.CaptureSHA256 == "" || document.Source.CaptureScope != "cluster" {
 		t.Fatalf("capture identity=%+v, want hash and scope", document.Source)
 	}
+	if document.Source.CaptureDurationSeconds != 12.5 || document.Source.CaptureWindow != "1h" || document.Source.CaptureSoakDuration != "30m" || document.Source.CaptureLoadDriven != "yes" {
+		t.Fatalf("capture conditions=%+v, want source duration, window, soak, and load declaration", document.Source)
+	}
 	if got, want := document.Source.CaptureWarnings, []string{"UNTYPED_FAMILIES_ARE_A_SENDER_PROPERTY", "WINDOW_EXCEEDS_SOAK"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("capture warnings=%v, want %v", got, want)
 	}
@@ -185,6 +188,118 @@ func TestConvertCaptureV2UsesReviewedProducerWhenLabelValuesAreBlank(t *testing.
 	}
 	if got, want := metricByName(t, document.Inventory, name).Producers, []Producer{{Name: "unlabelled"}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("producer=%+v, want reviewed fallback identity %+v", got, want)
+	}
+}
+
+func TestProjectCaptureV2RejectsUnmappedFamilyWithoutNameInference(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = ProjectCaptureV2(data, CaptureV2RoutingManifest{
+		Version: CaptureV2RoutingManifestVersion,
+		Captures: []CaptureV2CaptureRoute{{
+			SHA256:              captureV2SHA256(data),
+			Kind:                "synthkit_terraform_capture",
+			Substrate:           "eks",
+			Scope:               "cluster",
+			Collector:           "grafana/k8s-monitoring",
+			CollectorVersion:    "4.5.0",
+			CapturedOn:          "2026-08-31",
+			MetricProducerLabel: "ingest_path",
+			Families: []CaptureV2FamilyRoute{
+				{Name: "example_requests_total", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+			},
+		}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "example_declared_unknown") || !strings.Contains(err.Error(), "no reviewed family route") {
+		t.Fatalf("error=%v, want unmapped family rejection without a name or prefix fallback", err)
+	}
+}
+
+func TestProjectCaptureV2ProjectsExplicitFamilyRoutesIntoTheirAreas(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	documents, err := ProjectCaptureV2(data, CaptureV2RoutingManifest{
+		Version: CaptureV2RoutingManifestVersion,
+		Captures: []CaptureV2CaptureRoute{{
+			SHA256:              captureV2SHA256(data),
+			Kind:                "synthkit_terraform_capture",
+			Substrate:           "eks",
+			Scope:               "cluster",
+			Collector:           "grafana/k8s-monitoring",
+			CollectorVersion:    "4.5.0",
+			CapturedOn:          "2026-08-31",
+			MetricProducerLabel: "ingest_path",
+			Families: []CaptureV2FamilyRoute{
+				{Name: "example_requests_total", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_declared_unknown", Area: "cw", Producers: []Producer{{Name: "promrw"}}},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(documents) != 2 {
+		t.Fatalf("documents=%d, want one document per explicit area", len(documents))
+	}
+	if documents[0].Area != "cw" || len(documents[0].Inventory.Metrics) != 1 || documents[0].Inventory.Metrics[0].Name != "example_declared_unknown" {
+		t.Fatalf("cw document=%+v, want only its explicitly-routed family", documents[0])
+	}
+	if documents[1].Area != "k8s" || len(documents[1].Inventory.Metrics) != 2 {
+		t.Fatalf("k8s document=%+v, want only its explicitly-routed families", documents[1])
+	}
+}
+
+func TestProjectCaptureV2UsesExplicitRouteForProducerlessFamily(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture captureV2
+	if err := json.Unmarshal(data, &capture); err != nil {
+		t.Fatal(err)
+	}
+	for i := range capture.Signals.Metrics.Families[2].Labels {
+		if capture.Signals.Metrics.Families[2].Labels[i].Key == "ingest_path" {
+			capture.Signals.Metrics.Families[2].Labels = append(capture.Signals.Metrics.Families[2].Labels[:i], capture.Signals.Metrics.Families[2].Labels[i+1:]...)
+			break
+		}
+	}
+	data, err = json.Marshal(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	documents, err := ProjectCaptureV2(data, CaptureV2RoutingManifest{
+		Version: CaptureV2RoutingManifestVersion,
+		Captures: []CaptureV2CaptureRoute{{
+			SHA256:              captureV2SHA256(data),
+			Kind:                "synthkit_terraform_capture",
+			Substrate:           "eks",
+			Scope:               "cluster",
+			Collector:           "grafana/k8s-monitoring",
+			CollectorVersion:    "4.5.0",
+			CapturedOn:          "2026-08-31",
+			MetricProducerLabel: "ingest_path",
+			Families: []CaptureV2FamilyRoute{
+				{Name: "example_requests_total", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_declared_unknown", Area: "cw", Producers: []Producer{{Name: "reviewed-producer"}}},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := documents[0].Inventory.Metrics[0].Producers, []Producer{{Name: "reviewed-producer"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("producer=%+v, want the explicit route identity %v", got, want)
 	}
 }
 
