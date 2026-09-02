@@ -78,6 +78,17 @@ var expectedNames = func() []string {
 		"aws_ec2_ebsread_ops",
 		"aws_ec2_ebswrite_ops",
 		"aws_ec2_cpucredit_balance",
+		"aws_ec2_cpucredit_usage",
+		"aws_ec2_cpusurplus_credit_balance",
+		"aws_ec2_cpusurplus_credits_charged",
+		"aws_ec2_ebsbyte_balance_percent",
+		"aws_ec2_ebsiobalance_percent",
+		"aws_ec2_instance_ebsiopsexceeded_check",
+		"aws_ec2_instance_ebsthroughput_exceeded_check",
+		"aws_ec2_metadata_no_token",
+		"aws_ec2_metadata_no_token_rejected",
+		"aws_ec2_network_packets_in",
+		"aws_ec2_network_packets_out",
 	}
 	stats := []string{"_average", "_maximum", "_minimum", "_sum", "_sample_count"}
 	set := map[string]struct{}{}
@@ -198,6 +209,57 @@ func TestPerNodeCorrelation(t *testing.T) {
 	// Total per-instance CPU series count must equal node count.
 	if len(cpuByInstance) != len(clust.Nodes) {
 		t.Errorf("per-instance cpu series count %d != node count %d", len(cpuByInstance), len(clust.Nodes))
+	}
+}
+
+func TestCapturedDimensionExceptions(t *testing.T) {
+	c := buildDefault(t)
+	cap := &coretest.MetricCapture{}
+	w := coretest.World(cap, nil, nil)
+	now := time.Date(2026, 6, 13, 12, 0, 0, 0, time.UTC)
+	if err := c.Tick(context.Background(), now, w); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+
+	for _, root := range []string{
+		"aws_ec2_instance_ebsiopsexceeded_check",
+		"aws_ec2_instance_ebsthroughput_exceeded_check",
+		"aws_ec2_metadata_no_token_rejected",
+	} {
+		series := cap.Find(root + "_average")
+		if len(series) == 0 {
+			t.Fatalf("%s_average: no series", root)
+		}
+		for _, s := range series {
+			if s.Labels["dimension_InstanceId"] == "" {
+				t.Errorf("%s: missing dimension_InstanceId", root)
+			}
+			if _, ok := s.Labels["dimension_AutoScalingGroupName"]; ok {
+				t.Errorf("%s: unexpected dimension_AutoScalingGroupName", root)
+			}
+		}
+	}
+
+	for _, root := range []string{
+		"aws_ec2_cpucredit_usage",
+		"aws_ec2_cpusurplus_credit_balance",
+		"aws_ec2_cpusurplus_credits_charged",
+		"aws_ec2_ebsbyte_balance_percent",
+		"aws_ec2_ebsiobalance_percent",
+		"aws_ec2_metadata_no_token",
+		"aws_ec2_network_packets_in",
+		"aws_ec2_network_packets_out",
+	} {
+		series := cap.Find(root + "_average")
+		seenASG := false
+		seenInstance := false
+		for _, s := range series {
+			seenASG = seenASG || s.Labels["dimension_AutoScalingGroupName"] != ""
+			seenInstance = seenInstance || s.Labels["dimension_InstanceId"] != ""
+		}
+		if !seenASG || !seenInstance {
+			t.Errorf("%s: captured dimensions incomplete (asg=%t instance=%t)", root, seenASG, seenInstance)
+		}
 	}
 }
 

@@ -46,37 +46,16 @@ import (
 	"github.com/rknightion/synthkit/e2e/inventory"
 )
 
-// e2eBlueprint is the smoke blueprint: emits all lanes (RW2 metrics, OTLP metrics,
-// OTLP traces for two services, Loki logs). Two independent -once -dump runs are
-// byte-identical (deterministic seeding), so correlation is stable.
-const e2eBlueprint = "otlp-native"
-
 // e2eAgentFixture supplies the three sigil lanes, and it is a TEST FIXTURE rather than a shipped
 // blueprint — e2e/fixtures/, not blueprints/. Its agent activity rates are set absurdly high so a
 // single -once tick cannot produce zero generations; that is only acceptable because nothing
 // deploys it. The rates used to live in otlp-native, which the standing lab deployment loads, so
 // they ran continuously against a real stack and caused problems in the Agent Observability
 // product. Realistic agent telemetry lives in blueprints/grafana-ai-o11y.yaml.
-const e2eAgentFixture = "e2e-agents"
-
-// e2eBlueprintNames is what BLUEPRINT_NAMES is set to everywhere in this suite. CI's default
-// includes the dedicated sigil fixture. A bounded run may set SYNTHKIT_E2E_INCLUDE_AGENT=false
-// to exercise the complete non-agent metric/log/trace surface without loading any ai_agent
-// declaration; this is an explicit topology, not a silent skip.
+// e2eBlueprintNames is what BLUEPRINT_NAMES is set to everywhere in this suite. The default
+// exercises the complete non-agent metric/log/trace surface. The dedicated Sigil fixture is
+// loaded only when SYNTHKIT_E2E_INCLUDE_AGENT=true explicitly selects that topology.
 var e2eBlueprintNames, e2eBlueprintSources = e2eBlueprintConfig(os.Getenv("SYNTHKIT_E2E_INCLUDE_AGENT"))
-
-func e2eBlueprintConfig(raw string) (string, map[string]string) {
-	sources := map[string]string{e2eBlueprint: "../blueprints/" + e2eBlueprint + ".yaml"}
-	switch strings.TrimSpace(raw) {
-	case "", "true":
-		sources[e2eAgentFixture] = "../e2e/fixtures/" + e2eAgentFixture + ".yaml"
-		return e2eBlueprint + "," + e2eAgentFixture, sources
-	case "false":
-		return e2eBlueprint, sources
-	default:
-		panic("SYNTHKIT_E2E_INCLUDE_AGENT must be true or false")
-	}
-}
 
 // TestDockerE2E is the integration capstone: builds both images, runs them, and
 // asserts that every metric / log source / trace service declared by -dump arrived

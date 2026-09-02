@@ -134,6 +134,10 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	}
 	c.setStats("aws_ec2_network_in", cwBase("global", "ec2", asgDims), netIn)
 	c.setStats("aws_ec2_network_out", cwBase("global", "ec2", asgDims), netIn*0.3)
+	// Packet counterparts use the same byte flow with a conservative 1200-byte
+	// mean payload; no second network-volume model is introduced.
+	c.setStats("aws_ec2_network_packets_in", cwBase("global", "ec2", asgDims), netIn/1200)
+	c.setStats("aws_ec2_network_packets_out", cwBase("global", "ec2", asgDims), netIn*0.3/1200)
 
 	// status_check_failed* — 0 at baseline
 	c.setStats("aws_ec2_status_check_failed", cwBase("global", "ec2", asgDims), 0)
@@ -171,6 +175,21 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		creditBalance = 10
 	}
 	c.setStats("aws_ec2_cpucredit_balance", cwBase("global", "ec2", asgDims), creditBalance)
+	// The existing burstable-node claim gets a coherent low-load credit budget:
+	// modest usage follows CPU shape, surplus appears only above 80% shape, and
+	// EBS byte/IO balances remain high under this baseline workload.
+	creditUsage := factor * nodeCount * 2
+	surplusBalance := clamp((factor-0.8)*nodeCount*10, 0, 100)
+	surplusCharged := clamp((factor-1.0)*nodeCount*10, 0, 100)
+	ebsByteBalance := clamp(100-factor*15, 0, 100)
+	ebsIOBalance := clamp(100-factor*10, 0, 100)
+	metadataNoToken := factor * nodeCount * 0.1
+	c.setStats("aws_ec2_cpucredit_usage", cwBase("global", "ec2", asgDims), creditUsage)
+	c.setStats("aws_ec2_cpusurplus_credit_balance", cwBase("global", "ec2", asgDims), surplusBalance)
+	c.setStats("aws_ec2_cpusurplus_credits_charged", cwBase("global", "ec2", asgDims), surplusCharged)
+	c.setStats("aws_ec2_ebsbyte_balance_percent", cwBase("global", "ec2", asgDims), ebsByteBalance)
+	c.setStats("aws_ec2_ebsiobalance_percent", cwBase("global", "ec2", asgDims), ebsIOBalance)
+	c.setStats("aws_ec2_metadata_no_token", cwBase("global", "ec2", asgDims), metadataNoToken)
 
 	// ── Per-instance series (one series-set per Node) ─────────────────────────────
 	// THE CORRELATION SEAM (ARCHITECTURE I12): dimension_InstanceId == Node.InstanceID
@@ -194,11 +213,30 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		}
 		c.setStats("aws_ec2_network_in", instLbls, instNetIn)
 		c.setStats("aws_ec2_network_out", instLbls, instNetIn*0.3)
+		c.setStats("aws_ec2_network_packets_in", instLbls, instNetIn/1200)
+		c.setStats("aws_ec2_network_packets_out", instLbls, instNetIn*0.3/1200)
 
 		// Status checks — 0 at baseline (same as ASG)
 		c.setStats("aws_ec2_status_check_failed", instLbls, 0)
 		c.setStats("aws_ec2_status_check_failed_instance", instLbls, 0)
 		c.setStats("aws_ec2_status_check_failed_system", instLbls, 0)
+
+		// Captured dimension exceptions: these three roots are instance-only and
+		// must never acquire an ASG roll-up. Healthy EBS-backed nodes publish zero
+		// exceeded/rejected checks; the remaining budget and credit roots coexist
+		// at both instance and ASG levels.
+		instCreditUsage := factor * (1 + float64(i)*0.05) * 2
+		instSurplusBalance := clamp((factor-0.8)*10, 0, 100)
+		instSurplusCharged := clamp((factor-1.0)*10, 0, 100)
+		c.setStats("aws_ec2_cpucredit_usage", instLbls, instCreditUsage)
+		c.setStats("aws_ec2_cpusurplus_credit_balance", instLbls, instSurplusBalance)
+		c.setStats("aws_ec2_cpusurplus_credits_charged", instLbls, instSurplusCharged)
+		c.setStats("aws_ec2_ebsbyte_balance_percent", instLbls, ebsByteBalance)
+		c.setStats("aws_ec2_ebsiobalance_percent", instLbls, ebsIOBalance)
+		c.setStats("aws_ec2_metadata_no_token", instLbls, factor*0.1)
+		c.setStats("aws_ec2_instance_ebsiopsexceeded_check", instLbls, 0)
+		c.setStats("aws_ec2_instance_ebsthroughput_exceeded_check", instLbls, 0)
+		c.setStats("aws_ec2_metadata_no_token_rejected", instLbls, 0)
 	}
 
 	// ── aws_ec2_info (metadata scraper) ──────────────────────────────────────────

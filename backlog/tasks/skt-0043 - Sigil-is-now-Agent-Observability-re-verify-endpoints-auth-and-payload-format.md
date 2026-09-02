@@ -4,7 +4,7 @@ title: 'Sigil is now Agent Observability: re-verify endpoints, auth and payload 
 status: To Do
 assignee: []
 created_date: '2026-08-30 12:35'
-updated_date: '2026-08-30 14:29'
+updated_date: '2026-09-02 00:39'
 labels: []
 dependencies: []
 ordinal: 134000
@@ -101,4 +101,6 @@ Verified against the Grafana Cloud API rather than inferred: the generated-signa
 Making those credentials identical would have pointed process self-profiling at the synthetic target and broken the separation the design is built on. Criterion 4 is therefore satisfied as no-change-needed rather than leaving a trap in the task.
 
 2026-08-30 hygiene correction: removed deployment-specific names and numeric tenant/account identifiers while preserving the product contract, reproduction boundary, and intentional credential separation.
+
+2026-09-02 overnight containment follow-up: an unqualified local e2e run selected the test-only agent fixture and produced rejected Sigil flushes. Compose was torn down immediately and no further local deployment or local e2e was run. The e2e fixture now requires literal SYNTHKIT_E2E_INCLUDE_AGENT=true; empty or false selects only the non-agent smoke topology. A later just check exposed a second selector path: the default signal-fidelity inventory selected grafana-ai-o11y. The default fidelity blueprint list now excludes that blueprint while retaining an explicit SIGNAL_FIDELITY_BLUEPRINTS opt-in. These are containment guards, not evidence that the endpoint or payload defect is fixed.
 <!-- SECTION:NOTES:END -->

@@ -320,6 +320,19 @@ func (c *construct) emitALB(factor float64, fx *fixture.Set, azs []string, w *co
 		}
 		rpsPerAZ := baseRPS / float64(len(azs))
 
+		// These three captured roots carry only LoadBalancer. Their values are
+		// derived from the same modest 30-rps application flow above: two new
+		// connections per request makes the 25-new-connections/s LCU dimension
+		// dominant, while 1.2 rule evaluations per request represents one listener
+		// rule plus a small routed subset. They are emitted once per ALB, not once
+		// per AZ, so the captured dimension form stays exact.
+		loadBalancerOnlyLabels := cwLabels(accountID, region, "AWS/ApplicationELB", "applicationelb", arn,
+			map[string]string{"dimension_LoadBalancer": albDimLB})
+		consumedLCUs := baseRPS * 2 / 25
+		setGaugeStats(st, "aws_applicationelb_consumed_lcus", loadBalancerOnlyLabels, consumedLCUs, w)
+		setGaugeStats(st, "aws_applicationelb_peak_lcus", loadBalancerOnlyLabels, consumedLCUs*1.25, w)
+		setGaugeStats(st, "aws_applicationelb_rule_evaluations", loadBalancerOnlyLabels, baseRPS*60*1.2, w)
+
 		for _, az := range azs {
 			loadBalancerDims := map[string]string{
 				"dimension_LoadBalancer":     albDimLB,
@@ -336,6 +349,11 @@ func (c *construct) emitALB(factor float64, fx *fixture.Set, azs []string, w *co
 			reqCount := rpsPerAZ * 60
 			// RequestCount supports a TargetGroup dimension combination in AWS/ApplicationELB.
 			setGaugeStats(st, "aws_applicationelb_request_count", targetGroupLabels, reqCount, w)
+			perTarget := reqCount
+			if healthyHosts > 0 {
+				perTarget /= healthyHosts
+			}
+			setGaugeStats(st, "aws_applicationelb_request_count_per_target", targetGroupLabels, perTarget, w)
 
 			rtMean := 0.08 * (1 + w.Shape.NormFloat64()*0.15)
 			if rtMean < 0.005 {
@@ -348,6 +366,15 @@ func (c *construct) emitALB(factor float64, fx *fixture.Set, azs []string, w *co
 			setGaugeStats(st, "aws_applicationelb_httpcode_target_4_xx_count", targetGroupLabels, reqCount*0.015, w)
 			setGaugeStats(st, "aws_applicationelb_httpcode_target_5_xx_count", targetGroupLabels, reqCount*0.002, w)
 			setGaugeStats(st, "aws_applicationelb_httpcode_elb_5_xx_count", loadBalancerLabels, reqCount*0.0005, w)
+			// The healthy baseline uses a small, plausible listener-action mix: 1%
+			// redirects, 0.2% fixed responses, and 0.1% ELB-side 4xx. TLS negotiation
+			// and desync mitigation errors remain continuously published zero checks.
+			setGaugeStats(st, "aws_applicationelb_http_redirect_count", loadBalancerLabels, reqCount*0.01, w)
+			setGaugeStats(st, "aws_applicationelb_http_fixed_response_count", loadBalancerLabels, reqCount*0.002, w)
+			setGaugeStats(st, "aws_applicationelb_httpcode_elb_3_xx_count", loadBalancerLabels, reqCount*0.01, w)
+			setGaugeStats(st, "aws_applicationelb_httpcode_elb_4_xx_count", loadBalancerLabels, reqCount*0.001, w)
+			setGaugeStats(st, "aws_applicationelb_client_tlsnegotiation_error_count", loadBalancerLabels, 0, w)
+			setGaugeStats(st, "aws_applicationelb_desync_mitigation_mode_non_compliant_request_count", loadBalancerLabels, 0, w)
 
 			// ⚠ un_healthy_host_count (NOT unhealthy_host_count — LAW)
 			setGaugeStats(st, "aws_applicationelb_healthy_host_count", targetGroupLabels, healthyHosts, w)
@@ -459,6 +486,29 @@ func (c *construct) emitEBS(factor float64, fx *fixture.Set, w *core.World) {
 		setGaugeStats(st, "aws_ebs_volume_avg_write_latency", lbls, wrLatMs, w)
 		setGaugeStats(st, "aws_ebs_volume_total_read_time", lbls, rdOps*rdLatMs/1000, w)
 		setGaugeStats(st, "aws_ebs_volume_total_write_time", lbls, wrOps*wrLatMs/1000, w)
+
+		// These values are derived from the existing per-volume IO model rather
+		// than a second traffic source. IdleTime is volume-only in the capture;
+		// the five Nitro health/average roots are published only for volumes with
+		// a known attached instance so dimension_InstanceId is never invented.
+		busyFraction := volFactor
+		if busyFraction > 1 {
+			busyFraction = 1
+		}
+		idleSeconds := 60 * (1 - busyFraction*0.8)
+		setGaugeStats(st, "aws_ebs_volume_idle_time", lbls, idleSeconds, w)
+		if fx.Cluster != nil && vi < len(fx.Cluster.Nodes) {
+			instanceLabels := cwLabels(accountID, region, "AWS/EBS", "ebs",
+				ebsVolumeARN(accountID, region, volID), map[string]string{
+					"dimension_VolumeId":   volID,
+					"dimension_InstanceId": fx.Cluster.Nodes[vi].InstanceID,
+				})
+			setGaugeStats(st, "aws_ebs_volume_avg_iops", instanceLabels, (rdOps+wrOps)/60, w)
+			setGaugeStats(st, "aws_ebs_volume_avg_throughput", instanceLabels, (rdBytes+wrBytes)/60, w)
+			setGaugeStats(st, "aws_ebs_volume_iopsexceeded_check", instanceLabels, 0, w)
+			setGaugeStats(st, "aws_ebs_volume_stalled_iocheck", instanceLabels, 0, w)
+			setGaugeStats(st, "aws_ebs_volume_throughput_exceeded_check", instanceLabels, 0, w)
+		}
 	}
 }
 
@@ -478,7 +528,25 @@ func (c *construct) emitNATGW(factor float64, fx *fixture.Set, w *core.World) {
 		if natEgressBytes < 0 {
 			natEgressBytes = 0
 		}
+		// Complete the four directions from one coherent exchange: VPC request
+		// traffic incurs 2% protocol overhead before destination egress, while the
+		// response is three times the request and loses 1% before source delivery.
+		// Packet counts use a conservative 1200-byte mean payload, and peaks are
+		// three times the one-minute average rather than a separate traffic model.
+		bytesInFromSource := natEgressBytes * 1.02
+		bytesInFromDestination := natEgressBytes * 3
+		bytesOutToSource := bytesInFromDestination * 0.99
+		const meanPacketBytes = 1200.0
 		setGaugeStats(st, "aws_natgateway_bytes_out_to_destination", lbls, natEgressBytes, w)
+		setGaugeStats(st, "aws_natgateway_bytes_in_from_source", lbls, bytesInFromSource, w)
+		setGaugeStats(st, "aws_natgateway_bytes_in_from_destination", lbls, bytesInFromDestination, w)
+		setGaugeStats(st, "aws_natgateway_bytes_out_to_source", lbls, bytesOutToSource, w)
+		setGaugeStats(st, "aws_natgateway_packets_in_from_source", lbls, bytesInFromSource/meanPacketBytes, w)
+		setGaugeStats(st, "aws_natgateway_packets_out_to_destination", lbls, natEgressBytes/meanPacketBytes, w)
+		setGaugeStats(st, "aws_natgateway_packets_in_from_destination", lbls, bytesInFromDestination/meanPacketBytes, w)
+		setGaugeStats(st, "aws_natgateway_packets_out_to_source", lbls, bytesOutToSource/meanPacketBytes, w)
+		setGaugeStats(st, "aws_natgateway_peak_bytes_per_second", lbls, bytesInFromDestination/60*3, w)
+		setGaugeStats(st, "aws_natgateway_peak_packets_per_second", lbls, bytesInFromDestination/meanPacketBytes/60*3, w)
 		setGaugeStats(st, "aws_natgateway_error_port_allocation", lbls, 0, w)
 		setGaugeStats(st, "aws_natgateway_packets_drop_count", lbls, 0, w)
 		activeCx := factor * 200 * w.Shape.Noise(0.2)
@@ -590,6 +658,49 @@ func (c *construct) emitFirehose(factor float64, fx *fixture.Set, w *core.World)
 		fhFreshness = 5
 	}
 	setGaugeStats(st, "aws_firehose_delivery_to_http_endpoint_data_freshness", lbls, fhFreshness, w)
+
+	// Model one modest Direct PUT metric stream: 100 one-KiB records/s at full
+	// shape, 90% carried in batches of 100 and 10% as single PutRecord calls.
+	// This is deliberately far below Amazon Data Firehose's current regional
+	// floor (100k records/s, 1000 requests/s, 1 MiB/s; retrieved 2026-09-02)
+	// and therefore produces zero throttling in the healthy baseline.
+	recordRate := factor * 100
+	if recordRate < 0 {
+		recordRate = 0
+	}
+	const bytesPerRecord = 1024.0
+	incomingRecords := recordRate * 60
+	incomingBytes := incomingRecords * bytesPerRecord
+	putRecordRecords := incomingRecords * 0.10
+	putRecordBatchRecords := incomingRecords - putRecordRecords
+	putRecordRequests := putRecordRecords
+	putRecordBatchRequests := putRecordBatchRecords / 100
+	putRecordBytes := putRecordRecords * bytesPerRecord
+	putRecordBatchBytes := putRecordBatchRecords * bytesPerRecord
+	deliveredRecords := incomingRecords * fhSuccess
+	deliveredBytes := incomingBytes * fhSuccess
+	bytesLimit, recordsLimit, requestsLimit := firehoseDirectPutLimits(region)
+
+	setGaugeStats(st, "aws_firehose_incoming_records", lbls, incomingRecords, w)
+	setGaugeStats(st, "aws_firehose_incoming_bytes", lbls, incomingBytes, w)
+	setGaugeStats(st, "aws_firehose_incoming_put_requests", lbls, putRecordRequests+putRecordBatchRequests, w)
+	setGaugeStats(st, "aws_firehose_put_record_bytes", lbls, putRecordBytes, w)
+	setGaugeStats(st, "aws_firehose_put_record_requests", lbls, putRecordRequests, w)
+	setGaugeStats(st, "aws_firehose_put_record_latency", lbls, 20, w)
+	setGaugeStats(st, "aws_firehose_put_record_batch_records", lbls, putRecordBatchRecords, w)
+	setGaugeStats(st, "aws_firehose_put_record_batch_bytes", lbls, putRecordBatchBytes, w)
+	setGaugeStats(st, "aws_firehose_put_record_batch_requests", lbls, putRecordBatchRequests, w)
+	setGaugeStats(st, "aws_firehose_put_record_batch_latency", lbls, 30, w)
+	setGaugeStats(st, "aws_firehose_delivery_to_http_endpoint_records", lbls, incomingRecords, w)
+	setGaugeStats(st, "aws_firehose_delivery_to_http_endpoint_bytes", lbls, incomingBytes, w)
+	setGaugeStats(st, "aws_firehose_delivery_to_http_endpoint_processed_records", lbls, deliveredRecords, w)
+	setGaugeStats(st, "aws_firehose_delivery_to_http_endpoint_processed_bytes", lbls, deliveredBytes, w)
+	setGaugeStats(st, "aws_firehose_describe_delivery_stream_requests", lbls, 1, w)
+	setGaugeStats(st, "aws_firehose_describe_delivery_stream_latency", lbls, 50, w)
+	setGaugeStats(st, "aws_firehose_bytes_per_second_limit", lbls, bytesLimit, w)
+	setGaugeStats(st, "aws_firehose_records_per_second_limit", lbls, recordsLimit, w)
+	setGaugeStats(st, "aws_firehose_put_requests_per_second_limit", lbls, requestsLimit, w)
+	setGaugeStats(st, "aws_firehose_throttled_records", lbls, 0, w)
 }
 
 // ── PrivateLink — AWS/PrivateLinkEndpoints + AWS/PrivateLinkServices ──────────
@@ -807,4 +918,15 @@ func firehoseStreamName(seed string) string {
 func firehoseARN(seed, accountID, region string) string {
 	return fmt.Sprintf("arn:aws:firehose:%s:%s:deliverystream/%s",
 		region, accountID, firehoseStreamName(seed))
+}
+
+// firehoseDirectPutLimits returns the documented default combined Direct PUT
+// quotas. N. Virginia, Oregon, and Ireland have the higher defaults; every other
+// region uses the current lower regional floor. Values are bytes/s, records/s,
+// and requests/s respectively (AWS documentation retrieved 2026-09-02).
+func firehoseDirectPutLimits(region string) (float64, float64, float64) {
+	if region == "us-east-1" || region == "us-west-2" || region == "eu-west-1" {
+		return 5 * 1024 * 1024, 500_000, 2_000
+	}
+	return 1024 * 1024, 100_000, 1_000
 }

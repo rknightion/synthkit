@@ -158,6 +158,16 @@ func TestSeriesInventory_ALB(t *testing.T) {
 		"aws_applicationelb_new_connection_count",
 		"aws_applicationelb_processed_bytes",
 		"aws_applicationelb_target_connection_error_count",
+		"aws_applicationelb_client_tlsnegotiation_error_count",
+		"aws_applicationelb_consumed_lcus",
+		"aws_applicationelb_desync_mitigation_mode_non_compliant_request_count",
+		"aws_applicationelb_http_fixed_response_count",
+		"aws_applicationelb_http_redirect_count",
+		"aws_applicationelb_httpcode_elb_3_xx_count",
+		"aws_applicationelb_httpcode_elb_4_xx_count",
+		"aws_applicationelb_peak_lcus",
+		"aws_applicationelb_request_count_per_target",
+		"aws_applicationelb_rule_evaluations",
 	}
 	cap := runTick(t, nil, nil)
 	assertRootsWithFiveStats(t, cap, wantRoots)
@@ -201,6 +211,19 @@ func TestSeriesInventory_EBS_NoCluster(t *testing.T) {
 	assertHasName(t, cap, "aws_ebs_info")
 }
 
+func TestSeriesInventory_EBS_CapturedInstanceRoots(t *testing.T) {
+	wantRoots := []string{
+		"aws_ebs_volume_avg_iops",
+		"aws_ebs_volume_avg_throughput",
+		"aws_ebs_volume_idle_time",
+		"aws_ebs_volume_iopsexceeded_check",
+		"aws_ebs_volume_stalled_iocheck",
+		"aws_ebs_volume_throughput_exceeded_check",
+	}
+	cap := runTick(t, nil, coretest.Cluster())
+	assertRootsWithFiveStats(t, cap, wantRoots)
+}
+
 func TestSeriesInventory_NATGW(t *testing.T) {
 	wantRoots := []string{
 		"aws_natgateway_bytes_out_to_destination",
@@ -209,6 +232,15 @@ func TestSeriesInventory_NATGW(t *testing.T) {
 		"aws_natgateway_active_connection_count",
 		"aws_natgateway_connection_attempt_count",
 		"aws_natgateway_connection_established_count",
+		"aws_natgateway_bytes_in_from_destination",
+		"aws_natgateway_bytes_in_from_source",
+		"aws_natgateway_bytes_out_to_source",
+		"aws_natgateway_packets_in_from_destination",
+		"aws_natgateway_packets_in_from_source",
+		"aws_natgateway_packets_out_to_destination",
+		"aws_natgateway_packets_out_to_source",
+		"aws_natgateway_peak_bytes_per_second",
+		"aws_natgateway_peak_packets_per_second",
 	}
 	cap := runTick(t, nil, nil)
 	assertRootsWithFiveStats(t, cap, wantRoots)
@@ -253,6 +285,26 @@ func TestSeriesInventory_Firehose(t *testing.T) {
 	wantRoots := []string{
 		"aws_firehose_delivery_to_http_endpoint_success",
 		"aws_firehose_delivery_to_http_endpoint_data_freshness",
+		"aws_firehose_bytes_per_second_limit",
+		"aws_firehose_delivery_to_http_endpoint_bytes",
+		"aws_firehose_delivery_to_http_endpoint_processed_bytes",
+		"aws_firehose_delivery_to_http_endpoint_processed_records",
+		"aws_firehose_delivery_to_http_endpoint_records",
+		"aws_firehose_describe_delivery_stream_latency",
+		"aws_firehose_describe_delivery_stream_requests",
+		"aws_firehose_incoming_bytes",
+		"aws_firehose_incoming_put_requests",
+		"aws_firehose_incoming_records",
+		"aws_firehose_put_record_batch_bytes",
+		"aws_firehose_put_record_batch_latency",
+		"aws_firehose_put_record_batch_records",
+		"aws_firehose_put_record_batch_requests",
+		"aws_firehose_put_record_bytes",
+		"aws_firehose_put_record_latency",
+		"aws_firehose_put_record_requests",
+		"aws_firehose_put_requests_per_second_limit",
+		"aws_firehose_records_per_second_limit",
+		"aws_firehose_throttled_records",
 	}
 	cap := runTick(t, nil, nil) // Firehose default = enabled
 	assertRootsWithFiveStats(t, cap, wantRoots)
@@ -401,6 +453,12 @@ func TestLabelKeys_ALB(t *testing.T) {
 	}
 	for _, name := range []string{
 		"aws_applicationelb_active_connection_count_average",
+		"aws_applicationelb_client_tlsnegotiation_error_count_average",
+		"aws_applicationelb_desync_mitigation_mode_non_compliant_request_count_average",
+		"aws_applicationelb_http_fixed_response_count_average",
+		"aws_applicationelb_http_redirect_count_average",
+		"aws_applicationelb_httpcode_elb_3_xx_count_average",
+		"aws_applicationelb_httpcode_elb_4_xx_count_average",
 		"aws_applicationelb_httpcode_elb_5_xx_count_average",
 		"aws_applicationelb_new_connection_count_average",
 		"aws_applicationelb_processed_bytes_average",
@@ -414,6 +472,7 @@ func TestLabelKeys_ALB(t *testing.T) {
 	}
 	for _, name := range []string{
 		"aws_applicationelb_request_count_average",
+		"aws_applicationelb_request_count_per_target_average",
 		"aws_applicationelb_target_response_time_average",
 		"aws_applicationelb_httpcode_target_2_xx_count_average",
 		"aws_applicationelb_httpcode_target_4_xx_count_average",
@@ -423,6 +482,17 @@ func TestLabelKeys_ALB(t *testing.T) {
 		"aws_applicationelb_target_connection_error_count_average",
 	} {
 		assertExactKeys(t, name, cap.LabelKeys(name), wantTargetGroupKeys)
+	}
+
+	wantLoadBalancerOnlyKeys := []string{
+		"account_id", "dimension_LoadBalancer", "job", "name", "namespace", "region",
+	}
+	for _, name := range []string{
+		"aws_applicationelb_consumed_lcus_average",
+		"aws_applicationelb_peak_lcus_average",
+		"aws_applicationelb_rule_evaluations_average",
+	} {
+		assertExactKeys(t, name, cap.LabelKeys(name), wantLoadBalancerOnlyKeys)
 	}
 }
 
@@ -443,6 +513,24 @@ func TestLabelKeys_EBS(t *testing.T) {
 		"account_id", "dimension_VolumeId", "job", "name", "namespace", "region",
 	}
 	assertContainsKeys(t, "aws_ebs_volume_read_bytes_average", keys, wantKeys)
+
+	capWithCluster := runTick(t, nil, coretest.Cluster())
+	wantInstanceKeys := []string{
+		"account_id", "dimension_InstanceId", "dimension_VolumeId", "job", "name", "namespace", "region",
+	}
+	for _, name := range []string{
+		"aws_ebs_volume_avg_iops_average",
+		"aws_ebs_volume_avg_throughput_average",
+		"aws_ebs_volume_iopsexceeded_check_average",
+		"aws_ebs_volume_stalled_iocheck_average",
+		"aws_ebs_volume_throughput_exceeded_check_average",
+	} {
+		assertExactKeys(t, name, capWithCluster.LabelKeys(name), wantInstanceKeys)
+	}
+	wantVolumeKeys := []string{
+		"account_id", "dimension_VolumeId", "job", "name", "namespace", "region",
+	}
+	assertExactKeys(t, "aws_ebs_volume_idle_time_average", capWithCluster.LabelKeys("aws_ebs_volume_idle_time_average"), wantVolumeKeys)
 }
 
 func TestLabelKeys_NATGW(t *testing.T) {

@@ -75,12 +75,16 @@ stat suffix) with `scrape_job`; it does not add resource dimensions or `tag_VpcI
 `AWS/Firehose`→`aws_firehose_` · `AWS/RDS`→`aws_rds_` · `AWS/ElastiCache`→`aws_elasticache_`.
 
 ## ALB — `aws_applicationelb_*` ✅ [slug: cw-alb]
-*Provenance: predecessor SIGNALS §2.9 + `research/aws-metric-streams.md` ALB (25 base names, lab-verified) + `emit/aws.go`.*
+*Provenance: predecessor SIGNALS §2.9 + `research/aws-metric-streams.md` ALB (25 base names, lab-verified) + `emit/aws.go` + live EKS readback `reality-corpus/cw/eks-live-readback.json` (captured 2026-08-27; coverage roots emitted 2026-09-02).*
 
 Series roots (all 5 stat suffixes apply per `[slug: cw-naming]`): `request_count`, `target_response_time` (seconds),
 `httpcode_target_2_xx_count`, `httpcode_target_4_xx_count`, `httpcode_target_5_xx_count`,
 `httpcode_elb_5_xx_count`, `healthy_host_count`, `un_healthy_host_count`, `active_connection_count`,
-`new_connection_count`, `processed_bytes`, `target_connection_error_count`. Plus `aws_applicationelb_info`.
+`new_connection_count`, `processed_bytes`, `target_connection_error_count`,
+`client_tlsnegotiation_error_count`, `consumed_lcus`,
+`desync_mitigation_mode_non_compliant_request_count`, `http_fixed_response_count`,
+`http_redirect_count`, `httpcode_elb_3_xx_count`, `httpcode_elb_4_xx_count`,
+`peak_lcus`, `request_count_per_target`, and `rule_evaluations`. Plus `aws_applicationelb_info`.
 
 Dimensions are metric-family specific: every modelled ALB family has
 `dimension_LoadBalancer` (`app/<name>/<hex-id>`) and `dimension_AvailabilityZone`; only
@@ -88,7 +92,12 @@ Dimensions are metric-family specific: every modelled ALB family has
 `healthy_host_count`, `un_healthy_host_count`, and `target_connection_error_count` carry
 `dimension_TargetGroup` (`targetgroup/<name>/<hex-id>`). `active_connection_count`,
 `httpcode_elb_5_xx_count`, `new_connection_count`, and `processed_bytes` are load-balancer
-families and must omit it.
+families and must omit it. The captured coverage roots are more specific:
+`request_count_per_target` carries LoadBalancer + TargetGroup + AvailabilityZone;
+`client_tlsnegotiation_error_count`, `desync_mitigation_mode_non_compliant_request_count`,
+`http_fixed_response_count`, `http_redirect_count`, and `httpcode_elb_{3,4}_xx_count` carry
+LoadBalancer + AvailabilityZone; `consumed_lcus`, `peak_lcus`, and `rule_evaluations` carry
+LoadBalancer only.
 
 > ✅ **SKT-0024 correction (AWS docs retrieved 2026-08-29; EKS live-readback corpus captured
 > 2026-08-27):** AWS documents `AvailabilityZone, LoadBalancer` for the four load-balancer
@@ -127,6 +136,16 @@ metrics:
   - {root: new_connection_count, type: gauge, unit: count, v: ok}
   - {root: processed_bytes, type: gauge, unit: bytes, v: ok}
   - {root: target_connection_error_count, type: gauge, unit: count, v: ok}
+  - {root: client_tlsnegotiation_error_count, type: gauge, unit: count, v: ok}
+  - {root: consumed_lcus, type: gauge, unit: lcu, v: ok, note: dimension_LoadBalancer only in captured corpus}
+  - {root: desync_mitigation_mode_non_compliant_request_count, type: gauge, unit: count, v: ok}
+  - {root: http_fixed_response_count, type: gauge, unit: count, v: ok}
+  - {root: http_redirect_count, type: gauge, unit: count, v: ok}
+  - {root: httpcode_elb_3_xx_count, type: gauge, unit: count, v: ok}
+  - {root: httpcode_elb_4_xx_count, type: gauge, unit: count, v: ok}
+  - {root: peak_lcus, type: gauge, unit: lcu, v: ok, note: dimension_LoadBalancer only in captured corpus}
+  - {root: request_count_per_target, type: gauge, unit: count, v: ok, note: includes dimension_TargetGroup}
+  - {root: rule_evaluations, type: gauge, unit: count, v: ok, note: dimension_LoadBalancer only in captured corpus}
 info_series: aws_applicationelb_info   # gauge=1, no stat suffix; no tag_VpcId
 ```
 
@@ -172,14 +191,21 @@ info_series: aws_networkelb_info
 ```
 
 ## EC2 — `aws_ec2_*` ✅ [slug: cw-ec2]
-*Provenance: predecessor SIGNALS §2.9 + `research/aws-metric-streams.md` EC2 (23 base names) + `emit/aws.go`.*
+*Provenance: predecessor SIGNALS §2.9 + `research/aws-metric-streams.md` EC2 (23 base names) + `emit/aws.go` + live EKS readback `reality-corpus/cw/eks-live-readback.json` (captured 2026-08-27; coverage roots emitted 2026-09-02).*
 
 Roots: `cpuutilization` (percent), `network_in`, `network_out`, `status_check_failed`,
 `status_check_failed_instance`, `status_check_failed_system`, `status_check_failed_attached_ebs`,
-`ebsread_bytes`, `ebswrite_bytes`, `ebsread_ops`, `ebswrite_ops`, `cpucredit_balance`. Plus `aws_ec2_info`.
+`ebsread_bytes`, `ebswrite_bytes`, `ebsread_ops`, `ebswrite_ops`, `cpucredit_balance`,
+`cpucredit_usage`, `cpusurplus_credit_balance`, `cpusurplus_credits_charged`,
+`ebsbyte_balance_percent`, `ebsiobalance_percent`, `instance_ebsiopsexceeded_check`,
+`instance_ebsthroughput_exceeded_check`, `metadata_no_token`, `metadata_no_token_rejected`,
+`network_packets_in`, and `network_packets_out`. Plus `aws_ec2_info`.
 
 Dimensions: `dimension_AutoScalingGroupName` (ASG/node-group level) or `dimension_InstanceId`
 (per-instance) — both coexist; `name`=`"global"` for ASG-level, node ARN for instance-level.
+The live corpus observed `instance_ebsiopsexceeded_check`,
+`instance_ebsthroughput_exceeded_check`, and `metadata_no_token_rejected` with
+`dimension_InstanceId` only; every other added root has both ASG and instance forms.
 
 ⚠ Traps: `cpuutilization` NO underscore; `ebsread_bytes`/`ebswrite_*` run together (`EBS` is an
 acronym, split after the full token); `EBSReadBytes` here = instance-aggregate (per-volume lives in
@@ -219,16 +245,29 @@ metrics:
   - {root: ebsread_ops, type: gauge, unit: count, v: ok}
   - {root: ebswrite_ops, type: gauge, unit: count, v: ok}
   - {root: cpucredit_balance, type: gauge, unit: count, v: ok}
+  - {root: cpucredit_usage, type: gauge, unit: count, v: ok}
+  - {root: cpusurplus_credit_balance, type: gauge, unit: count, v: ok}
+  - {root: cpusurplus_credits_charged, type: gauge, unit: count, v: ok}
+  - {root: ebsbyte_balance_percent, type: gauge, unit: percent, v: ok}
+  - {root: ebsiobalance_percent, type: gauge, unit: percent, v: ok}
+  - {root: instance_ebsiopsexceeded_check, type: gauge, unit: count, v: ok, note: dimension_InstanceId only}
+  - {root: instance_ebsthroughput_exceeded_check, type: gauge, unit: count, v: ok, note: dimension_InstanceId only}
+  - {root: metadata_no_token, type: gauge, unit: count, v: ok}
+  - {root: metadata_no_token_rejected, type: gauge, unit: count, v: ok, note: dimension_InstanceId only}
+  - {root: network_packets_in, type: gauge, unit: count, v: ok}
+  - {root: network_packets_out, type: gauge, unit: count, v: ok}
 info_series: aws_ec2_info
 ```
 
 ## EBS — `aws_ebs_*` ✅ [slug: cw-ebs]
-*Provenance: predecessor SIGNALS §2.9 + `research/aws-metric-streams.md` EBS (18 base names) + `emit/aws.go`.*
+*Provenance: predecessor SIGNALS §2.9 + `research/aws-metric-streams.md` EBS (18 base names) + `emit/aws.go` + live EKS readback `reality-corpus/cw/eks-live-readback.json` (captured 2026-08-27; coverage roots emitted 2026-09-02).*
 
 Roots (dim `dimension_VolumeId`): `volume_read_bytes`, `volume_write_bytes`, `volume_read_ops`,
 `volume_write_ops`, `volume_queue_length`, `burst_balance` (percent; gp2/st1/sc1 only),
 `volume_avg_read_latency` (ms; Nitro only), `volume_avg_write_latency` (ms; Nitro only),
-`volume_total_read_time` (s), `volume_total_write_time` (s). Plus `aws_ebs_info`.
+`volume_total_read_time` (s), `volume_total_write_time` (s), `volume_avg_iops`,
+`volume_avg_throughput`, `volume_idle_time`, `volume_iopsexceeded_check`,
+`volume_stalled_iocheck`, and `volume_throughput_exceeded_check`. Plus `aws_ebs_info`.
 > ✅ **Live-verified (staff stack `cloud/aws/ebs`, 2026-06-13 — SK-6 EBS half):** `volume_avg_read_latency_*` /
 > `volume_avg_write_latency_*` read ~0.5–1.0 → **milliseconds** confirmed; `dimension_VolumeId`=`vol-<17hex>`
 > co-labeled with `dimension_InstanceId`. Full 5-stat suffix set per base.
@@ -261,15 +300,23 @@ metrics:
   - {root: volume_avg_write_latency, type: gauge, unit: ms, v: ok, note: Nitro-only}
   - {root: volume_total_read_time, type: gauge, unit: seconds, v: ok}
   - {root: volume_total_write_time, type: gauge, unit: seconds, v: ok}
+  - {root: volume_avg_iops, type: gauge, unit: count_per_second, v: ok, note: includes dimension_InstanceId}
+  - {root: volume_avg_throughput, type: gauge, unit: bytes_per_second, v: ok, note: includes dimension_InstanceId}
+  - {root: volume_idle_time, type: gauge, unit: seconds, v: ok, note: dimension_VolumeId only}
+  - {root: volume_iopsexceeded_check, type: gauge, unit: count, v: ok, note: includes dimension_InstanceId}
+  - {root: volume_stalled_iocheck, type: gauge, unit: count, v: ok, note: includes dimension_InstanceId}
+  - {root: volume_throughput_exceeded_check, type: gauge, unit: count, v: ok, note: includes dimension_InstanceId}
 info_series: aws_ebs_info # gauge=1, no stat suffix; no dimension_VolumeId or tag_VpcId
 ```
 
 ## NAT Gateway — `aws_natgateway_*` ✅ [slug: cw-natgw]
-*Provenance: predecessor SIGNALS §2.9 + `research/aws-metric-streams.md` NATGateway (15 base names) + `emit/aws.go`.*
+*Provenance: predecessor SIGNALS §2.9 + `research/aws-metric-streams.md` NATGateway (15 base names) + `emit/aws.go` + live EKS readback `reality-corpus/cw/eks-live-readback.json` (captured 2026-08-27; coverage roots emitted 2026-09-02).*
 
 Roots (dim `dimension_NatGatewayId`): `bytes_out_to_destination`, `error_port_allocation`,
 `packets_drop_count`, `active_connection_count`, `connection_attempt_count` (SYN),
-`connection_established_count`. Plus `aws_natgateway_info`.
+`connection_established_count`, `bytes_in_from_source`, `bytes_in_from_destination`,
+`bytes_out_to_source`, the four directional `packets_*` roots,
+`peak_bytes_per_second`, and `peak_packets_per_second`. Plus `aws_natgateway_info`.
 
 ⚠ `_sum` never `rate()`; no `_bucket` series; `error_port_allocation_sum`>0 = port exhaustion (55,000
 limit per target IP+port in client-addr-translation mode).
@@ -294,6 +341,15 @@ metrics:
   - {root: active_connection_count, type: gauge, unit: count, v: ok}
   - {root: connection_attempt_count, type: gauge, unit: count, v: ok, note: SYN}
   - {root: connection_established_count, type: gauge, unit: count, v: ok}
+  - {root: bytes_in_from_source, type: gauge, unit: bytes, v: ok}
+  - {root: bytes_in_from_destination, type: gauge, unit: bytes, v: ok}
+  - {root: bytes_out_to_source, type: gauge, unit: bytes, v: ok}
+  - {root: packets_in_from_source, type: gauge, unit: count, v: ok}
+  - {root: packets_in_from_destination, type: gauge, unit: count, v: ok}
+  - {root: packets_out_to_source, type: gauge, unit: count, v: ok}
+  - {root: packets_out_to_destination, type: gauge, unit: count, v: ok}
+  - {root: peak_bytes_per_second, type: gauge, unit: bytes_per_second, v: ok}
+  - {root: peak_packets_per_second, type: gauge, unit: packets_per_second, v: ok}
 info_series: aws_natgateway_info
 ```
 
@@ -392,11 +448,19 @@ info_series: aws_eks_info
 ```
 
 ## Firehose — `aws_firehose_*` ✅ (pipeline-health: "the metric-stream pipeline watching itself") [slug: cw-firehose]
-*Provenance: predecessor SIGNALS §2.9/§2.10 + `research/aws-metric-streams.md` Firehose + `emit/aws.go`.*
+*Provenance: predecessor SIGNALS §2.9/§2.10 + `research/aws-metric-streams.md` Firehose + `emit/aws.go` + live EKS readback `reality-corpus/cw/eks-live-readback.json` (captured 2026-08-27; coverage roots emitted 2026-09-02). Direct PUT quota values independently checked against current AWS Firehose limits via Context7 on 2026-09-02.*
 
 Roots (dim `dimension_DeliveryStreamName`): `delivery_to_http_endpoint_success` (fraction 0–1; ≈1.0
-steady), `delivery_to_http_endpoint_data_freshness` (seconds lag; <60s steady). Plus `aws_firehose_info`.
-Only these two are emitted (the namespace has more). ⚠ `_sum` never `rate()`.
+steady), `delivery_to_http_endpoint_data_freshness` (seconds lag; <60s steady),
+`bytes_per_second_limit`, `delivery_to_http_endpoint_bytes`,
+`delivery_to_http_endpoint_processed_bytes`, `delivery_to_http_endpoint_processed_records`,
+`delivery_to_http_endpoint_records`, `describe_delivery_stream_latency`,
+`describe_delivery_stream_requests`, `incoming_bytes`, `incoming_put_requests`,
+`incoming_records`, `put_record_batch_bytes`, `put_record_batch_latency`,
+`put_record_batch_records`, `put_record_batch_requests`, `put_record_bytes`,
+`put_record_latency`, `put_record_requests`, `put_requests_per_second_limit`,
+`records_per_second_limit`, and `throttled_records`. Plus `aws_firehose_info`.
+⚠ `_sum` never `rate()`.
 
 ```yaml signals
 family: aws_firehose
@@ -414,8 +478,27 @@ labels:
 metrics:
   - {root: delivery_to_http_endpoint_success, type: gauge, unit: fraction, v: ok, note: 0-1, ~1.0 steady}
   - {root: delivery_to_http_endpoint_data_freshness, type: gauge, unit: seconds, v: ok, note: lag, <60s steady}
+  - {root: bytes_per_second_limit, type: gauge, unit: bytes_per_second, v: ok}
+  - {root: delivery_to_http_endpoint_bytes, type: gauge, unit: bytes, v: ok}
+  - {root: delivery_to_http_endpoint_processed_bytes, type: gauge, unit: bytes, v: ok}
+  - {root: delivery_to_http_endpoint_processed_records, type: gauge, unit: count, v: ok}
+  - {root: delivery_to_http_endpoint_records, type: gauge, unit: count, v: ok}
+  - {root: describe_delivery_stream_latency, type: gauge, unit: milliseconds, v: ok}
+  - {root: describe_delivery_stream_requests, type: gauge, unit: count, v: ok}
+  - {root: incoming_bytes, type: gauge, unit: bytes, v: ok}
+  - {root: incoming_put_requests, type: gauge, unit: count, v: ok}
+  - {root: incoming_records, type: gauge, unit: count, v: ok}
+  - {root: put_record_batch_bytes, type: gauge, unit: bytes, v: ok}
+  - {root: put_record_batch_latency, type: gauge, unit: milliseconds, v: ok}
+  - {root: put_record_batch_records, type: gauge, unit: count, v: ok}
+  - {root: put_record_batch_requests, type: gauge, unit: count, v: ok}
+  - {root: put_record_bytes, type: gauge, unit: bytes, v: ok}
+  - {root: put_record_latency, type: gauge, unit: milliseconds, v: ok}
+  - {root: put_record_requests, type: gauge, unit: count, v: ok}
+  - {root: put_requests_per_second_limit, type: gauge, unit: requests_per_second, v: ok}
+  - {root: records_per_second_limit, type: gauge, unit: records_per_second, v: ok}
+  - {root: throttled_records, type: gauge, unit: count, v: ok}
 info_series: aws_firehose_info
-# ⚠ namespace has more base names; only these two are emitted.
 ```
 
 ## RDS — `aws_rds_*` (✅ standalone Postgres/MySQL modelled; Aurora families 📋 documented, not yet modelled) [slug: cw-rds]
