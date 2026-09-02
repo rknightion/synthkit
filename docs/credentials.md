@@ -115,6 +115,33 @@ The adjacent connection panels also provide `GC_PROM_RW`, `GC_OTLP_ENDPOINT`, an
 Use the endpoint and numeric identifier from the same stack. Presence checks may confirm that a
 value is non-empty; never print `.env` or a token while diagnosing a failed identifier check.
 
+### Reading the data back needs a different credential, and a different identifier
+
+The ingest credentials above are write-only. Verifying what actually landed needs a token carrying
+`metrics:read` (and `logs:read` for the log lanes), which is a separate Grafana Cloud access policy —
+an ingest token returns `401 authentication error: invalid scope requested` on a query.
+
+**The query username is the per-signal instance ID, not the stack ID**, and the two are different
+numbers for the same stack. Mimir wants the Prometheus instance ID and Loki wants the Loki instance
+ID; the stack ID belongs only to the OTLP gateway. Passing a stack ID to a query endpoint fails with
+
+```text
+401 authentication error: invalid authentication credentials
+```
+
+which is **the same body a revoked token produces**, so a perfectly good credential reads as dead
+and the real fault is invisible. Resolve the identifiers at run time rather than from memory:
+
+```bash
+curl -sH "Authorization: Bearer $READ_TOKEN" \
+  "https://grafana.com/api/orgs/<org-id>/instances" \
+  | jq -r '.items[] | "\(.slug) prom=\(.hmInstancePromId) loki=\(.hlInstanceId)"'
+```
+
+The three 401 bodies are worth telling apart: `invalid authentication credentials` is a wrong
+tenant/token pair, `invalid scope requested` means the token is live but its policy lacks the scope,
+and `invalid token` means revoked or malformed.
+
 ---
 
 ## Filling in `.env`
