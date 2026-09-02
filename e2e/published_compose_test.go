@@ -191,10 +191,25 @@ func TestPublishedCompose(t *testing.T) {
 	if missing := expected.Subset(received); len(missing) != 0 {
 		t.Fatalf("published Compose image missing intended receipts (%d):\n  %s", len(missing), strings.Join(missing, "\n  "))
 	}
-	if len(received.Metrics) == 0 || len(received.Logs) == 0 || len(received.Traces) == 0 || len(received.Sigil) == 0 {
-		t.Fatalf("receiver did not positively decode every configured telemetry lane: metrics=%d logs=%d traces=%d sigil=%d", len(received.Metrics), len(received.Logs), len(received.Traces), len(received.Sigil))
+	// The sigil lanes come only from the agent fixture, which is opt-in and is never selected
+	// against shipped blueprints. Requiring them unconditionally asserted a lane this set cannot
+	// produce; requiring their absence instead makes "no shipped blueprint emits an agent fleet"
+	// a property this suite proves rather than one a reviewer has to remember.
+	sigilExpected := e2eAgentSelected(e2eBlueprintNames)
+	if len(received.Metrics) == 0 || len(received.Logs) == 0 || len(received.Traces) == 0 {
+		t.Fatalf("receiver did not positively decode every configured telemetry lane: metrics=%d logs=%d traces=%d", len(received.Metrics), len(received.Logs), len(received.Traces))
 	}
-	for _, protocol := range []string{"prometheus_remote_write_v2", "otlp_metrics", "otlp_traces", "loki", "sigil_generations", "sigil_workflow_steps", "sigil_scores"} {
+	if sigilExpected && len(received.Sigil) == 0 {
+		t.Fatalf("agent fixture is selected but no sigil lane decoded: blueprints=%q", e2eBlueprintNames)
+	}
+	if !sigilExpected && len(received.Sigil) != 0 {
+		t.Fatalf("agent fixture is NOT selected yet %d sigil kinds decoded — a shipped blueprint is emitting an agent fleet: blueprints=%q", len(received.Sigil), e2eBlueprintNames)
+	}
+	protocols := []string{"prometheus_remote_write_v2", "otlp_metrics", "otlp_traces", "loki"}
+	if sigilExpected {
+		protocols = append(protocols, "sigil_generations", "sigil_workflow_steps", "sigil_scores")
+	}
+	for _, protocol := range protocols {
 		if inventory.ReceiptCount(received, protocol) == 0 {
 			t.Fatalf("receiver has no successfully decoded non-empty %s receipt: %v", protocol, received.Receipts)
 		}
