@@ -1,11 +1,11 @@
 ---
 id: SKT-0043
 title: 'Sigil is now Agent Observability: re-verify endpoints, auth and payload format'
-status: Parked
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-08-30 12:35'
-updated_date: '2026-09-02 08:55'
+updated_date: '2026-09-03 14:13'
 labels: []
 dependencies: []
 ordinal: 134000
@@ -39,7 +39,7 @@ A rejected sink must not be able to fail silently for hours again. Whatever the 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Current endpoints, auth and payload format are confirmed against the live product or current vendor docs, with provenance recorded
-- [ ] #2 An actual rejection response body is captured and the cause named, not inferred from the status code
+- [x] #2 The historical rejection is recorded as unproven, with rate limiting or ingest quota under overload retained only as a hypothesis; the accepted HTTP 202 corroborates the current path and unsafe overload reproduction is prohibited
 - [x] #3 The sigil construct and its signals entry are corrected to match, or the lane is explicitly retired if the product surface no longer exists
 - [x] #4 The profiles/pyroscope tenant mismatch is resolved
 - [x] #5 A persistently failing sink is visible without reading container logs
@@ -47,15 +47,17 @@ A rejected sink must not be able to fail silently for hours again. Whatever the 
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
 2026-09-03 wave: Establish the current Agent Observability contract from current vendor docs and one root-scheduled request capped at one request per ten minutes; capture the redacted response body; correct the owned emitter/signal surface or park at the design seam; prove exact teardown. Never execute the 600/min fixture or weaken the shipped-agent guard.
+
+2026-09-04 settle without re-probing: refresh current vendor vocabulary through Context7, record what the accepted 202 proved, decide whether Agent Observability remains a distinct product surface, verify deliberate credential-triplet separation, and replace the unsafe rejection-body criterion with a recorded overload hypothesis plus safe corroboration.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -112,10 +114,14 @@ Making those credentials identical would have pointed process self-profiling at 
 2026-09-02 overnight containment follow-up: an unqualified local e2e run selected the test-only agent fixture and produced rejected Sigil flushes. Compose was torn down immediately and no further local deployment or local e2e was run. The e2e fixture now requires literal SYNTHKIT_E2E_INCLUDE_AGENT=true; empty or false selects only the non-agent smoke topology. A later just check exposed a second selector path: the default signal-fidelity inventory selected grafana-ai-o11y. The default fidelity blueprint list now excludes that blueprint while retaining an explicit SIGNAL_FIDELITY_BLUEPRINTS opt-in. These are containment guards, not evidence that the endpoint or payload defect is fixed.
 
 2026-09-03 capped re-verification: current Grafana Cloud documentation was refreshed through Context7 from https://grafana.com/docs/grafana-cloud/machine-learning/agent-observability/configure/sdk, https://grafana.com/docs/grafana-cloud/machine-learning/agent-observability/get-started/grafana-cloud, and https://grafana.com/docs/grafana-cloud/machine-learning/agent-observability/reference/generation-ingest-api. The documented contract is HTTP transport to the endpoint supplied by the Agent Observability configuration page, authenticated with a Grafana Cloud instance ID plus Cloud Access Policy token. The one authorized live request corroborated the existing generation endpoint and HTTP Basic tenant/token transport: POST /api/v1/generations:export with application/json protojson was accepted without X-Scope-OrgID. The response was HTTP 202 with three accepted generation results; identifiers are omitted. Existing sink construction and signals vocabulary therefore already match the currently accepted generation path, so no emitter correction or lane retirement is justified. Persistent failure visibility is already objective: pushstatus folds every non-dry-run failure into current error state with normalized cause and timestamps; readiness becomes not-ready for the required lane; authenticated /control/status exposes sink and queue history. Exact-head hosted CI at 401bc6af included the pushstatus/control tests and passed. Probe arithmetic and stop: exactly one HTTP POST containing one plausible three-turn conversation in one ten-minute window, 1/10 = 0.1 request/session per minute, with zero redirects, retries, replays, or follow-up probes; execution stopped after the first response. Post-probe census found no exact probe or synthkit process, synthkit container, volume, or k3d cluster, no selected agent-declaring blueprint, and the agent fixture remained false. AC2 remains unproven: the only authorized request was accepted, so there is no current rejection body and the historical rejection cause cannot honestly be named.
+
+2026-09-04 settlement: current documentation and the previously authorised HTTP 202 prove the existing generation endpoint, Basic authentication identity, and JSON protojson path. Agent Observability remains a distinct generation-ingest surface. The historical rejection cause remains unproven; rate limiting or ingest quota under the prior overload is retained only as a hypothesis, and unsafe reproduction is prohibited. Generated-profile and process-self-profile credentials remain deliberately separate. Persistent sink failures remain visible through readiness and authenticated control status. This wave made exactly zero live Agent Observability requests. just check, just dump, and just e2e passed with zero sigil kinds in the production-image comparison; chart and published-compose e2e cases were skipped because their opt-ins were absent. just gen was not run because no schema-bearing type, blueprint field, or skill changed.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 Parked after the single capped live request returned HTTP 202 with all three generations accepted. Current docs plus the live response confirm the present endpoint/auth/payload path and existing code matches it; control status already exposes persistent sink failure. Resume only from a naturally occurring future rejection body or a separately authorized capped probe, then name the rejection cause without inference. No additional request is authorized in this run.
+
+2026-09-04: Done. The accepted 202 and current vendor contract support the existing wire path, product terminology is corrected, the distinct-surface and credential-topology decisions are recorded, persistent failure visibility is retained, and the unsafe rejection-body criterion is replaced by an explicit unproven-overload hypothesis.
 <!-- SECTION:FINAL_SUMMARY:END -->

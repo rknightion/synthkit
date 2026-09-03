@@ -1,10 +1,11 @@
-# Grafana AI Observability / sigil (→ Tempo + Mimir) — ScopeBlueprint (workload-emitted)
+# Grafana Agent Observability (historically sigil) (→ Agent Observability + Tempo + Mimir) - ScopeBlueprint (workload-emitted)
 
-Sigil is Grafana's AI-Observability backend. The `ai_agent` workload emits **three concurrent
-lanes** — all keyed by a shared `conversation_id` + per-turn `trace_id`/`span_id`: native generation
-ingest (gRPC, Lane A), OTLP traces to Tempo (Lane B), and gen_ai_client_* + sigil_eval_* metrics via
-promrw (Lane C). No Loki lane. Blueprint-scoped; the `blueprint` label is stamped by the scoped
-writer as usual. Vocabulary constants live in [`internal/sigil`](../internal/sigil); the shared
+Grafana's current product name is **Agent Observability**; `sigil` remains synthkit's historical
+internal name and the observed `sigil_*` vocabulary prefix. The `ai_agent` workload emits **three
+concurrent lanes** - all keyed by a shared `conversation_id` + per-turn `trace_id`/`span_id`: native
+generation ingest (HTTP protojson, Lane A), OTLP traces to Tempo (Lane B), and gen_ai_client_* +
+sigil_eval_* metrics via promrw (Lane C). No Loki lane. Blueprint-scoped; the `blueprint` label is
+stamped by the scoped writer as usual. Vocabulary constants live in [`internal/sigil`](../internal/sigil); the shared
 `gen_ai.*` keys + `gen_ai_client_*` metric names come from [`internal/genai`](../internal/genai).
 Global rules: [`00-canon.md`](00-canon.md) — `[slug: cardinality]`, `[slug: content-strip]`,
 `[slug: push-topology]`, `[slug: scoping]`.
@@ -23,10 +24,46 @@ series + label-values queries + `gcx aio11y` evaluator/rule inspection, 2026-06-
 
 ---
 
-## Lane A — native generation ingest (gRPC) [slug: sigil-lane-a]
+## Current vendor-contract reconciliation (2026-09-03)
 
-`sigil.v1.GenerationIngestService.ExportGenerations` (gRPC). This lane is the **sole source of
-aio11y conversation data** — no other ingest path creates conversation/generation records in sigil.
+Current Grafana Agent Observability SDK documentation identifies a generation-first ingest
+surface, with HTTP `POST /api/v1/generations:export` and Basic authentication configured from a
+tenant ID plus token. It separately describes OTLP as the transport for traces and metrics, rather
+than a replacement for generation ingest. Sources checked 2026-09-03:
+
+- [Agent Observability HTTP generation export and Basic-auth configuration](https://github.com/grafana/agento11y/blob/main/python/README.md)
+- [Agent Observability architecture and ingest model](https://github.com/grafana/agento11y/blob/main/llms.txt)
+- [Agent Observability Go SDK transport model](https://github.com/grafana/agento11y/blob/main/go/README.md)
+
+An authorised, low-volume request on 2026-09-03 received HTTP `202 Accepted` for all three
+submitted generations. It corroborates synthkit's existing `POST /api/v1/generations:export`,
+HTTP Basic tenant/token transport, and JSON protojson payload under safe load. It does not prove
+every historical field or the cause of an earlier rejection.
+
+The earlier `code=rejected` response has no preserved rejection body. The most likely, but
+unproven, explanation is rate limiting or an ingest quota under overload. Its only known
+reproducer is the unsafe 600-sessions-per-minute fixture condition; do not reproduce it, including
+for a rejection body. The fixture remains test-only and must never be selected for a live delivery.
+
+Current documentation directly corroborates the generation vocabulary shared by synthkit's owned
+emitter: `conversation_id`, `agent_name`, `agent_version`, model identity, and tool execution
+`tool_name`, `tool_call_id`, and `tool_type`. The richer generation, workflow-step, score,
+`sigil.*`, and `sigil_eval_*` vocabulary below remains sourced from the dated live captures and
+vendored contract noted in this catalogue; this current SDK documentation does not independently
+enumerate all of those fields.
+
+**Distinct-surface verdict:** Agent Observability remains a distinct generation-ingest product
+surface. It has not folded into OTLP or Prometheus. Keep Lane A as native Agent Observability
+HTTP protojson ingest; retain Lanes B and C as the separately transported OTLP and Prometheus
+telemetry that joins it.
+
+---
+
+## Lane A - native generation ingest (HTTP protojson) [slug: sigil-lane-a]
+
+`sigil.v1.GenerationIngestService.ExportGenerations`, transported by HTTP protojson to
+`POST /api/v1/generations:export`. This lane is the **sole source of Agent Observability conversation data** -
+no other ingest path creates conversation/generation records in sigil.
 It is the **sanctioned content-bearing exception** to `[slug: content-strip]`: prompt/completion
 content rides inside `Generation.input`/`Generation.output` parts (see below). The
 `internal/genai.ContentStripList` guard stays default-on for every other construct/workload; only

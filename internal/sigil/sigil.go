@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package sigil is the Grafana AI-Observability ("sigil") VOCABULARY + content mechanic lib —
-// a peer to internal/cw and internal/genai (a mechanic lib, not a construct). It holds the
+// Package sigil is the Grafana Agent Observability vocabulary + content mechanic library. "sigil"
+// is synthkit's historical internal name and the observed metric/attribute prefix. It is a peer to
+// internal/cw and internal/genai (a mechanic lib, not a construct). It holds the
 // sigil.* attribute keys, generation/workflow-step/score field-name constants, operation names,
 // content-capture modes, token-type values, the sigil_eval_* metric names + advisory buckets,
 // the deterministic effective-version digest, the embedded content corpus + its deterministic
