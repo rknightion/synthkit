@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-08-30 08:40'
-updated_date: '2026-09-03 19:37'
+updated_date: '2026-09-03 20:50'
 labels:
   - needs-triage
 dependencies: []
@@ -44,6 +44,8 @@ After SKT-0010.19 is proven, regenerate the canonical seven projections from imm
 2026-09-03 wave: Review the seven immutable capture hashes against an explicit family-to-signals-area manifest; test that unmapped families cannot be routed by name or prefix; regenerate producer-scoped projections without source mutation; run focused fidelity evidence with zero exemptions; return exact review gaps if any mapping remains unapproved.
 
 2026-09-04 corrected boundary: deduplicate the seven immutable captures before review; route distinct families first by explicit producer identity and then by exact existing signals-area membership; review only the residue; report rows and distinct families separately; wire atomic ProjectCaptureV2 promotion and producer-scoped fidelity only where no inference remains.
+
+2026-09-05 wave plan: Lane B changes ProjectCaptureV2 from all-or-nothing to per-family promotion: promote the 2,286 directly producer-identified distinct names, persist each of the 2,918 producerless names as explicitly unrouted with its reason, retain fail-closed comparison of unrouted families, mutate no captures, and add zero exemptions.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -197,6 +199,8 @@ Wave result: the schema-2 converter preserved capture hashes, scope, warnings, s
 2026-09-04 closeout: the canonical seven captures contain 14,261 rows and 5,204 distinct family names. Direct producer identity exists for 2,286 names. A further 781 producerless names have one unique exact catalogue area, while 2,137 have neither producer nor area. All 2,918 producerless names remain inadmissible to promotion. ProjectCaptureV2 now has focused fail-closed coverage for missing, stale, duplicate, unknown-area, and producer-mismatched routes. just check, just dump, and just e2e passed; chart and published-compose e2e cases were skipped because their opt-ins were absent. Resume with exact source review for the 2,918 missing producers, including area decisions for 2,137, plus the cloud/full authority decision.
 
 2026-09-03 decision by Rob: promote an ADMISSIBLE SUBSET rather than all-or-nothing. ProjectCaptureV2 changes from rejecting a partial manifest to promoting per-family: the 2,286 names carrying direct producer identity are promoted, and each of the 2,918 producerless names is recorded as explicitly unrouted with its reason. The gate stays fail-closed - comparing an unrouted family is still an error, so nothing is inferred and no exemption is added. Why: reviewing 2,918 families by hand is not wave-sized, and all-or-nothing has parked this task three waves running with nothing promoted. Incremental promotion lands real evidence now and leaves the residue explicitly visible instead of implicitly blocking.
+
+2026-09-05 subset-promotion evidence: the seven immutable captures contain 14,261 rows and 5,204 distinct family names. Exact hash-keyed records now classify 10,872 rows / 2,286 distinct names with direct producer identity and 3,389 rows / 2,918 distinct names as unrouted. The residue is 851 rows / 781 names with one exact catalogue area but no producer and 2,538 rows / 2,137 names with neither. ProjectCaptureV2 promotes only direct routes, returns explicit residue, and rejects unrouted comparison plus stale, duplicate, mixed, unknown-area, and producer-mismatched records. Loading the seven candidate projections produced 251 genuine unexempted producer-scoped fidelity contradictions, so they remain non-loaded under manifests/candidates rather than weakening the gate. The final candidate-excluded just check and signal-fidelity passed; zero exemptions were added and no capture changed. Resume from the checked-in candidates and correct the 251 exact synth-versus-capture shape contradictions before moving them into the active corpus. One exploratory just dump incorrectly selected the agent blueprint in DRY_RUN; it made no Agent Observability request and was excluded from acceptance evidence.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -209,4 +213,6 @@ Parked after source provenance and capture conditions were verified and the inge
 2026-09-03: Parked after landing the fail-closed explicit routing seam. AC3 remains open until the reviewed 14,261-row manifest and cloud/full authority decision exist; ingestion by inference remains forbidden.
 
 2026-09-04: Parked after replacing the impossible 14,261-row review boundary with a deduplicated producer-aware boundary. No partial manifest is promoted; resume at exact source review for 2,918 producerless families and 2,137 missing areas, then take the cloud/full authority decision.
+
+2026-09-05: Parked after replacing all-or-nothing routing with explicit admissible-subset records. The 2,286 direct-producer names and all 2,918 unrouted names are retained exactly, but active ingestion correctly fails on 251 producer-scoped fidelity contradictions. Resume by correcting those finite captured-shape mismatches, then promote the checked-in candidates without an exemption.
 <!-- SECTION:FINAL_SUMMARY:END -->

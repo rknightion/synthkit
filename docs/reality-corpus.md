@@ -106,26 +106,36 @@ evidence until they have an identity-safe, area-owned mapping into the
 inventory envelope; their omission does not assert that the source emitted no
 such signals. Superseded attempts remain excluded.
 
-### Schema-2 fixed-capture routing manifest
+### Schema-2 fixed-capture routing and partial projection
 
 The manifest belongs at
 `reality-corpus/manifests/capture-v2-routing.json`; `manifests/` is not a
 signals area, so the corpus loader deliberately does not treat it as an evidence
 document. Its version is
 `synthkit.telemetry.capture-v2-routing/v1alpha1`. It contains one route for
-each immutable raw-capture SHA-256 and, for every metric family in that capture,
-an exact `name`, `area`, and non-empty `producers` array. A capture route also
+each immutable raw-capture SHA-256 and, for every promoted metric family in that
+capture, an exact `name`, `area`, and non-empty `producers` array. Every
+producerless family instead has an exact `unrouted` record. A capture route also
 records only generic promotion provenance: kind, substrate, scope,
 collector/version, capture date, and the capture-provided producer-label key.
 
-A manifest is complete only when it includes every family from all seven
-canonical 2026-08-31 captures. The converter rejects a missing capture hash, a
-family absent from its hash route, a stale route naming a family no longer in the
-capture, duplicate routes, an unknown area, or a reviewed producer that does
-not equal the raw capture's direct producer identity. It has no partial-mode,
-prefix fallback, source splitting, or default area. Do not create a placeholder
-or infer a row from the synthetic union: an unreviewed row is a PENDING review
-item, not corpus evidence.
+A capture route is exhaustive by classification, not by promotion. Each exact
+family must be either a direct route with an explicit area and producer set, or
+an `unrouted` record with one exact reason:
+
+- `missing_producer_and_area`
+- `missing_producer_unique_exact_area`
+
+`ProjectCaptureV2` promotes only direct routes and returns unrouted families as
+separate residue. A consumer asking to compare an unrouted family receives an
+error, rather than absent evidence or a fallback projection. The converter
+rejects a missing capture hash, a direct family without a route, a producerless
+family without an unrouted record, stale routes or residue, duplicate
+classification, an unknown area, or a reviewed producer that does not equal the
+raw capture's direct producer identity. It has no prefix fallback, source
+splitting, default area, or synthetic-union fallback. Do not create a
+placeholder or infer a row from the synthetic union: an unrouted row is visible
+residue, not corpus evidence.
 
 The seven reviewed-input hashes are:
 
@@ -155,23 +165,34 @@ signals area. It does not resolve a name listed by more than one area, and it
 does not use a metric prefix, a label other than the producer key, or prose
 resemblance as a fallback.
 
-These are review buckets, not manifest rows. In particular, `promrw` is an
-explicit ingest identity, not an owning signals area. `ProjectCaptureV2` still
-requires every exact hash and family row to carry both reviewed producer
-identity and area before it will project anything.
+These are review buckets, not name-routing inputs. In particular, `promrw` is
+an explicit ingest identity, not an owning signals area. The direct subset was
+rendered into hash-keyed `00-canon` candidate documents, an explicitly allowed
+generic area: comparison remains producer-scoped and does not use that area to
+select a synthetic family. Producerless families are recorded as unrouted even
+when an exact catalogue-area membership is already known: area membership is
+not producer identity.
 
-This leaves **2,137 distinct families in area residue**. All **2,918 families
-without direct producer identity** remain ineligible for the routing manifest
-or corpus projection: 781 have a unique exact catalogue area but still need a
-reviewed producer, while 2,137 need both area and producer. No manifest or
-projected corpus document exists for this set yet. Promotion resumes only after
-all 2,918 are reviewed into exact hash, family, area, and producer rows, and the
-cloud and full-capture authority is decided.
+This leaves **2,137 distinct families in area residue**. The **2,918 families
+without direct producer identity** remain ineligible for corpus projection: 781
+have a unique exact catalogue area but still need a producer, while 2,137 need
+both area and producer. They must be stored as exact hash/family unrouted rows,
+with the matching reason, rather than blocking the 2,286 directly identified
+families. The unreviewed producerless rows remain unavailable to signal
+fidelity; no exemption converts them into coverage.
 
 The two failed full-capture attempts are not rows in this manifest. All
-canonical raw captures remain immutable in the sibling capture repository; a
-promotion caller reads them and writes only new per-area corpus documents after
-the complete manifest validates. `reality-corpus/00-canon/` remains empty.
+canonical raw captures remain immutable in the sibling capture repository. The
+seven direct-subset records are non-loaded candidate evidence at
+`reality-corpus/manifests/candidates/00-canon/`, alongside
+`reality-corpus/manifests/capture-v2-unrouted.json`; `manifests/` is excluded
+by the corpus loader. They are deliberately not active corpus evidence:
+`just signal-fidelity` compared them producer-scoped and reported
+`signal-fidelity: 251 unexempted contradiction findings` (28 histogram-bound
+and 223 unexpected-label-key contradictions; two unrelated pre-existing
+findings remain exempted). No exemption was added. Promotion is parked at those
+exact contradictions. The area is a generic candidate container only; the
+direct producer set remains the comparison gate.
 
 ### EKS live read-back command
 

@@ -11,6 +11,16 @@ import (
 	"testing"
 )
 
+type checkedInCaptureV2UnroutedManifest struct {
+	Version  string                                   `json:"version"`
+	Captures []checkedInCaptureV2UnroutedCaptureRoute `json:"captures"`
+}
+
+type checkedInCaptureV2UnroutedCaptureRoute struct {
+	SHA256   string                    `json:"sha256"`
+	Families []CaptureV2UnroutedFamily `json:"families"`
+}
+
 func TestConvertCaptureV2PreservesTypeEvidenceAndSanitizesIdentity(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
 	if err != nil {
@@ -214,7 +224,7 @@ func TestProjectCaptureV2RejectsUnmappedFamilyWithoutNameInference(t *testing.T)
 			},
 		}},
 	})
-	if err == nil || !strings.Contains(err.Error(), "example_declared_unknown") || !strings.Contains(err.Error(), "no reviewed family route") {
+	if err == nil || !strings.Contains(err.Error(), "example_declared_unknown") || !strings.Contains(err.Error(), "direct producer identity requires one reviewed direct route") {
 		t.Fatalf("error=%v, want unmapped family rejection without a name or prefix fallback", err)
 	}
 }
@@ -225,7 +235,7 @@ func TestProjectCaptureV2ProjectsExplicitFamilyRoutesIntoTheirAreas(t *testing.T
 		t.Fatal(err)
 	}
 
-	documents, err := ProjectCaptureV2(data, CaptureV2RoutingManifest{
+	projection, err := ProjectCaptureV2(data, CaptureV2RoutingManifest{
 		Version: CaptureV2RoutingManifestVersion,
 		Captures: []CaptureV2CaptureRoute{{
 			SHA256:              captureV2SHA256(data),
@@ -246,14 +256,14 @@ func TestProjectCaptureV2ProjectsExplicitFamilyRoutesIntoTheirAreas(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(documents) != 2 {
-		t.Fatalf("documents=%d, want one document per explicit area", len(documents))
+	if len(projection.Documents) != 2 {
+		t.Fatalf("documents=%d, want one document per explicit area", len(projection.Documents))
 	}
-	if documents[0].Area != "cw" || len(documents[0].Inventory.Metrics) != 1 || documents[0].Inventory.Metrics[0].Name != "example_declared_unknown" {
-		t.Fatalf("cw document=%+v, want only its explicitly-routed family", documents[0])
+	if projection.Documents[0].Area != "cw" || len(projection.Documents[0].Inventory.Metrics) != 1 || projection.Documents[0].Inventory.Metrics[0].Name != "example_declared_unknown" {
+		t.Fatalf("cw document=%+v, want only its explicitly-routed family", projection.Documents[0])
 	}
-	if documents[1].Area != "k8s" || len(documents[1].Inventory.Metrics) != 2 {
-		t.Fatalf("k8s document=%+v, want only its explicitly-routed families", documents[1])
+	if projection.Documents[1].Area != "k8s" || len(projection.Documents[1].Inventory.Metrics) != 2 {
+		t.Fatalf("k8s document=%+v, want only its explicitly-routed families", projection.Documents[1])
 	}
 }
 
@@ -277,7 +287,7 @@ func TestProjectCaptureV2UsesExplicitRouteForProducerlessFamily(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	documents, err := ProjectCaptureV2(data, CaptureV2RoutingManifest{
+	projection, err := ProjectCaptureV2(data, CaptureV2RoutingManifest{
 		Version: CaptureV2RoutingManifestVersion,
 		Captures: []CaptureV2CaptureRoute{{
 			SHA256:              captureV2SHA256(data),
@@ -291,15 +301,66 @@ func TestProjectCaptureV2UsesExplicitRouteForProducerlessFamily(t *testing.T) {
 			Families: []CaptureV2FamilyRoute{
 				{Name: "example_requests_total", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
 				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
-				{Name: "example_declared_unknown", Area: "cw", Producers: []Producer{{Name: "reviewed-producer"}}},
 			},
+			Unrouted: []CaptureV2UnroutedFamily{{
+				Name:   "example_declared_unknown",
+				Reason: CaptureV2UnroutedMissingProducerUniqueArea,
+				Area:   "cw",
+			}},
 		}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := documents[0].Inventory.Metrics[0].Producers, []Producer{{Name: "reviewed-producer"}}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("producer=%+v, want the explicit route identity %v", got, want)
+	if len(projection.Unrouted) != 1 || projection.Unrouted[0].Name != "example_declared_unknown" || projection.Unrouted[0].Reason != CaptureV2UnroutedMissingProducerUniqueArea || projection.Unrouted[0].Area != "cw" {
+		t.Fatalf("unrouted=%+v, want the explicit producerless residue", projection.Unrouted)
+	}
+	if _, err := projection.DocumentForFamily("example_declared_unknown"); err == nil || !strings.Contains(err.Error(), "unrouted") {
+		t.Fatalf("unrouted comparison lookup error=%v, want fail-closed error", err)
+	}
+	for _, document := range projection.Documents {
+		for _, metric := range document.Inventory.Metrics {
+			if metric.Name == "example_declared_unknown" {
+				t.Fatalf("producerless metric promoted into %+v", document)
+			}
+		}
+	}
+}
+
+func TestProjectCaptureV2RejectsProducerlessFamilyWithoutAnExplicitUnroutedReason(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture captureV2
+	if err := json.Unmarshal(data, &capture); err != nil {
+		t.Fatal(err)
+	}
+	capture.Signals.Metrics.Families[2].Labels = nil
+	data, err = json.Marshal(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = ProjectCaptureV2(data, CaptureV2RoutingManifest{
+		Version: CaptureV2RoutingManifestVersion,
+		Captures: []CaptureV2CaptureRoute{{
+			SHA256:              captureV2SHA256(data),
+			Kind:                "synthkit_terraform_capture",
+			Substrate:           "eks",
+			Scope:               "cluster",
+			Collector:           "grafana/k8s-monitoring",
+			CollectorVersion:    "4.5.0",
+			CapturedOn:          "2026-08-31",
+			MetricProducerLabel: "ingest_path",
+			Families: []CaptureV2FamilyRoute{
+				{Name: "example_requests_total", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+			},
+		}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "no reviewed direct route or explicit unrouted reason") {
+		t.Fatalf("error=%v, want explicit producerless residue requirement", err)
 	}
 }
 
@@ -338,7 +399,7 @@ func TestProjectCaptureV2FailsClosedForInvalidReviewedRoutes(t *testing.T) {
 			edit: func(manifest *CaptureV2RoutingManifest) {
 				manifest.Captures[0].Families = manifest.Captures[0].Families[:2]
 			},
-			want: "example_declared_unknown\": no reviewed family route",
+			want: "example_declared_unknown\": direct producer identity requires one reviewed direct route",
 		},
 		{
 			name: "stale family route",
@@ -353,6 +414,15 @@ func TestProjectCaptureV2FailsClosedForInvalidReviewedRoutes(t *testing.T) {
 				manifest.Captures[0].Families = append(manifest.Captures[0].Families, manifest.Captures[0].Families[0])
 			},
 			want: "has duplicate routes",
+		},
+		{
+			name: "duplicate unrouted family",
+			edit: func(manifest *CaptureV2RoutingManifest) {
+				manifest.Captures[0].Families = manifest.Captures[0].Families[:2]
+				residue := CaptureV2UnroutedFamily{Name: "example_declared_unknown", Reason: CaptureV2UnroutedMissingProducerAndArea}
+				manifest.Captures[0].Unrouted = []CaptureV2UnroutedFamily{residue, residue}
+			},
+			want: "unrouted family \"example_declared_unknown\" is duplicated",
 		},
 		{
 			name: "unknown area",
@@ -382,6 +452,167 @@ func TestProjectCaptureV2FailsClosedForInvalidReviewedRoutes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckedInCaptureV2CandidatesRemainNonLoadedAndMatchManifests(t *testing.T) {
+	repositoryRoot := filepath.Join("..", "..")
+	manifestsPath := filepath.Join(repositoryRoot, "reality-corpus", "manifests")
+
+	routingData, err := os.ReadFile(filepath.Join(manifestsPath, "capture-v2-routing.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var routing CaptureV2RoutingManifest
+	if err := json.Unmarshal(routingData, &routing); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateCaptureV2RoutingManifest(routing); err != nil {
+		t.Fatalf("checked-in routing manifest: %v", err)
+	}
+
+	residueData, err := os.ReadFile(filepath.Join(manifestsPath, "capture-v2-unrouted.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var residueManifest checkedInCaptureV2UnroutedManifest
+	if err := json.Unmarshal(residueData, &residueManifest); err != nil {
+		t.Fatal(err)
+	}
+	if residueManifest.Version != CaptureV2RoutingManifestVersion {
+		t.Fatalf("unrouted manifest version=%q, want %q", residueManifest.Version, CaptureV2RoutingManifestVersion)
+	}
+
+	if got, want := len(routing.Captures), 7; got != want {
+		t.Fatalf("routing capture count=%d, want %d", got, want)
+	}
+	if got, want := len(residueManifest.Captures), 7; got != want {
+		t.Fatalf("unrouted capture count=%d, want %d", got, want)
+	}
+
+	routesByHash := make(map[string]CaptureV2CaptureRoute, len(routing.Captures))
+	directNames := make(map[string]struct{})
+	unroutedNames := make(map[string]struct{})
+	reasonCounts := make(map[CaptureV2UnroutedReason]int)
+	var directRows, unroutedRows int
+	for _, route := range routing.Captures {
+		routesByHash[route.SHA256] = route
+		directRows += len(route.Families)
+		unroutedRows += len(route.Unrouted)
+		for _, family := range route.Families {
+			directNames[family.Name] = struct{}{}
+		}
+		for _, family := range route.Unrouted {
+			unroutedNames[family.Name] = struct{}{}
+			reasonCounts[family.Reason]++
+		}
+	}
+	if got, want := directRows, 10872; got != want {
+		t.Fatalf("direct routing rows=%d, want %d", got, want)
+	}
+	if got, want := len(directNames), 2286; got != want {
+		t.Fatalf("direct routing distinct names=%d, want %d", got, want)
+	}
+	if got, want := unroutedRows, 3389; got != want {
+		t.Fatalf("unrouted rows=%d, want %d", got, want)
+	}
+	if got, want := len(unroutedNames), 2918; got != want {
+		t.Fatalf("unrouted distinct names=%d, want %d", got, want)
+	}
+	if got, want := reasonCounts[CaptureV2UnroutedMissingProducerUniqueArea], 851; got != want {
+		t.Fatalf("unique-area residue rows=%d, want %d", got, want)
+	}
+	if got, want := reasonCounts[CaptureV2UnroutedMissingProducerAndArea], 2538; got != want {
+		t.Fatalf("missing-area residue rows=%d, want %d", got, want)
+	}
+
+	residueByHash := make(map[string][]CaptureV2UnroutedFamily, len(residueManifest.Captures))
+	for _, capture := range residueManifest.Captures {
+		residueByHash[capture.SHA256] = capture.Families
+	}
+	if !reflect.DeepEqual(residueByHash, routingUnroutedByHash(routing)) {
+		t.Fatal("unrouted manifest does not exactly mirror the routing manifest residue")
+	}
+
+	candidatePath := filepath.Join(manifestsPath, "candidates", "00-canon")
+	entries, err := os.ReadDir(candidatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates := make([]CorpusDocument, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		document, err := loadCorpusFile(filepath.Join(candidatePath, entry.Name()))
+		if err != nil {
+			t.Fatalf("load candidate %q: %v", entry.Name(), err)
+		}
+		if document.Area != "00-canon" {
+			t.Fatalf("candidate %q area=%q, want 00-canon", entry.Name(), document.Area)
+		}
+		route, found := routesByHash[document.Source.CaptureSHA256]
+		if !found {
+			t.Fatalf("candidate %q has unexpected capture hash %q", entry.Name(), document.Source.CaptureSHA256)
+		}
+		if entry.Name() != "capture-v2-"+route.SHA256+".json" {
+			t.Fatalf("candidate filename=%q, want capture hash-keyed filename", entry.Name())
+		}
+		if got, want := metricNameSet(document.Inventory.Metrics), routeFamilyNameSet(route.Families); !reflect.DeepEqual(got, want) {
+			t.Fatalf("candidate %q metric set does not match its direct routes", entry.Name())
+		}
+		candidates = append(candidates, document)
+	}
+	if got, want := len(candidates), 7; got != want {
+		t.Fatalf("candidate document count=%d, want %d", got, want)
+	}
+
+	loaded, err := LoadCorpusDir(filepath.Join(repositoryRoot, "reality-corpus"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, document := range loaded {
+		if _, candidate := routesByHash[document.Source.CaptureSHA256]; candidate {
+			t.Fatalf("candidate capture %q was loaded as active corpus evidence", document.Source.CaptureSHA256)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(repositoryRoot, "reality-corpus", "00-canon")); !os.IsNotExist(err) {
+		t.Fatalf("active 00-canon candidate directory must not exist, stat error=%v", err)
+	}
+
+	projection := CaptureV2Projection{Documents: candidates}
+	for _, route := range routing.Captures {
+		projection.Unrouted = append(projection.Unrouted, route.Unrouted...)
+	}
+	if len(projection.Unrouted) == 0 {
+		t.Fatal("routing manifest holds no unrouted residue")
+	}
+	if _, err := projection.DocumentForFamily(projection.Unrouted[0].Name); err == nil || !strings.Contains(err.Error(), "unrouted") {
+		t.Fatalf("candidate residue lookup error=%v, want fail-closed unrouted error", err)
+	}
+}
+
+func routingUnroutedByHash(manifest CaptureV2RoutingManifest) map[string][]CaptureV2UnroutedFamily {
+	result := make(map[string][]CaptureV2UnroutedFamily, len(manifest.Captures))
+	for _, capture := range manifest.Captures {
+		result[capture.SHA256] = capture.Unrouted
+	}
+	return result
+}
+
+func routeFamilyNameSet(families []CaptureV2FamilyRoute) map[string]struct{} {
+	result := make(map[string]struct{}, len(families))
+	for _, family := range families {
+		result[family.Name] = struct{}{}
+	}
+	return result
+}
+
+func metricNameSet(metrics []Metric) map[string]struct{} {
+	result := make(map[string]struct{}, len(metrics))
+	for _, metric := range metrics {
+		result[metric.Name] = struct{}{}
+	}
+	return result
 }
 
 func hasMetricLabel(metric Metric, key string) bool {

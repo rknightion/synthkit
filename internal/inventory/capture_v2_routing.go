@@ -27,15 +27,16 @@ type CaptureV2RoutingManifest struct {
 // CaptureV2CaptureRoute supplies the generic source provenance shared by all
 // family routes in one immutable capture.
 type CaptureV2CaptureRoute struct {
-	SHA256              string                 `json:"sha256"`
-	Kind                string                 `json:"kind"`
-	Substrate           string                 `json:"substrate"`
-	Scope               string                 `json:"scope"`
-	Collector           string                 `json:"collector"`
-	CollectorVersion    string                 `json:"collector_version"`
-	CapturedOn          string                 `json:"captured_on"`
-	MetricProducerLabel string                 `json:"metric_producer_label"`
-	Families            []CaptureV2FamilyRoute `json:"families"`
+	SHA256              string                    `json:"sha256"`
+	Kind                string                    `json:"kind"`
+	Substrate           string                    `json:"substrate"`
+	Scope               string                    `json:"scope"`
+	Collector           string                    `json:"collector"`
+	CollectorVersion    string                    `json:"collector_version"`
+	CapturedOn          string                    `json:"captured_on"`
+	MetricProducerLabel string                    `json:"metric_producer_label"`
+	Families            []CaptureV2FamilyRoute    `json:"families"`
+	Unrouted            []CaptureV2UnroutedFamily `json:"unrouted"`
 }
 
 // CaptureV2FamilyRoute is the reviewed identity and signals-area ownership of
@@ -47,69 +48,122 @@ type CaptureV2FamilyRoute struct {
 	Producers []Producer `json:"producers"`
 }
 
+// CaptureV2UnroutedReason describes why a producerless family is intentionally
+// excluded from the privacy-safe corpus. It is evidence, not a routing fallback.
+type CaptureV2UnroutedReason string
+
+const (
+	CaptureV2UnroutedMissingProducerAndArea    CaptureV2UnroutedReason = "missing_producer_and_area"
+	CaptureV2UnroutedMissingProducerUniqueArea CaptureV2UnroutedReason = "missing_producer_unique_exact_area"
+)
+
+// CaptureV2UnroutedFamily is one exact captured family that cannot be compared
+// until its producer identity is reviewed. The raw capture remains the source
+// of truth; this record only makes the residue visible and fail-closed.
+type CaptureV2UnroutedFamily struct {
+	Name   string                  `json:"name"`
+	Reason CaptureV2UnroutedReason `json:"reason"`
+	// Area is retained only where exact machine-readable catalogue membership
+	// established one. It never licenses promotion without a producer.
+	Area string `json:"area,omitempty"`
+}
+
+// CaptureV2Projection separates producer-admissible corpus documents from
+// producerless residue. Consumers must use DocumentForFamily rather than
+// treating an unrouted family as absent or applying a name-derived fallback.
+type CaptureV2Projection struct {
+	Documents []CorpusDocument          `json:"documents"`
+	Unrouted  []CaptureV2UnroutedFamily `json:"unrouted"`
+}
+
+// DocumentForFamily returns the promoted corpus document for one exact family.
+// An unrouted family is an explicit comparison error, never absent evidence.
+func (projection CaptureV2Projection) DocumentForFamily(name string) (CorpusDocument, error) {
+	for _, family := range projection.Unrouted {
+		if family.Name == name {
+			return CorpusDocument{}, fmt.Errorf("capture metric %q is unrouted: %s", name, family.Reason)
+		}
+	}
+	for _, document := range projection.Documents {
+		for _, metric := range document.Inventory.Metrics {
+			if metric.Name == name {
+				return document, nil
+			}
+		}
+	}
+	return CorpusDocument{}, fmt.Errorf("capture metric %q is not present in this projection", name)
+}
+
 // ProjectCaptureV2 projects one immutable schema-2 capture into one corpus
-// document per explicitly-reviewed signals area. It fails closed when the hash
-// is absent, a route is incomplete, a family is unmapped, or the reviewed
-// producer identity disagrees with the capture's direct producer label.
-func ProjectCaptureV2(data []byte, manifest CaptureV2RoutingManifest) ([]CorpusDocument, error) {
+// document per explicitly-reviewed signals area, plus explicit producerless
+// residue. It fails closed when the hash is absent, direct identity has no
+// route, producerless identity has no exact reason, or reviewed producer
+// identity disagrees with the capture's direct producer label.
+func ProjectCaptureV2(data []byte, manifest CaptureV2RoutingManifest) (CaptureV2Projection, error) {
 	if err := validateCaptureV2RoutingManifest(manifest); err != nil {
-		return nil, err
+		return CaptureV2Projection{}, err
 	}
 
 	var capture captureV2
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	if err := decoder.Decode(&capture); err != nil {
-		return nil, fmt.Errorf("decode schema-2 capture: %w", err)
+		return CaptureV2Projection{}, fmt.Errorf("decode schema-2 capture: %w", err)
 	}
 	if capture.SchemaVersion != captureV2SchemaVersion {
-		return nil, fmt.Errorf("capture schema_version: got %q, want %q", capture.SchemaVersion, captureV2SchemaVersion)
+		return CaptureV2Projection{}, fmt.Errorf("capture schema_version: got %q, want %q", capture.SchemaVersion, captureV2SchemaVersion)
 	}
 	if capture.Tool.Version == "" {
-		return nil, fmt.Errorf("capture tool.version: must not be empty")
+		return CaptureV2Projection{}, fmt.Errorf("capture tool.version: must not be empty")
 	}
 	if len(capture.Signals.Metrics.Families) == 0 {
-		return nil, fmt.Errorf("capture metrics: must contain at least one family")
+		return CaptureV2Projection{}, fmt.Errorf("capture metrics: must contain at least one family")
 	}
 
 	hash := captureV2SHA256(data)
 	route, ok := captureV2CaptureRouteByHash(manifest, hash)
 	if !ok {
-		return nil, fmt.Errorf("capture sha256 %q: no reviewed capture route", hash)
+		return CaptureV2Projection{}, fmt.Errorf("capture sha256 %q: no reviewed capture route", hash)
 	}
 	if capture.Capture.Scope.IsScoped != (route.Scope != "full") {
-		return nil, fmt.Errorf("capture scope and reviewed routing scope disagree")
+		return CaptureV2Projection{}, fmt.Errorf("capture scope and reviewed routing scope disagree")
 	}
 
 	families := make(map[string]CaptureV2FamilyRoute, len(route.Families))
 	for _, family := range route.Families {
 		families[family.Name] = family
 	}
+	unrouted := make(map[string]CaptureV2UnroutedFamily, len(route.Unrouted))
+	for _, family := range route.Unrouted {
+		unrouted[family.Name] = family
+	}
 	documents := make(map[string]*CorpusDocument)
+	projection := CaptureV2Projection{Documents: []CorpusDocument{}, Unrouted: []CaptureV2UnroutedFamily{}}
 	seen := make(map[string]struct{}, len(capture.Signals.Metrics.Families))
 	for _, captured := range capture.Signals.Metrics.Families {
 		if _, exists := seen[captured.Name]; exists {
-			return nil, fmt.Errorf("capture metric %q: duplicate family name", captured.Name)
+			return CaptureV2Projection{}, fmt.Errorf("capture metric %q: duplicate family name", captured.Name)
 		}
 		seen[captured.Name] = struct{}{}
-		family, ok := families[captured.Name]
-		if !ok {
-			return nil, fmt.Errorf("capture metric %q: no reviewed family route", captured.Name)
-		}
-		// A family may genuinely lack the source producer label (the full capture
-		// has such families). Its route still needs a reviewed producer identity;
-		// use that explicit row only to satisfy the privacy projection, never as a
-		// capture-wide or name-derived fallback.
-		fallback := ""
 		hasDirectProducer := captureV2MetricHasDirectProducer(captured, route.MetricProducerLabel)
-		if !hasDirectProducer {
-			fallback = family.Producers[0].Name
+		family, routed := families[captured.Name]
+		residue, recordedUnrouted := unrouted[captured.Name]
+		if hasDirectProducer {
+			if !routed || recordedUnrouted {
+				return CaptureV2Projection{}, fmt.Errorf("capture metric %q: direct producer identity requires one reviewed direct route", captured.Name)
+			}
+		} else {
+			if routed || !recordedUnrouted {
+				return CaptureV2Projection{}, fmt.Errorf("capture metric %q: no reviewed direct route or explicit unrouted reason", captured.Name)
+			}
+			projection.Unrouted = append(projection.Unrouted, residue)
+			continue
 		}
-		metric, err := convertCaptureV2Metric(captured, route.MetricProducerLabel, fallback)
+		metric, err := convertCaptureV2Metric(captured, route.MetricProducerLabel, "")
 		if err != nil {
-			return nil, err
+			return CaptureV2Projection{}, err
 		}
-		if hasDirectProducer && !sameProducers(metric.Producers, family.Producers) {
-			return nil, fmt.Errorf("capture metric %q: reviewed producers do not match direct capture identity", captured.Name)
+		if !sameProducers(metric.Producers, family.Producers) {
+			return CaptureV2Projection{}, fmt.Errorf("capture metric %q: reviewed producers do not match direct capture identity", captured.Name)
 		}
 		metric.Producers = append([]Producer(nil), family.Producers...)
 
@@ -122,7 +176,12 @@ func ProjectCaptureV2(data []byte, manifest CaptureV2RoutingManifest) ([]CorpusD
 	}
 	for _, family := range route.Families {
 		if _, ok := seen[family.Name]; !ok {
-			return nil, fmt.Errorf("capture sha256 %q: reviewed family %q is absent", hash, family.Name)
+			return CaptureV2Projection{}, fmt.Errorf("capture sha256 %q: reviewed family %q is absent", hash, family.Name)
+		}
+	}
+	for _, family := range route.Unrouted {
+		if _, ok := seen[family.Name]; !ok {
+			return CaptureV2Projection{}, fmt.Errorf("capture sha256 %q: unrouted family %q is absent", hash, family.Name)
 		}
 	}
 
@@ -131,12 +190,14 @@ func ProjectCaptureV2(data []byte, manifest CaptureV2RoutingManifest) ([]CorpusD
 		document.CaptureVolume.ObservedContractCounts = []int{len(document.Inventory.Metrics)}
 		normalizeCorpusDocument(document)
 		if err := validateCorpusDocument(*document); err != nil {
-			return nil, fmt.Errorf("project schema-2 capture: %w", err)
+			return CaptureV2Projection{}, fmt.Errorf("project schema-2 capture: %w", err)
 		}
 		out = append(out, *document)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Area < out[j].Area })
-	return out, nil
+	projection.Documents = out
+	sort.Slice(projection.Unrouted, func(i, j int) bool { return projection.Unrouted[i].Name < projection.Unrouted[j].Name })
+	return projection, nil
 }
 
 func newCaptureV2ProjectionDocument(capture captureV2, hash string, route CaptureV2CaptureRoute, area string) *CorpusDocument {
@@ -200,8 +261,8 @@ func validateCaptureV2RoutingManifest(manifest CaptureV2RoutingManifest) error {
 		if capture.Scope != "cluster" && capture.Scope != "cloud" && capture.Scope != "full" {
 			return fmt.Errorf("capture routing sha256 %q: scope must be cluster, cloud, or full", capture.SHA256)
 		}
-		if len(capture.Families) == 0 {
-			return fmt.Errorf("capture routing sha256 %q: must contain at least one family", capture.SHA256)
+		if len(capture.Families) == 0 && len(capture.Unrouted) == 0 {
+			return fmt.Errorf("capture routing sha256 %q: must contain at least one direct route or unrouted family", capture.SHA256)
 		}
 		seenFamilies := make(map[string]struct{}, len(capture.Families))
 		for _, family := range capture.Families {
@@ -222,6 +283,29 @@ func validateCaptureV2RoutingManifest(manifest CaptureV2RoutingManifest) error {
 				if strings.TrimSpace(producer.Name) == "" || producer.AllowListVersion != "" || producer.AllowListVariant != "" {
 					return fmt.Errorf("capture routing sha256 %q: family %q has invalid producer identity", capture.SHA256, family.Name)
 				}
+			}
+		}
+		seenUnrouted := make(map[string]struct{}, len(capture.Unrouted))
+		for _, family := range capture.Unrouted {
+			if strings.TrimSpace(family.Name) == "" {
+				return fmt.Errorf("capture routing sha256 %q: unrouted family name must not be empty", capture.SHA256)
+			}
+			if _, exists := seenFamilies[family.Name]; exists {
+				return fmt.Errorf("capture routing sha256 %q: family %q is both directly routed and unrouted", capture.SHA256, family.Name)
+			}
+			if _, exists := seenUnrouted[family.Name]; exists {
+				return fmt.Errorf("capture routing sha256 %q: unrouted family %q is duplicated", capture.SHA256, family.Name)
+			}
+			seenUnrouted[family.Name] = struct{}{}
+			if family.Reason != CaptureV2UnroutedMissingProducerAndArea && family.Reason != CaptureV2UnroutedMissingProducerUniqueArea {
+				return fmt.Errorf("capture routing sha256 %q: unrouted family %q has invalid reason %q", capture.SHA256, family.Name, family.Reason)
+			}
+			if family.Reason == CaptureV2UnroutedMissingProducerUniqueArea {
+				if _, ok := allowedCorpusAreas[family.Area]; !ok {
+					return fmt.Errorf("capture routing sha256 %q: unrouted family %q needs one allowed exact area", capture.SHA256, family.Name)
+				}
+			} else if family.Area != "" {
+				return fmt.Errorf("capture routing sha256 %q: unrouted family %q must not claim an area", capture.SHA256, family.Name)
 			}
 		}
 	}
