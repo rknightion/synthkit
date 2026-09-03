@@ -171,6 +171,19 @@ func TestEvaluateQueriesEveryInventoryMetricWithBoundedConcurrency(t *testing.T)
 	}
 }
 
+func TestEvaluateRejectsInventoryWithNoMetricFamilies(t *testing.T) {
+	inventory := control.InventoryReport{Blueprints: []control.BlueprintInventory{{
+		Blueprint:  "one",
+		Constructs: []control.ConstructInventory{{Kind: "test", Name: "test"}},
+	}}}
+	got := evaluate(context.Background(), &http.Client{}, config{}, "one", true, false,
+		control.Schema{Blueprints: []string{"one"}}, inventory,
+		control.StatusReport{Readiness: &control.ReadinessReport{LiveReady: true}}, 1, true)
+	if got.Verdict != verdictLaneFailure || got.PreventingLane != "inventory" || got.MetricChecks != 0 {
+		t.Fatalf("row=%+v, want explicit zero-family inventory failure", got)
+	}
+}
+
 func TestEvaluateUsesExplicitPerFamilyQueryIdentity(t *testing.T) {
 	queries := make(chan string, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

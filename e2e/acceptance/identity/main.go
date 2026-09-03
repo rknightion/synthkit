@@ -198,7 +198,11 @@ func evaluate(ctx context.Context, c *http.Client, cfg config, name string, load
 		}
 	}
 	r.MetricChecks = len(checks)
-	if len(checks) > 0 && cfg.promURL == "" {
+	if len(checks) == 0 {
+		r.PreventingLane, r.Detail = "inventory", "loaded runtime identity has zero synthetic metric families in live inventory after the bounded wait"
+		return r
+	}
+	if cfg.promURL == "" {
 		r.PreventingLane, r.Detail = "prometheus", "metric inventory requires -prom-url for live queryability proof"
 		return r
 	}

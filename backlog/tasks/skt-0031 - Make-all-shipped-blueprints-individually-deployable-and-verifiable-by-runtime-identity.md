@@ -3,11 +3,11 @@ id: SKT-0031
 title: >-
   Make all shipped blueprints individually deployable and verifiable by runtime
   identity
-status: Parked
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-08-29 19:05'
-updated_date: '2026-09-03 19:37'
+updated_date: '2026-09-03 20:49'
 labels: []
 dependencies: []
 references:
@@ -45,6 +45,8 @@ SKT-0011 scenarios C1, C4, and C5 selected every shipped blueprint individually.
 Lane B exposes canonical runtime identity and declared signal verification; root proves all shipped blueprints live after integration.
 
 2026-08-31 Lane C: extend the identity/readiness verifier to all 26 canonical runtime names with bounded truthful healthy/setup/lane-failure verdicts; root runs it live after integration.
+
+2026-09-05 wave plan: After SKT-0050 diagnosis, Lane A uses the authorised temporary local Compose deployment to rerun all canonical identities, correct the retained 2 traces_host_info, 1 gen-AI bucket, and 4 Loki freshness failures without selecting an agent blueprint, then tear the deployment down at closeout.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -86,6 +88,8 @@ not the 26 shipped blueprints this task enumerates.
 The eighth failure (Sigil error) is resolved: SKT-0043 is Done and settled the Agent Observability contract. Seven remain: 2 missing traces_host_info, 1 missing gen-AI bucket, 4 stale Loki success.
 
 Related live finding: SKT-0050 records four blueprints loaded and ticking on the EKS lab while emitting zero synthetic families. That is the same class of defect this task enumerates and is visible without a local deployment, so read SKT-0050's evidence before diagnosing the seven locally - a shared cause is plausible.
+
+2026-09-05 verification: the authorised local deployment was rebuilt from current source. After the bounded 2m5s wait, the eight selected runtime identities all returned healthy; the four previously silent identities reported 983, 1,487, 44, and 901 metric checks respectively. A separate canonical run covered all 27 shipped non-agent identities and returned 27 healthy rows with no failures. All seven configured delivery lanes were fresh success; failures, stale/current errors, and queue loss were zero. The retained two traces_host_info failures were old-image query-identity false zeros fixed by 401bc6a; the gen-AI bucket and four stale Loki failures did not reproduce. just check passed. No Agent Observability request was made.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -94,4 +98,6 @@ Related live finding: SKT-0050 records four blueprints loaded and ticking on the
 Parked at AC#2. Resume by running the executable identity/readiness check for all 26 canonical runtime names, retaining each truthful healthy/setup result or named lane failure within the documented bound.
 
 2026-08-31: Parked after proving the verifier across all 28 canonical identities. Resume from the eight retained live lane failures and rerun just e2e-identity until each identity reaches healthy or an intentional setup state with every declared signal class landed.
+
+2026-09-05: Done. The authorised local deployment proved every one of the 27 shipped non-agent runtime identities healthy within the declared bound, including all seven retained failures reclassified or absent on current source. The deployment is wave-local and will be torn down at closeout.
 <!-- SECTION:FINAL_SUMMARY:END -->
