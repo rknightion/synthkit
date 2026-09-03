@@ -354,16 +354,16 @@ func (s *SelfObs) logTickError(blueprint, kind, instance string, err error) {
 	if blueprint != "" {
 		scope = blueprint + "/" + scope
 	}
-	rec.SetBody(otellog.StringValue(fmt.Sprintf("selfobs: tick %s error: %v", scope, err)))
+	rec.SetBody(attribute.StringValue(fmt.Sprintf("selfobs: tick %s error: %v", scope, err)))
 	rec.SetSeverity(otellog.SeverityError)
 	rec.SetSeverityText("ERROR")
 	rec.AddAttributes(
-		otellog.String("event", "tick_error"),
-		otellog.String("construct_kind", kind),
-		otellog.String("construct_instance", instance),
+		attribute.String("event", "tick_error"),
+		attribute.String("construct_kind", kind),
+		attribute.String("construct_instance", instance),
 	)
 	if blueprint != "" {
-		rec.AddAttributes(otellog.String("blueprint", blueprint))
+		rec.AddAttributes(attribute.String("blueprint", blueprint))
 	}
 	s.logger.Emit(context.Background(), rec)
 }
@@ -467,20 +467,20 @@ func (s *SelfObs) logPushFailure(_ context.Context, ev pushhook.Event, outcome s
 	now := time.Now()
 	rec.SetTimestamp(now)
 	rec.SetObservedTimestamp(now)
-	rec.SetBody(otellog.StringValue(fmt.Sprintf("selfobs: push %s %s", ev.Sink, outcome)))
+	rec.SetBody(attribute.StringValue(fmt.Sprintf("selfobs: push %s %s", ev.Sink, outcome)))
 	rec.SetSeverity(sev)
 	rec.SetSeverityText(sevText)
 	rec.AddAttributes(
-		otellog.String("event", "push_error"),
-		otellog.String("sink", ev.Sink),
-		otellog.String("outcome", outcome),
-		otellog.String("error.code", string(ev.ErrorCode)),
+		attribute.String("event", "push_error"),
+		attribute.String("sink", ev.Sink),
+		attribute.String("outcome", outcome),
+		attribute.String("error.code", string(ev.ErrorCode)),
 	)
 	if ev.Blueprint != "" {
-		rec.AddAttributes(otellog.String("blueprint", ev.Blueprint))
+		rec.AddAttributes(attribute.String("blueprint", ev.Blueprint))
 	}
 	if ev.Status != 0 {
-		rec.AddAttributes(otellog.Int("http.status_code", ev.Status))
+		rec.AddAttributes(attribute.Int("http.status_code", ev.Status))
 	}
 	s.logger.Emit(context.Background(), rec)
 }
@@ -536,13 +536,13 @@ func (s *SelfObs) logFleetFailure(ev fleethook.Event) {
 	now := time.Now()
 	rec.SetTimestamp(now)
 	rec.SetObservedTimestamp(now)
-	rec.SetBody(otellog.StringValue(fmt.Sprintf("selfobs: fleet %s: %s", ev.Op, operationalerr.Message(code))))
+	rec.SetBody(attribute.StringValue(fmt.Sprintf("selfobs: fleet %s: %s", ev.Op, operationalerr.Message(code))))
 	rec.SetSeverity(otellog.SeverityError)
 	rec.SetSeverityText("ERROR")
 	rec.AddAttributes(
-		otellog.String("event", "fleet_error"),
-		otellog.String("op", ev.Op),
-		otellog.String("error.code", string(code)),
+		attribute.String("event", "fleet_error"),
+		attribute.String("op", ev.Op),
+		attribute.String("error.code", string(code)),
 	)
 	s.logger.Emit(context.Background(), rec)
 }
@@ -558,12 +558,12 @@ func (s *SelfObs) EmitEvent(name string, attrs map[string]string, body string) {
 	now := time.Now()
 	rec.SetTimestamp(now)
 	rec.SetObservedTimestamp(now)
-	rec.SetBody(otellog.StringValue(body))
+	rec.SetBody(attribute.StringValue(body))
 	rec.SetSeverity(otellog.SeverityInfo)
 	rec.SetSeverityText("INFO")
-	rec.AddAttributes(otellog.String("event", name))
+	rec.AddAttributes(attribute.String("event", name))
 	for k, v := range attrs {
-		rec.AddAttributes(otellog.String(k, v))
+		rec.AddAttributes(attribute.String(k, v))
 	}
 	s.logger.Emit(context.Background(), rec)
 }

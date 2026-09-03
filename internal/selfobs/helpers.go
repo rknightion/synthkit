@@ -61,7 +61,7 @@ func (b *logBridge) Write(p []byte) (int, error) {
 	now := time.Now()
 	rec.SetTimestamp(now)
 	rec.SetObservedTimestamp(now)
-	rec.SetBody(otellog.StringValue(line))
+	rec.SetBody(attribute.StringValue(line))
 	sev, txt := severityOf(line)
 	rec.SetSeverity(sev)
 	rec.SetSeverityText(txt)

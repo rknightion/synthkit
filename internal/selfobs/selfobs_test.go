@@ -46,9 +46,9 @@ func (e *recordingLogExporter) all() []sdklog.Record {
 	return append([]sdklog.Record(nil), e.records...)
 }
 
-func logAttrs(r sdklog.Record) map[string]otellog.Value {
-	m := map[string]otellog.Value{}
-	r.WalkAttributes(func(kv otellog.KeyValue) bool {
+func logAttrs(r sdklog.Record) map[string]attribute.Value {
+	m := map[string]attribute.Value{}
+	r.WalkAttributes(func(kv attribute.KeyValue) bool {
 		m[string(kv.Key)] = kv.Value
 		return true
 	})
