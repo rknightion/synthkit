@@ -1,10 +1,46 @@
-# gitleaks config — extend the upstream default ruleset, allowlist intentional placeholders.
-# Used by the secret-scan CI job (scripts run `gitleaks detect`).
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# gitleaks configuration for synthkit. The default ruleset is inherited in full; this file only
+# narrows the `generic-api-key` heuristic where it fires on test data.
+#
+# Scope a new allowlist by VALUE, not by file. Verified against gitleaks v8.30.1: a `paths`
+# criterion is applied on its own even under `condition = "AND"`, so pairing a path with a regex
+# does not narrow it — an injected `grafana-cloud-api-token` in a path-allowlisted file went
+# undetected while the regex beside it matched nothing. The one path entry below predates that
+# finding and covers a file that holds no code, only placeholder patterns.
+
+title = "synthkit"
+
 [extend]
 useDefault = true
 
-[allowlist]
+[[allowlists]]
 description = "intentional placeholder/example values, not real secrets"
 paths = [
   '''scripts/forbidden-words\.local\.example''',
 ]
+
+[[rules]]
+id = "generic-api-key"
+# Every other attribute is inherited from the default rule.
+
+  # The two deliberate redaction canaries. Each is the base64 form of a literal test string —
+  # `cmF3LXNlY3JldA==` is base64("raw-secret") and `c2VsZi1zZWNyZXQ=` is base64("self-secret") —
+  # and both exist so a test can assert the value is ABSENT from a status or preflight JSON
+  # response (cmd/synthkit/optional_status_test.go, internal/preflight/optional_test.go). The
+  # match is on the exact anchored value, so no other base64 string is allowlisted.
+  [[rules.allowlists]]
+  description = "deliberate secret-redaction canaries asserted absent by the status and preflight tests"
+  regexes = [
+    '''^cmF3LXNlY3JldA==$''',
+    '''^c2VsZi1zZWNyZXQ=$''',
+  ]
+
+  # Construct tests carry metric-name inventories — long lowercase snake_case identifiers whose
+  # entropy trips this heuristic (e.g. `awscni_ec2api_req_count`). No credential format this
+  # repository handles is lowercase snake_case only: Grafana Cloud tokens are `glc_`/`glsa_` plus
+  # mixed-case base64, AWS access keys are uppercase, and Basic-auth values carry `:` or `=`. Those
+  # all keep their own dedicated rules, which this entry does not touch.
+  [[rules.allowlists]]
+  description = "lowercase snake_case metric names in construct test inventories"
+  regexes = ['''^[a-z][a-z0-9]*(?:_[a-z0-9]+){2,}$''']

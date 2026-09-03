@@ -8,7 +8,7 @@ go_licenses_version := env('GO_LICENSES_VERSION', 'v2.0.1')
 # renovate: datasource=github-releases depName=anchore/syft
 syft_version := env('SYFT_VERSION', 'v1.51.1')
 # renovate: datasource=github-releases depName=gitleaks/gitleaks
-gitleaks_version := env('GITLEAKS_VERSION', 'v8.21.2')
+gitleaks_version := env('GITLEAKS_VERSION', 'v8.30.1')
 gcx_context := env('GCX_CONTEXT', 'default')
 # SKT-0043: keep the agent-observability blueprint out of unattended fidelity
 # runs until its rejected-payload defect is fixed. An intentional agent audit can
@@ -141,6 +141,13 @@ hygiene: spdx-check forbidden-words
 [no-exit-message]
 secret-scan:
     docker run --rm -v "{{ justfile_directory() }}:/repo" ghcr.io/gitleaks/gitleaks:{{ gitleaks_version }} detect --source=/repo --redact --no-banner
+
+# CI-only: requires a Docker daemon. Proves .gitleaks.toml narrows generic-api-key without
+# disabling it and without hiding an unrelated rule — every failure of that narrowing is silent.
+[group('check')]
+[no-exit-message]
+secret-scan-config:
+    bash scripts/gitleaks-config-check.sh ghcr.io/gitleaks/gitleaks:{{ gitleaks_version }}
 
 # env-surface drift guard: every Go-read var is documented in .env.example and Compose
 [group('check')]
@@ -324,7 +331,7 @@ check: fmt-check lint gen-check env-check docs-check test race hygiene ui-check 
 
 # CI superset: `check` plus the Docker-daemon legs marked above
 [group('check')]
-ci: check image e2e secret-scan clean-container
+ci: check image e2e secret-scan secret-scan-config clean-container
 
 # compile every package
 [group('build')]
