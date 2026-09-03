@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-03 19:36'
-updated_date: '2026-09-03 21:04'
+updated_date: '2026-09-03 23:04'
 labels: []
 dependencies: []
 priority: high
@@ -67,6 +67,10 @@ Query identity: use the read credential named in SKT-0049 with the per-signal in
 2026-09-05 scope correction: netobs-enterprise is active with 251 series / 45 families. Its network-topology families deliberately have no blueprint label; a live inventory-sourced family returned 33 current series and zero blueprint labels. The original blueprint-label count was a false zero. Current control inventory for the other selected identities is 692/385, 2634/587 and 2343/649 series/families.
 
 2026-09-05 boundary: no lab control mutation was authorised. Resume when the deployment owner enables the three persisted-disabled blueprints through the control API, waits two 60s metric intervals plus the 5s delivery deadline, and reruns status/health/diagnostics/inventory plus scope-aware live queries. Source guard TestEvaluateRejectsInventoryWithNoMetricFamilies, just check, the explicit 27-non-agent safe dump, and just e2e passed. No fidelity exemption was added.
+
+2026-09-04 authority granted by Rob: the wave root may enable the three persisted-disabled blueprints (aws-cloud-services, profiling-demo, k8s-full-stack) through the existing control API on the lab, wait 125 seconds (two 60s metric intervals plus the 5s delivery deadline), and run the read-back. Enable-only, those three only, root only, and they STAY enabled - values.yaml already declares all seven as the desired selection, so this brings live state into agreement with desired state rather than diverging from it. No selection change, no scenario injection, no restart, no infrastructure repository edit, and never an agent-declaring blueprint.
+
+Correction to my own filing: the fourth reported zero, netobs-enterprise, was MY query error, not a silent blueprint. Its network_topology_* families are substrate-scoped and carry no blueprint label by design (signals/nettopo.md), and re-verified live 2026-09-03 they return 251 series keyed on job + instance. Counting {blueprint=...} was scope-invalid.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

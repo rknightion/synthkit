@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-08-30 08:40'
-updated_date: '2026-09-03 20:50'
+updated_date: '2026-09-03 23:04'
 labels:
   - needs-triage
 dependencies: []
@@ -201,6 +201,8 @@ Wave result: the schema-2 converter preserved capture hashes, scope, warnings, s
 2026-09-03 decision by Rob: promote an ADMISSIBLE SUBSET rather than all-or-nothing. ProjectCaptureV2 changes from rejecting a partial manifest to promoting per-family: the 2,286 names carrying direct producer identity are promoted, and each of the 2,918 producerless names is recorded as explicitly unrouted with its reason. The gate stays fail-closed - comparing an unrouted family is still an error, so nothing is inferred and no exemption is added. Why: reviewing 2,918 families by hand is not wave-sized, and all-or-nothing has parked this task three waves running with nothing promoted. Incremental promotion lands real evidence now and leaves the residue explicitly visible instead of implicitly blocking.
 
 2026-09-05 subset-promotion evidence: the seven immutable captures contain 14,261 rows and 5,204 distinct family names. Exact hash-keyed records now classify 10,872 rows / 2,286 distinct names with direct producer identity and 3,389 rows / 2,918 distinct names as unrouted. The residue is 851 rows / 781 names with one exact catalogue area but no producer and 2,538 rows / 2,137 names with neither. ProjectCaptureV2 promotes only direct routes, returns explicit residue, and rejects unrouted comparison plus stale, duplicate, mixed, unknown-area, and producer-mismatched records. Loading the seven candidate projections produced 251 genuine unexempted producer-scoped fidelity contradictions, so they remain non-loaded under manifests/candidates rather than weakening the gate. The final candidate-excluded just check and signal-fidelity passed; zero exemptions were added and no capture changed. Resume from the checked-in candidates and correct the 251 exact synth-versus-capture shape contradictions before moving them into the active corpus. One exploratory just dump incorrectly selected the agent blueprint in DRY_RUN; it made no Agent Observability request and was excluded from acceptance evidence.
+
+2026-09-04 priority for the next wave: the 251 unexempted fidelity contradictions (28 histogram-bound, 223 unexpected-label-key) are the FIRST corpus priority, ahead of anything else in this task. Repair them in the synthetic contracts - never in a capture, never with an exemption - then promote the already-checked-in candidates out of the non-loaded reality-corpus/manifests/ boundary into the active corpus and prove a zero-exemption fidelity pass. The 2,918 producerless names stay explicit fail-closed residue and are not that wave's problem. If any one of the 251 shows the CAPTURE is unreliable rather than the synth, report it as a finding; it is not a licence to edit the capture.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
