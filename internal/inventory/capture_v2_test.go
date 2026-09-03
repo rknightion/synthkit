@@ -303,6 +303,87 @@ func TestProjectCaptureV2UsesExplicitRouteForProducerlessFamily(t *testing.T) {
 	}
 }
 
+func TestProjectCaptureV2FailsClosedForInvalidReviewedRoutes(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	base := CaptureV2RoutingManifest{
+		Version: CaptureV2RoutingManifestVersion,
+		Captures: []CaptureV2CaptureRoute{{
+			SHA256:              captureV2SHA256(data),
+			Kind:                "synthkit_terraform_capture",
+			Substrate:           "eks",
+			Scope:               "cluster",
+			Collector:           "grafana/k8s-monitoring",
+			CollectorVersion:    "4.5.0",
+			CapturedOn:          "2026-08-31",
+			MetricProducerLabel: "ingest_path",
+			Families: []CaptureV2FamilyRoute{
+				{Name: "example_requests_total", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_declared_unknown", Area: "cw", Producers: []Producer{{Name: "promrw"}}},
+			},
+		}},
+	}
+
+	tests := []struct {
+		name string
+		edit func(*CaptureV2RoutingManifest)
+		want string
+	}{
+		{
+			name: "missing family route",
+			edit: func(manifest *CaptureV2RoutingManifest) {
+				manifest.Captures[0].Families = manifest.Captures[0].Families[:2]
+			},
+			want: "example_declared_unknown\": no reviewed family route",
+		},
+		{
+			name: "stale family route",
+			edit: func(manifest *CaptureV2RoutingManifest) {
+				manifest.Captures[0].Families = append(manifest.Captures[0].Families, CaptureV2FamilyRoute{Name: "stale_total", Area: "k8s", Producers: []Producer{{Name: "promrw"}}})
+			},
+			want: "reviewed family \"stale_total\" is absent",
+		},
+		{
+			name: "duplicate family route",
+			edit: func(manifest *CaptureV2RoutingManifest) {
+				manifest.Captures[0].Families = append(manifest.Captures[0].Families, manifest.Captures[0].Families[0])
+			},
+			want: "has duplicate routes",
+		},
+		{
+			name: "unknown area",
+			edit: func(manifest *CaptureV2RoutingManifest) {
+				manifest.Captures[0].Families[0].Area = "unreviewed"
+			},
+			want: "area \"unreviewed\" is not allowed",
+		},
+		{
+			name: "producer mismatch",
+			edit: func(manifest *CaptureV2RoutingManifest) {
+				manifest.Captures[0].Families[0].Producers = []Producer{{Name: "not-promrw"}}
+			},
+			want: "reviewed producers do not match direct capture identity",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			manifest := base
+			manifest.Captures = append([]CaptureV2CaptureRoute(nil), base.Captures...)
+			manifest.Captures[0].Families = append([]CaptureV2FamilyRoute(nil), base.Captures[0].Families...)
+			test.edit(&manifest)
+
+			_, err := ProjectCaptureV2(data, manifest)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error=%v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func hasMetricLabel(metric Metric, key string) bool {
 	for _, label := range metric.Labels {
 		if label.Key == key {

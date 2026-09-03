@@ -139,6 +139,35 @@ The seven reviewed-input hashes are:
 | cloud GCP | `3904edb0183aadd3e3b5680e0f31d7655c21cac278fb3a877eb57c0e8a6ded78` |
 | canonical full | `d740d6f2d6058989ad16ba59ac567953a26865360587199d8789c43dd35d6155` |
 
+### 2026-09-03 routing-review boundary
+
+The seven raw files contain **14,261 metric rows** and **5,204 distinct
+family names**. The row count is capture volume, not a routing-review count.
+Review therefore starts from the distinct-name set, retaining every raw row
+only as evidence for that name's direct producer identity.
+
+The capture-provided producer key is `rksy_ingest`. It directly identifies
+2,286 distinct family names, including 514 names observed through more than
+one direct producer. The remaining 2,918 names have no direct producer value.
+For those remaining names only, exact membership in a machine-readable
+`yaml signals` metric or `info_series` entry identifies 781 names with one
+signals area. It does not resolve a name listed by more than one area, and it
+does not use a metric prefix, a label other than the producer key, or prose
+resemblance as a fallback.
+
+These are review buckets, not manifest rows. In particular, `promrw` is an
+explicit ingest identity, not an owning signals area. `ProjectCaptureV2` still
+requires every exact hash and family row to carry both reviewed producer
+identity and area before it will project anything.
+
+This leaves **2,137 distinct families in area residue**. All **2,918 families
+without direct producer identity** remain ineligible for the routing manifest
+or corpus projection: 781 have a unique exact catalogue area but still need a
+reviewed producer, while 2,137 need both area and producer. No manifest or
+projected corpus document exists for this set yet. Promotion resumes only after
+all 2,918 are reviewed into exact hash, family, area, and producer rows, and the
+cloud and full-capture authority is decided.
+
 The two failed full-capture attempts are not rows in this manifest. All
 canonical raw captures remain immutable in the sibling capture repository; a
 promotion caller reads them and writes only new per-area corpus documents after

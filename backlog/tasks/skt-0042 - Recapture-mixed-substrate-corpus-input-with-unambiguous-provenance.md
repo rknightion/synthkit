@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-08-30 08:40'
-updated_date: '2026-09-02 08:03'
+updated_date: '2026-09-03 14:13'
 labels:
   - needs-triage
 dependencies: []
@@ -42,6 +42,8 @@ After SKT-0045 is integrated, resolve the canonical seven-document set from the 
 After SKT-0010.19 is proven, regenerate the canonical seven projections from immutable captures, ingest only with explicit producer-scoped comparison, and rerun signal-fidelity with zero exemptions.
 
 2026-09-03 wave: Review the seven immutable capture hashes against an explicit family-to-signals-area manifest; test that unmapped families cannot be routed by name or prefix; regenerate producer-scoped projections without source mutation; run focused fidelity evidence with zero exemptions; return exact review gaps if any mapping remains unapproved.
+
+2026-09-04 corrected boundary: deduplicate the seven immutable captures before review; route distinct families first by explicit producer identity and then by exact existing signals-area membership; review only the residue; report rows and distinct families separately; wire atomic ProjectCaptureV2 promotion and producer-scoped fidelity only where no inference remains.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -191,6 +193,8 @@ Wave result: the schema-2 converter preserved capture hashes, scope, warnings, s
 2026-09-02 resume boundary: the seven canonical immutable captures expose explicit producer identities but no reviewed hash-keyed family-to-signals-area routing manifest. Conversion has no production routing caller, so promotion would still guess document ownership. No capture or candidate corpus file was modified. Resume by reviewing a family-to-area projection keyed to the seven capture hashes, then regenerate the per-area projections and rerun producer-scoped fidelity with zero exemptions.
 
 2026-09-03 evidence: added and focused-tested a fail-closed ProjectCaptureV2 routing seam keyed by immutable capture hash and exact family, preserving capture conditions and rejecting unmapped, stale, duplicate, unknown-area, or producer-mismatched rows. All seven captures total 14,261 families; no reviewed family-to-area manifest exists, and 3,389 families also lack direct producer identity. No production caller, corpus projection, capture mutation, or fidelity exemption was added. Integrated just check, safe just dump, and non-agent just e2e passed; just gen was not applicable. Resume with one reviewed 14,261-row hash/family routing manifest plus the cloud/full authority decision, then wire atomic promotion and rerun producer-scoped fidelity.
+
+2026-09-04 closeout: the canonical seven captures contain 14,261 rows and 5,204 distinct family names. Direct producer identity exists for 2,286 names. A further 781 producerless names have one unique exact catalogue area, while 2,137 have neither producer nor area. All 2,918 producerless names remain inadmissible to promotion. ProjectCaptureV2 now has focused fail-closed coverage for missing, stale, duplicate, unknown-area, and producer-mismatched routes. just check, just dump, and just e2e passed; chart and published-compose e2e cases were skipped because their opt-ins were absent. Resume with exact source review for the 2,918 missing producers, including area decisions for 2,137, plus the cloud/full authority decision.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -201,4 +205,6 @@ Parked after source provenance and capture conditions were verified and the inge
 2026-09-02: Parked after producer identity was unblocked but before ingestion: explicit source identity exists, while the reviewed family-to-area routing manifest required for non-inferred promotion does not.
 
 2026-09-03: Parked after landing the fail-closed explicit routing seam. AC3 remains open until the reviewed 14,261-row manifest and cloud/full authority decision exist; ingestion by inference remains forbidden.
+
+2026-09-04: Parked after replacing the impossible 14,261-row review boundary with a deduplicated producer-aware boundary. No partial manifest is promoted; resume at exact source review for 2,918 producerless families and 2,137 missing areas, then take the cloud/full authority decision.
 <!-- SECTION:FINAL_SUMMARY:END -->
