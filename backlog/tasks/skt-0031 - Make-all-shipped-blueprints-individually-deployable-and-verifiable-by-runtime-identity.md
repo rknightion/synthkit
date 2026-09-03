@@ -7,7 +7,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-08-29 19:05'
-updated_date: '2026-08-30 18:42'
+updated_date: '2026-09-03 19:37'
 labels: []
 dependencies: []
 references:
@@ -80,6 +80,12 @@ sequencing SKT-0043 first to avoid chasing a failure whose cause is already know
 
 The EKS lab is not a substitute host: it runs a fixed six-lane blueprint selection under ArgoCD,
 not the 26 shipped blueprints this task enumerates.
+
+2026-09-03 decision by Rob: stand the LOCAL Docker deployment back up for the wave, fix the retained lane failures, and tear it down at closeout. This supersedes the 2026-08-30 'leave only the EKS lab running' instruction for the duration of one wave only. No agent-declaring blueprint may be selected, so no Agent Observability traffic is produced.
+
+The eighth failure (Sigil error) is resolved: SKT-0043 is Done and settled the Agent Observability contract. Seven remain: 2 missing traces_host_info, 1 missing gen-AI bucket, 4 stale Loki success.
+
+Related live finding: SKT-0050 records four blueprints loaded and ticking on the EKS lab while emitting zero synthetic families. That is the same class of defect this task enumerates and is visible without a local deployment, so read SKT-0050's evidence before diagnosing the seven locally - a shared cause is plausible.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
