@@ -1,11 +1,11 @@
 ---
 id: SKT-0050
 title: Four of the lab's seven selected blueprints emit no synthetic telemetry
-status: Parked
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-03 19:36'
-updated_date: '2026-09-03 23:04'
+updated_date: '2026-09-04 05:42'
 labels: []
 dependencies: []
 priority: high
@@ -40,16 +40,16 @@ Query identity: use the read credential named in SKT-0049 with the per-signal in
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The cause of zero synthetic emission for a loaded, ticking blueprint is identified from evidence, not inferred, and stated per affected blueprint
-- [ ] #2 Whichever of the four blueprints share one cause are corrected together, and any that differ are recorded separately with their own evidence
-- [ ] #3 The lab shows non-zero distinct synthetic metric families for every blueprint its selection declares, proved by live read-back after one metric interval
+- [x] #2 Whichever of the four blueprints share one cause are corrected together, and any that differ are recorded separately with their own evidence
+- [x] #3 The lab shows non-zero distinct synthetic metric families for every blueprint its selection declares, proved by live read-back after one metric interval
 - [x] #4 A regression guard fails when a selected blueprint contributes no synthetic family, so a silent blueprint cannot ship unnoticed
-- [ ] #5 profiling-demo emits its type: app workload families on the lab, unblocking the SKT-0008.02 service-to-pod join
+- [x] #5 profiling-demo emits its type: app workload families on the lab, unblocking the SKT-0008.02 service-to-pod join
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
@@ -57,6 +57,8 @@ Query identity: use the read credential named in SKT-0049 with the per-signal in
 
 <!-- SECTION:PLAN:BEGIN -->
 2026-09-05 wave plan: Lane A first establishes the per-blueprint zero-emission cause from local control-plane inventory and runtime evidence, corrects shared causes together and divergent causes separately within owned construct/workload/control/identity-verifier files, adds the silent-blueprint regression guard, then proves every selected lab blueprint emits non-selfobs families after a metric interval.
+
+2026-09-06 execution: root enables only aws-cloud-services, profiling-demo, and k8s-full-stack through the lab control API; after 125 seconds, verify control state, inventory, health, diagnostics, and scope-correct live Mimir queries.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -71,10 +73,14 @@ Query identity: use the read credential named in SKT-0049 with the per-signal in
 2026-09-04 authority granted by Rob: the wave root may enable the three persisted-disabled blueprints (aws-cloud-services, profiling-demo, k8s-full-stack) through the existing control API on the lab, wait 125 seconds (two 60s metric intervals plus the 5s delivery deadline), and run the read-back. Enable-only, those three only, root only, and they STAY enabled - values.yaml already declares all seven as the desired selection, so this brings live state into agreement with desired state rather than diverging from it. No selection change, no scenario injection, no restart, no infrastructure repository edit, and never an agent-declaring blueprint.
 
 Correction to my own filing: the fourth reported zero, netobs-enterprise, was MY query error, not a silent blueprint. Its network_topology_* families are substrate-scoped and carry no blueprint label by design (signals/nettopo.md), and re-verified live 2026-09-03 they return 251 series keyed on job + instance. Counting {blueprint=...} was scope-invalid.
+
+2026-09-06 root live closeout: three authorised item-enable calls each returned success and reduced disabled_blueprints from three to zero. After 186 seconds, readiness reported loaded=7 active=7, diagnostics=[], and control inventory reported aws-cloud-services 1432 series/828 families, k8s-full-stack 15927/1137, profiling-demo 3495/662. Scope-correct authenticated Mimir queries returned 2 aws_docdb series under the blueprint identity, 24 alloy_build_info series under the Kubernetes substrate identity, and 1 profiling app_queue_depth series. No selection, scenario, config, restart, or infrastructure write occurred; the three stay enabled.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 2026-09-05: Parked after evidence split the original four-zero report into two causes. Three declared blueprints are explicitly disabled by persisted operator control state; netobs-enterprise was a false zero from an invalid blueprint-label selector and is currently nonzero. The source regression guard and local all-identity verification pass. Resume with authorised control-plane enablement, the 125s observation window, and scope-aware live read-back.
+
+2026-09-06: Done. The persisted disablement was the complete cause for the three genuine zero inventories; root enabled only the authorised names and live control plus scope-correct Mimir evidence proved all seven selected blueprints active and non-zero. The fourth original zero remains corrected as a scope-invalid query, not an emitter defect.
 <!-- SECTION:FINAL_SUMMARY:END -->
