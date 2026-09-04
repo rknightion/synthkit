@@ -55,6 +55,11 @@ type CaptureV2UnroutedReason string
 const (
 	CaptureV2UnroutedMissingProducerAndArea    CaptureV2UnroutedReason = "missing_producer_and_area"
 	CaptureV2UnroutedMissingProducerUniqueArea CaptureV2UnroutedReason = "missing_producer_unique_exact_area"
+	// CaptureV2UnroutedAmbiguousDirectProducer retains an exact capture
+	// hash/family pair where the capture records a producer label, but the
+	// label is shared by incompatible source shapes. It must not be promoted
+	// until a narrower recorded identity is available.
+	CaptureV2UnroutedAmbiguousDirectProducer CaptureV2UnroutedReason = "ambiguous_direct_producer"
 )
 
 // CaptureV2UnroutedFamily is one exact captured family that cannot be compared
@@ -148,10 +153,17 @@ func ProjectCaptureV2(data []byte, manifest CaptureV2RoutingManifest) (CaptureV2
 		family, routed := families[captured.Name]
 		residue, recordedUnrouted := unrouted[captured.Name]
 		if hasDirectProducer {
+			if recordedUnrouted && residue.Reason == CaptureV2UnroutedAmbiguousDirectProducer {
+				projection.Unrouted = append(projection.Unrouted, residue)
+				continue
+			}
 			if !routed || recordedUnrouted {
 				return CaptureV2Projection{}, fmt.Errorf("capture metric %q: direct producer identity requires one reviewed direct route", captured.Name)
 			}
 		} else {
+			if recordedUnrouted && residue.Reason == CaptureV2UnroutedAmbiguousDirectProducer {
+				return CaptureV2Projection{}, fmt.Errorf("capture metric %q: ambiguous direct producer residue requires direct producer identity", captured.Name)
+			}
 			if routed || !recordedUnrouted {
 				return CaptureV2Projection{}, fmt.Errorf("capture metric %q: no reviewed direct route or explicit unrouted reason", captured.Name)
 			}
@@ -297,10 +309,10 @@ func validateCaptureV2RoutingManifest(manifest CaptureV2RoutingManifest) error {
 				return fmt.Errorf("capture routing sha256 %q: unrouted family %q is duplicated", capture.SHA256, family.Name)
 			}
 			seenUnrouted[family.Name] = struct{}{}
-			if family.Reason != CaptureV2UnroutedMissingProducerAndArea && family.Reason != CaptureV2UnroutedMissingProducerUniqueArea {
+			if family.Reason != CaptureV2UnroutedMissingProducerAndArea && family.Reason != CaptureV2UnroutedMissingProducerUniqueArea && family.Reason != CaptureV2UnroutedAmbiguousDirectProducer {
 				return fmt.Errorf("capture routing sha256 %q: unrouted family %q has invalid reason %q", capture.SHA256, family.Name, family.Reason)
 			}
-			if family.Reason == CaptureV2UnroutedMissingProducerUniqueArea {
+			if family.Reason == CaptureV2UnroutedMissingProducerUniqueArea || family.Reason == CaptureV2UnroutedAmbiguousDirectProducer {
 				if _, ok := allowedCorpusAreas[family.Area]; !ok {
 					return fmt.Errorf("capture routing sha256 %q: unrouted family %q needs one allowed exact area", capture.SHA256, family.Name)
 				}

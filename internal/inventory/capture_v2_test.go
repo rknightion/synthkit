@@ -364,6 +364,94 @@ func TestProjectCaptureV2RejectsProducerlessFamilyWithoutAnExplicitUnroutedReaso
 	}
 }
 
+func TestProjectCaptureV2KeepsAmbiguousDirectProducerAsExactResidue(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	projection, err := ProjectCaptureV2(data, CaptureV2RoutingManifest{
+		Version: CaptureV2RoutingManifestVersion,
+		Captures: []CaptureV2CaptureRoute{{
+			SHA256:              captureV2SHA256(data),
+			Kind:                "synthkit_terraform_capture",
+			Substrate:           "eks",
+			Scope:               "cluster",
+			Collector:           "grafana/k8s-monitoring",
+			CollectorVersion:    "4.5.0",
+			CapturedOn:          "2026-08-31",
+			MetricProducerLabel: "ingest_path",
+			Families: []CaptureV2FamilyRoute{
+				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_declared_unknown", Area: "cw", Producers: []Producer{{Name: "promrw"}}},
+			},
+			Unrouted: []CaptureV2UnroutedFamily{{
+				Name:   "example_requests_total",
+				Reason: CaptureV2UnroutedAmbiguousDirectProducer,
+				Area:   "k8s",
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := projection.Unrouted, []CaptureV2UnroutedFamily{{
+		Name: "example_requests_total", Reason: CaptureV2UnroutedAmbiguousDirectProducer, Area: "k8s",
+	}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unrouted=%+v, want exact ambiguous direct residue %+v", got, want)
+	}
+	if _, err := projection.DocumentForFamily("example_requests_total"); err == nil || !strings.Contains(err.Error(), "ambiguous_direct_producer") {
+		t.Fatalf("ambiguous direct lookup error=%v, want fail-closed residue", err)
+	}
+	for _, document := range projection.Documents {
+		for _, metric := range document.Inventory.Metrics {
+			if metric.Name == "example_requests_total" {
+				t.Fatalf("ambiguous direct metric was promoted into %q", document.Area)
+			}
+		}
+	}
+}
+
+func TestProjectCaptureV2RejectsAmbiguousDirectResidueWithoutDirectIdentity(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture captureV2
+	if err := json.Unmarshal(data, &capture); err != nil {
+		t.Fatal(err)
+	}
+	capture.Signals.Metrics.Families[0].Labels = nil
+	data, err = json.Marshal(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = ProjectCaptureV2(data, CaptureV2RoutingManifest{
+		Version: CaptureV2RoutingManifestVersion,
+		Captures: []CaptureV2CaptureRoute{{
+			SHA256:              captureV2SHA256(data),
+			Kind:                "synthkit_terraform_capture",
+			Substrate:           "eks",
+			Scope:               "cluster",
+			Collector:           "grafana/k8s-monitoring",
+			CollectorVersion:    "4.5.0",
+			CapturedOn:          "2026-08-31",
+			MetricProducerLabel: "ingest_path",
+			Families: []CaptureV2FamilyRoute{
+				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_declared_unknown", Area: "cw", Producers: []Producer{{Name: "promrw"}}},
+			},
+			Unrouted: []CaptureV2UnroutedFamily{{
+				Name: "example_requests_total", Reason: CaptureV2UnroutedAmbiguousDirectProducer, Area: "k8s",
+			}},
+		}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "ambiguous direct producer residue requires direct producer identity") {
+		t.Fatalf("error=%v, want direct identity requirement for ambiguity residue", err)
+	}
+}
+
 func TestProjectCaptureV2FailsClosedForInvalidReviewedRoutes(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
 	if err != nil {
@@ -454,7 +542,7 @@ func TestProjectCaptureV2FailsClosedForInvalidReviewedRoutes(t *testing.T) {
 	}
 }
 
-func TestCheckedInCaptureV2CandidatesRemainNonLoadedAndMatchManifests(t *testing.T) {
+func TestCheckedInCaptureV2ProjectionIsActiveAndMatchesManifests(t *testing.T) {
 	repositoryRoot := filepath.Join("..", "..")
 	manifestsPath := filepath.Join(repositoryRoot, "reality-corpus", "manifests")
 
@@ -506,16 +594,16 @@ func TestCheckedInCaptureV2CandidatesRemainNonLoadedAndMatchManifests(t *testing
 			reasonCounts[family.Reason]++
 		}
 	}
-	if got, want := directRows, 10872; got != want {
+	if got, want := directRows, 10649; got != want {
 		t.Fatalf("direct routing rows=%d, want %d", got, want)
 	}
-	if got, want := len(directNames), 2286; got != want {
+	if got, want := len(directNames), 2225; got != want {
 		t.Fatalf("direct routing distinct names=%d, want %d", got, want)
 	}
-	if got, want := unroutedRows, 3389; got != want {
+	if got, want := unroutedRows, 3612; got != want {
 		t.Fatalf("unrouted rows=%d, want %d", got, want)
 	}
-	if got, want := len(unroutedNames), 2918; got != want {
+	if got, want := len(unroutedNames), 2979; got != want {
 		t.Fatalf("unrouted distinct names=%d, want %d", got, want)
 	}
 	if got, want := reasonCounts[CaptureV2UnroutedMissingProducerUniqueArea], 851; got != want {
@@ -523,6 +611,9 @@ func TestCheckedInCaptureV2CandidatesRemainNonLoadedAndMatchManifests(t *testing
 	}
 	if got, want := reasonCounts[CaptureV2UnroutedMissingProducerAndArea], 2538; got != want {
 		t.Fatalf("missing-area residue rows=%d, want %d", got, want)
+	}
+	if got, want := reasonCounts[CaptureV2UnroutedAmbiguousDirectProducer], 223; got != want {
+		t.Fatalf("ambiguous-direct-producer residue rows=%d, want %d", got, want)
 	}
 
 	residueByHash := make(map[string][]CaptureV2UnroutedFamily, len(residueManifest.Captures))
@@ -533,53 +624,58 @@ func TestCheckedInCaptureV2CandidatesRemainNonLoadedAndMatchManifests(t *testing
 		t.Fatal("unrouted manifest does not exactly mirror the routing manifest residue")
 	}
 
-	candidatePath := filepath.Join(manifestsPath, "candidates", "00-canon")
-	entries, err := os.ReadDir(candidatePath)
+	activePath := filepath.Join(repositoryRoot, "reality-corpus", "00-canon")
+	entries, err := os.ReadDir(activePath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidates := make([]CorpusDocument, 0, len(entries))
+	activeDocuments := make([]CorpusDocument, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
-		document, err := loadCorpusFile(filepath.Join(candidatePath, entry.Name()))
+		document, err := loadCorpusFile(filepath.Join(activePath, entry.Name()))
 		if err != nil {
-			t.Fatalf("load candidate %q: %v", entry.Name(), err)
+			t.Fatalf("load active projection %q: %v", entry.Name(), err)
 		}
 		if document.Area != "00-canon" {
-			t.Fatalf("candidate %q area=%q, want 00-canon", entry.Name(), document.Area)
+			t.Fatalf("active projection %q area=%q, want 00-canon", entry.Name(), document.Area)
 		}
 		route, found := routesByHash[document.Source.CaptureSHA256]
 		if !found {
-			t.Fatalf("candidate %q has unexpected capture hash %q", entry.Name(), document.Source.CaptureSHA256)
+			t.Fatalf("active projection %q has unexpected capture hash %q", entry.Name(), document.Source.CaptureSHA256)
 		}
 		if entry.Name() != "capture-v2-"+route.SHA256+".json" {
-			t.Fatalf("candidate filename=%q, want capture hash-keyed filename", entry.Name())
+			t.Fatalf("active projection filename=%q, want capture hash-keyed filename", entry.Name())
 		}
 		if got, want := metricNameSet(document.Inventory.Metrics), routeFamilyNameSet(route.Families); !reflect.DeepEqual(got, want) {
-			t.Fatalf("candidate %q metric set does not match its direct routes", entry.Name())
+			t.Fatalf("active projection %q metric set does not match its direct routes", entry.Name())
 		}
-		candidates = append(candidates, document)
+		activeDocuments = append(activeDocuments, document)
 	}
-	if got, want := len(candidates), 7; got != want {
-		t.Fatalf("candidate document count=%d, want %d", got, want)
+	if got, want := len(activeDocuments), 7; got != want {
+		t.Fatalf("active projection document count=%d, want %d", got, want)
 	}
 
 	loaded, err := LoadCorpusDir(filepath.Join(repositoryRoot, "reality-corpus"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	loadedByHash := make(map[string]CorpusDocument, len(loaded))
 	for _, document := range loaded {
-		if _, candidate := routesByHash[document.Source.CaptureSHA256]; candidate {
-			t.Fatalf("candidate capture %q was loaded as active corpus evidence", document.Source.CaptureSHA256)
+		loadedByHash[document.Source.CaptureSHA256] = document
+	}
+	for hash, route := range routesByHash {
+		document, found := loadedByHash[hash]
+		if !found {
+			t.Fatalf("active projection capture %q was not loaded as corpus evidence", hash)
+		}
+		if got, want := metricNameSet(document.Inventory.Metrics), routeFamilyNameSet(route.Families); !reflect.DeepEqual(got, want) {
+			t.Fatalf("loaded projection %q metric set does not match its direct routes", hash)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(repositoryRoot, "reality-corpus", "00-canon")); !os.IsNotExist(err) {
-		t.Fatalf("active 00-canon candidate directory must not exist, stat error=%v", err)
-	}
 
-	projection := CaptureV2Projection{Documents: candidates}
+	projection := CaptureV2Projection{Documents: activeDocuments}
 	for _, route := range routing.Captures {
 		projection.Unrouted = append(projection.Unrouted, route.Unrouted...)
 	}
