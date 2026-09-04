@@ -156,6 +156,29 @@ sources — recognise them and the rest of §2.2 reads cleanly:
 | kubelet | `integrations/kubernetes/kubelet` | node hostname | + `node`; histograms carry `le`; probes sub-family `job=integrations/kubernetes/probes` (`prober_*`); resource sub-family `job=integrations/kubernetes/resources` (`node_cpu_usage_seconds_total`, `node_memory_working_set_bytes`) |
 | node-exporter | `integrations/node_exporter` ⚠ **NO `kubernetes/` segment** | node hostname | carries DaemonSet pod labels (see ambient set above) |
 
+### Prometheus Operator ServiceMonitor remote-write envelope [slug: k8s-prometheus-operator-rw]
+
+The default Alloy envelope above and the Prometheus Operator envelope are different collector
+paths over the same `k8s_cluster` catalogue. The latter is a discriminator, never a second
+construct or copied family catalogue.
+
+| Path | Reviewed families | `job` / `service` | External labels |
+|---|---|---|---|
+| Alloy default | families described by the source/job table above | the captured `integrations/...` job values; `service` is absent unless a family contract says otherwise | no `prometheus` or `prometheus_replica` envelope |
+| Prometheus Operator remote-write | exactly the 30 names listed in [`e2e/lab/captures/prom-operator-rw-f09d3e977594254c.md`](../e2e/lab/captures/prom-operator-rw-f09d3e977594254c.md) | `job="apiserver"`, `service="kubernetes"` | `prometheus` and `prometheus_replica`, with values declared by the selected collector identity |
+
+The Operator observation is the immutable 2026-09-04 k3d inventory with raw SHA-256
+`f09d3e977594254c0cccb0ac869748669b77abdcc7265903625fa6f758662547`:
+845 families, 272,984 Remote-Write v1 samples, and 3,952 metadata records over its 300-second
+window. It does **not** authorize this envelope for the remaining `k8s_cluster` families, even
+where a name or current Alloy job looks similar. A captured histogram family authorizes only its
+synthetic `_bucket`, `_sum`, and `_count` components; it does not authorize another family.
+
+`service` here is a collector-egress identity retained by the Prometheus Operator
+ServiceMonitor path. It is separate from the CloudWatch read-path `service` enrichment: the
+CloudWatch fact neither supplies nor implies this Kubernetes label. The capture contains no
+chart-version-bearing series, so it does not change the SK-107 boundary.
+
 > ⚠ **High-card guard.** cAdvisor's `id` (cgroup path) and `name` (full containerd hash) are present on
 > every container-scoped series; `prober_probe_total` carries `pod_uid`. These are real but high-card —
 > the chart's relabelling is expected to drop `id`/`name` pre-remote-write. synth emits them

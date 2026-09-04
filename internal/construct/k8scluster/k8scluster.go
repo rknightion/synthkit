@@ -40,6 +40,10 @@ const (
 // fx.Cluster; the switch only changes which signal classes this construct declares/emits.
 type Config struct {
 	OTel *OTelObs `yaml:"otel"`
+	// PrometheusOperatorRemoteWrite selects the observed Prometheus Operator
+	// ServiceMonitor remote-write envelope. It is intentionally a narrow
+	// per-family projection, not a replacement k8s construct or catalogue.
+	PrometheusOperatorRemoteWrite *PrometheusOperatorRemoteWrite `yaml:"prometheus_operator_remote_write"`
 	// DefaultAllowLists projects the k8s-monitoring chart's pinned default
 	// allow-lists at the Prometheus emission boundary. Nil preserves full emission.
 	DefaultAllowLists *allowlist.K8sMonitoringSelection `yaml:"default_allow_lists"`
@@ -54,6 +58,14 @@ type Config struct {
 // absent (or Metrics=false) preserves the existing Prometheus scrape-shaped output exactly.
 type OTelObs struct {
 	Metrics bool `yaml:"metrics"`
+}
+
+// PrometheusOperatorRemoteWrite supplies the external-label identities observed on the
+// Prometheus Operator remote-write path. The capture fixes the label keys and the
+// explicit family allow-list; the values remain declared collector identity.
+type PrometheusOperatorRemoteWrite struct {
+	Prometheus        string `yaml:"prometheus"`
+	PrometheusReplica string `yaml:"prometheus_replica"`
 }
 
 // Construct renders k8s-monitoring substrate telemetry for one cluster.
@@ -73,10 +85,11 @@ type Construct struct {
 
 	// otelMetrics is resolved once at construction. The OTLP lane owns a separate cumulative
 	// state store so enabling it cannot perturb the established Prometheus state or draw order.
-	otelMetrics        bool
-	otlpState          *nativeOTLPState
-	allowLists         allowlist.Projection
-	allowListSelection allowlist.K8sMonitoringSelection
+	otelMetrics         bool
+	otlpState           *nativeOTLPState
+	allowLists          allowlist.Projection
+	allowListSelection  allowlist.K8sMonitoringSelection
+	operatorRemoteWrite *PrometheusOperatorRemoteWrite
 
 	// High-water marks for scale-down retirement: the largest pod count ever seen per workload
 	// and the largest node count ever derived. On a scale-down, ordinals/nodes that existed at the
@@ -97,6 +110,11 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 	podChurnPerMinute := 0
 	selection := allowlist.K8sMonitoringSelection{}
 	if conf != nil {
+		if conf.PrometheusOperatorRemoteWrite != nil {
+			if strings.TrimSpace(conf.PrometheusOperatorRemoteWrite.Prometheus) == "" || strings.TrimSpace(conf.PrometheusOperatorRemoteWrite.PrometheusReplica) == "" {
+				return nil, errors.New("k8s_cluster: prometheus_operator_remote_write requires prometheus and prometheus_replica")
+			}
+		}
 		if conf.SeriesChurnPerMinute < 0 {
 			return nil, errors.New("k8s_cluster: series_churn_per_minute must be >= 0")
 		}
@@ -111,17 +129,18 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 	}
 	baseNames, spans := initPodLifecycleState(fx.Cluster)
 	return &Construct{
-		clust:              fx.Cluster,
-		st:                 state.NewState(),
-		otelMetrics:        otelMetrics,
-		otlpState:          newNativeOTLPState(),
-		allowLists:         projection,
-		allowListSelection: selection,
-		maxPods:            map[string]int{},
-		podChurnPerMinute:  podChurnPerMinute,
-		podChurnActive:     map[string]bool{},
-		podChurnBaseNames:  baseNames,
-		podChurnSpans:      spans,
+		clust:               fx.Cluster,
+		st:                  state.NewState(),
+		otelMetrics:         otelMetrics,
+		otlpState:           newNativeOTLPState(),
+		allowLists:          projection,
+		allowListSelection:  selection,
+		operatorRemoteWrite: confPrometheusOperatorRemoteWrite(conf),
+		maxPods:             map[string]int{},
+		podChurnPerMinute:   podChurnPerMinute,
+		podChurnActive:      map[string]bool{},
+		podChurnBaseNames:   baseNames,
+		podChurnSpans:       spans,
 	}, nil
 }
 
@@ -250,7 +269,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 // source/name pair take the same path; labels and metric names are never altered.
 func (c *Construct) projectMetrics(writer core.MetricWriter, batch []promrw.Series) []promrw.Series {
 	if !c.allowLists.Enabled() {
-		return batch
+		return c.projectOperatorRemoteWrite(batch)
 	}
 	version, variant := c.allowListSelection.Provenance()
 	recorder, recordsSuppressions := writer.(core.MetricSuppressionRecorder)
@@ -262,7 +281,7 @@ func (c *Construct) projectMetrics(writer core.MetricWriter, batch []promrw.Seri
 			recorder.RecordMetricSuppression(series.Name, version, variant)
 		}
 	}
-	return out
+	return c.projectOperatorRemoteWrite(out)
 }
 
 func allowListSourceForJob(job string) (string, bool) {

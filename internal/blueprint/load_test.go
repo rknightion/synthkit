@@ -37,6 +37,10 @@ type testK8sConfig struct {
 	OTel *struct {
 		Metrics bool `yaml:"metrics"`
 	} `yaml:"otel"`
+	PrometheusOperatorRemoteWrite *struct {
+		Prometheus        string `yaml:"prometheus"`
+		PrometheusReplica string `yaml:"prometheus_replica"`
+	} `yaml:"prometheus_operator_remote_write"`
 	DefaultAllowLists *struct {
 		ClusterMetrics bool   `yaml:"cluster_metrics"`
 		NodeExporter   string `yaml:"node_exporter"`
@@ -193,6 +197,36 @@ environments:
 		cfg, ok := instance.Config.(*testK8sConfig)
 		if !ok || cfg.DefaultAllowLists == nil || !cfg.DefaultAllowLists.ClusterMetrics || cfg.DefaultAllowLists.NodeExporter != "integration" {
 			t.Fatalf("k8s_cluster config = %#v, want default allow-list selection", instance.Config)
+		}
+		return
+	}
+	t.Fatal("no k8s_cluster construct resolved")
+}
+
+func TestResolveK8sPrometheusOperatorRemoteWrite(t *testing.T) {
+	y := `
+name: k8s-prometheus-operator
+environments:
+  - name: prod
+    cloud: {provider: aws, account_id: "111122223333", region: eu-west-1, vpc_id: vpc-test}
+    cluster:
+      type: eks
+      name: operator-cluster
+      node_groups: [{name: general, instance_type: m6i.large, desired: 2}]
+      prometheus_operator_remote_write:
+        prometheus: monitoring/operator
+        prometheus_replica: operator-0
+`
+	r := load(t, y)
+	for _, instance := range r.Constructs {
+		if instance.Kind != KindK8sCluster {
+			continue
+		}
+		cfg, ok := instance.Config.(*testK8sConfig)
+		if !ok || cfg.PrometheusOperatorRemoteWrite == nil ||
+			cfg.PrometheusOperatorRemoteWrite.Prometheus != "monitoring/operator" ||
+			cfg.PrometheusOperatorRemoteWrite.PrometheusReplica != "operator-0" {
+			t.Fatalf("k8s_cluster config = %#v, want Prometheus Operator remote-write envelope", instance.Config)
 		}
 		return
 	}

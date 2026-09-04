@@ -1,0 +1,52 @@
+# Prometheus Operator remote-write capture — 2026-09-04
+
+Immutable raw inventory SHA-256: `f09d3e977594254c0cccb0ac869748669b77abdcc7265903625fa6f758662547`.
+The normalized candidate SHA-256 is `f3f6bed44b0ce4d516a2142cb160f22983aab3d59f4561371edef19ae9318cbe`.
+
+The capture was produced by `e2e/lab/run.sh prom-operator-rw` with collector
+`prometheus-community/kube-prometheus-stack@88.6.2` and a 300-second window.
+It received 272,984 Prometheus Remote-Write v1 samples and 3,952 metadata records across 845
+metric families. The ServiceMonitor-specific acceptance checks all passed and the disposable k3d
+cluster teardown was confirmed.
+
+Only the following existing `k8s_cluster` families carried all four reviewed keys in this capture:
+
+```text
+apiserver_current_inflight_requests
+apiserver_request_duration_seconds
+apiserver_request_total
+kubelet_cgroup_manager_duration_seconds
+kubelet_node_name
+kubelet_pleg_relist_duration_seconds
+kubelet_pleg_relist_interval_seconds
+kubelet_pod_start_duration_seconds
+kubelet_pod_worker_duration_seconds
+kubelet_running_containers
+kubelet_running_pods
+kubelet_runtime_operations_errors_total
+kubelet_runtime_operations_total
+kubeproxy_conntrack_reconciler_deleted_entries_total
+kubeproxy_conntrack_reconciler_sync_duration_seconds
+kubeproxy_iptables_ct_state_invalid_dropped_packets_total
+kubeproxy_iptables_localhost_nodeports_accepted_packets_total
+kubeproxy_network_programming_duration_seconds
+kubeproxy_sync_full_proxy_rules_duration_seconds
+kubeproxy_sync_partial_proxy_rules_duration_seconds
+kubeproxy_sync_proxy_rules_duration_seconds
+kubeproxy_sync_proxy_rules_endpoint_changes_pending
+kubeproxy_sync_proxy_rules_endpoint_changes_total
+kubeproxy_sync_proxy_rules_iptables_last
+kubeproxy_sync_proxy_rules_iptables_total
+kubeproxy_sync_proxy_rules_last_queued_timestamp_seconds
+kubeproxy_sync_proxy_rules_last_timestamp_seconds
+kubeproxy_sync_proxy_rules_no_local_endpoints_total
+kubeproxy_sync_proxy_rules_service_changes_pending
+kubeproxy_sync_proxy_rules_service_changes_total
+```
+
+For each listed family the inventory reports `job="apiserver"`, `service="kubernetes"`, and
+non-empty `prometheus` plus `prometheus_replica` external labels. Their captured values are
+deliberately omitted because they identify the disposable deployment; the demonstrating blueprint
+uses synthetic collector identities instead.
+No other existing `k8s_cluster` family is authorized to receive this envelope. The capture did not
+expose a chart-version-bearing series.

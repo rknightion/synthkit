@@ -45,7 +45,7 @@ func TestBundledRuntimeNamesAreResolvedCanonicalIdentities(t *testing.T) {
 		"aws-cloudwatch-infra", "csp-azure", "dbo11y-mysql", "fleet-management",
 		"grafana-ai-o11y", "high-dpm-churn", "hostfleet", "hosts-bare", "hosts-linux-docker",
 		"hosts-macos", "hosts-windows", "k8s-control-plane", "k8s-cost-power", "k8s-full-stack",
-		"k8s-logs-events", "k8s-minimal", "k8s-otel-native", "k8s-windows-mixed", "netobs-enterprise",
+		"k8s-logs-events", "k8s-minimal", "k8s-otel-native", "k8s-prometheus-operator", "k8s-windows-mixed", "netobs-enterprise",
 		"netobs-global", "netobs-spoke", "otlp-native", "profiling-demo", "synthetic-checks",
 	}
 	if len(got) != len(want) {

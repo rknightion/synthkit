@@ -606,14 +606,18 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				if err != nil {
 					return nil, err
 				}
-				if kind == KindK8sCluster && (e.Cluster.OTel.Kind != 0 || e.Cluster.DefaultAllowLists.Kind != 0 || e.Cluster.SeriesChurnPerMinute != 0) {
+				if kind == KindK8sCluster && (e.Cluster.OTel.Kind != 0 || e.Cluster.PrometheusOperatorRemoteWrite.Kind != 0 || e.Cluster.DefaultAllowLists.Kind != 0 || e.Cluster.SeriesChurnPerMinute != 0) {
 					// ClusterDecl owns public topology keys while the construct config owns their
 					// behavior. Re-wrap the typed declaration before strict decoding so blueprint
 					// stays catalog-agnostic.
-					content := make([]*yaml.Node, 0, 4)
+					content := make([]*yaml.Node, 0, 8)
 					if e.Cluster.OTel.Kind != 0 {
 						content = append(content,
 							&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "otel"}, &e.Cluster.OTel)
+					}
+					if e.Cluster.PrometheusOperatorRemoteWrite.Kind != 0 {
+						content = append(content,
+							&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "prometheus_operator_remote_write"}, &e.Cluster.PrometheusOperatorRemoteWrite)
 					}
 					if e.Cluster.DefaultAllowLists.Kind != 0 {
 						content = append(content,

@@ -1,0 +1,36 @@
+# k8s-prometheus-operator — a collector-envelope demonstration without an application workload.
+# The external-label keys are capture-backed. Their values are blueprint-local synthetic collector
+# identity and retain no capture deployment identifier. The 2-node shape matches the disposable
+# capture lab; no rate is declared.
+name: k8s-prometheus-operator
+label: k8s-prometheus-operator
+shape: business_hours_plateau
+metadata:
+  description: "Prometheus Operator ServiceMonitor remote-write envelope for the reviewed k8s_cluster family subset."
+  owner: kubernetes-observability
+  category: demo
+  tags: [kubernetes, prometheus-operator, remote-write]
+  links:
+    signals: ./signals/k8s.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    production: true
+    cloud: { provider: aws, account_id: "111122223333", region: eu-west-1, vpc_id: vpc-0operator01, nat_gateways: 1 }
+    cluster:
+      type: eks
+      name: operator-demo-prod-euw1
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 2 }
+      observability:
+        cloudwatch: false
+      prometheus_operator_remote_write:
+        prometheus: monitoring/operator-demo
+        prometheus_replica: operator-demo-0
+      k8s_monitoring:
+        # This is not the Grafana Alloy chart: keep its conformance lane off while retaining
+        # the explicitly captured API server and kube-proxy families below.
+        enabled: false
+        alloy: false
+        control_plane: { api_server: true, kube_proxy: true }
