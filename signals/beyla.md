@@ -1,5 +1,20 @@
 # Grafana Beyla (eBPF auto-instrumentation) — ScopeBlueprint + ScopeSubstrate
 
+> ⚠ **Beyla's OTLP internal-metrics form is DOTTED semconv, and it is a different name set from the
+> Prometheus one.** Under `internal_metrics.exporter: otel` Beyla v3.32.0 emits exactly
+> `beyla.bpf.map.entries_total`, `beyla.bpf.map.max_entries_total`, `beyla.bpf.probe.executions`
+> (unit `{call}`), `beyla.bpf.probe.latency_seconds_total` (unit `s`) and `beyla.internal.build.info`
+> — units ARE populated, so do not assume the OTLP path carries none. Live-captured 2026-09-04:
+> `e2e/lab/captures/beyla-envoygateway-otlp-588571dc6a53c4e4.md`. Synthkit does NOT emit this lane.
+>
+> ⚠ **The k8s-monitoring chart cannot produce that config.**
+> `feature-auto-instrumentation/templates/_beyla-config.tpl:17` injects
+> `internal_metrics.prometheus.port` as an override that no values file can remove, and Beyla
+> refuses OTEL and Prometheus internal metrics together — it exits at startup and crashloops the
+> DaemonSet. Capturing this needs a STANDALONE Beyla. Beyla also refuses to start with only
+> `internal_metrics` set; at least one data exporter must be configured.
+
+
 Beyla is Grafana's eBPF-based auto-instrumentation agent. It **observes existing services** at the
 kernel boundary — no SDK changes required — and emits its own RED metrics, span/service-graph
 metrics, boundary-only traces, network-flow metrics, and internal self-metrics. Synthkit models

@@ -713,6 +713,15 @@ note: "two redis histogram families (version artifact: _duration vs _duration_se
 > `socket_match_name` and `priority`. Synthkit does NOT emit this lane (`cantfind.md` SK-87); the
 > EnvoyGateway control plane's own OTLP form remains uncaptured.
 >
+> ⚠ **The CONTROL PLANE's OTLP form is the MIRROR IMAGE of the data plane's.** Where the data-plane
+> sink ships dotted native stat names, the `EnvoyGateway` controller ships **underscore names
+> verbatim**, identical to its Prometheus spelling: 12 names, all `unit: 1` —
+> `watchable_{depth,event_total,publish_total,subscribe_total,subscribe_duration_seconds}`,
+> `resource_{apply,delete}_{total,duration_seconds}`, `status_update_{total,duration_seconds}`,
+> `xds_snapshot_create_total`. One product, two APIs, opposite spellings; neither predicted the
+> other. **It is not a replacement for the scrape** — it carries none of `controller_runtime_*`,
+> `workqueue_*`, `rest_client_*` or `certwatcher_*`. Captured 2026-09-04.
+>
 > ⚠ **`openTelemetry` on that sink takes `host`/`port` only.** There is no `protocol` field on
 > `EnvoyProxy` v1alpha1 in Envoy Gateway v1.9.0. Including one is a strict-decoding error — and
 > ArgoCD reports the application **Synced** while the API rejects the resource, so the sink silently
