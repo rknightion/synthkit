@@ -714,10 +714,15 @@ func jsonHost(src jsondata.Source, token string) http.Handler {
 // validates exposure against the effective host-side publish address.
 // inContainer reports whether the process is running inside a container, where
 // loopback detection on the in-container bind is meaningless (the bind is
-// necessarily 0.0.0.0; real exposure is the host port mapping). Docker writes
-// /.dockerenv; we also honor an explicit hint env var.
+// necessarily 0.0.0.0; real exposure is the host port mapping). Kubernetes
+// injects KUBERNETES_SERVICE_HOST into every Pod, including Pods running under
+// containerd and CRI-O; Docker writes /.dockerenv. We also honor an explicit
+// hint for other container runtimes.
 func inContainer() bool {
 	if os.Getenv("SYNTHKIT_IN_CONTAINER") != "" {
+		return true
+	}
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		return true
 	}
 	if _, err := os.Stat("/.dockerenv"); err == nil {

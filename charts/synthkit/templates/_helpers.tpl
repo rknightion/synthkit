@@ -161,10 +161,10 @@ namespace. An acknowledged exposure binds all interfaces.
 {{/*
 SYNTHKIT_BIND mirrors the host portion of JSON_HTTP_ADDR.
 
-The binary picks which of the two it validates from a container check that keys on /.dockerenv,
-a Docker-specific file that a CRI runtime does not create. Mirroring the value means the exposure
-gate reaches the SAME verdict whichever branch it takes, so the chart never depends on runtime
-detection and can never present a loopback host bind in front of an all-interfaces listener.
+The binary recognises Kubernetes Pods via KUBERNETES_SERVICE_HOST, including containerd and CRI-O.
+Mirroring the value remains deliberate belt-and-braces: both the in-container listener and the
+effective exposure must agree, so the chart can never present a loopback host bind in front of an
+all-interfaces listener.
 */}}
 {{- define "synthkit.hostBind" -}}
 {{- if .Values.controlPlane.exposure.ack -}}

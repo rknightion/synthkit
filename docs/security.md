@@ -26,9 +26,9 @@ from one:
   it carries no real user data by construction.
 
 The one path where synthkit does touch something real is `skcapture`, which reads live Kubernetes
-inventory (deployments, services, node metadata) to seed a blueprint draft. By default it reads
-Secret and ConfigMap **metadata only**, not their data values — pass `--include-secret-data` or
-`--include-configmap-data` explicitly to capture values, and prefer the encrypted output mode
+inventory (deployments, services, node metadata) to seed a blueprint draft. It never captures Secret
+or arbitrary ConfigMap data values; its narrow optional cluster-identity grant reads only the `cluster` key
+from one named collector release-info ConfigMap. Prefer the encrypted output mode
 (`--passphrase-file`) over `--plain` whenever the source cluster is not a throwaway. See [Capture &
 Tooling](tools.md).
 

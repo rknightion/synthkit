@@ -33,8 +33,6 @@ func main() {
 	namespacesFlag := fs.String("namespaces", "", "comma-separated namespace allow-list (empty = all)")
 	excludeNsFlag := fs.String("exclude-namespaces", "kube-system,kube-node-lease,kube-public", "comma-separated namespace deny-list")
 	collectorsFlag := fs.String("collectors", "k8s", "comma-separated list of enabled collectors")
-	includeSecretDataFlag := fs.Bool("include-secret-data", false, "read Secret data values (default: metadata only)")
-	includeConfigMapDataFlag := fs.Bool("include-configmap-data", false, "read ConfigMap data values (default: metadata only)")
 	versionFlag := fs.Bool("version", false, "print tool version and schema version, then exit")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -62,10 +60,7 @@ func main() {
 	}
 
 	// Build CaptureOpts from flags.
-	opts := capture.CaptureOpts{
-		IncludeSecretData:    *includeSecretDataFlag,
-		IncludeConfigMapData: *includeConfigMapDataFlag,
-	}
+	opts := capture.CaptureOpts{}
 	if *namespacesFlag != "" {
 		opts.Namespaces = splitTrimmed(*namespacesFlag)
 	}

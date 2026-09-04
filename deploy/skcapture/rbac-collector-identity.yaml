@@ -1,0 +1,49 @@
+# deploy/skcapture/rbac-collector-identity.yaml — optional, named-resource
+# collector identity read for skcapture.
+#
+# This does not widen deploy/skcapture/rbac.yaml. It grants only `get` on the
+# release-info ConfigMap the collector uses to stamp the cluster label on its
+# telemetry; it never grants list or Secret access.
+#
+# This is a template, not a lab default. Replace BOTH the Role namespace and
+# resourceNames entry with the observed collector namespace and its
+# <release>-release-info ConfigMap name before applying. The placeholders are
+# deliberately safe but non-functional until they are replaced.
+#
+# Apply after rbac.yaml and before job.yaml:
+#   kubectl apply -f deploy/skcapture/rbac-collector-identity.yaml
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: skcapture-collector-identity
+  namespace: replace-with-collector-namespace
+  labels:
+    app.kubernetes.io/name: skcapture
+    app.kubernetes.io/component: capture-identity
+  annotations:
+    synthkit.io/purpose: "Opt-in: read only the named collector release-info ConfigMap for telemetry cluster identity."
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["replace-with-collector-release-info-name"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: skcapture-collector-identity
+  namespace: replace-with-collector-namespace
+  labels:
+    app.kubernetes.io/name: skcapture
+    app.kubernetes.io/component: capture-identity
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: skcapture-collector-identity
+subjects:
+  - kind: ServiceAccount
+    name: skcapture
+    namespace: skcapture

@@ -72,8 +72,8 @@ spec:
             # Closed by default: 127.0.0.1:8088, reachable only through kubectl port-forward.
             - name: JSON_HTTP_ADDR
               value: {{ include "synthkit.httpAddr" . | quote }}
-            # Mirrors the host portion of JSON_HTTP_ADDR so the binary's exposure gate reaches the
-            # same verdict on either of its two branches; see _helpers.tpl.
+            # Mirrors the host portion of JSON_HTTP_ADDR as an independent exposure check; see
+            # _helpers.tpl.
             - name: SYNTHKIT_BIND
               value: {{ include "synthkit.hostBind" . | quote }}
             {{- with .Values.controlPlane.exposure.ack }}

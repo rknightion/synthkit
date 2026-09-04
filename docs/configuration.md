@@ -193,4 +193,4 @@ emitter restart remain separate phases. See [synthetic-monitoring.md](synthetic-
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SYNTHKIT_IN_CONTAINER` | _(empty)_ | Set to any non-empty value when running inside a container so the control-plane bind warning recognises a `0.0.0.0` bind as expected (the real host exposure is restricted by Docker's port mapping). Docker Compose can leave this blank — synthkit auto-detects `/.dockerenv`. |
+| `SYNTHKIT_IN_CONTAINER` | _(empty)_ | Set to any non-empty value for a container runtime outside Kubernetes that does not expose a recognisable marker. Docker Compose can leave it blank: synthkit auto-detects Docker via `/.dockerenv` and Kubernetes Pods via `KUBERNETES_SERVICE_HOST`. |

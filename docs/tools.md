@@ -38,8 +38,6 @@ Key flags:
 | `--namespaces <list>` | (all) | Comma-separated namespace allow-list. |
 | `--exclude-namespaces <list>` | `kube-system,kube-node-lease,kube-public` | Comma-separated namespace deny-list. |
 | `--collectors <list>` | `k8s` | Comma-separated list of enabled collectors (currently: `k8s`). |
-| `--include-secret-data` | false | Read Secret data values (metadata-only by default). |
-| `--include-configmap-data` | false | Read ConfigMap data values (metadata-only by default). |
 | `--version` | — | Print tool version and schema version, then exit. |
 
 The capture output is a versioned JSON `Inventory` envelope containing resource kinds (nodes, namespaces, deployments, statefulsets, daemonsets, services, ingresses, addons). The schema version is embedded in the output.
@@ -50,7 +48,7 @@ The current v1 focus is AWS/EKS. The Inventory struct is designed to support add
 
 A capture leaves the cluster, so the boundary of the zero-secret default is worth stating exactly.
 
-**Covered.** Secret and ConfigMap *values* are never read. `--include-secret-data` and `--include-configmap-data` both default false, and the default RBAC in `deploy/skcapture/rbac.yaml` grants no access to Secrets or ConfigMaps at all — so the default install cannot read them whatever flags are passed. Object annotations are reduced to a fixed allowlist of the keys the tooling consumes: Helm release identity, Argo CD tracking, deployment revision, and metric scrape hints. Every other annotation is dropped, including `kubectl.kubernetes.io/last-applied-configuration`, which on any cluster managed with `kubectl apply` embeds the object's full spec and therefore every container environment value.
+**Covered.** Secret and arbitrary ConfigMap values are never captured. The former `--include-secret-data` and `--include-configmap-data` flags were removed because they never implemented data capture, so no shipped RBAC promises that access. The default RBAC in `deploy/skcapture/rbac.yaml` grants no access to Secrets or ConfigMaps. The separate identity grant permits reading only one named ConfigMap's `cluster` key, which becomes the cluster identity rather than captured object data. Object annotations are reduced to a fixed allowlist of the keys the tooling consumes: Helm release identity, Argo CD tracking, deployment revision, and metric scrape hints. Every other annotation is dropped, including `kubectl.kubernetes.io/last-applied-configuration`, which on any cluster managed with `kubectl apply` embeds the object's full spec and therefore every container environment value.
 
 **Not covered.** A capture is still a description of your environment. It carries namespace, workload, service and ingress names; container image references including the registry host; ingress hostnames; `ExternalName` service targets; pod-template labels; and node instance types and pool names. Treat the output as sensitive and use the encrypted path for anything leaving the cluster. A credential placed in a workload name, a label value or an image reference is captured, because those are identity fields the tool has to read to describe the environment.
 
@@ -65,9 +63,9 @@ The captured cluster name is the primary join key for everything forged from a c
 | `kubeconfig-context` | A slug of whatever the current kubeconfig context happens to be called. Describes your kubeconfig, not the cluster. |
 | `default` | Nothing was discoverable, and a placeholder was used. |
 
-Anything other than `collector-release-info` prints a warning: verify the name against a live signal before forging a blueprint from that capture.
+Resolution starts with the collector release-info ConfigMap, then uses the kubeconfig fallbacks. Anything other than `collector-release-info` prints a warning: verify the name against a live signal before forging a blueprint from that capture.
 
-The collector lookup is a targeted `get` of a named ConfigMap in the collector's own namespace — never a namespace-wide or cluster-wide list — and reads only the cluster-name key. The default RBAC grants no ConfigMap access, so an in-cluster run under that role falls back and says so. To get the authoritative identity from an in-cluster run, grant `get` on that one ConfigMap in the collector's namespace.
+The collector lookup is a targeted `get` of a named ConfigMap in the collector's own namespace — never a namespace-wide or cluster-wide list — and reads only the cluster-name key. The default RBAC grants no ConfigMap access, so an in-cluster run under that role falls back and says so. To get the authoritative identity from an in-cluster run, customise `deploy/skcapture/rbac-collector-identity.yaml` with the observed namespace and exact release-info name before applying it; it grants only `get` on that one ConfigMap, never `list` or Secret access.
 
 ## skforge — blueprint forge
 

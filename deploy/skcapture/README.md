@@ -30,21 +30,18 @@ skcapture also calls `kubectl version` and `kubectl config current-context` for 
 
 ---
 
-## Secrets posture
+## Data-access posture
 
-| Scenario | Secret access | ConfigMap access |
-|---|---|---|
-| Default (`rbac.yaml` only) | None (RBAC hard stop) | None (RBAC hard stop) |
-| With `rbac-secrets.yaml` + `--include-secret-data` | `.data` values read | none |
-| With `rbac-secrets.yaml` + `--include-configmap-data` | none | `.data` values read |
-| With both flags + `rbac-secrets.yaml` | `.data` values read | `.data` values read |
+`skcapture` never captures Secret or arbitrary ConfigMap data values. The former
+`--include-secret-data` and `--include-configmap-data` flags were removed because they never
+implemented that behavior; no shipped RBAC now promises it.
 
-To capture secret or configmap data values you must do **both**:
-1. Apply `rbac-secrets.yaml` (grants the RBAC permission).
-2. Pass `--include-secret-data` and/or `--include-configmap-data` to the binary.
-
-Neither alone is sufficient. The default install silently skips data even if the flags are
-passed — the API call will be denied at the RBAC layer.
+The optional `rbac-collector-identity.yaml` is deliberately narrower than the base role: it
+grants `get`, never `list`, on one named collector release-info ConfigMap in the collector
+namespace. That lets the capture read the `cluster` key that the collector itself stamps on real
+telemetry. That one value becomes cluster identity rather than captured object data. The grant
+permits no Secret access and must be customised to the observed release-info name
+and namespace before use.
 
 Addon detection does **not** need secret access. skcapture detects operators via the
 `meta.helm.sh/release-name` annotation and `app.kubernetes.io/managed-by=Helm` label on
@@ -62,8 +59,6 @@ the workload objects it already fetches, plus well-known namespace and deploymen
 | `--namespaces` | _(all)_ | Comma-separated namespace allow-list. Empty means all namespaces. |
 | `--exclude-namespaces` | `kube-system,kube-node-lease,kube-public` | Comma-separated namespace deny-list applied after the allow-list. |
 | `--collectors` | `k8s` | Comma-separated list of enabled collectors. Only `k8s` is registered in this release. |
-| `--include-secret-data` | `false` | Read Secret `.data` values. Requires `rbac-secrets.yaml` to be applied. |
-| `--include-configmap-data` | `false` | Read ConfigMap `.data` values. Requires `rbac-secrets.yaml` to be applied. |
 | `--version` | `false` | Print tool version and inventory schema version, then exit. |
 
 ---
@@ -91,26 +86,34 @@ to leave the cluster.
 # 1. Apply base RBAC (always required)
 kubectl apply -f deploy/skcapture/rbac.yaml
 
-# 2. Create the passphrase Secret (keep the passphrase for decryption)
+# 2. Optional but recommended: customise the named release-info target, then
+# apply its narrow identity-read grant for an authoritative cluster name.
+# The checked-in manifest is intentionally a non-functional template until both
+# the Role namespace and resourceNames value match your collector.
+kubectl apply -f deploy/skcapture/rbac-collector-identity.yaml
+
+# 3. Create the passphrase Secret (keep the passphrase for decryption)
 PASSPHRASE=$(openssl rand -base64 32)
 echo "Passphrase (share this with Grafana SE separately): $PASSPHRASE"
 kubectl -n skcapture create secret generic skcapture-pass \
   --from-literal=passphrase="$PASSPHRASE"
 
-# 3. Run the Job
+# 4. Run the Job. The output-hold helper retains the emptyDir for ten minutes;
+# do not wait for Job completion before copying, because completion ends both containers.
 kubectl apply -f deploy/skcapture/job.yaml
-kubectl -n skcapture wait --for=condition=complete job/skcapture --timeout=120s
 
-# 4. Retrieve the encrypted capture file
+# 5. Retrieve the encrypted capture file
 POD=$(kubectl -n skcapture get pods -l job-name=skcapture \
       -o jsonpath='{.items[0].metadata.name}')
-kubectl -n skcapture cp $POD:/out/capture.age ./capture.age
+kubectl -n skcapture wait --for=jsonpath='{.status.containerStatuses[?(@.name=="skcapture")].state.terminated.reason}'=Completed pod/$POD --timeout=120s
+kubectl -n skcapture cp -c output-hold $POD:/out/capture.age ./capture.age
 
-# 5. Clean up
+# 6. Clean up
 kubectl delete -f deploy/skcapture/job.yaml
 kubectl -n skcapture delete secret skcapture-pass
 # Optionally remove the namespace and RBAC entirely after the engagement:
 # kubectl delete -f deploy/skcapture/rbac.yaml
+# kubectl delete -f deploy/skcapture/rbac-collector-identity.yaml
 ```
 
 ### Option 2: Local docker run (uses your kubeconfig)

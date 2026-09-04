@@ -4,8 +4,8 @@
 #   1. kubectl apply -f deploy/skcapture/rbac.yaml
 #   2. Create the passphrase Secret (see below) — keep the passphrase for decryption.
 #   3. kubectl apply -f deploy/skcapture/job.yaml
-#   4. kubectl -n skcapture wait --for=condition=complete job/skcapture --timeout=120s
-#   5. Retrieve the output file (see "Retrieving the output" below).
+#   4. Wait for the skcapture container, then retrieve the output before the
+#      output-hold helper exits (see "Retrieving the output" below).
 #
 # ─── Creating the passphrase Secret ──────────────────────────────────────────
 #   Generate a random passphrase and store it in both your password manager and
@@ -19,18 +19,21 @@
 #
 # ─── Retrieving the output ───────────────────────────────────────────────────
 #   The Job writes the encrypted capture file to /out/capture.age inside the pod.
-#   Retrieve it with kubectl cp before the pod is garbage-collected (TTL 600s):
+#   The output-hold helper keeps the shared emptyDir available for 10 minutes.
+#   Wait for the skcapture container itself, then retrieve with kubectl cp before
+#   that helper exits; a completed container cannot service kubectl cp.
 #
 #   POD=$(kubectl -n skcapture get pods -l job-name=skcapture -o jsonpath='{.items[0].metadata.name}')
-#   kubectl -n skcapture cp $POD:/out/capture.age ./capture.age
+#   kubectl -n skcapture wait --for=jsonpath='{.status.containerStatuses[?(@.name=="skcapture")].state.terminated.reason}'=Completed pod/$POD --timeout=120s
+#   kubectl -n skcapture cp -c output-hold $POD:/out/capture.age ./capture.age
 #
 #   Then send capture.age + passphrase to your Grafana SE (use separate channels).
 #
 # ─── Customise before applying ───────────────────────────────────────────────
 #   - Replace the image tag with your organisation's registry/tag.
 #   - Adjust --exclude-namespaces if you want to include kube-system workloads.
-#   - To capture Secret/ConfigMap data: apply rbac-secrets.yaml AND add
-#     --include-secret-data / --include-configmap-data to the args below.
+#   - To capture the telemetry's authoritative cluster identity, customise and
+#     apply rbac-collector-identity.yaml before this Job.
 # ─────────────────────────────────────────────────────────────────────────────
 
 apiVersion: batch/v1
@@ -92,7 +95,7 @@ spec:
               memory: "64Mi"
             limits:
               cpu: "500m"
-              memory: "256Mi"
+              memory: "512Mi"
 
           securityContext:
             allowPrivilegeEscalation: false
@@ -101,7 +104,35 @@ spec:
             capabilities:
               drop: ["ALL"]
 
+        # Retains the shared emptyDir only long enough for the operator to copy
+        # the encrypted capture. Delete the Job immediately after retrieval.
+        - name: output-hold
+          image: skcapture:dev
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sleep"]
+          args: ["600"]
+          volumeMounts:
+            - name: output
+              mountPath: /out
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+
       securityContext:
+        # Dockerfile.skcapture pins this non-root identity so Kubernetes can verify it before start.
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault

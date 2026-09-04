@@ -46,7 +46,7 @@ RUN apk add --no-cache curl ca-certificates && \
 COPY --from=builder /skcapture /usr/local/bin/skcapture
 
 # Run as a non-root user.
-RUN addgroup -S skcapture && adduser -S -G skcapture skcapture
+RUN addgroup -S -g 10001 skcapture && adduser -S -D -H -u 10001 -G skcapture skcapture
 USER skcapture
 
 ENTRYPOINT ["/usr/local/bin/skcapture"]

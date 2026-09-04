@@ -275,6 +275,29 @@ func TestIsLoopback(t *testing.T) {
 	}
 }
 
+func TestInContainer(t *testing.T) {
+	// Kubernetes sets KUBERNETES_SERVICE_HOST for every Pod, including Pods
+	// running under containerd or CRI-O where Docker's /.dockerenv is absent.
+	t.Setenv("SYNTHKIT_IN_CONTAINER", "")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	if _, err := os.Stat("/.dockerenv"); err != nil {
+		if inContainer() {
+			t.Fatal("inContainer() = true with no container indicators")
+		}
+	}
+
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.96.0.1")
+	if !inContainer() {
+		t.Fatal("inContainer() = false with Kubernetes service environment")
+	}
+
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	t.Setenv("SYNTHKIT_IN_CONTAINER", "1")
+	if !inContainer() {
+		t.Fatal("inContainer() = false with explicit runtime hint")
+	}
+}
+
 func TestValidateControlExposure(t *testing.T) {
 	tests := []struct {
 		name        string

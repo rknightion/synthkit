@@ -65,8 +65,9 @@ field inside a construct's config is a loud load error, not a silently-ignored o
 
 Not necessarily. The `/create-blueprint` skill walks through an interactive authoring session in
 Claude Code, and `skcapture` + `skforge` can generate a draft blueprint from a real Kubernetes
-environment's inventory (with the option to encrypt the capture and strip Secret/ConfigMap data
-values). See [Capture & Tooling](tools.md).
+environment's inventory (with the option to encrypt the capture). `skcapture` never captures Secret
+or arbitrary ConfigMap data values; its optional identity lookup reads only one named ConfigMap's
+`cluster` key. See [Capture & Tooling](tools.md).
 
 ## Metrics and signal accuracy
 

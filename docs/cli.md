@@ -143,11 +143,9 @@ skcapture [flags]
 | `--namespaces <list>` | (all) | Comma-separated namespace allow-list. |
 | `--exclude-namespaces <list>` | `kube-system,kube-node-lease,kube-public` | Comma-separated namespace deny-list. |
 | `--collectors <list>` | `k8s` | Comma-separated list of enabled collectors. |
-| `--include-secret-data` | false | Read Secret data values (default: metadata only). |
-| `--include-configmap-data` | false | Read ConfigMap data values (default: metadata only). |
 | `--version` | — | Print tool version and schema version, then exit. |
 
-`skcapture` imports only `internal/capture` and the Go standard library — it has no dependency on any blueprint, construct, or workload package. See [tools.md](tools.md) for the full capture-to-blueprint workflow.
+`skcapture` imports only `internal/capture` and the Go standard library — it has no dependency on any blueprint, construct, or workload package. It never captures Secret or arbitrary ConfigMap data values; the former flags promising that behavior were removed. Its optional identity lookup reads only one named ConfigMap's `cluster` key. See [tools.md](tools.md) for the full capture-to-blueprint workflow.
 
 ## skforge — blueprint forge
 

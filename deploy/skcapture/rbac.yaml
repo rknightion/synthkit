@@ -3,11 +3,11 @@
 # This file grants the minimum permissions skcapture needs to inspect a cluster.
 # HARD STOP: this role grants NO access to secrets, configmaps, or pods.
 # The default install CANNOT read any Secret — not even its own namespace's Secrets —
-# regardless of what flags are passed to the binary.
+# and never captures Secret or arbitrary ConfigMap data values.
 #
-# To capture Secret or ConfigMap data values you must ALSO apply rbac-secrets.yaml
-# AND pass --include-secret-data / --include-configmap-data to the binary.
-# See deploy/skcapture/README.md for the full secrets posture.
+# An optional, separate Role grants `get` on one named collector release-info
+# ConfigMap solely to recover the telemetry cluster identity. See
+# rbac-collector-identity.yaml and deploy/skcapture/README.md.
 #
 # Resources actually read by skcapture (cmd/skcapture + internal/capture/k8s.go):
 #   core/v1:               nodes, namespaces, services

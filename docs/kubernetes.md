@@ -150,11 +150,11 @@ interfaces, so the binary's own startup check re-validates the token and the ack
 chart's guard and the binary's guard are independent, and the pod fails closed if either is missing.
 
 !!! note "Why `SYNTHKIT_BIND` is set in a Kubernetes deployment"
-    The binary picks which address to validate from a container check that keys on `/.dockerenv`, a
-    Docker-specific file a CRI runtime does not create. The chart sets `SYNTHKIT_BIND` to mirror the
-    host portion of `JSON_HTTP_ADDR`, so the exposure gate reaches the same verdict on either
-    branch. That is why the chart never presents a loopback host bind in front of an all-interfaces
-    listener, and why it does not set `SYNTHKIT_IN_CONTAINER` at all.
+    The binary recognises Kubernetes Pods through `KUBERNETES_SERVICE_HOST`, including those running
+    under containerd or CRI-O, so the container exposure branch is selected without an explicit
+    hint. The chart still sets `SYNTHKIT_BIND` to mirror the host portion of `JSON_HTTP_ADDR` as a
+    deliberate belt-and-braces check: both the in-container listener and the effective exposure
+    must agree. It never presents a loopback host bind in front of an all-interfaces listener.
 
 The NetworkPolicy is ingress-only, so egress to the telemetry backends is untouched. It is belt and
 braces rather than the primary control: enforcement needs a policy-capable CNI, whereas the loopback
