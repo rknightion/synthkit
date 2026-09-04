@@ -700,6 +700,24 @@ note: "two redis histogram families (version artifact: _duration vs _duration_se
 
 ## Envoy Gateway — TWO surfaces (control plane + data plane, ns `envoy-gateway-system`, port 19001, v1.8.1 — 2026-06-16) [slug: k8s-envoy-gateway]
 
+> ⚠ **There is a THIRD surface, and it shares no metric name with the two below: the OTLP stats
+> sink.** Setting `telemetry.metrics.sinks[].type: OpenTelemetry` on the `EnvoyProxy` CR makes the
+> data plane emit **dotted Envoy stat names** — `cluster.circuit_breakers.cx_open`, `http.*`,
+> `listener.*`, `server.*`, `sds.*` — with **zero** `envoy_*` names. It is Envoy's native stat tree,
+> NOT a transform of the Prometheus spelling, so neither form can be derived from the other.
+> Live-captured 2026-09-04, 162 names, 78 Sum / 69 Gauge / 15 Histogram:
+> `e2e/lab/captures/envoy-gateway-otlp-fc9ca6cd2ec0eba6.md`. On that path **Unit is empty on every
+> metric, InstrumentationScope is empty, and resource attributes carry only `telemetry.sdk.*`** — no
+> `service.name` and no `k8s.*`, unlike the tracing provider on the same CR which sets
+> `resourceAttributes` explicitly. Datapoint attributes are dotted `envoy.*` plus bare
+> `socket_match_name` and `priority`. Synthkit does NOT emit this lane (`cantfind.md` SK-87); the
+> EnvoyGateway control plane's own OTLP form remains uncaptured.
+>
+> ⚠ **`openTelemetry` on that sink takes `host`/`port` only.** There is no `protocol` field on
+> `EnvoyProxy` v1alpha1 in Envoy Gateway v1.9.0. Including one is a strict-decoding error — and
+> ArgoCD reports the application **Synced** while the API rejects the resource, so the sink silently
+> never reaches the CR. Verify with `kubectl apply --dry-run=server`, not with sync status.
+
 *Provenance: live a live reference EKS cluster capture 2026-06-16 (svc-group-b.md §3.A). Two scrape jobs, both on :19001.*
 
 > ⚠ **CRITICAL: NO `envoy_gateway_*` prefix on the control plane.** The query `{__name__=~"envoy_gateway_.+"}` is EMPTY in Mimir. The control plane emits `xds_*`, `watchable_*`, `resource_*`, `status_update_*`, `topology_*`, `wasm_*` (plus `controller_runtime_*` / `rest_client_*` / `workqueue_*` / `certwatcher_*`). The `envoy_gateway_*` family is a vendor doc artifact — it does NOT appear in the real scrape.
