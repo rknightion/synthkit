@@ -73,6 +73,30 @@ The collector lookup is a targeted `get` of a named ConfigMap in the collector's
 
 Addon recognition combines the allowlisted Helm release name with known namespace and workload names. The capture currently recognises Crossplane (`crossplane-system`, `crossplane`), external-secrets (`external-secrets`), the GitHub Actions runner controller (`arc-systems`, `gha-rs-controller` and `gha-runner-scale-set*`), the GitHub-to-OTel bridge (`github2otel`), and OpenCost (`opencost`). These entries deliberately retain an empty addon kind when there is no standalone construct. Forge keeps one narrow image fallback for Crossplane provider workloads whose name and namespace are not recognised by capture. In the forge coverage report, Crossplane, external-secrets, the runner controller, and github2otel are `no matching construct` gaps. OpenCost is an `unmapped name`: its cost surface is modelled by the registered `k8s_cluster` construct's `k8s_monitoring.opencost` option. Karpenter's construct models node autoscaler telemetry, so it does not make the Actions runner controller a modeled product.
 
+### Disposable k3d proof of the Job path
+
+Maintainers can exercise the shipped Job, its RBAC, encryption, deterministic forge baseline,
+and the existing fidelity comparator without touching a customer or lab cluster:
+
+```sh
+just skcapture-k3d
+```
+
+The harness builds `Dockerfile.skcapture` locally, imports `skcapture:dev` into one disposable
+k3d cluster, applies only `deploy/skcapture/rbac.yaml` and `deploy/skcapture/job.yaml`, and copies
+the encrypted output from `output-hold` using the same documented `kubectl cp` path. It runs
+`skforge inspect` to decrypt, preserves the full `skforge prompt` and coverage report, materializes
+the deterministic no-workload skeleton, and runs that exact non-agent selection with
+`DRY_RUN=true` and an explicit `BLUEPRINT_NAMES` value. Results, including the unmodified fidelity
+report, are written below `artifacts/skcapture-k3d/`.
+
+This is deliberately a non-EKS contrast. The current v1 forge skeleton remains AWS/EKS-shaped so
+it can load, while recording an unsupported-provider gap. A k3d result consequently demonstrates
+a plausible-but-wrong AWS assumption rather than proving an EKS deployment. The fidelity command
+is never relaxed: any unexempted contradiction remains visible in its saved report and command
+exit code. Set `SKCAPTURE_K3D_CLUSTER_NAME` only to an unused lowercase name; the harness refuses
+to delete a pre-existing cluster.
+
 ## skforge — blueprint forge
 
 `skforge` takes a captured inventory and produces a synthkit blueprint draft. It uses a deterministic skeleton mapper to translate inventory resources into blueprint declarations, then emits a self-contained LLM prompt that you feed to Claude (or another LLM) to produce the final blueprint YAML.

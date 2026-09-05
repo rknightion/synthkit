@@ -398,6 +398,12 @@ down:
 lab *permutations:
     bash e2e/lab/run.sh {{ permutations }}
 
+# run the disposable skcapture Job/RBAC/forge/fidelity proof in k3d (needs Docker, k3d, and kubectl)
+[group('dev')]
+[no-exit-message]
+skcapture-k3d:
+    bash e2e/lab/skcapture/run.sh
+
 # regenerate every committed generated artifact; idempotent (running twice yields no diff)
 [group('gen')]
 gen: blueprint-schema skills-sync

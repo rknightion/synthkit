@@ -234,13 +234,30 @@ func TestMapSkeletonSurfacesUndeterminedProvider(t *testing.T) {
 	inv := &capture.Inventory{Clusters: []capture.Cluster{{
 		Name:     "unknown-provider",
 		Provider: capture.ProviderUndetermined,
+		NodeGroups: []capture.NodeGroup{{
+			Name:         "unknown-linux",
+			InstanceType: "k3s",
+			Count:        1,
+			Provisioner:  "unknown",
+			OS:           "linux",
+		}},
 	}}}
-	_, gaps := MapSkeleton(inv, reg)
+	sk, gaps := MapSkeleton(inv, reg)
 	gap, ok := findGap(gaps, "addon", "undetermined-provider")
 	if !ok {
 		t.Fatalf("expected an explicit undetermined-provider gap, got %+v", gaps)
 	}
 	if !strings.Contains(gap.Reason, "provider undetermined") {
 		t.Fatalf("provider gap reason = %q, want explicit undetermined evidence", gap.Reason)
+	}
+	if sk.Environments[0].Cloud.Region == "" {
+		t.Fatal("undetermined-provider skeleton must retain a loadable placeholder region")
+	}
+	y, err := yaml.Marshal(sk)
+	if err != nil {
+		t.Fatalf("marshal skeleton: %v", err)
+	}
+	if _, err := blueprint.Load(y, reg); err != nil {
+		t.Fatalf("undetermined-provider skeleton must load: %v\n---\n%s", err, y)
 	}
 }

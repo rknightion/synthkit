@@ -87,6 +87,8 @@ type Gap struct {
 // Key synthesis rules (B2):
 //   - AccountID is always "000000000000" (placeholder — capture cannot know it; keeps blueprint.Load happy).
 //   - VpcID is always "vpc-PLACEHOLDER" (same reason).
+//   - Region comes from the capture when present; a missing value becomes a clearly-recorded
+//     "us-east-1" placeholder so the skeleton remains loadable for operator review.
 //   - Provider is always "aws"; non-eks and undetermined providers still emit Provider:"aws"
 //     plus an explicit Gap so the AWS-only placeholder cannot be mistaken for detection.
 //   - Cluster.Type is always "eks" (v1 only supports EKS).
@@ -108,6 +110,15 @@ func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) 
 			AccountID: "000000000000",
 			VpcID:     "vpc-PLACEHOLDER",
 			Region:    cl.Region,
+		}
+		if cloud.Region == "" {
+			cloud.Region = "us-east-1"
+			gaps = append(gaps, Gap{
+				Category: "addon",
+				Name:     "unknown-region",
+				Evidence: []string{"region unavailable from captured node labels"},
+				Reason:   "provider region unavailable; the v1 AWS-only skeleton uses us-east-1 as a loadable placeholder",
+			})
 		}
 		// The v1 skeleton is AWS-only, so retain its loadable AWS placeholder while making every
 		// non-EKS or undetermined capture result explicit. An empty provider is treated as

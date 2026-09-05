@@ -28,6 +28,7 @@ scripts/forbidden-words.local
 /THIRD_PARTY_NOTICES.md
 /dist/
 /artifacts/signal-fidelity-k3d/
+/artifacts/skcapture-k3d/
 
 # Pinned CI tooling installed on demand; gcx dashboard snapshot PNGs; docs-site build output.
 /.tools/
