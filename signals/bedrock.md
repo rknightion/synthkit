@@ -20,8 +20,9 @@ families, costs, and weights lives in [`signals/genai-models.md`](genai-models.m
 `meta.llama3-1-8b-instruct-v1:0`, `amazon.titan-embed-text-v2:0`.
 
 ⚠ **Mangling traps (cw-law):** `EstimatedTPMQuotaUsage`→`estimated_tpmquota_usage` (**`tpmquota`**,
-NOT `tpm_quota` — consecutive-caps collapse), `outputTokenCount`→`output_token_count` (CW source has
-lowercase `o`; Prom form unaffected), `CloudWatch`→`cloud_watch`, `S3`→`s3`. Every base emits all
+NOT `tpm_quota` — consecutive-caps collapse), core `OutputTokenCount`→`output_token_count` while
+Agents `outputTokenCount`→`output_token_count` (Prom form unaffected), `CloudWatch`→`cloud_watch`,
+`S3`→`s3`. Every base emits all
 five stats (`_sum`/`_average`/`_maximum`/`_minimum`/`_sample_count`); `_sum` is a per-period GAUGE
 (never `rate()`). ⚠ **No per-use-case dimension exists on Bedrock metrics** (predecessor §5.3.4) — never add one.
 
@@ -52,7 +53,7 @@ metrics:
   - {root: time_to_first_token, type: gauge, unit: milliseconds, v: assumed, note: "Mar-2026; streaming APIs only"}
   - {root: estimated_tpmquota_usage, type: gauge, unit: count, v: assumed, note: "Mar-2026 approximation; tpmquota NOT tpm_quota"}
   - {root: input_token_count, type: gauge, unit: count, v: assumed}
-  - {root: output_token_count, type: gauge, unit: count, v: assumed, note: "CW source outputTokenCount (lowercase o)"}
+  - {root: output_token_count, type: gauge, unit: count, v: assumed, note: "CW source OutputTokenCount; Agents separately uses lowercase o"}
   - {root: cache_read_input_tokens, type: gauge, unit: count, v: assumed}
   - {root: cache_write_input_tokens, type: gauge, unit: count, v: assumed}
   - {root: invocation_throttles, type: gauge, unit: count, v: assumed}

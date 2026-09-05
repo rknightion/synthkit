@@ -1092,241 +1092,72 @@ Provenance: AWS CloudWatch OpenTelemetry 1.0.0 format and translation documentat
 
 ### Verified mappings and current skipped inventory
 
-The initial table is intentionally bounded to the two AWS-reference and gateway-read-back verified pairs:
+The lookup now contains **284** exact AWS Metric Streams pairs. The original gateway
+read-back verified `aws_ec2_cpuutilization` and `aws_rds_database_connections`; the
+remaining pairs below are verified from the current AWS metric reference and the AWS
+Metric Streams OpenTelemetry unit-translation table. Their exact namespace, metric-name,
+UCUM unit, and construct-specific dimensions are recorded in the owning
+`internal/cw/streamtable_*.go` table, with the AWS source URLs beside each table.
 
-- `aws_ec2_cpuutilization` → `AWS/EC2` / `CPUUtilization` / `%`; wire name `amazonaws.com/AWS/EC2/CPUUtilization`.
-- `aws_rds_database_connections` → `AWS/RDS` / `DatabaseConnections` / `{Count}`; wire name `amazonaws.com/AWS/RDS/DatabaseConnections`.
+| namespace group | verified pairs | skipped bases | reason for remaining skips |
+| --- | ---: | ---: | --- |
+| `cwinfra` | 103 | 1 | Firehose `DeliveryToHttpEndpoint.Success` has incompatible construct semantics |
+| `ec2` | 19 | 4 | CPU-credit unit is not in the permitted OTLP translation table |
+| `rds` | 19 | 0 | — |
+| `docdb` | 17 | 2 | the current page names `ReadLatency` and `SwapUsage` without units |
+| `neptune` | 13 | 0 | — |
+| `elasticache` | 22 | 2 | `Number` and `Boolean` are not in the permitted OTLP translation table |
+| `aoss` | 0 | 16 | the current page supplies names/dimensions but no units |
+| `mwaa` | 39 | 9 | six AWS/MWAA and three AmazonMWAA rows remain ambiguous or undocumented |
+| `glue` | 20 | 0 | — |
+| `bedrock` | 32 | 6 | model-invocation logging rows have no unit/dimension contract |
+| `agentcore` | 0 | 12 | current runtime pages do not establish the required unit/dimension pairs |
+| **total** | **284** | **52** | **336** five-stat bases in the catalogue |
 
-Every base below is emitted by its construct on the remote-write path but is withheld from the Metric Streams path because `Lookup` has no verified AWS metric-name and UCUM-unit pair. These counts exclude `_info` families: an info gauge has no five-stat source form and is not a Metric Streams datapoint. `StreamReport.SkippedBases` exposes these distinct bases at runtime.
+Every base below is emitted by its construct on the remote-write path but is withheld from
+the Metric Streams path because `Lookup` has no verified AWS metric-name and UCUM-unit pair.
+These counts exclude `_info` families: an info gauge has no five-stat source form and is not
+a Metric Streams datapoint. `StreamReport.SkippedBases` exposes these distinct bases at runtime.
 
-#### `cwinfra` — 104 skipped bases
+#### `cwinfra` — 1 skipped base
 
 ```text
-aws_applicationelb_active_connection_count
-aws_applicationelb_client_tlsnegotiation_error_count
-aws_applicationelb_consumed_lcus
-aws_applicationelb_desync_mitigation_mode_non_compliant_request_count
-aws_applicationelb_healthy_host_count
-aws_applicationelb_http_fixed_response_count
-aws_applicationelb_http_redirect_count
-aws_applicationelb_httpcode_elb_3_xx_count
-aws_applicationelb_httpcode_elb_4_xx_count
-aws_applicationelb_httpcode_elb_5_xx_count
-aws_applicationelb_httpcode_target_2_xx_count
-aws_applicationelb_httpcode_target_4_xx_count
-aws_applicationelb_httpcode_target_5_xx_count
-aws_applicationelb_new_connection_count
-aws_applicationelb_peak_lcus
-aws_applicationelb_processed_bytes
-aws_applicationelb_request_count
-aws_applicationelb_request_count_per_target
-aws_applicationelb_rule_evaluations
-aws_applicationelb_target_connection_error_count
-aws_applicationelb_target_response_time
-aws_applicationelb_un_healthy_host_count
-aws_ebs_burst_balance
-aws_ebs_volume_avg_iops
-aws_ebs_volume_avg_read_latency
-aws_ebs_volume_avg_throughput
-aws_ebs_volume_avg_write_latency
-aws_ebs_volume_idle_time
-aws_ebs_volume_iopsexceeded_check
-aws_ebs_volume_queue_length
-aws_ebs_volume_read_bytes
-aws_ebs_volume_read_ops
-aws_ebs_volume_stalled_iocheck
-aws_ebs_volume_throughput_exceeded_check
-aws_ebs_volume_total_read_time
-aws_ebs_volume_total_write_time
-aws_ebs_volume_write_bytes
-aws_ebs_volume_write_ops
-aws_eks_apiserver_request_duration_seconds_get_p99
-aws_eks_apiserver_request_total
-aws_eks_apiserver_request_total_4_xx
-aws_eks_apiserver_request_total_5_xx
-aws_eks_etcd_mvcc_db_total_size_in_bytes
-aws_eks_scheduler_pending_pods
-aws_firehose_bytes_per_second_limit
-aws_firehose_delivery_to_http_endpoint_bytes
-aws_firehose_delivery_to_http_endpoint_data_freshness
-aws_firehose_delivery_to_http_endpoint_processed_bytes
-aws_firehose_delivery_to_http_endpoint_processed_records
-aws_firehose_delivery_to_http_endpoint_records
 aws_firehose_delivery_to_http_endpoint_success
-aws_firehose_describe_delivery_stream_latency
-aws_firehose_describe_delivery_stream_requests
-aws_firehose_incoming_bytes
-aws_firehose_incoming_put_requests
-aws_firehose_incoming_records
-aws_firehose_put_record_batch_bytes
-aws_firehose_put_record_batch_latency
-aws_firehose_put_record_batch_records
-aws_firehose_put_record_batch_requests
-aws_firehose_put_record_bytes
-aws_firehose_put_record_latency
-aws_firehose_put_record_requests
-aws_firehose_put_requests_per_second_limit
-aws_firehose_records_per_second_limit
-aws_firehose_throttled_records
-aws_natgateway_active_connection_count
-aws_natgateway_bytes_in_from_destination
-aws_natgateway_bytes_in_from_source
-aws_natgateway_bytes_out_to_destination
-aws_natgateway_bytes_out_to_source
-aws_natgateway_connection_attempt_count
-aws_natgateway_connection_established_count
-aws_natgateway_error_port_allocation
-aws_natgateway_packets_drop_count
-aws_natgateway_packets_in_from_destination
-aws_natgateway_packets_in_from_source
-aws_natgateway_packets_out_to_destination
-aws_natgateway_packets_out_to_source
-aws_natgateway_peak_bytes_per_second
-aws_natgateway_peak_packets_per_second
-aws_networkelb_active_flow_count
-aws_networkelb_healthy_host_count
-aws_networkelb_new_flow_count
-aws_networkelb_peak_bytes_per_second
-aws_networkelb_peak_packets_per_second
-aws_networkelb_port_allocation_error_count
-aws_networkelb_processed_bytes
-aws_networkelb_tcp_client_reset_count
-aws_networkelb_tcp_elb_reset_count
-aws_networkelb_tcp_target_reset_count
-aws_networkelb_un_healthy_host_count
-aws_privatelinkendpoints_active_connections
-aws_privatelinkendpoints_bytes_processed
-aws_privatelinkendpoints_new_connections
-aws_privatelinkendpoints_packets_dropped
-aws_privatelinkendpoints_rst_packets_received
-aws_privatelinkservices_active_connections
-aws_privatelinkservices_bytes_processed
-aws_privatelinkservices_endpoints_count
-aws_privatelinkservices_new_connections
-aws_privatelinkservices_rst_packets_sent
-aws_s3_bucket_size_bytes
-aws_s3_number_of_objects
 ```
 
-#### `ec2` — 22 skipped bases
+#### `ec2` — 4 skipped bases
 
 ```text
 aws_ec2_cpucredit_balance
 aws_ec2_cpucredit_usage
 aws_ec2_cpusurplus_credit_balance
 aws_ec2_cpusurplus_credits_charged
-aws_ec2_ebsbyte_balance_percent
-aws_ec2_ebsiobalance_percent
-aws_ec2_ebsread_bytes
-aws_ec2_ebsread_ops
-aws_ec2_ebswrite_bytes
-aws_ec2_ebswrite_ops
-aws_ec2_instance_ebsiopsexceeded_check
-aws_ec2_instance_ebsthroughput_exceeded_check
-aws_ec2_metadata_no_token
-aws_ec2_metadata_no_token_rejected
-aws_ec2_network_in
-aws_ec2_network_out
-aws_ec2_network_packets_in
-aws_ec2_network_packets_out
-aws_ec2_status_check_failed
-aws_ec2_status_check_failed_attached_ebs
-aws_ec2_status_check_failed_instance
-aws_ec2_status_check_failed_system
 ```
 
-#### `rds` — 18 skipped bases
+#### `rds` — 0 skipped bases
 
 ```text
-aws_rds_burst_balance
-aws_rds_cpuutilization
-aws_rds_disk_queue_depth
-aws_rds_free_storage_space
-aws_rds_freeable_memory
-aws_rds_maximum_used_transaction_ids
-aws_rds_network_receive_throughput
-aws_rds_network_transmit_throughput
-aws_rds_read_iops
-aws_rds_read_latency
-aws_rds_read_throughput
-aws_rds_replication_slot_disk_usage
-aws_rds_swap_usage
-aws_rds_transaction_logs_disk_usage
-aws_rds_transaction_logs_generation
-aws_rds_write_iops
-aws_rds_write_latency
-aws_rds_write_throughput
+none
 ```
 
-#### `docdb` — 19 skipped bases
+#### `docdb` — 2 skipped bases
 
 ```text
-aws_docdb_buffer_cache_hit_ratio
-aws_docdb_cpuutilization
-aws_docdb_database_connections
-aws_docdb_documents_deleted
-aws_docdb_documents_inserted
-aws_docdb_documents_returned
-aws_docdb_documents_updated
-aws_docdb_freeable_memory
-aws_docdb_opcounters_command
-aws_docdb_opcounters_delete
-aws_docdb_opcounters_getmore
-aws_docdb_opcounters_insert
-aws_docdb_opcounters_query
-aws_docdb_opcounters_update
-aws_docdb_read_iops
 aws_docdb_read_latency
 aws_docdb_swap_usage
-aws_docdb_write_iops
-aws_docdb_write_latency
 ```
 
-#### `neptune` — 13 skipped bases
+#### `neptune` — 0 skipped bases
 
 ```text
-aws_neptune_buffer_cache_hit_ratio
-aws_neptune_cluster_replica_lag_maximum
-aws_neptune_cpuutilization
-aws_neptune_gremlin_client_errors_per_sec
-aws_neptune_gremlin_requests_per_sec
-aws_neptune_gremlin_server_errors_per_sec
-aws_neptune_main_request_queue_pending_requests
-aws_neptune_num_tx_committed
-aws_neptune_num_tx_opened
-aws_neptune_num_tx_rolled_back
-aws_neptune_total_client_errors_per_sec
-aws_neptune_total_requests_per_sec
-aws_neptune_total_server_errors_per_sec
+none
 ```
 
-#### `elasticache` — 24 skipped bases
+#### `elasticache` — 2 skipped bases
 
 ```text
-aws_elasticache_blocked_connections
-aws_elasticache_bytes_used_for_cache
-aws_elasticache_cache_hits
-aws_elasticache_cache_misses
-aws_elasticache_cpuutilization
-aws_elasticache_curr_connections
-aws_elasticache_curr_items
-aws_elasticache_database_memory_usage_percentage
-aws_elasticache_engine_cpuutilization
-aws_elasticache_error_count
-aws_elasticache_evictions
-aws_elasticache_freeable_memory
-aws_elasticache_is_master
 aws_elasticache_memory_fragmentation_ratio
-aws_elasticache_network_bytes_in
-aws_elasticache_network_bytes_out
-aws_elasticache_new_connections
-aws_elasticache_processed_commands
-aws_elasticache_reclaimed
-aws_elasticache_replication_bytes
-aws_elasticache_replication_lag
 aws_elasticache_save_in_progress
-aws_elasticache_set_type_cmds
-aws_elasticache_swap_usage
 ```
 
 #### `aoss` — 16 skipped bases
@@ -1350,125 +1181,35 @@ aws_aoss_searchable_documents
 aws_aoss_storage_used_in_s3
 ```
 
-#### `mwaa` — 48 skipped bases
+#### `mwaa` — 9 skipped bases
 
 ```text
 aws_amazonmwaa_celery_worker_heartbeat
-aws_amazonmwaa_critical_section_busy
-aws_amazonmwaa_critical_section_duration
-aws_amazonmwaa_critical_section_query_duration
-aws_amazonmwaa_dag_bag_size
-aws_amazonmwaa_dagfile_processing_last_duration
-aws_amazonmwaa_dagfile_processing_last_num_of_db_queries
-aws_amazonmwaa_dagfile_processing_last_run_seconds_ago
 aws_amazonmwaa_file_path_queue_size
-aws_amazonmwaa_file_path_queue_update_count
-aws_amazonmwaa_import_errors
-aws_amazonmwaa_job_end
-aws_amazonmwaa_open_slots
-aws_amazonmwaa_orphaned
-aws_amazonmwaa_orphaned_tasks_adopted
-aws_amazonmwaa_orphaned_tasks_cleared
-aws_amazonmwaa_pool_deferred_slots
-aws_amazonmwaa_pool_open_slots
-aws_amazonmwaa_pool_queued_slots
-aws_amazonmwaa_pool_running_slots
-aws_amazonmwaa_pool_scheduled_slots
-aws_amazonmwaa_processes
-aws_amazonmwaa_queued_tasks
-aws_amazonmwaa_running_tasks
-aws_amazonmwaa_scheduler_heartbeat
-aws_amazonmwaa_scheduler_loop_duration
-aws_amazonmwaa_tasks_executable
-aws_amazonmwaa_tasks_starving
-aws_amazonmwaa_total_parse_time
 aws_amazonmwaa_triggerer_heartbeat
-aws_amazonmwaa_triggers_running
 aws_mwaa_active_connection_count
-aws_mwaa_approximate_age_of_oldest_task
-aws_mwaa_cpuutilization
-aws_mwaa_database_connections
-aws_mwaa_disk_queue_depth
-aws_mwaa_freeable_memory
-aws_mwaa_memory_utilization
 aws_mwaa_network_receive_throughput
 aws_mwaa_network_transmit_throughput
-aws_mwaa_queued_tasks
 aws_mwaa_read_iops
 aws_mwaa_read_latency
 aws_mwaa_read_throughput
-aws_mwaa_running_tasks
-aws_mwaa_write_iops
-aws_mwaa_write_latency
-aws_mwaa_write_throughput
 ```
 
-#### `glue` — 20 skipped bases
+#### `glue` — 0 skipped bases
 
 ```text
-aws_glue_all_jvm_heap_usage
-aws_glue_all_jvm_heap_used
-aws_glue_all_s3_filesystem_read_bytes
-aws_glue_all_s3_filesystem_write_bytes
-aws_glue_all_system_cpu_system_load
-aws_glue_driver_aggregate_bytes_read
-aws_glue_driver_aggregate_elapsed_time
-aws_glue_driver_aggregate_num_completed_stages
-aws_glue_driver_aggregate_num_completed_tasks
-aws_glue_driver_aggregate_num_failed_tasks
-aws_glue_driver_aggregate_num_killed_tasks
-aws_glue_driver_aggregate_records_read
-aws_glue_driver_aggregate_shuffle_bytes_written
-aws_glue_driver_aggregate_shuffle_local_bytes_read
-aws_glue_driver_block_manager_disk_disk_space_used_mb
-aws_glue_driver_jvm_heap_usage
-aws_glue_driver_jvm_heap_used
-aws_glue_driver_s3_filesystem_read_bytes
-aws_glue_driver_s3_filesystem_write_bytes
-aws_glue_driver_system_cpu_system_load
+none
 ```
 
-#### `bedrock` — 38 skipped bases
+#### `bedrock` — 6 skipped bases
 
 ```text
-aws_bedrock_agents_input_token_count
-aws_bedrock_agents_invocation_client_errors
-aws_bedrock_agents_invocation_count
-aws_bedrock_agents_invocation_server_errors
-aws_bedrock_agents_invocation_throttles
-aws_bedrock_agents_model_invocation_client_errors
-aws_bedrock_agents_model_invocation_count
-aws_bedrock_agents_model_invocation_server_errors
-aws_bedrock_agents_model_invocation_throttles
-aws_bedrock_agents_model_latency
-aws_bedrock_agents_output_token_count
-aws_bedrock_agents_total_time
-aws_bedrock_agents_ttft
-aws_bedrock_cache_read_input_tokens
-aws_bedrock_cache_write_input_tokens
-aws_bedrock_estimated_tpmquota_usage
-aws_bedrock_guardrails_invocation_client_errors
-aws_bedrock_guardrails_invocation_latency
-aws_bedrock_guardrails_invocation_server_errors
-aws_bedrock_guardrails_invocation_throttles
-aws_bedrock_guardrails_invocations
-aws_bedrock_guardrails_invocations_intervened
-aws_bedrock_guardrails_text_unit_count
-aws_bedrock_input_token_count
-aws_bedrock_invocation_client_errors
-aws_bedrock_invocation_latency
-aws_bedrock_invocation_server_errors
-aws_bedrock_invocation_throttles
-aws_bedrock_invocations
-aws_bedrock_legacy_model_invocations
 aws_bedrock_model_invocation_large_data_s3_delivery_failure
 aws_bedrock_model_invocation_large_data_s3_delivery_success
 aws_bedrock_model_invocation_logs_cloud_watch_delivery_failure
 aws_bedrock_model_invocation_logs_cloud_watch_delivery_success
 aws_bedrock_model_invocation_logs_s3_delivery_failure
 aws_bedrock_model_invocation_logs_s3_delivery_success
-aws_bedrock_output_token_count
-aws_bedrock_time_to_first_token
 ```
 
 #### `agentcore` — 12 skipped bases
@@ -1488,4 +1229,13 @@ aws_bedrock_agentcore_total_errors
 aws_bedrock_agentcore_user_errors
 ```
 
-The `dimension_` label suffix is **not** a generic CloudWatch Dimension converter. For the only emitted entries, the table carries the exact AWS spellings: EC2 `AutoScalingGroupName` and `InstanceId`; RDS `DBInstanceIdentifier`. The existing Prometheus batches also contain deliberately mangled names, including PrivateLink `dimension_Endpoint_Type`, `dimension_Service_Name`, and `dimension_VPC_Endpoint_Id` for AWS dimensions containing spaces. Reconstructing those to `Endpoint Type`, `Service Name`, or `VPC Endpoint Id` would invent a wire value, so `MetricStreams` emits dimensions only from the pair-specific exact table and omits every other suffix.
+The `dimension_` label suffix is **not** a generic CloudWatch Dimension converter. For each
+of the 284 emitted entries, the table carries the exact AWS spellings for the construct's
+documented form: for example, EC2 uses `AutoScalingGroupName` and `InstanceId`, RDS uses
+`DBInstanceIdentifier`, ElastiCache uses `CacheClusterId` and `CacheNodeId`, and the
+service-specific tables carry their documented dimension pairs. The existing Prometheus
+batches also contain deliberately mangled names, including PrivateLink
+`dimension_Endpoint_Type`, `dimension_Service_Name`, and `dimension_VPC_Endpoint_Id` for
+AWS dimensions containing spaces. Reconstructing those to `Endpoint Type`, `Service Name`,
+or `VPC Endpoint Id` would invent a wire value, so `MetricStreams` emits dimensions only
+from the pair-specific exact table and omits every other suffix.

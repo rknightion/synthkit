@@ -24,7 +24,7 @@
 // Mangling traps (cw-law):
 //
 //	EstimatedTPMQuotaUsage → estimated_tpmquota_usage (tpmquota NOT tpm_quota)
-//	outputTokenCount → output_token_count
+//	OutputTokenCount → output_token_count (core); outputTokenCount → output_token_count (Agents)
 //	CloudWatch → cloud_watch, S3 → s3
 package bedrock
 

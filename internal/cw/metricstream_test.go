@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode"
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -56,7 +57,7 @@ func TestStreamTablesOwnTheirEntryNamespaces(t *testing.T) {
 		{name: "rds-family", table: streamTableRDSFamily(), namespaces: []string{"AWS/RDS", "AWS/DocDB", "AWS/Neptune"}},
 		{name: "cache-search-ec2", table: streamTableCacheSearchEC2(), namespaces: []string{"AWS/ElastiCache", "AWS/AOSS", "AWS/EC2"}},
 		{name: "data-pipelines", table: streamTableDataPipelines(), namespaces: []string{"AWS/MWAA", "AmazonMWAA", "Glue"}},
-		{name: "genai", table: streamTableGenAI(), namespaces: []string{"AWS/Bedrock", "AWS/Bedrock-AgentCore"}},
+		{name: "genai", table: streamTableGenAI(), namespaces: []string{"AWS/Bedrock", "AWS/Bedrock/Agents", "AWS/Bedrock/Guardrails"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,6 +70,95 @@ func TestStreamTablesOwnTheirEntryNamespaces(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestStreamEntriesUseCloudWatchMangledKeys guards the pairing between each manually
+// sourced CloudWatch MetricName and its existing remote-write base. The production path
+// deliberately does not derive names: this test mirrors the naming law in signals/cw.md
+// (lower-to-upper boundaries split; an uppercase run stays with the following word) so a
+// copied or mistyped lookup key cannot make an otherwise plausible entry look verified.
+func TestStreamEntriesUseCloudWatchMangledKeys(t *testing.T) {
+	bases := make([]string, 0, len(streamEntries))
+	for base := range streamEntries {
+		bases = append(bases, base)
+	}
+	slices.Sort(bases)
+	for _, base := range bases {
+		entry := streamEntries[base]
+		if want := cloudWatchMangledBase(entry.Namespace, entry.MetricName); base != want {
+			t.Errorf("base %q pairs %s/%s; want %q", base, entry.Namespace, entry.MetricName, want)
+		}
+	}
+}
+
+func TestFirehoseQuotaEntriesUseDocumentedCountUnit(t *testing.T) {
+	for _, base := range []string{
+		"aws_firehose_put_requests_per_second_limit",
+		"aws_firehose_records_per_second_limit",
+	} {
+		entry, ok := Lookup(base)
+		if !ok {
+			t.Fatalf("Lookup(%q) not found", base)
+		}
+		if entry.Unit != "{Count}" {
+			t.Errorf("Lookup(%q).Unit = %q, want {Count}", base, entry.Unit)
+		}
+	}
+}
+
+func TestFirehoseSuccessIsWithheldForIncompatibleConstructSemantics(t *testing.T) {
+	if entry, ok := Lookup("aws_firehose_delivery_to_http_endpoint_success"); ok {
+		t.Fatalf("Lookup returned incompatible Firehose success mapping: %#v", entry)
+	}
+}
+
+func TestNATGatewayPeakPacketsUsesDocumentedCountUnit(t *testing.T) {
+	entry, ok := Lookup("aws_natgateway_peak_packets_per_second")
+	if !ok {
+		t.Fatal("Lookup did not return NAT Gateway PeakPacketsPerSecond")
+	}
+	if entry.Unit != "{Count}" {
+		t.Fatalf("Lookup unit = %q, want {Count}", entry.Unit)
+	}
+}
+
+func cloudWatchMangledBase(namespace, metricName string) string {
+	namespace = strings.TrimPrefix(namespace, "AWS/")
+	namespace = strings.ReplaceAll(namespace, "/", "_")
+	if namespace == "Glue" {
+		// Glue's CloudWatch names carry a literal "glue." prefix that is already
+		// represented by the namespace prefix in the Prometheus family name.
+		metricName = strings.TrimPrefix(metricName, "glue.")
+	}
+	return "aws_" + strings.ToLower(namespace) + "_" + cloudWatchMangledPart(metricName)
+}
+
+func cloudWatchMangledPart(name string) string {
+	runes := []rune(name)
+	var out []rune
+	separator := func() {
+		if len(out) > 0 && out[len(out)-1] != '_' {
+			out = append(out, '_')
+		}
+	}
+	for i, r := range runes {
+		switch {
+		case r == '%':
+			separator()
+			out = append(out, []rune("percent")...)
+		case r == '_' || r == '.' || r == '-' || unicode.IsSpace(r):
+			separator()
+		case unicode.IsUpper(r) && i > 0 && (unicode.IsLower(runes[i-1]) || unicode.IsDigit(runes[i-1])):
+			separator()
+			out = append(out, unicode.ToLower(r))
+		default:
+			out = append(out, unicode.ToLower(r))
+		}
+	}
+	for len(out) > 0 && out[len(out)-1] == '_' {
+		out = out[:len(out)-1]
+	}
+	return string(out)
 }
 
 func TestMetricStreamsUsesCapturedSummaryForm(t *testing.T) {
@@ -101,12 +191,12 @@ func TestMetricStreamsUsesCapturedSummaryForm(t *testing.T) {
 func TestMetricStreamsOmitsEmptyDimensionsAndCountsUnverifiedBase(t *testing.T) {
 	now := time.Unix(1, 0)
 	batch := statBatch("aws_rds_database_connections", map[string]string{"namespace": "AWS/RDS"}, StatSet{Sum: 6, Average: 6, Maximum: 6, Minimum: 6, SampleCount: 1}, now)
-	batch = append(batch, statBatch("aws_rds_freeable_memory", map[string]string{"namespace": "AWS/RDS"}, StatSet{Sum: 1, Maximum: 1, Minimum: 1, SampleCount: 1}, now)...)
+	batch = append(batch, statBatch("aws_docdb_read_latency", map[string]string{"namespace": "AWS/DocDB"}, StatSet{Sum: 1, Maximum: 1, Minimum: 1, SampleCount: 1}, now)...)
 	resources, report := MetricStreams(&fixture.Cloud{}, batch)
 	if report.Emitted != 1 {
 		t.Fatalf("emitted=%d", report.Emitted)
 	}
-	if _, ok := report.SkippedBases["aws_rds_freeable_memory"]; !ok || len(report.SkippedBases) != 1 {
+	if _, ok := report.SkippedBases["aws_docdb_read_latency"]; !ok || len(report.SkippedBases) != 1 {
 		t.Fatalf("skipped=%v", report.SkippedBases)
 	}
 	if _, ok := resources[0].Metrics[0].Summaries[0].Attrs["Dimensions"]; ok {
@@ -150,14 +240,14 @@ func TestWriteMetricStreamsReportsSkippedBasesToWriter(t *testing.T) {
 	batch := statBatch("aws_ec2_cpuutilization", map[string]string{"namespace": "AWS/EC2"}, StatSet{
 		Sum: 2, Average: 1, Maximum: 1, Minimum: 1, SampleCount: 2,
 	}, now)
-	batch = append(batch, statBatch("aws_rds_freeable_memory", map[string]string{"namespace": "AWS/RDS"}, StatSet{
+	batch = append(batch, statBatch("aws_docdb_read_latency", map[string]string{"namespace": "AWS/DocDB"}, StatSet{
 		Sum: 1, Average: 1, Maximum: 1, Minimum: 1, SampleCount: 1,
 	}, now)...)
 	writer := &metricStreamReportCapture{}
 	if _, err := WriteMetricStreams(context.Background(), writer, &fixture.Cloud{}, batch); err != nil {
 		t.Fatalf("WriteMetricStreams error = %v", err)
 	}
-	if got, want := writer.report.SkippedBases, []string{"aws_rds_freeable_memory"}; len(got) != len(want) || got[0] != want[0] {
+	if got, want := writer.report.SkippedBases, []string{"aws_docdb_read_latency"}; len(got) != len(want) || got[0] != want[0] {
 		t.Fatalf("reported skipped bases=%v, want %v", got, want)
 	}
 }
