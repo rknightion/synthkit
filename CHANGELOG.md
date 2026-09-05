@@ -2,6 +2,126 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.4.0](https://github.com/rknightion/synthkit/compare/v1.3.1...v1.4.0) (2026-09-05)
+
+
+### Features
+
+* add canonical telemetry inventory ([a776e4f](https://github.com/rknightion/synthkit/commit/a776e4fa3ad9ce8179b5c5593529ca3075320cef))
+* add declarable network topology churn ([10197de](https://github.com/rknightion/synthkit/commit/10197de66b924f4b469c23dafe1445d170a5d37e))
+* add EKS live reality readback ([501ee64](https://github.com/rknightion/synthkit/commit/501ee647db0f9f04c2186827ab254caada05d908))
+* add k3d signal fidelity capture lab ([fca0503](https://github.com/rknightion/synthkit/commit/fca05038f3d6b2fb95b3b097181b9a4f713731e2))
+* add native k8s OTLP and high-DPM cadence ([44a2c3d](https://github.com/rknightion/synthkit/commit/44a2c3de9045f6ad43ebdf1377abae0c86bd5bfe))
+* add report-only signal fidelity corpus gate ([fd5aba2](https://github.com/rknightion/synthkit/commit/fd5aba271177160bbe87c8618880e2f86072ac19))
+* capture the OTel-native receiver permutation and make the corpus permutation-aware ([1f3b433](https://github.com/rknightion/synthkit/commit/1f3b433ec28f844d242338ae1d407d385326871e))
+* carry explicit metric producer provenance ([f27b374](https://github.com/rknightion/synthkit/commit/f27b374137ceb661bafb6429521ea78e9d88580e))
+* **chart:** add a values schema, and make the manifest validation leg actually run ([4e478ec](https://github.com/rknightion/synthkit/commit/4e478ecb7a98b89c5178cfc1ad8c19e0de7d36f8))
+* close CloudWatch coverage gaps safely ([ada2f9d](https://github.com/rknightion/synthkit/commit/ada2f9d9ba8c359615158fda6ac64e2fd1b55868))
+* **fidelity:** report the measured readability bound ([3739b39](https://github.com/rknightion/synthkit/commit/3739b391d1a3e9cb6f294d57557c55279517fd0b))
+* **lab:** capture the OTel Prometheus-exporter permutation ([f7c266a](https://github.com/rknightion/synthkit/commit/f7c266a590e5963995be9d7e0588f9c24b73cd4a))
+* make the signal-fidelity gate trustworthy, and close SKT-0004/0006.05/0007.01/0007.02/0008 ([b7ddb63](https://github.com/rknightion/synthkit/commit/b7ddb63c2e6cdf8834f1590eadd5954ee531bec0))
+* model captured telemetry and refresh control UI ([b135d84](https://github.com/rknightion/synthkit/commit/b135d84e64bd7724e30eecbe573f7d1db70cdd59))
+* model prometheus operator envelope ([2279ff7](https://github.com/rknightion/synthkit/commit/2279ff7eee71af0c4f12d281bb93046e6d2556d9))
+* **otlp:** integrate captured Beyla and CloudWatch native contracts ([9abdd42](https://github.com/rknightion/synthkit/commit/9abdd42425117ad241ed37648eff33690a2ab803))
+* restore gate trust and broaden native OTLP ([9263c7f](https://github.com/rknightion/synthkit/commit/9263c7f0849a64002eae895d6fbf904b1e47a714))
+* retain partial corpus promotion evidence ([73a13f4](https://github.com/rknightion/synthkit/commit/73a13f426a56eb64140db8cdfc63a3bcac110f57))
+* ship high-DPM detector blueprint ([6e74d7e](https://github.com/rknightion/synthkit/commit/6e74d7ee62d8c3a02209de5c4bb093b069843440))
+* ship the Helm chart, fix le rendering catalogue-wide, make pod logs comparable ([c705977](https://github.com/rknightion/synthkit/commit/c7059771136e2344d768eb202e815f5010a4f530))
+* turn the k3d lab into a permutation matrix, and fix the Loki decode it exposed ([e534c58](https://github.com/rknightion/synthkit/commit/e534c58284a4a4532b651466b34669790a899b7e))
+
+
+### Bug Fixes
+
+* activate reviewed reality corpus ([8dc5d9b](https://github.com/rknightion/synthkit/commit/8dc5d9b078c1c201bfff4c915ba3ef0a54288c32))
+* align e2e dump and receiver inventories ([25e8c04](https://github.com/rknightion/synthkit/commit/25e8c040967b9fb1793afba399bdcaca99f24929))
+* align span metrics with trace outcomes ([30db2ba](https://github.com/rknightion/synthkit/commit/30db2baf71c9e4d03d5c2459806be677dca72aeb))
+* **backlog:** correct SKT-0016 — the e2e failure is a subset-correlation regression ([23cf077](https://github.com/rknightion/synthkit/commit/23cf0772884a5b3a8cc46c54df7c354046209ab2))
+* **backlog:** correct SKT-0018 — the live scheduler does reach the OTLP-logs lane ([894206b](https://github.com/rknightion/synthkit/commit/894206b322ca23702c31c3bd48a814dc9c445598))
+* **blueprints:** the agent fleet in otlp-native was a test fixture, not a workload ([187b7f0](https://github.com/rknightion/synthkit/commit/187b7f030890a3f25d4b04e8a5a28850a3b6549a))
+* **capture:** recognize Karpenter providers and platform products ([a5763e4](https://github.com/rknightion/synthkit/commit/a5763e4a799741b25f6d2c955bae79b6ce596c11))
+* **control:** derive readiness from active feeds ([0007368](https://github.com/rknightion/synthkit/commit/0007368994e18c1d3581cf4bfe7b25a29473f8e2))
+* **cw:** derive the Summary sum from average and count, surface skipped bases in inventory ([ecfd282](https://github.com/rknightion/synthkit/commit/ecfd282f031c26e05e2e738f65005967385fea61))
+* declare per-family query identities ([401bc6a](https://github.com/rknightion/synthkit/commit/401bc6afc78da98cc837fae3c9f26719862c8687))
+* **deps:** update module filippo.io/age to v1.3.2 ([#122](https://github.com/rknightion/synthkit/issues/122)) ([9f680f6](https://github.com/rknightion/synthkit/commit/9f680f6018573d96105e19a48a85bf4827cfa28b))
+* **deps:** update module github.com/grafana/nanogit to v1.4.2 ([#105](https://github.com/rknightion/synthkit/issues/105)) ([fb52659](https://github.com/rknightion/synthkit/commit/fb526597cfe44dddef630f43eda610ef45908c5d))
+* **deps:** update module github.com/moby/moby/api to v1.56.0 ([#134](https://github.com/rknightion/synthkit/issues/134)) ([2f06835](https://github.com/rknightion/synthkit/commit/2f06835a4913aec6eb8cfa63c00a20a7cca87424))
+* **e2e:** gate the published-image sigil assertions on the agent fixture ([0bc1828](https://github.com/rknightion/synthkit/commit/0bc1828770fc3e4f84cd8d0061ddda86d1679656))
+* **e2e:** wait on a real HTTP answer before polling readiness ([9d8aec5](https://github.com/rknightion/synthkit/commit/9d8aec52e7288f450e085019223863eb1bdd6c3e))
+* **fidelity:** isolate folded source coverage ([a5d194b](https://github.com/rknightion/synthkit/commit/a5d194b3ea599052f88fc08c5a62c13ff947e22d))
+* **fidelity:** resolve surviving contradiction exemptions ([34bb8d3](https://github.com/rknightion/synthkit/commit/34bb8d32f44b1eb454da5fc14a30824e0a04aff8))
+* **inventory:** classify open label values as gaps ([0c91077](https://github.com/rknightion/synthkit/commit/0c9107703fe94aa698eb57030713633d3917164b))
+* **inventory:** classify text-dump logs before combining streams ([993688d](https://github.com/rknightion/synthkit/commit/993688d3dc4cb1f74f3cd6fec244fb746486f7c7))
+* **inventory:** ignore cross-producer label unions ([be71087](https://github.com/rknightion/synthkit/commit/be71087c7935d26ded5da6f83598861dee3f9b51))
+* **inventory:** preserve Prometheus summary kind ([35d11c4](https://github.com/rknightion/synthkit/commit/35d11c448f5c61e68f4c1b898f543bb138b5c24f))
+* make skcapture permissions truthful ([05cae3b](https://github.com/rknightion/synthkit/commit/05cae3b776612ffc7bb69f3434e394c261e02349))
+* **notices:** use the /v2 module path go-licenses requires ([fc3b87e](https://github.com/rknightion/synthkit/commit/fc3b87ee72e8a30dcca0af8db4bc8a656b380268))
+* pin available artifact action release ([9929062](https://github.com/rknightion/synthkit/commit/99290621af3622475152cf3938ff9395a8f0a8c6))
+* reject silent runtime identities ([70208b9](https://github.com/rknightion/synthkit/commit/70208b9b1a9e7fc495c8908626335ad578a05820))
+* remove forbidden stack name from SKT-0006 description ([67a8a9b](https://github.com/rknightion/synthkit/commit/67a8a9b93f3256dae8fa55adccc9904932e09f55))
+* **runner:** activate high-DPM cadence ([415f0d6](https://github.com/rknightion/synthkit/commit/415f0d6f3026835f823f6fd986d429fa77219b1e))
+* **signal-fidelity:** report before exemption drift failure ([90eaeda](https://github.com/rknightion/synthkit/commit/90eaedaa0c35579588b5fd2ca422e06c8cf1da28))
+* stop the capture recording inferred evidence, and re-examine every prior capture ([4fa184e](https://github.com/rknightion/synthkit/commit/4fa184e606ea195932ad832d1a683807d0fce47a))
+* use portable conformance audit command ([863dec9](https://github.com/rknightion/synthkit/commit/863dec936bf36d38472d9b466d7e4013f2a9afbb))
+
+
+### Refactor
+
+* **cw:** split the Metric Streams lookup table per namespace group ([c4ae611](https://github.com/rknightion/synthkit/commit/c4ae61150312ed7d68a1a65b036dc779b2b5bcbe))
+
+
+### Documentation
+
+* **acceptance:** record fresh-stack user round ([211b817](https://github.com/rknightion/synthkit/commit/211b817bc537972d6f98927ea1b5c1d413fc2f4e))
+* **backlog:** close dump correlation repair with hosted proof ([1354975](https://github.com/rknightion/synthkit/commit/1354975330e4e9551c5c72e3313a9bd82565e890))
+* **backlog:** close SKT-0018 ([1a1e0bf](https://github.com/rknightion/synthkit/commit/1a1e0bf3f3627bd6057accf09146201990a6f967))
+* **backlog:** complete Go 1.27 upgrade ([cae239d](https://github.com/rknightion/synthkit/commit/cae239d8f501ae6754c7bc8d067a697b18e3b55f))
+* **backlog:** park intermittent e2e failure ([29a6fac](https://github.com/rknightion/synthkit/commit/29a6facf91cec3728764dbb35c7b845a981c897c))
+* **backlog:** record SKT-0010.18 exact-SHA CI ([b3affc5](https://github.com/rknightion/synthkit/commit/b3affc5f3681fa56f8101ddff47573f08592c56e))
+* **backlog:** record the clean-machine decision for SKT-0011 ([24341e6](https://github.com/rknightion/synthkit/commit/24341e61b972b827aa2c98e206f9875324965d4d))
+* **backlog:** sync fan-out protocol — CodeRabbit review gate ([2d56dd6](https://github.com/rknightion/synthkit/commit/2d56dd6034e9d2a973c198001df048d5e27fe2f6))
+* **backlog:** sync fan-out protocol — success criteria vs write authority ([5c52fa5](https://github.com/rknightion/synthkit/commit/5c52fa50c732ec4fffb2cd1cde414f290466dd89))
+* **backlog:** unblock SKT-0011's stack half ([cacabdd](https://github.com/rknightion/synthkit/commit/cacabdd601cf14865fb5b7bed13843223811a773))
+* **captures:** remove a stack name from the Beyla/Envoy OTLP record ([73055a0](https://github.com/rknightion/synthkit/commit/73055a0efd0f39cae34e64fd633162571486a35e))
+* classify k8s and host coverage gaps ([4cce6c1](https://github.com/rknightion/synthkit/commit/4cce6c14d06801005b02053f15baacfb2d749964))
+* **credentials:** record the read-back credential and the tenant-id trap ([416f8e6](https://github.com/rknightion/synthkit/commit/416f8e6382a23f047433032876928ad9f358c0ee))
+* fix reality corpus site links ([2d091b0](https://github.com/rknightion/synthkit/commit/2d091b0388c1ec6bbcccf60631cb3f7dca54141b))
+* **k8s:** document monitoring deployment permutations ([96c9490](https://github.com/rknightion/synthkit/commit/96c949012a5a969694e98c7d5a21629694a0b0ef))
+* park k8s monitoring evidence gaps ([c852af6](https://github.com/rknightion/synthkit/commit/c852af6fb2286057b536f8530baad4e7a8b1cd52))
+* re-import the fan-out protocol at c1e6cb0 ([432f8ee](https://github.com/rknightion/synthkit/commit/432f8ee99f4bb3f3785d5d7ed10418e7e021a622))
+* record final parked boundaries ([f45dec2](https://github.com/rknightion/synthkit/commit/f45dec2eda016d89a66f5b5c839d80095feb0d28))
+* record lab verification boundaries ([4b7a80a](https://github.com/rknightion/synthkit/commit/4b7a80ae45261b892fe9c45037fceecd8f0971e2))
+* record operational readiness closeout ([77c380d](https://github.com/rknightion/synthkit/commit/77c380dfa6c2bec8720529a0171c030beb1cab00))
+* resolve SK-75's CloudWatch half and record the observed span resource ([60d99d5](https://github.com/rknightion/synthkit/commit/60d99d5c7f7e0c2853e777cab58afe2dc63a326e))
+* scrub deployment host from task notes ([2a4732f](https://github.com/rknightion/synthkit/commit/2a4732f9d8c94ad88f74660ac370d5b964848f5c))
+* settle agent observability contract ([2ffcaca](https://github.com/rknightion/synthkit/commit/2ffcacabf6fc316128dacbc861098ca0a759bf36))
+* show the runtime control plane in the README ([ceb0b4a](https://github.com/rknightion/synthkit/commit/ceb0b4ab7a82672d8c028d0fe287bf61af1380ea))
+* **signals:** capture the Envoy Gateway OTLP surface, close SKT-0008.02 ([0ec5812](https://github.com/rknightion/synthkit/commit/0ec581209493428bc06b6bb7ab7a2a20c73164cb))
+* **signals:** capture the full Envoy Gateway OTLP contract ([705f7c0](https://github.com/rknightion/synthkit/commit/705f7c02285bba6cf60f67d37c72ebb9f07cb598))
+* **signals:** record the Beyla native ingestion readback ([b46922f](https://github.com/rknightion/synthkit/commit/b46922f809e013ff20df0ff4fe70f4e51c8e79a1))
+* **signals:** resolve SK-86, capture the Envoy Gateway control-plane OTLP form ([f4224c1](https://github.com/rknightion/synthkit/commit/f4224c11f611cdf02d06d7bee8084b95c66e5234))
+* sync agent-docs, a wave's launch message is a file not a chat block ([f19f4a7](https://github.com/rknightion/synthkit/commit/f19f4a727dcd5b8efa4152a458dc8fb11f5c3410))
+* sync Astra routing and default wave reports to files ([f4f31dd](https://github.com/rknightion/synthkit/commit/f4f31dd94ec3cb3f199a7b9c792abcb6e3b06bdc))
+* sync nineteen-worker Codex fan-out guidance ([ef184c6](https://github.com/rknightion/synthkit/commit/ef184c672c245c33f9a89afd80b715a0c0d40176))
+* sync wave-root stage authority and lab-Mac GUI gate ([1e934c8](https://github.com/rknightion/synthkit/commit/1e934c8d6e466e06c563baf3cab30e23d048d0b2))
+* track the k8s-monitoring deployment permutations (SKT-0013) ([bab7692](https://github.com/rknightion/synthkit/commit/bab769273dfb2b507fe70f92cb26c9ec83013246))
+* verdict CloudWatch coverage gaps by cause ([0323617](https://github.com/rknightion/synthkit/commit/0323617485326c5c208f3935b486db6bbdce9da3))
+
+
+### Build & CI
+
+* **auto-rc:** trigger on CI completion instead of push ([13ddcbb](https://github.com/rknightion/synthkit/commit/13ddcbb04dff47bd70592d5208a715b70d22e3de))
+* bump the broker-token action pin ([1a70485](https://github.com/rknightion/synthkit/commit/1a70485646c9fded174f9075d533401b67388964))
+* **helm:** validate the rendered chart against the Kubernetes API schemas ([5277c1b](https://github.com/rknightion/synthkit/commit/5277c1b0ac0c84b36d4a9b2768f6c75a943d772f))
+* install ripgrep for lab validation ([114774d](https://github.com/rknightion/synthkit/commit/114774dfab67cc8e97a27c5672be5b74f1c6778a))
+* keep agent fixture out of safety-bound runs ([2eb8725](https://github.com/rknightion/synthkit/commit/2eb872571117b0e892c060779f393c486d8dc8fb))
+* repin the shared reusables to v1.18.1 ([9f1a18a](https://github.com/rknightion/synthkit/commit/9f1a18a8baf6f27f9e5c71d1723eff1bd8168e9b))
+* **security:** declare least-privilege permissions on every job ([0683180](https://github.com/rknightion/synthkit/commit/0683180cc71e3aa2cbea3a8bfcf42a9ec85ae30b))
+* **security:** pin actions to SHAs and stop checkouts persisting credentials ([f834c4b](https://github.com/rknightion/synthkit/commit/f834c4b6fc748a6c5d927947118d2453a7ecac6c))
+* tune ci.yml — CI concurrency hygiene ([9ab1e4a](https://github.com/rknightion/synthkit/commit/9ab1e4ae6771d467ee68d8f1ae675c51c927e260))
+* tune signal-fidelity-k3d.yml — CI concurrency hygiene ([ffd3b0d](https://github.com/rknightion/synthkit/commit/ffd3b0dc2c60f58cf6c7853774e63b16109effad))
+* unblock gitleaks v8.30.1 and guard the allowlist that does it ([4e6ce54](https://github.com/rknightion/synthkit/commit/4e6ce545ec096f75c3aebbfda8ec5d56dea37c15))
+* upgrade to Go 1.27 ([0437f2d](https://github.com/rknightion/synthkit/commit/0437f2dfb3a60386b3578926bbb3ec6a5dd44645))
+
 ## [1.3.1](https://github.com/rknightion/synthkit/compare/v1.3.0...v1.3.1) (2026-08-21)
 
 
