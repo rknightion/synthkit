@@ -69,7 +69,7 @@ xds_snapshot_create_total           Sum
 `signals/k8s-addons.md [slug: k8s-envoy-gateway]` documents on the scrape.
 
 Measured aside, because the documentation and the stack disagree: **no Envoy Gateway metric,
-control plane or data plane, was present in the robk stack** at the time of capture or 12 hours
+control plane or data plane, was present in the reference stack** at the time of capture or 12 hours
 earlier. `prometheus.disable: false` means the controller EXPOSES :19001; nothing collects it into
 that stack.
 
