@@ -1,0 +1,23 @@
+# One small AWS production account exporting through Metric Streams rather than remote-write.
+# Transport and magnitude policy remain in the catalog; this declaration owns identity only.
+name: aws-otlp-native
+label: aws-otlp-native
+shape: business_hours_plateau
+timezone: Europe/London
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      cloudwatch_export: otlp
+      # Synthetic account identity, distinct from every other shipped blueprint.
+      account_id: "411000000098"
+      region: eu-west-1
+      vpc_id: vpc-0awsotlpnative
+    cluster:
+      type: eks
+      name: aws-otlp-native-prod
+      # Three workers model a small multi-zone production cluster, not a test emission rate.
+      node_groups: [{name: general, instance_type: m6i.large, desired: 3}]
+    databases:
+      # PostgreSQL 16 is the modeled engine release; one application database.
+      - {name: aws-otlp-native-db, engine: postgres, version: "16", observability: {cloudwatch: true}}

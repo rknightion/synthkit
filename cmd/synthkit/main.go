@@ -818,7 +818,7 @@ func printInventory(prom *promrw.Sink, lokiSink *loki.Sink, otlpSink *otlp.Sink,
 		fmt.Printf("== otlp metrics: %d distinct series names ==\n\n", len(metricInv.Metrics))
 	}
 
-	streamInv, metaInv := lokiSink.Inventory()
+	streamInv, metaInv := lokiDumpInventory(lokiSink)
 	fmt.Println("== logs: source → stream labels / structured metadata ==")
 	sources := make([]string, 0, len(streamInv))
 	for s := range streamInv {

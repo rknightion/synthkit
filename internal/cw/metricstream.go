@@ -1,0 +1,196 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package cw
+
+import (
+	"context"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/rknightion/synthkit/internal/core"
+	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/sink/otlp"
+	"github.com/rknightion/synthkit/internal/sink/promrw"
+	"github.com/rknightion/synthkit/internal/state"
+)
+
+// AWS reference pages used for the entries below:
+//   - AWS/EC2: Amazon EC2 User Guide, "View available metrics",
+//     https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html
+//   - AWS/RDS: Amazon RDS User Guide, "Monitoring Amazon RDS metrics with Amazon CloudWatch",
+//     https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/monitoring-cloudwatch.html
+//
+// The names were checked through Context7 on 2026-09-05. This table is intentionally
+// incomplete: a base is emitted only when its exact AWS spelling and unit are verified.
+var streamEntries = map[string]StreamEntry{
+	"aws_ec2_cpuutilization":       {Namespace: "AWS/EC2", MetricName: "CPUUtilization", Unit: "%"},
+	"aws_rds_database_connections": {Namespace: "AWS/RDS", MetricName: "DatabaseConnections", Unit: "{Count}"},
+}
+
+// streamDimensions is the exact AWS Dimension spelling verified alongside each stream entry.
+// It deliberately does not derive a name from a Prometheus label suffix: CloudWatch dimensions
+// such as PrivateLink's "Endpoint Type" are mangled for Prometheus and cannot be reconstructed.
+var streamDimensions = map[string]map[string]string{
+	"aws_ec2_cpuutilization": {
+		"dimension_AutoScalingGroupName": "AutoScalingGroupName",
+		"dimension_InstanceId":           "InstanceId",
+	},
+	"aws_rds_database_connections": {
+		"dimension_DBInstanceIdentifier": "DBInstanceIdentifier",
+	},
+}
+
+// StreamName returns "amazonaws.com/{Namespace}/{MetricName}" for a doc-verified pair.
+func StreamName(namespace, metricName string) string {
+	return "amazonaws.com/" + namespace + "/" + metricName
+}
+
+// StreamEntry is the doc-verified CloudWatch identity behind a remote-write base.
+type StreamEntry struct{ Namespace, MetricName, Unit string }
+
+// Lookup returns an entry only after its AWS reference has been verified.
+func Lookup(mangledBase string) (StreamEntry, bool) {
+	e, ok := streamEntries[mangledBase]
+	return e, ok
+}
+
+// EmitStream appends a captured-format Summary datapoint, omitting empty Dimensions.
+func EmitStream(res *otlp.MetricResource, e StreamEntry, dims map[string]string, s StatSet, ts time.Time) {
+	attrs := map[string]any{"Namespace": e.Namespace, "MetricName": e.MetricName}
+	if len(dims) > 0 {
+		attrs["Dimensions"] = dims
+	}
+	res.Metrics = append(res.Metrics, otlp.Metric{
+		Name: StreamName(e.Namespace, e.MetricName), Unit: e.Unit, Kind: otlp.MetricSummary,
+		Summaries: []otlp.SummaryPoint{{
+			Attrs: attrs, Time: ts, Count: uint64(s.SampleCount), Sum: s.Sum,
+			Quantiles: map[float64]float64{0: s.Minimum, 1: s.Maximum},
+		}},
+	})
+}
+
+// StreamReport records the unverified remote-write bases withheld from metric-stream output.
+// SkippedBases is keyed by base, so repeated dimension values count once.
+type StreamReport struct {
+	Emitted      int
+	SkippedBases map[string]struct{}
+}
+
+// MetricStreams converts one CloudWatch construct's existing five-stat batch into the captured
+// Metric Streams Summary form. Only dimension_* labels become the nested Dimensions map;
+// CloudWatch scrape labels are transport metadata and never become datapoint attributes.
+func MetricStreams(cloud *fixture.Cloud, batch []promrw.Series) ([]otlp.MetricResource, StreamReport) {
+	report := StreamReport{SkippedBases: map[string]struct{}{}}
+	type grouped struct {
+		base   string
+		labels map[string]string
+		stats  StatSet
+		seen   map[string]bool
+		ts     time.Time
+	}
+	groups := map[string]*grouped{}
+	for _, series := range batch {
+		base, suffix, ok := streamBase(series.Name)
+		if !ok {
+			continue
+		}
+		key := base + "\x00" + state.LabelSig(series.Labels)
+		group := groups[key]
+		if group == nil {
+			group = &grouped{base: base, labels: series.Labels, seen: map[string]bool{}, ts: series.T}
+			groups[key] = group
+		}
+		group.seen[suffix] = true
+		switch suffix {
+		case "_sum":
+			group.stats.Sum = series.Value
+		case "_average":
+			group.stats.Average = series.Value
+		case "_maximum":
+			group.stats.Maximum = series.Value
+		case "_minimum":
+			group.stats.Minimum = series.Value
+		case "_sample_count":
+			group.stats.SampleCount = series.Value
+		}
+	}
+
+	keys := make([]string, 0, len(groups))
+	for key := range groups {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	resource := otlp.MetricResource{Attrs: map[string]any{
+		"cloud.provider": "aws", "cloud.account.id": cloud.AccountID, "cloud.region": cloud.Region,
+	}, PreserveEmptyScope: true}
+	for _, key := range keys {
+		group := groups[key]
+		if !allStats(group.seen) {
+			report.SkippedBases[group.base] = struct{}{}
+			continue
+		}
+		entry, ok := Lookup(group.base)
+		if !ok {
+			report.SkippedBases[group.base] = struct{}{}
+			continue
+		}
+		EmitStream(&resource, entry, dimensions(group.base, group.labels), group.stats, group.ts)
+		report.Emitted++
+	}
+	if len(resource.Metrics) == 0 {
+		return nil, report
+	}
+	return []otlp.MetricResource{resource}, report
+}
+
+// WriteMetricStreams sends the verified portion of a CloudWatch batch through the native OTLP
+// writer. A batch containing only unverified bases intentionally produces no request.
+func WriteMetricStreams(ctx context.Context, writer core.OTLPMetricWriter, cloud *fixture.Cloud, batch []promrw.Series) (StreamReport, error) {
+	resources, report := MetricStreams(cloud, batch)
+	// A declared native lane can be exercised without a configured delivery sink (for
+	// example by the full-estate integration capture, which only installs the legacy
+	// Prometheus writer). Match the other optional writers' nil behaviour rather than
+	// dereferencing a missing sink after rendering the batch.
+	if len(resources) == 0 || writer == nil {
+		return report, nil
+	}
+	return report, writer.Write(ctx, resources)
+}
+
+func streamBase(name string) (string, string, bool) {
+	for _, suffix := range StatSuffixes {
+		if strings.HasSuffix(name, suffix) {
+			return strings.TrimSuffix(name, suffix), suffix, true
+		}
+	}
+	return "", "", false
+}
+
+func allStats(seen map[string]bool) bool {
+	for _, suffix := range StatSuffixes {
+		if !seen[suffix] {
+			return false
+		}
+	}
+	return true
+}
+
+func dimensions(base string, labels map[string]string) map[string]string {
+	allowed := streamDimensions[base]
+	if len(allowed) == 0 {
+		return nil
+	}
+	var out map[string]string
+	for label, dimension := range allowed {
+		value := labels[label]
+		if value == "" || value == "NA" {
+			continue
+		}
+		if out == nil {
+			out = map[string]string{}
+		}
+		out[dimension] = value
+	}
+	return out
+}

@@ -5,6 +5,7 @@ package main
 import (
 	"github.com/rknightion/synthkit/internal/inventory"
 	"github.com/rknightion/synthkit/internal/runner"
+	"github.com/rknightion/synthkit/internal/sink/loki"
 )
 
 // withSynthProvenance stamps the producer provenance the signal-fidelity comparator needs onto a
@@ -34,4 +35,20 @@ func withMetricSuppressions(schema inventory.Schema, suppressions []runner.Metri
 		})
 	}
 	return schema
+}
+
+// lokiDumpInventory classifies each captured stream before combining its keys. Grouping by
+// the raw source label first would fuse source-less pod logs and Kubernetes manifests.
+func lokiDumpInventory(sink *loki.Sink) (map[string][]string, map[string][]string) {
+	schema := inventory.FromSinks(nil, sink, nil, nil, nil, nil, nil)
+	streams, metadata := map[string][]string{}, map[string][]string{}
+	for _, family := range schema.Logs {
+		keys := make([]string, 0, len(family.StreamLabels))
+		for _, attribute := range family.StreamLabels {
+			keys = append(keys, attribute.Key)
+		}
+		streams[family.Source] = keys
+		metadata[family.Source] = family.StructuredMetadataKeys
+	}
+	return streams, metadata
 }
