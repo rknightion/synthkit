@@ -1,10 +1,10 @@
 ---
 id: SKT-0013
 title: Model the documented k8s-monitoring deployment permutations
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-27 08:29'
-updated_date: '2026-09-05 16:04'
+updated_date: '2026-09-05 23:56'
 labels: []
 dependencies: []
 priority: high
@@ -34,28 +34,32 @@ Corpus entries must be tagged by permutation, not merged into one k8s document �
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The k3d lab can capture each documented permutation, selected explicitly rather than by editing a values file in place
+- [x] #1 The k3d lab can capture each documented permutation, selected explicitly rather than by editing a values file in place
 - [x] #2 Corpus entries record which permutation produced them, so two permutations disagreeing is not read as drift
 - [x] #3 Permutation 4 is captured and cantfind SK-85 is resolved from it
 - [x] #4 Each permutation observable difference from the default is recorded in signals/ with provenance
-- [ ] #5 Which permutations synthkit can emit, and which it cannot yet, is stated plainly somewhere a user choosing a deployment will find it
+- [x] #5 Which permutations synthkit can emit, and which it cannot yet, is stated plainly somewhere a user choosing a deployment will find it
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
-- [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-09-05 parent reconciliation: read all ten Done subtask final summaries. AC2 is supported by .01 and SKT-0010.10 permutation provenance; AC3 by .01 observed native receiver capture and SK-85 resolution; AC4 by .01/.02/.05/.07/.08/.09 signal records. AC1 remains unchecked: the parent enumerates five documented methods, while four explicit lab permutation directories exist; OTel Collector with Prometheus exporters is not a separate captured permutation. AC5 remains unchecked: current user-facing deployment docs do not provide a consolidated supported-versus-unimplemented permutation choice. The matrix mechanism and Done child statuses do not prove these missing criteria.
+
+2026-09-06 final reconciliation: the fifth explicit lab permutation, otel-collector-prom, captured the documented OTel Collector with Prometheus exporters path. Its metrics retain Prometheus names and documented job envelope while logs and events use OTLP. The operator guide now lists all five permutations, their explicit selectors, signals slugs, and supported versus not-yet-emitted distinctions. Local just check, explicit safe dump and just e2e passed; hosted ci 33997698592 passed e2e and ci-success for the permutation commit.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 2026-09-05: Reconciled to 3/5 evidenced criteria; remains In Progress at full documented-permutation coverage and an operator-facing supported/unsupported selection guide.
+
+All five documented Kubernetes monitoring permutations are now explicit, selectable and captured with permutation provenance. The operator guide states which synthkit blueprints express each shape and where a transport or native emitter remains unavailable. Full local gates and exact-SHA hosted e2e passed.
 <!-- SECTION:FINAL_SUMMARY:END -->

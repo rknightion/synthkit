@@ -4,7 +4,7 @@ title: OTLP-native emission parity across the catalog
 status: In Progress
 assignee: []
 created_date: '2026-08-24 12:05'
-updated_date: '2026-09-05 16:36'
+updated_date: '2026-09-05 23:59'
 labels: []
 dependencies: []
 priority: high
@@ -56,4 +56,12 @@ Shares its seam with SKT-0006.05 (the OTLP logs lane): both follow the `core.OTL
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-09-05 parent reconciliation: all six earlier Done subtask summaries read. AC2 is supported by the instrument-mechanics work plus this run's Summary tests; AC3 by the native Kubernetes blueprint; AC4 by scrape-only architecture guards and withholding unconfirmed Envoy/CSP/CloudWatch families; AC5 by per-family signal provenance and root pointers; AC6 by the integrated just check architecture pass; AC7 by the evidence-study-created follow-on tasks. AC1 remains unchecked because the Azure/GCP emitted envelope remains unresolved at SK-88. Envoy native datapoints are also withheld at SK-110 through SK-112; this parent is not complete.
+
+2026-09-06 final reconciliation: Envoy native emission is now complete from a richer immutable capture, and CloudWatch Metric Streams lookup coverage expanded to 284 verified pairs with 52 explicit skips. The Azure half of the CSP contract is documented, but the Google receiver emitted name and resource envelope remains unresolved. AC1 therefore remains unchecked; all other parent criteria remain proven.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+2026-09-06: Remains In Progress at 6/7. Envoy and CloudWatch advanced without inferred telemetry; the exact resume boundary is the missing Google receiver output needed to finish the catalogue-wide evidence-backed verdict.
+<!-- SECTION:FINAL_SUMMARY:END -->
