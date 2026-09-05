@@ -94,8 +94,13 @@ Consequences to keep in mind:
 - **Classic bucket bounds** are the empirically captured Grafana Cloud set
   `[0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0]`, used for
   both the span-metric and the service-graph latency families — not the two different OSS defaults.
-  `histogram_buckets` is a per-tenant override and the capture outranks the OSS default; the exact
-  live boundaries are re-verification item SK-96.
+  Authenticated 30-day read-back on 2026-09-06 resolved SK-96: all 294 span-metric histogram
+  labelsets carried exactly that boundary set. Of 116 service-graph server histogram labelsets, 91
+  carried the same set and 25 carried an alternate configured set
+  `[0.002, 0.004, 0.006, 0.008, 0.01, 0.05, 0.1, 0.2, 0.4, 0.8, 1, 1.4, 2, 5, 10, 15]`.
+  `histogram_buckets` is a per-tenant override; synthkit's shared set is therefore a live-observed
+  configuration for both families, not a universal service-graph default. Neither family had a
+  current instant vector, so the evidence is retained-series metadata rather than fresh traffic.
 - **`latency_count` is a bounded sample of `calls_total`.** A real producer observes the duration of
   every span it counts, so the two are equal; synthkit observes `min(row calls, 200)` per tick
   (the shared `web_service` per-call budget). Quantiles are unaffected;
@@ -208,7 +213,8 @@ metrics:
 buckets: [0.0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0]
 # ⚠ NOT the Tempo OSS defaults (span-metrics ExponentialBuckets(0.002,2,14); service-graphs
 # ExponentialBuckets(0.1,2,8)). This is the empirically captured Grafana Cloud shape carried from
-# the predecessor; histogram_buckets is a per-tenant override. Exact live boundaries: SK-96.
+# the predecessor; histogram_buckets is a per-tenant override. Authenticated retained-series
+# read-back re-verified this exact span-metric set on 2026-09-06 (SK-96).
 ```
 
 > **Exemplars:** `_bucket` series carry `trace_id` exemplars (real ledger trace_ids, routed

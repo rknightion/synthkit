@@ -426,8 +426,17 @@ histogram alike — is **cumulative**. Evidence: the OTLP exporter spec default 
 read 2026-08-27); the reference k8s-monitoring spanmetrics connector leaves
 `aggregation_temporality` unset and so inherits Alloy's `CUMULATIVE` default; and Mimir lists
 delta OTLP ingestion as an experimental, opt-in feature. Delta is encodable in the sink but no
-lane sets it. Whether the gateway accepts, converts or drops a delta point is unverified — see
-`cantfind.md` SK-91.
+lane sets it.
+
+**Delta gateway probe (2026-09-06, SK-91):** one OTLP/HTTP request carried a delta monotonic Sum, a
+delta explicit histogram and a delta exponential histogram under the synthetic resource
+`service.name=synthkit-sk91-probe`. The gateway returned HTTP 200 with body
+`{"partialSuccess":{}}`, which proves receipt only. After more than 90 seconds, authenticated Mimir
+read-back returned zero series for the exact service-name selector, exact job selector and metric
+name prefix. No converted cumulative form or `target_info` was queryable. On this gateway path, all
+three delta shapes are therefore **accepted at HTTP and silently dropped before queryable
+ingestion**. This result does not permit a delta-emitting synthkit lane; every shipped lane remains
+cumulative.
 
 ---
 

@@ -669,8 +669,19 @@ All carry `node`. Histograms emit `_bucket{le}` + `_sum` + `_count`.
 
 - **Counts:** `kubelet_running_pods`, `kubelet_running_containers` (⚠ real adds `container_state` label —
   synth omits), `kubelet_node_name`.
-- **Runtime ops (C, `operation_type`):** `kubelet_runtime_operations_total`, `_errors_total`(=0);
-  `operation_type` ∈ {container_start, container_stop, create_container, pull_image, remove_container}.
+- **Runtime ops (C, `operation_type`):** `kubelet_runtime_operations_total`, `_errors_total`(=0).
+  Synthkit emits the plausible representative subset {create_container, start_container,
+  stop_container, pull_image, remove_container, run_podsandbox}. Current kubelet source defines
+  the complete possible set as {version, status, create_container, start_container, stop_container,
+  remove_container, list_containers, container_status, update_container, reopen_container_log,
+  exec_sync, exec, attach, run_podsandbox, stop_podsandbox, remove_podsandbox, podsandbox_status,
+  list_podsandbox, container_stats, list_container_stats, podsandbox_stats, list_podsandbox_stats,
+  port_forward, update_podsandbox_resources, update_runtime_config, list_images, image_status,
+  pull_image, remove_image, image_fs_info, close, checkpoint_container, checkpoint_pod, restore_pod,
+  get_container_events, list_metric_descriptors, list_podsandbox_metrics, runtime_config}. Provenance:
+  Kubernetes `pkg/kubelet/metrics/cri/instrumented_services.go` at
+  `b2ec8b6fefac451a2dedafc4dd71f2f16c7a6abe`, read 2026-09-06; every wrapper passes its literal to
+  both counters. The 2026-08-25 k3d capture independently observed `run_podsandbox`. SK-99 resolved.
   ⚠ `kubelet_runtime_operations_duration_seconds` histogram does NOT exist (counters only).
 - **Histograms (H):** `kubelet_cgroup_manager_duration_seconds` (`operation_type`),
   `kubelet_pleg_relist_duration_seconds`, `kubelet_pleg_relist_interval_seconds`,
@@ -748,7 +759,7 @@ metrics:
   - {root: kubelet_running_pods, type: gauge, unit: count, v: ok}
   - {root: kubelet_running_containers, type: gauge, unit: count, v: ok, note: "⚠ real adds container_state label; synth omits"}
   - {root: kubelet_node_name, type: gauge, unit: bool, v: ok}
-  - {root: kubelet_runtime_operations_total, type: counter, unit: count, v: ok, note: "operation_type∈{container_start,container_stop,create_container,pull_image,remove_container}"}
+  - {root: kubelet_runtime_operations_total, type: counter, unit: count, v: ok, note: "representative operation_type subset∈{create_container,start_container,stop_container,pull_image,remove_container,run_podsandbox}; complete source-defined set in prose above; source-verified 2026-09-06 (SK-99)"}
   - {root: kubelet_runtime_operations_errors_total, type: counter, unit: count, v: ok, note: "=0 at baseline"}
   # ⚠ kubelet_runtime_operations_duration_seconds does NOT exist (runtime ops are counters only)
   - {root: kubelet_cgroup_manager_duration_seconds, type: histogram, unit: seconds, v: ok, buckets: [0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10], note: "operation_type label; Prometheus default buckets"}

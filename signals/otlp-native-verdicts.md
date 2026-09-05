@@ -67,7 +67,7 @@ target only, must NOT gain an OTLP metrics lane · **UNRESOLVED** = evidence not
 | `glue` | `construct/glue` | OTEL-NATIVE (different namespace) | As `cw_infra` — CloudWatch-sourced (namespace `Glue`, no `AWS/` prefix). | 2026-08-27 |
 | `bedrock` | `construct/bedrock` | OTEL-NATIVE (different namespace) | As `cw_infra` — CloudWatch-sourced. | 2026-08-27 |
 | `agentcore` | `construct/agentcore` | OTEL-NATIVE (different namespace) | As `cw_infra` — CloudWatch-sourced. | 2026-08-27 |
-| `csp_azure` | `construct/cspazure` | OTEL-NATIVE (different namespace) | `azuremonitorreceiver` collects from Azure Monitor and emits OTel metrics with resource attributes `azuremonitor.subscription`, `azuremonitor.subscription_id`, `azuremonitor.tenant_id`; per-metric dimension overrides are configured per Azure resource type. Vendor docs via ctx7 `/open-telemetry/opentelemetry-collector-contrib`. Emitted name shape not yet captured — SK-88. | 2026-08-27 |
+| `csp_azure` | `construct/cspazure` | OTEL-NATIVE (different namespace) | `azuremonitorreceiver/README.md` states that all scraped metric names are prefixed with exact string `azure_`; `documentation.md` lists resource attributes `azuremonitor.subscription`, `azuremonitor.subscription_id`, `azuremonitor.tenant_id`. Per-metric dimension overrides remain resource-type-specific. Vendor docs via ctx7 `/open-telemetry/opentelemetry-collector-contrib`; Azure half of SK-88 resolved, while exact per-family instruments, units and datapoint attributes still require capture before implementation. | 2026-09-06 |
 | `csp_gcp` | `construct/cspgcp` | OTEL-NATIVE (different namespace) | `googlecloudmonitoringreceiver/README.md`: collects time series from GCP services via the Monitoring REST API and "convert[s] it into OTel Format Pipeline Data". Vendor docs via ctx7 `/open-telemetry/opentelemetry-collector-contrib`. Emitted name shape not yet captured — SK-88. | 2026-08-27 |
 | `alloy_health` | `construct/alloyhealth` | SCRAPE-ONLY | `grafana/alloy` `reference/http/_index.md` + `collect/metamonitoring.md`: Alloy exposes its internal metrics **only** in Prometheus exposition format on `/metrics`; the documented meta-monitoring route is `prometheus.exporter.self` → `prometheus.scrape` → optionally `otelcol.receiver.prometheus` for OTLP conversion. The `otelcol_*` families are therefore Prometheus-named at the source. Vendor docs via ctx7 `/grafana/alloy`. | 2026-08-27 |
 | `fleet_management` | `construct/fleetmgmt` | SCRAPE-ONLY | Models an Alloy collector roster's self-metrics; same producer and same Prometheus-only exposition as `alloy_health`. `signals/fm.md` families `fm_fleet`/`fm_alloy_health`/`fm_content_sentinel`. | 2026-08-27 |
@@ -146,8 +146,9 @@ and none may be resolved by inference:
 - **SK-85** — `k8s_cluster`: the `kubeletstatsreceiver` **default-enabled** metric name set.
 - **SK-86** — `beyla_agent`: the OTLP instrument names under `internal_metrics.exporter: otel`.
 - **SK-87** — `envoy_gateway`: the metric names on the OpenTelemetry sink.
-- **SK-88** — `csp_azure` / `csp_gcp`: the emitted metric-name shape of the Azure Monitor and Google
-  Cloud Monitoring receivers.
+- **SK-88 PARTIAL** — `csp_azure` documented shape is exact `azure_` prefix plus resource attributes
+  `azuremonitor.subscription`, `azuremonitor.subscription_id`, `azuremonitor.tenant_id`; Google
+  Cloud Monitoring emitted-name transformation and resource attributes remain unresolved.
 - **SK-89** — CloudWatch group: how an OTLP gateway normalises `amazonaws.com/{Namespace}/{Name}`
   into a queryable Prometheus name.
 - **SK-90** — `synthetic_monitoring`: whether the Grafana SM probe pipeline has any OTLP metric

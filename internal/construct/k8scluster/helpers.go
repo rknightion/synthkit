@@ -43,9 +43,11 @@ var cpuModes = []string{"idle", "iowait", "irq", "nice", "softirq", "steal", "sy
 // nodeExporterDS is the DaemonSet name (and pod name prefix) for the node-exporter.
 const nodeExporterDS = "grafana-k8s-monitoring-node-exporter"
 
-// runtimeOps are the kubelet operation_type values.
+// runtimeOps are a plausible, representative subset of the operation_type values emitted by
+// kubelet's instrumented CRI services. The spelling is pinned to upstream source; run_podsandbox
+// was also observed in the 2026-08-25 k3d capture (cantfind.md SK-99).
 var runtimeOps = []string{
-	"container_start", "container_stop", "create_container", "pull_image", "remove_container",
+	"create_container", "start_container", "stop_container", "pull_image", "remove_container", "run_podsandbox",
 }
 
 // ── Label builders ────────────────────────────────────────────────────────────────

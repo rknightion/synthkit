@@ -561,6 +561,37 @@ func TestCountersMonotone(t *testing.T) {
 	}
 }
 
+func TestKubeletRuntimeOperationTypes(t *testing.T) {
+	cl := coretest.Cluster()
+	c := buildConstruct(t, cl)
+	mc := &coretest.MetricCapture{}
+	lc := &coretest.LogCapture{}
+	tick(t, c, mc, lc)
+
+	got := map[string]bool{}
+	for _, sample := range mc.All() {
+		if sample.Name == "kubelet_runtime_operations_total" {
+			got[sample.Labels["operation_type"]] = true
+		}
+	}
+	want := map[string]bool{
+		"create_container": true,
+		"start_container":  true,
+		"stop_container":   true,
+		"pull_image":       true,
+		"remove_container": true,
+		"run_podsandbox":   true,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("runtime operation types = %v, want %v", got, want)
+	}
+	for operation := range want {
+		if !got[operation] {
+			t.Errorf("missing runtime operation type %q; got %v", operation, got)
+		}
+	}
+}
+
 // labelSig produces a stable string key from a label map (test helper).
 func labelSig(m map[string]string) string {
 	keys := make([]string, 0, len(m))
