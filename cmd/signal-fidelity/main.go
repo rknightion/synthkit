@@ -18,6 +18,11 @@ import (
 	"github.com/rknightion/synthkit/internal/inventory"
 )
 
+// reportLineBound is the measured line count of the current full signal-fidelity report. The
+// report-size diagnostic is informational in this wave: a size breach must never turn a passing
+// fidelity comparison into a failing command.
+const reportLineBound = 27212
+
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "signal-fidelity:", err)
@@ -26,6 +31,10 @@ func main() {
 }
 
 func run(args []string, output io.Writer) error {
+	return runWithReportLineBound(args, output, reportLineBound)
+}
+
+func runWithReportLineBound(args []string, output io.Writer, lineBound int) error {
 	flags := flag.NewFlagSet("signal-fidelity", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	synthPath := flags.String("synth", "", "path to a synthkit -inventory-json export")
@@ -61,7 +70,15 @@ func run(args []string, output io.Writer) error {
 	}
 	findings := inventory.CompareCorpus(synth, documents)
 	exemptionErr := inventory.ApplyContradictionExemptions(findings, exemptions)
-	if err := inventory.WriteFindingsReport(output, findings); err != nil {
+	var report bytes.Buffer
+	if err := inventory.WriteFindingsReport(&report, findings); err != nil {
+		return err
+	}
+	lineCount := reportLineCount(report.Bytes())
+	if _, err := io.Copy(output, &report); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(output, "Report size: %d lines (bound: %d; size-only breaches are report-only).\n", lineCount, lineBound); err != nil {
 		return err
 	}
 	if exemptionErr != nil {
@@ -71,6 +88,17 @@ func run(args []string, output io.Writer) error {
 		return fmt.Errorf("%d unexempted contradiction findings", count)
 	}
 	return nil
+}
+
+func reportLineCount(report []byte) int {
+	if len(report) == 0 {
+		return 0
+	}
+	count := bytes.Count(report, []byte{'\n'})
+	if report[len(report)-1] != '\n' {
+		count++
+	}
+	return count
 }
 
 func loadSynthInventory(path string) (inventory.Schema, error) {

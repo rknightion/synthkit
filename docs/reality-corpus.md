@@ -29,6 +29,34 @@ The contract is deliberately narrow:
 - Explicit contradiction decisions live in a separate versioned exemption
   document. They are review records, not changes to captured reality.
 
+## Report-size standard
+
+The human-readability budget for the signal-fidelity report is **27,212 lines
+or fewer**. This bound is measured, not invented: on 2026-09-05, the current
+`just signal-fidelity` run produced a 27,212-line report body (7,369,240 bytes).
+That body contained 13,588 finding lines (two visible exempted contradictions
+and 13,586 coverage gaps) and 13,586 copy-pasteable `PENDING` lines. The bound
+is the current measured report size, and a later report that grows beyond it
+must be disclosed as a readability breach while this wave remains report-only
+for size.
+
+The body is the complete output rendered by `inventory.WriteFindingsReport`
+after comparing the generated synth inventory with the loaded corpus
+documents and applying the contradiction-exemption records. It measures the
+heading and explanation, evidence-scope lines, contradiction and coverage-gap
+class headings, every finding line, every generated `PENDING` stub, and the
+blank lines and Markdown fences emitted around those sections. It does not use
+raw capture rows, distinct signal names, report bytes, or stderr as its unit.
+The command prints the body count after the report in this form:
+
+```text
+Report size: <N> lines (bound: 27212; size-only breaches are report-only).
+```
+
+`N` counts the newline-delimited report body and excludes that diagnostic line.
+Size alone never changes the exit status: malformed input, exemption errors,
+and unexempted contradictions retain their existing failure behavior.
+
 Use the [signal catalogue](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md), its
 [cross-cutting canon](https://github.com/rknightion/synthkit/blob/main/signals/00-canon.md), and the
 [signal-area index](signal-areas.md) to identify the owning area and interpret

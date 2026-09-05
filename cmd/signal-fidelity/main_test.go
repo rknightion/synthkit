@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,55 @@ import (
 
 	"github.com/rknightion/synthkit/internal/inventory"
 )
+
+func TestRunPrintsReportLineCountAgainstBound(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	synthPath := filepath.Join(dir, "synth.json")
+	corpusDir := filepath.Join(dir, "corpus")
+	if err := os.Mkdir(corpusDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	writeJSONFile(t, synthPath, inventory.New())
+	writeCorpusMetric(t, corpusDir, testMetric("report_size_total", "us-east-1"))
+	writeExemptionsFile(t, corpusDir, nil)
+
+	var output bytes.Buffer
+	if err := run([]string{"-synth", synthPath, "-corpus", corpusDir}, &output); err != nil {
+		t.Fatalf("run returned a report finding as an error: %v", err)
+	}
+	lines := strings.Split(strings.TrimSuffix(output.String(), "\n"), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("report did not include a size line:\n%s", output.String())
+	}
+	want := fmt.Sprintf("Report size: %d lines (bound: %d; size-only breaches are report-only).", len(lines)-1, reportLineBound)
+	if !strings.Contains(output.String(), want) {
+		t.Fatalf("report missing size diagnostic %q:\n%s", want, output.String())
+	}
+}
+
+func TestRunTreatsReportSizeBreachAsReportOnly(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	synthPath := filepath.Join(dir, "synth.json")
+	corpusDir := filepath.Join(dir, "corpus")
+	if err := os.Mkdir(corpusDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	writeJSONFile(t, synthPath, inventory.New())
+	writeCorpusMetric(t, corpusDir, testMetric("report_size_total", "us-east-1"))
+	writeExemptionsFile(t, corpusDir, nil)
+
+	var output bytes.Buffer
+	if err := runWithReportLineBound([]string{"-synth", synthPath, "-corpus", corpusDir}, &output, 1); err != nil {
+		t.Fatalf("size-only breach returned an error: %v", err)
+	}
+	if !strings.Contains(output.String(), "bound: 1; size-only breaches are report-only") {
+		t.Fatalf("report did not disclose the report-only size breach:\n%s", output.String())
+	}
+}
 
 func TestRunPrintsCoverageFindingsWithoutFailing(t *testing.T) {
 	t.Parallel()
@@ -70,7 +120,7 @@ func TestRunFailsAfterPrintingUnexemptedContradiction(t *testing.T) {
 	writeExemptionsFile(t, corpusDir, nil)
 
 	var output bytes.Buffer
-	err := run([]string{"-synth", synthPath, "-corpus", corpusDir}, &output)
+	err := runWithReportLineBound([]string{"-synth", synthPath, "-corpus", corpusDir}, &output, 1)
 	if err == nil || !strings.Contains(err.Error(), "1 unexempted contradiction") {
 		t.Fatalf("run error = %v, want one unexempted contradiction", err)
 	}
