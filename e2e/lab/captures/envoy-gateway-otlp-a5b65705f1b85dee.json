@@ -1,0 +1,4918 @@
+{
+  "capture": {
+    "observed_batch_end": "2026-09-05T22:26:08.212Z",
+    "observed_batch_start": "2026-09-05T22:10:19.330Z",
+    "observed_batch_windows": [
+      {
+        "duration_seconds": 46.734,
+        "end": "2026-09-05T22:11:06.064Z",
+        "start": "2026-09-05T22:10:19.330Z"
+      },
+      {
+        "duration_seconds": 713.242,
+        "end": "2026-09-05T22:26:08.212Z",
+        "start": "2026-09-05T22:14:14.970Z"
+      }
+    ],
+    "raw_line_count": 2426942,
+    "raw_sha256": "a5b65705f1b85deecc011272c039499cee933cab824f6fd2310a6fffe6df40a4",
+    "value_elisions": {
+      "envoy.cluster_name": "<cluster-name-elided>",
+      "envoy.http_conn_manager_prefix": "<http-connection-manager-name-elided>",
+      "envoy.listener_address": "<listener-address-elided>",
+      "envoy.rds_route_config": "<route-config-name-elided>",
+      "envoy.tls_certificate": "<certificate-name-elided>",
+      "envoy.worker_id": "<worker-id-elided>",
+      "envoy.xds_resource_name": "<xds-resource-name-elided>",
+      "name": "<resource-name-elided>",
+      "namespace": "<namespace-name-elided>",
+      "nodeID": "<node-id-elided>",
+      "socket_match_name": "<socket-match-name-elided>",
+      "streamID": "<stream-id-elided>"
+    }
+  },
+  "planes": {
+    "control_plane": {
+      "metrics": [
+        {
+          "datapoint_attributes": {
+            "kind": [
+              "ConfigMap",
+              "Deployment",
+              "PDB",
+              "Service",
+              "ServiceAccount"
+            ],
+            "name": [
+              "<resource-name-elided>"
+            ],
+            "namespace": [
+              "<namespace-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.001,
+              0.01,
+              0.1,
+              1.0,
+              5.0,
+              10.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "resource_apply_duration_seconds",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "kind": [
+              "ConfigMap",
+              "Deployment",
+              "PDB",
+              "Service",
+              "ServiceAccount"
+            ],
+            "name": [
+              "<resource-name-elided>"
+            ],
+            "namespace": [
+              "<namespace-name-elided>"
+            ],
+            "status": [
+              "success"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "resource_apply_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "kind": [
+              "ConfigMap",
+              "Service",
+              "ServiceAccount"
+            ],
+            "name": [
+              "<resource-name-elided>"
+            ],
+            "namespace": [
+              "<namespace-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.001,
+              0.01,
+              0.1,
+              1.0,
+              5.0,
+              10.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "resource_delete_duration_seconds",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "kind": [
+              "ConfigMap",
+              "Service",
+              "ServiceAccount"
+            ],
+            "name": [
+              "<resource-name-elided>"
+            ],
+            "namespace": [
+              "<namespace-name-elided>"
+            ],
+            "status": [
+              "success"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "resource_delete_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "kind": [
+              "Gateway",
+              "GatewayClass",
+              "HTTPRoute",
+              "Unknown"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.001,
+              0.01,
+              0.1,
+              1.0,
+              5.0,
+              10.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "status_update_duration_seconds",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "kind": [
+              "Gateway",
+              "GatewayClass",
+              "HTTPRoute",
+              "Unknown"
+            ],
+            "reason": [
+              "conflict"
+            ],
+            "status": [
+              "failure",
+              "no_action",
+              "success"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "status_update_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "status": [
+              "success"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "topology_injector_webhook_events_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "wasm_cache_entries",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "message": [
+              "envoyproxy-status",
+              "gateway-status",
+              "httproute-status",
+              "infra-ir",
+              "provider-resources",
+              "xds-ir"
+            ],
+            "runner": [
+              "gateway-api",
+              "infrastructure",
+              "provider",
+              "xds"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "watchable_depth",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "event_type": [
+              "update"
+            ],
+            "runner": [
+              "gateway-api",
+              "infrastructure",
+              "xds"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "watchable_event_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "message": [
+              "backend-status",
+              "backendtlspolicy-status",
+              "backendtrafficpolicy-status",
+              "clienttrafficpolicy-status",
+              "envoyextensionpolicy-status",
+              "envoyproxy-status",
+              "extensionserverpolicies-status",
+              "gateway-status",
+              "gatewayclass-status",
+              "grpcroute-status",
+              "httproute-status",
+              "infra-ir",
+              "listenerset-status",
+              "provider-resources",
+              "securitypolicy-status",
+              "tcproute-status",
+              "tlsroute-status",
+              "udproute-status",
+              "xds-ir"
+            ],
+            "runner": [
+              "gateway-api",
+              "provider"
+            ],
+            "status": [
+              "success"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "watchable_publish_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "message": [
+              "envoyproxy-status",
+              "gateway-status",
+              "gatewayclass-status",
+              "httproute-status",
+              "infra-ir",
+              "provider-resources",
+              "xds-ir"
+            ],
+            "runner": [
+              "gateway-api",
+              "infrastructure",
+              "provider",
+              "xds"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.001,
+              0.01,
+              0.1,
+              1.0,
+              5.0,
+              10.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "watchable_subscribe_duration_seconds",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "message": [
+              "envoyproxy-status",
+              "gateway-status",
+              "gatewayclass-status",
+              "httproute-status",
+              "infra-ir",
+              "provider-resources",
+              "xds-ir"
+            ],
+            "runner": [
+              "gateway-api",
+              "infrastructure",
+              "provider",
+              "xds"
+            ],
+            "status": [
+              "success"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "watchable_subscribe_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "status": [
+              "success"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "xds_snapshot_create_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "nodeID": [
+              "<node-id-elided>"
+            ],
+            "status": [
+              "success"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "xds_snapshot_update_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "isDeltaStream": [
+              "true"
+            ],
+            "nodeID": [
+              "<node-id-elided>"
+            ],
+            "streamID": [
+              "<stream-id-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.1,
+              10.0,
+              50.0,
+              100.0,
+              1000.0,
+              10000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "xds_stream_duration_seconds",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            "1"
+          ]
+        }
+      ],
+      "resource_attributes": {
+        "service.name": [
+          "unknown_service:envoy-gateway"
+        ],
+        "telemetry.sdk.language": [
+          "go"
+        ],
+        "telemetry.sdk.name": [
+          "opentelemetry"
+        ],
+        "telemetry.sdk.version": [
+          "1.45.0"
+        ]
+      },
+      "resource_schema_urls": [
+        "https://opentelemetry.io/schemas/1.43.0"
+      ],
+      "scopes": [
+        {
+          "name": "envoy-gateway",
+          "version": ""
+        }
+      ]
+    },
+    "data_plane": {
+      "metrics": [
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "priority": [
+              "default"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.circuit_breakers.cx_open",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "priority": [
+              "default",
+              "high"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.circuit_breakers.cx_pool_open",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "priority": [
+              "default"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.circuit_breakers.rq_open",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "priority": [
+              "default"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.circuit_breakers.rq_pending_open",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.client_ssl_socket_factory.ssl_context_update_by_sds",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.response_code": [
+              "200"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.external.upstream_rq",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.external.upstream_rq_completed",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "cluster.external.upstream_rq_time",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.response_code_class": [
+              "2"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.external.upstream_rq_xx",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.http2.outbound_control_frames_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.http2.outbound_frames_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.http2.pending_send_bytes",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.http2.rx_reset",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.http2.streams_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.http2.tx_reset",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.response_code": [
+              "200",
+              "503"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.internal.upstream_rq",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.internal.upstream_rq_completed",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "cluster.internal.upstream_rq_time",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.response_code_class": [
+              "2",
+              "5"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.internal.upstream_rq_xx",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.lb_recalculate_zone_structures",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.max_host_weight",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.membership_change",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.membership_degraded",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.membership_excluded",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.membership_healthy",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.membership_total",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.tls_certificate": [
+              "<certificate-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.ssl.certificate.expiration_unix_time_seconds",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "cipher_suite": [
+              "TLS_AES_128_GCM_SHA256"
+            ],
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.ssl.ciphers",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.ssl_curve": [
+              "X25519"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.ssl.curves",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.ssl.handshake",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.ssl_sigalg": [
+              "rsa_pss_rsae_sha256"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.ssl.sigalgs",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.ssl_version": [
+              "TLSv1.3"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.ssl.versions",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "socket_match_name": [
+              "<socket-match-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.total_match_count",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.update_attempt",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "cluster.update_duration",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.update_failure",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.update_no_rebuild",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.update_success",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.update_time",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.upstream_cx_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "cluster.upstream_cx_connect_ms",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_cx_destroy",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_cx_destroy_remote",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_cx_destroy_remote_with_active_rq",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_cx_destroy_with_active_rq",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_cx_http1_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_cx_http2_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "cluster.upstream_cx_length_ms",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.upstream_cx_rx_bytes_buffered",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_cx_rx_bytes_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_cx_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_cx_tx_bytes_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.response_code": [
+              "200",
+              "503"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_rq",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.upstream_rq_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_rq_completed",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.upstream_rq_pending_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_rq_pending_failure_eject",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_rq_pending_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "cluster.upstream_rq_per_cx",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "cluster.upstream_rq_time",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_rq_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_rq_tx_reset",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ],
+            "envoy.response_code_class": [
+              "2",
+              "5"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster.upstream_rq_xx",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.version",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.cluster_name": [
+              "<cluster-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster.warming_state",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster_manager.active_clusters",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster_manager.cds.config_reload",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster_manager.cds.config_reload_time_ms",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster_manager.cds.update_attempt",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "cluster_manager.cds.update_duration",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster_manager.cds.update_failure",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster_manager.cds.update_success",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster_manager.cds.update_time",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster_manager.cds.version",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster_manager.cluster_added",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster_manager.cluster_updated",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster_manager.cluster_updated_via_merge",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster_manager.update_merge_cancelled",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "cluster_manager.update_out_of_merge_window",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "cluster_manager.warming_clusters",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "control_plane.connected_state",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "dns.cares.not_found",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "dns.cares.pending_resolutions",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "dns.cares.resolve_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "filesystem.flushed_by_timer",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "filesystem.write_buffered",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "filesystem.write_completed",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "filesystem.write_total_buffered",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http.downstream_cx_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_cx_destroy",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_cx_destroy_local",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_cx_destroy_remote",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http.downstream_cx_http1_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_cx_http1_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http.downstream_cx_http2_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_cx_http2_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "http.downstream_cx_length_ms",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http.downstream_cx_rx_bytes_buffered",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_cx_rx_bytes_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http.downstream_cx_ssl_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_cx_ssl_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_cx_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_cx_tx_bytes_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http.downstream_rq_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_rq_completed",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_rq_http1_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_rq_http2_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "http.downstream_rq_time",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_rq_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.response_code_class": [
+              "2"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.downstream_rq_xx",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.health_check.ok",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.health_check.request_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.rds_route_config": [
+              "<route-config-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.rds.config_reload",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.rds_route_config": [
+              "<route-config-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http.rds.config_reload_time_ms",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.rds_route_config": [
+              "<route-config-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.rds.update_attempt",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.rds_route_config": [
+              "<route-config-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "http.rds.update_duration",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.rds_route_config": [
+              "<route-config-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.rds.update_failure",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.rds_route_config": [
+              "<route-config-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.rds.update_success",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.rds_route_config": [
+              "<route-config-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http.rds.update_time",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.rds_route_config": [
+              "<route-config-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http.rds.version",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.rq_reset_after_downstream_response_started",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.rq_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.tracing.health_check",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "http.tracing.random_sampling",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http2.outbound_control_frames_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http2.outbound_frames_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http2.pending_send_bytes",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "http2.streams_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "listener.admin.connections_accepted_per_socket_event",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener.admin.downstream_cx_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.admin.downstream_cx_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener.admin.downstream_pre_cx_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.admin.http.downstream_rq_completed",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.response_code_class": [
+              "2"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.admin.http.downstream_rq_xx",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener.admin.main_thread.downstream_cx_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.admin.main_thread.downstream_cx_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "listener.connections_accepted_per_socket_event",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener.downstream_cx_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.downstream_cx_destroy",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "listener.downstream_cx_length_ms",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.downstream_cx_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener.downstream_pre_cx_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.http.downstream_rq_completed",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.http_conn_manager_prefix": [
+              "<http-connection-manager-name-elided>"
+            ],
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ],
+            "envoy.response_code_class": [
+              "2"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.http.downstream_rq_xx",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.server_ssl_socket_factory.ssl_context_update_by_sds",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ],
+            "envoy.tls_certificate": [
+              "<certificate-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener.ssl.certificate.expiration_unix_time_seconds",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ],
+            "envoy.ssl_cipher": [
+              "TLS_AES_256_GCM_SHA384"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.ssl.ciphers",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ],
+            "envoy.ssl_curve": [
+              "X25519"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.ssl.curves",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.ssl.handshake",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.ssl.no_certificate",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ],
+            "envoy.ssl_version": [
+              "TLSv1.3"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.ssl.versions",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ],
+            "envoy.worker_id": [
+              "<worker-id-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener.worker_downstream_cx_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.listener_address": [
+              "<listener-address-elided>"
+            ],
+            "envoy.worker_id": [
+              "<worker-id-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener.worker_downstream_cx_total",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener_manager.lds.update_attempt",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "listener_manager.lds.update_duration",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener_manager.lds.update_failure",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener_manager.lds.update_success",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener_manager.lds.update_time",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener_manager.lds.version",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener_manager.listener_added",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "listener_manager.listener_create_success",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener_manager.total_listeners_active",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener_manager.total_listeners_warming",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "listener_manager.workers_started",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "main_thread.watchdog_miss",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "runtime.load_success",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "runtime.num_keys",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "runtime.num_layers",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "runtime.override_dir_not_exists",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.xds_resource_name": [
+              "<xds-resource-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "sds.update_attempt",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.xds_resource_name": [
+              "<xds-resource-name-elided>"
+            ]
+          },
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "sds.update_duration",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.xds_resource_name": [
+              "<xds-resource-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "sds.update_failure",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.xds_resource_name": [
+              "<xds-resource-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "sds.update_success",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.xds_resource_name": [
+              "<xds-resource-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "sds.update_time",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.xds_resource_name": [
+              "<xds-resource-name-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "sds.version",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.compilation_settings.fips_mode",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.concurrency",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.days_until_first_cert_expiring",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "server.dynamic_unknown_fields",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.hot_restart_epoch",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.hot_restart_generation",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "server.initialization_time_ms",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.live",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "server.main_thread.watchdog_miss",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.memory_allocated",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.memory_heap_size",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.memory_physical_size",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.parent_connections",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.state",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "server.static_unknown_fields",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.stats_recent_lookups",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.total_connections",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.uptime",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "server.version",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "server.wip_protos",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.worker_id": [
+              "<worker-id-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "server.worker_watchdog_miss",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "thread_local_cluster_manager.main_thread.clusters_inflated",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {
+            "envoy.worker_id": [
+              "<worker-id-elided>"
+            ]
+          },
+          "explicit_bounds": [],
+          "instrument": [
+            "Gauge"
+          ],
+          "monotonic": [],
+          "name": "thread_local_cluster_manager.worker_clusters_inflated",
+          "temporality": [
+            ""
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "tls_inspector.alpn_found",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "tls_inspector.alpn_not_found",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [
+            [
+              0.5,
+              1.0,
+              5.0,
+              10.0,
+              25.0,
+              50.0,
+              100.0,
+              250.0,
+              500.0,
+              1000.0,
+              2500.0,
+              5000.0,
+              10000.0,
+              30000.0,
+              60000.0,
+              300000.0,
+              600000.0,
+              1800000.0,
+              3600000.0
+            ]
+          ],
+          "instrument": [
+            "Histogram"
+          ],
+          "monotonic": [],
+          "name": "tls_inspector.bytes_processed",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "tls_inspector.sni_found",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "tls_inspector.tls_found",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "tracing.opentelemetry.spans_sent",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "tracing.opentelemetry.timer_flushed",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        },
+        {
+          "datapoint_attributes": {},
+          "explicit_bounds": [],
+          "instrument": [
+            "Sum"
+          ],
+          "monotonic": [
+            true
+          ],
+          "name": "workers.watchdog_miss",
+          "temporality": [
+            "Cumulative"
+          ],
+          "unit": [
+            ""
+          ]
+        }
+      ],
+      "resource_attributes": {
+        "telemetry.sdk.language": [
+          "cpp"
+        ],
+        "telemetry.sdk.name": [
+          "envoy"
+        ],
+        "telemetry.sdk.version": [
+          "<build-id-elided>/1.39.0/Clean/RELEASE/BoringSSL"
+        ]
+      },
+      "resource_schema_urls": [
+        ""
+      ],
+      "scopes": [
+        {
+          "name": "",
+          "version": ""
+        }
+      ]
+    }
+  },
+  "schema": "synthkit.envoy_gateway_otlp_capture.v1"
+}

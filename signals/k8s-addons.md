@@ -700,6 +700,46 @@ note: "two redis histogram families (version artifact: _duration vs _duration_se
 
 ## Envoy Gateway — TWO surfaces (control plane + data plane, ns `envoy-gateway-system`, port 19001, v1.8.1 — 2026-06-16) [slug: k8s-envoy-gateway]
 
+### Native OTLP — full current contract capture
+
+The 2026-09-05 full capture is the implementation contract for both native metrics sinks:
+`e2e/lab/captures/envoy-gateway-otlp-a5b65705f1b85dee.json` is the normative per-family machine
+record and `e2e/lab/captures/envoy-gateway-otlp-full-a5b65705f1b85dee.md` is its readable record.
+It supersedes the contract completeness of the two 2026-09-04 records below without changing their
+historical observations. Their PENDING statements for SK-110, SK-111, and SK-112 are resolved by
+this capture.
+
+The current control plane emitted 16 families: 2 Gauge, 9 Sum, and 5 Histogram. Its resource is
+`service.name=unknown_service:envoy-gateway`, `telemetry.sdk.language=go`,
+`telemetry.sdk.name=opentelemetry`, and `telemetry.sdk.version=1.45.0`, under schema URL
+`https://opentelemetry.io/schemas/1.43.0`. The instrumentation scope name is `envoy-gateway` and
+its version is empty. Every family has unit `1`; Sum and Histogram temporality is cumulative.
+
+The current data plane emitted 206 families: 75 Gauge, 113 Sum, and 18 Histogram. Its resource is
+`telemetry.sdk.language=cpp`, `telemetry.sdk.name=envoy`, and the captured Envoy build version; the
+build identifier is deliberately elided in the retained contract. Resource schema URL, scope name,
+scope version, and every metric unit are empty. Sum and Histogram temporality is cumulative.
+
+The JSON attaches each observed datapoint attribute key and its observed value set to the exact
+family. Deployment names, namespaces, addresses, certificate/resource names, worker/node/stream
+IDs, and route or cluster names are retained as typed elision markers rather than copied values.
+Protocol enums and low-cardinality values remain verbatim. A generator must not move an attribute
+between families or replace an elision marker with an inferred identity.
+
+Histogram bounds are exact and stable across the retained batches:
+
+- `resource_apply_duration_seconds`, `resource_delete_duration_seconds`,
+  `status_update_duration_seconds`, and `watchable_subscribe_duration_seconds`:
+  `0.001,0.01,0.1,1,5,10`.
+- `xds_stream_duration_seconds`: `0.1,10,50,100,1000,10000`.
+- All 18 captured data-plane histograms:
+  `0.5,1,5,10,25,50,100,250,500,1000,2500,5000,10000,30000,60000,300000,600000,1800000,3600000`.
+
+The retained retry window contains 713.242 seconds of continuous debug-exporter batches from both
+planes. Afterward both temporary sinks were absent on live API read-back and the disposable
+receiver resources were absent. The raw evidence hash and the complete 23-family bounds table are
+in the readable record.
+
 ### Native OTLP — EnvoyProxy data plane
 
 `proxy_telemetry.otel_sink: true` models the `telemetry.metrics.sinks[].openTelemetry` sink on the
