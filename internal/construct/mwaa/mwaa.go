@@ -49,6 +49,7 @@ type Construct struct {
 	environments []string
 	accountID    string
 	region       string
+	cloud        *fixture.Cloud
 	exportMode   string
 	st           *state.State
 }
@@ -79,6 +80,7 @@ func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
 		environments: environments,
 		accountID:    fx.Cloud.AccountID,
 		region:       fx.Cloud.Region,
+		cloud:        fx.Cloud,
 		exportMode:   fx.Cloud.CloudWatchExportMode(),
 		st:           state.NewState(),
 	}, nil
@@ -105,7 +107,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 	batch := c.st.Collect(now)
 	if c.exportMode == "otlp" {
-		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, &fixture.Cloud{AccountID: c.accountID, Region: c.region}, batch)
+		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, c.cloud, batch)
 		return err
 	}
 	return w.Metrics.Write(ctx, batch)

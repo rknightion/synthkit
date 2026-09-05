@@ -61,10 +61,17 @@ func EmitStream(res *otlp.MetricResource, e StreamEntry, dims map[string]string,
 	if len(dims) > 0 {
 		attrs["Dimensions"] = dims
 	}
+	// CloudWatch Summary semantics require sum = average × sample count. The legacy
+	// remote-write batch remains untouched; only the native conversion repairs callers that
+	// represented a per-period value in both Sum and Average.
+	summarySum := s.Sum
+	if s.SampleCount > 0 {
+		summarySum = s.Average * s.SampleCount
+	}
 	res.Metrics = append(res.Metrics, otlp.Metric{
 		Name: StreamName(e.Namespace, e.MetricName), Unit: e.Unit, Kind: otlp.MetricSummary,
 		Summaries: []otlp.SummaryPoint{{
-			Attrs: attrs, Time: ts, Count: uint64(s.SampleCount), Sum: s.Sum,
+			Attrs: attrs, Time: ts, Count: uint64(s.SampleCount), Sum: summarySum,
 			Quantiles: map[float64]float64{0: s.Minimum, 1: s.Maximum},
 		}},
 	})
@@ -148,6 +155,14 @@ func MetricStreams(cloud *fixture.Cloud, batch []promrw.Series) ([]otlp.MetricRe
 // writer. A batch containing only unverified bases intentionally produces no request.
 func WriteMetricStreams(ctx context.Context, writer core.OTLPMetricWriter, cloud *fixture.Cloud, batch []promrw.Series) (StreamReport, error) {
 	resources, report := MetricStreams(cloud, batch)
+	if recorder, ok := writer.(core.CloudWatchMetricStreamReportRecorder); ok {
+		skipped := make([]string, 0, len(report.SkippedBases))
+		for base := range report.SkippedBases {
+			skipped = append(skipped, base)
+		}
+		slices.Sort(skipped)
+		recorder.RecordCloudWatchMetricStreamReport(core.CloudWatchMetricStreamReport{SkippedBases: skipped})
+	}
 	// A declared native lane can be exercised without a configured delivery sink (for
 	// example by the full-estate integration capture, which only installs the legacy
 	// Prometheus writer). Match the other optional writers' nil behaviour rather than

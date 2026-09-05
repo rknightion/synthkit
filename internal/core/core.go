@@ -98,6 +98,19 @@ type MetricSuppressionRecorder interface {
 	RecordMetricSuppression(name, allowListVersion, allowListVariant string)
 }
 
+// CloudWatchMetricStreamReport is a source-side record of CloudWatch Metric Streams families
+// withheld because their exact AWS name/unit contract is not verified. It is bookkeeping only;
+// it never changes the OTLP payload.
+type CloudWatchMetricStreamReport struct {
+	SkippedBases []string
+}
+
+// CloudWatchMetricStreamReportRecorder exposes source-side Metric Streams gaps to the composition
+// root's live inventory. Constructs may report through the OTLP writer without importing runner.
+type CloudWatchMetricStreamReportRecorder interface {
+	RecordCloudWatchMetricStreamReport(CloudWatchMetricStreamReport)
+}
+
 // LogWriter writes Loki streams (low-card stream labels; high-card keys in structured
 // metadata — the sink asserts).
 type LogWriter interface {

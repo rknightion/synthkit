@@ -224,6 +224,7 @@ type stampedOTLPMetrics struct {
 	sink     core.OTLPMetricWriter
 	label    string
 	producer string
+	inv      *constructInv
 }
 
 func (w *stampedOTLPMetrics) Write(ctx context.Context, resources []otlp.MetricResource) error {
@@ -240,6 +241,15 @@ func (w *stampedOTLPMetrics) Write(ctx context.Context, resources []otlp.MetricR
 	}
 	resources = stamped
 	return w.sink.Write(ctx, resources)
+}
+
+// RecordCloudWatchMetricStreamReport keeps withheld CloudWatch bases visible in the live
+// construct inventory. The report is source-side bookkeeping and is never stamped on the wire.
+func (w *stampedOTLPMetrics) RecordCloudWatchMetricStreamReport(report core.CloudWatchMetricStreamReport) {
+	if w == nil || w.inv == nil {
+		return
+	}
+	w.inv.recordCloudWatchMetricStreamReport(report.SkippedBases)
 }
 
 // stampedOTLPLogs stamps the blueprint label as a RESOURCE attribute on OTLP log blocks

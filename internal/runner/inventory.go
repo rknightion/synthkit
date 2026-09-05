@@ -23,25 +23,39 @@ type constructInv struct {
 	identity         *control.QueryIdentity
 	metricIdentities map[string]*control.QueryIdentity
 
-	mu           sync.Mutex
-	seed         maphash.Seed
-	sigs         map[uint64]struct{} // distinct metric-series signatures (hashed)
-	capped       bool
-	metricNames  map[string]struct{}
-	metricLabels map[string]struct{}
-	logSources   map[string]struct{}
-	logLabelKeys map[string]struct{}
-	spanServices map[string]struct{}
-	spanNames    map[string]struct{}
-	spanAttrKeys map[string]struct{}
+	mu                       sync.Mutex
+	seed                     maphash.Seed
+	sigs                     map[uint64]struct{} // distinct metric-series signatures (hashed)
+	capped                   bool
+	metricNames              map[string]struct{}
+	metricLabels             map[string]struct{}
+	metricStreamSkippedBases map[string]struct{}
+	logSources               map[string]struct{}
+	logLabelKeys             map[string]struct{}
+	spanServices             map[string]struct{}
+	spanNames                map[string]struct{}
+	spanAttrKeys             map[string]struct{}
 }
 
 func newConstructInv(bp, kind, name string, identity *control.QueryIdentity, metricIdentities map[string]*control.QueryIdentity) *constructInv {
 	return &constructInv{
 		bp: bp, kind: kind, name: name, identity: cloneQueryIdentity(identity), metricIdentities: cloneMetricQueryIdentities(metricIdentities), seed: maphash.MakeSeed(),
-		sigs: map[uint64]struct{}{}, metricNames: map[string]struct{}{}, metricLabels: map[string]struct{}{},
+		sigs: map[uint64]struct{}{}, metricNames: map[string]struct{}{}, metricLabels: map[string]struct{}{}, metricStreamSkippedBases: map[string]struct{}{},
 		logSources: map[string]struct{}{}, logLabelKeys: map[string]struct{}{},
 		spanServices: map[string]struct{}{}, spanNames: map[string]struct{}{}, spanAttrKeys: map[string]struct{}{},
+	}
+}
+
+func (ci *constructInv) recordCloudWatchMetricStreamReport(skipped []string) {
+	if ci == nil || len(skipped) == 0 {
+		return
+	}
+	ci.mu.Lock()
+	defer ci.mu.Unlock()
+	for _, base := range skipped {
+		if base != "" {
+			ci.metricStreamSkippedBases[base] = struct{}{}
+		}
 	}
 }
 
@@ -137,7 +151,8 @@ func (ci *constructInv) snapshot() control.ConstructInventory {
 	return control.ConstructInventory{
 		Kind: ci.kind, Name: ci.name, Identity: cloneQueryIdentity(ci.identity), MetricIdentities: cloneMetricQueryIdentities(ci.metricIdentities), DistinctSeries: int64(len(ci.sigs)), Capped: ci.capped,
 		MetricNames: sortedKeys(ci.metricNames), MetricLabels: sortedKeys(ci.metricLabels),
-		LogSources: sortedKeys(ci.logSources), LogLabelKeys: sortedKeys(ci.logLabelKeys),
+		MetricStreamSkippedBases: sortedKeys(ci.metricStreamSkippedBases),
+		LogSources:               sortedKeys(ci.logSources), LogLabelKeys: sortedKeys(ci.logLabelKeys),
 		SpanServices: sortedKeys(ci.spanServices), SpanNames: sortedKeys(ci.spanNames),
 		SpanAttrKeys: sortedKeys(ci.spanAttrKeys),
 	}
@@ -150,6 +165,7 @@ func zeroConstructEmission(cs *control.ConstructInventory) {
 	cs.Capped = false
 	cs.MetricNames = nil
 	cs.MetricLabels = nil
+	cs.MetricStreamSkippedBases = nil
 	cs.LogSources = nil
 	cs.LogLabelKeys = nil
 	cs.SpanServices = nil

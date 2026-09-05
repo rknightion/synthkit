@@ -731,7 +731,7 @@ func (r *Runner) buildWorld(bp *bpRuntime, kind, name string, signals []core.Sig
 		w.Pyroscope = &stampedProfiles{sink: r.queues.Profiles, label: label}
 	}
 	if slices.Contains(signals, core.OTLPMetrics) && r.sinks.OTLPMetrics != nil {
-		w.OTLPMetrics = &stampedOTLPMetrics{sink: r.queues.OTLPMetrics, label: label, producer: producers.otlp}
+		w.OTLPMetrics = &stampedOTLPMetrics{sink: r.queues.OTLPMetrics, label: label, producer: producers.otlp, inv: inv}
 	}
 	if slices.Contains(signals, core.OTLPLogs) && r.sinks.OTLPLogs != nil {
 		w.OTLPLogs = &stampedOTLPLogs{sink: r.queues.OTLPLogs, label: label}
