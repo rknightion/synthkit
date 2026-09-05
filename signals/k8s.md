@@ -1398,6 +1398,56 @@ relevant_fields:
 
 ---
 
+## OTel Collector with Prometheus exporters permutation — OBSERVED, NOT EMITTED [slug: k8s-otel-collector-prom]
+
+This is the documented Grafana Cloud Kubernetes Monitoring alternative
+`configuration/config-other-methods/otel-collector`: a metrics **Deployment** scrapes cAdvisor,
+kubelet, kube-state-metrics and node-exporter with the Prometheus receiver, and remote-writes
+metrics; a separate logs **DaemonSet** uses `filelog`, while the Deployment sends Kubernetes events
+with `k8sobjects`. It is not the OTel-native-receivers permutation below: its metrics remain
+Prometheus-shaped.
+
+*Provenance: the credential-free k3d lab captured the documented configuration at collector egress
+on 2026-09-05, OpenTelemetry Collector chart 0.171.0 (chart appVersion/image 0.158.0), for a full
+300-second window. The receiver decoded 10,997 Prometheus Remote-Write v1 records across 147 metric
+families and 173 OTLP-log records across the two source shapes below. Root review promoted 142
+target metric families to `reality-corpus/k8s/k3d-lab-otel-collector-prom.json` and both classified
+log sources to `reality-corpus/logs/k3d-lab-otel-collector-prom.json`; the four `scrape_*` families
+and exact `up` family were excluded as scrape health/volume rather than target telemetry. RW1 does
+not carry TYPE metadata, so the promoted instrument types remain unknown rather than being inferred
+from names. The areas `k8s` and `logs` were decided from the output, not pre-guessed. The source was
+Grafana Cloud's current “OTel with Prometheus exporters” page, resolved through Context7 as
+`/grafana/k8s-monitoring-helm` and retrieved 2026-09-05.*
+
+### Observable differences from the `alloy-default` k3d capture
+
+- **Metrics stay RW1 and Prometheus-shaped, but the collector envelope differs.** All 147 captured
+  families carry `cluster`, `k8s_cluster_name`, `job`, and `instance`; the capture contains no
+  `source` label. `otel_scope_name` and `otel_scope_version` occur on 146 of the 147 families,
+  while neither key appears in the 2026-08-30 `alloy-default` inventory. The observed scope is
+  `github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver`, version
+  `0.158.0`; it is evidence of this Collector path, not a general Prometheus-label rule.
+- **The documented four jobs all arrived.** Their exact values are
+  `integrations/kubernetes/cadvisor`, `integrations/kubernetes/kubelet`,
+  `integrations/kubernetes/kube-state-metrics`, and `integrations/node_exporter`. The first capture
+  contains 147 families, including kube-state-metrics families such as `kube_node_info`,
+  `kube_pod_info`, and `kube_deployment_status_condition`, plus `node_*` families. The
+  `alloy-default` lab deliberately did not deploy kube-state-metrics, so its 2026-08-30 inventory
+  cannot establish their absence from an operator's Alloy deployment; it is only the controlled
+  lab difference.
+- **Logs and events are OTLP, not Loki.** `integrations/kubernetes/eventhandler` has OTLP stream
+  labels `k8s.cluster.name`, `k8s.namespace.name`, and `service.name`, with structured metadata
+  `event.domain`, `event.name`, and `k8s.resource.name`. `k8s_pod_logs` has OTLP stream labels
+  `k8s.cluster.name`, `k8s.container.name`, `k8s.container.restart_count`,
+  `k8s.namespace.name`, `k8s.pod.name`, and `k8s.pod.uid`, with structured metadata
+  `log.file.path`, `log.iostream`, and `logtag`. This differs from the `alloy-default` capture's
+  Loki streams and its underscore-form label vocabulary.
+
+This is **captured evidence**, not a statement that synthkit can select this exact Collector
+envelope today. synthkit's default `k8s_cluster` output models the Alloy-default remote-write lane;
+an operator-facing supported-versus-captured permutation selection statement remains a root-owned
+documentation decision.
+
 ## OTel Collector native-receivers permutation — OBSERVED, NOT EMITTED [slug: k8s-otel-native-permutation]
 
 Everything above this section describes the **default** Grafana Cloud Kubernetes permutation:

@@ -1,0 +1,44 @@
+# DaemonSet half of Grafana Cloud Kubernetes Monitoring's documented OTel Collector with
+# Prometheus exporters configuration (configuration/config-other-methods/otel-collector,
+# retrieved 2026-09-05). logsCollection supplies the documented filelog receiver; the only
+# replacement is the hosted credential-bearing OTLP destination with the in-cluster receiver.
+image:
+  repository: otel/opentelemetry-collector-contrib
+  # Chart 0.171.0 declares appVersion 0.158.0; the chart version is not an image tag.
+  tag: '0.158.0'
+
+mode: daemonset
+
+resources:
+  limits: { memory: 200Mi, cpu: 200m }
+  requests: { memory: 100Mi, cpu: 50m }
+
+presets:
+  logsCollection:
+    enabled: true
+
+config:
+  processors:
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 160
+      spike_limit_mib: 32
+    resource/clusterName:
+      attributes:
+        - action: insert
+          key: k8s.cluster.name
+          value: synthkit-k3s-lab
+    batch: {}
+
+  exporters:
+    otlphttp/capture:
+      endpoint: https://synthkit-skt000603-receiver.monitoring.svc.cluster.local:9099/otlp
+      tls:
+        insecure_skip_verify: true
+
+  service:
+    extensions: [health_check]
+    pipelines:
+      logs:
+        processors: [resource/clusterName, memory_limiter, batch]
+        exporters: [otlphttp/capture]

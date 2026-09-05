@@ -57,13 +57,13 @@ node-exporter, kubelet, and cAdvisor, then sends those Prometheus-shaped metrics
 Its logs and cluster events use OTLP. That combination is close to permutation 1 for metric names,
 but it is a separate deployment path because its log shape differs.
 
-**Synthkit does not emit this permutation yet.** The repository has a P3 capture definition, but
-its metadata is explicitly still `unproven`, and no authoritative P3 signal slug has been admitted.
-No switch should therefore be presented as selecting it.
-The existing [signals/k8s.md slugs `k8s-ksm`, `k8s-node-exporter`, `k8s-cadvisor`, and
-`k8s-kubelet`](https://github.com/rknightion/synthkit/blob/main/signals/k8s.md) are the source for
-the shared Prometheus-shaped names only; they do not establish the P3 collector envelope or its OTLP
-log shape. The L8 capture must establish that contract before a later emitter can follow it.
+**Synthkit does not emit this permutation yet.** P3 was captured in the credential-free k3d lab on
+2026-09-05: 147 Prometheus-shaped RW1 metric families and two OTLP pod-log/event sources. Its
+authoritative captured contract is [signals/k8s.md — slug
+`k8s-otel-collector-prom`](https://github.com/rknightion/synthkit/blob/main/signals/k8s.md). No switch
+should therefore be presented as selecting it. The existing `k8s-ksm`, `k8s-node-exporter`,
+`k8s-cadvisor`, and `k8s-kubelet` slugs remain the source for shared Prometheus-shaped names; the
+new P3 slug owns the distinct Collector envelope and OTLP log shape.
 
 ### 4. OTel Collector native receivers
 

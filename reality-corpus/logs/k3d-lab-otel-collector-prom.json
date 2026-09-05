@@ -1,0 +1,102 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "logs",
+  "source": {
+    "kind": "k3d_lab",
+    "permutation": "otel-collector-prom",
+    "substrate": "k3s",
+    "collector": "open-telemetry/opentelemetry-collector",
+    "collector_role": "audited",
+    "collector_version": "0.171.0",
+    "captured_on": "2026-09-05",
+    "instrument_type_source": "Metrics were decoded from Prometheus Remote-Write v1, which carries no TYPE metadata, so instrument types remain unknown and were not inferred from names. Log sources and transport were decoded directly from OTLP log records."
+  },
+  "authority": {
+    "substrates": [
+      "k3s"
+    ]
+  },
+  "capture_volume": {
+    "runs": 1,
+    "observed_contract_counts": [
+      2
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [],
+    "logs": [
+      {
+        "source": "integrations/kubernetes/eventhandler",
+        "transport": "otlp_logs",
+        "stream_labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "structured_metadata_keys": [
+          "event.domain",
+          "event.name",
+          "k8s.resource.name"
+        ]
+      },
+      {
+        "source": "k8s_pod_logs",
+        "transport": "otlp_logs",
+        "stream_labels": [
+          {
+            "key": "k8s.cluster.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.container.restart_count",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.namespace.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s.pod.uid",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "structured_metadata_keys": [
+          "log.file.path",
+          "log.iostream",
+          "logtag"
+        ]
+      }
+    ],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}

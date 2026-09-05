@@ -1,0 +1,8025 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "k8s",
+  "source": {
+    "kind": "k3d_lab",
+    "permutation": "otel-collector-prom",
+    "substrate": "k3s",
+    "collector": "open-telemetry/opentelemetry-collector",
+    "collector_role": "audited",
+    "collector_version": "0.171.0",
+    "captured_on": "2026-09-05",
+    "instrument_type_source": "Metrics were decoded from Prometheus Remote-Write v1, which carries no TYPE metadata, so instrument types remain unknown and were not inferred from names. Log sources and transport were decoded directly from OTLP log records."
+  },
+  "authority": {
+    "substrates": [
+      "k3s"
+    ]
+  },
+  "capture_volume": {
+    "runs": 1,
+    "observed_contract_counts": [
+      142
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [
+      {
+        "name": "container_cpu_cfs_periods_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_cpu_cfs_throttled_periods_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_cpu_usage_seconds_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_fs_reads_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_fs_reads_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_fs_writes_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_fs_writes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_memory_cache",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_memory_rss",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_memory_swap",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_memory_working_set_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_receive_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_receive_packets_dropped_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_receive_packets_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_transmit_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_transmit_packets_dropped_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_transmit_packets_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_goroutines",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_configmap_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "configmap",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_configmap_metadata_resource_version",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "configmap",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_created",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_metadata_generation",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_status_current_number_scheduled",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_status_desired_number_scheduled",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_status_number_available",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_status_number_misscheduled",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_status_number_ready",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_status_number_unavailable",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_status_observed_generation",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_daemonset_status_updated_number_scheduled",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "daemonset",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_deployment_metadata_generation",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "deployment",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_deployment_spec_replicas",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "deployment",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_deployment_status_condition",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "condition",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "deployment",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "reason",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "status",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_deployment_status_observed_generation",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "deployment",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_deployment_status_replicas_available",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "deployment",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_deployment_status_replicas_updated",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "deployment",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_namespace_status_phase",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "phase",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_created",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_runtime_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "internal_ip",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "kernel_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "kubelet_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "kubeproxy_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os_image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod_cidr",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "provider_id",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_role",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "role",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_spec_pod_cidrs",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod_cidr",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_spec_unschedulable",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_status_addresses",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "address",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "type",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_status_allocatable",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resource",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "unit",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_status_capacity",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resource",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "unit",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_node_status_condition",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "condition",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "status",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_container_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image_spec",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "uid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_container_resource_limits",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resource",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "unit",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_container_resource_requests",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resource",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "unit",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_container_status_restarts_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "uid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "created_by_kind",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "created_by_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host_ip",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host_network",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod_ip",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "priority_class",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "uid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_owner",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "owner_is_controller",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "owner_kind",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "owner_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "uid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_start_time",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "uid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_status_phase",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "phase",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "uid",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_replicaset_created",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "replicaset",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_replicaset_metadata_generation",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "replicaset",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_replicaset_owner",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "owner_is_controller",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "owner_kind",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "owner_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "replicaset",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_replicaset_spec_replicas",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "replicaset",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_replicaset_status_fully_labeled_replicas",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "replicaset",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_replicaset_status_observed_generation",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "replicaset",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_replicaset_status_ready_replicas",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "replicaset",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_replicaset_status_replicas",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "replicaset",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_replicaset_status_terminating_replicas",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "replicaset",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_secret_metadata_resource_version",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "secret",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubelet_cgroup_manager_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.005",
+              "0.01",
+              "0.025",
+              "0.05",
+              "0.1",
+              "0.25",
+              "0.5",
+              "1",
+              "10",
+              "2.5",
+              "5"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "operation_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "kubelet_node_name",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubelet_pleg_relist_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.005",
+              "0.01",
+              "0.025",
+              "0.05",
+              "0.1",
+              "0.25",
+              "0.5",
+              "1",
+              "10",
+              "2.5",
+              "5"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "kubelet_pod_start_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.5",
+              "1",
+              "10",
+              "120",
+              "1200",
+              "180",
+              "1800",
+              "2",
+              "20",
+              "240",
+              "2700",
+              "3",
+              "30",
+              "300",
+              "360",
+              "3600",
+              "4",
+              "45",
+              "480",
+              "5",
+              "6",
+              "60",
+              "600",
+              "8",
+              "900"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.5,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            8,
+            10,
+            20,
+            30,
+            45,
+            60,
+            120,
+            180,
+            240,
+            300,
+            360,
+            480,
+            600,
+            900,
+            1200,
+            1800,
+            2700,
+            3600
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "kubelet_pod_worker_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf",
+              "0.005",
+              "0.01",
+              "0.025",
+              "0.05",
+              "0.1",
+              "0.25",
+              "0.5",
+              "1",
+              "10",
+              "2.5",
+              "5"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "operation_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "kubelet_running_containers",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_state",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubelet_running_pods",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubelet_runtime_operations_errors_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "operation_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubelet_runtime_operations_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "operation_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kubernetes_build_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "build_date",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "compiler",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "git_commit",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "git_tree_state",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "git_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "go_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "major",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "minor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "platform",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "machine_memory_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "boot_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_frequency_max_hertz",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_frequency_min_hertz",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_guest_seconds_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mode",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_isolated",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_scaling_frequency_hertz",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_scaling_frequency_max_hertz",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_scaling_frequency_min_hertz",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_scaling_governor",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "governor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_cpu_seconds_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mode",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_exporter_build_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "branch",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "goarch",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "goos",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "goversion",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tags",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_filesystem_avail_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "fstype",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mountpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_filesystem_device_error",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_error",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "fstype",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mountpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_filesystem_files",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "fstype",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mountpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_filesystem_files_free",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "fstype",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mountpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_filesystem_free_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "fstype",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mountpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_filesystem_mount_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "major",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "minor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mountpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_filesystem_purgeable_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "fstype",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mountpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_filesystem_readonly",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_error",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "fstype",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mountpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_filesystem_size_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "fstype",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "mountpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Active_anon_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Active_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Active_file_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_AnonHugePages_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_AnonPages_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Bounce_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Buffers_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Cached_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_CommitLimit_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Committed_AS_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Dirty_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Inactive_anon_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Inactive_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Inactive_file_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_KernelStack_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Mapped_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_MemAvailable_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_MemFree_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_MemTotal_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Mlocked_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_NFS_Unstable_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_PageTables_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Percpu_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_SReclaimable_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_SUnreclaim_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_ShmemHugePages_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_ShmemPmdMapped_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Shmem_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Slab_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_SwapCached_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_SwapFree_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_SwapTotal_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Unevictable_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_VmallocChunk_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_VmallocTotal_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_VmallocUsed_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_WritebackTmp_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_memory_Writeback_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_network_receive_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_network_receive_drop_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_network_transmit_bytes_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "node_network_transmit_drop_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_cpu_seconds_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_resident_memory_bytes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "rest_client_requests_total",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "code",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "method",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "storage_operation_duration_seconds",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "histogram"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [
+              "+Inf"
+            ],
+            "values_elided": false
+          },
+          {
+            "key": "migrated",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "operation_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "status",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "volume_plugin",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "target_info",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_container_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_daemonset_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_namespace_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_node_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_pod_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_pod_uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_replicaset_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server_address",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server_port",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "url_scheme",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "volume_manager_total_volumes",
+        "transports": [
+          "prometheus_remote_write_v1"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "otel_scope_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "plugin_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "state",
+            "values": [
+              "actual_state_of_world",
+              "desired_state_of_world"
+            ],
+            "values_elided": false
+          }
+        ]
+      }
+    ],
+    "logs": [],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}
