@@ -476,6 +476,15 @@ not expose the reporter declaration or wire attribute inventory. The missing fie
 checked against the version-pinned Beyla v3.32.0 source and its OBI submodule at commit
 `6ec4f13df658f5972355b87bbc637547b6e39fc3`.
 
+**Post-ingest read-back, 2026-09-05:** after the lab rolled to the published native-emitter image
+and remained Ready with zero restarts, an authenticated query against the lab emission metrics role
+returned `status=success`, nine series, and all five expected queryable family names:
+`beyla_bpf_map_entries_total`, `beyla_bpf_map_max_entries_total`,
+`beyla_bpf_probe_executions_total`, `beyla_bpf_probe_latency_seconds_total`, and
+`beyla_internal_build_info`. These are Mimir's post-gateway spellings; the dotted names below remain
+the OTLP wire contract. The HTTP 200 established query receipt, while the returned non-empty series
+set established ingestion.
+
 Source URLs: [Beyla config override](https://github.com/grafana/beyla/blob/v3.32.0/pkg/beyla/config_obi.go),
 [OBI internal reporter](https://github.com/grafana/opentelemetry-ebpf-instrumentation/blob/6ec4f13df658f5972355b87bbc637547b6e39fc3/pkg/export/otel/metrics_internal.go),
 [OBI attribute definitions](https://github.com/grafana/opentelemetry-ebpf-instrumentation/blob/6ec4f13df658f5972355b87bbc637547b6e39fc3/pkg/export/attributes/names/attrs.go),
