@@ -3,8 +3,11 @@
 package capture
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 )
@@ -19,6 +22,33 @@ func fakeRunner(responses map[string][]byte) KubectlRunner {
 		}
 		return []byte(`{"items":[]}`), nil
 	}
+}
+
+func loadSanitizedNodeLabels(t *testing.T) []map[string]string {
+	t.Helper()
+	raw, err := os.ReadFile("testdata/karpenter-node-labels.sanitized.jsonc")
+	if err != nil {
+		t.Fatalf("read sanitized Karpenter fixture: %v", err)
+	}
+	// The fixture is JSONC only for its provenance/sanitization header. The payload itself is
+	// intentionally the same array-of-label-maps shape as the root-provided raw dump.
+	start := bytes.IndexByte(raw, '[')
+	if start < 0 {
+		t.Fatalf("sanitized Karpenter fixture has no JSON payload")
+	}
+	var labels []map[string]string
+	if err := json.Unmarshal(raw[start:], &labels); err != nil {
+		t.Fatalf("parse sanitized Karpenter fixture: %v", err)
+	}
+	return labels
+}
+
+func k8sNodesFromLabels(labels []map[string]string) []k8sNode {
+	nodes := make([]k8sNode, 0, len(labels))
+	for _, labelSet := range labels {
+		nodes = append(nodes, k8sNode{Metadata: k8sObjectMeta{Labels: labelSet}})
+	}
+	return nodes
 }
 
 func TestK8sCollectorNodeGroups(t *testing.T) {
@@ -151,6 +181,44 @@ func TestK8sCollectorAddonDetection(t *testing.T) {
 	}
 }
 
+func TestK8sCollectorDetectsNamedPlatformProducts(t *testing.T) {
+	workloads := []Workload{
+		{Name: "crossplane", Namespace: "crossplane-system"},
+		{Name: "crossplane-rbac-manager", Namespace: "crossplane-system"},
+		{Name: "external-secrets", Namespace: "external-secrets"},
+		{Name: "external-secrets-webhook", Namespace: "external-secrets"},
+		{Name: "gha-rs-controller", Namespace: "arc-systems"},
+		{Name: "gha-runner-scale-set-controller", Namespace: "arc-systems"},
+		{Name: "gha-runner-scale-set", Namespace: "arc-systems"},
+		{Name: "github2otel", Namespace: "github2otel"},
+		{Name: "opencost", Namespace: "opencost"},
+	}
+	namespaces := []string{"crossplane-system", "external-secrets", "arc-systems", "github2otel", "opencost"}
+
+	addons := detectAddons(workloads, namespaces)
+	byDetected := make(map[string]Addon, len(addons))
+	for _, addon := range addons {
+		byDetected[addon.Detected] = addon
+	}
+	want := []string{"crossplane", "external-secrets", "actions-runner-controller", "github2otel", "opencost"}
+	if len(addons) != len(want) {
+		t.Fatalf("detected %d addons, want one per named product (%d): %+v", len(addons), len(want), addons)
+	}
+	for _, product := range want {
+		addon, ok := byDetected[product]
+		if !ok {
+			t.Errorf("product %q was not detected: %+v", product, addons)
+			continue
+		}
+		if addon.Kind != "" {
+			t.Errorf("product %q unexpectedly maps to standalone construct %q", product, addon.Kind)
+		}
+		if addon.Evidence != "deployment" && addon.Evidence != "namespace" {
+			t.Errorf("product %q has unexpected evidence %q", product, addon.Evidence)
+		}
+	}
+}
+
 func TestK8sCollectorEnvelopeCounts(t *testing.T) {
 	nodesJSON := []byte(`{"items":[
 	  {"metadata":{"labels":{"node.kubernetes.io/instance-type":"t3.medium","kubernetes.io/os":"linux"}}}
@@ -246,6 +314,73 @@ func TestClusterNameFromCollectorReleaseInfo(t *testing.T) {
 	}
 	if cl.NameSource != NameSourceCollector {
 		t.Errorf("name source = %q, want %q", cl.NameSource, NameSourceCollector)
+	}
+}
+
+func TestChartVersionFromCollectorReleaseInfo(t *testing.T) {
+	cl := &Cluster{
+		Monitoring: Monitoring{K8sMonitoring: true},
+		Workloads:  []Workload{{Name: "synth-mon-alloy-daemon", Namespace: "monitoring"}},
+	}
+	var calls [][]string
+	run := func(_ context.Context, args ...string) ([]byte, error) {
+		calls = append(calls, append([]string(nil), args...))
+		key := strings.Join(args, " ")
+		switch {
+		case strings.Contains(key, "jsonpath={.data.cluster}"):
+			return []byte("blue-fleet-eu\n"), nil
+		case strings.Contains(key, "self-reporting-metric.prom"):
+			return []byte("# HELP grafana_kubernetes_monitoring_build_info chart\n" +
+				"unrelated_build_info{version=\"wrong\"} 1\n" +
+				"grafana_kubernetes_monitoring_build_info{component=\"chart\",version=\"4.5.0\"} 1\n"), nil
+		default:
+			return nil, errors.New("unexpected kubectl command: " + key)
+		}
+	}
+
+	name, source := resolveClusterName(context.Background(), run, cl)
+	if name != "blue-fleet-eu" || source != NameSourceCollector {
+		t.Fatalf("name/source = %q/%q, want collector release-info", name, source)
+	}
+	if cl.Monitoring.ChartVersion != "4.5.0" {
+		t.Fatalf("chart version = %q, want %q", cl.Monitoring.ChartVersion, "4.5.0")
+	}
+	if len(calls) != 2 {
+		t.Fatalf("release-info lookup made %d calls, want targeted cluster and metric reads: %+v", len(calls), calls)
+	}
+}
+
+func TestCollectorReleaseInfoDoesNotMixCandidates(t *testing.T) {
+	cl := &Cluster{
+		Monitoring: Monitoring{K8sMonitoring: true},
+		Workloads: []Workload{
+			{Name: "first-alloy-daemon", Namespace: "first"},
+			{Name: "second-alloy-daemon", Namespace: "second"},
+		},
+	}
+	var calls [][]string
+	run := func(_ context.Context, args ...string) ([]byte, error) {
+		calls = append(calls, append([]string(nil), args...))
+		key := strings.Join(args, " ")
+		switch {
+		case strings.Contains(key, "first-release-info") && strings.Contains(key, "jsonpath={.data.cluster}"):
+			return []byte("first-cluster"), nil
+		case strings.Contains(key, "first-release-info") && strings.Contains(key, "self-reporting-metric.prom"):
+			return []byte(""), nil
+		case strings.Contains(key, "second-release-info"):
+			t.Fatalf("second candidate was probed after the first named candidate: %v", args)
+			return nil, errors.New("unreachable")
+		default:
+			return nil, errors.New("unexpected kubectl command: " + key)
+		}
+	}
+
+	info := collectorReleaseInfo(context.Background(), run, cl)
+	if info.ClusterName != "first-cluster" || info.ChartVersion != "" {
+		t.Fatalf("release-info result = %+v, want first candidate's name and its empty version", info)
+	}
+	if len(calls) != 2 {
+		t.Fatalf("release-info lookup made %d calls, want only first candidate's pair: %+v", len(calls), calls)
 	}
 }
 
@@ -390,11 +525,62 @@ func TestNodeGroupsWithoutPoolLabels(t *testing.T) {
 	if gs[0].Provisioner != "unknown" {
 		t.Errorf("provisioner = %q, want %q", gs[0].Provisioner, "unknown")
 	}
+	_, provider, _ := groupNodes([]k8sNode{{Metadata: k8sObjectMeta{Labels: map[string]string{
+		"kubernetes.io/os": "linux",
+	}}}})
+	if provider != ProviderUndetermined {
+		t.Errorf("provider = %q, want %q when no supported provider labels are present", provider, ProviderUndetermined)
+	}
 	if gs[0].Name == "" {
 		t.Errorf("node group name must never be empty: %+v", gs[0])
 	}
 	if gs[0].Count != 2 {
 		t.Errorf("count = %d, want 2", gs[0].Count)
+	}
+}
+
+func TestKarpenterOnlyNodesDetectAWSFromSanitizedFixture(t *testing.T) {
+	labels := loadSanitizedNodeLabels(t)
+	if len(labels) != 4 {
+		t.Fatalf("sanitized fixture has %d nodes, want 4", len(labels))
+	}
+	wantLabelCounts := []int{20, 35, 35, 20}
+	for i, want := range wantLabelCounts {
+		if got := len(labels[i]); got != want {
+			t.Errorf("node %d has %d labels, want %d from the raw four-node dump", i+1, got, want)
+		}
+	}
+
+	var karpenterOnly []map[string]string
+	for _, labelSet := range labels {
+		if _, ok := labelSet["karpenter.k8s.aws/ec2nodeclass"]; !ok {
+			continue
+		}
+		// The raw dump retains every source key. One Karpenter node also carries the incidental
+		// eks.amazonaws.com/compute-type key, so project that unrelated key out of the derived
+		// Karpenter-only input instead of mutating the provenance fixture.
+		karpenterLabels := make(map[string]string, len(labelSet))
+		for key := range labelSet {
+			if strings.HasPrefix(key, "eks.amazonaws.com/") {
+				continue
+			}
+			karpenterLabels[key] = labelSet[key]
+		}
+		karpenterOnly = append(karpenterOnly, karpenterLabels)
+	}
+	if len(karpenterOnly) != 2 {
+		t.Fatalf("fixture has %d Karpenter-only nodes, want 2", len(karpenterOnly))
+	}
+
+	groups, provider, region := groupNodes(k8sNodesFromLabels(karpenterOnly))
+	if provider != "eks" {
+		t.Fatalf("provider = %q, want eks from karpenter.k8s.aws labels alone", provider)
+	}
+	if region != "eu-west-1" {
+		t.Fatalf("region = %q, want eu-west-1", region)
+	}
+	if len(groups) != 1 || groups[0].Provisioner != "karpenter" || groups[0].Count != 2 {
+		t.Fatalf("Karpenter-only node group = %+v, want one two-node Karpenter pool", groups)
 	}
 }
 

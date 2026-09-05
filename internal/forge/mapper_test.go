@@ -3,6 +3,7 @@
 package forge
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
@@ -126,33 +127,120 @@ func TestMapSkeletonResolvesKnownUnmappedNames(t *testing.T) {
 	}
 }
 
-// TestMapSkeletonFlagsRecognisedPlatformProductsWithNoConstruct guards SKT-0012.04 finding 3:
-// a platform product capture's addon detector never recognises at all (so it never appears in
-// cl.Addons) must still surface explicitly as "detected, no construct" rather than disappearing
-// silently into the generic workload-gap pile.
-func TestMapSkeletonFlagsRecognisedPlatformProductsWithNoConstruct(t *testing.T) {
+// TestMapSkeletonClassifiesCapturedPlatformProducts guards SKT-0012.06: product discovery belongs
+// to capture, while forge classifies the resulting addon entries against the registered catalog.
+// OpenCost has a modeled surface on k8s_cluster, whereas the other named products remain genuine
+// no-construct gaps until a standalone construct is registered.
+func TestMapSkeletonClassifiesCapturedPlatformProducts(t *testing.T) {
 	reg := runner.Catalog()
 	inv := &capture.Inventory{
 		Clusters: []capture.Cluster{{
 			Name: "platformprod",
-			Workloads: []capture.Workload{
-				{Name: "crossplane", Namespace: "crossplane-system", Replicas: 2},
-				{Name: "provider-grafana-abc123", Namespace: "crossplane-system", Replicas: 1, Images: []string{"xpkg.upbound.io/grafana/provider-grafana@sha256:deadbeef"}},
+			Addons: []capture.Addon{
+				{Detected: "crossplane", Evidence: "namespace"},
+				{Detected: "external-secrets", Evidence: "deployment"},
+				{Detected: "actions-runner-controller", Evidence: "namespace"},
+				{Detected: "github2otel", Evidence: "deployment"},
+				{Detected: "opencost", Evidence: "namespace"},
 			},
 		}},
 	}
-	_, gaps := MapSkeleton(inv, reg)
-	if !hasGap(gaps, "addon", "crossplane") {
-		t.Fatalf("expected an explicit addon-category gap naming the recognised platform product, got: %+v", gaps)
+	sk, gaps := MapSkeleton(inv, reg)
+	if len(sk.Environments[0].Cluster.Addons) != 0 {
+		t.Fatalf("unmodelled platform products must not become addon declarations: %+v", sk.Environments[0].Cluster.Addons)
 	}
-	for _, g := range gaps {
-		if g.Category == "addon" && g.Name == "crossplane" {
-			if g.Reason == "" || g.Reason == "no matching construct" {
-				t.Fatalf("expected the reason to say this was recognised/detected, not the generic unmapped reason, got %q", g.Reason)
-			}
-			if len(g.Evidence) < 2 {
-				t.Fatalf("expected evidence aggregating both matched workloads, got %+v", g.Evidence)
-			}
+	for _, product := range []string{"crossplane", "external-secrets", "actions-runner-controller", "github2otel"} {
+		gap, ok := findGap(gaps, "addon", product)
+		if !ok {
+			t.Errorf("expected no-construct gap for %q, got: %+v", product, gaps)
+			continue
 		}
+		if gap.Reason != reasonNoConstruct {
+			t.Errorf("%q reason = %q, want %q", product, gap.Reason, reasonNoConstruct)
+		}
+	}
+	opencost, ok := findGap(gaps, "addon", "opencost")
+	if !ok {
+		t.Fatal("expected OpenCost unmapped-name gap")
+	}
+	if !strings.Contains(opencost.Reason, "unmapped name") || !strings.Contains(opencost.Reason, "k8s_cluster") {
+		t.Fatalf("OpenCost reason = %q, want explicit existing k8s_cluster surface", opencost.Reason)
+	}
+	if _, ok := reg.Construct("k8s_cluster"); !ok {
+		t.Fatal("catalog must register k8s_cluster before OpenCost can be classified as unmapped")
+	}
+	if _, ok := reg.Construct("actions_runner_controller"); ok {
+		t.Fatal("catalog unexpectedly contains a standalone actions-runner-controller construct")
+	}
+}
+
+func TestMapSkeletonRetainsCrossplaneImageFallback(t *testing.T) {
+	reg := runner.Catalog()
+	inv := &capture.Inventory{Clusters: []capture.Cluster{{
+		Name: "crossplane-image-only",
+		Workloads: []capture.Workload{{
+			Name:      "provider-grafana-generated",
+			Namespace: "platform",
+			Images:    []string{"xpkg.upbound.io/grafana/provider-grafana@sha256:placeholder"},
+		}},
+	}}}
+	_, gaps := MapSkeleton(inv, reg)
+	gap, ok := findGap(gaps, "addon", "crossplane")
+	if !ok {
+		t.Fatal("expected the forge Crossplane image fallback to retain the product gap")
+	}
+	if !strings.Contains(gap.Reason, "forge image fallback") || len(gap.Evidence) != 1 {
+		t.Fatalf("Crossplane fallback gap = %+v, want one image evidence and fallback reason", gap)
+	}
+}
+
+func TestCrossplaneImageFallbackRequiresKnownRegistryHost(t *testing.T) {
+	tests := []struct {
+		name  string
+		image string
+		want  bool
+	}{
+		{name: "crossplane registry", image: "crossplane.io/provider/grafana:v1", want: true},
+		{name: "upbound registry", image: "upbound.io/provider/grafana:v1", want: true},
+		{name: "crossplane subdomain", image: "XPKG.CROSSPLANE.IO/provider/grafana:v1", want: true},
+		{name: "upbound subdomain with port", image: "xpkg.upbound.io:8443/provider/grafana:v1", want: true},
+		{name: "crossplane registry with port", image: "crossplane.io:443/provider/grafana:v1", want: true},
+		{name: "spoofed crossplane host", image: "evilcrossplane.io/provider/grafana:v1", want: false},
+		{name: "spoofed upbound host", image: "evilupbound.io/provider/grafana:v1", want: false},
+		{name: "path only", image: "docker.io/path/crossplane.io/provider:grafana", want: false},
+		{name: "crossplane suffix", image: "crossplane.io.evil/provider/grafana:v1", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isCrossplaneRegistryImage(tt.image); got != tt.want {
+				t.Fatalf("isCrossplaneRegistryImage(%q) = %v, want %v", tt.image, got, tt.want)
+			}
+		})
+	}
+}
+
+func findGap(gaps []Gap, category, name string) (Gap, bool) {
+	for _, gap := range gaps {
+		if gap.Category == category && gap.Name == name {
+			return gap, true
+		}
+	}
+	return Gap{}, false
+}
+
+func TestMapSkeletonSurfacesUndeterminedProvider(t *testing.T) {
+	reg := runner.Catalog()
+	inv := &capture.Inventory{Clusters: []capture.Cluster{{
+		Name:     "unknown-provider",
+		Provider: capture.ProviderUndetermined,
+	}}}
+	_, gaps := MapSkeleton(inv, reg)
+	gap, ok := findGap(gaps, "addon", "undetermined-provider")
+	if !ok {
+		t.Fatalf("expected an explicit undetermined-provider gap, got %+v", gaps)
+	}
+	if !strings.Contains(gap.Reason, "provider undetermined") {
+		t.Fatalf("provider gap reason = %q, want explicit undetermined evidence", gap.Reason)
 	}
 }

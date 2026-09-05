@@ -36,6 +36,11 @@ type Envelope struct {
 // Cluster identity sources, most authoritative first. Recorded verbatim in Cluster.NameSource so
 // an operator can see where the identity came from instead of having to infer it.
 const (
+	// ProviderUndetermined is returned when the node labels do not identify one of the
+	// supported cloud providers. It is deliberately distinct from a provider guess so
+	// downstream tooling can require an operator decision.
+	ProviderUndetermined = "undetermined"
+
 	// NameSourceCollector is the cluster name the in-cluster metrics collector stamps on every
 	// signal it ships. It is read from the collector's release-info ConfigMap and is the only
 	// source that is guaranteed to join to the cluster's real telemetry.
@@ -60,7 +65,7 @@ func AuthoritativeNameSource(source string) bool { return source == NameSourceCo
 type Cluster struct {
 	Name       string      `json:"name"`        // cluster identity; see NameSource for provenance
 	NameSource string      `json:"name_source"` // collector-release-info|eks-arn-context|kubeconfig-context|default
-	Provider   string      `json:"provider"`    // eks|gke|aks|unknown (from node labels)
+	Provider   string      `json:"provider"`    // eks|gke|aks|undetermined (from node labels)
 	Region     string      `json:"region"`      // from topology.kubernetes.io/region
 	K8sVersion string      `json:"k8s_version"` // server gitVersion, trimmed to major.minor
 	NodeGroups []NodeGroup `json:"node_groups"`
@@ -122,9 +127,10 @@ type Ingress struct {
 }
 
 // Addon is a detected operator/platform component. Kind is the synthkit construct kind when the
-// detector recognises it; empty Kind means "no construct exists" (a coverage-gap signal).
+// detector recognises a standalone addon; empty Kind means the name needs forge classification as
+// either a missing construct or a surface represented by another registered construct.
 type Addon struct {
-	Kind     string `json:"kind"`     // synthkit construct kind, or "" if unmodelled
+	Kind     string `json:"kind"`     // synthkit construct kind, or "" if no standalone addon kind
 	Detected string `json:"detected"` // raw component name detected
 	Evidence string `json:"evidence"` // how it was detected (helm-annotation|namespace|deployment)
 }

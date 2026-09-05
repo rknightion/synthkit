@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -185,8 +186,12 @@ func (c *K8sCollector) Collect(ctx context.Context, inv *Inventory, opts Capture
 // Nothing here falls back silently: every branch returns the source alongside the name, and only
 // NameSourceCollector satisfies AuthoritativeNameSource.
 func resolveClusterName(ctx context.Context, run KubectlRunner, cl *Cluster) (name, source string) {
-	if n := collectorClusterName(ctx, run, cl); n != "" {
-		return n, NameSourceCollector
+	info := collectorReleaseInfo(ctx, run, cl)
+	if info.ChartVersion != "" {
+		cl.Monitoring.ChartVersion = info.ChartVersion
+	}
+	if info.ClusterName != "" {
+		return info.ClusterName, NameSourceCollector
 	}
 	if raw, err := run(ctx, "config", "current-context"); err == nil {
 		if n, ok := clusterNameFromEKSARN(string(raw)); ok {
@@ -203,31 +208,97 @@ func resolveClusterName(ctx context.Context, run KubectlRunner, cl *Cluster) (na
 // collector applies as a label to all telemetry it collects.
 const releaseInfoClusterKey = "cluster"
 
+// releaseInfoMetricKey is the only other release-info data key read by the capture. It contains
+// the chart's self-reporting Prometheus text, including the version-bearing build-info line.
+const releaseInfoMetricKey = "self-reporting-metric.prom"
+
+// releaseInfoChartMetric is the exact metric emitted by the k8s-monitoring chart's release-info
+// text file. The name is sourced from the chart template and is not reconstructed from a capture.
+const releaseInfoChartMetric = "grafana_kubernetes_monitoring_build_info"
+
 // collectorClusterName reads the cluster name out of the in-cluster metrics collector's release-info
 // ConfigMap, returning "" when it is not discoverable (no collector, no read permission, or a
 // release layout this does not recognise) so the caller can fall back and say that it did.
 //
 // The lookup is a targeted `get` of specific named ConfigMaps derived from the collector workloads
 // already captured — never a namespace- or cluster-wide list, which would pull every ConfigMap's
-// data through the process and defeat the zero-secret default. Only the single cluster-name key is
-// read out of the response.
+// data through the process and defeat the zero-secret default. Only the cluster-name key and the
+// known self-reporting metric key are read out of the response.
 //
 // The default RBAC in deploy/skcapture/rbac.yaml grants no ConfigMap access at all, so an in-cluster
 // run under that role takes the fallback path by design.
 func collectorClusterName(ctx context.Context, run KubectlRunner, cl *Cluster) string {
+	return collectorReleaseInfo(ctx, run, cl).ClusterName
+}
+
+// collectorReleaseInfo reads the two known, non-secret values in the collector's release-info
+// ConfigMap. The cluster name is used verbatim because it must be byte-identical to the cluster
+// label on real telemetry. The chart version is parsed only from the chart's exact build-info
+// metric; arbitrary ConfigMap data and arbitrary metric lines are ignored.
+type collectorReleaseInfoResult struct {
+	ClusterName  string
+	ChartVersion string
+}
+
+func collectorReleaseInfo(ctx context.Context, run KubectlRunner, cl *Cluster) collectorReleaseInfoResult {
 	if !cl.Monitoring.Alloy && !cl.Monitoring.K8sMonitoring {
-		return ""
+		return collectorReleaseInfoResult{}
 	}
+
+	// A chart can leave the cluster key unset, so retain a chart-only value as a fallback. It is
+	// deliberately discarded as soon as a later candidate supplies a name: the name and version
+	// must come from the same ConfigMap, never from two candidates in the probe list.
+	var chartWithoutName string
 	for _, cand := range releaseInfoCandidates(cl) {
-		out, err := run(ctx, "get", "configmap", "-n", cand.namespace, cand.name,
+		nameRaw, err := run(ctx, "get", "configmap", "-n", cand.namespace, cand.name,
 			"-o", "jsonpath={.data."+releaseInfoClusterKey+"}")
 		if err != nil {
 			continue // not present, or not readable under this role — both are expected
 		}
-		// The collector name is used verbatim: it must be byte-identical to the cluster label on
-		// the real telemetry, so it is never slugified.
-		if name := strings.TrimSpace(string(out)); name != "" {
-			return name
+
+		name := strings.TrimSpace(string(nameRaw))
+		metricRaw, merr := run(ctx, "get", "configmap", "-n", cand.namespace, cand.name,
+			"-o", "jsonpath={.data['"+releaseInfoMetricKey+"']}")
+		chart := ""
+		if merr == nil {
+			chart = chartVersionFromReleaseInfo(metricRaw)
+		}
+		if name != "" {
+			// The collector name is used verbatim: it must be byte-identical to the cluster label
+			// on the real telemetry, so it is never slugified. The chart version is paired with
+			// this same candidate and never inherited from another release-info ConfigMap.
+			return collectorReleaseInfoResult{ClusterName: name, ChartVersion: chart}
+		}
+		if chartWithoutName == "" {
+			chartWithoutName = chart
+		}
+	}
+	return collectorReleaseInfoResult{ChartVersion: chartWithoutName}
+}
+
+// chartVersionFromReleaseInfo extracts the version label from the exact chart build-info family
+// stored in self-reporting-metric.prom. It returns empty for malformed, unrelated, or unlabelled
+// lines so a missing release value remains visible to the caller.
+func chartVersionFromReleaseInfo(raw []byte) string {
+	prefix := releaseInfoChartMetric + "{"
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		end := strings.IndexByte(line, '}')
+		if end < len(prefix) {
+			continue
+		}
+		for _, label := range strings.Split(line[len(prefix):end], ",") {
+			key, value, ok := strings.Cut(label, "=")
+			if !ok || strings.TrimSpace(key) != "version" {
+				continue
+			}
+			value, err := strconv.Unquote(strings.TrimSpace(value))
+			if err == nil && value != "" {
+				return value
+			}
 		}
 	}
 	return ""
@@ -503,6 +574,10 @@ func groupNodes(nodes []k8sNode) (groups []NodeGroup, provider string, region st
 			switch {
 			case hasLabelPrefix(lbl, "eks.amazonaws.com/"):
 				provider = "eks"
+			case hasLabelPrefix(lbl, "karpenter.k8s.aws/"):
+				// Karpenter's AWS provider labels identify EKS nodes even when the
+				// managed-nodegroup label family is absent.
+				provider = "eks"
 			case hasLabelPrefix(lbl, "cloud.google.com/gke-"):
 				provider = "gke"
 			case hasLabelPrefix(lbl, "kubernetes.azure.com/"):
@@ -562,7 +637,7 @@ func groupNodes(nodes []k8sNode) (groups []NodeGroup, provider string, region st
 	}
 
 	if provider == "" {
-		provider = "unknown"
+		provider = ProviderUndetermined
 	}
 	return groups, provider, region
 }
@@ -915,8 +990,9 @@ func filterIngressesByNamespace(ings []Ingress, opts CaptureOpts) []Ingress {
 // workload objects already fetched, plus well-known namespace/deployment names as fallback.
 // =============================================================================
 
-// addonKindTable maps recognised Helm release names / component names to synthkit construct kinds.
-// Unrecognised names produce an Addon with empty Kind (coverage-gap signal).
+// addonKindTable maps recognised Helm release names / component names to standalone synthkit
+// construct kinds. Recognised products without a standalone addon kind produce an Addon with empty
+// Kind for forge to classify against the broader construct catalog.
 var addonKindTable = map[string]string{
 	"karpenter":                    "karpenter",
 	"cert-manager":                 "cert_manager",
@@ -938,20 +1014,38 @@ var wellKnownNamespaces = map[string]string{
 	"argocd":               "argo-cd",
 	"external-dns":         "external-dns",
 	"envoy-gateway-system": "envoy-gateway",
+	// Platform products with no standalone synthkit addon construct still need to be
+	// represented as detected names so forge can state the correct coverage verdict.
+	"crossplane-system": "crossplane",
+	"external-secrets":  "external-secrets",
+	"arc-systems":       "actions-runner-controller",
+	"github2otel":       "github2otel",
+	"opencost":          "opencost",
 }
 
-// wellKnownDeployments maps deployment name prefixes to component names.
+// wellKnownDeployments maps exact deployment/statefulset/daemonset names to component names.
+// The lookup also accepts a hyphen-delimited suffix because Helm and controller-managed names
+// may append a release or role discriminator while retaining the product's stable prefix.
 var wellKnownDeploymentNames = map[string]string{
-	"karpenter":                     "karpenter",
-	"cert-manager":                  "cert-manager",
-	"argocd-server":                 "argo-cd",
-	"argocd-application-controller": "argo-cd",
-	"aws-load-balancer-controller":  "aws-load-balancer-controller",
-	"external-dns":                  "external-dns",
-	"coredns":                       "coredns",
-	"aws-node":                      "aws-node",
-	"ebs-csi-controller":            "aws-ebs-csi-driver",
-	"envoy-gateway":                 "envoy-gateway",
+	"karpenter":                       "karpenter",
+	"cert-manager":                    "cert-manager",
+	"argocd-server":                   "argo-cd",
+	"argocd-application-controller":   "argo-cd",
+	"aws-load-balancer-controller":    "aws-load-balancer-controller",
+	"external-dns":                    "external-dns",
+	"coredns":                         "coredns",
+	"aws-node":                        "aws-node",
+	"ebs-csi-controller":              "aws-ebs-csi-driver",
+	"envoy-gateway":                   "envoy-gateway",
+	"crossplane":                      "crossplane",
+	"crossplane-rbac-manager":         "crossplane",
+	"external-secrets":                "external-secrets",
+	"external-secrets-webhook":        "external-secrets",
+	"gha-rs-controller":               "actions-runner-controller",
+	"gha-runner-scale-set-controller": "actions-runner-controller",
+	"gha-runner-scale-set":            "actions-runner-controller",
+	"github2otel":                     "github2otel",
+	"opencost":                        "opencost",
 }
 
 func detectAddons(workloads []Workload, namespaces []string) []Addon {
@@ -979,7 +1073,7 @@ func detectAddons(workloads []Workload, namespaces []string) []Addon {
 			emit(rel, "helm-annotation")
 		}
 		// Name-based fallback for components not installed via Helm (e.g. EKS managed add-ons).
-		if component, ok := wellKnownDeploymentNames[w.Name]; ok {
+		if component, ok := wellKnownDeploymentComponent(w.Name); ok {
 			emit(component, "deployment")
 		}
 	}
@@ -992,6 +1086,18 @@ func detectAddons(workloads []Workload, namespaces []string) []Addon {
 	}
 
 	return addons
+}
+
+func wellKnownDeploymentComponent(name string) (string, bool) {
+	if component, ok := wellKnownDeploymentNames[name]; ok {
+		return component, true
+	}
+	for prefix, component := range wellKnownDeploymentNames {
+		if strings.HasPrefix(name, prefix+"-") {
+			return component, true
+		}
+	}
+	return "", false
 }
 
 // =============================================================================

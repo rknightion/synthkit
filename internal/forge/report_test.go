@@ -60,6 +60,51 @@ func TestCoverageReportStatesDetectedAndSkipped(t *testing.T) {
 	}
 }
 
+func TestCoverageReportClassifiesUnmappedExistingSurface(t *testing.T) {
+	reg := runner.Catalog()
+	sk := &Skeleton{Environments: []SkelEnv{{Cluster: &SkelCluster{}}}}
+	gaps := []Gap{{
+		Category: "addon",
+		Name:     "opencost",
+		Evidence: []string{"namespace"},
+		Reason:   `unmapped name: surface is modeled by construct kind "k8s_cluster"`,
+	}}
+	rep := CoverageReport(sk, gaps, reg)
+	section := strings.Index(rep, "Construct exists but the addon name is unmapped")
+	name := strings.Index(rep, "`opencost`")
+	drift := strings.Index(rep, "Construct exists but is not registered")
+	if section == -1 || drift == -1 || name == -1 {
+		t.Fatalf("expected unmapped OpenCost section, got:\n%s", rep)
+	}
+	if name < section || name > drift {
+		t.Fatalf("OpenCost was placed outside the unmapped section:\n%s", rep)
+	}
+	if !strings.Contains(rep, "unmapped name") {
+		t.Fatalf("report omitted the unmapped-name verdict:\n%s", rep)
+	}
+}
+
+func TestCoverageReportSeparatesUndeterminedProvider(t *testing.T) {
+	reg := runner.Catalog()
+	sk := &Skeleton{Environments: []SkelEnv{{Cluster: &SkelCluster{}}}}
+	gaps := []Gap{{
+		Category: "addon",
+		Name:     "undetermined-provider",
+		Evidence: []string{"provider=undetermined"},
+		Reason:   "provider undetermined; no supported provider label family was captured, so the AWS skeleton is only a placeholder",
+	}}
+	rep := CoverageReport(sk, gaps, reg)
+	provider := strings.Index(rep, "Provider evidence gaps")
+	roadmap := strings.Index(rep, "No construct exists")
+	name := strings.Index(rep, "`undetermined-provider`")
+	if provider == -1 || roadmap == -1 || name == -1 {
+		t.Fatalf("expected provider evidence section, got:\n%s", rep)
+	}
+	if name < provider || name > roadmap {
+		t.Fatalf("undetermined provider was placed outside provider section:\n%s", rep)
+	}
+}
+
 func TestCoverageReportMatchedCountReflectsDedupedSkeletonAddons(t *testing.T) {
 	reg := runner.Catalog()
 	sk := &Skeleton{Environments: []SkelEnv{{Cluster: &SkelCluster{Addons: []string{"argocd", "cert_manager"}}}}}

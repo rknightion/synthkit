@@ -8,7 +8,6 @@ package forge
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/rknightion/synthkit/internal/capture"
@@ -88,7 +87,8 @@ type Gap struct {
 // Key synthesis rules (B2):
 //   - AccountID is always "000000000000" (placeholder — capture cannot know it; keeps blueprint.Load happy).
 //   - VpcID is always "vpc-PLACEHOLDER" (same reason).
-//   - Provider is always "aws"; non-eks providers still emit Provider:"aws" plus a Gap.
+//   - Provider is always "aws"; non-eks and undetermined providers still emit Provider:"aws"
+//     plus an explicit Gap so the AWS-only placeholder cannot be mistaken for detection.
 //   - Cluster.Type is always "eks" (v1 only supports EKS).
 //   - NodeGroup.Desired = max(count, 1) so the blueprint loads without a zero-desired group.
 func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) {
@@ -109,12 +109,23 @@ func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) 
 			VpcID:     "vpc-PLACEHOLDER",
 			Region:    cl.Region,
 		}
-		// Non-eks providers: still model as aws (v1 limitation), but add a gap so the SE notices.
-		if cl.Provider != "" && cl.Provider != "eks" {
+		// The v1 skeleton is AWS-only, so retain its loadable AWS placeholder while making every
+		// non-EKS or undetermined capture result explicit. An empty provider is treated as
+		// undetermined for inventories assembled by older callers that predate the capture value.
+		provider := cl.Provider
+		if provider == "" {
+			provider = capture.ProviderUndetermined
+		}
+		if provider != "eks" {
+			reason := fmt.Sprintf("provider %q is unsupported by the v1 AWS-only skeleton; set a plausible AWS account/region or extend the catalog", provider)
+			if provider == capture.ProviderUndetermined {
+				reason = "provider undetermined; no supported provider label family was captured, so the AWS skeleton is only a placeholder"
+			}
 			gaps = append(gaps, Gap{
 				Category: "addon",
-				Name:     cl.Provider + "-provider",
-				Reason:   "v1 models AWS only; set a plausible AWS account/region or extend the catalog",
+				Name:     provider + "-provider",
+				Evidence: []string{"provider=" + provider},
+				Reason:   reason,
 			})
 		}
 
@@ -155,9 +166,24 @@ func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) 
 		// (SKT-0012.04 finding 2 — a duplicate validates and loads, so only a check catches it).
 		var addons []string
 		seenKinds := map[string]bool{}
+		detectedAddons := map[string]bool{}
 		for _, a := range cl.Addons {
+			detectedAddons[a.Detected] = true
 			kind := a.Kind
 			if kind == "" {
+				// OpenCost is a detected product, but its modeled cost surface is an option on the
+				// existing k8s_cluster substrate rather than a standalone addon declaration. Keep
+				// that name out of the skeleton and report it as an unmapped name only when the
+				// registered catalog confirms the substrate exists.
+				if surface := addonSurfaceConstruct(a.Detected, reg); surface != "" {
+					gaps = append(gaps, Gap{
+						Category: "addon",
+						Name:     a.Detected,
+						Evidence: []string{a.Evidence},
+						Reason:   fmt.Sprintf("unmapped name: surface is modeled by construct kind %q", surface),
+					})
+					continue
+				}
 				// Capture left this unmapped. Before treating it as a genuine roadmap gap, check
 				// the forge-side supplemental table for names this build's catalog can already
 				// model but capture's own name table doesn't yet know about (SKT-0012.04 finding
@@ -188,11 +214,10 @@ func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) 
 			seenKinds[kind] = true
 			addons = append(addons, kind)
 		}
-
-		// Platform products capture's own addon detector never recognises at all (so they never
-		// appear in cl.Addons with any Kind, mapped or not) still deserve an explicit, honest line
-		// rather than disappearing into the generic workload-gap pile (SKT-0012.04 finding 3).
-		gaps = append(gaps, detectUnmodelledPlatformProducts(cl.Workloads)...)
+		// Capture owns product discovery. Keep the former image-based Crossplane check only as a
+		// narrow fallback for provider workloads whose name and namespace do not match capture's
+		// table; do not duplicate a product that capture already detected.
+		gaps = append(gaps, detectCrossplaneImageFallback(cl.Workloads, detectedAddons)...)
 
 		// Workloads → Gaps (the model classifies them; mapper records evidence)
 		for _, w := range cl.Workloads {
@@ -288,71 +313,71 @@ func resolveAddonKind(detected string) string {
 	return ""
 }
 
-// platformProductSignature recognises a well-known platform/operator product by its workload
-// name or container image, for products this build has NO construct for at all (verified against
-// the live catalog). Capture's own addon detector does not recognise these names or namespaces
-// (SKT-0012.04 finding 3) — matching them here does not fix that detection gap, it only stops the
-// coverage report going silent about a product that IS present in the cluster.
-type platformProductSignature struct {
-	Product         string
-	NameSubstrings  []string
-	ImageSubstrings []string
+// addonSurfaceConstruct maps a detected product name to the registered construct that models
+// that product's signal surface when the name is not itself a standalone addon kind. It is a
+// classification table, not a detector: capture owns discovering the name. OpenCost's metrics are
+// emitted by the k8s_cluster substrate's opencost switch. The runner-controller candidate is kept
+// here only so the catalog check below proves that its no-construct verdict is still warranted.
+var addonSurfaceConstructs = map[string]string{
+	"opencost":                  "k8s_cluster",
+	"actions-runner-controller": "actions_runner_controller",
 }
 
-var unmodelledPlatformProducts = []platformProductSignature{
-	{Product: "crossplane", NameSubstrings: []string{"crossplane"}, ImageSubstrings: []string{"crossplane.io", "upbound.io"}},
-	{Product: "external-secrets", NameSubstrings: []string{"external-secrets"}},
-	{Product: "actions-runner-controller", NameSubstrings: []string{"gha-rs-controller", "gha-runner-scale-set"}},
-	{Product: "github2otel", NameSubstrings: []string{"github2otel"}},
-	{Product: "opencost", NameSubstrings: []string{"opencost"}},
+func addonSurfaceConstruct(detected string, reg *core.Registry) string {
+	surface := addonSurfaceConstructs[detected]
+	if surface == "" || reg == nil {
+		return ""
+	}
+	if _, ok := reg.Construct(surface); !ok {
+		return ""
+	}
+	return surface
 }
 
-// detectUnmodelledPlatformProducts scans workloads for known platform-product signatures and
-// returns one aggregated addon-category Gap per product actually seen, so the coverage report can
-// state plainly that it was detected and deliberately left unmodelled.
-func detectUnmodelledPlatformProducts(workloads []capture.Workload) []Gap {
-	evidenceByProduct := map[string][]string{}
+func detectCrossplaneImageFallback(workloads []capture.Workload, detected map[string]bool) []Gap {
+	if detected["crossplane"] {
+		return nil
+	}
+	var evidence []string
 	for _, w := range workloads {
-		for _, sig := range unmodelledPlatformProducts {
-			if matchesPlatformProduct(w, sig) {
-				evidenceByProduct[sig.Product] = append(evidenceByProduct[sig.Product], w.Name)
-				break // one product match per workload is enough
+		for _, image := range w.Images {
+			if isCrossplaneRegistryImage(image) {
+				evidence = append(evidence, fmt.Sprintf("%s image=%s", w.Name, image))
+				break
 			}
 		}
 	}
-	var gaps []Gap
-	for _, product := range sortedStringKeys(evidenceByProduct) {
-		gaps = append(gaps, Gap{
-			Category: "addon",
-			Name:     product,
-			Evidence: evidenceByProduct[product],
-			Reason:   "no matching construct (recognised platform product, not surfaced by addon detection)",
-		})
+	if len(evidence) == 0 {
+		return nil
 	}
-	return gaps
+	return []Gap{{
+		Category: "addon",
+		Name:     "crossplane",
+		Evidence: evidence,
+		Reason:   "no matching construct (forge image fallback; capture did not recognize a Crossplane name or namespace)",
+	}}
 }
 
-func matchesPlatformProduct(w capture.Workload, sig platformProductSignature) bool {
-	for _, sub := range sig.NameSubstrings {
-		if strings.Contains(w.Name, sub) {
-			return true
-		}
+func isCrossplaneRegistryImage(image string) bool {
+	registry, _, ok := strings.Cut(image, "/")
+	if !ok {
+		return false
 	}
-	for _, img := range w.Images {
-		for _, sub := range sig.ImageSubstrings {
-			if strings.Contains(img, sub) {
-				return true
+	registry = strings.ToLower(registry)
+	if host, port, hasPort := strings.Cut(registry, ":"); hasPort {
+		if port == "" {
+			return false
+		}
+		for _, r := range port {
+			if r < '0' || r > '9' {
+				return false
 			}
 		}
+		registry = host
 	}
-	return false
-}
 
-func sortedStringKeys(m map[string][]string) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
+	return registry == "crossplane.io" ||
+		registry == "upbound.io" ||
+		strings.HasSuffix(registry, ".crossplane.io") ||
+		strings.HasSuffix(registry, ".upbound.io")
 }
