@@ -4,7 +4,7 @@ title: Make the signal-fidelity comparator trustworthy and give the gate teeth
 status: In Progress
 assignee: []
 created_date: '2026-08-27 07:05'
-updated_date: '2026-09-05 16:04'
+updated_date: '2026-09-05 17:16'
 labels: []
 dependencies: []
 priority: high
@@ -77,6 +77,8 @@ SKIPPED AS WRONG (minor) signals/k8s-addons.md — the finding claimed the cored
 Worth recording about the review itself: 65 of 108 changed paths were reviewed, so this was not full coverage of the wave, and a clean result on the remainder is not evidence. The gate and the fidelity comparator carry the properties a code reviewer structurally cannot check — that no metric, label or field name was invented.
 
 2026-09-05 parent reconciliation: read the final summaries of all 19 Done subtasks. AC1-3: .01 and .10 carry absent-evidence, enrichment provenance and subset comparison proof. AC4: .02 records typed coverage rising from 12/676 to 513/706 without name inference. AC5: .03 and corrected .07 record actual emitter fixes and signal provenance. AC6: .04 verdicts and .06 delivery plus subsequent coverage work. AC7: .05 records the enforced contradiction gate; current hygiene-fix CI 33975458812 passed signal-fidelity. AC8 remains unchecked: no report-size/readability standard is stated in docs/reality-corpus.md. Done subtasks alone do not prove that parent criterion.
+
+2026-09-05 final reconciliation correction: SKT-0010.14 was reopened when local Docker e2e exposed a residual text-dump grouping defect, then closed after failing-first regression, corrected safe dump, and exact-SHA hosted e2e success in ci run 33979908369 at 9abdd42425117ad241ed37648eff33690a2ab803. Parent remains In Progress at 7/8: the documented report readability/size standard remains unproven.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
