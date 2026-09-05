@@ -16,7 +16,7 @@
     "vite": "^8.0.0",
     "vite-plugin-solid": "^2.10.0",
     "typescript": "^7.0.0",
-    "vitest": "^4.0.0",
+    "vitest": "^5.0.0",
     "jsdom": "^30.0.0",
     "@solidjs/testing-library": "^0.8.0",
     "@testing-library/jest-dom": "^7.0.0",
