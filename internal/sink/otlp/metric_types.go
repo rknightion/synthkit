@@ -159,6 +159,10 @@ type Metric struct {
 type MetricResource struct {
 	Attrs map[string]any
 	Scope Scope
+	// ResourceSchemaURL is the captured OpenTelemetry schema URL for this resource's
+	// attributes. An empty value intentionally omits the ResourceMetrics.schema_url
+	// field on the wire.
+	ResourceSchemaURL string
 	// PreserveEmptyScope retains a producer's observed unnamed scope on the wire.
 	// False preserves the historical synthkit fallback for a zero Scope.
 	PreserveEmptyScope bool

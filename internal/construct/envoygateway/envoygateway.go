@@ -36,9 +36,8 @@
 //
 // Native OTLP metrics are opt-in per Envoy API surface. proxy_telemetry.otel_sink and
 // gateway_telemetry.otel_sink declare the captured data/control contracts documented in
-// signals/k8s-addons.md, but emission remains withheld until the captures retain the missing
-// resource values, per-family attributes, and histogram bounds. The switches never change the
-// scrape-shaped state.
+// signals/k8s-addons.md. The current frozen capture supplies complete metadata for both surfaces;
+// the switches emit only their selected native resource and never change scrape-shaped state.
 //
 // ARCHITECTURE invariants honoured:
 //   - I3:  counters via state.Add (cumulative); gauges via state.Set
@@ -85,6 +84,7 @@ type TelemetryConfig struct {
 type Construct struct {
 	clust                     *fixture.Cluster
 	st                        *state.State
+	native                    *nativeOTLPState
 	proxyOTLPSink             bool
 	gatewayOTLPSink           bool
 	proxyPrometheusDisabled   bool
@@ -113,6 +113,7 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 	return &Construct{
 		clust:                     fx.Cluster,
 		st:                        state.NewState(),
+		native:                    newNativeOTLPState(),
 		proxyOTLPSink:             proxy.OTelSink,
 		gatewayOTLPSink:           gateway.OTelSink,
 		proxyPrometheusDisabled:   proxy.PrometheusDisable,
@@ -448,7 +449,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		}
 	}
 
-	if err := c.tickOTLPMetrics(w); err != nil {
+	if err := c.tickOTLPMetrics(ctx, now, factor, w); err != nil {
 		return err
 	}
 

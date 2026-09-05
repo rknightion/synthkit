@@ -2,217 +2,345 @@
 
 package envoygateway
 
-// native_otlp.go models the two Envoy OpenTelemetry metric sinks. The data-plane
-// descriptor table is transcribed from the captured OTLP wire inventory; a focused
-// test reads that same record and compares the complete name/kind set, so a typo or
-// accidental Prometheus un-mangling cannot enter this lane unnoticed.
-
 import (
+	"context"
+	"sort"
+	"strings"
+	"time"
+
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 )
 
+// nativeMetricSpec is the machine-readable native OTLP contract for one family. Attrs and
+// Bounds are copied from the frozen capture record; they are not derived from the scrape
+// surface. An empty Attrs slice means the captured family had no datapoint attributes.
 type nativeMetricSpec struct {
-	Name string
-	Kind otlp.MetricKind
+	Name      string
+	Kind      otlp.MetricKind
+	Unit      string
+	Monotonic bool
+	Attrs     []nativeAttrSpec
+	Bounds    []float64
 }
 
-// nativeDataPlaneMetrics is the exact EnvoyProxy OpenTelemetry stats-sink
-// inventory captured on 2026-09-04. Do not derive these names from the scrape
-// spelling: the dotted names are Envoy's native stat tree.
-var nativeDataPlaneMetrics = []nativeMetricSpec{
-	{Name: "cluster.circuit_breakers.cx_open", Kind: otlp.MetricGauge},
-	{Name: "cluster.circuit_breakers.cx_pool_open", Kind: otlp.MetricGauge},
-	{Name: "cluster.circuit_breakers.rq_open", Kind: otlp.MetricGauge},
-	{Name: "cluster.circuit_breakers.rq_pending_open", Kind: otlp.MetricGauge},
-	{Name: "cluster.client_ssl_socket_factory.ssl_context_update_by_sds", Kind: otlp.MetricSum},
-	{Name: "cluster.external.upstream_rq", Kind: otlp.MetricSum},
-	{Name: "cluster.external.upstream_rq_completed", Kind: otlp.MetricSum},
-	{Name: "cluster.external.upstream_rq_time", Kind: otlp.MetricHistogram},
-	{Name: "cluster.external.upstream_rq_xx", Kind: otlp.MetricSum},
-	{Name: "cluster.http2.outbound_control_frames_active", Kind: otlp.MetricGauge},
-	{Name: "cluster.http2.outbound_frames_active", Kind: otlp.MetricGauge},
-	{Name: "cluster.http2.pending_send_bytes", Kind: otlp.MetricGauge},
-	{Name: "cluster.http2.streams_active", Kind: otlp.MetricGauge},
-	{Name: "cluster.internal.upstream_rq", Kind: otlp.MetricSum},
-	{Name: "cluster.internal.upstream_rq_completed", Kind: otlp.MetricSum},
-	{Name: "cluster.internal.upstream_rq_time", Kind: otlp.MetricHistogram},
-	{Name: "cluster.internal.upstream_rq_xx", Kind: otlp.MetricSum},
-	{Name: "cluster.lb_recalculate_zone_structures", Kind: otlp.MetricSum},
-	{Name: "cluster.max_host_weight", Kind: otlp.MetricGauge},
-	{Name: "cluster.membership_change", Kind: otlp.MetricSum},
-	{Name: "cluster.membership_degraded", Kind: otlp.MetricGauge},
-	{Name: "cluster.membership_excluded", Kind: otlp.MetricGauge},
-	{Name: "cluster.membership_healthy", Kind: otlp.MetricGauge},
-	{Name: "cluster.membership_total", Kind: otlp.MetricGauge},
-	{Name: "cluster.ssl.certificate.expiration_unix_time_seconds", Kind: otlp.MetricGauge},
-	{Name: "cluster.ssl.ciphers", Kind: otlp.MetricSum},
-	{Name: "cluster.ssl.curves", Kind: otlp.MetricSum},
-	{Name: "cluster.ssl.handshake", Kind: otlp.MetricSum},
-	{Name: "cluster.ssl.sigalgs", Kind: otlp.MetricSum},
-	{Name: "cluster.ssl.versions", Kind: otlp.MetricSum},
-	{Name: "cluster.total_match_count", Kind: otlp.MetricSum},
-	{Name: "cluster.update_attempt", Kind: otlp.MetricSum},
-	{Name: "cluster.update_duration", Kind: otlp.MetricHistogram},
-	{Name: "cluster.update_no_rebuild", Kind: otlp.MetricSum},
-	{Name: "cluster.update_success", Kind: otlp.MetricSum},
-	{Name: "cluster.update_time", Kind: otlp.MetricGauge},
-	{Name: "cluster.upstream_cx_active", Kind: otlp.MetricGauge},
-	{Name: "cluster.upstream_cx_connect_ms", Kind: otlp.MetricHistogram},
-	{Name: "cluster.upstream_cx_http1_total", Kind: otlp.MetricSum},
-	{Name: "cluster.upstream_cx_http2_total", Kind: otlp.MetricSum},
-	{Name: "cluster.upstream_cx_rx_bytes_buffered", Kind: otlp.MetricGauge},
-	{Name: "cluster.upstream_cx_rx_bytes_total", Kind: otlp.MetricSum},
-	{Name: "cluster.upstream_cx_total", Kind: otlp.MetricSum},
-	{Name: "cluster.upstream_cx_tx_bytes_total", Kind: otlp.MetricSum},
-	{Name: "cluster.upstream_rq", Kind: otlp.MetricSum},
-	{Name: "cluster.upstream_rq_active", Kind: otlp.MetricGauge},
-	{Name: "cluster.upstream_rq_completed", Kind: otlp.MetricSum},
-	{Name: "cluster.upstream_rq_pending_active", Kind: otlp.MetricGauge},
-	{Name: "cluster.upstream_rq_pending_total", Kind: otlp.MetricSum},
-	{Name: "cluster.upstream_rq_time", Kind: otlp.MetricHistogram},
-	{Name: "cluster.upstream_rq_total", Kind: otlp.MetricSum},
-	{Name: "cluster.upstream_rq_xx", Kind: otlp.MetricSum},
-	{Name: "cluster.version", Kind: otlp.MetricGauge},
-	{Name: "cluster.warming_state", Kind: otlp.MetricGauge},
-	{Name: "cluster_manager.active_clusters", Kind: otlp.MetricGauge},
-	{Name: "cluster_manager.cds.config_reload", Kind: otlp.MetricSum},
-	{Name: "cluster_manager.cds.config_reload_time_ms", Kind: otlp.MetricGauge},
-	{Name: "cluster_manager.cds.update_attempt", Kind: otlp.MetricSum},
-	{Name: "cluster_manager.cds.update_duration", Kind: otlp.MetricHistogram},
-	{Name: "cluster_manager.cds.update_success", Kind: otlp.MetricSum},
-	{Name: "cluster_manager.cds.update_time", Kind: otlp.MetricGauge},
-	{Name: "cluster_manager.cds.version", Kind: otlp.MetricGauge},
-	{Name: "cluster_manager.cluster_added", Kind: otlp.MetricSum},
-	{Name: "cluster_manager.cluster_updated", Kind: otlp.MetricSum},
-	{Name: "cluster_manager.update_out_of_merge_window", Kind: otlp.MetricSum},
-	{Name: "cluster_manager.warming_clusters", Kind: otlp.MetricGauge},
-	{Name: "control_plane.connected_state", Kind: otlp.MetricGauge},
-	{Name: "dns.cares.not_found", Kind: otlp.MetricSum},
-	{Name: "dns.cares.pending_resolutions", Kind: otlp.MetricGauge},
-	{Name: "dns.cares.resolve_total", Kind: otlp.MetricSum},
-	{Name: "filesystem.flushed_by_timer", Kind: otlp.MetricSum},
-	{Name: "filesystem.write_buffered", Kind: otlp.MetricSum},
-	{Name: "filesystem.write_completed", Kind: otlp.MetricSum},
-	{Name: "filesystem.write_total_buffered", Kind: otlp.MetricGauge},
-	{Name: "http.downstream_cx_active", Kind: otlp.MetricGauge},
-	{Name: "http.downstream_cx_destroy", Kind: otlp.MetricSum},
-	{Name: "http.downstream_cx_destroy_remote", Kind: otlp.MetricSum},
-	{Name: "http.downstream_cx_http1_active", Kind: otlp.MetricGauge},
-	{Name: "http.downstream_cx_http1_total", Kind: otlp.MetricSum},
-	{Name: "http.downstream_cx_length_ms", Kind: otlp.MetricHistogram},
-	{Name: "http.downstream_cx_rx_bytes_buffered", Kind: otlp.MetricGauge},
-	{Name: "http.downstream_cx_rx_bytes_total", Kind: otlp.MetricSum},
-	{Name: "http.downstream_cx_total", Kind: otlp.MetricSum},
-	{Name: "http.downstream_cx_tx_bytes_total", Kind: otlp.MetricSum},
-	{Name: "http.downstream_rq_active", Kind: otlp.MetricGauge},
-	{Name: "http.downstream_rq_completed", Kind: otlp.MetricSum},
-	{Name: "http.downstream_rq_http1_total", Kind: otlp.MetricSum},
-	{Name: "http.downstream_rq_time", Kind: otlp.MetricHistogram},
-	{Name: "http.downstream_rq_total", Kind: otlp.MetricSum},
-	{Name: "http.downstream_rq_xx", Kind: otlp.MetricSum},
-	{Name: "http.health_check.ok", Kind: otlp.MetricSum},
-	{Name: "http.health_check.request_total", Kind: otlp.MetricSum},
-	{Name: "http.rds.config_reload", Kind: otlp.MetricSum},
-	{Name: "http.rds.config_reload_time_ms", Kind: otlp.MetricGauge},
-	{Name: "http.rds.update_attempt", Kind: otlp.MetricSum},
-	{Name: "http.rds.update_duration", Kind: otlp.MetricHistogram},
-	{Name: "http.rds.update_success", Kind: otlp.MetricSum},
-	{Name: "http.rds.update_time", Kind: otlp.MetricGauge},
-	{Name: "http.rds.version", Kind: otlp.MetricGauge},
-	{Name: "http.rq_total", Kind: otlp.MetricSum},
-	{Name: "http.tracing.health_check", Kind: otlp.MetricSum},
-	{Name: "listener.admin.connections_accepted_per_socket_event", Kind: otlp.MetricHistogram},
-	{Name: "listener.admin.downstream_cx_active", Kind: otlp.MetricGauge},
-	{Name: "listener.admin.downstream_cx_total", Kind: otlp.MetricSum},
-	{Name: "listener.admin.downstream_pre_cx_active", Kind: otlp.MetricGauge},
-	{Name: "listener.admin.http.downstream_rq_completed", Kind: otlp.MetricSum},
-	{Name: "listener.admin.http.downstream_rq_xx", Kind: otlp.MetricSum},
-	{Name: "listener.admin.main_thread.downstream_cx_active", Kind: otlp.MetricGauge},
-	{Name: "listener.admin.main_thread.downstream_cx_total", Kind: otlp.MetricSum},
-	{Name: "listener.connections_accepted_per_socket_event", Kind: otlp.MetricHistogram},
-	{Name: "listener.downstream_cx_active", Kind: otlp.MetricGauge},
-	{Name: "listener.downstream_cx_destroy", Kind: otlp.MetricSum},
-	{Name: "listener.downstream_cx_length_ms", Kind: otlp.MetricHistogram},
-	{Name: "listener.downstream_cx_total", Kind: otlp.MetricSum},
-	{Name: "listener.downstream_pre_cx_active", Kind: otlp.MetricGauge},
-	{Name: "listener.http.downstream_rq_completed", Kind: otlp.MetricSum},
-	{Name: "listener.http.downstream_rq_xx", Kind: otlp.MetricSum},
-	{Name: "listener.server_ssl_socket_factory.ssl_context_update_by_sds", Kind: otlp.MetricSum},
-	{Name: "listener.ssl.certificate.expiration_unix_time_seconds", Kind: otlp.MetricGauge},
-	{Name: "listener.worker_downstream_cx_active", Kind: otlp.MetricGauge},
-	{Name: "listener.worker_downstream_cx_total", Kind: otlp.MetricSum},
-	{Name: "listener_manager.lds.update_attempt", Kind: otlp.MetricSum},
-	{Name: "listener_manager.lds.update_duration", Kind: otlp.MetricHistogram},
-	{Name: "listener_manager.lds.update_success", Kind: otlp.MetricSum},
-	{Name: "listener_manager.lds.update_time", Kind: otlp.MetricGauge},
-	{Name: "listener_manager.lds.version", Kind: otlp.MetricGauge},
-	{Name: "listener_manager.listener_added", Kind: otlp.MetricSum},
-	{Name: "listener_manager.listener_create_success", Kind: otlp.MetricSum},
-	{Name: "listener_manager.total_listeners_active", Kind: otlp.MetricGauge},
-	{Name: "listener_manager.total_listeners_warming", Kind: otlp.MetricGauge},
-	{Name: "listener_manager.workers_started", Kind: otlp.MetricGauge},
-	{Name: "runtime.load_success", Kind: otlp.MetricSum},
-	{Name: "runtime.num_keys", Kind: otlp.MetricGauge},
-	{Name: "runtime.num_layers", Kind: otlp.MetricGauge},
-	{Name: "runtime.override_dir_not_exists", Kind: otlp.MetricSum},
-	{Name: "sds.update_attempt", Kind: otlp.MetricSum},
-	{Name: "sds.update_duration", Kind: otlp.MetricHistogram},
-	{Name: "sds.update_success", Kind: otlp.MetricSum},
-	{Name: "sds.update_time", Kind: otlp.MetricGauge},
-	{Name: "sds.version", Kind: otlp.MetricGauge},
-	{Name: "server.compilation_settings.fips_mode", Kind: otlp.MetricGauge},
-	{Name: "server.concurrency", Kind: otlp.MetricGauge},
-	{Name: "server.days_until_first_cert_expiring", Kind: otlp.MetricGauge},
-	{Name: "server.dynamic_unknown_fields", Kind: otlp.MetricSum},
-	{Name: "server.hot_restart_epoch", Kind: otlp.MetricGauge},
-	{Name: "server.hot_restart_generation", Kind: otlp.MetricGauge},
-	{Name: "server.initialization_time_ms", Kind: otlp.MetricHistogram},
-	{Name: "server.live", Kind: otlp.MetricGauge},
-	{Name: "server.memory_allocated", Kind: otlp.MetricGauge},
-	{Name: "server.memory_heap_size", Kind: otlp.MetricGauge},
-	{Name: "server.memory_physical_size", Kind: otlp.MetricGauge},
-	{Name: "server.parent_connections", Kind: otlp.MetricGauge},
-	{Name: "server.state", Kind: otlp.MetricGauge},
-	{Name: "server.static_unknown_fields", Kind: otlp.MetricSum},
-	{Name: "server.stats_recent_lookups", Kind: otlp.MetricGauge},
-	{Name: "server.total_connections", Kind: otlp.MetricGauge},
-	{Name: "server.uptime", Kind: otlp.MetricGauge},
-	{Name: "server.version", Kind: otlp.MetricGauge},
-	{Name: "server.wip_protos", Kind: otlp.MetricSum},
-	{Name: "thread_local_cluster_manager.main_thread.clusters_inflated", Kind: otlp.MetricGauge},
-	{Name: "thread_local_cluster_manager.worker_clusters_inflated", Kind: otlp.MetricGauge},
-	{Name: "tracing.opentelemetry.timer_flushed", Kind: otlp.MetricSum},
+type nativeAttrSpec struct {
+	Key    string
+	Values []string
 }
 
-// nativeGatewayMetrics is the exact EnvoyGateway controller OTLP inventory
-// captured on 2026-09-04. The controller keeps its underscore names verbatim.
-var nativeGatewayMetrics = []nativeMetricSpec{
-	{Name: "resource_apply_duration_seconds", Kind: otlp.MetricHistogram},
-	{Name: "resource_apply_total", Kind: otlp.MetricSum},
-	{Name: "resource_delete_duration_seconds", Kind: otlp.MetricHistogram},
-	{Name: "resource_delete_total", Kind: otlp.MetricSum},
-	{Name: "status_update_duration_seconds", Kind: otlp.MetricHistogram},
-	{Name: "status_update_total", Kind: otlp.MetricSum},
-	{Name: "watchable_depth", Kind: otlp.MetricGauge},
-	{Name: "watchable_event_total", Kind: otlp.MetricSum},
-	{Name: "watchable_publish_total", Kind: otlp.MetricSum},
-	{Name: "watchable_subscribe_duration_seconds", Kind: otlp.MetricHistogram},
-	{Name: "watchable_subscribe_total", Kind: otlp.MetricSum},
-	{Name: "xds_snapshot_create_total", Kind: otlp.MetricSum},
+// nativeOTLPState is intentionally separate from the scrape state. Native emission therefore
+// cannot perturb the established Prometheus lane's draw order, counters, or histograms.
+type nativeOTLPState struct {
+	start      time.Time
+	sums       map[string]float64
+	histograms map[string]*nativeHistogramState
 }
 
-// tickOTLPMetrics intentionally withholds native datapoints until the capture
-// contract is complete. The data-plane record retained only an aggregate resource
-// key set and aggregate datapoint key counts, not resource values or the per-family
-// attribute join table. Both captures omitted histogram bounds. The control-plane
-// record likewise omitted resource, scope, and per-family attribute details. An
-// empty Metric descriptor would not be emitted parity, so no empty descriptors are
-// sent as a substitute. Once those PENDING details are captured, native cumulative
-// counters must use internal/state rather than independent rate heuristics.
-func (c *Construct) tickOTLPMetrics(w *core.World) error {
+type nativeHistogramState struct {
+	Count        uint64
+	Sum          float64
+	BucketCounts []uint64
+}
+
+func newNativeOTLPState() *nativeOTLPState {
+	return &nativeOTLPState{
+		sums:       make(map[string]float64),
+		histograms: make(map[string]*nativeHistogramState),
+	}
+}
+
+func (s *nativeOTLPState) begin(now time.Time) time.Time {
+	if s.start.IsZero() {
+		s.start = now
+	}
+	return s.start
+}
+
+func (s *nativeOTLPState) add(key string, delta float64) float64 {
+	s.sums[key] += delta
+	return s.sums[key]
+}
+
+func (s *nativeOTLPState) observe(key string, bounds []float64, value float64) nativeHistogramState {
+	h := s.histograms[key]
+	if h == nil || len(h.BucketCounts) != len(bounds)+1 {
+		h = &nativeHistogramState{BucketCounts: make([]uint64, len(bounds)+1)}
+		s.histograms[key] = h
+	}
+	h.Count++
+	h.Sum += value
+	bucket := len(bounds)
+	for i, bound := range bounds {
+		if value <= bound {
+			bucket = i
+			break
+		}
+	}
+	h.BucketCounts[bucket]++
+	return nativeHistogramState{
+		Count:        h.Count,
+		Sum:          h.Sum,
+		BucketCounts: append([]uint64(nil), h.BucketCounts...),
+	}
+}
+
+var nativeControlResourceAttrs = map[string]any{
+	"service.name":           "unknown_service:envoy-gateway",
+	"telemetry.sdk.language": "go",
+	"telemetry.sdk.name":     "opentelemetry",
+	"telemetry.sdk.version":  "1.45.0",
+}
+
+const nativeControlResourceSchemaURL = "https://opentelemetry.io/schemas/1.43.0"
+
+var nativeDataResourceAttrs = map[string]any{
+	"telemetry.sdk.language": "cpp",
+	"telemetry.sdk.name":     "envoy",
+	"telemetry.sdk.version":  "<build-id-elided>/1.39.0/Clean/RELEASE/BoringSSL",
+}
+
+// tickOTLPMetrics emits only the selected native OTLP surface(s). A proxy sink produces one
+// resource containing the 206 captured data-plane families; a gateway sink produces one resource
+// containing the 16 captured control-plane families. The two gates are additive to their
+// respective Prometheus switches and never alter scrape-shaped output.
+func (c *Construct) tickOTLPMetrics(ctx context.Context, now time.Time, factor float64, w *core.World) error {
 	if w == nil || w.OTLPMetrics == nil || (!c.proxyOTLPSink && !c.gatewayOTLPSink) {
 		return nil
 	}
-	return nil
+	if c.native == nil {
+		c.native = newNativeOTLPState()
+	}
+	start := c.native.begin(now)
+	resources := make([]otlp.MetricResource, 0, 2)
+	if c.gatewayOTLPSink {
+		resources = append(resources, c.nativeMetricResource(
+			now, start, factor, "control", nativeControlResourceAttrs, otlp.Scope{Name: "envoy-gateway"}, false,
+			nativeControlResourceSchemaURL, nativeGatewayMetrics,
+		))
+	}
+	if c.proxyOTLPSink {
+		resources = append(resources, c.nativeMetricResource(
+			now, start, factor, "data", nativeDataResourceAttrs, otlp.Scope{}, true,
+			"", nativeDataPlaneMetrics,
+		))
+	}
+	return w.OTLPMetrics.Write(ctx, resources)
+}
+
+func (c *Construct) nativeMetricResource(
+	now, start time.Time,
+	factor float64,
+	plane string,
+	attrs map[string]any,
+	scope otlp.Scope,
+	preserveEmptyScope bool,
+	resourceSchemaURL string,
+	specs []nativeMetricSpec,
+) otlp.MetricResource {
+	resourceAttrs := make(map[string]any, len(attrs))
+	for key, value := range attrs {
+		resourceAttrs[key] = value
+	}
+	metrics := make([]otlp.Metric, 0, len(specs))
+	for _, spec := range specs {
+		if !nativeMetricSpecComplete(spec) {
+			continue
+		}
+		metrics = append(metrics, c.nativeMetric(now, start, factor, plane, spec))
+	}
+	return otlp.MetricResource{
+		Attrs:              resourceAttrs,
+		Scope:              scope,
+		ResourceSchemaURL:  resourceSchemaURL,
+		PreserveEmptyScope: preserveEmptyScope,
+		Metrics:            metrics,
+	}
+}
+
+func nativeMetricSpecComplete(spec nativeMetricSpec) bool {
+	if spec.Name == "" {
+		return false
+	}
+	if spec.Kind != otlp.MetricGauge && spec.Kind != otlp.MetricSum && spec.Kind != otlp.MetricHistogram {
+		return false
+	}
+	if spec.Kind == otlp.MetricHistogram && len(spec.Bounds) == 0 {
+		return false
+	}
+	for _, attr := range spec.Attrs {
+		if attr.Key == "" || len(attr.Values) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Construct) nativeMetric(now, start time.Time, factor float64, plane string, spec nativeMetricSpec) otlp.Metric {
+	points := nativeAttributeCombinations(spec.Attrs)
+	if len(points) == 0 {
+		return otlp.Metric{Name: spec.Name, Kind: spec.Kind, Unit: spec.Unit, Monotonic: spec.Monotonic, Histograms: nil}
+	}
+
+	metric := otlp.Metric{
+		Name:        spec.Name,
+		Unit:        spec.Unit,
+		Kind:        spec.Kind,
+		Monotonic:   spec.Monotonic,
+		Temporality: otlp.TemporalityCumulative,
+	}
+	switch spec.Kind {
+	case otlp.MetricGauge:
+		metric.Numbers = make([]otlp.NumberPoint, 0, len(points))
+		for _, attrs := range points {
+			metric.Numbers = append(metric.Numbers, otlp.NumberPoint{
+				Attrs: attrs,
+				Time:  now,
+				Value: nativeGaugeValue(spec.Name, factor, now.Sub(start).Seconds()),
+			})
+		}
+	case otlp.MetricSum:
+		metric.Numbers = make([]otlp.NumberPoint, 0, len(points))
+		delta := nativeSumDelta(spec.Name, factor)
+		for _, attrs := range points {
+			key := nativeStateKey(plane, spec.Name, attrs)
+			metric.Numbers = append(metric.Numbers, otlp.NumberPoint{
+				Attrs: attrs,
+				Start: start,
+				Time:  now,
+				Value: c.native.add(key, delta),
+			})
+		}
+	case otlp.MetricHistogram:
+		metric.Histograms = make([]otlp.HistogramPoint, 0, len(points))
+		observation := nativeHistogramObservation(plane, spec.Name, factor)
+		for _, attrs := range points {
+			key := nativeStateKey(plane, spec.Name, attrs)
+			h := c.native.observe(key, spec.Bounds, observation)
+			metric.Histograms = append(metric.Histograms, otlp.HistogramPoint{
+				Attrs:        attrs,
+				Start:        start,
+				Time:         now,
+				Count:        h.Count,
+				Sum:          h.Sum,
+				Bounds:       append([]float64(nil), spec.Bounds...),
+				BucketCounts: h.BucketCounts,
+			})
+		}
+	}
+	return metric
+}
+
+// nativeAttributeCombinations returns one datapoint attribute map for every Cartesian product
+// of the exact value sets retained by the capture. This makes a value set omission observable in
+// dry-run inventory and keeps each family joined to its own captured keys.
+func nativeAttributeCombinations(specs []nativeAttrSpec) []map[string]any {
+	combinations := []map[string]any{{}}
+	for _, spec := range specs {
+		if len(spec.Values) == 0 {
+			return nil
+		}
+		next := make([]map[string]any, 0, len(combinations)*len(spec.Values))
+		for _, attrs := range combinations {
+			for _, value := range spec.Values {
+				copyAttrs := make(map[string]any, len(attrs)+1)
+				for key, existing := range attrs {
+					copyAttrs[key] = existing
+				}
+				copyAttrs[spec.Key] = value
+				next = append(next, copyAttrs)
+			}
+		}
+		combinations = next
+	}
+	return combinations
+}
+
+func nativeStateKey(plane, name string, attrs map[string]any) string {
+	keys := make([]string, 0, len(attrs))
+	for key := range attrs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	b.WriteString(plane)
+	b.WriteByte(0)
+	b.WriteString(name)
+	for _, key := range keys {
+		b.WriteByte(0)
+		b.WriteString(key)
+		b.WriteByte('=')
+		b.WriteString(nativeStringValue(attrs[key]))
+	}
+	return b.String()
+}
+
+func nativeStringValue(value any) string {
+	if text, ok := value.(string); ok {
+		return text
+	}
+	return ""
+}
+
+func nativeSumDelta(name string, factor float64) float64 {
+	if factor <= 0 {
+		factor = 0.1
+	}
+	// One nominal event per 60-second construct cadence, scaled by the existing shape factor.
+	// Error/reset/watchdog families are rarer event counters, so they receive a small but positive
+	// fraction of that cadence rather than a fabricated high-volume request rate.
+	if strings.Contains(name, "failure") || strings.Contains(name, "reset") ||
+		strings.Contains(name, "miss") || strings.Contains(name, "unknown") ||
+		strings.Contains(name, "no_certificate") || strings.Contains(name, "not_found") {
+		return factor * 0.05
+	}
+	return factor
+}
+
+func nativeGaugeValue(name string, factor, elapsedSeconds float64) float64 {
+	// Exact values mirror the established Prometheus lane's small gateway fixture. The
+	// broader captured surface remains at its healthy idle value unless it is an active
+	// resource gauge, which follows the same bounded shape factor.
+	switch name {
+	case "control_plane.connected_state", "server.live":
+		return 1
+	case "cluster.membership_healthy", "cluster.membership_total":
+		return 2
+	case "cluster.max_host_weight":
+		return 1
+	case "server.concurrency":
+		return 4
+	case "server.days_until_first_cert_expiring":
+		return 89
+	case "server.memory_allocated":
+		return 32 * 1024 * 1024
+	case "server.memory_heap_size":
+		return 64 * 1024 * 1024
+	case "server.memory_physical_size":
+		return 128 * 1024 * 1024
+	case "server.uptime":
+		return max(elapsedSeconds, 0)
+	case "listener_manager.total_listeners_active":
+		return 1
+	case "listener_manager.workers_started":
+		return 4
+	}
+	if strings.HasSuffix(name, "_active") || strings.HasSuffix(name, ".active") ||
+		strings.Contains(name, "clusters_inflated") {
+		return max(factor, 0.1)
+	}
+	return 0
+}
+
+func nativeHistogramObservation(plane, name string, factor float64) float64 {
+	if factor <= 0 {
+		factor = 0.1
+	}
+	if plane == "control" {
+		if name == "xds_stream_duration_seconds" {
+			return 100 * (0.8 + 0.2*factor)
+		}
+		return 0.05 * (0.8 + 0.2*factor)
+	}
+	return 10 * (0.8 + 0.2*factor)
 }

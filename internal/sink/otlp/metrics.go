@@ -74,7 +74,10 @@ func (s *MetricsSink) Write(ctx context.Context, resources []MetricResource) err
 			metrics = append(metrics, pm)
 		}
 		rms = append(rms, &metricspb.ResourceMetrics{
-			Resource: &resourcepb.Resource{Attributes: kvs(r.Attrs)},
+			Resource: &resourcepb.Resource{
+				Attributes: kvs(r.Attrs),
+			},
+			SchemaUrl: r.ResourceSchemaURL,
 			ScopeMetrics: []*metricspb.ScopeMetrics{{
 				Scope:   &commonpb.InstrumentationScope{Name: scopeName, Version: scopeVer},
 				Metrics: metrics,

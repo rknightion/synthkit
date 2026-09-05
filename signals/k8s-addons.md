@@ -740,6 +740,13 @@ planes. Afterward both temporary sinks were absent on live API read-back and the
 receiver resources were absent. The raw evidence hash and the complete 23-family bounds table are
 in the readable record.
 
+Implementation status: the Envoy Gateway construct emits the complete 16-family control-plane and
+206-family data-plane contracts from this JSON when their respective `otel_sink` gates are enabled.
+No current family is withheld: every retained family has complete instrument, resource, scope,
+unit, temporality, monotonicity, datapoint-attribute, and (where applicable) histogram-bound metadata.
+The construct carries the exact resource attributes, scopes, and resource schema URL values onto
+the wire, including the data plane's captured empty schema URL.
+
 ### Native OTLP — EnvoyProxy data plane
 
 `proxy_telemetry.otel_sink: true` models the `telemetry.metrics.sinks[].openTelemetry` sink on the

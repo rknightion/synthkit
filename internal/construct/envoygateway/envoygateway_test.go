@@ -455,8 +455,7 @@ func TestDefaultOutputUnchanged(t *testing.T) {
 }
 
 // TestNativeOTLPSwitchesRemainDeclared verifies that each product sink is
-// independently selectable. The actual datapoints remain withheld until the
-// missing capture fields are available.
+// independently selectable and emits only its captured native surface.
 func TestNativeOTLPSwitchesRemainDeclared(t *testing.T) {
 	c := buildWithConfig(t, &envoygateway.Config{
 		ProxyTelemetry:   &envoygateway.TelemetryConfig{OTelSink: true},
@@ -468,8 +467,14 @@ func TestNativeOTLPSwitchesRemainDeclared(t *testing.T) {
 
 	native := &nativeMetricCapture{}
 	tickAt(t, c, testNow, native)
-	if len(native.resources) != 0 {
-		t.Fatalf("native datapoints were emitted before the capture contract was complete: %d resource(s)", len(native.resources))
+	if len(native.resources) != 2 {
+		t.Fatalf("native resources=%d, want one resource per selected plane", len(native.resources))
+	}
+	if got := len(native.resources[0].Metrics); got != 16 {
+		t.Fatalf("control-plane native metric count=%d, want 16", got)
+	}
+	if got := len(native.resources[1].Metrics); got != 206 {
+		t.Fatalf("data-plane native metric count=%d, want 206", got)
 	}
 }
 
@@ -500,9 +505,9 @@ func TestPrometheusDisableIsScoped(t *testing.T) {
 	}
 }
 
-// TestNativeOTLPWithholdsUnprovenData verifies that a switch cannot cause an
-// empty descriptor or guessed datapoint to reach the sink.
-func TestNativeOTLPWithholdsUnprovenData(t *testing.T) {
+// TestNativeOTLPCumulativeOutput verifies that selected native families remain
+// fully described and cumulative across ticks.
+func TestNativeOTLPCumulativeOutput(t *testing.T) {
 	c := buildWithConfig(t, &envoygateway.Config{
 		ProxyTelemetry:   &envoygateway.TelemetryConfig{OTelSink: true},
 		GatewayTelemetry: &envoygateway.TelemetryConfig{OTelSink: true},
@@ -510,8 +515,22 @@ func TestNativeOTLPWithholdsUnprovenData(t *testing.T) {
 	native := &nativeMetricCapture{}
 	tickAt(t, c, testNow, native)
 	tickAt(t, c, testNow.Add(time.Minute), native)
-	if len(native.resources) != 0 {
-		t.Fatalf("native datapoints were emitted with unproven attributes/rates: %d resource(s)", len(native.resources))
+	if len(native.resources) != 4 {
+		t.Fatalf("native resources=%d, want two resources per tick", len(native.resources))
+	}
+	first := native.resources[0].Metrics
+	second := native.resources[2].Metrics
+	for i := range first {
+		if first[i].Kind != otlp.MetricSum || len(first[i].Numbers) == 0 {
+			continue
+		}
+		if len(second[i].Numbers) == 0 || !first[i].Numbers[0].Start.Equal(testNow) ||
+			!second[i].Numbers[0].Start.Equal(testNow) {
+			t.Errorf("native Sum %q has unstable start time", first[i].Name)
+		}
+		if second[i].Numbers[0].Value <= first[i].Numbers[0].Value {
+			t.Errorf("native Sum %q did not accumulate", first[i].Name)
+		}
 	}
 }
 
