@@ -16,7 +16,7 @@ require (
 	github.com/grafana/grafana-foundation-sdk/go v0.0.18
 	github.com/grafana/nanogit v1.4.2
 	github.com/grafana/pyroscope-go v1.4.2
-	github.com/moby/moby/api v1.55.0
+	github.com/moby/moby/api v1.56.0
 	github.com/testcontainers/testcontainers-go v0.44.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.71.0
 	go.opentelemetry.io/otel v1.46.0
