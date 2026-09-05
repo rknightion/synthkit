@@ -15,30 +15,56 @@ import (
 	"github.com/rknightion/synthkit/internal/state"
 )
 
-// AWS reference pages used for the entries below:
-//   - AWS/EC2: Amazon EC2 User Guide, "View available metrics",
-//     https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html
-//   - AWS/RDS: Amazon RDS User Guide, "Monitoring Amazon RDS metrics with Amazon CloudWatch",
-//     https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/monitoring-cloudwatch.html
-//
-// The names were checked through Context7 on 2026-09-05. This table is intentionally
-// incomplete: a base is emitted only when its exact AWS spelling and unit are verified.
-var streamEntries = map[string]StreamEntry{
-	"aws_ec2_cpuutilization":       {Namespace: "AWS/EC2", MetricName: "CPUUtilization", Unit: "%"},
-	"aws_rds_database_connections": {Namespace: "AWS/RDS", MetricName: "DatabaseConnections", Unit: "{Count}"},
+// The five calls below are the frozen ownership seam for the namespace-group lanes.
+var streamEntries, streamDimensions = mergeStreamTables(
+	streamTableCWInfra(),        // internal/cw/streamtable_cwinfra.go        L1
+	streamTableRDSFamily(),      // internal/cw/streamtable_rdsfamily.go      L2: RDS, DocDB, Neptune
+	streamTableCacheSearchEC2(), // internal/cw/streamtable_cachesearchec2.go L3: ElastiCache, AOSS, EC2
+	streamTableDataPipelines(),  // internal/cw/streamtable_datapipelines.go  L4: MWAA, Glue
+	streamTableGenAI(),          // internal/cw/streamtable_genai.go          L5: Bedrock, AgentCore
+)
+
+type streamTable struct {
+	entries    map[string]StreamEntry
+	dimensions map[string]map[string]string
 }
 
-// streamDimensions is the exact AWS Dimension spelling verified alongside each stream entry.
-// It deliberately does not derive a name from a Prometheus label suffix: CloudWatch dimensions
-// such as PrivateLink's "Endpoint Type" are mangled for Prometheus and cannot be reconstructed.
-var streamDimensions = map[string]map[string]string{
-	"aws_ec2_cpuutilization": {
-		"dimension_AutoScalingGroupName": "AutoScalingGroupName",
-		"dimension_InstanceId":           "InstanceId",
-	},
-	"aws_rds_database_connections": {
-		"dimension_DBInstanceIdentifier": "DBInstanceIdentifier",
-	},
+// streamTableDuplicateBases is deliberately test-enforced rather than an init-time panic: a
+// duplicate table entry fails the repository gate without making the package impossible to run.
+var streamTableDuplicateBases []string
+
+func mergeStreamTables(tables ...streamTable) (map[string]StreamEntry, map[string]map[string]string) {
+	entries := make(map[string]StreamEntry)
+	dimensions := make(map[string]map[string]string)
+	seen := make(map[string]struct{})
+	duplicates := make(map[string]struct{})
+	for _, table := range tables {
+		bases := make(map[string]struct{}, len(table.entries)+len(table.dimensions))
+		for base := range table.entries {
+			bases[base] = struct{}{}
+		}
+		for base := range table.dimensions {
+			bases[base] = struct{}{}
+		}
+		for base := range bases {
+			if _, ok := seen[base]; ok {
+				duplicates[base] = struct{}{}
+			}
+			seen[base] = struct{}{}
+		}
+		for base, entry := range table.entries {
+			entries[base] = entry
+		}
+		for base, allowed := range table.dimensions {
+			dimensions[base] = allowed
+		}
+	}
+	streamTableDuplicateBases = streamTableDuplicateBases[:0]
+	for base := range duplicates {
+		streamTableDuplicateBases = append(streamTableDuplicateBases, base)
+	}
+	slices.Sort(streamTableDuplicateBases)
+	return entries, dimensions
 }
 
 // StreamName returns "amazonaws.com/{Namespace}/{MetricName}" for a doc-verified pair.

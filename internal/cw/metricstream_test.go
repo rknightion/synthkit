@@ -4,6 +4,8 @@ package cw
 
 import (
 	"context"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +23,52 @@ func (c *metricStreamReportCapture) Write(context.Context, []otlp.MetricResource
 
 func (c *metricStreamReportCapture) RecordCloudWatchMetricStreamReport(report core.CloudWatchMetricStreamReport) {
 	c.report = report
+}
+
+func TestStreamTablesHaveNoDuplicateBases(t *testing.T) {
+	if len(streamTableDuplicateBases) != 0 {
+		t.Fatalf("duplicate bases across stream tables: %v", streamTableDuplicateBases)
+	}
+}
+
+func TestMergeStreamTablesDetectsDuplicateBases(t *testing.T) {
+	original := slices.Clone(streamTableDuplicateBases)
+	t.Cleanup(func() { streamTableDuplicateBases = original })
+	mergeStreamTables(
+		streamTable{entries: map[string]StreamEntry{"duplicate": {}}},
+		streamTable{dimensions: map[string]map[string]string{"duplicate": {}}},
+	)
+	if !slices.Equal(streamTableDuplicateBases, []string{"duplicate"}) {
+		t.Fatalf("duplicate bases=%v, want [duplicate]", streamTableDuplicateBases)
+	}
+}
+
+func TestStreamTablesOwnTheirEntryNamespaces(t *testing.T) {
+	tests := []struct {
+		name       string
+		table      streamTable
+		namespaces []string
+	}{
+		{
+			name: "cwinfra", table: streamTableCWInfra(),
+			namespaces: []string{"AWS/ApplicationELB", "AWS/NetworkELB", "AWS/ELB", "AWS/EBS", "AWS/EKS", "AWS/Firehose", "AWS/Lambda", "AWS/NATGateway", "AWS/PrivateLinkEndpoints", "AWS/PrivateLinkServices", "AWS/S3", "AWS/SQS"},
+		},
+		{name: "rds-family", table: streamTableRDSFamily(), namespaces: []string{"AWS/RDS", "AWS/DocDB", "AWS/Neptune"}},
+		{name: "cache-search-ec2", table: streamTableCacheSearchEC2(), namespaces: []string{"AWS/ElastiCache", "AWS/AOSS", "AWS/EC2"}},
+		{name: "data-pipelines", table: streamTableDataPipelines(), namespaces: []string{"AWS/MWAA", "AmazonMWAA", "Glue"}},
+		{name: "genai", table: streamTableGenAI(), namespaces: []string{"AWS/Bedrock", "AWS/Bedrock-AgentCore"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for base, entry := range tt.table.entries {
+				if !slices.ContainsFunc(tt.namespaces, func(namespace string) bool {
+					return entry.Namespace == namespace || strings.HasPrefix(entry.Namespace, namespace+"/")
+				}) {
+					t.Errorf("%s namespace %q is outside owned namespaces %v", base, entry.Namespace, tt.namespaces)
+				}
+			}
+		})
+	}
 }
 
 func TestMetricStreamsUsesCapturedSummaryForm(t *testing.T) {
