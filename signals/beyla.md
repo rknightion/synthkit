@@ -5,7 +5,8 @@
 > `beyla.bpf.map.entries_total`, `beyla.bpf.map.max_entries_total`, `beyla.bpf.probe.executions`
 > (unit `{call}`), `beyla.bpf.probe.latency_seconds_total` (unit `s`) and `beyla.internal.build.info`
 > — units ARE populated, so do not assume the OTLP path carries none. Live-captured 2026-09-04:
-> `e2e/lab/captures/beyla-envoygateway-otlp-588571dc6a53c4e4.md`. Synthkit does NOT emit this lane.
+> `e2e/lab/captures/beyla-envoygateway-otlp-588571dc6a53c4e4.md`. The `beyla_agent` construct
+> emits this lane only when `internal_metrics.exporter: otel` is selected.
 >
 > ⚠ **The k8s-monitoring chart cannot produce that config.**
 > `feature-auto-instrumentation/templates/_beyla-config.tpl:17` injects
@@ -455,6 +456,80 @@ metrics:
   - {root: beyla_prometheus_http_requests_total, type: counter, unit: count, v: ok,
      note: "labels: path, port; Prometheus /metrics scrape requests"}
 ```
+
+---
+
+## Beyla internal / self-metrics — native OTLP [slug: beyla-internal-otlp]
+
+The `beyla_agent` construct selects this native OTLP surface with
+`internal_metrics: { exporter: otel }`. Beyla refuses to run its OTLP and Prometheus
+internal-metrics exporters together, so this branch declares `core.OTLPMetrics` and emits none of
+the Prometheus `/internal/metrics` `beyla_*` families. `prometheus` (the default) retains the
+`[slug: beyla-internal]` scrape surface; `disabled` emits neither surface.
+
+**Provenance/date:** the five names, instruments, and units below were captured from a standalone
+Beyla v3.32.0 OTLP export on **2026-09-04**, retained in
+`e2e/lab/captures/beyla-envoygateway-otlp-588571dc6a53c4e4.md` (raw capture SHA-256
+`588571dc6a53c4e4717de43171399a99646cfed98641fcad0ce8b6f60b69ff35`). Context7's
+`/grafana/beyla` index resolved the exporter configuration and dot-notation documentation but did
+not expose the reporter declaration or wire attribute inventory. The missing fields were therefore
+checked against the version-pinned Beyla v3.32.0 source and its OBI submodule at commit
+`6ec4f13df658f5972355b87bbc637547b6e39fc3`.
+
+Source URLs: [Beyla config override](https://github.com/grafana/beyla/blob/v3.32.0/pkg/beyla/config_obi.go),
+[OBI internal reporter](https://github.com/grafana/opentelemetry-ebpf-instrumentation/blob/6ec4f13df658f5972355b87bbc637547b6e39fc3/pkg/export/otel/metrics_internal.go),
+[OBI attribute definitions](https://github.com/grafana/opentelemetry-ebpf-instrumentation/blob/6ec4f13df658f5972355b87bbc637547b6e39fc3/pkg/export/attributes/names/attrs.go),
+and [OBI dependency versions](https://github.com/grafana/opentelemetry-ebpf-instrumentation/blob/6ec4f13df658f5972355b87bbc637547b6e39fc3/go.mod).
+
+The official reporter creates meter scope `obi_internal` and these resource attributes:
+`service.name` and `telemetry.distro.name` = `opentelemetry-ebpf-instrumentation`,
+`telemetry.sdk.language` = `go`, `telemetry.sdk.name` = `beyla`,
+`telemetry.sdk.version` = the OTel SDK dependency version (`v1.44.0` in the pinned OBI source),
+`telemetry.distro.version` = the link-time Beyla version, `service.instance.id` = a UUID, and
+`host.id` plus any node metadata supplied by OBI. This construct has no NodeMeta host ID or
+metadata input, so it emits the proven fixed attributes and omits `host.id`/metadata until that
+input is available. It uses a deterministic UUID-shaped instance ID so one configured substrate
+does not create a new series on every tick.
+
+```yaml signals
+family: beyla_internal_otlp
+scope: substrate
+sink: otlp
+resource_attributes:
+  service.name: opentelemetry-ebpf-instrumentation
+  service.instance.id: <UUID per reporter instance>
+  telemetry.sdk.language: go
+  telemetry.sdk.name: beyla
+  telemetry.sdk.version: v1.44.0
+  telemetry.distro.name: opentelemetry-ebpf-instrumentation
+  telemetry.distro.version: <link-time Beyla version>
+  # host.id and OBI node metadata are source-defined but omitted by synthkit until a
+  # corresponding construct input exists.
+instrumentation_scope: obi_internal
+datapoint_attributes:
+  beyla.bpf.map.entries_total: [bpf.map.id, bpf.map.type, bpf.map.name]
+  beyla.bpf.map.max_entries_total: [bpf.map.id, bpf.map.type, bpf.map.name]
+  beyla.bpf.probe.executions: [bpf.probe.id, bpf.probe.type, bpf.probe.name]
+  beyla.bpf.probe.latency_seconds_total: [bpf.probe.id, bpf.probe.type, bpf.probe.name]
+  beyla.internal.build.info: [obi.goarch, obi.goos, obi.goversion, obi.version, obi.revision]
+metrics:
+  - {root: beyla.bpf.map.entries_total, type: gauge, unit: "", v: ok,
+     note: "Beyla v3.32.0 OTLP capture; attributes source-confirmed in OBI InternalMetricsReporter"}
+  - {root: beyla.bpf.map.max_entries_total, type: gauge, unit: "", v: ok,
+     note: "Beyla v3.32.0 OTLP capture; attributes source-confirmed in OBI InternalMetricsReporter"}
+  - {root: beyla.bpf.probe.executions, type: sum, unit: "{call}", temporality: cumulative,
+     monotonic: true, v: ok, note: "Beyla v3.32.0 OTLP capture"}
+  - {root: beyla.bpf.probe.latency_seconds_total, type: sum, unit: s, temporality: cumulative,
+     monotonic: true, v: ok, note: "Beyla v3.32.0 OTLP capture"}
+  - {root: beyla.internal.build.info, type: gauge, unit: "", v: ok,
+     note: "Beyla v3.32.0 OTLP capture"}
+```
+
+The construct reuses the same deterministic map/probe values as the Prometheus renderer and keeps
+probe sums cumulative across ticks through `internal/state`. The datapoint attributes use the native
+dotted keys from OBI's `InternalMetricsReporter`, not the Prometheus-mangled labels. The source
+contract's `host.id` and arbitrary node metadata remain PENDING at SK-109 because this construct has no
+corresponding input.
 
 ---
 

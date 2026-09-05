@@ -3,6 +3,7 @@
 package inventory
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/rknightion/synthkit/internal/sink/loki"
@@ -145,6 +146,8 @@ func addOTLPMetricResource(out *Schema, resource otlp.MetricResource) {
 			}
 		case otlp.MetricHistogram, otlp.MetricExponentialHistogram:
 			instrument = InstrumentHistogram
+		case otlp.MetricSummary:
+			instrument = InstrumentSummary
 		}
 		for _, point := range metric.Numbers {
 			attrs := mergeStrings(resourceAttrs, stringify(point.Attrs))
@@ -172,7 +175,14 @@ func addOTLPMetricResource(out *Schema, resource otlp.MetricResource) {
 				out.AddMetricProducer(metric.Name, Producer{Name: resource.Producer})
 			}
 		}
-		if len(metric.Numbers) == 0 && len(metric.Histograms) == 0 && len(metric.ExpHistograms) == 0 {
+		for _, point := range metric.Summaries {
+			attrs := mergeStrings(resourceAttrs, stringify(point.Attrs))
+			out.AddMetric(metric.Name, TransportOTLPMetrics, instrument, attrs, nil)
+			if resource.Producer != "" {
+				out.AddMetricProducer(metric.Name, Producer{Name: resource.Producer})
+			}
+		}
+		if len(metric.Numbers) == 0 && len(metric.Histograms) == 0 && len(metric.ExpHistograms) == 0 && len(metric.Summaries) == 0 {
 			out.AddMetric(metric.Name, TransportOTLPMetrics, instrument, resourceAttrs, nil)
 			if resource.Producer != "" {
 				out.AddMetricProducer(metric.Name, Producer{Name: resource.Producer})
@@ -184,6 +194,14 @@ func addOTLPMetricResource(out *Schema, resource otlp.MetricResource) {
 func stringify(in map[string]any) map[string]string {
 	out := make(map[string]string, len(in))
 	for key, value := range in {
+		switch value.(type) {
+		case map[string]string, map[string]any:
+			// Match the receiver's JSON representation of OTLP KeyValueList values.
+			if encoded, err := json.Marshal(value); err == nil {
+				out[key] = string(encoded)
+				continue
+			}
+		}
 		out[key] = fmt.Sprint(value)
 	}
 	return out

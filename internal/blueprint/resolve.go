@@ -311,10 +311,11 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		var cloud *fixture.Cloud
 		if e.Cloud != nil {
 			cloud = &fixture.Cloud{
-				Provider:  e.Cloud.Provider,
-				AccountID: e.Cloud.AccountID,
-				Region:    e.Cloud.Region,
-				VpcID:     e.Cloud.VpcID,
+				CloudWatchExport: e.Cloud.CloudWatchExport,
+				Provider:         e.Cloud.Provider,
+				AccountID:        e.Cloud.AccountID,
+				Region:           e.Cloud.Region,
+				VpcID:            e.Cloud.VpcID,
 			}
 			for n := range e.Cloud.NATGateways {
 				cloud.NATGatewayIDs = append(cloud.NATGatewayIDs,

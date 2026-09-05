@@ -291,8 +291,8 @@ func convertSpans(in []Span) ([]*tracepb.Span, int) {
 }
 
 // kvs converts a map[string]any into a []*commonpb.KeyValue slice. Value types
-// string, int, int64, float64, and bool are mapped to their native AnyValue
-// variants; all other types are stringified via fmt.Sprint.
+// string, int, int64, float64, bool, and nested string-keyed maps are mapped to
+// their native AnyValue variants; all other types are stringified via fmt.Sprint.
 func kvs(attrs map[string]any) []*commonpb.KeyValue {
 	if len(attrs) == 0 {
 		return nil
@@ -319,9 +319,30 @@ func anyVal(v any) *commonpb.AnyValue {
 		return &commonpb.AnyValue{Value: &commonpb.AnyValue_DoubleValue{DoubleValue: val}}
 	case bool:
 		return &commonpb.AnyValue{Value: &commonpb.AnyValue_BoolValue{BoolValue: val}}
+	case map[string]string:
+		values := make(map[string]any, len(val))
+		for key, item := range val {
+			values[key] = item
+		}
+		return kvListVal(values)
+	case map[string]any:
+		return kvListVal(val)
 	default:
 		return &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: fmt.Sprint(val)}}
 	}
+}
+
+func kvListVal(values map[string]any) *commonpb.AnyValue {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	items := make([]*commonpb.KeyValue, 0, len(keys))
+	for _, key := range keys {
+		items = append(items, &commonpb.KeyValue{Key: key, Value: anyVal(values[key])})
+	}
+	return &commonpb.AnyValue{Value: &commonpb.AnyValue_KvlistValue{KvlistValue: &commonpb.KeyValueList{Values: items}}}
 }
 
 // gzipBytes compresses b with gzip at BestSpeed — ~90% of the ratio at a fraction of the CPU,

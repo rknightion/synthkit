@@ -49,6 +49,7 @@ type Construct struct {
 	environments []string
 	accountID    string
 	region       string
+	exportMode   string
 	st           *state.State
 }
 
@@ -78,13 +79,19 @@ func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
 		environments: environments,
 		accountID:    fx.Cloud.AccountID,
 		region:       fx.Cloud.Region,
+		exportMode:   fx.Cloud.CloudWatchExportMode(),
 		st:           state.NewState(),
 	}, nil
 }
 
-func (c *Construct) Kind() string                { return "mwaa" }
-func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics} }
-func (c *Construct) Interval() time.Duration     { return 60 * time.Second }
+func (c *Construct) Kind() string { return "mwaa" }
+func (c *Construct) Signals() []core.SignalClass {
+	if c.exportMode == "otlp" {
+		return []core.SignalClass{core.OTLPMetrics}
+	}
+	return []core.SignalClass{core.Metrics}
+}
+func (c *Construct) Interval() time.Duration { return 60 * time.Second }
 
 // Tick renders one 60-second observation window into w.Metrics.
 // All series use state.Set (per-period gauges, ARCHITECTURE I5 — NEVER state.Add).
@@ -96,7 +103,12 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		c.emitAmazonMWAA(bf, envName)
 	}
 
-	return w.Metrics.Write(ctx, c.st.Collect(now))
+	batch := c.st.Collect(now)
+	if c.exportMode == "otlp" {
+		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, &fixture.Cloud{AccountID: c.accountID, Region: c.region}, batch)
+		return err
+	}
+	return w.Metrics.Write(ctx, batch)
 }
 
 // emitMWAA emits the AWS/MWAA namespace series (17 base, infra metrics).

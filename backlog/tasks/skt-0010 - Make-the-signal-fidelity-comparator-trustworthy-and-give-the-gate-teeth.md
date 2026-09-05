@@ -4,7 +4,7 @@ title: Make the signal-fidelity comparator trustworthy and give the gate teeth
 status: In Progress
 assignee: []
 created_date: '2026-08-27 07:05'
-updated_date: '2026-08-27 08:04'
+updated_date: '2026-09-05 16:04'
 labels: []
 dependencies: []
 priority: high
@@ -32,13 +32,13 @@ Governing principle for the comparator, which the subtasks implement: **absent e
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A corpus field the producer could not observe never produces a contradiction finding
-- [ ] #2 Read-path enrichment labels are declared in the corpus with provenance rather than hard-coded in the comparator, and are excluded from emission-shape comparison
-- [ ] #3 Label-value comparison treats a single-account or single-region capture as a subset of reality, and reports a contradiction only where reality carries a value synth cannot emit
-- [ ] #4 Both corpus producers record real instrument types, so the unknown sentinel becomes rare rather than universal
-- [ ] #5 The real divergences the audit found are corrected in the emitters, with the corrected shape recorded in signals/ with provenance
-- [ ] #6 Every coverage-gap metric carries a recorded verdict: synthkit should emit it, it is deliberately out of scope, or it is unresolved with a cantfind.md PENDING
-- [ ] #7 CI fails on contradictions and reports coverage gaps without failing
+- [x] #1 A corpus field the producer could not observe never produces a contradiction finding
+- [x] #2 Read-path enrichment labels are declared in the corpus with provenance rather than hard-coded in the comparator, and are excluded from emission-shape comparison
+- [x] #3 Label-value comparison treats a single-account or single-region capture as a subset of reality, and reports a contradiction only where reality carries a value synth cannot emit
+- [x] #4 Both corpus producers record real instrument types, so the unknown sentinel becomes rare rather than universal
+- [x] #5 The real divergences the audit found are corrected in the emitters, with the corrected shape recorded in signals/ with provenance
+- [x] #6 Every coverage-gap metric carries a recorded verdict: synthkit should emit it, it is deliberately out of scope, or it is unresolved with a cantfind.md PENDING
+- [x] #7 CI fails on contradictions and reports coverage gaps without failing
 - [ ] #8 The report is small enough for a human to read end to end, and its size is stated in docs/reality-corpus.md as the standard it is held to
 <!-- AC:END -->
 
@@ -75,4 +75,12 @@ FIXED (minor) signals/logs.md and signals/k8s.md — log_iostream and logtag wer
 SKIPPED AS WRONG (minor) signals/k8s-addons.md — the finding claimed the coredns_proxy_request_duration_seconds provenance should reference reality-corpus/k8s/k3d-lab.json rather than the k8s-addons path. Checked: that family is present in reality-corpus/k8s-addons/k3d-lab.json and absent from the k8s one. The existing reference is correct.
 
 Worth recording about the review itself: 65 of 108 changed paths were reviewed, so this was not full coverage of the wave, and a clean result on the remainder is not evidence. The gate and the fidelity comparator carry the properties a code reviewer structurally cannot check — that no metric, label or field name was invented.
+
+2026-09-05 parent reconciliation: read the final summaries of all 19 Done subtasks. AC1-3: .01 and .10 carry absent-evidence, enrichment provenance and subset comparison proof. AC4: .02 records typed coverage rising from 12/676 to 513/706 without name inference. AC5: .03 and corrected .07 record actual emitter fixes and signal provenance. AC6: .04 verdicts and .06 delivery plus subsequent coverage work. AC7: .05 records the enforced contradiction gate; current hygiene-fix CI 33975458812 passed signal-fidelity. AC8 remains unchecked: no report-size/readability standard is stated in docs/reality-corpus.md. Done subtasks alone do not prove that parent criterion.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+2026-09-05: Reconciled to 7/8 evidenced acceptance criteria; remains In Progress at the explicit report-size/readability standard in AC8. No historical skipped check was counted as a pass.
+<!-- SECTION:FINAL_SUMMARY:END -->

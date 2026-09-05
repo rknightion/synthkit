@@ -104,9 +104,14 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	}, nil
 }
 
-func (c *Construct) Kind() string                { return "rds" }
-func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics} }
-func (c *Construct) Interval() time.Duration     { return 60 * time.Second }
+func (c *Construct) Kind() string { return "rds" }
+func (c *Construct) Signals() []core.SignalClass {
+	if c.cloud.CloudWatchExportMode() == "otlp" {
+		return []core.SignalClass{core.OTLPMetrics}
+	}
+	return []core.SignalClass{core.Metrics}
+}
+func (c *Construct) Interval() time.Duration { return 60 * time.Second }
 
 // Tick renders one 60-second observation window into w.Metrics.
 //
@@ -114,6 +119,10 @@ func (c *Construct) Interval() time.Duration     { return 60 * time.Second }
 // metric-stream semantics where _sum is the per-period total, not a running counter.
 func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
 	batch := c.render(now, w.Shape)
+	if c.cloud.CloudWatchExportMode() == "otlp" {
+		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, c.cloud, batch)
+		return err
+	}
 	return w.Metrics.Write(ctx, batch)
 }
 

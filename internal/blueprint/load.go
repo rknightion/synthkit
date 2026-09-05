@@ -139,6 +139,13 @@ func validateDecl(d *Decl) error {
 			return bad("environment %q declares cluster/databases/caches but no `cloud` block", e.Name)
 		}
 		if e.Cloud != nil {
+			switch e.Cloud.CloudWatchExport {
+			case "":
+				e.Cloud.CloudWatchExport = "remote_write"
+			case "remote_write", "otlp":
+			default:
+				return bad("environment %q: cloud.cloudwatch_export %q must be remote_write or otlp", e.Name, e.Cloud.CloudWatchExport)
+			}
 			if e.Cloud.Provider != "aws" {
 				return bad("environment %q: cloud.provider %q unsupported (v1 supports: aws)", e.Name, e.Cloud.Provider)
 			}

@@ -53,6 +53,7 @@ const (
 	MetricSum
 	MetricHistogram
 	MetricExponentialHistogram
+	MetricSummary
 )
 
 // NumberPoint is one Gauge/Sum data point. Start is the cumulative-series start time
@@ -120,6 +121,16 @@ type ExponentialHistogramPoint struct {
 	HasMinMax     bool
 }
 
+// SummaryPoint is one OTLP Summary datapoint. Quantiles retain the producer's
+// observed quantile/value pairs; Count and Sum are the Summary components.
+type SummaryPoint struct {
+	Attrs     map[string]any
+	Time      time.Time
+	Count     uint64
+	Sum       float64
+	Quantiles map[float64]float64
+}
+
 // Metric is one named metric carrying Numbers (Gauge/Sum), Histograms (explicit-bound) or
 // ExpHistograms (exponential). Only the slice matching Kind is read.
 type Metric struct {
@@ -132,6 +143,7 @@ type Metric struct {
 	Numbers       []NumberPoint
 	Histograms    []HistogramPoint
 	ExpHistograms []ExponentialHistogramPoint
+	Summaries     []SummaryPoint
 }
 
 // MetricResource is one resource's metric block (mirrors trace Resource). Multiple in one
@@ -147,6 +159,9 @@ type Metric struct {
 type MetricResource struct {
 	Attrs map[string]any
 	Scope Scope
+	// PreserveEmptyScope retains a producer's observed unnamed scope on the wire.
+	// False preserves the historical synthkit fallback for a zero Scope.
+	PreserveEmptyScope bool
 	// Producer is composition-root inventory metadata. It is deliberately absent
 	// from the hand-encoded OTLP request and exists only in dry-run capture.
 	Producer string

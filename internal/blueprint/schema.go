@@ -124,17 +124,19 @@ type EnvDecl struct {
 // cloud-service constructs (decoded into each construct's own Config via the registry).
 // Omitting a block ⇒ that construct is not emitted (unlike cw_infra which always emits).
 type CloudDecl struct {
-	Provider    string    `yaml:"provider"` // "aws" (v1)
-	AccountID   string    `yaml:"account_id"`
-	Region      string    `yaml:"region"`
-	VpcID       string    `yaml:"vpc_id"`
-	NATGateways int       `yaml:"nat_gateways"`
-	CloudWatch  yaml.Node `yaml:"cloudwatch"` // cw_infra sub-family toggles (raw; decoded via registry)
-	AOSS        yaml.Node `yaml:"aoss"`       // OpenSearch Serverless config (collections:); absent ⇒ not emitted
-	MWAA        yaml.Node `yaml:"mwaa"`       // Managed Workflows for Apache Airflow (environments:); absent ⇒ not emitted
-	Glue        yaml.Node `yaml:"glue"`       // AWS Glue ETL (jobs:); absent ⇒ not emitted
-	Bedrock     yaml.Node `yaml:"bedrock"`    // AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted
-	AgentCore   yaml.Node `yaml:"agentcore"`  // AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted
+	// CloudWatchExport selects remote_write (default) or native Metric Streams otlp.
+	CloudWatchExport string    `yaml:"cloudwatch_export"`
+	Provider         string    `yaml:"provider"` // "aws" (v1)
+	AccountID        string    `yaml:"account_id"`
+	Region           string    `yaml:"region"`
+	VpcID            string    `yaml:"vpc_id"`
+	NATGateways      int       `yaml:"nat_gateways"`
+	CloudWatch       yaml.Node `yaml:"cloudwatch"` // cw_infra sub-family toggles (raw; decoded via registry)
+	AOSS             yaml.Node `yaml:"aoss"`       // OpenSearch Serverless config (collections:); absent ⇒ not emitted
+	MWAA             yaml.Node `yaml:"mwaa"`       // Managed Workflows for Apache Airflow (environments:); absent ⇒ not emitted
+	Glue             yaml.Node `yaml:"glue"`       // AWS Glue ETL (jobs:); absent ⇒ not emitted
+	Bedrock          yaml.Node `yaml:"bedrock"`    // AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted
+	AgentCore        yaml.Node `yaml:"agentcore"`  // AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted
 }
 
 // ClusterDecl declares one Kubernetes cluster.

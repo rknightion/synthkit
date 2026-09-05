@@ -27,11 +27,21 @@ type Env struct {
 // VPC tie that makes EKS + EC2 + NAT-GW + ALB + RDS + ElastiCache one coherent,
 // cross-joinable estate.
 type Cloud struct {
-	Provider      string   // "aws"
-	AccountID     string   // CloudWatch account_id label
-	Region        string   // CloudWatch region label
-	VpcID         string   // resolved VPC identity; never stamped on CloudWatch *_info series
-	NATGatewayIDs []string // resolved "nat-…" ids (dimension_NatGatewayId), one per declared gateway
+	// CloudWatchExport is resolved once from the environment's transport choice.
+	CloudWatchExport string
+	Provider         string   // "aws"
+	AccountID        string   // CloudWatch account_id label
+	Region           string   // CloudWatch region label
+	VpcID            string   // resolved VPC identity; never stamped on CloudWatch *_info series
+	NATGatewayIDs    []string // resolved "nat-…" ids (dimension_NatGatewayId), one per declared gateway
+}
+
+// CloudWatchExportMode returns the resolved transport, retaining the historical default.
+func (c *Cloud) CloudWatchExportMode() string {
+	if c == nil || c.CloudWatchExport == "" {
+		return "remote_write"
+	}
+	return c.CloudWatchExport
 }
 
 // Node is one worker node — simultaneously a Kubernetes node and an EC2 instance.

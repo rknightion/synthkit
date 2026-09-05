@@ -55,10 +55,11 @@ type Config struct {
 
 // Construct is the Glue renderer. Not exported; callers use Build.
 type Construct struct {
-	jobs      []string
-	accountID string
-	region    string
-	st        *state.State
+	jobs       []string
+	accountID  string
+	region     string
+	exportMode string
+	st         *state.State
 }
 
 // Compile-time interface check.
@@ -84,16 +85,22 @@ func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
 	}
 
 	return &Construct{
-		jobs:      jobs,
-		accountID: fx.Cloud.AccountID,
-		region:    fx.Cloud.Region,
-		st:        state.NewState(),
+		jobs:       jobs,
+		accountID:  fx.Cloud.AccountID,
+		region:     fx.Cloud.Region,
+		exportMode: fx.Cloud.CloudWatchExportMode(),
+		st:         state.NewState(),
 	}, nil
 }
 
-func (c *Construct) Kind() string                { return "glue" }
-func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics} }
-func (c *Construct) Interval() time.Duration     { return 60 * time.Second }
+func (c *Construct) Kind() string { return "glue" }
+func (c *Construct) Signals() []core.SignalClass {
+	if c.exportMode == "otlp" {
+		return []core.SignalClass{core.OTLPMetrics}
+	}
+	return []core.SignalClass{core.Metrics}
+}
+func (c *Construct) Interval() time.Duration { return 60 * time.Second }
 
 // Tick renders one 60-second observation window into w.Metrics.
 // All series use state.Set (per-period gauges, ARCHITECTURE I5 — NEVER state.Add).
@@ -132,7 +139,12 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		c.st.Set("aws_glue_info", gaugeLbls, 1)
 	}
 
-	return w.Metrics.Write(ctx, c.st.Collect(now))
+	batch := c.st.Collect(now)
+	if c.exportMode == "otlp" {
+		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, &fixture.Cloud{AccountID: c.accountID, Region: c.region}, batch)
+		return err
+	}
+	return w.Metrics.Write(ctx, batch)
 }
 
 // baseLabels builds the full CloudWatch label set for one Glue series.

@@ -26,6 +26,7 @@ package envoygateway_test
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -36,6 +37,7 @@ import (
 	"github.com/rknightion/synthkit/internal/core/coretest"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/sink/loki"
+	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 )
 
@@ -94,6 +96,30 @@ func tickOnce(t *testing.T, c core.Construct) *coretest.MetricCapture {
 		t.Fatalf("Tick: %v", err)
 	}
 	return cap
+}
+
+// nativeMetricCapture records the hand-built OTLP resources before a real sink
+// encodes them. This keeps construct tests independent of network credentials.
+type nativeMetricCapture struct {
+	resources []otlp.MetricResource
+}
+
+func (c *nativeMetricCapture) Write(_ context.Context, resources []otlp.MetricResource) error {
+	c.resources = append(c.resources, resources...)
+	return nil
+}
+
+func tickAt(t *testing.T, c core.Construct, at time.Time, native *nativeMetricCapture) *coretest.MetricCapture {
+	t.Helper()
+	metrics := &coretest.MetricCapture{}
+	w := coretest.World(metrics, nil, nil)
+	if native != nil {
+		w.OTLPMetrics = native
+	}
+	if err := c.Tick(context.Background(), at, w); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+	return metrics
 }
 
 func filterLabel(ss []promrw.Series, key, val string) []promrw.Series {
@@ -408,7 +434,116 @@ func TestKindAndSignals(t *testing.T) {
 	}
 }
 
+// TestDefaultOutputUnchanged pins the legacy Prometheus payload while the native
+// switches are absent. A native writer is deliberately not involved in this check.
+func TestDefaultOutputUnchanged(t *testing.T) {
+	cl := clusterWithEnvoyGateway(t)
+	legacy, err := envoygateway.New(nil, &fixture.Set{Seed: "test", Cluster: cl})
+	if err != nil {
+		t.Fatalf("New legacy: %v", err)
+	}
+	explicit, err := envoygateway.New(&envoygateway.Config{}, &fixture.Set{Seed: "test", Cluster: cl})
+	if err != nil {
+		t.Fatalf("New explicit default: %v", err)
+	}
+
+	legacyMetrics := tickOnce(t, legacy)
+	explicitMetrics := tickOnce(t, explicit)
+	if got, want := promSeriesShape(explicitMetrics.All()), promSeriesShape(legacyMetrics.All()); !reflect.DeepEqual(got, want) {
+		t.Fatalf("default config changed the Prometheus payload: got %d series, want %d", len(got), len(want))
+	}
+}
+
+// TestNativeOTLPSwitchesRemainDeclared verifies that each product sink is
+// independently selectable. The actual datapoints remain withheld until the
+// missing capture fields are available.
+func TestNativeOTLPSwitchesRemainDeclared(t *testing.T) {
+	c := buildWithConfig(t, &envoygateway.Config{
+		ProxyTelemetry:   &envoygateway.TelemetryConfig{OTelSink: true},
+		GatewayTelemetry: &envoygateway.TelemetryConfig{OTelSink: true},
+	})
+	if got := c.Signals(); !reflect.DeepEqual(got, []core.SignalClass{core.Metrics, core.Logs, core.OTLPMetrics}) {
+		t.Fatalf("Signals() with both OTLP sinks = %v, want [metrics logs otlp_metrics]", got)
+	}
+
+	native := &nativeMetricCapture{}
+	tickAt(t, c, testNow, native)
+	if len(native.resources) != 0 {
+		t.Fatalf("native datapoints were emitted before the capture contract was complete: %d resource(s)", len(native.resources))
+	}
+}
+
+// TestPrometheusDisableIsScoped verifies that the two prometheus_disable
+// switches remove only their own scrape plane. Native switches are off here so
+// the comparison is limited to the established Prometheus surface.
+func TestPrometheusDisableIsScoped(t *testing.T) {
+	baseline := tickOnce(t, buildWithConfig(t, &envoygateway.Config{}))
+	gatewayDisabled := tickOnce(t, buildWithConfig(t, &envoygateway.Config{
+		GatewayTelemetry: &envoygateway.TelemetryConfig{PrometheusDisable: true},
+	}))
+	proxyDisabled := tickOnce(t, buildWithConfig(t, &envoygateway.Config{
+		ProxyTelemetry: &envoygateway.TelemetryConfig{PrometheusDisable: true},
+	}))
+
+	if got := seriesForJob(gatewayDisabled.All(), "gateway-helm"); len(got) != 0 {
+		t.Fatalf("gateway prometheus_disable left %d control-plane series", len(got))
+	}
+	if got, want := promSeriesShape(seriesForJob(gatewayDisabled.All(), "envoy")), promSeriesShape(seriesForJob(baseline.All(), "envoy")); !reflect.DeepEqual(got, want) {
+		t.Fatalf("gateway prometheus_disable changed data-plane series: got %d, want %d", len(got), len(want))
+	}
+
+	if got := seriesForJob(proxyDisabled.All(), "envoy"); len(got) != 0 {
+		t.Fatalf("proxy prometheus_disable left %d data-plane series", len(got))
+	}
+	if got, want := promSeriesShape(seriesForJob(proxyDisabled.All(), "gateway-helm")), promSeriesShape(seriesForJob(baseline.All(), "gateway-helm")); !reflect.DeepEqual(got, want) {
+		t.Fatalf("proxy prometheus_disable changed control-plane series: got %d, want %d", len(got), len(want))
+	}
+}
+
+// TestNativeOTLPWithholdsUnprovenData verifies that a switch cannot cause an
+// empty descriptor or guessed datapoint to reach the sink.
+func TestNativeOTLPWithholdsUnprovenData(t *testing.T) {
+	c := buildWithConfig(t, &envoygateway.Config{
+		ProxyTelemetry:   &envoygateway.TelemetryConfig{OTelSink: true},
+		GatewayTelemetry: &envoygateway.TelemetryConfig{OTelSink: true},
+	})
+	native := &nativeMetricCapture{}
+	tickAt(t, c, testNow, native)
+	tickAt(t, c, testNow.Add(time.Minute), native)
+	if len(native.resources) != 0 {
+		t.Fatalf("native datapoints were emitted with unproven attributes/rates: %d resource(s)", len(native.resources))
+	}
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
+
+func buildWithConfig(t *testing.T, cfg *envoygateway.Config) core.Construct {
+	t.Helper()
+	c, err := envoygateway.New(cfg, &fixture.Set{Seed: "test", Cluster: clusterWithEnvoyGateway(t)})
+	if err != nil {
+		t.Fatalf("envoygateway.New: %v", err)
+	}
+	return c
+}
+
+func promSeriesShape(in []promrw.Series) []string {
+	out := make([]string, 0, len(in))
+	for _, series := range in {
+		out = append(out, series.Name+"\x00"+labelSig(series.Labels))
+	}
+	sort.Strings(out)
+	return out
+}
+
+func seriesForJob(in []promrw.Series, job string) []promrw.Series {
+	var out []promrw.Series
+	for _, series := range in {
+		if series.Labels["job"] == job {
+			out = append(out, series)
+		}
+	}
+	return out
+}
 
 func seriesVals(cap *coretest.MetricCapture) map[string]float64 {
 	m := map[string]float64{}

@@ -700,34 +700,81 @@ note: "two redis histogram families (version artifact: _duration vs _duration_se
 
 ## Envoy Gateway — TWO surfaces (control plane + data plane, ns `envoy-gateway-system`, port 19001, v1.8.1 — 2026-06-16) [slug: k8s-envoy-gateway]
 
-> ⚠ **There is a THIRD surface, and it shares no metric name with the two below: the OTLP stats
-> sink.** Setting `telemetry.metrics.sinks[].type: OpenTelemetry` on the `EnvoyProxy` CR makes the
-> data plane emit **dotted Envoy stat names** — `cluster.circuit_breakers.cx_open`, `http.*`,
-> `listener.*`, `server.*`, `sds.*` — with **zero** `envoy_*` names. It is Envoy's native stat tree,
-> NOT a transform of the Prometheus spelling, so neither form can be derived from the other.
-> Live-captured 2026-09-04, 162 names, 78 Sum / 69 Gauge / 15 Histogram:
-> `e2e/lab/captures/envoy-gateway-otlp-fc9ca6cd2ec0eba6.md`. On that path **Unit is empty on every
-> metric, InstrumentationScope is empty, and resource attributes carry only `telemetry.sdk.*`** — no
-> `service.name` and no `k8s.*`, unlike the tracing provider on the same CR which sets
-> `resourceAttributes` explicitly. Datapoint attributes are dotted `envoy.*` plus bare
-> `socket_match_name` and `priority`. Synthkit does NOT emit this lane (`cantfind.md` SK-87); the
-> EnvoyGateway control plane's own OTLP form remains uncaptured.
->
-> ⚠ **The CONTROL PLANE's OTLP form is the MIRROR IMAGE of the data plane's.** Where the data-plane
-> sink ships dotted native stat names, the `EnvoyGateway` controller ships **underscore names
-> verbatim**, identical to its Prometheus spelling: 12 names, all `unit: 1` —
-> `watchable_{depth,event_total,publish_total,subscribe_total,subscribe_duration_seconds}`,
-> `resource_{apply,delete}_{total,duration_seconds}`, `status_update_{total,duration_seconds}`,
-> `xds_snapshot_create_total`. One product, two APIs, opposite spellings; neither predicted the
-> other. **It is not a replacement for the scrape** — it carries none of `controller_runtime_*`,
-> `workqueue_*`, `rest_client_*` or `certwatcher_*`. Captured 2026-09-04.
->
-> ⚠ **`openTelemetry` on that sink takes `host`/`port` only.** There is no `protocol` field on
-> `EnvoyProxy` v1alpha1 in Envoy Gateway v1.9.0. Including one is a strict-decoding error — and
-> ArgoCD reports the application **Synced** while the API rejects the resource, so the sink silently
-> never reaches the CR. Verify with `kubectl apply --dry-run=server`, not with sync status.
+### Native OTLP — EnvoyProxy data plane
 
-*Provenance: live a live reference EKS cluster capture 2026-06-16 (svc-group-b.md §3.A). Two scrape jobs, both on :19001.*
+`proxy_telemetry.otel_sink: true` models the `telemetry.metrics.sinks[].openTelemetry` sink on the
+`EnvoyProxy` CR. It is an additive sink: `prometheus_disable: false` keeps the existing `envoy_*`
+scrape families, while `prometheus_disable: true` removes only the data-plane scrape families.
+The native sink capture contains Envoy's dotted stat tree, which is a separate name contract from
+the scrape surface. The captured set contains no `envoy_*`, `xds_*`, `watchable_*`, or
+`controller_runtime_*` name.
+
+The live EKS capture on 2026-09-04 (record
+`e2e/lab/captures/envoy-gateway-otlp-fc9ca6cd2ec0eba6.md`, SHA-256
+`fc9ca6cd2ec0eba6df29e6e9add36b5019981a3d5453892d132c113721f83f91`) observed 162 names: 78 Sum, 69 Gauge, and 15 Histogram. Every
+observed metric has an empty OTLP Unit and the InstrumentationScope has an empty name and version.
+The resource attribute key set is exactly `telemetry.sdk.name`, `telemetry.sdk.language`, and
+`telemetry.sdk.version`; no identity attributes were recorded. Synthkit declares the switch but
+currently withholds this native data-plane lane until the missing resource values, per-family
+attribute mapping, and histogram bounds are captured.
+
+The complete captured name and instrument inventory is below. The Unit column is `(empty)` for
+all three groups.
+
+```text
+Sum (78), Unit (empty):
+cluster.client_ssl_socket_factory.ssl_context_update_by_sds, cluster.external.upstream_rq, cluster.external.upstream_rq_completed, cluster.external.upstream_rq_xx, cluster.internal.upstream_rq, cluster.internal.upstream_rq_completed, cluster.internal.upstream_rq_xx, cluster.lb_recalculate_zone_structures, cluster.membership_change, cluster.ssl.ciphers, cluster.ssl.curves, cluster.ssl.handshake, cluster.ssl.sigalgs, cluster.ssl.versions, cluster.total_match_count, cluster.update_attempt, cluster.update_no_rebuild, cluster.update_success, cluster.upstream_cx_http1_total, cluster.upstream_cx_http2_total, cluster.upstream_cx_rx_bytes_total, cluster.upstream_cx_total, cluster.upstream_cx_tx_bytes_total, cluster.upstream_rq, cluster.upstream_rq_completed, cluster.upstream_rq_pending_total, cluster.upstream_rq_total, cluster.upstream_rq_xx, cluster_manager.cds.config_reload, cluster_manager.cds.update_attempt, cluster_manager.cds.update_success, cluster_manager.cluster_added, cluster_manager.cluster_updated, cluster_manager.update_out_of_merge_window, dns.cares.not_found, dns.cares.resolve_total, filesystem.flushed_by_timer, filesystem.write_buffered, filesystem.write_completed, http.downstream_cx_destroy, http.downstream_cx_destroy_remote, http.downstream_cx_http1_total, http.downstream_cx_rx_bytes_total, http.downstream_cx_total, http.downstream_cx_tx_bytes_total, http.downstream_rq_completed, http.downstream_rq_http1_total, http.downstream_rq_total, http.downstream_rq_xx, http.health_check.ok, http.health_check.request_total, http.rds.config_reload, http.rds.update_attempt, http.rds.update_success, http.rq_total, http.tracing.health_check, listener.admin.downstream_cx_total, listener.admin.http.downstream_rq_completed, listener.admin.http.downstream_rq_xx, listener.admin.main_thread.downstream_cx_total, listener.downstream_cx_destroy, listener.downstream_cx_total, listener.http.downstream_rq_completed, listener.http.downstream_rq_xx, listener.server_ssl_socket_factory.ssl_context_update_by_sds, listener.worker_downstream_cx_total, listener_manager.lds.update_attempt, listener_manager.lds.update_success, listener_manager.listener_added, listener_manager.listener_create_success, runtime.load_success, runtime.override_dir_not_exists, sds.update_attempt, sds.update_success, server.dynamic_unknown_fields, server.static_unknown_fields, server.wip_protos, tracing.opentelemetry.timer_flushed
+Gauge (69), Unit (empty):
+cluster.circuit_breakers.cx_open, cluster.circuit_breakers.cx_pool_open, cluster.circuit_breakers.rq_open, cluster.circuit_breakers.rq_pending_open, cluster.http2.outbound_control_frames_active, cluster.http2.outbound_frames_active, cluster.http2.pending_send_bytes, cluster.http2.streams_active, cluster.max_host_weight, cluster.membership_degraded, cluster.membership_excluded, cluster.membership_healthy, cluster.membership_total, cluster.ssl.certificate.expiration_unix_time_seconds, cluster.update_time, cluster.upstream_cx_active, cluster.upstream_cx_rx_bytes_buffered, cluster.upstream_rq_active, cluster.upstream_rq_pending_active, cluster.version, cluster.warming_state, cluster_manager.active_clusters, cluster_manager.cds.config_reload_time_ms, cluster_manager.cds.update_time, cluster_manager.cds.version, cluster_manager.warming_clusters, control_plane.connected_state, dns.cares.pending_resolutions, filesystem.write_total_buffered, http.downstream_cx_active, http.downstream_cx_http1_active, http.downstream_cx_rx_bytes_buffered, http.downstream_rq_active, http.rds.config_reload_time_ms, http.rds.update_time, http.rds.version, listener.admin.downstream_cx_active, listener.admin.downstream_pre_cx_active, listener.admin.main_thread.downstream_cx_active, listener.downstream_cx_active, listener.downstream_pre_cx_active, listener.ssl.certificate.expiration_unix_time_seconds, listener.worker_downstream_cx_active, listener_manager.lds.update_time, listener_manager.lds.version, listener_manager.total_listeners_active, listener_manager.total_listeners_warming, listener_manager.workers_started, runtime.num_keys, runtime.num_layers, sds.update_time, sds.version, server.compilation_settings.fips_mode, server.concurrency, server.days_until_first_cert_expiring, server.hot_restart_epoch, server.hot_restart_generation, server.live, server.memory_allocated, server.memory_heap_size, server.memory_physical_size, server.parent_connections, server.state, server.stats_recent_lookups, server.total_connections, server.uptime, server.version, thread_local_cluster_manager.main_thread.clusters_inflated, thread_local_cluster_manager.worker_clusters_inflated
+Histogram (15), Unit (empty):
+cluster.external.upstream_rq_time, cluster.internal.upstream_rq_time, cluster.update_duration, cluster.upstream_cx_connect_ms, cluster.upstream_rq_time, cluster_manager.cds.update_duration, http.downstream_cx_length_ms, http.downstream_rq_time, http.rds.update_duration, listener.admin.connections_accepted_per_socket_event, listener.connections_accepted_per_socket_event, listener.downstream_cx_length_ms, listener_manager.lds.update_duration, sds.update_duration, server.initialization_time_ms
+```
+
+Captured datapoint attribute keys are `envoy.cluster_name`, `envoy.http_conn_manager_prefix`,
+`envoy.listener_address`, `envoy.xds_resource_name`, `envoy.response_code_class`,
+`envoy.response_code`, `envoy.rds_route_config`, `envoy.worker_id`, `envoy.tls_certificate`,
+`socket_match_name`, and `priority`. The capture retained the key inventory but not the
+per-family join table. **PENDING:** capture the per-family attribute mapping before treating an
+emitter mapping as a vendor contract. **PENDING:** the capture retained no histogram bounds, so
+the native Histogram datapoints remain withheld; an empty descriptor is not counted as emission
+parity. The resource key set is proven, but the captured record did not retain the resource
+attribute values; those values remain **PENDING SK-110** as well.
+
+### Native OTLP — EnvoyGateway control plane
+
+`gateway_telemetry.otel_sink: true` models the `telemetry.metrics.sinks[].openTelemetry` sink on
+the `EnvoyGateway` controller. It is also additive: `prometheus_disable: false` keeps the control
+plane scrape families, while `prometheus_disable: true` removes only those control-plane scrape
+families. The control-plane capture carries none of the scrape-only `controller_runtime_*`, `workqueue_*`,
+`rest_client_*`, or `certwatcher_*` families.
+
+The live EKS capture on 2026-09-04 (record
+`e2e/lab/captures/beyla-envoygateway-otlp-588571dc6a53c4e4.md`, SHA-256
+`588571dc6a53c4e4717de43171399a99646cfed98641fcad0ce8b6f60b69ff35`) observed 12 underscore names,
+identical to the controller's Prometheus spelling: 7 Sum, 1 Gauge, and 4 Histogram. Every observed metric has Unit `1`. Synthkit
+declares the switch but currently withholds this native control-plane lane until its missing
+resource, scope, per-family attribute, and histogram-bound details are captured.
+
+```text
+Sum (7), Unit 1:
+resource_apply_total, resource_delete_total, status_update_total, watchable_event_total, watchable_publish_total, watchable_subscribe_total, xds_snapshot_create_total
+Gauge (1), Unit 1:
+watchable_depth
+Histogram (4), Unit 1:
+resource_apply_duration_seconds, resource_delete_duration_seconds, status_update_duration_seconds, watchable_subscribe_duration_seconds
+```
+
+**PENDING SK-112:** the control-plane capture retained names, instruments, and units but did not retain
+the resource attribute map, InstrumentationScope name/version, or per-family datapoint attribute
+mapping. Synthkit emits no control-plane resource, scope, or datapoint until those details are
+captured. **PENDING:** the capture also retained no histogram bounds for these four descriptors;
+empty Histogram descriptors are not counted as emission parity.
+
+The EnvoyProxy `openTelemetry` sink accepts `host` and `port`; it does not accept `protocol` in
+Envoy Gateway v1alpha1. An unknown field is a strict-decoding error even when ArgoCD reports the
+application as Synced. Validate that CR shape with `kubectl apply --dry-run=server`.
+
+*Provenance: live reference EKS cluster capture 2026-06-16 (svc-group-b.md §3.A). Two scrape jobs, both on :19001.*
 
 > ⚠ **CRITICAL: NO `envoy_gateway_*` prefix on the control plane.** The query `{__name__=~"envoy_gateway_.+"}` is EMPTY in Mimir. The control plane emits `xds_*`, `watchable_*`, `resource_*`, `status_update_*`, `topology_*`, `wasm_*` (plus `controller_runtime_*` / `rest_client_*` / `workqueue_*` / `certwatcher_*`). The `envoy_gateway_*` family is a vendor doc artifact — it does NOT appear in the real scrape.
 

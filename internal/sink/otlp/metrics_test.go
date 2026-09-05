@@ -328,7 +328,7 @@ var (
 	tNow   = time.Unix(1750000060, 0)
 )
 
-// TestEveryInstrumentShapeReachesTheWire covers the five shapes the lane must carry: Gauge,
+// TestEveryInstrumentShapeReachesTheWire covers the six shapes the lane must carry: Gauge,
 // monotonic Sum, non-monotonic Sum (UpDownCounter), explicit-bound Histogram and
 // ExponentialHistogram — each landing in the right OTLP data oneof.
 func TestEveryInstrumentShapeReachesTheWire(t *testing.T) {
@@ -421,6 +421,18 @@ func TestEveryInstrumentShapeReachesTheWire(t *testing.T) {
 					t.Errorf("exp-histogram start = %d, want %d", dp.GetStartTimeUnixNano(), tStart.UnixNano())
 				}
 			}},
+		{"summary", Metric{Name: "amazonaws.com/AWS/EC2/CPUUtilization", Unit: "%", Kind: MetricSummary,
+			Summaries: []SummaryPoint{{Attrs: map[string]any{"Dimensions": map[string]string{"InstanceId": "i-0123"}}, Time: tNow, Count: 2, Sum: 90, Quantiles: map[float64]float64{0: 30, 1: 60}}}},
+			func(t *testing.T, m *metricspb.Metric) {
+				point := m.GetSummary().GetDataPoints()[0]
+				if point.GetCount() != 2 || point.GetSum() != 90 || len(point.GetQuantileValues()) != 2 {
+					t.Fatalf("summary=%+v", point)
+				}
+				dims := point.GetAttributes()[0].GetValue().GetKvlistValue().GetValues()
+				if len(dims) != 1 || dims[0].GetKey() != "InstanceId" || dims[0].GetValue().GetStringValue() != "i-0123" {
+					t.Fatalf("dimensions=%+v", dims)
+				}
+			}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -432,6 +444,47 @@ func TestEveryInstrumentShapeReachesTheWire(t *testing.T) {
 				t.Errorf("name = %q, want %q", ms[0].GetName(), tc.metric.Name)
 			}
 			tc.check(t, ms[0])
+		})
+	}
+}
+
+func TestMetricsWriteRejectsInvalidSummaryBeforePosting(t *testing.T) {
+	cases := []struct {
+		name  string
+		point SummaryPoint
+	}{
+		{
+			name:  "quantile above one",
+			point: SummaryPoint{Time: tNow, Count: 1, Sum: 1, Quantiles: map[float64]float64{1.1: 1}},
+		},
+		{
+			name:  "negative quantile value",
+			point: SummaryPoint{Time: tNow, Count: 1, Sum: 1, Quantiles: map[float64]float64{0.5: -1}},
+		},
+		{
+			name:  "zero count with sum",
+			point: SummaryPoint{Time: tNow, Count: 0, Sum: 1},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			requests := 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer srv.Close()
+
+			sink := NewMetrics(srv.URL, "u", "t", false)
+			err := sink.Write(context.Background(), []MetricResource{res1(Metric{
+				Name: "summary.metric", Kind: MetricSummary, Summaries: []SummaryPoint{tc.point},
+			})})
+			if err == nil {
+				t.Fatal("Write succeeded for invalid Summary")
+			}
+			if requests != 0 {
+				t.Fatalf("requests = %d, want 0", requests)
+			}
 		})
 	}
 }
@@ -565,17 +618,23 @@ func TestScopeOnTheWire(t *testing.T) {
 			Metrics: []Metric{{Name: "b", Kind: MetricGauge,
 				Numbers: []NumberPoint{{Time: tNow, Value: 1}}}},
 		},
+		{
+			PreserveEmptyScope: true,
+			Metrics: []Metric{{Name: "captured", Kind: MetricGauge,
+				Numbers: []NumberPoint{{Time: tNow, Value: 1}}}},
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	rms := decodeResourceMetrics(t, body)
-	if len(rms) != 2 {
-		t.Fatalf("got %d ResourceMetrics, want 2", len(rms))
+	if len(rms) != 3 {
+		t.Fatalf("got %d ResourceMetrics, want 3", len(rms))
 	}
 	for i, want := range []struct{ name, version string }{
 		{"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp", "0.58.0"},
 		{"synthkit", ""},
+		{"", ""},
 	} {
 		sms := rms[i].GetScopeMetrics()
 		if len(sms) != 1 {

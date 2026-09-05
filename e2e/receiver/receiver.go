@@ -736,6 +736,15 @@ func (r *Receiver) addOTLPMetrics(rm *metricspb.ResourceMetrics) int {
 						mergeAttributeStrings(resourceAttrs, attributeStrings(point.GetAttributes())),
 						&inventory.Histogram{Native: true, BucketBounds: []float64{}, NativeSchemas: []int32{point.GetScale()}})
 				}
+			case metric.GetSummary() != nil:
+				points := metric.GetSummary().GetDataPoints()
+				if len(points) == 0 {
+					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, instrumentSummary, resourceAttrs, nil)
+				}
+				for _, point := range points {
+					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, instrumentSummary,
+						mergeAttributeStrings(resourceAttrs, attributeStrings(point.GetAttributes())), nil)
+				}
 			default:
 				r.inv.AddMetric(name, inventory.TransportOTLPMetrics, inventory.InstrumentUnknown, resourceAttrs, nil)
 			}
@@ -770,12 +779,49 @@ func anyValueString(value *commonpb.AnyValue) string {
 		return strconv.FormatFloat(value.GetDoubleValue(), 'g', -1, 64)
 	case *commonpb.AnyValue_BytesValue:
 		return fmt.Sprintf("%x", value.GetBytesValue())
-	case *commonpb.AnyValue_ArrayValue:
-		return fmt.Sprint(value.GetArrayValue().GetValues())
-	case *commonpb.AnyValue_KvlistValue:
-		return fmt.Sprint(value.GetKvlistValue().GetValues())
+	case *commonpb.AnyValue_ArrayValue, *commonpb.AnyValue_KvlistValue:
+		encoded, err := json.Marshal(anyValueJSON(value))
+		if err != nil {
+			return ""
+		}
+		return string(encoded)
 	default:
 		return ""
+	}
+}
+
+func anyValueJSON(value *commonpb.AnyValue) any {
+	if value == nil {
+		return nil
+	}
+	switch value.GetValue().(type) {
+	case *commonpb.AnyValue_StringValue:
+		return value.GetStringValue()
+	case *commonpb.AnyValue_BoolValue:
+		return value.GetBoolValue()
+	case *commonpb.AnyValue_IntValue:
+		return value.GetIntValue()
+	case *commonpb.AnyValue_DoubleValue:
+		return value.GetDoubleValue()
+	case *commonpb.AnyValue_BytesValue:
+		return fmt.Sprintf("%x", value.GetBytesValue())
+	case *commonpb.AnyValue_ArrayValue:
+		values := value.GetArrayValue().GetValues()
+		out := make([]any, 0, len(values))
+		for _, item := range values {
+			out = append(out, anyValueJSON(item))
+		}
+		return out
+	case *commonpb.AnyValue_KvlistValue:
+		out := make(map[string]any, len(value.GetKvlistValue().GetValues()))
+		for _, item := range value.GetKvlistValue().GetValues() {
+			if item != nil && item.GetKey() != "" {
+				out[item.GetKey()] = anyValueJSON(item.GetValue())
+			}
+		}
+		return out
+	default:
+		return nil
 	}
 }
 

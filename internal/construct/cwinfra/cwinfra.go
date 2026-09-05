@@ -198,9 +198,14 @@ type construct struct {
 	st  *state.State
 }
 
-func (c *construct) Kind() string                { return "cw_infra" }
-func (c *construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics} }
-func (c *construct) Interval() time.Duration     { return 60 * time.Second }
+func (c *construct) Kind() string { return "cw_infra" }
+func (c *construct) Signals() []core.SignalClass {
+	if c.fx.Cloud.CloudWatchExportMode() == "otlp" {
+		return []core.SignalClass{core.OTLPMetrics}
+	}
+	return []core.SignalClass{core.Metrics}
+}
+func (c *construct) Interval() time.Duration { return 60 * time.Second }
 
 // Tick renders one complete CloudWatch infrastructure tick into w.Metrics.
 // All series use state.Set (per-period gauges, ARCHITECTURE I5 — NEVER state.Add).
@@ -235,7 +240,12 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		c.emitPrivateLink(factor, fx, w)
 	}
 
-	return w.Metrics.Write(ctx, c.st.Collect(now))
+	batch := c.st.Collect(now)
+	if fx.Cloud.CloudWatchExportMode() == "otlp" {
+		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, fx.Cloud, batch)
+		return err
+	}
+	return w.Metrics.Write(ctx, batch)
 }
 
 // ── _info series (one per namespace per account, value=1) ────────────────────

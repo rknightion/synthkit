@@ -10,9 +10,12 @@
 package otlp
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log"
+	"math"
+	"slices"
 	"sync"
 
 	"github.com/rknightion/synthkit/internal/pushhook"
@@ -51,11 +54,14 @@ func (s *MetricsSink) Write(ctx context.Context, resources []MetricResource) err
 	if len(resources) == 0 {
 		return nil
 	}
+	if err := validateMetricResources(resources); err != nil {
+		return err
+	}
 	rms := make([]*metricspb.ResourceMetrics, 0, len(resources))
 	totalPoints := 0
 	for _, r := range resources {
 		scopeName, scopeVer := r.Scope.Name, r.Scope.Version
-		if scopeName == "" {
+		if scopeName == "" && !r.PreserveEmptyScope {
 			scopeName = "synthkit"
 		}
 		metrics := make([]*metricspb.Metric, 0, len(r.Metrics))
@@ -103,6 +109,32 @@ func (s *MetricsSink) Write(ctx context.Context, resources []MetricResource) err
 	return s.eg.post(ctx, buf, totalPoints, blueprint, s.Observe)
 }
 
+// validateMetricResources rejects Summary states the OTLP data model cannot represent
+// faithfully before a dry-run record, protobuf marshal, or HTTP request can occur.
+func validateMetricResources(resources []MetricResource) error {
+	for resourceIndex, resource := range resources {
+		for _, metric := range resource.Metrics {
+			if metric.Kind != MetricSummary {
+				continue
+			}
+			for pointIndex, point := range metric.Summaries {
+				for quantile, value := range point.Quantiles {
+					if math.IsNaN(quantile) || quantile < 0 || quantile > 1 {
+						return fmt.Errorf("otlp metrics: resource %d metric %q summary point %d: quantile %v outside [0,1]", resourceIndex, metric.Name, pointIndex, quantile)
+					}
+					if value < 0 {
+						return fmt.Errorf("otlp metrics: resource %d metric %q summary point %d: quantile %v has negative value %v", resourceIndex, metric.Name, pointIndex, quantile, value)
+					}
+				}
+				if point.Count == 0 && point.Sum != 0 {
+					return fmt.Errorf("otlp metrics: resource %d metric %q summary point %d: count is zero with nonzero sum %v", resourceIndex, metric.Name, pointIndex, point.Sum)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // convertMetric maps an otlp.Metric to a metricspb.Metric and returns the data-point count.
 func convertMetric(m Metric) (*metricspb.Metric, int) {
 	out := &metricspb.Metric{Name: m.Name, Description: m.Description, Unit: m.Unit}
@@ -133,9 +165,34 @@ func convertMetric(m Metric) (*metricspb.Metric, int) {
 			AggregationTemporality: temporality(m.Temporality),
 		}}
 		return out, len(dps)
+	case MetricSummary:
+		dps := summaryPoints(m.Summaries)
+		out.Data = &metricspb.Metric_Summary{Summary: &metricspb.Summary{DataPoints: dps}}
+		return out, len(dps)
 	default:
 		return nil, 0
 	}
+}
+
+func summaryPoints(pts []SummaryPoint) []*metricspb.SummaryDataPoint {
+	out := make([]*metricspb.SummaryDataPoint, 0, len(pts))
+	for _, p := range pts {
+		quantiles := make([]*metricspb.SummaryDataPoint_ValueAtQuantile, 0, len(p.Quantiles))
+		for q, value := range p.Quantiles {
+			quantiles = append(quantiles, &metricspb.SummaryDataPoint_ValueAtQuantile{Quantile: q, Value: value})
+		}
+		slices.SortFunc(quantiles, func(a, b *metricspb.SummaryDataPoint_ValueAtQuantile) int {
+			return cmp.Compare(a.Quantile, b.Quantile)
+		})
+		out = append(out, &metricspb.SummaryDataPoint{
+			Attributes:     kvs(p.Attrs),
+			TimeUnixNano:   uint64(p.Time.UnixNano()),
+			Count:          p.Count,
+			Sum:            p.Sum,
+			QuantileValues: quantiles,
+		})
+	}
+	return out
 }
 
 // numberPoints builds NumberDataPoints. withStart=false (gauges) omits StartTimeUnixNano.

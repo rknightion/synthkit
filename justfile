@@ -13,7 +13,7 @@ gcx_context := env('GCX_CONTEXT', 'default')
 # SKT-0043: keep the agent-observability blueprint out of unattended fidelity
 # runs until its rejected-payload defect is fixed. An intentional agent audit can
 # still opt in by setting SIGNAL_FIDELITY_BLUEPRINTS explicitly.
-safe_signal_fidelity_blueprints := 'acme-ai-eval,acme-ai-platform,acme-ai-platform-eval,aws-cloud-services,aws-cloudwatch-infra,csp-azure,dbo11y-mysql,fleet-management,high-dpm-churn,hostfleet,hosts-bare,hosts-linux-docker,hosts-macos,hosts-windows,k8s-control-plane,k8s-cost-power,k8s-full-stack,k8s-logs-events,k8s-minimal,k8s-otel-native,k8s-windows-mixed,netobs-enterprise,netobs-global,netobs-spoke,otlp-native,profiling-demo,synthetic-checks'
+safe_signal_fidelity_blueprints := 'acme-ai-eval,acme-ai-platform,acme-ai-platform-eval,aws-cloud-services,aws-cloudwatch-infra,aws-otlp-native,csp-azure,dbo11y-mysql,fleet-management,high-dpm-churn,hostfleet,hosts-bare,hosts-linux-docker,hosts-macos,hosts-windows,k8s-control-plane,k8s-cost-power,k8s-full-stack,k8s-logs-events,k8s-minimal,k8s-otel-native,k8s-windows-mixed,netobs-enterprise,netobs-global,netobs-spoke,otlp-native,profiling-demo,synthetic-checks'
 signal_fidelity_blueprints := env('SIGNAL_FIDELITY_BLUEPRINTS', safe_signal_fidelity_blueprints)
 dump_blueprints := env('DUMP_BLUEPRINTS', '*')
 
@@ -76,6 +76,21 @@ test filter="": test-helpers test-deploy test-docs test-skill-metadata
 [no-exit-message]
 cover: test-helpers test-deploy test-docs test-skill-metadata
     go test -covermode=atomic -coverprofile=coverage.out ./...
+
+# build selected packages while independent catalog lanes are being edited
+[group('build')]
+build-packages *packages:
+    go build {{ packages }}
+
+# validate selected package tests without running unrelated in-flight lanes
+[group('check')]
+test-packages *packages:
+    go test {{ packages }}
+
+# vet selected packages without reading unrelated in-flight catalog lanes
+[group('check')]
+vet-packages *packages:
+    go vet {{ packages }}
 
 # race detector over the module; internal/integration is excluded (OOMs a 16 GB runner)
 [group('check')]

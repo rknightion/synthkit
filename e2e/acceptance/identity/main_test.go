@@ -42,7 +42,7 @@ func TestBundledRuntimeNamesAreResolvedCanonicalIdentities(t *testing.T) {
 	}
 	want := []string{
 		"acme-ai-eval", "acme-ai-platform", "acme-ai-platform-eval", "aws-cloud-services",
-		"aws-cloudwatch-infra", "csp-azure", "dbo11y-mysql", "fleet-management",
+		"aws-cloudwatch-infra", "aws-otlp-native", "csp-azure", "dbo11y-mysql", "fleet-management",
 		"grafana-ai-o11y", "high-dpm-churn", "hostfleet", "hosts-bare", "hosts-linux-docker",
 		"hosts-macos", "hosts-windows", "k8s-control-plane", "k8s-cost-power", "k8s-full-stack",
 		"k8s-logs-events", "k8s-minimal", "k8s-otel-native", "k8s-prometheus-operator", "k8s-windows-mixed", "netobs-enterprise",

@@ -125,6 +125,34 @@ func TestReceiverCapturesAllLanes(t *testing.T) {
 	}
 }
 
+func TestReceiverClassifiesOTLPSummaryAndPreservesNestedDimensionTypes(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+	now := time.Unix(1, 0)
+	sink := otlp.NewMetrics(srv.URL+"/otlp", "u", "tok", false)
+	if err := sink.Write(context.Background(), []otlp.MetricResource{{
+		Attrs: map[string]any{"cloud.region": "us-east-1"}, PreserveEmptyScope: true,
+		Metrics: []otlp.Metric{{Name: "amazonaws.com/AWS/EC2/CPUUtilization", Unit: "%", Kind: otlp.MetricSummary,
+			Summaries: []otlp.SummaryPoint{{Attrs: map[string]any{"Dimensions": map[string]any{
+				"integer": int64(7), "enabled": true, "nested": map[string]any{"ratio": 0.5},
+			}}, Time: now, Count: 2, Sum: 90, Quantiles: map[float64]float64{0: 30, 1: 60}}}},
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	metric := findMetric(rec.Snapshot(), "amazonaws.com/AWS/EC2/CPUUtilization")
+	if metric == nil || len(metric.InstrumentTypes) != 1 || metric.InstrumentTypes[0] != inventory.InstrumentSummary {
+		t.Fatalf("metric=%+v, want summary", metric)
+	}
+	for _, label := range metric.Labels {
+		if label.Key == "Dimensions" && len(label.Values) == 1 && label.Values[0] == `{"enabled":true,"integer":7,"nested":{"ratio":0.5}}` {
+			return
+		}
+	}
+	t.Fatalf("labels=%v, want JSON-valued Dimensions with native nested types", metric.Labels)
+}
+
 func TestReceiverPreservesExactCounterSamples(t *testing.T) {
 	rec := New()
 	srv := httptest.NewServer(rec.Handler())

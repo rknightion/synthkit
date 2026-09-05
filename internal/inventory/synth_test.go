@@ -177,6 +177,32 @@ func TestFromSinksProjectsSummaryKind(t *testing.T) {
 	}
 }
 
+func TestFromSinksProjectsOTLPSummaryKind(t *testing.T) {
+	sink := otlp.NewMetrics("", "", "", true)
+	sink.Capture = true
+	if err := sink.Write(context.Background(), []otlp.MetricResource{{
+		Attrs: map[string]any{"cloud.region": "us-east-1"},
+		Metrics: []otlp.Metric{{Name: "amazonaws.com/AWS/RDS/DatabaseConnections", Kind: otlp.MetricSummary,
+			Summaries: []otlp.SummaryPoint{{Attrs: map[string]any{"MetricName": "DatabaseConnections", "Dimensions": map[string]string{"DBInstanceIdentifier": "db-test"}}, Count: 1, Sum: 6, Quantiles: map[float64]float64{0: 6, 1: 6}}}},
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	schema := FromSinks(nil, nil, nil, sink, nil, nil, nil)
+	if len(schema.Metrics) != 1 || len(schema.Metrics[0].InstrumentTypes) != 1 || schema.Metrics[0].InstrumentTypes[0] != InstrumentSummary {
+		t.Fatalf("metrics=%+v, want OTLP Summary", schema.Metrics)
+	}
+	for _, attribute := range schema.Metrics[0].Labels {
+		if attribute.Key == "Dimensions" {
+			if !slices.Equal(attribute.Values, []string{`{"DBInstanceIdentifier":"db-test"}`}) {
+				t.Fatalf("nested Dimensions differ from receiver JSON: %v", attribute.Values)
+			}
+			return
+		}
+	}
+	t.Fatal("Summary Dimensions missing from inventory")
+}
+
 func TestFromSinksPreservesNativeHistogramNameWithClassicSuffixText(t *testing.T) {
 	prom := promrw.New("", "", "", true, nil)
 	prom.Capture = true

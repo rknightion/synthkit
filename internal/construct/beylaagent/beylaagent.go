@@ -16,8 +16,10 @@
 //
 // Identity: Config-borne (mode + cluster/node | host). NO ledger, NO blueprint name.
 //
-// Signal contract: signals/beyla.md [slug: beyla-internal]. Metric NAMES come from the
+// Signal contract: signals/beyla.md [slug: beyla-internal]. Prometheus metric NAMES come from the
 // internal/beyla vocabulary lib (LAW, live-confirmed reference cluster Beyla 3.20.0 /internal/metrics).
+// The native OTLP names are the separate five-name set captured from Beyla v3.32.0 and are kept
+// as explicit constants in native_otlp.go; they are never derived from the Prometheus spellings.
 //
 // ⚠ The per-service beyla_avoided_services metric is NOT emitted here — it is emitted by the
 // Beyla observation LANE on web_service (it has the service identity). This construct emits
@@ -47,6 +49,10 @@ const Kind = "beyla_agent"
 
 // Config is the construct's YAML config struct.
 type Config struct {
+	// InternalMetrics selects exactly one Beyla internal-metrics exporter: "prometheus" (the
+	// default), "otel", or "disabled". Beyla rejects an OTLP and Prometheus internal-metrics
+	// exporter configured together, so the construct declares only the selected signal lane.
+	InternalMetrics *InternalMetricsConfig `yaml:"internal_metrics"`
 	// Mode is the deployment substrate: "kubernetes" (default) | "standalone".
 	Mode string `yaml:"mode"`
 	// InstrumentedProcesses is the count of eBPF-instrumented processes on this node
@@ -64,16 +70,29 @@ type Config struct {
 	Host string `yaml:"host"`
 }
 
+// InternalMetricsConfig mirrors Beyla's internal_metrics.exporter discriminator.
+// The OTLP branch is native OTLP metrics and therefore uses semantic dotted names; the
+// Prometheus branch retains the existing /internal/metrics names and labels.
+type InternalMetricsConfig struct {
+	Exporter string `yaml:"exporter"`
+}
+
+// InternalMetrics is kept as a concise alias for callers constructing Config values directly.
+type InternalMetrics = InternalMetricsConfig
+
 // NewConfig returns a pointer to a default-zero Config for the YAML decoder.
 func NewConfig() any { return &Config{} }
 
 const (
-	defaultVersion    = "1.9.0"
-	defaultRevision   = "unknown"
-	defaultProcesses  = 4
-	defaultGoVersion  = "go1.23.0"
-	defaultMapEntries = 256
-	defaultMapMax     = 16384
+	internalMetricsExporterPrometheus = "prometheus"
+	internalMetricsExporterOTLP       = "otel"
+	internalMetricsExporterDisabled   = "disabled"
+	defaultVersion                    = "1.9.0"
+	defaultRevision                   = "unknown"
+	defaultProcesses                  = 4
+	defaultGoVersion                  = "go1.23.0"
+	defaultMapEntries                 = 256
+	defaultMapMax                     = 16384
 )
 
 // NOTE: the two internal histograms (beyla_ebpf_tracer_flushes / beyla_kube_cache_forward_lag_seconds)
@@ -82,6 +101,7 @@ const (
 
 // Construct is the per-instance beyla_agent renderer. Not exported; callers use Build.
 type Construct struct {
+	exporter  string
 	mode      beyla.Mode
 	cluster   string
 	node      string
@@ -90,17 +110,25 @@ type Construct struct {
 	version   string
 	revision  string
 	st        *state.State
+	stOTLP    *state.State
+	otlpStart time.Time
 }
 
 // Compile-time interface check.
 var _ core.Construct = (*Construct)(nil)
 
-// Build validates cfg, applies defaults, and returns a ready core.Construct. fx is unused —
-// beyla_agent's identity is config-borne (substrate-scoped, no fixtures, no ledger).
-func Build(cfg any, _ *fixture.Set) (core.Construct, error) {
+// Build validates cfg, applies defaults, and returns a ready core.Construct. A cluster addon has
+// no per-addon identity block, so its omitted Kubernetes identity is filled from the resolved
+// cluster fixture. Explicit config identity remains authoritative for standalone and direct users.
+func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	c, ok := cfg.(*Config)
 	if !ok || c == nil {
 		return nil, fmt.Errorf("beylaagent: Build called with %T, want *Config", cfg)
+	}
+
+	exporter := internalMetricsExporter(c.InternalMetrics)
+	if exporter != internalMetricsExporterPrometheus && exporter != internalMetricsExporterOTLP && exporter != internalMetricsExporterDisabled {
+		return nil, fmt.Errorf("beylaagent: invalid internal_metrics.exporter %q (want prometheus|otel|disabled)", exporter)
 	}
 
 	mode := beyla.Mode(c.Mode)
@@ -123,22 +151,44 @@ func Build(cfg any, _ *fixture.Set) (core.Construct, error) {
 	if revision == "" {
 		revision = defaultRevision
 	}
+	cluster := c.Cluster
+	node := c.Node
+	if mode == beyla.ModeKubernetes && fx != nil && fx.Cluster != nil {
+		if cluster == "" {
+			cluster = fx.Cluster.Name
+		}
+		if node == "" && len(fx.Cluster.Nodes) > 0 {
+			node = fx.Cluster.Nodes[0].Hostname
+		}
+	}
 
 	return &Construct{
+		exporter:  exporter,
 		mode:      mode,
-		cluster:   c.Cluster,
-		node:      c.Node,
+		cluster:   cluster,
+		node:      node,
 		host:      c.Host,
 		processes: processes,
 		version:   version,
 		revision:  revision,
 		st:        state.NewState(),
+		stOTLP:    state.NewState(),
 	}, nil
 }
 
-func (c *Construct) Kind() string                { return Kind }
-func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics} }
-func (c *Construct) Interval() time.Duration     { return 60 * time.Second }
+func (c *Construct) Kind() string            { return Kind }
+func (c *Construct) Interval() time.Duration { return 60 * time.Second }
+
+func (c *Construct) Signals() []core.SignalClass {
+	switch c.exporter {
+	case internalMetricsExporterOTLP:
+		return []core.SignalClass{core.OTLPMetrics}
+	case internalMetricsExporterDisabled:
+		return nil
+	default:
+		return []core.SignalClass{core.Metrics}
+	}
+}
 
 // seriesVar returns a deterministic per-series multiplier ≈ 1±amp that varies both across
 // peer series (via w.Shape.Spread on key) and slowly over time (via w.Shape.Wander). Layer this on
@@ -152,14 +202,38 @@ func (c *Construct) seriesVar(w *core.World, now time.Time, key string, amp floa
 
 // Tick renders one 60-second observation window into w.Metrics.
 func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
-	bf := w.Shape.BusinessFactor(now)
-	c.render(bf, now, w)
-	if w.Metrics != nil {
+	if c.exporter == internalMetricsExporterDisabled {
+		return nil
+	}
+
+	bf := 1.0
+	if w != nil && w.Shape != nil {
+		bf = w.Shape.BusinessFactor(now)
+	}
+	switch c.exporter {
+	case internalMetricsExporterOTLP:
+		c.renderOTLP(bf, now, w)
+		if w == nil || w.OTLPMetrics == nil {
+			return nil
+		}
+		return c.writeOTLPMetrics(ctx, now, w)
+	default:
+		c.render(bf, now, w)
+		if w == nil || w.Metrics == nil {
+			return nil
+		}
 		if err := w.Metrics.Write(ctx, c.st.Collect(now)); err != nil {
 			return err
 		}
+		return nil
 	}
-	return nil
+}
+
+func internalMetricsExporter(cfg *InternalMetricsConfig) string {
+	if cfg == nil || cfg.Exporter == "" {
+		return internalMetricsExporterPrometheus
+	}
+	return cfg.Exporter
 }
 
 // identity returns the mode-dependent substrate-identity labels stamped on every LABELLED

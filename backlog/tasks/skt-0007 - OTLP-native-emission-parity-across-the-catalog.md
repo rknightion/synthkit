@@ -4,7 +4,7 @@ title: OTLP-native emission parity across the catalog
 status: In Progress
 assignee: []
 created_date: '2026-08-24 12:05'
-updated_date: '2026-08-27 07:13'
+updated_date: '2026-09-05 16:36'
 labels: []
 dependencies: []
 priority: high
@@ -37,12 +37,12 @@ Shares its seam with SKT-0006.05 (the OTLP logs lane): both follow the `core.OTL
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 A recorded, evidence-backed answer to which catalog constructs and workloads have a real OTel-native metric form, and which are Prometheus-scrape-only and must NOT gain an OTLP lane
-- [ ] #2 The OTLP metrics lane mechanics support every instrument shape the in-scope catalog needs, not just the two families web_service uses
-- [ ] #3 The base blueprint surface can be emitted OTel-native end to end, and a blueprint demonstrates it
-- [ ] #4 No construct or workload invents an OTLP representation for telemetry that reality only ever produces as a Prometheus scrape target
-- [ ] #5 signals/otlp-metrics.md grows to cover every added family with provenance
-- [ ] #6 Constructs and workloads still do not import the OTel SDK, selfobs, or profiling; the architecture isolation test passes
-- [ ] #7 Later implementation waves are created as subtasks from the first subtask answer, not pre-guessed
+- [x] #2 The OTLP metrics lane mechanics support every instrument shape the in-scope catalog needs, not just the two families web_service uses
+- [x] #3 The base blueprint surface can be emitted OTel-native end to end, and a blueprint demonstrates it
+- [x] #4 No construct or workload invents an OTLP representation for telemetry that reality only ever produces as a Prometheus scrape target
+- [x] #5 signals/otlp-metrics.md grows to cover every added family with provenance
+- [x] #6 Constructs and workloads still do not import the OTel SDK, selfobs, or profiling; the architecture isolation test passes
+- [x] #7 Later implementation waves are created as subtasks from the first subtask answer, not pre-guessed
 <!-- AC:END -->
 
 ## Definition of Done
@@ -51,3 +51,9 @@ Shares its seam with SKT-0006.05 (the OTLP logs lane): both follow the `core.OTL
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-05 parent reconciliation: all six earlier Done subtask summaries read. AC2 is supported by the instrument-mechanics work plus this run's Summary tests; AC3 by the native Kubernetes blueprint; AC4 by scrape-only architecture guards and withholding unconfirmed Envoy/CSP/CloudWatch families; AC5 by per-family signal provenance and root pointers; AC6 by the integrated just check architecture pass; AC7 by the evidence-study-created follow-on tasks. AC1 remains unchecked because the Azure/GCP emitted envelope remains unresolved at SK-88. Envoy native datapoints are also withheld at SK-110 through SK-112; this parent is not complete.
+<!-- SECTION:NOTES:END -->

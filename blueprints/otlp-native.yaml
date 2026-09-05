@@ -36,6 +36,14 @@ environments:
     cluster:
       type: eks
       name: otlp-native-prod-euw1
+      # Product-native exporter switches; unconfirmed datapoints remain withheld by the catalog.
+      addons:
+        - name: beyla_agent
+          version: "3.32.0" # Version retained by the native internal-metrics capture.
+          internal_metrics: { exporter: otel }
+        - name: envoy_gateway
+          proxy_telemetry: { otel_sink: true, prometheus_disable: false }
+          gateway_telemetry: { otel_sink: true, prometheus_disable: false }
       node_groups:
         - { name: general, instance_type: m6i.large, desired: 2 }
       k8s_monitoring:

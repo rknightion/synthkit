@@ -95,14 +95,23 @@ func build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	}, nil
 }
 
-func (c *construct) Kind() string                { return "elasticache" }
-func (c *construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics} }
-func (c *construct) Interval() time.Duration     { return 60 * time.Second }
+func (c *construct) Kind() string { return "elasticache" }
+func (c *construct) Signals() []core.SignalClass {
+	if c.cloud.CloudWatchExportMode() == "otlp" {
+		return []core.SignalClass{core.OTLPMetrics}
+	}
+	return []core.SignalClass{core.Metrics}
+}
+func (c *construct) Interval() time.Duration { return 60 * time.Second }
 
 // Tick renders one minute's worth of CW metrics for every node in the cluster and
 // emits the batch. All series are per-period gauges (state.Set, never state.Add).
 func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
 	batch := c.render(now, w.Shape)
+	if c.cloud.CloudWatchExportMode() == "otlp" {
+		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, c.cloud, batch)
+		return err
+	}
 	return w.Metrics.Write(ctx, batch)
 }
 

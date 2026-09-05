@@ -507,3 +507,12 @@ gcx metrics query 'target_info{service_name="otlp-api-naked"}'
 gcx metrics query 'http_server_request_duration_seconds_bucket{le="+Inf"}'
 gcx metrics query 'http_server_active_requests'
 ```
+
+
+## Captured native infrastructure emitters
+
+- Beyla internal metrics: [`beyla.md`](beyla.md) [slug: beyla-internal-otlp] records the captured names, instruments and units, plus explicit remaining contract boundaries.
+- Envoy Gateway: [`k8s-addons.md`](k8s-addons.md) [slug: k8s-envoy-gateway] separates the dotted data-plane wire form from the underscore control-plane form; empty units/scopes and missing histogram evidence are not interchangeable.
+- CloudWatch Metric Streams: [`cw.md`](cw.md) [slug: cw-metric-stream-otlp] records the Summary wire form and the observed queryable normalization. Summary is a per-period snapshot carrying count, sum and min/max quantiles; it has no aggregation-temporality field. The cumulative Sum/Histogram rule above does not turn CloudWatch period statistics into cumulative counters.
+
+A producer with an observed unnamed metrics scope sets `MetricResource.PreserveEmptyScope` so the sink retains it. Other zero scopes retain the historical `synthkit` fallback. This does not add scope labels to the query contract.

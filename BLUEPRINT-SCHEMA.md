@@ -40,6 +40,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].metadata.links` | map[string]string |  | named external references (name → url) |
 | `environments[].metadata.category` | string |  | single classification (e.g. demo/reference/customer) |
 | `environments[].cloud` | object | yes |  |
+| `environments[].cloud.cloudwatch_export` | string |  | CloudWatchExport selects remote_write (default) or native Metric Streams otlp. |
 | `environments[].cloud.provider` | string |  | "aws" (v1) |
 | `environments[].cloud.account_id` | string |  |  |
 | `environments[].cloud.region` | string |  |  |
@@ -204,6 +205,8 @@ Grafana Beyla agent self/internal metrics (beyla_internal_* / beyla_bpf_* from /
 
 | key | type | optional | description |
 |---|---|---|---|
+| `internal_metrics` | object | yes | InternalMetrics selects exactly one Beyla internal-metrics exporter: "prometheus" (the default), "otel", or "disabled". Beyla rejects an OTLP and Prometheus internal-metrics exporter configured together, so the construct declares only the selected signal lane. |
+| `internal_metrics.exporter` | string |  |  |
 | `mode` | string |  | Mode is the deployment substrate: "kubernetes" (default) \| "standalone". |
 | `instrumented_processes` | int |  | InstrumentedProcesses is the count of eBPF-instrumented processes on this node (drives beyla_instrumented_processes). Default 4. |
 | `version` | string |  | Version is the Beyla version stamped in the build-info gauge (default "1.9.0"). |
@@ -353,7 +356,14 @@ _(no configurable fields)_
 
 Envoy Gateway control-plane (xds_*/watchable_*/controller_runtime_*) and data-plane (envoy_*) metrics
 
-_(no configurable fields)_
+| key | type | optional | description |
+|---|---|---|---|
+| `proxy_telemetry` | object | yes |  |
+| `proxy_telemetry.otel_sink` | bool |  |  |
+| `proxy_telemetry.prometheus_disable` | bool |  |  |
+| `gateway_telemetry` | object | yes |  |
+| `gateway_telemetry.otel_sink` | bool |  |  |
+| `gateway_telemetry.prometheus_disable` | bool |  |  |
 
 ## etcd config
 

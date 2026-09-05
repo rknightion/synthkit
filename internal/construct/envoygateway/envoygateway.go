@@ -4,7 +4,7 @@
 //
 // Kind:     "envoy_gateway"
 // Scope:    core.ScopeSubstrate (cluster disambiguates; no blueprint label)
-// Signals:  []core.SignalClass{core.Metrics}
+// Signals:  []core.SignalClass{core.Metrics, core.Logs} (+ core.OTLPMetrics per sink switch)
 // Interval: 60s
 //
 // Build requires fx.Cluster (non-nil).
@@ -34,6 +34,12 @@
 //
 // Fallback: nil SubstrateWorkloads → cluster-scoped series (no pod labels).
 //
+// Native OTLP metrics are opt-in per Envoy API surface. proxy_telemetry.otel_sink and
+// gateway_telemetry.otel_sink declare the captured data/control contracts documented in
+// signals/k8s-addons.md, but emission remains withheld until the captures retain the missing
+// resource values, per-family attributes, and histogram bounds. The switches never change the
+// scrape-shaped state.
+//
 // ARCHITECTURE invariants honoured:
 //   - I3:  counters via state.Add (cumulative); gauges via state.Set
 //   - I13: no empty/sentinel labels — absent dims are omitted
@@ -61,13 +67,28 @@ const (
 	portMetrics = 19001
 )
 
-// Config is the construct config struct (empty — all identity from fixtures).
-type Config struct{}
+// Config is the construct config struct. Identity remains fixture-driven; the two nested
+// blocks mirror the product's separate EnvoyProxy and EnvoyGateway telemetry configuration.
+type Config struct {
+	ProxyTelemetry   *TelemetryConfig `yaml:"proxy_telemetry"`
+	GatewayTelemetry *TelemetryConfig `yaml:"gateway_telemetry"`
+}
+
+// TelemetryConfig carries the two product switches for one Envoy API surface.
+// OTelSink is additive to Prometheus unless PrometheusDisable is also true.
+type TelemetryConfig struct {
+	OTelSink          bool `yaml:"otel_sink"`
+	PrometheusDisable bool `yaml:"prometheus_disable"`
+}
 
 // Construct renders envoy-gateway (control plane + data plane) metrics for one cluster.
 type Construct struct {
-	clust *fixture.Cluster
-	st    *state.State
+	clust                     *fixture.Cluster
+	st                        *state.State
+	proxyOTLPSink             bool
+	gatewayOTLPSink           bool
+	proxyPrometheusDisabled   bool
+	gatewayPrometheusDisabled bool
 }
 
 // Compile-time interface check.
@@ -76,20 +97,47 @@ var _ core.Construct = (*Construct)(nil)
 // New builds a Construct from cfg and the resolved fixtures.
 // Returns an error if fx.Cluster is nil.
 func New(cfg any, fx *fixture.Set) (core.Construct, error) {
-	if fx.Cluster == nil {
+	if fx == nil || fx.Cluster == nil {
 		return nil, errors.New("envoy_gateway: fixture.Cluster is required (nil)")
 	}
+	conf, _ := cfg.(*Config)
+	var proxy, gateway TelemetryConfig
+	if conf != nil {
+		if conf.ProxyTelemetry != nil {
+			proxy = *conf.ProxyTelemetry
+		}
+		if conf.GatewayTelemetry != nil {
+			gateway = *conf.GatewayTelemetry
+		}
+	}
 	return &Construct{
-		clust: fx.Cluster,
-		st:    state.NewState(),
+		clust:                     fx.Cluster,
+		st:                        state.NewState(),
+		proxyOTLPSink:             proxy.OTelSink,
+		gatewayOTLPSink:           gateway.OTelSink,
+		proxyPrometheusDisabled:   proxy.PrometheusDisable,
+		gatewayPrometheusDisabled: gateway.PrometheusDisable,
 	}, nil
 }
 
 // Kind implements core.Construct.
 func (c *Construct) Kind() string { return kind }
 
-// Signals implements core.Construct — metrics + logs.
-func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics, core.Logs} }
+// Signals implements core.Construct. Prometheus metrics are declared only when at least one
+// surface keeps its scrape endpoint; native metrics are declared when either OTLP sink is on.
+// Logs remain declared regardless of either metrics switch because the switches affect metrics
+// endpoints only.
+func (c *Construct) Signals() []core.SignalClass {
+	sigs := make([]core.SignalClass, 0, 3)
+	if !c.proxyPrometheusDisabled || !c.gatewayPrometheusDisabled {
+		sigs = append(sigs, core.Metrics)
+	}
+	sigs = append(sigs, core.Logs)
+	if c.proxyOTLPSink || c.gatewayOTLPSink {
+		sigs = append(sigs, core.OTLPMetrics)
+	}
+	return sigs
+}
 
 // Interval implements core.Construct.
 func (c *Construct) Interval() time.Duration { return interval }
@@ -151,240 +199,256 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	}
 
 	// ── Surface 1: Control Plane ──────────────────────────────────────────────
+	// The EnvoyGateway Prometheus switch affects only this scrape-shaped state. Native
+	// control-plane scrape output is independently gated; native output has its own
+	// evidence gate below and does not alter this state.
+	if !c.gatewayPrometheusDisabled {
 
-	// EG-specific: xds_*
-	emitControl(map[string]string{"status": "success"}, func(lbls map[string]string) {
-		c.st.Add("xds_snapshot_create_total", lbls, scale)
-		c.st.Add("xds_snapshot_update_total", lbls, scale)
-	})
+		// EG-specific: xds_*
+		emitControl(map[string]string{"status": "success"}, func(lbls map[string]string) {
+			c.st.Add("xds_snapshot_create_total", lbls, scale)
+			c.st.Add("xds_snapshot_update_total", lbls, scale)
+		})
 
-	// xds_stream_duration_seconds histogram (seconds — NOT ms, controller-runtime scale)
-	for _, pm := range controlMaps {
-		c.st.Observe("xds_stream_duration_seconds", pm, secondsBuckets, state.LEPromV3, 0.1+factor*0.1*w.Shape.Noise(0.3))
-	}
-	if len(controlMaps) == 0 {
-		c.st.Observe("xds_stream_duration_seconds", controlBase, secondsBuckets, state.LEPromV3, 0.1+factor*0.05*w.Shape.Noise(0.3))
-	}
+		// xds_stream_duration_seconds histogram (seconds — NOT ms, controller-runtime scale)
+		for _, pm := range controlMaps {
+			c.st.Observe("xds_stream_duration_seconds", pm, secondsBuckets, state.LEPromV3, 0.1+factor*0.1*w.Shape.Noise(0.3))
+		}
+		if len(controlMaps) == 0 {
+			c.st.Observe("xds_stream_duration_seconds", controlBase, secondsBuckets, state.LEPromV3, 0.1+factor*0.05*w.Shape.Noise(0.3))
+		}
 
-	// watchable_*: depth (gauge) + events (counter per runner × event_type)
-	for _, runner := range watchableRunners {
-		for _, evType := range watchableEventTypes {
-			emitControl(map[string]string{"runner": runner, "event_type": evType}, func(lbls map[string]string) {
-				c.st.Add("watchable_event_total", lbls, scale)
+		// watchable_*: depth (gauge) + events (counter per runner × event_type)
+		for _, runner := range watchableRunners {
+			for _, evType := range watchableEventTypes {
+				emitControl(map[string]string{"runner": runner, "event_type": evType}, func(lbls map[string]string) {
+					c.st.Add("watchable_event_total", lbls, scale)
+				})
+			}
+			emitControl(map[string]string{"runner": runner}, func(lbls map[string]string) {
+				c.st.Set("watchable_depth", lbls, 0)
+				c.st.Add("watchable_publish_total", lbls, scale)
+				c.st.Add("watchable_subscribe_total", lbls, scale)
 			})
 		}
-		emitControl(map[string]string{"runner": runner}, func(lbls map[string]string) {
-			c.st.Set("watchable_depth", lbls, 0)
-			c.st.Add("watchable_publish_total", lbls, scale)
-			c.st.Add("watchable_subscribe_total", lbls, scale)
+
+		// resource_apply_total / resource_apply_duration_seconds_* / resource_delete_*
+		for _, k := range resourceKinds {
+			emitControl(map[string]string{"kind": k, "name": k + "-resource", "status": "success"}, func(lbls map[string]string) {
+				c.st.Add("resource_apply_total", lbls, scale)
+			})
+			emitControl(map[string]string{"kind": k, "name": k + "-resource"}, func(lbls map[string]string) {
+				c.st.Observe("resource_apply_duration_seconds", lbls, secondsBuckets, state.LEPromV3, 0.05+factor*0.05*w.Shape.Noise(0.4))
+				c.st.Add("resource_delete_total", lbls, 0)
+			})
+		}
+
+		// status_update_* + topology_injector_webhook_events_total + wasm_cache_entries
+		emitControl(nil, func(lbls map[string]string) {
+			c.st.Add("status_update_total", lbls, scale)
+			c.st.Add("topology_injector_webhook_events_total", lbls, scale)
+			c.st.Set("wasm_cache_entries", lbls, 0)
+		})
+
+		// controller_runtime_reconcile_total (per result)
+		for _, result := range reconcileResults {
+			emitControl(map[string]string{
+				"controller": "gatewayapi-1781111929",
+				"result":     result,
+			}, func(lbls map[string]string) {
+				c.st.Add("controller_runtime_reconcile_total", lbls, scale)
+			})
+		}
+		emitControl(map[string]string{"controller": "gatewayapi-1781111929"}, func(lbls map[string]string) {
+			c.st.Observe("controller_runtime_reconcile_time_seconds", lbls, secondsBuckets, state.LEPromV3, 0.01+factor*0.02*w.Shape.Noise(0.4))
+			c.st.Set("controller_runtime_active_workers", lbls, 1)
+			c.st.Set("controller_runtime_max_concurrent_reconciles", lbls, 1)
+		})
+
+		// controller_runtime_webhook_* (control plane has webhooks on 9443)
+		emitControl(nil, func(lbls map[string]string) {
+			c.st.Add("controller_runtime_webhook_requests_total", lbls, scale)
+			c.st.Set("controller_runtime_webhook_requests_in_flight", lbls, 0)
+		})
+
+		// rest_client_requests_total (client-go calls to kube-apiserver)
+		for _, method := range []string{"GET", "POST", "PUT", "PATCH"} {
+			emitControl(map[string]string{
+				"code":   "200",
+				"host":   "172.20.0.1:443",
+				"method": method,
+			}, func(lbls map[string]string) {
+				c.st.Add("rest_client_requests_total", lbls, scale)
+			})
+		}
+
+		// workqueue_* (leader-election + reconcile queue)
+		for _, qname := range controlWorkqueues {
+			emitControl(map[string]string{"name": qname}, func(lbls map[string]string) {
+				c.st.Add("workqueue_adds_total", lbls, scale)
+				c.st.Set("workqueue_depth", lbls, 0)
+				c.st.Set("workqueue_longest_running_processor_seconds", lbls, 0)
+				c.st.Add("workqueue_retries_total", lbls, 0)
+				c.st.Set("workqueue_unfinished_work_seconds", lbls, 0)
+			})
+		}
+
+		// certwatcher_read_certificate_total (webhook cert hot-reload)
+		emitControl(nil, func(lbls map[string]string) {
+			c.st.Add("certwatcher_read_certificate_total", lbls, 0)
+		})
+
+		// leader_election_master_status
+		emitControl(map[string]string{"name": "envoy-gateway-leader"}, func(lbls map[string]string) {
+			c.st.Set("leader_election_master_status", lbls, 1)
 		})
 	}
-
-	// resource_apply_total / resource_apply_duration_seconds_* / resource_delete_*
-	for _, k := range resourceKinds {
-		emitControl(map[string]string{"kind": k, "name": k + "-resource", "status": "success"}, func(lbls map[string]string) {
-			c.st.Add("resource_apply_total", lbls, scale)
-		})
-		emitControl(map[string]string{"kind": k, "name": k + "-resource"}, func(lbls map[string]string) {
-			c.st.Observe("resource_apply_duration_seconds", lbls, secondsBuckets, state.LEPromV3, 0.05+factor*0.05*w.Shape.Noise(0.4))
-			c.st.Add("resource_delete_total", lbls, 0)
-		})
-	}
-
-	// status_update_* + topology_injector_webhook_events_total + wasm_cache_entries
-	emitControl(nil, func(lbls map[string]string) {
-		c.st.Add("status_update_total", lbls, scale)
-		c.st.Add("topology_injector_webhook_events_total", lbls, scale)
-		c.st.Set("wasm_cache_entries", lbls, 0)
-	})
-
-	// controller_runtime_reconcile_total (per result)
-	for _, result := range reconcileResults {
-		emitControl(map[string]string{
-			"controller": "gatewayapi-1781111929",
-			"result":     result,
-		}, func(lbls map[string]string) {
-			c.st.Add("controller_runtime_reconcile_total", lbls, scale)
-		})
-	}
-	emitControl(map[string]string{"controller": "gatewayapi-1781111929"}, func(lbls map[string]string) {
-		c.st.Observe("controller_runtime_reconcile_time_seconds", lbls, secondsBuckets, state.LEPromV3, 0.01+factor*0.02*w.Shape.Noise(0.4))
-		c.st.Set("controller_runtime_active_workers", lbls, 1)
-		c.st.Set("controller_runtime_max_concurrent_reconciles", lbls, 1)
-	})
-
-	// controller_runtime_webhook_* (control plane has webhooks on 9443)
-	emitControl(nil, func(lbls map[string]string) {
-		c.st.Add("controller_runtime_webhook_requests_total", lbls, scale)
-		c.st.Set("controller_runtime_webhook_requests_in_flight", lbls, 0)
-	})
-
-	// rest_client_requests_total (client-go calls to kube-apiserver)
-	for _, method := range []string{"GET", "POST", "PUT", "PATCH"} {
-		emitControl(map[string]string{
-			"code":   "200",
-			"host":   "172.20.0.1:443",
-			"method": method,
-		}, func(lbls map[string]string) {
-			c.st.Add("rest_client_requests_total", lbls, scale)
-		})
-	}
-
-	// workqueue_* (leader-election + reconcile queue)
-	for _, qname := range controlWorkqueues {
-		emitControl(map[string]string{"name": qname}, func(lbls map[string]string) {
-			c.st.Add("workqueue_adds_total", lbls, scale)
-			c.st.Set("workqueue_depth", lbls, 0)
-			c.st.Set("workqueue_longest_running_processor_seconds", lbls, 0)
-			c.st.Add("workqueue_retries_total", lbls, 0)
-			c.st.Set("workqueue_unfinished_work_seconds", lbls, 0)
-		})
-	}
-
-	// certwatcher_read_certificate_total (webhook cert hot-reload)
-	emitControl(nil, func(lbls map[string]string) {
-		c.st.Add("certwatcher_read_certificate_total", lbls, 0)
-	})
-
-	// leader_election_master_status
-	emitControl(map[string]string{"name": "envoy-gateway-leader"}, func(lbls map[string]string) {
-		c.st.Set("leader_election_master_status", lbls, 1)
-	})
 
 	// ── Surface 2: Data Plane ─────────────────────────────────────────────────
+	// The EnvoyProxy Prometheus switch affects only this scrape-shaped state. Native
+	// data-plane scrape output is independently gated; native output has its own
+	// evidence gate below and does not alter this state.
+	if !c.proxyPrometheusDisabled {
 
-	// envoy_cluster_upstream_rq_total (per cluster name)
-	for _, clName := range envoyClusterNames {
-		emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
-			c.st.Add("envoy_cluster_upstream_rq_total", lbls, scale*10)
-		})
-	}
-
-	// envoy_cluster_upstream_rq_time histogram (milliseconds)
-	for _, clName := range envoyClusterNames {
-		emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
-			c.st.Observe("envoy_cluster_upstream_rq_time", lbls, envoyMsBuckets, state.LEPromV3, 10.0+factor*15.0*w.Shape.Noise(0.4))
-		})
-	}
-
-	// envoy_cluster_upstream_cx_active (gauge, per cluster)
-	for _, clName := range envoyClusterNames {
-		emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
-			c.st.Set("envoy_cluster_upstream_cx_active", lbls, 1)
-		})
-	}
-
-	// envoy_http_downstream_rq_xx (per conn-manager prefix × response class)
-	for _, mgr := range httpConnManagers {
-		for _, cls := range responseCodeClasses {
-			emitData(map[string]string{
-				"envoy_http_conn_manager_prefix": mgr,
-				"envoy_response_code_class":      cls,
-			}, func(lbls map[string]string) {
-				weight := 0.9 // 2xx most common
-				if cls != "2" {
-					weight = 0.02
-				}
-				c.st.Add("envoy_http_downstream_rq_xx", lbls, scale*50*weight)
+		// envoy_cluster_upstream_rq_total (per cluster name)
+		for _, clName := range envoyClusterNames {
+			emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
+				c.st.Add("envoy_cluster_upstream_rq_total", lbls, scale*10)
 			})
+		}
+
+		// envoy_cluster_upstream_rq_time histogram (milliseconds)
+		for _, clName := range envoyClusterNames {
+			emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
+				c.st.Observe("envoy_cluster_upstream_rq_time", lbls, envoyMsBuckets, state.LEPromV3, 10.0+factor*15.0*w.Shape.Noise(0.4))
+			})
+		}
+
+		// envoy_cluster_upstream_cx_active (gauge, per cluster)
+		for _, clName := range envoyClusterNames {
+			emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
+				c.st.Set("envoy_cluster_upstream_cx_active", lbls, 1)
+			})
+		}
+
+		// envoy_http_downstream_rq_xx (per conn-manager prefix × response class)
+		for _, mgr := range httpConnManagers {
+			for _, cls := range responseCodeClasses {
+				emitData(map[string]string{
+					"envoy_http_conn_manager_prefix": mgr,
+					"envoy_response_code_class":      cls,
+				}, func(lbls map[string]string) {
+					weight := 0.9 // 2xx most common
+					if cls != "2" {
+						weight = 0.02
+					}
+					c.st.Add("envoy_http_downstream_rq_xx", lbls, scale*50*weight)
+				})
+			}
+		}
+
+		// envoy_http_downstream_rq_time histogram (milliseconds, per conn-manager)
+		for _, mgr := range httpConnManagers {
+			emitData(map[string]string{"envoy_http_conn_manager_prefix": mgr}, func(lbls map[string]string) {
+				c.st.Observe("envoy_http_downstream_rq_time", lbls, envoyMsBuckets, state.LEPromV3, 15.0+factor*20.0*w.Shape.Noise(0.4))
+			})
+		}
+
+		// envoy_listener_downstream_cx_active (gauge, per listener address)
+		for _, addr := range listenerAddresses {
+			emitData(map[string]string{"envoy_listener_address": addr}, func(lbls map[string]string) {
+				c.st.Set("envoy_listener_downstream_cx_active", lbls, 2)
+			})
+		}
+
+		// envoy_control_plane_connected_state (gauge=1)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Set("envoy_control_plane_connected_state", lbls, 1)
+		})
+
+		// envoy_server_uptime (gauge, monotonically increasing)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Add("envoy_server_uptime", lbls, tickSec)
+		})
+
+		// envoy_server_live (gauge=1)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Set("envoy_server_live", lbls, 1)
+		})
+
+		// envoy_server_concurrency (gauge)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Set("envoy_server_concurrency", lbls, 4)
+		})
+
+		// envoy_server_days_until_first_cert_expiring (gauge)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Set("envoy_server_days_until_first_cert_expiring", lbls, 89)
+		})
+
+		// envoy_server_memory_allocated + envoy_server_memory_heap_size (gauges)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Set("envoy_server_memory_allocated", lbls, 1024*1024*32) // 32 MiB
+			c.st.Set("envoy_server_memory_heap_size", lbls, 1024*1024*64) // 64 MiB
+		})
+
+		// envoy_cluster_upstream_cx_total (counter)
+		for _, clName := range envoyClusterNames {
+			emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
+				c.st.Add("envoy_cluster_upstream_cx_total", lbls, scale*2)
+			})
+		}
+
+		// envoy_cluster_upstream_rq_pending_active (gauge)
+		for _, clName := range envoyClusterNames {
+			emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
+				c.st.Set("envoy_cluster_upstream_rq_pending_active", lbls, 0)
+			})
+		}
+
+		// envoy_cluster_membership_total (gauge)
+		for _, clName := range envoyClusterNames {
+			emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
+				c.st.Set("envoy_cluster_membership_total", lbls, 2)
+			})
+		}
+
+		// envoy_cluster_membership_healthy (gauge)
+		for _, clName := range envoyClusterNames {
+			emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
+				c.st.Set("envoy_cluster_membership_healthy", lbls, 2)
+			})
+		}
+
+		// envoy_tracing_opentelemetry_spans_sent + spans_dropped (counters)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Add("envoy_tracing_opentelemetry_spans_sent", lbls, scale*50)
+			c.st.Add("envoy_tracing_opentelemetry_spans_dropped", lbls, 0)
+		})
+
+		// envoy_filesystem_write_total (counter)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Add("envoy_filesystem_write_total", lbls, scale*5)
+		})
+
+		// envoy_runtime_load_success (gauge=1)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Set("envoy_runtime_load_success", lbls, 1)
+		})
+
+		// envoy_access_logs_grpc_access_log_entries_buffered (gauge)
+		emitData(nil, func(lbls map[string]string) {
+			c.st.Set("envoy_access_logs_grpc_access_log_entries_buffered", lbls, 0)
+		})
+	}
+
+	if w.Metrics != nil {
+		if err := w.Metrics.Write(ctx, c.st.Collect(now)); err != nil {
+			return err
 		}
 	}
 
-	// envoy_http_downstream_rq_time histogram (milliseconds, per conn-manager)
-	for _, mgr := range httpConnManagers {
-		emitData(map[string]string{"envoy_http_conn_manager_prefix": mgr}, func(lbls map[string]string) {
-			c.st.Observe("envoy_http_downstream_rq_time", lbls, envoyMsBuckets, state.LEPromV3, 15.0+factor*20.0*w.Shape.Noise(0.4))
-		})
-	}
-
-	// envoy_listener_downstream_cx_active (gauge, per listener address)
-	for _, addr := range listenerAddresses {
-		emitData(map[string]string{"envoy_listener_address": addr}, func(lbls map[string]string) {
-			c.st.Set("envoy_listener_downstream_cx_active", lbls, 2)
-		})
-	}
-
-	// envoy_control_plane_connected_state (gauge=1)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Set("envoy_control_plane_connected_state", lbls, 1)
-	})
-
-	// envoy_server_uptime (gauge, monotonically increasing)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Add("envoy_server_uptime", lbls, tickSec)
-	})
-
-	// envoy_server_live (gauge=1)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Set("envoy_server_live", lbls, 1)
-	})
-
-	// envoy_server_concurrency (gauge)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Set("envoy_server_concurrency", lbls, 4)
-	})
-
-	// envoy_server_days_until_first_cert_expiring (gauge)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Set("envoy_server_days_until_first_cert_expiring", lbls, 89)
-	})
-
-	// envoy_server_memory_allocated + envoy_server_memory_heap_size (gauges)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Set("envoy_server_memory_allocated", lbls, 1024*1024*32) // 32 MiB
-		c.st.Set("envoy_server_memory_heap_size", lbls, 1024*1024*64) // 64 MiB
-	})
-
-	// envoy_cluster_upstream_cx_total (counter)
-	for _, clName := range envoyClusterNames {
-		emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
-			c.st.Add("envoy_cluster_upstream_cx_total", lbls, scale*2)
-		})
-	}
-
-	// envoy_cluster_upstream_rq_pending_active (gauge)
-	for _, clName := range envoyClusterNames {
-		emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
-			c.st.Set("envoy_cluster_upstream_rq_pending_active", lbls, 0)
-		})
-	}
-
-	// envoy_cluster_membership_total (gauge)
-	for _, clName := range envoyClusterNames {
-		emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
-			c.st.Set("envoy_cluster_membership_total", lbls, 2)
-		})
-	}
-
-	// envoy_cluster_membership_healthy (gauge)
-	for _, clName := range envoyClusterNames {
-		emitData(map[string]string{"envoy_cluster_name": clName}, func(lbls map[string]string) {
-			c.st.Set("envoy_cluster_membership_healthy", lbls, 2)
-		})
-	}
-
-	// envoy_tracing_opentelemetry_spans_sent + spans_dropped (counters)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Add("envoy_tracing_opentelemetry_spans_sent", lbls, scale*50)
-		c.st.Add("envoy_tracing_opentelemetry_spans_dropped", lbls, 0)
-	})
-
-	// envoy_filesystem_write_total (counter)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Add("envoy_filesystem_write_total", lbls, scale*5)
-	})
-
-	// envoy_runtime_load_success (gauge=1)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Set("envoy_runtime_load_success", lbls, 1)
-	})
-
-	// envoy_access_logs_grpc_access_log_entries_buffered (gauge)
-	emitData(nil, func(lbls map[string]string) {
-		c.st.Set("envoy_access_logs_grpc_access_log_entries_buffered", lbls, 0)
-	})
-
-	if err := w.Metrics.Write(ctx, c.st.Collect(now)); err != nil {
+	if err := c.tickOTLPMetrics(w); err != nil {
 		return err
 	}
 

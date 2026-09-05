@@ -130,9 +130,14 @@ func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
 	return &Construct{cfg: cfg, cloud: fx.Cloud, env: fx.Env, st: state.NewState()}, nil
 }
 
-func (c *Construct) Kind() string                { return "agentcore" }
-func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics, core.Logs} }
-func (c *Construct) Interval() time.Duration     { return 60 * time.Second }
+func (c *Construct) Kind() string { return "agentcore" }
+func (c *Construct) Signals() []core.SignalClass {
+	if c.cloud.CloudWatchExportMode() == "otlp" {
+		return []core.SignalClass{core.OTLPMetrics, core.Logs}
+	}
+	return []core.SignalClass{core.Metrics, core.Logs}
+}
+func (c *Construct) Interval() time.Duration { return 60 * time.Second }
 
 // Tick renders one 60-second observation window into w.Metrics.
 // All series use state.Set (per-period gauges — ARCHITECTURE I5, NEVER state.Add).
@@ -194,8 +199,15 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 	// gateway sub-signal — deferred (Spec 3)
 
-	if err := w.Metrics.Write(ctx, c.st.Collect(now)); err != nil {
-		return fmt.Errorf("agentcore: metrics write: %w", err)
+	batch := c.st.Collect(now)
+	var metricsErr error
+	if c.cloud.CloudWatchExportMode() == "otlp" {
+		_, metricsErr = cw.WriteMetricStreams(ctx, w.OTLPMetrics, c.cloud, batch)
+	} else {
+		metricsErr = w.Metrics.Write(ctx, batch)
+	}
+	if metricsErr != nil {
+		return fmt.Errorf("agentcore: metrics write: %w", metricsErr)
 	}
 
 	// ── Loki log streams (signals/agentcore.md [slug: agentcore-logs]) ───────────────
