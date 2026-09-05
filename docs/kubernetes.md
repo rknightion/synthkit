@@ -303,4 +303,5 @@ it — applies to the digest you pin here just as it does to the Compose selecto
 - [Credentials](credentials.md) — what each credential is and where to get it
 - [Control Plane](control-plane.md) — the operator UI and HTTP API
 - [Configuration](configuration.md) — every environment variable
+- [Kubernetes monitoring deployment permutations](k8s-monitoring-permutations.md) — choose the collector path your blueprint should represent
 - `charts/synthkit/README.md` — the full values reference and the resource measurement

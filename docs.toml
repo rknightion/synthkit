@@ -60,6 +60,7 @@ Home = "index.md"
     { Configuration = "configuration.md" },
     { Deployment = "deployment.md" },
     { Kubernetes = "kubernetes.md" },
+    { "Kubernetes monitoring deployment permutations" = "k8s-monitoring-permutations.md" },
     { Runbook = "RUNBOOK.md" },
     { "Control Plane" = "control-plane.md" },
     { "Synthetic Monitoring" = "synthetic-monitoring.md" },
