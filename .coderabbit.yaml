@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Product-specific additions to the central CodeRabbit defaults.
+# Keep inheritance enabled; shared review policy lives in the owner/coderabbit repository.
+inheritance: true
+reviews:
+  path_filters:
+  - '!BLUEPRINT-SCHEMA.md'
+  - '!internal/blueprintschema/fielddocs.json'
+  - '!internal/sink/promrw/writev2/*.pb.go'
+  - '!internal/pyroscope/pprofpb/*.pb.go'
+  - '!internal/sink/pyroscope/pushv1/*.pb.go'
+  - '!internal/sink/sigil/v1/*.pb.go'
+  - '!dashboards/internal/*.json'
+  path_instructions:
+  - path: internal/construct/**/*.go
+    instructions: >-
+      Preserve construct isolation: constructs may use the sanctioned shared seams but must not import
+      other constructs, workloads, blueprint packages or blueprint names. Check emitted names, units,
+      kinds, label sets and joins against signals/<area>.md. Counters and histograms remain cumulative;
+      CloudWatch _sum is a per-period gauge; absent dimensions are omitted rather than encoded as empty
+      or sentinel values.
+  - path: internal/workload/**/*.go
+    instructions: >-
+      Preserve workload isolation and request correlation through the per-blueprint ledger. Do not introduce
+      OTel SDK use on the synthetic data path. Check that high-cardinality identity stays in span attributes
+      or log metadata and does not become a Mimir label or Loki stream label.
+  - path: internal/sink/**/*.go
+    instructions: >-
+      Review against each sink's actual wire contract. Prometheus output is Remote Write v2 with final
+      pre-mangled names and cumulative samples; trace OTLP is hand-encoded; Loki uses its bounded stream-label
+      contract. Preserve bounded retries and the documented at-least-once behaviour for emit-once signals;
+      do not report harmless synthetic duplicates as a correctness defect.
+  - path: blueprints/*.yaml
+    instructions: >-
+      Treat every blueprint as deployable production-like input. Reject test-shaped rates or cardinality
+      chosen merely to force one-tick emission; require a stated real-world basis for rates and counts.
+      Test-only forcing belongs under e2e/fixtures.
