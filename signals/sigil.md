@@ -452,11 +452,16 @@ endpoints + correlates ingest kinds; see `e2e/receiver`) and the **live-captured
    absent-dimension-is-omitted rule its series should carry NO `eval_ai_request_model` / `model` /
    `provider` labels — but whether they are omitted or carry a placeholder is unverified, and
    synthkit's emit currently assumes omission.
-   What blocks it: no stack reachable from this project's configured Grafana Cloud contexts has an
-   active heuristic evaluator, and the stack that produced the 2026-06-30 `llm_judge` capture is not
-   among them. Unblocking needs a heuristic evaluator CONFIGURED and running on a live sigil stack —
-   a tenant write, so a decision for the stack owner, not something a capture lane can arrange.
-   Resume boundary: name the stack, confirm a heuristic evaluator is active, then query
+   Updated boundary, 2026-09-06: the terraform reference stack now has one configured heuristic
+   evaluator and one enabled online rule. Read-only Agent Observability responses prove ingested
+   generations with a nonempty agent version, but no persisted online score was returned. The
+   configured direct model invocation fails because the model requires an inference profile;
+   failed generations have no output. A direct evaluator test returned false, which is not a
+   persisted online score. The rule retains its reviewed ten-percent sampling rate; ten arrivals
+   do not guarantee selection. No eval-family Mimir query was run before the score prerequisite,
+   so omitted versus placeholder judge labels remains unverified. No emitter change is justified.
+   Resume boundary: resolve model invocation within an explicitly authorized inference scope,
+   confirm a persisted heuristic score on the terraform reference stack, then query
    `sigil_eval_scores_total{evaluator_kind="heuristic"}` and the `sigil_eval_judge_*` families for
    that evaluator, and record which labels are present with provenance + date exactly as the
    2026-06-30 capture above is recorded. If the capture contradicts the omission assumption, the

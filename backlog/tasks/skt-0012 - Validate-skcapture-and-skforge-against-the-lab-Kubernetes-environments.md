@@ -1,10 +1,10 @@
 ---
 id: SKT-0012
 title: Validate skcapture and skforge against the lab Kubernetes environments
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-08-27 07:06'
-updated_date: '2026-09-06 11:25'
+updated_date: '2026-09-06 14:21'
 labels: []
 dependencies: []
 priority: high
@@ -121,6 +121,10 @@ k3d SUBSTRATE BEHAVIOUR, observed incidentally and useful for SKT-0012.05: provi
 Current run: AC1 and AC2 proven by live shipped-RBAC capture and in-pod Secret denial; 89 Secret objects present and zero secret-bearing values captured, with no capture permission-denial log hits. AC8 proven by observed encrypted retrieval and corrected operator documentation. AC9 proven by integrated provider refusal and previous capture fixes; capture bytes were never modified. AC4 remains unproven: live base permissions record name_source=default, so resemblance at the telemetry identity join is not established. AC10 remains literally unchecked: capture reads are read-only, while the operator Job/RBAC/Secret lifecycle was explicitly authorized in the run contract and executed by the root. This is an authorized exception, not a claim that no cluster writes occurred. just check, explicit safe dump and agent-disabled e2e passed. Conditional schema generation is not applicable.
 
 2026-09-06 AC10 reading: the criterion asks that cluster writes be returned as requests rather than performed by a validation lane. The 2026-08-27 run returned the in-cluster Job as exactly that request; Rob authorized the Job, RBAC and passphrase Secret lifecycle on 2026-09-05 and 2026-09-06 as the operator, and the 2026-09-07 wave performed only that authorized lifecycle with dry-run, apply, delete and an empty-namespace read-back. Capture access itself was read-only throughout. Checked on that basis. AC4 remains: base RBAC yields name_source default, so the forged identity cannot join the real cluster's telemetry; it needs the documented rbac-collector-identity.yaml grant applied once (an operator write, now authorized for the next wave) and a recorded forged-versus-real comparison.
+
+2026-09-06 authorized identity-grant capture: name_source=collector-release-info; cluster name present=true. Encrypted retrieval, forge inspect, forge prompt, forge validate and explicit-selection dry-run dump all exited 0. The skeleton preserves the captured cluster name and all captured node-group names. Read-only Mimir kube_node_info returned status=success and 14 series, but none carried the captured cluster label value: cluster join DOES NOT MATCH on the authorized emission stack. Captured Karpenter pool set count=3 versus later live count=2: exact set DOES NOT MATCH; both live pools are represented among captured groups, so dynamic node churn remains a limitation. No captured values were altered. Cleanup live reads: namespace=0, clusterrole=0, clusterrolebinding=0, collector identity Role/RoleBinding=0. AC4 remains unchecked. Resume by establishing an authorized real-collector telemetry source and a time-aligned node-pool comparison; no other stack was queried.
+
+2026-09-06 final identity disposition: name_source=collector-release-info; captured cluster name present=true; forged blueprint validates with estimated cardinality 8530 and retains captured identities. Authorized kube_node_info read-back returned 14 series across four cluster values: captured cluster match=false. Captured node pools=3, live node pools=2, exact set match=false; both live pools were represented in the capture. Time-aligned equality is unproven. Cleanup live counts: namespace=0, clusterrole=0, clusterrolebinding=0, customised identity grants=0. AC4 remains unchecked. Resume only with an authorized real-collector telemetry source and a time-aligned field comparison; no other telemetry source was queried and no collector configuration was changed.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -129,4 +133,6 @@ Current run: AC1 and AC2 proven by live shipped-RBAC capture and in-pod Secret d
 2026-09-06: Remains In Progress at 4/10. The complete k3d capture, forge, run, and fidelity path is proven. Resume the live half only after an authorized pullable skcapture image exists, then exercise shipped RBAC, verify the zero-secret default, reconcile operator docs, and evaluate the remaining real-cluster criteria.
 
 Current run supersedes the earlier 4/10 summary: remains In Progress at 8/10. Live RBAC, zero-secret behavior, documentation and tool-side fixes are proven. Resume AC4 with the separately documented named collector-identity grant and a recorded real-cluster comparison; AC10 retains the literal read-only boundary with this run authorized as an operator lifecycle exception.
+
+Parked at AC4: identity recovery is proven, but the authorized telemetry comparison does not match and the pool snapshots are not time-aligned. Captured evidence was retained unchanged. Lab capture resources and grants were removed and absence verified live.
 <!-- SECTION:FINAL_SUMMARY:END -->

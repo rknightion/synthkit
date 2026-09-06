@@ -4,7 +4,7 @@ title: 'sigil: re-capture a live heuristic evaluator to confirm its series shape
 status: Parked
 assignee: []
 created_date: '2026-08-14 16:09'
-updated_date: '2026-09-06 09:42'
+updated_date: '2026-09-06 16:01'
 labels: []
 dependencies: []
 references:
@@ -31,14 +31,14 @@ If the capture shows synth diverges from reality, the SYNTH is corrected, never 
 - [ ] #2 The exact metric names and label keys its series carry are captured, and the judge-label question is answered definitively: labels omitted, or present with some value.
 - [ ] #3 signals/sigil.md is updated with the captured contract, its provenance and date, matching how the 2026-06-30 llm_judge capture is recorded there.
 - [ ] #4 Where synth diverges from the capture, the construct/workload is corrected to match reality, not the other way round.
-- [ ] #5 signals/sigil.md "Implementation status & next steps" item 2 is resolved or, if no heuristic evaluator can be made live, restated with what specifically blocks it.
+- [x] #5 signals/sigil.md "Implementation status & next steps" item 2 is resolved or, if no heuristic evaluator can be made live, restated with what specifically blocks it.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
-- [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -59,4 +59,6 @@ Resume boundary for the next session: (1) get a stack NAMED, with a heuristic ev
 Doc pointer correction (2026-08-19): after the shipped SKT-0001 entry was folded into signals/sigil.md's 'Emitted + verified' paragraph, the heuristic-evaluator item became item 1 of 'PENDING — next steps', not item 2. AC #5 and the notes above refer to it by its old number.
 
 2026-09-06 resume plan agreed with Rob: the blocker (no stack with a heuristic evaluator active) is removed by synthkit-terraform task RKSY-0030, which builds the cheapest AWS environment running a real agent instrumented with the Grafana Agent Observability SDK sending to the shared rksy stack, then creates one heuristic evaluator and one online evaluation rule through gcx. When RKSY-0030 records scores, this task resumes exactly at its recorded resume boundary as a read-only capture against that stack. Status stays Parked until then; do not start the capture before RKSY-0030 AC3 is pasted.
+
+2026-09-06: the terraform reference stack has one configured heuristic evaluator and one online rule. Authenticated read-back at 15:59:40Z returned 40 generations, version 2026.09.06, and zero nonempty persisted-score responses. The direct model invocation requires an inference profile; failed generations carry no output. A direct evaluator test false does not satisfy the persisted-score prerequisite. No Mimir eval-family query was run; judge labels omitted versus placeholder remains unverified. signals/sigil.md now records this precise boundary, satisfying AC5 only. No emitter correction is justified. Resume after an authorized inference-scope decision and a persisted heuristic score, then capture family and label keys read-only. just check and the safe explicit-selection dump passed this wave; conditional generation requirement is not applicable to this prose-only step.
 <!-- SECTION:NOTES:END -->
