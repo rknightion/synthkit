@@ -56,6 +56,38 @@ latency = ms). The former fixed `[0.005…10]` seconds set was wrong. Logs: `{jo
 
 ---
 
+## OTLP receiver form — `googlecloudmonitoringreceiver` [slug: cspgcp-otlp-receiver]
+
+*Provenance: OpenTelemetry Collector Contrib source at tag `v0.160.0` (tag object
+`97a2cdd7876501c39b3b7cbac82025b1e41e0282`), `receiver/googlecloudmonitoringreceiver/`, read 2026-09-06.
+Resolves the Google half of SK-88. Source-derived, not captured: no OTLP lane is emitted yet.*
+
+This is the OTel-native form the verdict record names for `csp_gcp`. It is a **different namespace**
+from the `stackdriver_*` scrape form above: the receiver sets the OTLP metric name to the Cloud
+Monitoring metric type **verbatim** (`m.SetName(ts.GetMetric().GetType())`, all four converters in
+`internal/metrics_conversion.go`), so a series leaves the collector as
+`compute.googleapis.com/instance/cpu/utilization` with the domain and slashes intact.
+
+| Field | Receiver behaviour | Source |
+|---|---|---|
+| name | Cloud Monitoring `metric.type`, byte-for-byte; no prefix, no `/`→`.`/`_` rewrite | `metrics_conversion.go:40,82,121,160` |
+| instrument | GAUGE → Gauge; CUMULATIVE → Sum cumulative monotonic; DELTA → Sum delta non-monotonic; DELTA + DISTRIBUTION → Histogram delta with explicit bounds (GCP linear/exponential buckets converted); GAUGE/CUMULATIVE DISTRIBUTION dropped with a warning; no ExponentialHistogram, no Summary | `receiver.go:312-334`, `metrics_conversion.go:84-87,123-124,162-163,366-373` |
+| unit | vendor unit string verbatim (`10^2.%`, `By`, `s`, …); no UCUM translation | `receiver.go:310`, `metrics_conversion.go:41,83,122,161` |
+| description | `MetricDescriptor.description` verbatim | `receiver.go:309` |
+| datapoint attributes | the metric labels, keys unprefixed, values as strings; resource/user/system labels never reach the datapoint | `metrics_conversion.go:291-298` |
+| resource attributes | `gcp.resource_type` = MonitoredResource type; every MonitoredResource label, user label and system label under its bare key (`project_id`, `zone`, `instance_id`, …); **no** `cloud.provider`, `cloud.account.id` or other semconv key | `receiver.go:274-287` |
+| scope | name and version both empty | `receiver.go:298`; golden `internal/testdata/TestConvertGaugeToMetrics_ValidGaugePoints.yaml:14` |
+| value types | INT64/DOUBLE handled; BOOL → 1/0 on Gauge only; STRING/MONEY logged and left valueless | `metrics_conversion.go:63-75,108-114,145-151` |
+
+Traps an emitter lane must carry: system labels are stringified with protobuf text format
+(`string_value:"…"`) rather than the bare value (`receiver.go:286`); every TimeSeries produces its
+own ResourceMetrics because the dedup map is rebuilt per call (`receiver.go:260-266`); component
+stability is `alpha`, so re-read the source at the tag in use before implementing. Per-family kind,
+valueType and unit come from the GCP metric list for each `MetricDescriptor`, never from the
+`stackdriver_*` name.
+
+---
+
 ## Compute — `stackdriver_gce_instance_*` ✅ [slug: cspgcp-compute]
 
 Compute (`gce_instance`; +`instance_id,instance_name,zone`): `…instance_cpu_utilization` (G), `…instance_cpu_usage_time`
