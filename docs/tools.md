@@ -73,6 +73,16 @@ The collector lookup is a targeted `get` of a named ConfigMap in the collector's
 
 Addon recognition combines the allowlisted Helm release name with known namespace and workload names. The capture currently recognises Crossplane (`crossplane-system`, `crossplane`), external-secrets (`external-secrets`), the GitHub Actions runner controller (`arc-systems`, `gha-rs-controller` and `gha-runner-scale-set*`), the GitHub-to-OTel bridge (`github2otel`), and OpenCost (`opencost`). These entries deliberately retain an empty addon kind when there is no standalone construct. Forge keeps one narrow image fallback for Crossplane provider workloads whose name and namespace are not recognised by capture. In the forge coverage report, Crossplane, external-secrets, the runner controller, and github2otel are `no matching construct` gaps. OpenCost is an `unmapped name`: its cost surface is modelled by the registered `k8s_cluster` construct's `k8s_monitoring.opencost` option. Karpenter's construct models node autoscaler telemetry, so it does not make the Actions runner controller a modeled product.
 
+### Published in-cluster Job
+
+The shipped Job pins both containers to
+`ghcr.io/rknightion/synthkit-skcapture:main-63c183a`, built from `Dockerfile.skcapture`
+through the shared container-publish reusable. Follow `deploy/skcapture/README.md`: apply base
+RBAC, create the passphrase Secret from a protected file, apply the Job, wait for the capture
+container to finish, and copy the encrypted file from `output-hold` before its ten-minute window
+ends. Waiting for the whole Job first loses that retrieval window. Keep decrypted output outside
+Git, then delete the Job and its RBAC. The local k3d recipe substitutes its local image.
+
 ### Disposable k3d proof of the Job path
 
 Maintainers can exercise the shipped Job, its RBAC, encryption, and non-EKS forge refusal without

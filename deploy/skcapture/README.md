@@ -80,7 +80,11 @@ estimate and adjust `min`/`max`/`desired` to match the customer's actual fleet s
 ### Option 1: In-cluster Job (recommended)
 
 The in-cluster Job uses the `skcapture` ServiceAccount and never requires kubeconfig credentials
-to leave the cluster.
+to leave the cluster. Both containers use the immutable edge image published from
+`Dockerfile.skcapture` by the shared container-publish reusable:
+`ghcr.io/rknightion/synthkit-skcapture:main-63c183a`. The local `just skcapture-k3d` harness
+rewrites both references to its locally built `skcapture:dev`. Release-tag publication of this
+second image is not enabled yet.
 
 ```sh
 # 1. Apply base RBAC (always required)
@@ -93,10 +97,10 @@ kubectl apply -f deploy/skcapture/rbac.yaml
 kubectl apply -f deploy/skcapture/rbac-collector-identity.yaml
 
 # 3. Create the passphrase Secret (keep the passphrase for decryption)
-PASSPHRASE=$(openssl rand -base64 32)
-echo "Passphrase (share this with Grafana SE separately): $PASSPHRASE"
+umask 077
+openssl rand -base64 32 > passphrase.txt
 kubectl -n skcapture create secret generic skcapture-pass \
-  --from-literal=passphrase="$PASSPHRASE"
+  --from-file=passphrase=passphrase.txt
 
 # 4. Run the Job. The output-hold helper retains the emptyDir for ten minutes;
 # do not wait for Job completion before copying, because completion ends both containers.
