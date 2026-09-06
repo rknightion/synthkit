@@ -155,9 +155,9 @@ func slotTurns(r *ledger.Request, n int) []turnArtifacts {
 			te = ts.Add(time.Millisecond)
 		}
 		out[i] = turnArtifacts{
-			traceID:    ledger.NewTraceID(),
-			rootSpanID: ledger.NewSpanID(),
-			envSpanID:  ledger.NewSpanID(),
+			traceID:    ledger.TraceIDFromSeed(r.SessionID, fmt.Sprintf("turn-%d", i)),
+			rootSpanID: ledger.SpanIDFromSeed(r.SessionID, fmt.Sprintf("turn-%d-root", i)),
+			envSpanID:  ledger.SpanIDFromSeed(r.SessionID, fmt.Sprintf("turn-%d-envelope", i)),
 			start:      ts,
 			end:        te,
 		}

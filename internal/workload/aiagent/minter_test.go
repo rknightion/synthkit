@@ -102,6 +102,21 @@ func TestMinterRequestShape(t *testing.T) {
 	}
 }
 
+func TestMinterTickOrdinalKeepsLiveRequestIDsDistinct(t *testing.T) {
+	agent := testAgents()[0]
+	agent.Activity.SessionsPerMin = 60
+	m := newMinter("ai-fleet", "prod", "prod-use1", []AgentDecl{agent})
+	eng := shape.New("UTC", nil)
+	now := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+	first, repeat := m.Mint(now, 1, eng), m.Mint(now, 1, eng)
+	if len(first) != 1 || len(repeat) != 1 {
+		t.Fatalf("live ticks minted %d and %d requests, want one each", len(first), len(repeat))
+	}
+	if first[0].SessionID == repeat[0].SessionID {
+		t.Fatal("distinct live ticks reused a session ID")
+	}
+}
+
 // TestTurnCountDeterministic verifies TurnCount is stable per conversation id and bounded.
 func TestTurnCountDeterministic(t *testing.T) {
 	a := AgentDecl{Archetype: "coding_claude_code", Activity: Activity{TurnsP50: 4, TurnsP95: 12}}

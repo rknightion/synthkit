@@ -148,7 +148,7 @@ func generalTurnSpans(agent AgentDecl, r *ledger.Request, gen sigil.Generation, 
 		openai = []otlp.Span{{
 			Name:     genai.SpanName(genai.OpChat, gen.Model),
 			TraceID:  art.traceID,
-			SpanID:   ledger.NewSpanID(),
+			SpanID:   ledger.SpanIDFromSeed(gen.ID, "openai"),
 			ParentID: art.rootSpanID,
 			Kind:     otlp.KindClient,
 			Start:    art.start,
@@ -205,7 +205,7 @@ func toolSpans(agent AgentDecl, gen sigil.Generation, art turnArtifacts) []otlp.
 		out = append(out, otlp.Span{
 			Name:     genai.SpanName(genai.OpExecuteTool, tc.Name),
 			TraceID:  art.traceID,
-			SpanID:   ledger.NewSpanID(),
+			SpanID:   ledger.SpanIDFromSeed(gen.ID, "tool-"+tc.ID),
 			ParentID: art.rootSpanID,
 			Kind:     otlp.KindInternal,
 			Start:    ts,

@@ -8,7 +8,9 @@
 package k8scluster_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 	"sync"
@@ -197,6 +199,49 @@ func TestPodLogsOTLPNativeShape(t *testing.T) {
 		// A real filelog pod log carries an empty instrumentation scope — see internal/sink/otlp/logs.go.
 		if r.Scope.Name != "" {
 			t.Errorf("scope name must stay empty, got %q", r.Scope.Name)
+		}
+	}
+}
+
+// TestPodLogsOwnerlessIdentityIsDeterministic guards the inventory seam: the one
+// ownerless pod-log entry must be derived from the same declared workload every run.
+// A map iteration previously selected a different first workload on successive ticks.
+func TestPodLogsOwnerlessIdentityIsDeterministic(t *testing.T) {
+	cl := clusterWithPodLogs("opentelemetry", true)
+	cl.Workloads = append(cl.Workloads,
+		fixture.Workload{Name: "alpha-api", Namespace: "alpha", Replicas: 1, PodNames: []string{"alpha-api-0"}, NodeIdx: []int{0}},
+		fixture.Workload{Name: "beta-api", Namespace: "beta", Replicas: 1, PodNames: []string{"beta-api-0"}, NodeIdx: []int{1}},
+	)
+	var want []byte
+	for range 32 {
+		_, resources := tickBothLanes(t, cl)
+		var ownerless string
+		for _, r := range resources {
+			if _, owned := r.Attrs["k8s.deployment.name"]; owned {
+				continue
+			}
+			service, ok := r.Attrs["service.name"].(string)
+			if !ok || service == "" {
+				t.Fatalf("ownerless pod log has no service.name: %#v", r.Attrs)
+			}
+			if ownerless != "" {
+				t.Fatalf("got more than one ownerless pod log: %q and %q", ownerless, service)
+			}
+			ownerless = service
+		}
+		if ownerless == "" {
+			t.Fatal("no ownerless pod log")
+		}
+		got, err := json.Marshal(resources)
+		if err != nil {
+			t.Fatalf("marshal pod-log lane: %v", err)
+		}
+		if want == nil {
+			want = got
+			continue
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("ownerless pod-log lane differs for fixed tick (service %q)", ownerless)
 		}
 	}
 }

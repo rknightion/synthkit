@@ -27,6 +27,7 @@ package k8scluster
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
@@ -117,8 +118,16 @@ func buildPodLogEntries(now time.Time, cl *fixture.Cluster) []podLogEntry {
 	nodes := cl.Nodes
 	body := podLogBody(now)
 
+	deploymentsByNamespace := workloadDeployments(cl)
+	namespaces := make([]string, 0, len(deploymentsByNamespace))
+	for ns := range deploymentsByNamespace {
+		namespaces = append(namespaces, ns)
+	}
+	sort.Strings(namespaces)
+
 	var out []podLogEntry
-	for ns, deploys := range workloadDeployments(cl) {
+	for _, ns := range namespaces {
+		deploys := deploymentsByNamespace[ns]
 		for _, deploy := range deploys {
 			fwl := wlByName[deploy]
 			reps := 1

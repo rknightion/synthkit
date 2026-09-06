@@ -12,6 +12,7 @@ package ledger
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -41,8 +42,6 @@ type Correlation struct {
 }
 
 // NewCorrelation mints a fresh, internally-consistent key-set for one request.
-// Request-scoped IDs are random per run (fixture identity, by contrast, is
-// deterministic — see internal/fixture).
 func NewCorrelation() Correlation {
 	return Correlation{
 		CorrelationID:  uuid(),
@@ -53,6 +52,23 @@ func NewCorrelation() Correlation {
 		RequestID:      uuid(),
 		PortkeyTraceID: uuid(),
 		RunID:          uuid(),
+	}
+}
+
+// NewCorrelationFromSeed derives an internally-consistent request key-set from one
+// stable seed. Workloads use it in deterministic render paths so the request's
+// correlation fields, and every downstream seed based on SessionID, agree across
+// repeated fixed-tick runs. The ledger remains the only request-ID minting seam.
+func NewCorrelationFromSeed(seed string) Correlation {
+	return Correlation{
+		CorrelationID:  uuidFromSeed(seed + "\x00correlation"),
+		TraceID:        hexNFromSeed(seed+"\x00trace", 16),
+		SpanID:         hexNFromSeed(seed+"\x00span", 8),
+		BrowserSpanID:  hexNFromSeed(seed+"\x00browser-span", 8),
+		SessionID:      uuidFromSeed(seed + "\x00session"),
+		RequestID:      uuidFromSeed(seed + "\x00request"),
+		PortkeyTraceID: uuidFromSeed(seed + "\x00portkey-trace"),
+		RunID:          uuidFromSeed(seed + "\x00run"),
 	}
 }
 
@@ -202,6 +218,30 @@ func hexN(n int) string {
 	_, _ = rand.Read(b)
 	return fmt.Sprintf("%x", b)
 }
+
+func seedBytes(seed string) [sha256.Size]byte { return sha256.Sum256([]byte(seed)) }
+
+func uuidFromSeed(seed string) string {
+	b := seedBytes(seed)
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func hexNFromSeed(seed string, n int) string {
+	b := seedBytes(seed)
+	if n > len(b) {
+		n = len(b)
+	}
+	return fmt.Sprintf("%x", b[:n])
+}
+
+// SpanIDFromSeed derives a W3C 64-bit span id from a stable seed unit. It keeps
+// deterministic workload IDs inside the ledger's request-ID ownership boundary.
+func SpanIDFromSeed(seed, unit string) string { return hexNFromSeed(seed+"\x00span\x00"+unit, 8) }
+
+// TraceIDFromSeed derives a W3C 128-bit trace id from a stable seed unit.
+func TraceIDFromSeed(seed, unit string) string { return hexNFromSeed(seed+"\x00trace\x00"+unit, 16) }
 
 // NewSpanID mints a fresh W3C 64-bit span id (16 hex chars). Per-hop span ids are minted
 // here so nothing outside the ledger package mints request-scoped ids (I9).

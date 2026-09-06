@@ -100,7 +100,7 @@ func buildCodingSubagentFanout(agent AgentDecl, r *ledger.Request, gens []sigil.
 // nests under (see subAgentGen). Token shape is the modest general form.
 func makeSubAgent(agent AgentDecl, r *ledger.Request, og sigil.Generation, art turnArtifacts, agentName, parentSpanID, salt string) subAgentGen {
 	sgID := uuidLike(og.ID, "subgen-"+salt)
-	spanID := ledger.NewSpanID()
+	spanID := ledger.SpanIDFromSeed(sgID, "root")
 
 	// Window: the delegated call occupies the middle of the orchestrator turn window.
 	dur := art.end.Sub(art.start)

@@ -3,11 +3,16 @@
 package aiagent
 
 import (
+	"bytes"
+	"encoding/json"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/ledger"
+	"github.com/rknightion/synthkit/internal/shape"
+	"github.com/rknightion/synthkit/internal/sink/otlp"
 )
 
 func codingAgent() AgentDecl {
@@ -25,9 +30,7 @@ func codingAgent() AgentDecl {
 	}
 }
 
-// fixedReq returns a Request with a fixed SessionID for deterministic-shape tests. Note trace/span
-// ids inside the conversation are still freshly minted per call (ledger crypto/rand) — only the
-// SHAPE is asserted deterministic (per review B1).
+// fixedReq returns a Request with a fixed SessionID for deterministic conversation tests.
 func fixedReq(sessionID string, dur time.Duration) *ledger.Request {
 	r := &ledger.Request{
 		Workload: "ai-fleet",
@@ -93,6 +96,138 @@ func TestBuildConversationShapeDeterministic(t *testing.T) {
 	if a.turns < 1 {
 		t.Fatalf("turns = %d, want >= 1", a.turns)
 	}
+}
+
+// TestFixedTickTraceLaneByteIdentical proves that two independently built
+// ai_agent conversations for the same fixed request render identical trace resources.
+func TestFixedTickTraceLaneByteIdentical(t *testing.T) {
+	agent := generalOrchAgent()
+	build := func() []otlp.Resource {
+		r := fixedReq("conv-fixed-tick-1", 90*time.Second)
+		r.Route = agent.Name
+		r.Provider = agent.Provider
+		r.Model = agent.Models[0]
+		_, _, resources, _ := buildConversation(ResourceID{ServiceName: "chatservice"}, agent, r)
+		return resources
+	}
+	first, repeat := traceLaneBytes(t, build()), traceLaneBytes(t, build())
+	if !bytes.Equal(first, repeat) {
+		t.Fatal("fixed-tick trace lane differs between identical runs")
+	}
+}
+
+// TestFixedTickMinterTraceLaneByteIdentical covers the full ai_agent draw path:
+// the fixed clock and seeded shape engine mint the same request, then produce the
+// same trace resources on two independent runs.
+func TestFixedTickMinterTraceLaneByteIdentical(t *testing.T) {
+	agent := generalOrchAgent()
+	agent.Activity.SessionsPerMin = 60 // exactly one arrival for a one-second tick
+	now := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+
+	build := func() []otlp.Resource {
+		m := newMinter("ai-fleet", "prod", "prod-use1", []AgentDecl{agent})
+		batch := m.Mint(now, 1, shape.New("UTC", nil))
+		if len(batch) != 1 {
+			t.Fatalf("fixed tick minted %d requests, want 1", len(batch))
+		}
+		_, _, resources, _ := buildConversation(ResourceID{ServiceName: "chatservice"}, agent, batch[0])
+		return resources
+	}
+	first, repeat := traceLaneBytes(t, build()), traceLaneBytes(t, build())
+	if !bytes.Equal(first, repeat) {
+		t.Fatal("fixed-tick minter trace lane differs between identical runs")
+	}
+}
+
+// TestFirstTickTraceInventoryIgnoresWallClock proves that a fresh runner's first
+// deterministic tick keeps the trace inventory stable even when it runs at a
+// different wall-clock instant. Tick time belongs on emitted timestamps, not in
+// the entropy source for model, turn, or tool selection.
+func TestFirstTickTraceInventoryIgnoresWallClock(t *testing.T) {
+	agent := generalOrchAgent()
+	agent.Activity.SessionsPerMin = 60
+
+	build := func(now time.Time) []byte {
+		m := newMinter("ai-fleet", "prod", "prod-use1", []AgentDecl{agent})
+		batch := m.Mint(now, 1, shape.New("UTC", nil))
+		if len(batch) != 1 {
+			t.Fatalf("first tick minted %d requests, want 1", len(batch))
+		}
+		_, _, resources, _ := buildConversation(ResourceID{ServiceName: "chatservice"}, agent, batch[0])
+		return traceInventoryBytes(t, resources)
+	}
+	first := build(time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC))
+	repeat := build(time.Date(2026, 9, 6, 13, 0, 0, 0, time.UTC))
+	if !bytes.Equal(first, repeat) {
+		t.Fatal("first fixed tick trace lane changes with wall clock")
+	}
+}
+
+func traceLaneBytes(t *testing.T, resources []otlp.Resource) []byte {
+	t.Helper()
+	b, err := json.Marshal(resources)
+	if err != nil {
+		t.Fatalf("marshal trace lane: %v", err)
+	}
+	return b
+}
+
+// traceInventoryBytes is the trace section's semantic dump shape: service identity,
+// resource keys, span names, and span attribute keys. Timestamps and ID values are
+// deliberately excluded because they are trace values, not dump inventory.
+func traceInventoryBytes(t *testing.T, resources []otlp.Resource) []byte {
+	t.Helper()
+	type serviceInventory struct {
+		Service      string   `json:"service"`
+		ResourceKeys []string `json:"resource_keys"`
+		SpanNames    []string `json:"span_names"`
+		SpanAttrs    []string `json:"span_attrs"`
+	}
+	type sets struct {
+		resource map[string]struct{}
+		spans    map[string]struct{}
+		attrs    map[string]struct{}
+	}
+	byService := map[string]*sets{}
+	for _, resource := range resources {
+		service, _ := resource.Attrs["service.name"].(string)
+		if byService[service] == nil {
+			byService[service] = &sets{resource: map[string]struct{}{}, spans: map[string]struct{}{}, attrs: map[string]struct{}{}}
+		}
+		set := byService[service]
+		for key := range resource.Attrs {
+			set.resource[key] = struct{}{}
+		}
+		for _, span := range resource.Spans {
+			set.spans[span.Name] = struct{}{}
+			for key := range span.Attrs {
+				set.attrs[key] = struct{}{}
+			}
+		}
+	}
+	keys := make([]string, 0, len(byService))
+	for service := range byService {
+		keys = append(keys, service)
+	}
+	sort.Strings(keys)
+	items := make([]serviceInventory, 0, len(keys))
+	for _, service := range keys {
+		set := byService[service]
+		toSorted := func(values map[string]struct{}) []string {
+			out := make([]string, 0, len(values))
+			for value := range values {
+				out = append(out, value)
+			}
+			sort.Strings(out)
+			return out
+		}
+		items = append(items, serviceInventory{Service: service, ResourceKeys: toSorted(set.resource), SpanNames: toSorted(set.spans), SpanAttrs: toSorted(set.attrs)})
+	}
+	b, err := json.Marshal(items)
+	if err != nil {
+		t.Fatalf("marshal trace inventory: %v", err)
+	}
+	return b
 }
 
 // TestGenTraceSpanEqualsRootSpan: every generation's (TraceID, SpanID) identifies the root LLM

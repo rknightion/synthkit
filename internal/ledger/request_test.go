@@ -23,6 +23,23 @@ func TestNewSpanID_FormatAndUniqueness(t *testing.T) {
 	}
 }
 
+func TestNewCorrelationFromSeedDeterministic(t *testing.T) {
+	first := NewCorrelationFromSeed("fixed-tick-request")
+	repeat := NewCorrelationFromSeed("fixed-tick-request")
+	if first != repeat {
+		t.Fatalf("same seed produced different correlations: %#v != %#v", first, repeat)
+	}
+	if different := NewCorrelationFromSeed("next-request"); first == different {
+		t.Fatal("different seeds produced the same correlation")
+	}
+	if !hex8.MatchString(first.SpanID) || !hex8.MatchString(SpanIDFromSeed("fixed-tick-request", "child")) {
+		t.Fatalf("deterministic span IDs are not W3C 64-bit hex: %#v", first)
+	}
+	if got := TraceIDFromSeed("fixed-tick-request", "trace"); len(got) != 32 {
+		t.Fatalf("deterministic trace ID length = %d, want 32", len(got))
+	}
+}
+
 func TestCall_TreeFields(t *testing.T) {
 	c := Call{Kind: "service", Target: "svc-b", SpanID: NewSpanID(), PeerSpanID: NewSpanID(), ParentHopIndex: -1}
 	if c.SpanID == c.PeerSpanID {

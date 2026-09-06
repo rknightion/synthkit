@@ -3,7 +3,9 @@
 package aiagent
 
 import (
+	"fmt"
 	"hash/fnv"
+	"sync/atomic"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/ledger"
@@ -29,6 +31,7 @@ type minter struct {
 	env          string      // environment binding (Request.Env)
 	cluster      string      // cluster binding (Request.Cluster)
 	agents       []AgentDecl // every agent in the fleet (one volume contribution each)
+	tick         uint64      // monotonically assigns distinct deterministic identity units per live tick
 }
 
 func newMinter(workloadName, env, cluster string, agents []AgentDecl) *minter {
@@ -53,12 +56,13 @@ func (m *minter) expectedVolume(a AgentDecl, tickSec float64) float64 {
 // StochasticRound(expectedVolume) Requests, each carrying a fresh conversation correlation and a
 // realistic multi-turn session duration.
 func (m *minter) Mint(now time.Time, tickSec float64, eng *shape.Engine) []*ledger.Request {
+	tick := atomic.AddUint64(&m.tick, 1) - 1
 	var out []*ledger.Request
 	for i := range m.agents {
 		a := m.agents[i]
 		n := ledger.StochasticRound(m.expectedVolume(a, tickSec), eng.Float64())
-		for range n {
-			out = append(out, m.mintOne(a, now, eng))
+		for requestIdx := range n {
+			out = append(out, m.mintOne(a, now, tick, i, requestIdx))
 		}
 	}
 	return out
@@ -68,8 +72,9 @@ func (m *minter) Mint(now time.Time, tickSec float64, eng *shape.Engine) []*ledg
 // Correlation.SessionID; Route carries the agent name (the ProjectBatch recovery key); Model is a
 // weighted/seeded draw from the agent's models; Duration is a multi-turn session span derived from a
 // SessionID-seeded turn count so the last turn ends ≈ now after backdating.
-func (m *minter) mintOne(a AgentDecl, now time.Time, eng *shape.Engine) *ledger.Request {
-	c := ledger.NewCorrelation()
+func (m *minter) mintOne(a AgentDecl, now time.Time, tick uint64, agentIdx, requestIdx int) *ledger.Request {
+	seed := fmt.Sprintf("ai_agent\x00%s\x00%s\x00%s\x00%s\x00%d\x00%d\x00%d", m.workloadName, m.env, m.cluster, a.Name, tick, agentIdx, requestIdx)
+	c := ledger.NewCorrelationFromSeed(seed)
 	r := &ledger.Request{
 		Correlation: c,
 		Workload:    m.workloadName,

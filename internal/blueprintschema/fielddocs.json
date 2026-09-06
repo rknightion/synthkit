@@ -290,6 +290,7 @@
   "github.com/rknightion/synthkit/internal/workload/aiagent.minter.agents": "every agent in the fleet (one volume contribution each)",
   "github.com/rknightion/synthkit/internal/workload/aiagent.minter.cluster": "cluster binding (Request.Cluster)",
   "github.com/rknightion/synthkit/internal/workload/aiagent.minter.env": "environment binding (Request.Env)",
+  "github.com/rknightion/synthkit/internal/workload/aiagent.minter.tick": "monotonically assigns distinct deterministic identity units per live tick",
   "github.com/rknightion/synthkit/internal/workload/aiagent.minter.workloadName": "the workload instance name (ledger dispatch key)",
   "github.com/rknightion/synthkit/internal/workload/aiagent.subAgentGen.parentEnv": "Lane B parent span id to nest the sub-agent span under",
   "github.com/rknightion/synthkit/internal/workload/app.AgenticFlow.Agents": "Agents is the pool of agents the workflow can invoke; one fires per request (deterministic draw).",
