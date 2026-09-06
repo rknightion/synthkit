@@ -60,7 +60,8 @@ latency = ms). The former fixed `[0.005…10]` seconds set was wrong. Logs: `{jo
 
 *Provenance: OpenTelemetry Collector Contrib source at tag `v0.160.0` (tag object
 `97a2cdd7876501c39b3b7cbac82025b1e41e0282`), `receiver/googlecloudmonitoringreceiver/`, read 2026-09-06.
-Resolves the Google half of SK-88. Source-derived, not captured: no OTLP lane is emitted yet.*
+Resolves the Google half of SK-88. The opt-in native lane below mirrors this source-derived
+contract; it is not a claim of live receiver capture.*
 
 This is the OTel-native form the verdict record names for `csp_gcp`. It is a **different namespace**
 from the `stackdriver_*` scrape form above: the receiver sets the OTLP metric name to the Cloud
@@ -85,6 +86,160 @@ own ResourceMetrics because the dedup map is rebuilt per call (`receiver.go:260-
 stability is `alpha`, so re-read the source at the tag in use before implementing. Per-family kind,
 valueType and unit come from the GCP metric list for each `MetricDescriptor`, never from the
 `stackdriver_*` name.
+
+### Native family source map
+
+The native catalogue in `internal/construct/cspgcp/native_otlp.go` contains 115
+source-confirmed non-Vertex families. The metric type, value type, unit, description,
+and monitored-resource type come from the current Cloud Monitoring metric list pages:
+
+| Families | Cloud Monitoring source |
+|---|---|
+| Compute Engine (`compute.googleapis.com/instance/*`) and Cloud SQL (`cloudsql.googleapis.com/database/*`) | [`metrics_gcp_c`](https://cloud.google.com/monitoring/api/metrics_gcp_c) |
+| AlloyDB (`alloydb.googleapis.com/{instance,node,database,cluster}/*`) and Bigtable (`bigtable.googleapis.com/*`) | [`metrics_gcp_a_b`](https://cloud.google.com/monitoring/api/metrics_gcp_a_b) |
+| Cloud Load Balancing (`loadbalancing.googleapis.com/https/*`) and Networking (`networking.googleapis.com/*`) | [`metrics_gcp_i_o`](https://cloud.google.com/monitoring/api/metrics_gcp_i_o) |
+| Cloud Storage (`storage.googleapis.com/*`), Pub/Sub (`pubsub.googleapis.com/subscription/*`), and Cloud Run (`run.googleapis.com/container/*`) | [`metrics_gcp_p_z`](https://cloud.google.com/monitoring/api/metrics_gcp_p_z) |
+
+The receiver drops GAUGE and CUMULATIVE distributions. Accordingly, the native lane
+does not emit `run.googleapis.com/container/cpu/usage` or
+`run.googleapis.com/container/memory/usage`; the current descriptors classify both as
+GAUGE distributions. Vertex AI stays out of the native catalogue because its existing
+names and labels remain `v: assumed` under [slug: cspgcp-vertex].
+
+The native renderer uses the scrape lane's established Cloud Run revision identity for
+the Cloud Run resource block. The descriptors below include `cloud_run_revision` in their
+supported resource types; several also support jobs and worker pools. Environment-scoped
+declarations retain their declared `env` as a bare resource user label and part of the
+resource identity, never as a descriptor metric label. Aggregate declarations omit it.
+AlloyDB's `node/postgres/uptime` is emitted as a native Gauge per
+the descriptor even though the legacy scrape family is cumulative.
+
+The table below is the per-family native contract. The resource type and metric-label keys are
+copied from the Cloud Monitoring descriptor; the receiver passes labels through without a
+prefix. `∅` means the descriptor has no unit or metric-label keys. The two rows whose native
+unit is `us` are scaled from the legacy scrape lane's millisecond values before encoding.
+
+<!-- cspgcp-otlp-contract:begin -->
+
+| Native metric | Native OTLP type | Vendor kind (value type) | Unit | Resource type | Metric-label keys | Official Cloud Monitoring descriptor |
+|---|---|---|---|---|---|---|
+| `compute.googleapis.com/instance/cpu/utilization` | Gauge | GAUGE (DOUBLE) | `10^2.%` | `gce_instance` | `instance_name` | https://cloud.google.com/monitoring/api/metrics_gcp_c#compute/instance/cpu/utilization |
+| `compute.googleapis.com/instance/cpu/usage_time` | Sum | DELTA (DOUBLE) | `s{CPU}` | `gce_instance` | `instance_name` | https://cloud.google.com/monitoring/api/metrics_gcp_c#compute/instance/cpu/usage_time |
+| `compute.googleapis.com/instance/network/received_bytes_count` | Sum | DELTA (INT64) | `By` | `gce_instance` | `instance_name`, `loadbalanced` | https://cloud.google.com/monitoring/api/metrics_gcp_c#compute/instance/network/received_bytes_count |
+| `compute.googleapis.com/instance/network/sent_bytes_count` | Sum | DELTA (INT64) | `By` | `gce_instance` | `instance_name`, `loadbalanced` | https://cloud.google.com/monitoring/api/metrics_gcp_c#compute/instance/network/sent_bytes_count |
+| `compute.googleapis.com/instance/disk/read_bytes_count` | Sum | DELTA (INT64) | `By` | `gce_instance` | `instance_name`, `device_name`, `storage_type`, `device_type` | https://cloud.google.com/monitoring/api/metrics_gcp_c#compute/instance/disk/read_bytes_count |
+| `compute.googleapis.com/instance/disk/write_bytes_count` | Sum | DELTA (INT64) | `By` | `gce_instance` | `instance_name`, `device_name`, `storage_type`, `device_type` | https://cloud.google.com/monitoring/api/metrics_gcp_c#compute/instance/disk/write_bytes_count |
+| `compute.googleapis.com/instance/disk/read_ops_count` | Sum | DELTA (INT64) | `1` | `gce_instance` | `instance_name`, `device_name`, `storage_type`, `device_type` | https://cloud.google.com/monitoring/api/metrics_gcp_c#compute/instance/disk/read_ops_count |
+| `compute.googleapis.com/instance/disk/write_ops_count` | Sum | DELTA (INT64) | `1` | `gce_instance` | `instance_name`, `device_name`, `storage_type`, `device_type` | https://cloud.google.com/monitoring/api/metrics_gcp_c#compute/instance/disk/write_ops_count |
+| `cloudsql.googleapis.com/database/up` | Gauge | GAUGE (INT64) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/up |
+| `cloudsql.googleapis.com/database/cpu/utilization` | Gauge | GAUGE (DOUBLE) | `10^2.%` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/cpu/utilization |
+| `cloudsql.googleapis.com/database/memory/utilization` | Gauge | GAUGE (DOUBLE) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/memory/utilization |
+| `cloudsql.googleapis.com/database/disk/utilization` | Gauge | GAUGE (DOUBLE) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/disk/utilization |
+| `cloudsql.googleapis.com/database/available_for_failover` | Gauge | GAUGE (INT64) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/available_for_failover |
+| `cloudsql.googleapis.com/database/cpu/reserved_cores` | Gauge | GAUGE (DOUBLE) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/cpu/reserved_cores |
+| `cloudsql.googleapis.com/database/memory/quota` | Gauge | GAUGE (INT64) | `By` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/memory/quota |
+| `cloudsql.googleapis.com/database/disk/quota` | Gauge | GAUGE (INT64) | `By` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/disk/quota |
+| `cloudsql.googleapis.com/database/disk/read_ops_count` | Sum | DELTA (INT64) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/disk/read_ops_count |
+| `cloudsql.googleapis.com/database/disk/write_ops_count` | Sum | DELTA (INT64) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/disk/write_ops_count |
+| `cloudsql.googleapis.com/database/network/connections` | Gauge | GAUGE (INT64) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/network/connections |
+| `cloudsql.googleapis.com/database/network/received_bytes_count` | Sum | DELTA (INT64) | `By` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/network/received_bytes_count |
+| `cloudsql.googleapis.com/database/network/sent_bytes_count` | Sum | DELTA (INT64) | `By` | `cloudsql_database` | `destination` | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/network/sent_bytes_count |
+| `cloudsql.googleapis.com/database/instance_state` | Gauge | GAUGE (BOOL) | ∅ | `cloudsql_database` | `state` | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/instance_state |
+| `cloudsql.googleapis.com/database/replication/state` | Gauge | GAUGE (BOOL) | ∅ | `cloudsql_database` | `state` | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/replication/state |
+| `cloudsql.googleapis.com/database/mysql/innodb_buffer_pool_pages_total` | Gauge | GAUGE (INT64) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/mysql/innodb_buffer_pool_pages_total |
+| `cloudsql.googleapis.com/database/mysql/innodb_buffer_pool_pages_free` | Gauge | GAUGE (INT64) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/mysql/innodb_buffer_pool_pages_free |
+| `cloudsql.googleapis.com/database/mysql/innodb_buffer_pool_pages_dirty` | Gauge | GAUGE (INT64) | `1` | `cloudsql_database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/mysql/innodb_buffer_pool_pages_dirty |
+| `cloudsql.googleapis.com/database/postgresql/num_backends` | Gauge | GAUGE (INT64) | `1` | `cloudsql_database` | `database` | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/postgresql/num_backends |
+| `cloudsql.googleapis.com/database/postgresql/transaction_count` | Sum | DELTA (INT64) | `1` | `cloudsql_database` | `database`, `transaction_type` | https://cloud.google.com/monitoring/api/metrics_gcp_c#cloudsql/database/postgresql/transaction_count |
+| `alloydb.googleapis.com/instance/postgres/instances` | Gauge | GAUGE (INT64) | `1` | `alloydb.googleapis.com/Instance` | `status` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgres/instances |
+| `alloydb.googleapis.com/instance/cpu/average_utilization` | Gauge | GAUGE (DOUBLE) | `10^2.%` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/cpu/average_utilization |
+| `alloydb.googleapis.com/instance/cpu/maximum_utilization` | Gauge | GAUGE (DOUBLE) | `10^2.%` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/cpu/maximum_utilization |
+| `alloydb.googleapis.com/instance/postgresql/deadlock_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgresql/deadlock_count |
+| `alloydb.googleapis.com/instance/postgresql/deleted_tuples_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgresql/deleted_tuples_count |
+| `alloydb.googleapis.com/instance/postgresql/fetched_tuples_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgresql/fetched_tuples_count |
+| `alloydb.googleapis.com/instance/postgresql/inserted_tuples_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgresql/inserted_tuples_count |
+| `alloydb.googleapis.com/instance/postgresql/updated_tuples_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgresql/updated_tuples_count |
+| `alloydb.googleapis.com/instance/postgresql/written_tuples_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgresql/written_tuples_count |
+| `alloydb.googleapis.com/instance/postgresql/returned_tuples_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgresql/returned_tuples_count |
+| `alloydb.googleapis.com/instance/postgresql/new_connections_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgresql/new_connections_count |
+| `alloydb.googleapis.com/instance/postgres/total_connections` | Gauge | GAUGE (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgres/total_connections |
+| `alloydb.googleapis.com/instance/postgres/transaction_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Instance` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgres/transaction_count |
+| `alloydb.googleapis.com/database/postgresql/vacuum/oldest_transaction_age` | Gauge | GAUGE (INT64) | `1` | `alloydb.googleapis.com/Instance` | `type` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/database/postgresql/vacuum/oldest_transaction_age |
+| `alloydb.googleapis.com/instance/postgresql/backends_for_top_applications` | Gauge | GAUGE (INT64) | `1` | `alloydb.googleapis.com/Instance` | `application_name` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/instance/postgresql/backends_for_top_applications |
+| `alloydb.googleapis.com/node/postgres/wait_time` | Sum | DELTA (DOUBLE) | `us` | `alloydb.googleapis.com/InstanceNode` | `wait_event_type`, `wait_event_name` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/node/postgres/wait_time |
+| `alloydb.googleapis.com/node/postgres/wait_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/InstanceNode` | `wait_event_type`, `wait_event_name` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/node/postgres/wait_count |
+| `alloydb.googleapis.com/node/postgres/backends_by_state` | Gauge | GAUGE (INT64) | `1` | `alloydb.googleapis.com/InstanceNode` | `state` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/node/postgres/backends_by_state |
+| `alloydb.googleapis.com/node/postgres/uptime` | Gauge | GAUGE (DOUBLE) | `1` | `alloydb.googleapis.com/InstanceNode` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/node/postgres/uptime |
+| `alloydb.googleapis.com/database/postgresql/tuples` | Gauge | GAUGE (INT64) | `1` | `alloydb.googleapis.com/Database` | `state` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/database/postgresql/tuples |
+| `alloydb.googleapis.com/database/postgresql/blks_read_for_top_databases` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/database/postgresql/blks_read_for_top_databases |
+| `alloydb.googleapis.com/database/postgresql/blks_hit_for_top_databases` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/database/postgresql/blks_hit_for_top_databases |
+| `alloydb.googleapis.com/database/postgresql/temp_bytes_written_for_top_databases` | Sum | DELTA (INT64) | `By` | `alloydb.googleapis.com/Database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/database/postgresql/temp_bytes_written_for_top_databases |
+| `alloydb.googleapis.com/database/postgresql/temp_files_written_for_top_databases` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/database/postgresql/temp_files_written_for_top_databases |
+| `alloydb.googleapis.com/database/postgresql/rolledback_transactions_for_top_databases` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Database` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/database/postgresql/rolledback_transactions_for_top_databases |
+| `alloydb.googleapis.com/database/postgresql/statements_executed_count` | Sum | DELTA (INT64) | `1` | `alloydb.googleapis.com/Database` | `operation_type` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/database/postgresql/statements_executed_count |
+| `alloydb.googleapis.com/cluster/storage/usage` | Gauge | GAUGE (INT64) | `By` | `alloydb.googleapis.com/Cluster` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#alloydb/cluster/storage/usage |
+| `storage.googleapis.com/storage/object_count` | Gauge | GAUGE (INT64) | `1` | `gcs_bucket` | `storage_class` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#storage/storage/object_count |
+| `storage.googleapis.com/storage/total_bytes` | Gauge | GAUGE (DOUBLE) | `By` | `gcs_bucket` | `storage_class` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#storage/storage/total_bytes |
+| `storage.googleapis.com/network/received_bytes_count` | Sum | DELTA (INT64) | `By` | `gcs_bucket` | `response_code`, `method` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#storage/network/received_bytes_count |
+| `storage.googleapis.com/network/sent_bytes_count` | Sum | DELTA (INT64) | `By` | `gcs_bucket` | `response_code`, `method` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#storage/network/sent_bytes_count |
+| `storage.googleapis.com/api/request_count` | Sum | DELTA (INT64) | `1` | `gcs_bucket` | `response_code`, `method` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#storage/api/request_count |
+| `networking.googleapis.com/google_service/request_bytes_count` | Sum | DELTA (INT64) | `By` | `google_service_gce_client` | `protocol`, `response_code_class`, `service_name`, `service_region`, `local_network`, `local_subnetwork`, `local_network_interface` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#networking/google_service/request_bytes_count |
+| `networking.googleapis.com/google_service/response_bytes_count` | Sum | DELTA (INT64) | `By` | `google_service_gce_client` | `protocol`, `response_code_class`, `service_name`, `service_region`, `local_network`, `local_subnetwork`, `local_network_interface` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#networking/google_service/response_bytes_count |
+| `networking.googleapis.com/fixed_standard_tier/usage` | Gauge | GAUGE (INT64) | `By` | `networking.googleapis.com/Location` | `bandwidth_policy_id`, `traffic_source` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#networking/fixed_standard_tier/usage |
+| `networking.googleapis.com/vpn_tunnel/egress_bytes_count` | Sum | DELTA (INT64) | `By` | `vpn_tunnel` | `local_project_number`, `local_project_id`, `local_region`, `local_zone`, `local_location_type`, `local_resource_type`, `local_network`, `local_subnetwork`, `protocol` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#networking/vpn_tunnel/egress_bytes_count |
+| `networking.googleapis.com/vpn_tunnel/ingress_bytes_count` | Sum | DELTA (INT64) | `By` | `vpn_tunnel` | `local_project_number`, `local_project_id`, `local_region`, `local_zone`, `local_location_type`, `local_resource_type`, `local_network`, `local_subnetwork`, `protocol` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#networking/vpn_tunnel/ingress_bytes_count |
+| `loadbalancing.googleapis.com/https/request_count` | Sum | DELTA (INT64) | `1` | `https_lb_rule` | `protocol`, `response_code`, `load_balancing_scheme`, `response_code_class`, `proxy_continent`, `cache_result`, `client_country` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#loadbalancing/https/request_count |
+| `loadbalancing.googleapis.com/https/request_bytes_count` | Sum | DELTA (INT64) | `By` | `https_lb_rule` | `protocol`, `response_code`, `load_balancing_scheme`, `response_code_class`, `proxy_continent`, `cache_result`, `client_country` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#loadbalancing/https/request_bytes_count |
+| `loadbalancing.googleapis.com/https/response_bytes_count` | Sum | DELTA (INT64) | `By` | `https_lb_rule` | `protocol`, `response_code`, `load_balancing_scheme`, `response_code_class`, `proxy_continent`, `cache_result`, `client_country` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#loadbalancing/https/response_bytes_count |
+| `loadbalancing.googleapis.com/https/backend_request_bytes_count` | Sum | DELTA (INT64) | `By` | `https_lb_rule` | `response_code`, `load_balancing_scheme`, `response_code_class`, `proxy_continent`, `cache_result` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#loadbalancing/https/backend_request_bytes_count |
+| `loadbalancing.googleapis.com/https/backend_response_bytes_count` | Sum | DELTA (INT64) | `By` | `https_lb_rule` | `response_code`, `load_balancing_scheme`, `response_code_class`, `proxy_continent`, `cache_result` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#loadbalancing/https/backend_response_bytes_count |
+| `loadbalancing.googleapis.com/https/total_latencies` | Histogram | DELTA (DISTRIBUTION) | `ms` | `https_lb_rule` | `protocol`, `response_code`, `load_balancing_scheme`, `response_code_class`, `proxy_continent`, `cache_result`, `client_country` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#loadbalancing/https/total_latencies |
+| `loadbalancing.googleapis.com/https/frontend_tcp_rtt` | Histogram | DELTA (DISTRIBUTION) | `ms` | `https_lb_rule` | `load_balancing_scheme`, `proxy_continent`, `client_country` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#loadbalancing/https/frontend_tcp_rtt |
+| `loadbalancing.googleapis.com/https/backend_latencies` | Histogram | DELTA (DISTRIBUTION) | `ms` | `https_lb_rule` | `protocol`, `response_code`, `load_balancing_scheme`, `response_code_class`, `proxy_continent`, `cache_result`, `client_country` | https://cloud.google.com/monitoring/api/metrics_gcp_i_o#loadbalancing/https/backend_latencies |
+| `pubsub.googleapis.com/subscription/push_request_count` | Sum | DELTA (INT64) | `1` | `pubsub_subscription` | `response_class`, `response_code`, `delivery_type` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/push_request_count |
+| `pubsub.googleapis.com/subscription/pull_ack_request_count` | Sum | DELTA (INT64) | `1` | `pubsub_subscription` | `response_class`, `response_code` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/pull_ack_request_count |
+| `pubsub.googleapis.com/subscription/streaming_pull_response_count` | Sum | DELTA (INT64) | `1` | `pubsub_subscription` | `response_class`, `response_code` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/streaming_pull_response_count |
+| `pubsub.googleapis.com/subscription/expired_ack_deadlines_count` | Sum | DELTA (INT64) | `1` | `pubsub_subscription` | `delivery_type` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/expired_ack_deadlines_count |
+| `pubsub.googleapis.com/subscription/num_outstanding_messages` | Gauge | GAUGE (INT64) | `1` | `pubsub_subscription` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/num_outstanding_messages |
+| `pubsub.googleapis.com/subscription/num_undelivered_messages` | Gauge | GAUGE (INT64) | `1` | `pubsub_subscription` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/num_undelivered_messages |
+| `pubsub.googleapis.com/subscription/oldest_unacked_message_age` | Gauge | GAUGE (INT64) | `s` | `pubsub_subscription` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/oldest_unacked_message_age |
+| `pubsub.googleapis.com/subscription/delivery_latency_health_score` | Gauge | GAUGE (BOOL) | `1` | `pubsub_subscription` | `criteria` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/delivery_latency_health_score |
+| `pubsub.googleapis.com/subscription/num_unacked_messages_by_region` | Gauge | GAUGE (INT64) | `1` | `pubsub_subscription` | `region` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/num_unacked_messages_by_region |
+| `pubsub.googleapis.com/subscription/unacked_bytes_by_region` | Gauge | GAUGE (INT64) | `By` | `pubsub_subscription` | `region` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/unacked_bytes_by_region |
+| `pubsub.googleapis.com/subscription/push_request_latencies` | Histogram | DELTA (DISTRIBUTION) | `us` | `pubsub_subscription` | `response_code`, `delivery_type` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#pubsub/subscription/push_request_latencies |
+| `run.googleapis.com/container/containers` | Gauge | GAUGE (INT64) | `1` | `cloud_run_job cloud_run_revision cloud_run_worker_pool` | `container_name`, `state` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/containers |
+| `run.googleapis.com/container/network/received_bytes_count` | Sum | DELTA (INT64) | `By` | `cloud_run_job cloud_run_revision cloud_run_worker_pool` | `kind` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/network/received_bytes_count |
+| `run.googleapis.com/container/network/sent_bytes_count` | Sum | DELTA (INT64) | `By` | `cloud_run_job cloud_run_revision cloud_run_worker_pool` | `kind` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/network/sent_bytes_count |
+| `run.googleapis.com/container/billable_instance_time` | Sum | DELTA (DOUBLE) | `s` | `cloud_run_job cloud_run_revision cloud_run_worker_pool` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/billable_instance_time |
+| `run.googleapis.com/container/network/throttled_inbound_bytes_count` | Sum | DELTA (INT64) | `By` | `cloud_run_job cloud_run_revision cloud_run_worker_pool` | `network`, `transport`, `type` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/network/throttled_inbound_bytes_count |
+| `run.googleapis.com/container/network/throttled_outbound_bytes_count` | Sum | DELTA (INT64) | `By` | `cloud_run_job cloud_run_revision cloud_run_worker_pool` | `network`, `transport`, `type` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/network/throttled_outbound_bytes_count |
+| `run.googleapis.com/container/completed_probe_attempt_count` | Sum | DELTA (INT64) | `1` | `cloud_run_revision cloud_run_worker_pool` | `probe_action`, `is_healthy`, `container_name`, `is_default`, `probe_type` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/completed_probe_attempt_count |
+| `run.googleapis.com/container/completed_probe_count` | Sum | DELTA (INT64) | `1` | `cloud_run_revision cloud_run_worker_pool` | `probe_action`, `is_healthy`, `container_name`, `is_default`, `probe_type` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/completed_probe_count |
+| `run.googleapis.com/container/max_request_concurrencies` | Histogram | DELTA (DISTRIBUTION) | `1` | `cloud_run_revision` | `state` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/max_request_concurrencies |
+| `run.googleapis.com/container/startup_latencies` | Histogram | DELTA (DISTRIBUTION) | `ms` | `cloud_run_job cloud_run_revision cloud_run_worker_pool` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/startup_latencies |
+| `run.googleapis.com/container/probe_attempt_latencies` | Histogram | DELTA (DISTRIBUTION) | `ms` | `cloud_run_revision cloud_run_worker_pool` | `probe_action`, `is_healthy`, `container_name`, `is_default`, `probe_type` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/probe_attempt_latencies |
+| `run.googleapis.com/container/probe_latencies` | Histogram | DELTA (DISTRIBUTION) | `ms` | `cloud_run_revision cloud_run_worker_pool` | `probe_action`, `is_healthy`, `container_name`, `is_default`, `probe_type` | https://cloud.google.com/monitoring/api/metrics_gcp_p_z#run/container/probe_latencies |
+| `bigtable.googleapis.com/cluster/node_count` | Gauge | GAUGE (INT64) | `1` | `bigtable_cluster` | `storage_type` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/cluster/node_count |
+| `bigtable.googleapis.com/cluster/cpu_load` | Gauge | GAUGE (DOUBLE) | `1` | `bigtable_cluster` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/cluster/cpu_load |
+| `bigtable.googleapis.com/cluster/cpu_load_hottest_node` | Gauge | GAUGE (DOUBLE) | `1` | `bigtable_cluster` | ∅ | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/cluster/cpu_load_hottest_node |
+| `bigtable.googleapis.com/cluster/storage_utilization` | Gauge | GAUGE (DOUBLE) | `1` | `bigtable_cluster` | `storage_type` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/cluster/storage_utilization |
+| `bigtable.googleapis.com/disk/bytes_used` | Gauge | GAUGE (INT64) | `By` | `bigtable_cluster` | `storage_type` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/disk/bytes_used |
+| `bigtable.googleapis.com/disk/storage_capacity` | Gauge | GAUGE (INT64) | `By` | `bigtable_cluster` | `storage_type` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/disk/storage_capacity |
+| `bigtable.googleapis.com/cluster/cpu_load_by_app_profile_by_method_by_table` | Gauge | GAUGE (DOUBLE) | `1` | `bigtable_cluster` | `app_profile`, `method`, `table` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/cluster/cpu_load_by_app_profile_by_method_by_table |
+| `bigtable.googleapis.com/table/bytes_used` | Gauge | GAUGE (INT64) | `By` | `bigtable_table` | `storage_type` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/table/bytes_used |
+| `bigtable.googleapis.com/server/data_boost/spu_usage` | Gauge | GAUGE (INT64) | `1` | `bigtable_table` | `app_profile`, `method` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/server/data_boost/spu_usage |
+| `bigtable.googleapis.com/server/returned_rows_count` | Sum | DELTA (INT64) | `1` | `bigtable_table` | `method`, `app_profile` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/server/returned_rows_count |
+| `bigtable.googleapis.com/server/modified_rows_count` | Sum | DELTA (INT64) | `1` | `bigtable_table` | `method`, `app_profile` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/server/modified_rows_count |
+| `bigtable.googleapis.com/server/sent_bytes_count` | Sum | DELTA (INT64) | `By` | `bigtable_table` | `method`, `app_profile` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/server/sent_bytes_count |
+| `bigtable.googleapis.com/server/received_bytes_count` | Sum | DELTA (INT64) | `By` | `bigtable_table` | `method`, `app_profile` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/server/received_bytes_count |
+| `bigtable.googleapis.com/server/error_count` | Sum | DELTA (INT64) | `1` | `bigtable_table` | `method`, `error_code`, `app_profile` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/server/error_count |
+| `bigtable.googleapis.com/server/multi_cluster_failovers_count` | Sum | DELTA (INT64) | `1` | `bigtable_table` | `method`, `app_profile` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/server/multi_cluster_failovers_count |
+| `bigtable.googleapis.com/server/request_count` | Sum | DELTA (INT64) | `1` | `bigtable_table` | `method`, `app_profile` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/server/request_count |
+| `bigtable.googleapis.com/server/latencies` | Histogram | DELTA (DISTRIBUTION) | `ms` | `bigtable_table` | `method`, `app_profile` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/server/latencies |
+| `bigtable.googleapis.com/client/operation_latencies` | Histogram | DELTA (DISTRIBUTION) | `ms` | `bigtable_table` | `method`, `app_profile`, `streaming`, `status`, `client_name` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/client/operation_latencies |
+| `bigtable.googleapis.com/client/attempt_latencies` | Histogram | DELTA (DISTRIBUTION) | `ms` | `bigtable_table` | `method`, `app_profile`, `streaming`, `status`, `client_name` | https://cloud.google.com/monitoring/api/metrics_gcp_a_b#bigtable/client/attempt_latencies |
+
+<!-- cspgcp-otlp-contract:end -->
 
 ---
 

@@ -101,6 +101,16 @@ type Config struct {
 	// default managed scraper (live-confirmed: the default scraper surfaces no tags). Use
 	// lowercase CAF keys (e.g. app, env, owner, costcenter) for cross-cloud consistency.
 	Tags map[string]string `yaml:"tags"`
+	// TenantID is the Azure tenant identity carried by the native Azure Monitor receiver
+	// resource attributes. It is synthetic blueprint identity, not a credential.
+	TenantID string `yaml:"tenant_id"`
+	// IdentityPrefix opts a blueprint into a distinct deterministic subscription identity.
+	// Empty preserves the historical fixed-by-index subscription IDs byte-for-byte.
+	// Substrate-scoped Azure blueprints that can be selected together should set this.
+	IdentityPrefix string `yaml:"identity_prefix"`
+	// OTLPMetrics enables the opt-in native Azure Monitor receiver-shaped metrics lane.
+	// The default is false so existing scrape and log output remains unchanged.
+	OTLPMetrics bool `yaml:"otlp_metrics"`
 }
 
 var allSubSignals = []string{"compute", "databases", "storage", "networking", "messaging", "logs"}
@@ -120,6 +130,9 @@ func applyDefaults(c *Config) {
 	}
 	if c.IngestionPath == pathServerless && c.Credential == "" {
 		c.Credential = "azure"
+	}
+	if c.TenantID == "" {
+		c.TenantID = "00000000-0000-0000-0000-000000000000"
 	}
 }
 
@@ -144,7 +157,11 @@ type construct struct {
 
 func (c *construct) Kind() string { return "csp_azure" }
 func (c *construct) Signals() []core.SignalClass {
-	return []core.SignalClass{core.Metrics, core.Logs}
+	signals := []core.SignalClass{core.Metrics, core.Logs}
+	if c.cfg.OTLPMetrics {
+		signals = append(signals, core.OTLPMetrics)
+	}
+	return signals
 }
 func (c *construct) Interval() time.Duration { return 60 * time.Second }
 
@@ -187,8 +204,14 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			c.emitAI(now, w, sub, bf)
 		}
 	}
-	if err := w.Metrics.Write(ctx, c.st.Collect(now)); err != nil {
+	series := c.st.Collect(now)
+	if err := w.Metrics.Write(ctx, series); err != nil {
 		return err
+	}
+	if c.cfg.OTLPMetrics {
+		if err := c.writeNativeMetrics(ctx, now, series, w); err != nil {
+			return err
+		}
 	}
 	// Logs lane.
 	if c.cfg.signalEnabled("logs") {

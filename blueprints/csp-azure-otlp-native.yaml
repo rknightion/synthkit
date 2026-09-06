@@ -1,0 +1,32 @@
+# csp-azure-otlp-native — the same two-subscription Azure estate as csp-azure,
+# with the opt-in Azure Monitor receiver-shaped OTLP metrics lane enabled.
+#
+# The estate size, resource cardinality, rates, and sub-signal selection are copied from
+# csp-azure.yaml. This declaration exists to exercise the native receiver contract; it does
+# not increase the modeled Azure load. `identity_prefix` gives this substrate-scoped estate
+# distinct deterministic subscription/resource IDs when both blueprints are selected.
+name: csp-azure-otlp-native
+metadata:
+  description: "CSP Azure integration with the documented Azure Monitor receiver-shaped native OTLP metric families alongside the existing scrape and Event Hubs log lanes."
+  owner: cloud-integrations
+  category: reference
+  tags: [azure, csp, cloud, otlp, native-receiver]
+  links:
+    signals: ./signals/cspazure.md
+environments:
+  - name: prod   # required by the loader; the Azure integration is substrate-scoped (no env binding)
+integrations:
+  csp_azure:
+    enabled: true
+    ingestion_path: serverless
+    credential: ps_azure_otlp_native
+    subscriptions: 2
+    company: otlpazure
+    identity_prefix: azure-otlp-native
+    tenant_id: "11111111-1111-4111-8111-111111111111"
+    otlp_metrics: true
+    sub_signals: [compute, databases, storage, networking, messaging, ai, logs]
+    tags:
+      app: synthkit-azure-native
+      env: prod
+      owner: platform-team

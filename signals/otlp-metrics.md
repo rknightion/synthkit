@@ -524,4 +524,25 @@ gcx metrics query 'http_server_active_requests'
 - Envoy Gateway: [`k8s-addons.md`](k8s-addons.md) [slug: k8s-envoy-gateway] separates the dotted data-plane wire form from the underscore control-plane form; empty units/scopes and missing histogram evidence are not interchangeable.
 - CloudWatch Metric Streams: [`cw.md`](cw.md) [slug: cw-metric-stream-otlp] records the Summary wire form and the observed queryable normalization. Summary is a per-period snapshot carrying count, sum and min/max quantiles; it has no aggregation-temporality field. The cumulative Sum/Histogram rule above does not turn CloudWatch period statistics into cumulative counters.
 
+### CSP receiver-shaped native metrics [slug: csp-native-otlp-metrics]
+
+The substrate-scoped `csp_azure` and `csp_gcp` constructs have opt-in native metric lanes. Their
+Prometheus scrape families remain enabled alongside the native lane, and the switches default to
+off. The complete per-resource-family catalogues, dimensions, exclusions, and source links are in
+[`cspazure.md`](cspazure.md) [slug: cspazure-otlp-receiver] and
+[`cspgcp.md`](cspgcp.md) [slug: cspgcp-otlp-receiver].
+
+| Construct | Opt-in field | Native family form | Instrument and unit contract | Resource envelope |
+|---|---|---|---|---|
+| `csp_azure` | `otlp_metrics: true` | 119 documented resource entries and 103 unique receiver names, including `azure_vmavailabilitymetric_average`, `azure_percentage_cpu_average`, `azure_totalrequests_total`, and `azure_messages_average` | Every family is an OTLP Gauge. The unit is the Azure metric-definition unit verbatim (`Count`, `Percent`, `Bytes`, `CountPerSecond`, `MilliSeconds`, or `BytesPerSecond`); Azure dimensions remain datapoint attributes. | `azuremonitor.subscription`, `azuremonitor.subscription_id`, and `azuremonitor.tenant_id`; `azuremonitor.resource_id` is a datapoint attribute. Names follow the receiver's lowercase `azure_` + space-to-underscore metric name + aggregation rule. |
+| `csp_gcp` | `otel: {metrics: true}` | 115 documented Cloud Monitoring families, including `compute.googleapis.com/instance/cpu/utilization`, `cloudsql.googleapis.com/database/up`, `storage.googleapis.com/storage/object_count`, and `run.googleapis.com/container/containers` | Cloud Monitoring metric type and unit pass through verbatim. GAUGE becomes Gauge; CUMULATIVE becomes monotonic cumulative Sum; DELTA becomes non-monotonic delta Sum; DELTA distributions become delta explicit-bound Histograms. GAUGE/CUMULATIVE distributions are dropped by the receiver contract. | `gcp.resource_type` plus the bare MonitoredResource, user-label, and system-label keys. Metric labels remain unprefixed datapoint attributes; scope is intentionally empty. |
+
+The Azure catalogue is sourced from the Azure Monitor supported-metrics tables and the
+`azuremonitorreceiver` name rule, read **2026-09-06**. The GCP catalogue and instrument mapping are
+sourced from `googlecloudmonitoringreceiver` collector-contrib **v0.160.0**, read **2026-09-06**.
+The reference Azure composition is `blueprints/csp-azure-otlp-native.yaml`; the native GCP lane is
+available on any `csp_gcp` declaration carrying the opt-in `otel.metrics` field. These source
+contracts are receiver-native forms rather than rewrites of the existing `azure_microsoft_*` and
+`stackdriver_*` scrape names.
+
 A producer with an observed unnamed metrics scope sets `MetricResource.PreserveEmptyScope` so the sink retains it. Other zero scopes retain the historical `synthkit` fallback. This does not add scope labels to the query contract.

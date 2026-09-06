@@ -1,0 +1,34 @@
+# csp-gcp-otlp-native — one production-shaped GCP integration estate using the
+# Cloud Monitoring receiver-native OTLP metrics lane. The rates and counts remain
+# the same as the existing csp_gcp construct; this blueprint only selects the
+# receiver form and gives it a collision-free synthetic project identity.
+name: csp-gcp-otlp-native
+label: csp-gcp-otlp-native
+shape: business_hours_plateau
+timezone: Europe/London
+metadata:
+  description: "Production-shaped GCP Cloud Monitoring integration with opt-in receiver-native OTLP metrics."
+  owner: platform-observability
+  category: reference
+  tags: [gcp, cloud-monitoring, otlp, native-receiver, metrics]
+  links:
+    signals: ./signals/cspgcp.md
+
+environments:
+  - name: prod
+    production: true
+    weight: 1.0
+
+integrations:
+  csp_gcp:
+    # Uses the two-project cardinality from the existing csp_gcp reference shape.
+    # Per-resource counts and rates stay at the csp_gcp construct defaults. This
+    # standalone declaration does not reproduce acme-ai-eval's [vertex, networking,
+    # logs] selection or its for_each_env workload/integration fan-out.
+    projects: 2
+    company: gcp-otlp-native
+    # All resolved non-Vertex csp_gcp families are selected. Vertex remains
+    # v: assumed in signals/cspgcp.md and is intentionally excluded here.
+    sub_signals: [compute, databases, storage, networking, loadbalancing, pubsub, cloudrun, bigtable, logs]
+    otel:
+      metrics: true

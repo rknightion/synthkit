@@ -154,8 +154,9 @@ func Catalog() *core.Registry {
 	reg.RegisterConstruct(withMetricProducer(cloudflare.Registration(), producerPromRW))
 	azure := cspazure.Registration()
 	azure.MetricProducer = azureMetricProducer
+	azure.OTLPMetricProducer = fixedMetricProducer(producerOTLPNative)
 	reg.RegisterConstruct(azure)
-	reg.RegisterConstruct(withMetricProducer(cspgcp.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducers(cspgcp.Registration(), producerUnlabelled, producerOTLPNative))
 
 	// AI integration constructs (blueprint integrations: map — Spec 2b scrape/poll sources).
 	reg.RegisterConstruct(withMetricProducer(portkeygateway.Registration(), producerPromRW))

@@ -112,6 +112,15 @@ type Config struct {
 	// OPT-IN ONLY (not in default set): vertex — Vertex AI Endpoint + Model Invocation metrics.
 	// Blueprint must list it explicitly: sub_signals: [vertex]
 	SubSignals []string `yaml:"sub_signals"`
+	// OTel controls the optional native Cloud Monitoring receiver-shaped metrics lane.
+	// It is opt-in so the established Prometheus scrape and log lanes remain unchanged.
+	OTel *OTelObs `yaml:"otel"`
+}
+
+// OTelObs controls the native OTLP metrics projection. The hand-encoded lane mirrors
+// googlecloudmonitoringreceiver output and does not use the OTel metrics SDK.
+type OTelObs struct {
+	Metrics bool `yaml:"metrics"`
 }
 
 // NewConfig returns a pointer to a default-zero Config for the YAML decoder.
@@ -131,6 +140,7 @@ type Construct struct {
 	env        *fixture.Env // nil for substrate-aggregate path; set when vertex is env-scoped
 	seed       string
 	st         *state.State
+	otlpState  *nativeOTLPState
 }
 
 // Compile-time interface check.
@@ -182,6 +192,11 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		env = fx.Env
 	}
 
+	var otlpState *nativeOTLPState
+	if c.OTel != nil && c.OTel.Metrics {
+		otlpState = newNativeOTLPState()
+	}
+
 	return &Construct{
 		projects:   projects,
 		subSignals: sigs,
@@ -189,18 +204,30 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		env:        env,
 		seed:       seed,
 		st:         state.NewState(),
+		otlpState:  otlpState,
 	}, nil
 }
 
-func (c *Construct) Kind() string                { return Kind }
-func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics, core.Logs} }
-func (c *Construct) Interval() time.Duration     { return 60 * time.Second }
+func (c *Construct) Kind() string { return Kind }
+func (c *Construct) Signals() []core.SignalClass {
+	signals := []core.SignalClass{core.Metrics, core.Logs}
+	if c.otlpState != nil {
+		signals = append(signals, core.OTLPMetrics)
+	}
+	return signals
+}
+func (c *Construct) Interval() time.Duration { return 60 * time.Second }
 
 // Tick renders one 60-second observation window into w.Metrics and (if enabled) w.Logs.
 func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
 	batch := c.renderMetrics(now, w)
 	if w.Metrics != nil {
 		if err := w.Metrics.Write(ctx, batch); err != nil {
+			return err
+		}
+	}
+	if c.otlpState != nil {
+		if err := c.writeNativeMetrics(ctx, now, w); err != nil {
 			return err
 		}
 	}

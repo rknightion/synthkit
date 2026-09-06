@@ -82,6 +82,266 @@ segment must equal `resourceName`; mixed-case silently breaks the app's `label_r
 
 ---
 
+## Native OTLP metrics — Azure Monitor receiver form [slug: cspazure-otlp-receiver]
+
+The `csp_azure` construct has an opt-in `otlp_metrics: true` lane. It emits the documented
+Azure Monitor receiver form beside the existing Prometheus scrape families; the default remains
+off. The new `csp-azure-otlp-native.yaml` declaration copies the two-subscription estate and
+cardinality from `csp-azure.yaml` and uses `identity_prefix` so the two substrate-scoped
+declarations have distinct Azure resource identities when selected together.
+
+**Receiver contract.** The OpenTelemetry Collector Contrib `azuremonitorreceiver` documentation
+and source establish the name rule as lowercase `azure_` + the Azure metric-definition name with
+spaces replaced by `_` + lowercase aggregation. For example, `Percentage CPU` with `Average`
+becomes `azure_percentage_cpu_average`, while the slash in `Disk Read Operations/Sec` is retained
+as `azure_disk_read_operations/sec_average`. Every metric emitted by this receiver is an OTLP
+Gauge. The unit is the exact Azure metric-definition unit string, including casing. Resource
+attributes are `azuremonitor.subscription`, `azuremonitor.subscription_id`, and
+`azuremonitor.tenant_id`; `azuremonitor.resource_id` is carried on each datapoint because one
+subscription resource block contains several Azure resources. Metric dimensions are datapoint
+attributes with their Azure names preserved. The implementation accepts the two existing scrape
+label spellings (`dimension_<Name>` and `dimension<Name>`, plus the bare `dimension` form for a
+single exporter dimension) but never invents a dimension value.
+
+The receiver contract is sourced from the collector-contrib
+[`azuremonitorreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/receiver/azuremonitorreceiver/README.md)
+and [documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/receiver/azuremonitorreceiver/documentation.md).
+The family rows below are sourced from the corresponding Azure Monitor supported-metrics pages;
+the names are the receiver names after applying the documented rule, not conversions of the
+`azure_microsoft_*` scrape names.
+
+The existing scrape pairing is checked in the forward direction from the explicit Azure resource
+type, vendor metric name, aggregation, and unit. That check has three documented compatibility
+exceptions: PostgreSQL `connections_failed` retains the scrape token
+`connections_connections_failed`; Cognitive Services uses the established snake-case tokens for
+`TotalCalls`, `SuccessfulCalls`, `BlockedCalls`, `TotalErrors`, `ClientErrors`, `ServerErrors`,
+`TotalTokenCalls`, `ProcessedPromptTokens`, and `TokensPerSecond`; and `GeneratedTokens` retains
+the scrape token `generated_completion_tokens`. Native names are always derived from the vendor
+metric name and aggregation under the receiver rule above.
+
+### Compute — `Microsoft.Compute/virtualMachines`
+
+Source: [Microsoft.Compute/virtualMachines supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-compute-virtualmachines-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_vmavailabilitymetric_average` | `Count` | — |
+| `azure_percentage_cpu_average` | `Percent` | — |
+| `azure_available_memory_bytes_average` | `Bytes` | — |
+| `azure_cpu_credits_consumed_average` | `Count` | — |
+| `azure_cpu_credits_remaining_average` | `Count` | — |
+| `azure_disk_read_bytes_total` | `Bytes` | — |
+| `azure_disk_write_bytes_total` | `Bytes` | — |
+| `azure_disk_read_operations/sec_average` | `CountPerSecond` | — |
+| `azure_disk_write_operations/sec_average` | `CountPerSecond` | — |
+| `azure_inbound_flows_average` | `Count` | — |
+| `azure_outbound_flows_average` | `Count` | — |
+| `azure_network_in_total_total` | `Bytes` | — |
+| `azure_network_out_total_total` | `Bytes` | — |
+
+### SQL databases — `Microsoft.Sql/servers/databases`
+
+Source: [Microsoft.Sql/servers/databases supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-sql-servers-databases-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_connection_successful_total` | `Count` | `SslProtocol`, `ValidatedDriverNameAndVersion` |
+| `azure_deadlock_total` | `Count` | — |
+| `azure_sessions_count_average` | `Count` | — |
+| `azure_cpu_percent_average` | `Percent` | — |
+| `azure_cpu_limit_average` | `Count` | — |
+| `azure_cpu_used_average` | `Count` | — |
+| `azure_storage_maximum` | `Bytes` | — |
+| `azure_storage_percent_maximum` | `Percent` | — |
+| `azure_dtu_used_average` | `Count` | — |
+| `azure_dtu_consumption_percent_average` | `Percent` | — |
+| `azure_dtu_limit_average` | `Count` | — |
+
+### SQL elastic pools — `Microsoft.Sql/servers/elasticpools`
+
+Source: [Microsoft.Sql/servers/elasticpools supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-sql-servers-elasticpools-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_allocated_data_storage_average` | `Bytes` | — |
+| `azure_storage_used_average` | `Bytes` | — |
+| `azure_storage_limit_average` | `Bytes` | — |
+| `azure_cpu_percent_average` | `Percent` | — |
+| `azure_sql_instance_memory_percent_maximum` | `Percent` | — |
+| `azure_edtu_used_average` | `Count` | — |
+| `azure_sessions_count_average` | `Count` | — |
+| `azure_allocated_data_storage_percent_average` | `Percent` | — |
+| `azure_storage_percent_average` | `Percent` | — |
+
+### PostgreSQL Flexible Server — `Microsoft.DBforPostgreSQL/flexibleServers`
+
+Source: [Microsoft.DBforPostgreSQL/flexibleServers supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-dbforpostgresql-flexibleservers-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_active_connections_average` | `Count` | — |
+| `azure_connections_succeeded_total` | `Count` | — |
+| `azure_connections_failed_total` | `Count` | — |
+| `azure_cpu_percent_average` | `Percent` | — |
+| `azure_storage_used_maximum` | `Bytes` | — |
+| `azure_storage_percent_maximum` | `Percent` | — |
+| `azure_read_iops_maximum` | `Count` | — |
+| `azure_write_iops_maximum` | `Count` | — |
+| `azure_database_size_bytes_average` | `Bytes` | — |
+| `azure_storage_percent_average` | `Percent` | — |
+| `azure_memory_percent_average` | `Percent` | — |
+| `azure_read_iops_average` | `Count` | — |
+| `azure_write_iops_average` | `Count` | — |
+| `azure_network_bytes_ingress_total` | `Bytes` | — |
+| `azure_network_bytes_egress_total` | `Bytes` | — |
+| `azure_read_throughput_average` | `Count` | — |
+| `azure_write_throughput_average` | `Count` | — |
+
+### Storage Blob — `Microsoft.Storage/storageAccounts/blobServices`
+
+Source: [Microsoft.Storage/storageAccounts/blobServices supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-storage-storageaccounts-blobservices-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_containercount_average` | `Count` | — |
+| `azure_blobcount_average` | `Count` | `BlobType`, `Tier` |
+| `azure_blobcapacity_average` | `Bytes` | `BlobType`, `Tier` |
+| `azure_indexcapacity_average` | `Bytes` | — |
+| `azure_ingress_total` | `Bytes` | — |
+| `azure_egress_total` | `Bytes` | — |
+| `azure_availability_average` | `Percent` | — |
+| `azure_transactions_total` | `Count` | `ApiName`, `ResponseType` |
+
+### Storage Queue — `Microsoft.Storage/storageAccounts/queueServices`
+
+Source: [Microsoft.Storage/storageAccounts/queueServices supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-storage-storageaccounts-queueservices-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_queuecount_average` | `Count` | — |
+| `azure_queuemessagecount_average` | `Count` | — |
+| `azure_queuecapacity_average` | `Bytes` | — |
+| `azure_ingress_total` | `Bytes` | — |
+| `azure_egress_total` | `Bytes` | — |
+| `azure_availability_average` | `Percent` | — |
+| `azure_transactions_total` | `Count` | `ApiName`, `ResponseType` |
+
+### Load Balancer — `Microsoft.Network/loadBalancers`
+
+Source: [Microsoft.Network/loadBalancers supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-network-loadbalancers-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_syncount_total` | `Count` | — |
+| `azure_packetcount_total` | `Count` | — |
+| `azure_bytecount_total` | `Bytes` | — |
+| `azure_snatconnectioncount_total` | `Count` | — |
+| `azure_usedsnatports_average` | `Count` | — |
+| `azure_allocatedsnatports_average` | `Count` | — |
+
+### Application Gateway — `Microsoft.Network/applicationGateways`
+
+Source: [Microsoft.Network/applicationGateways supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-network-applicationgateways-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_totalrequests_total` | `Count` | — |
+| `azure_failedrequests_total` | `Count` | — |
+| `azure_responsestatus_total` | `Count` | — |
+| `azure_throughput_average` | `BytesPerSecond` | — |
+| `azure_applicationgatewaytotaltime_average` | `MilliSeconds` | — |
+| `azure_currentconnections_total` | `Count` | — |
+
+### Front Door/CDN — `Microsoft.Cdn/profiles`
+
+Source: [Microsoft.Cdn/profiles supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-cdn-profiles-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_percentage4xx_average` | `Percent` | — |
+| `azure_percentage5xx_average` | `Percent` | — |
+| `azure_requestsize_total` | `Bytes` | — |
+| `azure_responsesize_total` | `Bytes` | — |
+| `azure_totallatency_average` | `MilliSeconds` | — |
+| `azure_originhealthpercentage_average` | `Percent` | — |
+| `azure_originlatency_average` | `MilliSeconds` | — |
+| `azure_originrequestcount_total` | `Count` | — |
+| `azure_requestcount_total` | `Count` | `Endpoint`, `ClientCountry`, `HttpStatusGroup` |
+
+### Event Hubs — `Microsoft.EventHub/namespaces`
+
+Source: [Microsoft.EventHub/namespaces supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-eventhub-namespaces-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_activeconnections_maximum` | `Count` | — |
+| `azure_connectionsopened_maximum` | `Count` | — |
+| `azure_connectionsclosed_maximum` | `Count` | — |
+| `azure_incomingrequests_total` | `Count` | — |
+| `azure_successfulrequests_total` | `Count` | — |
+| `azure_throttledrequests_total` | `Count` | — |
+| `azure_usererrors_total` | `Count` | — |
+| `azure_servererrors_total` | `Count` | — |
+| `azure_incomingbytes_total` | `Bytes` | — |
+| `azure_outgoingbytes_total` | `Bytes` | — |
+| `azure_incomingmessages_total` | `Count` | `EntityName` |
+| `azure_outgoingmessages_total` | `Count` | `EntityName` |
+| `azure_capturedmessages_total` | `Count` | `EntityName` |
+
+### Service Bus — `Microsoft.ServiceBus/namespaces`
+
+Source: [Microsoft.ServiceBus/namespaces supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-servicebus-namespaces-metrics.md).
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_incomingmessages_total` | `Count` | — |
+| `azure_outgoingmessages_total` | `Count` | — |
+| `azure_incomingrequests_total` | `Count` | — |
+| `azure_successfulrequests_total` | `Count` | — |
+| `azure_activeconnections_total` | `Count` | — |
+| `azure_usererrors_total` | `Count` | — |
+| `azure_servererrors_total` | `Count` | — |
+| `azure_messages_average` | `Count` | — |
+| `azure_activemessages_average` | `Count` | `EntityName` |
+| `azure_size_average` | `Bytes` | `EntityName` |
+
+### Cognitive Services — `Microsoft.CognitiveServices/accounts`
+
+Source: [Microsoft.CognitiveServices/accounts supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-cognitiveservices-accounts-metrics.md).
+This is the existing opt-in `ai` sub-signal. Account metrics have no modeled dimensions;
+deployment metrics carry `ModelDeploymentName` and `ModelName`. The source documents
+`ProcessedFineTunedTrainingHours`, but its exact REST spelling remains the existing SK-45 capture
+boundary.
+
+| Receiver metric | Unit | Dimensions |
+|---|---|---|
+| `azure_totalcalls_total` | `Count` | — |
+| `azure_successfulcalls_total` | `Count` | — |
+| `azure_blockedcalls_total` | `Count` | — |
+| `azure_totalerrors_total` | `Count` | — |
+| `azure_clienterrors_total` | `Count` | — |
+| `azure_servererrors_total` | `Count` | — |
+| `azure_totaltokencalls_total` | `Count` | — |
+| `azure_processedprompttokens_total` | `Count` | `ModelDeploymentName`, `ModelName` |
+| `azure_generatedtokens_total` | `Count` | `ModelDeploymentName`, `ModelName` |
+| `azure_tokenspersecond_average` | `Count` | `ModelDeploymentName`, `ModelName` |
+
+`ProcessedFineTunedTrainingHours` is explicitly excluded from the native lane while SK-45 remains
+unresolved. Its existing `azure_microsoft_cognitiveservices_accounts_processed_fine_tuned_training_hours_total_count`
+legacy scrape family remains unchanged.
+
+### Explicit exclusions
+
+The existing `azure_microsoft_network_virtualnetworks_*` scrape families are deliberately absent
+from the native catalogue. The current Azure Monitor supported-metrics material does not provide
+the complete metric-definition name, aggregation, unit, and dimension contract for `Subnets`,
+`AvailableAddresses`, `ConnectedPeerings`, `Peerings`, `AvailableSubnetAddresses`, and
+`AssignedSubnetAddresses`; emitting a guessed receiver name would fabricate telemetry. The
+existing scrape families remain unchanged. Azure Event Hubs logs also remain Loki-only because
+this construct has no documented Azure Monitor receiver-shaped OTLP log contract.
+
+---
+
 ## Compute — `azure_microsoft_compute_virtualmachines_*` ✅ [slug: cspazure-compute]
 
 **Inventory (exact names — the contract).** Compute (`microsoft.compute/virtualmachines`):

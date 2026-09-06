@@ -272,6 +272,9 @@ Grafana CSP Azure integration: azure_* window-gauge metrics + Event Hubs log str
 | `ingestion_path` | string |  | IngestionPath selects the Azure→Mimir ingestion path the estate emulates (signals/cspazure.md [slug: cspazure], SK-16): "serverless" (the GC cloud/azure managed scraper — the PREFERRED default) or "azure_exporter" (prometheus.exporter.azure). The two label the same metrics differently (job, resourceID casing, instance, interval/timespan, dimension key form, HttpStatusGroup casing). Default "serverless". |
 | `credential` | string |  | Credential is the managed-scraper credential name surfaced as the `credential` label on EVERY serverless-path series (e.g. "ps_azure"). Deployment-specific (like an AWS account_id). Ignored on the azure_exporter path (which has no credential label). Defaults to "azure" on the serverless path when omitted. |
 | `tags` | map[string]string |  | Tags are resource tags surfaced as `tag_<key>` labels on EVERY series, on both paths (serverless via the managed scraper's `tags` setting; azure_exporter via `included_resource_tags`). OPT-IN: when omitted, NO tag labels are emitted — matching a default managed scraper (live-confirmed: the default scraper surfaces no tags). Use lowercase CAF keys (e.g. app, env, owner, costcenter) for cross-cloud consistency. |
+| `tenant_id` | string |  | TenantID is the Azure tenant identity carried by the native Azure Monitor receiver resource attributes. It is synthetic blueprint identity, not a credential. |
+| `identity_prefix` | string |  | IdentityPrefix opts a blueprint into a distinct deterministic subscription identity. Empty preserves the historical fixed-by-index subscription IDs byte-for-byte. Substrate-scoped Azure blueprints that can be selected together should set this. |
+| `otlp_metrics` | bool |  | OTLPMetrics enables the opt-in native Azure Monitor receiver-shaped metrics lane. The default is false so existing scrape and log output remains unchanged. |
 
 ## csp_gcp config
 
@@ -284,6 +287,8 @@ GCP Cloud Monitoring (stackdriver_*) metrics + logs
 | `projects` | int |  | Projects is the number of synthetic GCP projects to emit (default 2). |
 | `company` | string |  | Company is the company slug for project IDs: "<company>-NN" (default "demo"). |
 | `sub_signals[]` | string |  | SubSignals is the per-service-family emission switch. When empty, all families are enabled. Set to a non-empty list to emit only those families and suppress the rest. Valid values: compute, databases, storage, networking, loadbalancing, pubsub, cloudrun, bigtable, logs. OPT-IN ONLY (not in default set): vertex — Vertex AI Endpoint + Model Invocation metrics. Blueprint must list it explicitly: sub_signals: [vertex] |
+| `otel` | object | yes | OTel controls the optional native Cloud Monitoring receiver-shaped metrics lane. It is opt-in so the established Prometheus scrape and log lanes remain unchanged. |
+| `otel.metrics` | bool |  |  |
 
 ## cw_infra config
 

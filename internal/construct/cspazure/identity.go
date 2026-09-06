@@ -79,9 +79,17 @@ func buildSubs(cfg Config, fx *fixture.Set) []azureSub {
 
 	subs := make([]azureSub, cfg.Subscriptions)
 	for i := 0; i < cfg.Subscriptions; i++ {
+		subscriptionID := fmt.Sprintf("00000000-0000-0000-0000-%012d", i+1)
+		if cfg.IdentityPrefix != "" {
+			// The legacy IDs are intentionally retained when the prefix is empty. An
+			// opt-in prefix gives a second substrate-scoped blueprint distinct ARM
+			// identities without changing any existing blueprint's dump.
+			subscriptionID = fmt.Sprintf("00000000-0000-0000-0000-%s",
+				fixture.HexID(fx.Seed, 12, "azure_subscription", cfg.IdentityPrefix, fmt.Sprintf("%d", i+1)))
+		}
 		sub := azureSub{
 			// UUID-form zero-padded subscription ID (extract §4.1).
-			subscriptionID:   fmt.Sprintf("00000000-0000-0000-0000-%012d", i+1),
+			subscriptionID:   subscriptionID,
 			subscriptionName: fmt.Sprintf("%s-%02d", display, i+1),
 			resourceGroups:   resourceGroups,
 			region:           azureRegions[i%len(azureRegions)],
