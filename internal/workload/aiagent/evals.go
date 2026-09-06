@@ -6,8 +6,14 @@ import (
 	"math"
 	"path"
 
+	"github.com/rknightion/synthkit/internal/genai"
 	"github.com/rknightion/synthkit/internal/sigil"
 	"github.com/rknightion/synthkit/internal/state"
+)
+
+const (
+	metricEvalEnqueueTotal      = "agento11y_eval_enqueue_total"
+	metricEvalJudgeCostUSDTotal = "agento11y_eval_judge_cost_usd_total"
 )
 
 // agento11y_eval_* metric LABEL keys, live-captured from the terraform reference stack 2026-09-06. These are the
@@ -192,6 +198,13 @@ func buildScore(agent AgentDecl, ev EvalDecl, rule RuleDecl, gen sigil.Generatio
 //   - rule_action_fires_total is {rule, result}; result=no_actions absent action rules.
 //   - queue_depth is {status}; judge_* metrics are {model, provider} (+ status/direction/error_type).
 func accumulateEval(st *state.State, gen sigil.Generation, ev EvalDecl, rule RuleDecl, passed bool) {
+	// The enqueue is one work item per sampled evaluator scoring event. Sampling happens in
+	// scoreConversation before this function is called, so the counter equals scores by rule.
+	st.Add(metricEvalEnqueueTotal, map[string]string{
+		evalLabelEvaluatorKind: ev.Kind,
+		evalLabelRule:          rule.Name,
+	}, 1)
+
 	// Shared identity labels (scores_total / score_values_total / executions_total / duration_seconds).
 	ident := map[string]string{
 		evalLabelEvaluator:     ev.Name,
@@ -243,17 +256,46 @@ func accumulateEval(st *state.State, gen sigil.Generation, ev EvalDecl, rule Rul
 
 	if ev.Kind == "llm_judge" {
 		// Judge metrics: {model, provider} (the evaluator label is GC-aggregated away on the stack).
-		judge := map[string]string{evalLabelModel: ev.JudgeModel, evalLabelProvider: ev.JudgeProvider}
+		judge := map[string]string{}
+		if ev.JudgeModel != "" {
+			judge[evalLabelModel] = ev.JudgeModel
+		}
+		if ev.JudgeProvider != "" {
+			judge[evalLabelProvider] = ev.JudgeProvider
+		}
 		st.Observe(sigil.MetricEvalJudgeDurationSeconds, cloneLabels(judge), sigil.EvalDurationBuckets, state.LEDotZero, evalDurationSec(ev)*0.8)
-		// tokens by direction (input/output).
-		for _, dir := range []string{"input", "output"} {
+		// Judge token usage is carried by the sampled generation's ledger-backed Usage. Keep the
+		// input/output token observations and cost calculation on this same source of truth.
+		inputTokens, outputTokens := gen.Usage.Input, gen.Usage.Output
+		for _, token := range []struct {
+			direction string
+			count     int64
+		}{
+			{direction: "input", count: inputTokens},
+			{direction: "output", count: outputTokens},
+		} {
+			if token.count <= 0 {
+				continue
+			}
+			dir := token.direction
 			jt := cloneLabels(judge)
 			jt[evalLabelDirection] = dir
-			st.Add(sigil.MetricEvalJudgeTokensTotal, jt, float64(100+seedHash(ev.Name, "jtok-"+dir)%700))
+			st.Add(sigil.MetricEvalJudgeTokensTotal, jt, float64(token.count))
 		}
 		jr := cloneLabels(judge)
 		jr[evalLabelStatus] = "success"
 		st.Add(sigil.MetricEvalJudgeRequestsTotal, jr, 1)
+		if cost := judgeCostUSD(ev.JudgeModel, inputTokens, outputTokens); cost > 0 {
+			costLabels := cloneLabels(ident)
+			delete(costLabels, evalLabelEvalModel)
+			if ev.JudgeModel != "" {
+				costLabels[evalLabelModel] = ev.JudgeModel
+			}
+			if ev.JudgeProvider != "" {
+				costLabels[evalLabelProvider] = ev.JudgeProvider
+			}
+			st.Add(metricEvalJudgeCostUSDTotal, costLabels, cost)
+		}
 		// judge_errors_total: rare (seeded ~2%); error_type=unknown (the only live value).
 		if seedUnit(gen.ID, "judge-err-"+ev.Name) < 0.02 {
 			je := cloneLabels(judge)
@@ -261,6 +303,24 @@ func accumulateEval(st *state.State, gen sigil.Generation, ev EvalDecl, rule Rul
 			st.Add(sigil.MetricEvalJudgeErrorsTotal, je, 1)
 		}
 	}
+}
+
+// judgeCostUSD prices one sampled judge call from its ledger-backed input/output token counts.
+// Unknown model ids produce no cost series: a fabricated price is worse than an absent cost.
+func judgeCostUSD(model string, inputTokens, outputTokens int64) float64 {
+	if inputTokens < 0 {
+		inputTokens = 0
+	}
+	if outputTokens < 0 {
+		outputTokens = 0
+	}
+	total := inputTokens + outputTokens
+	if total == 0 {
+		return 0
+	}
+
+	inputFraction := float64(inputTokens) / float64(total)
+	return float64(total) * genai.BlendedCostPerToken(model, inputFraction)
 }
 
 // evalPassedString maps the pass outcome to the live 3-valued passed label: string-typed scores

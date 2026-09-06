@@ -341,8 +341,8 @@ metrics:
   - {root: agento11y_eval_judge_requests_total, type: counter, unit: count, v: ok, note: "judge LLM API calls; {model,provider,status}; llm_judge only"}
   - {root: agento11y_eval_judge_errors_total, type: counter, unit: count, v: assumed, note: "judge call errors; {error_type,model,provider}; llm_judge only; current name/keys source-confirmed, no error sample in the 2026-09-06 capture"}
   - {root: agento11y_eval_queue_depth, type: gauge, unit: count, v: assumed, note: "pending/failed eval work items; {status} (queued|failed); instantaneous gauge. Current name source-confirmed but not observed this time; synthkit does NOT emit it: it is backend-GLOBAL with zero per-backend identity in the live schema, so emitting it from >1 ai_agent fleet in one push would duplicate-series (Mimir rejects). Documented for completeness."}
-  - {root: agento11y_eval_enqueue_total, type: counter, unit: count, v: ok, note: "observed 2026-09-06 with {evaluator_kind,rule}; work items enqueued; catalogue-only, not emitted yet"}
-  - {root: agento11y_eval_judge_cost_usd_total, type: counter, unit: USD, v: ok, note: "observed 2026-09-06 with {evaluator,evaluator_kind,rule,gen_ai_agent_name,gen_ai_request_model,gen_ai_request_provider,model,provider}; catalogue-only, not emitted yet"}
+  - {root: agento11y_eval_enqueue_total, type: counter, unit: count, v: ok, note: "emitted 2026-09-06; observed 2026-09-06 with {evaluator_kind,rule}; one work item per sampled scoring event"}
+  - {root: agento11y_eval_judge_cost_usd_total, type: counter, unit: USD, v: ok, note: "emitted 2026-09-06; observed 2026-09-06 with {evaluator,evaluator_kind,rule,gen_ai_agent_name,gen_ai_request_model,gen_ai_request_provider,model,provider}; cumulative priced judge spend"}
 ```
 
 

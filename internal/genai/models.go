@@ -45,6 +45,7 @@ var Models = []ModelInfo{
 	//     them so those blueprints differentiate instead of falling back to weight 1.0 / cost 0).
 	{"anthropic.claude-3-5-sonnet-20241022-v2:0", PlatformBedrock, "claude", 3, 15, 1.5},
 	{"amazon.titan-text-express-v1", PlatformBedrock, "titan", 0.2, 0.6, 1.0},
+	{"claude-haiku-4-5", PlatformBedrock, "claude", 1, 5, 4.0},   // Portkey/gateway shorthand
 	{"claude-3.5-sonnet", PlatformBedrock, "claude", 3, 15, 1.5}, // Portkey-gateway shorthand (legacy pinned ID)
 	// Bare (un-prefixed) gateway/workload shorthand for the current Sonnet — distinct catalogue
 	// entry from the Bedrock-prefixed "anthropic.claude-sonnet-4-6": the gateway/poller/workload

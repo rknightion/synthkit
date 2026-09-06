@@ -55,6 +55,7 @@ blueprints receive correct `VolumeWeight` and cost rather than the unknown-ID fa
 |---|---|---|---|---|---|
 | `anthropic.claude-3-5-sonnet-20241022-v2:0` | claude | 3.00 | 15.00 | 1.5 | retired-on-native; predecessor to sonnet-4-6 |
 | `amazon.titan-text-express-v1` | titan | 0.20 | 0.60 | 1.0 | legacy Titan text model |
+| `claude-haiku-4-5` | claude | 1.00 | 5.00 | 4.0 | Portkey/gateway shorthand for `anthropic.claude-haiku-4-5-20251001-v1:0`; same Bedrock list prices, verified against the AWS Bedrock pricing page's Claude Haiku 4.5 on-demand row (pricing manifest 2026-09-01, checked 2026-09-06) |
 | `claude-3.5-sonnet` | claude | 3.00 | 15.00 | 1.5 | Portkey-gateway shorthand (example blueprint) |
 | `claude-sonnet-4-6` | claude | 3.00 | 15.00 | 2.0 | bare gateway/workload shorthand for current Sonnet (distinct from `anthropic.`-prefixed Bedrock entry) |
 

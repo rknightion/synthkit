@@ -5,6 +5,7 @@ package aiagent
 import (
 	"fmt"
 	"math"
+	"sort"
 	"testing"
 	"time"
 
@@ -243,4 +244,173 @@ func TestEvalMetricsMatchReferenceCapture(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEvalEnqueueAndJudgeCostFamiliesMatchCapture(t *testing.T) {
+	gen := sigil.Generation{
+		ID:        "captured-eval",
+		AgentName: "reference-agent",
+		Model:     "scored-model",
+		Provider:  "scored-provider",
+		Usage:     sigil.Usage{Input: 916, Output: 84},
+	}
+	rule := RuleDecl{Name: "captured-rule", SampleRate: 1, MatchAgent: []string{"reference-agent"}, Evaluators: []string{"judge", "heuristic"}}
+	e := newEvalEngine([]EvalDecl{
+		{Name: "judge", Kind: "llm_judge", ScoreKey: "quality", ValueType: "number", JudgeModel: "claude-haiku-4-5", JudgeProvider: "bedrock"},
+		{Name: "heuristic", Kind: "heuristic", ScoreKey: "toxicity", ValueType: "bool"},
+	}, []RuleDecl{rule})
+
+	st := state.NewState()
+	scores := e.scoreConversation(AgentDecl{Name: "reference-agent"}, []sigil.Generation{gen}, st, 0)
+	if len(scores) != 2 {
+		t.Fatalf("got %d scores, want one per evaluator", len(scores))
+	}
+	series := st.Collect(time.Unix(0, 0))
+
+	for _, kind := range []string{"llm_judge", "heuristic"} {
+		s := findSeries(series, metricEvalEnqueueTotal, map[string]string{
+			evalLabelEvaluatorKind: kind,
+			evalLabelRule:          rule.Name,
+		})
+		if s == nil {
+			t.Fatalf("missing enqueue series for %s", kind)
+		}
+		if s.Value != 1 {
+			t.Errorf("enqueue %s value=%v, want 1", kind, s.Value)
+		}
+		if got, want := labelKeys(s.Labels), []string{evalLabelEvaluatorKind, evalLabelRule}; !equalStrings(got, want) {
+			t.Errorf("enqueue %s labels=%v, want keys %v", kind, got, want)
+		}
+	}
+
+	cost := findSeries(series, metricEvalJudgeCostUSDTotal, map[string]string{
+		evalLabelEvaluator:     "judge",
+		evalLabelEvaluatorKind: "llm_judge",
+		evalLabelRule:          rule.Name,
+		evalLabelGenAIAgent:    gen.AgentName,
+		evalLabelGenAIModel:    gen.Model,
+		evalLabelGenAIProvider: gen.Provider,
+		evalLabelModel:         "claude-haiku-4-5",
+		evalLabelProvider:      "bedrock",
+	})
+	if cost == nil {
+		t.Fatal("missing judge cost series")
+	}
+	if math.Abs(cost.Value-0.001336) > 1e-12 {
+		t.Fatalf("judge cost=%0.12f, want 0.001336 from 916 input and 84 output tokens", cost.Value)
+	}
+	wantCostKeys := []string{
+		evalLabelEvaluator, evalLabelEvaluatorKind, evalLabelGenAIAgent, evalLabelGenAIModel,
+		evalLabelGenAIProvider, evalLabelModel, evalLabelProvider, evalLabelRule,
+	}
+	sort.Strings(wantCostKeys)
+	if got := labelKeys(cost.Labels); !equalStrings(got, wantCostKeys) {
+		t.Errorf("judge cost labels=%v, want keys %v", got, wantCostKeys)
+	}
+
+	if heuristicCost := findSeries(series, metricEvalJudgeCostUSDTotal, map[string]string{evalLabelEvaluator: "heuristic"}); heuristicCost != nil {
+		t.Fatalf("heuristic evaluator emitted judge cost: %+v", heuristicCost)
+	}
+}
+
+func TestEvalEnqueueEqualsSampledScoresPerRule(t *testing.T) {
+	e := newEvalEngine(
+		[]EvalDecl{{Name: "judge", Kind: "llm_judge", ScoreKey: "quality", ValueType: "number", JudgeModel: "claude-haiku-4-5", JudgeProvider: "bedrock"}},
+		[]RuleDecl{
+			{Name: "half", SampleRate: 0.5, MatchAgent: []string{"agent"}, Evaluators: []string{"judge"}},
+			{Name: "all", SampleRate: 1, MatchAgent: []string{"agent"}, Evaluators: []string{"judge"}},
+		},
+	)
+	gens := make([]sigil.Generation, 8)
+	for i := range gens {
+		gens[i] = sigil.Generation{ID: fmt.Sprintf("sample-%d", i), AgentName: "agent"}
+	}
+	st := state.NewState()
+	scores := e.scoreConversation(AgentDecl{Name: "agent"}, gens, st, 0)
+	wantByRule := map[string]float64{}
+	for _, score := range scores {
+		wantByRule[score.RuleID]++
+	}
+	for _, rule := range []string{"half", "all"} {
+		got := findSeries(st.Collect(time.Unix(0, 0)), metricEvalEnqueueTotal, map[string]string{
+			evalLabelEvaluatorKind: "llm_judge",
+			evalLabelRule:          rule,
+		})
+		want := wantByRule[rule]
+		if want == 0 {
+			if got != nil {
+				t.Errorf("rule %q emitted enqueue series with no scores: %+v", rule, got)
+			}
+			continue
+		}
+		if got == nil {
+			t.Fatalf("rule %q missing enqueue series for %v scores", rule, want)
+		}
+		if got.Value != want {
+			t.Errorf("rule %q enqueue=%v, want sampled score count %v", rule, got.Value, want)
+		}
+	}
+}
+
+func TestEvalJudgeCostAccumulatesInState(t *testing.T) {
+	gen := sigil.Generation{
+		ID:        "cumulative-eval",
+		AgentName: "agent",
+		Model:     "scored-model",
+		Provider:  "scored-provider",
+		Usage:     sigil.Usage{Input: 916, Output: 84},
+	}
+	ev := EvalDecl{Name: "judge", Kind: "llm_judge", JudgeModel: "claude-haiku-4-5", JudgeProvider: "bedrock"}
+	rule := RuleDecl{Name: "rule"}
+	st := state.NewState()
+	accumulateEval(st, gen, ev, rule, true)
+	accumulateEval(st, gen, ev, rule, true)
+
+	cost := findSeries(st.Collect(time.Unix(0, 0)), metricEvalJudgeCostUSDTotal, nil)
+	if cost == nil {
+		t.Fatal("missing cumulative judge cost series")
+	}
+	if math.Abs(cost.Value-0.002672) > 1e-12 {
+		t.Fatalf("cumulative judge cost=%0.12f, want 0.002672", cost.Value)
+	}
+}
+
+func findSeries(series []promrw.Series, name string, labels map[string]string) *promrw.Series {
+	for i := range series {
+		if series[i].Name != name {
+			continue
+		}
+		match := true
+		for key, want := range labels {
+			if series[i].Labels[key] != want {
+				match = false
+				break
+			}
+		}
+		if match {
+			return &series[i]
+		}
+	}
+	return nil
+}
+
+func labelKeys(labels map[string]string) []string {
+	keys := make([]string, 0, len(labels))
+	for key := range labels {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
