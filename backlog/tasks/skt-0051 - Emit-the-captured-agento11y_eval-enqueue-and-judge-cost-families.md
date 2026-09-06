@@ -1,11 +1,11 @@
 ---
 id: SKT-0051
 title: Emit the captured agento11y_eval enqueue and judge-cost families
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-06 20:17'
-updated_date: '2026-09-06 21:06'
+updated_date: '2026-09-06 21:43'
 labels:
   - ai-agent
   - signals
@@ -23,16 +23,16 @@ The 2026-09-06 heuristic-evaluator capture (signals/sigil.md, Lane C) observed t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Both families appear in the explicit safe dump for a judge-declaring blueprint with exactly the captured label keys, and are absent for a heuristic-only declaration except enqueue
-- [ ] #2 Judge cost derives from ledger token counts and a priced model in signals/genai-models.md; a test pins the arithmetic against the captured 916/84-token, USD 0.001336 sample
-- [ ] #3 signals/sigil.md moves both rows from catalogue-only to emitted with the date
+- [x] #1 Both families appear in the explicit safe dump for a judge-declaring blueprint with exactly the captured label keys, and are absent for a heuristic-only declaration except enqueue
+- [x] #2 Judge cost derives from ledger token counts and a priced model in signals/genai-models.md; a test pins the arithmetic against the captured 916/84-token, USD 0.001336 sample
+- [x] #3 signals/sigil.md moves both rows from catalogue-only to emitted with the date
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -40,3 +40,15 @@ The 2026-09-06 heuristic-evaluator capture (signals/sigil.md, Lane C) observed t
 <!-- SECTION:PLAN:BEGIN -->
 Wave 2026-09-09: implement enqueue and judge-cost emission test-first from sampled evaluator events and ledger token pricing, update the signal catalogue, and prove both families with an explicit judge fixture dump.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-09 completion evidence: failing-first tests cover sampled enqueue behavior, heuristic enqueue without judge cost, cumulative state, exact label keys, and the captured 916-input/84-output token arithmetic yielding USD 0.001336 from the priced model row. just check passed after the required just gen. Two explicit grafana-ai-o11y dumps contained agento11y_eval_enqueue_total {[evaluator_kind rule]} and agento11y_eval_judge_cost_usd_total {[evaluator evaluator_kind gen_ai_agent_name gen_ai_request_model gen_ai_request_provider model provider rule]}; the full dumps were byte-identical and matched the catalogue. The single permitted e2e invocation and exact-head CI passed.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Emits sampled evaluator enqueue totals and cumulative token-priced judge cost with the captured labels and arithmetic, documented in the signal catalogue and verified by tests, explicit dumps, the repository gate, e2e, and exact-head CI.
+<!-- SECTION:FINAL_SUMMARY:END -->
