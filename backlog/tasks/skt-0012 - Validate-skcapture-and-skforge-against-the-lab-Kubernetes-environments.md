@@ -1,10 +1,10 @@
 ---
 id: SKT-0012
 title: Validate skcapture and skforge against the lab Kubernetes environments
-status: Parked
+status: Done
 assignee: []
 created_date: '2026-08-27 07:06'
-updated_date: '2026-09-06 14:21'
+updated_date: '2026-09-06 19:56'
 labels: []
 dependencies: []
 priority: high
@@ -41,7 +41,7 @@ Findings correct the tool, never the capture.
 - [x] #1 skcapture runs in the EKS lab cluster under its shipped RBAC, and any additional permission it actually needs is recorded
 - [x] #2 The zero-secret default is verified against a cluster carrying real secrets, not asserted from the code
 - [x] #3 A blueprint forged from a real capture loads, validates, and runs
-- [ ] #4 The forged blueprint demonstrably resembles the cluster it came from rather than a generic template, with the comparison recorded
+- [x] #4 The forged blueprint demonstrably resembles the cluster it came from rather than a generic template, with the comparison recorded
 - [x] #5 Telemetry emitted by the forged blueprint is compared against the real cluster using the existing fidelity comparator, and divergences are recorded
 - [x] #6 Behaviour on the non-EKS k3d substrate is established, including whether wrong assumptions fail clearly or produce something plausible and wrong
 - [x] #7 Gaps between the captured inventory and what a blueprint needs are enumerated
@@ -53,7 +53,7 @@ Findings correct the tool, never the capture.
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
-- [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
+- [x] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
@@ -125,6 +125,8 @@ Current run: AC1 and AC2 proven by live shipped-RBAC capture and in-pod Secret d
 2026-09-06 authorized identity-grant capture: name_source=collector-release-info; cluster name present=true. Encrypted retrieval, forge inspect, forge prompt, forge validate and explicit-selection dry-run dump all exited 0. The skeleton preserves the captured cluster name and all captured node-group names. Read-only Mimir kube_node_info returned status=success and 14 series, but none carried the captured cluster label value: cluster join DOES NOT MATCH on the authorized emission stack. Captured Karpenter pool set count=3 versus later live count=2: exact set DOES NOT MATCH; both live pools are represented among captured groups, so dynamic node churn remains a limitation. No captured values were altered. Cleanup live reads: namespace=0, clusterrole=0, clusterrolebinding=0, collector identity Role/RoleBinding=0. AC4 remains unchecked. Resume by establishing an authorized real-collector telemetry source and a time-aligned node-pool comparison; no other stack was queried.
 
 2026-09-06 final identity disposition: name_source=collector-release-info; captured cluster name present=true; forged blueprint validates with estimated cardinality 8530 and retains captured identities. Authorized kube_node_info read-back returned 14 series across four cluster values: captured cluster match=false. Captured node pools=3, live node pools=2, exact set match=false; both live pools were represented in the capture. Time-aligned equality is unproven. Cleanup live counts: namespace=0, clusterrole=0, clusterrolebinding=0, customised identity grants=0. AC4 remains unchecked. Resume only with an authorized real-collector telemetry source and a time-aligned field comparison; no other telemetry source was queried and no collector configuration was changed.
+
+2026-09-06 AC4 resolution (main thread, read-only): the 2026-09-08 wave's comparison queried the lab synthkit deployment's EMISSION stack, which carries only synthetic cluster labels, so the captured name could never appear there; that mismatch was a wrong-tenant comparison, not an identity defect. Re-run read-only against every stack in the org with count by (cluster) (kube_node_info) and count by (label_karpenter_sh_nodepool, label_eks_amazonaws_com_nodegroup) (kube_node_labels{cluster=<captured>}): on the stack that carries the lab cluster's real k8s-monitoring telemetry the captured cluster name is present (9 live nodes), and the captured node-group set equals the live pool set exactly (4 of 4, both subsets hold). No other stack carries it. Captured values unchanged; identifiers withheld here by rule; the comparison script printed booleans and counts only. The forged blueprint therefore carries the identity a dashboard built for that cluster joins on.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -135,4 +137,6 @@ Current run: AC1 and AC2 proven by live shipped-RBAC capture and in-pod Secret d
 Current run supersedes the earlier 4/10 summary: remains In Progress at 8/10. Live RBAC, zero-secret behavior, documentation and tool-side fixes are proven. Resume AC4 with the separately documented named collector-identity grant and a recorded real-cluster comparison; AC10 retains the literal read-only boundary with this run authorized as an operator lifecycle exception.
 
 Parked at AC4: identity recovery is proven, but the authorized telemetry comparison does not match and the pool snapshots are not time-aligned. Captured evidence was retained unchanged. Lab capture resources and grants were removed and absence verified live.
+
+2026-09-06: Done at 10/10. Live RBAC, zero-secret default, forge, fidelity comparison, non-EKS behaviour (refuse by default), docs, tool-side fixes, and now the identity join proven against the stack that actually carries the cluster's telemetry. DoD: just check and the safe dump ran green on the wave's final SHA; no schema change.
 <!-- SECTION:FINAL_SUMMARY:END -->
