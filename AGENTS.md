@@ -124,8 +124,10 @@ and `task-finalization` before acceptance checks, summaries or a terminal status
 the Backlog MCP surface here.
 
 Finalize acceptance checks and terminal status in one CLI call; never let two agents edit one task.
-Backlog content carries no real identifiers or credentials. Park blocked work with a concrete resume
-boundary and leave untouched work To Do.
+`backlog task edit` takes `--append-notes`/`--append-plan`; the bare `--notes`/`--plan` silently
+replaces the whole section. Backlog content carries no real identifiers or credentials. Park blocked
+work with a concrete resume boundary and leave untouched work To Do. Do not recreate retired external
+issue history in another tracker.
 
 `cantfind.md` is not the tracker: its `SK-N` IDs are stable, separate from `SKT-NNNN`, and must not be
 imported or renumbered.
@@ -136,5 +138,6 @@ imported or renumbered.
   seam.
 - `SIGNALS.md` and `signals/<area>.md` - read before adding or renaming any metric, label or field.
 - `BLUEPRINT-SCHEMA.md` - generated; read for the current blueprint field surface, never hand-edit.
-- Backlog doc `doc-0002` (Wave operating model) - read before designing a multi-lane campaign here.
+- Backlog docs `doc-0001` (canonical agent-fan-out protocol) and `doc-0002` (Wave operating
+  model) - read both before designing a multi-lane campaign here.
 - `dashboards/AGENTS.md` - read before touching anything under `dashboards/`.
