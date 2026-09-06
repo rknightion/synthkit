@@ -4,7 +4,7 @@ title: 'sigil: re-capture a live heuristic evaluator to confirm its series shape
 status: Parked
 assignee: []
 created_date: '2026-08-14 16:09'
-updated_date: '2026-08-19 07:38'
+updated_date: '2026-09-06 09:42'
 labels: []
 dependencies: []
 references:
@@ -57,4 +57,6 @@ Durable record: signals/sigil.md 'Implementation status & next steps' item 2 has
 Resume boundary for the next session: (1) get a stack NAMED, with a heuristic evaluator confirmed active; (2) query sigil_eval_scores_total{evaluator_kind="heuristic"} and the sigil_eval_judge_* families for that evaluator; (3) record which label keys are present, with provenance + date, in the same form as the 2026-06-30 capture in signals/sigil.md; (4) if reality diverges, correct the emit in evals.go, never the capture. ACs 1-5 stay unchecked: none is provable without the capture.
 
 Doc pointer correction (2026-08-19): after the shipped SKT-0001 entry was folded into signals/sigil.md's 'Emitted + verified' paragraph, the heuristic-evaluator item became item 1 of 'PENDING — next steps', not item 2. AC #5 and the notes above refer to it by its old number.
+
+2026-09-06 resume plan agreed with Rob: the blocker (no stack with a heuristic evaluator active) is removed by synthkit-terraform task RKSY-0030, which builds the cheapest AWS environment running a real agent instrumented with the Grafana Agent Observability SDK sending to the shared rksy stack, then creates one heuristic evaluator and one online evaluation rule through gcx. When RKSY-0030 records scores, this task resumes exactly at its recorded resume boundary as a read-only capture against that stack. Status stays Parked until then; do not start the capture before RKSY-0030 AC3 is pasted.
 <!-- SECTION:NOTES:END -->
