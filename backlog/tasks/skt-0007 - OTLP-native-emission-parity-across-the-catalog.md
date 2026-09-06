@@ -4,7 +4,7 @@ title: OTLP-native emission parity across the catalog
 status: In Progress
 assignee: []
 created_date: '2026-08-24 12:05'
-updated_date: '2026-09-05 23:59'
+updated_date: '2026-09-06 09:28'
 labels: []
 dependencies: []
 priority: high
@@ -36,7 +36,7 @@ Shares its seam with SKT-0006.05 (the OTLP logs lane): both follow the `core.OTL
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A recorded, evidence-backed answer to which catalog constructs and workloads have a real OTel-native metric form, and which are Prometheus-scrape-only and must NOT gain an OTLP lane
+- [x] #1 A recorded, evidence-backed answer to which catalog constructs and workloads have a real OTel-native metric form, and which are Prometheus-scrape-only and must NOT gain an OTLP lane
 - [x] #2 The OTLP metrics lane mechanics support every instrument shape the in-scope catalog needs, not just the two families web_service uses
 - [x] #3 The base blueprint surface can be emitted OTel-native end to end, and a blueprint demonstrates it
 - [x] #4 No construct or workload invents an OTLP representation for telemetry that reality only ever produces as a Prometheus scrape target
@@ -58,6 +58,8 @@ Shares its seam with SKT-0006.05 (the OTLP logs lane): both follow the `core.OTL
 2026-09-05 parent reconciliation: all six earlier Done subtask summaries read. AC2 is supported by the instrument-mechanics work plus this run's Summary tests; AC3 by the native Kubernetes blueprint; AC4 by scrape-only architecture guards and withholding unconfirmed Envoy/CSP/CloudWatch families; AC5 by per-family signal provenance and root pointers; AC6 by the integrated just check architecture pass; AC7 by the evidence-study-created follow-on tasks. AC1 remains unchecked because the Azure/GCP emitted envelope remains unresolved at SK-88. Envoy native datapoints are also withheld at SK-110 through SK-112; this parent is not complete.
 
 2026-09-06 final reconciliation: Envoy native emission is now complete from a richer immutable capture, and CloudWatch Metric Streams lookup coverage expanded to 284 verified pairs with 52 explicit skips. The Azure half of the CSP contract is documented, but the Google receiver emitted name and resource envelope remains unresolved. AC1 therefore remains unchecked; all other parent criteria remain proven.
+
+2026-09-06: SK-88 resolved for both CSP kinds from source and vendor docs (see SKT-0007.09 and signals/otlp-native-verdicts.md), which completes the catalogue-wide evidence-backed verdict record: 20 OTEL-NATIVE, 24 SCRAPE-ONLY, 1 UNRESOLVED (portkey_gateway, outside this epic's scope). AC1 checked. Status stays In Progress until SKT-0007.09 AC2 lands or is explicitly descoped, then run the DoD gate and close.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

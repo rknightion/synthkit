@@ -3,10 +3,10 @@ id: SKT-0006
 title: >-
   Signal fidelity audit: validate emitted telemetry shapes against real captured
   telemetry
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-24 11:32'
-updated_date: '2026-08-24 15:12'
+updated_date: '2026-09-06 09:28'
 labels: []
 dependencies: []
 priority: high
@@ -30,18 +30,30 @@ Naming constraint: this repository is public and carries a forbidden-words guard
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Both sides (synthkit emission and real captured collector egress) produce the same machine-readable inventory schema
-- [ ] #2 A committed reality corpus records real captured shapes with provenance (substrate, chart version, capture date) and a documented cardinality-elision policy
-- [ ] #3 Every PR runs an inventory diff against the corpus and reports findings; report-only on first landing (does not fail the build)
-- [ ] #4 A k3d capture lab runs both as a local one-shot make target and as a nightly CI job
-- [ ] #5 A gcx read-back path merges real EKS-specific label names and values into the corpus
-- [ ] #6 Coverage gaps found by the audit are routed to cantfind.md PENDING items, not silently dropped
-- [ ] #7 docs/ documents how to run each capture path and how to refresh the corpus
+- [x] #1 Both sides (synthkit emission and real captured collector egress) produce the same machine-readable inventory schema
+- [x] #2 A committed reality corpus records real captured shapes with provenance (substrate, chart version, capture date) and a documented cardinality-elision policy
+- [x] #3 Every PR runs an inventory diff against the corpus and reports findings; report-only on first landing (does not fail the build)
+- [x] #4 A k3d capture lab runs both as a local one-shot make target and as a nightly CI job
+- [x] #5 A gcx read-back path merges real EKS-specific label names and values into the corpus
+- [x] #6 Coverage gaps found by the audit are routed to cantfind.md PENDING items, not silently dropped
+- [x] #7 docs/ documents how to run each capture path and how to refresh the corpus
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
-- [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-06 parent reconciliation against the five Done subtasks. AC1: SKT-0006.01 landed the shared canonical inventory schema, synth JSON export and canonical e2e receiver output. AC2: SKT-0006.02 landed the frozen v1alpha1 substrate-scoped corpus with provenance (substrate, chart version, capture date) and the values_elided cardinality policy documented in docs/reality-corpus.md. AC3: SKT-0006.02 landed the report-only PR gate; SKT-0010.05 later gave contradictions teeth, coverage gaps stay report-only. AC4: SKT-0006.03 landed the k3d lab as a local recipe (now just lab) and the nightly signal-fidelity-k3d workflow (run 32739962451 published an artifact). AC5: SKT-0006.04 merged 588 CloudWatch and 31 EKS Kubernetes contracts from the operator-selected live read-back with EKS label names and values. AC6: coverage gaps route to cantfind.md PENDING stubs (SKT-0006.02 produced 97 stubs; SKT-0010.04 gave every gap a recorded verdict). AC7: docs/reality-corpus.md documents both producers (k3d lab, gcx read-back with just corpus-gcx) and the safe refresh sequence. Nothing in this parent was checked from a child's status alone; each line above names the child evidence.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+2026-09-06: Parent reconciled Done at 7/7 from the five Done subtasks' recorded evidence (inventory schema, frozen corpus with provenance, report-only then enforced gate, k3d lab local plus nightly, gcx EKS read-back, PENDING routing, refresh docs). DoD: just check green on main at this reconciliation, no blueprint field changed, explicit safe dump 2917 Prometheus and 430 OTLP names recorded by the 2026-09-06 wave report.
+<!-- SECTION:FINAL_SUMMARY:END -->
