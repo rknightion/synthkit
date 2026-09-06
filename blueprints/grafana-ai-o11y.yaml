@@ -2,7 +2,7 @@
 #
 # Models a fleet of AI agents emitting the three concurrent sigil lanes, keyed by conversation_id:
 #   A) native generation/workflow-step/score ingest (the AI-Observability conversations + content)
-#   B) OTel gen_ai-semconv traces (Tempo)            C) gen_ai_client_*/sigil_eval_* metrics (Mimir)
+#   B) OTel gen_ai-semconv traces (Tempo)            C) gen_ai_client_*/agento11y_eval_* metrics (Mimir)
 # Two fleets reproduce the two faces of the product (validated against real captures, 2026-06-30):
 #   - CODING agents (sdk-go): claude-code (+subagents) + codex — service.name=sigil, huge cache-read /
 #     tiny fresh-input, tool_use-dominant turns, fs/shell tools. No evals.
@@ -22,7 +22,7 @@ label: grafana-ai-o11y
 shape: business_hours_plateau
 timezone: Europe/London
 metadata:
-  description: "The full Grafana AI Observability (sigil) experience: coding agents (claude-code+subagents, codex) and general agents (multi-agent orchestration, autonomous SOC triage, multi-turn travel, single-shot title) emitting native sigil generations + gen_ai OTLP traces + gen_ai_client_*/sigil_eval_* metrics, with online evaluators."
+  description: "The full Grafana AI Observability (sigil) experience: coding agents (claude-code+subagents, codex) and general agents (multi-agent orchestration, autonomous SOC triage, multi-turn travel, single-shot title) emitting native sigil generations + gen_ai OTLP traces + gen_ai_client_*/agento11y_eval_* metrics, with online evaluators."
   owner: ai-observability
   category: showcase
   tags: [ai, sigil, ai-observability, gen_ai, coding-agents, llm, evals]
@@ -142,7 +142,7 @@ workloads:
 # also fire them on demand via POST /control/scenarios). signals/sigil.md [slug: sigil-failure-modes].
 #   - provider_call_error: a fraction of generations error → call_error generations + ERROR spans +
 #     error_type/error_category on gen_ai_client_operation_duration_seconds.
-#   - eval_quality_regression: online-eval scores regress → sigil_eval_score_values_total{passed=false}
+#   - eval_quality_regression: online-eval scores regress → agento11y_eval_score_values_total{passed=false}
 #     rate rises on the general fleet's evaluators.
 incidents:
   - { kind: provider_call_error,     target: sigil-general-agents, at: "14:20", for: 25m, intensity: 0.30 }

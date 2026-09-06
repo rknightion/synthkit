@@ -38,7 +38,7 @@ type Workload struct {
 func Registration() core.WorkloadReg {
 	return core.WorkloadReg{
 		Kind:      kind,
-		Doc:       "ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sigil generation/workflow-step/score ingest + gen_ai OTLP spans + gen_ai_client_*/sigil_eval_* metrics",
+		Doc:       "ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sigil generation/workflow-step/score ingest + gen_ai OTLP spans + gen_ai_client_*/agento11y_eval_* metrics",
 		NewConfig: func() any { return &Config{} },
 		Build:     build,
 		// Substrate-scoped: sigil data carries no blueprint selector label (real sigil data has
@@ -157,7 +157,7 @@ func (w *Workload) ProjectBatch(ctx context.Context, now time.Time, world *core.
 		for _, o := range obs {
 			accumulate(w.st, o)
 		}
-		// Evals: score sampled generations → Lane A scores + sigil_eval_* observations. Under an
+		// Evals: score sampled generations → Lane A scores + agento11y_eval_* observations. Under an
 		// eval_quality_regression the scores are biased toward failing (passed=false rate rises).
 		scores := w.evals.scoreConversation(agent, gens, w.st, fc.evalRegress)
 

@@ -1,10 +1,10 @@
 ---
 id: SKT-0002
 title: 'sigil: re-capture a live heuristic evaluator to confirm its series shape'
-status: Parked
+status: Done
 assignee: []
 created_date: '2026-08-14 16:09'
-updated_date: '2026-09-06 17:51'
+updated_date: '2026-09-06 19:03'
 labels: []
 dependencies: []
 references:
@@ -27,10 +27,10 @@ If the capture shows synth diverges from reality, the SYNTH is corrected, never 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A heuristic (non-llm_judge) evaluator is confirmed active and emitting on a live sigil stack, with the stack and capture date recorded.
-- [ ] #2 The exact metric names and label keys its series carry are captured, and the judge-label question is answered definitively: labels omitted, or present with some value.
-- [ ] #3 signals/sigil.md is updated with the captured contract, its provenance and date, matching how the 2026-06-30 llm_judge capture is recorded there.
-- [ ] #4 Where synth diverges from the capture, the construct/workload is corrected to match reality, not the other way round.
+- [x] #1 A heuristic (non-llm_judge) evaluator is confirmed active and emitting on a live sigil stack, with the stack and capture date recorded.
+- [x] #2 The exact metric names and label keys its series carry are captured, and the judge-label question is answered definitively: labels omitted, or present with some value.
+- [x] #3 signals/sigil.md is updated with the captured contract, its provenance and date, matching how the 2026-06-30 llm_judge capture is recorded there.
+- [x] #4 Where synth diverges from the capture, the construct/workload is corrected to match reality, not the other way round.
 - [x] #5 signals/sigil.md "Implementation status & next steps" item 2 is resolved or, if no heuristic evaluator can be made live, restated with what specifically blocks it.
 <!-- AC:END -->
 
@@ -40,6 +40,12 @@ If the capture shows synth diverges from reality, the SYNTH is corrected, never 
 - [x] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+The repaired reference agent now has persisted online heuristic, JSON-schema and numeric/string judge scores. RKSY-0030 AC3 is checked from authenticated results. Query the authorized reference metrics tenant for the documented eval and judge families; record exact observed family names and label keys. Correct an emitter only if returned metric data establishes a divergence.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
@@ -63,4 +69,14 @@ Doc pointer correction (2026-08-19): after the shipped SKT-0001 entry was folded
 2026-09-06: the terraform reference stack has one configured heuristic evaluator and one online rule. Authenticated read-back at 15:59:40Z returned 40 generations, version 2026.09.06, and zero nonempty persisted-score responses. The direct model invocation requires an inference profile; failed generations carry no output. A direct evaluator test false does not satisfy the persisted-score prerequisite. No Mimir eval-family query was run; judge labels omitted versus placeholder remains unverified. signals/sigil.md now records this precise boundary, satisfying AC5 only. No emitter correction is justified. Resume after an authorized inference-scope decision and a persisted heuristic score, then capture family and label keys read-only. just check and the safe explicit-selection dump passed this wave; conditional generation requirement is not applicable to this prose-only step.
 
 Final score prerequisite read, 2026-09-06T17:45:34Z: generations=62, agent_version=2026.09.06, conversations=62, nonempty_score_responses=0. The recorded AC5 boundary remains unchanged; no metric-family query or emitter correction was justified.
+
+2026-09-06 capture completed after persisted online scores on the authorized terraform reference stack. Window 18:42:00-18:46:11 UTC: old-prefix queries returned HTTP 200/status success but zero series; current agento11y_eval_* queries returned heuristic=45, judge=22, all_eval=136 series. Heuristic eval_ai_request_model is PRESENT and equals the scored generation model; model/provider are absent. Score counters carry evaluator_role=outcome, execution/duration do not. Exact family/key sets and provenance are in signals/sigil.md. Corrected metric constants, scored-model labels and score-role labels; regression failed before the fix and passed afterwards.
+Validation: targeted aiagent/sigil tests, just gen, just check (including safe signal-fidelity inventory comparison), explicit safe-selection just dump, and SYNTHKIT_E2E_INCLUDE_AGENT=false just e2e passed. No agent-declaring blueprint or fixture was selected. CodeRabbit completed with one minor documentation finding: clarified that JudgeModel supplies synthetic judge response-model labels, retaining the unmodified live profile/response distinction. No extra test was added for that prose clarification. Docker context now excludes ignored codex/ and runtime/; declarative exclusion validated without a new test. Local scratch has an ignored nested Go module to prevent raw evidence Go files entering package discovery; no root dependency change.
+Coverage limits: enqueue and judge-cost families are catalogue-only; categorical pass_match configuration is not modeled; current judge-error and queue names are source-confirmed but unobserved in this successful live window. These do not leave the original heuristic label-key question unresolved. Stack identity is retained only in protected runtime evidence, per the run privacy contract.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Captured live heuristic series and corrected SynthKit to current agento11y_eval_* names, scored-model identity and score-only evaluator_role. All five acceptance criteria proven; targeted regression, full local check, safe dump and agent-excluded Docker e2e passed. Broader catalogue gaps remain explicitly documented.
+<!-- SECTION:FINAL_SUMMARY:END -->

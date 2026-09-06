@@ -29,6 +29,8 @@ control-state*.json
 control-state-data/
 
 # Scratch specs/plans (gitignored) and durable docs — not needed at runtime.
+codex/
+runtime/
 docs/
 
 # Built binaries / test artifacts.

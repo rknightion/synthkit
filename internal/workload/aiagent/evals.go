@@ -10,7 +10,7 @@ import (
 	"github.com/rknightion/synthkit/internal/state"
 )
 
-// sigil_eval_* metric LABEL keys, live-captured from emea-cloud-demokit 2026-06-30. These are the
+// agento11y_eval_* metric LABEL keys, live-captured from the terraform reference stack 2026-09-06. These are the
 // OTLP→Prom translated convention the stack actually uses — DELIBERATELY different from the
 // gen_ai_client_* labels (e.g. eval uses gen_ai_agent_name + gen_ai_request_provider, where the
 // client metrics use agent_name + gen_ai_provider_name). Never invent — see signals/sigil.md.
@@ -21,7 +21,7 @@ const (
 	evalLabelGenAIAgent    = "gen_ai_agent_name"
 	evalLabelGenAIModel    = "gen_ai_request_model"
 	evalLabelGenAIProvider = "gen_ai_request_provider"
-	evalLabelEvalModel     = "eval_ai_request_model" // the (versioned) judge model on score/exec metrics
+	evalLabelEvalModel     = "eval_ai_request_model" // scored generation model on score/exec metrics
 	evalLabelScoreKey      = "score_key"
 	evalLabelPassed        = "passed"      // 3-valued: true|false|unknown
 	evalLabelScoreValue    = "score_value" // bool/string scores only
@@ -48,7 +48,7 @@ func newEvalEngine(evals []EvalDecl, rules []RuleDecl) *evalEngine {
 }
 
 // scoreConversation samples each rule that matches the agent and, for every deterministically
-// sampled generation, emits a sigil.Score (Lane A) and accumulates the sigil_eval_* observations
+// sampled generation, emits a sigil.Score (Lane A) and accumulates the agento11y_eval_* observations
 // into st (Lane C). The score value/passed are deterministic per (generationID, evaluatorID) so a
 // conversation's scores are stable for a given run's ids. regress (0..1) is the active
 // eval_quality_regression intensity: it biases scores toward failing without breaking determinism.
@@ -179,12 +179,12 @@ func buildScore(agent AgentDecl, ev EvalDecl, rule RuleDecl, gen sigil.Generatio
 	return score
 }
 
-// accumulateEval folds the sigil_eval_* observations for one scoring event into st, with the label
-// shapes LIVE-CAPTURED from emea-cloud-demokit 2026-06-30 (NOT the backend-code short names — the
+// accumulateEval folds the agento11y_eval_* observations for one scoring event into st, with the label
+// shapes captured from the terraform reference stack 2026-09-06 (NOT the backend-code short names — the
 // stack uses the OTLP→Prom translated convention). Key realities encoded here:
 //   - identity labels: evaluator / evaluator_kind / rule / gen_ai_agent_name / gen_ai_request_model /
-//     gen_ai_request_provider, plus eval_ai_request_model (the judge model) for llm_judge.
-//   - scores_total carries score_key + passed (3-valued: true|false|unknown — unknown for string
+//     gen_ai_request_provider, plus eval_ai_request_model (the scored model) for every evaluator kind.
+//   - scores_total carries evaluator_role=outcome + score_key + passed (3-valued: true|false|unknown — unknown for string
 //     scores with no pass_value). NO agent_version (absent live).
 //   - score_values_total is emitted ONLY for bool/string scores (numeric scores are not enumerated as
 //     label values — unbounded cardinality), and adds score_value (the value as a string).
@@ -205,14 +205,15 @@ func accumulateEval(st *state.State, gen sigil.Generation, ev EvalDecl, rule Rul
 	if gen.Provider != "" {
 		ident[evalLabelGenAIProvider] = gen.Provider
 	}
-	if ev.JudgeModel != "" {
-		ident[evalLabelEvalModel] = ev.JudgeModel // eval_ai_request_model = the judge model
+	if gen.Model != "" {
+		ident[evalLabelEvalModel] = gen.Model // present for heuristic and judge evaluations alike
 	}
 
 	passedStr := evalPassedString(ev, passed)
 
 	scoresLabels := cloneLabels(ident)
 	scoresLabels[evalLabelScoreKey] = ev.ScoreKey
+	scoresLabels["evaluator_role"] = "outcome"
 	scoresLabels[evalLabelPassed] = passedStr
 	st.Add(sigil.MetricEvalScoresTotal, scoresLabels, 1)
 
@@ -234,7 +235,7 @@ func accumulateEval(st *state.State, gen sigil.Generation, ev EvalDecl, rule Rul
 	// duration_seconds: identity labels (live buckets).
 	st.Observe(sigil.MetricEvalDurationSeconds, cloneLabels(ident), sigil.EvalDurationBuckets, state.LEDotZero, evalDurationSec(ev))
 
-	// NOTE: sigil_eval_queue_depth ({status} only — see evalvocab.go) is DELIBERATELY NOT emitted.
+	// NOTE: agento11y_eval_queue_depth ({status} only — see evalvocab.go) is DELIBERATELY NOT emitted.
 	// It is a backend-GLOBAL gauge with zero per-backend identity in the live schema, so emitting it
 	// from more than one ai_agent fleet in a single push would produce a duplicate series (Mimir
 	// rejects identical name+labels). Every other eval family carries gen_ai_agent_name/evaluator/

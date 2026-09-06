@@ -36,7 +36,7 @@ var providerErrorClasses = []struct{ typ, cat string }{
 // Lane-B status plumbing is unconditional; these modes drive WHEN it fires.
 var FailureModes = []failuremode.Mode{
 	{Name: modeProviderCallError, Axis: failuremode.AxisWorkload, Help: "elevated provider/LLM call-error rate on the targeted ai_agent fleet — call_error generations, ERROR spans, error_type/error_category on operation_duration"},
-	{Name: modeEvalQualityRegression, Axis: failuremode.AxisWorkload, Help: "online-eval quality regresses on the targeted ai_agent fleet — sigil_eval_score_values_total{passed=false} rate rises"},
+	{Name: modeEvalQualityRegression, Axis: failuremode.AxisWorkload, Help: "online-eval quality regresses on the targeted ai_agent fleet — agento11y_eval_score_values_total{passed=false} rate rises"},
 }
 
 // failCtx is the per-ProjectBatch resolved failure intensity for each mode (0 ⇒ inactive), read once

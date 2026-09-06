@@ -646,7 +646,7 @@ _(no configurable fields)_
 
 **Location:** `workloads[].config (type: ai_agent)`  ·  **group:** workload
 
-ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sigil generation/workflow-step/score ingest + gen_ai OTLP spans + gen_ai_client_*/sigil_eval_* metrics
+ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sigil generation/workflow-step/score ingest + gen_ai OTLP spans + gen_ai_client_*/agento11y_eval_* metrics
 
 | key | type | optional | description |
 |---|---|---|---|
@@ -845,7 +845,7 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `error_burst` | axis: workload |  | elevated 5xx error rate |
 | `error_spike` | axis: service |  | elevated 5xx error rate on the targeted service node |
 | `eval_quality_degraded` | axis: cloud |  | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb |
-| `eval_quality_regression` | axis: workload |  | online-eval quality regresses on the targeted ai_agent fleet — sigil_eval_score_values_total{passed=false} rate rises |
+| `eval_quality_regression` | axis: workload |  | online-eval quality regresses on the targeted ai_agent fleet — agento11y_eval_score_values_total{passed=false} rate rises |
 | `fallback_storm` | axis: service |  | elevated gateway fallback rate on the targeted service node |
 | `goroutine_leak` | axis: service |  | goroutine accumulation on the targeted service node |
 | `goroutine_leak` | axis: workload |  | goroutine accumulation — raises goroutines/goroutine profile sample values |

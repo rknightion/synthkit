@@ -5,7 +5,7 @@
 // multi-turn assistants, single-shot utilities) and emits three concurrent lanes keyed by
 // conversation_id - native Agent Observability (sigil) generation/workflow-step/score ingest
 // (content), OTLP gen_ai
-// spans, and gen_ai_client_*/sigil_eval_* metrics. Vocabulary + the content corpus live in the
+// spans, and gen_ai_client_*/agento11y_eval_* metrics. Vocabulary + the content corpus live in the
 // internal/sigil mechanic lib; this workload owns the per-conversation turn/token/timing model.
 // The Kind() string is "ai_agent" (matches web_service); the package dir is aiagent (Go idiom).
 package aiagent

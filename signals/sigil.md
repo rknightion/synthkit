@@ -1,10 +1,10 @@
 # Grafana Agent Observability (historically sigil) (→ Agent Observability + Tempo + Mimir) - ScopeBlueprint (workload-emitted)
 
 Grafana's current product name is **Agent Observability**; `sigil` remains synthkit's historical
-internal name and the observed `sigil_*` vocabulary prefix. The `ai_agent` workload emits **three
+internal name; current evaluation metrics use the observed `agento11y_eval_*` prefix. The `ai_agent` workload emits **three
 concurrent lanes** - all keyed by a shared `conversation_id` + per-turn `trace_id`/`span_id`: native
 generation ingest (HTTP protojson, Lane A), OTLP traces to Tempo (Lane B), and gen_ai_client_* +
-sigil_eval_* metrics via promrw (Lane C). No Loki lane. Blueprint-scoped; the `blueprint` label is
+agento11y_eval_* metrics via promrw (Lane C). No Loki lane. Blueprint-scoped; the `blueprint` label is
 stamped by the scoped writer as usual. Vocabulary constants live in [`internal/sigil`](../internal/sigil); the shared
 `gen_ai.*` keys + `gen_ai_client_*` metric names come from [`internal/genai`](../internal/genai).
 Global rules: [`00-canon.md`](00-canon.md) — `[slug: cardinality]`, `[slug: content-strip]`,
@@ -16,9 +16,8 @@ the `m7kni` stack (Grafana internal coding-agent traffic, 64,048 generations: `c
 50 agents across orchestration / autonomous / multi-turn / single-shot archetypes); validated
 2026-06-30. Lane A proto field names: `generation_ingest.proto` + `evaluation_ingest.proto` in
 `~/repos/sigil`. Lane B span attribute names and Lane C metric names: direct live capture
-(Tempo trace inspector + Mimir series query). Eval metric families (`sigil_eval_*`): `v: ok` —
-LIVE-CAPTURED from `emea-cloud-demokit` (online evals running, namespace `stacks-996949`) via Mimir
-series + label-values queries + `gcx aio11y` evaluator/rule inspection, 2026-06-30. Core
+(Tempo trace inspector + Mimir series query). Historical eval metrics were captured on 2026-06-30. Their current names and common labels
+are superseded by the authenticated reference capture on 2026-09-06 below. Core
 `gen_ai_client_*` metrics: `v: ok` (confirmed in m7kni + emea-cloud-demokit live capture,
 2026-06-30).*
 
@@ -48,7 +47,7 @@ for a rejection body. The fixture remains test-only and must never be selected f
 Current documentation directly corroborates the generation vocabulary shared by synthkit's owned
 emitter: `conversation_id`, `agent_name`, `agent_version`, model identity, and tool execution
 `tool_name`, `tool_call_id`, and `tool_type`. The richer generation, workflow-step, score,
-`sigil.*`, and `sigil_eval_*` vocabulary below remains sourced from the dated live captures and
+`sigil.*`, and evaluation metric vocabulary below remains sourced from the dated live captures and
 vendored contract noted in this catalogue; this current SDK documentation does not independently
 enumerate all of those fields.
 
@@ -127,7 +126,7 @@ A `Message` has `role` (`user` \| `assistant`) and `parts[]`. Part kinds:
 - **`ScoreIngestService.ExportScores`** — eval results written when a configured rule samples a turn.
   Each `Score` has `generation_id`, `evaluator_name`, `score_key`, `value` (number/bool/string),
   `threshold`, `passed: bool`. These feed the `latest_scores` display in the sigil UI and drive the
-  `sigil_eval_*` metrics (Lane C).
+  `agento11y_eval_*` metrics (Lane C).
 
 ---
 
@@ -263,11 +262,11 @@ span_attributes:
 Metric label names follow the OTLP→Prom translation (`gen_ai.operation.name` → `gen_ai_operation_name`,
 etc.). Resource-attr labels (`deployment_environment_name`, `service_name`, `k8s_cluster_name`, etc.)
 are promoted by GC onto the `gen_ai_client_*` series — see `[slug: env-label-keys]`. (NOTE: those
-resource labels are ABSENT on the `sigil_eval_*` series — confirmed live.) `gen_ai_client_*`
+resource labels are ABSENT on the `agento11y_eval_*` series — confirmed live.) `gen_ai_client_*`
 histograms use base-2 second buckets (matching `internal/genai` advisory buckets; `v: assumed` for
 those bucket boundaries). Core `gen_ai_client_*` metric names + label shapes: `v: ok` (live-confirmed
-in m7kni + emea-cloud-demokit captures, 2026-06-30). `sigil_eval_*` families: `v: ok` — names, labels,
-AND histogram buckets live-captured from `emea-cloud-demokit` 2026-06-30 (see below).
+in m7kni + emea-cloud-demokit captures, 2026-06-30). Current evaluation names, labels and histogram buckets are recorded from the
+2026-09-06 reference capture below; historical-only and source-only evidence is distinguished.
 
 ### gen_ai client metrics [slug: sigil-gen-ai-metrics]
 
@@ -298,31 +297,31 @@ metrics:
   - {root: gen_ai_client_time_to_first_token_seconds, type: histogram, unit: seconds, v: ok, note: "live-confirmed on streaming agents (streamText turns) 2026-06-30; absent for SYNC generateText; buckets v:assumed"}
 ```
 
-### sigil_eval metrics [slug: sigil-eval-metrics]
+### Evaluation metrics [slug: sigil-eval-metrics]
 
-Emitted when a configured eval rule samples a turn and scores the `Generation`. **`v: ok`** — all ten
-families + their label shapes LIVE-CAPTURED from `emea-cloud-demokit` (online evals running, namespace
-`stacks-996949`, 2026-06-30). ⚠ The labels use the **OTLP→Prom translated convention** — NOT the
-backend short names a previous (code-derived `v: assumed`) version of this doc guessed: `evaluator`
-(not `evaluator_name`), `rule` (not `rule_name`), `gen_ai_agent_name` (not `agent_name`), `model`+
-`provider` on judge metrics (not `judge_model`); `agent_version` is ABSENT. This convention is also
-DELIBERATELY different from the `gen_ai_client_*` family above (which uses `agent_name` +
-`gen_ai_provider_name`) — the two families do not share label spellings.
+The 2026-09-06 reference capture supersedes the 2026-06-30 names and common-label
+assumptions. Current tenant metrics use `agento11y_eval_*`; queries for the old
+`sigil_eval_*` names returned no series. The score, execution and duration families
+carry `eval_ai_request_model` equal to the **scored generation model**, for heuristic,
+JSON-schema and judge evaluations alike. Score counters additionally carry
+`evaluator_role="outcome"`. Judge request/token/duration metrics retain `model` and
+`provider` for the actual judge. No `agent_version` or resource identity labels appeared.
 
 ```yaml signals
-family: sigil_eval
+family: agento11y_eval
 scope: blueprint
 sink: promrw
 labels:
   evaluator: <evaluator>              # name declared in blueprint evaluators: (NOT evaluator_name)
-  evaluator_kind: llm_judge|heuristic # heuristic exists in config but only llm_judge seen live (v:ok for llm_judge)
+  evaluator_kind: llm_judge|heuristic|json_schema # all three observed in the 2026-09-06 capture
+  evaluator_role: outcome            # score counters only; not execution/duration
   score_key: <key>                    # e.g. ecommerce_helpfulness_score, prompt_injection_detected, toxicity, topic
   rule: <rule>                        # triggering rule name (NOT rule_name)
   gen_ai_agent_name: <agent>          # the SCORED agent (NOT agent_name); e.g. cart_agent, product_agent
   gen_ai_request_model: <model>       # the scored generation's model
   gen_ai_request_provider: <provider> # the scored generation's provider (NOT gen_ai_provider_name)
-  eval_ai_request_model: <judge-model># the judge model (versioned live, e.g. claude-haiku-4-5-20251001) on score/exec/duration
-  passed: true|false|unknown          # 3-valued — unknown for string-typed scores with no pass_value; scores/score_values
+  eval_ai_request_model: <scored-model> # same generation model as gen_ai_request_model, including heuristic
+  passed: true|false|unknown          # 3-valued — unknown when no pass condition is configured; categorical pass_match can yield true/false; scores/score_values
   score_value: <value-as-string>      # score_values_total ONLY; the bool/string value (e.g. "false", "alerting")
   status: success|failed|queued       # executions/judge_requests (success|failed); queue_depth (queued|failed)
   result: no_actions                  # rule_action_fires_total ONLY
@@ -332,17 +331,75 @@ labels:
   error_type: <type>                  # judge_errors_total ONLY; e.g. unknown
   # NO GC-promoted resource labels on eval series (deployment_environment_name/service_name/etc. confirmed ABSENT live).
 metrics:
-  - {root: sigil_eval_scores_total, type: counter, unit: count, v: ok, note: "total scoring events; {evaluator,evaluator_kind,score_key,rule,gen_ai_agent_name,gen_ai_request_model,gen_ai_request_provider,eval_ai_request_model,passed}"}
-  - {root: sigil_eval_score_values_total, type: counter, unit: count, v: ok, note: "bool/string scores ONLY (numeric NOT enumerated — unbounded cardinality); scores_total labels + score_value"}
-  - {root: sigil_eval_executions_total, type: counter, unit: count, v: ok, note: "eval executions; identity labels + status (success|failed) — NOT passed; agent/model labels drop when status=failed"}
-  - {root: sigil_eval_rule_action_fires_total, type: counter, unit: count, v: ok, note: "rule outcomes; {rule,result}; result=no_actions when no action rule configured"}
-  - {root: sigil_eval_duration_seconds, type: histogram, unit: seconds, v: ok, note: "wall-clock eval duration; identity labels; buckets 0.01..81.92 (base-2 from 0.01s)"}
-  - {root: sigil_eval_judge_duration_seconds, type: histogram, unit: seconds, v: ok, note: "LLM judge call duration; {model,provider}; llm_judge only; buckets 0.01..81.92"}
-  - {root: sigil_eval_judge_tokens_total, type: counter, unit: tokens, v: ok, note: "judge call tokens; {model,provider,direction}; direction=input|output; llm_judge only"}
-  - {root: sigil_eval_judge_requests_total, type: counter, unit: count, v: ok, note: "judge LLM API calls; {model,provider,status}; llm_judge only"}
-  - {root: sigil_eval_judge_errors_total, type: counter, unit: count, v: ok, note: "judge call errors; {error_type,model,provider}; llm_judge only; live-captured 2026-06-30 (was undocumented)"}
-  - {root: sigil_eval_queue_depth, type: gauge, unit: count, v: ok, note: "pending/failed eval work items; {status} (queued|failed); instantaneous gauge. CAPTURED but synthkit does NOT emit it: it is backend-GLOBAL with zero per-backend identity in the live schema, so emitting it from >1 ai_agent fleet in one push would duplicate-series (Mimir rejects). Documented for completeness."}
+  - {root: agento11y_eval_scores_total, type: counter, unit: count, v: ok, note: "total scoring events; {evaluator,evaluator_kind,evaluator_role,score_key,rule,gen_ai_agent_name,gen_ai_request_model,gen_ai_request_provider,eval_ai_request_model,passed}"}
+  - {root: agento11y_eval_score_values_total, type: counter, unit: count, v: ok, note: "bool/string scores ONLY (numeric NOT enumerated — unbounded cardinality); scores_total labels + score_value"}
+  - {root: agento11y_eval_executions_total, type: counter, unit: count, v: ok, note: "eval executions; identity labels + status (success|failed) — NOT passed; agent/model labels drop when status=failed"}
+  - {root: agento11y_eval_rule_action_fires_total, type: counter, unit: count, v: ok, note: "rule outcomes; {rule,result}; result=no_actions when no action rule configured"}
+  - {root: agento11y_eval_duration_seconds, type: histogram, unit: seconds, v: ok, note: "wall-clock eval duration; identity labels; buckets 0.01..81.92 (base-2 from 0.01s)"}
+  - {root: agento11y_eval_judge_duration_seconds, type: histogram, unit: seconds, v: ok, note: "LLM judge call duration; {model,provider}; llm_judge only; buckets 0.01..81.92"}
+  - {root: agento11y_eval_judge_tokens_total, type: counter, unit: tokens, v: ok, note: "judge call tokens; {model,provider,direction}; direction=input|output; llm_judge only"}
+  - {root: agento11y_eval_judge_requests_total, type: counter, unit: count, v: ok, note: "judge LLM API calls; {model,provider,status}; llm_judge only"}
+  - {root: agento11y_eval_judge_errors_total, type: counter, unit: count, v: assumed, note: "judge call errors; {error_type,model,provider}; llm_judge only; current name/keys source-confirmed, no error sample in the 2026-09-06 capture"}
+  - {root: agento11y_eval_queue_depth, type: gauge, unit: count, v: assumed, note: "pending/failed eval work items; {status} (queued|failed); instantaneous gauge. Current name source-confirmed but not observed this time; synthkit does NOT emit it: it is backend-GLOBAL with zero per-backend identity in the live schema, so emitting it from >1 ai_agent fleet in one push would duplicate-series (Mimir rejects). Documented for completeness."}
+  - {root: agento11y_eval_enqueue_total, type: counter, unit: count, v: ok, note: "observed 2026-09-06 with {evaluator_kind,rule}; work items enqueued; catalogue-only, not emitted yet"}
+  - {root: agento11y_eval_judge_cost_usd_total, type: counter, unit: USD, v: ok, note: "observed 2026-09-06 with {evaluator,evaluator_kind,rule,gen_ai_agent_name,gen_ai_request_model,gen_ai_request_provider,model,provider}; catalogue-only, not emitted yet"}
 ```
+
+
+#### Reference capture, 2026-09-06
+
+Provenance: the terraform reference stack, authenticated per-signal Mimir series API,
+window 18:42:00–18:46:11 UTC. No source capture was rewritten. Persisted online scores
+were read back before any metric query: boolean true/pass, boolean false/fail, numeric
+5/pass and categorical string prose/fail. The negative controls deliberately require
+short text or JSON while the real agent produces an explanatory sentence.
+
+```text
+Old-name queries: HTTP 200, status=success, heuristic=0, judge=0, all_eval=0 series.
+Current-name queries: HTTP 200, status=success, heuristic=45, judge=22, all_eval=136 series.
+Heuristic eval_ai_request_model: present; equals gen_ai_request_model (the scored model).
+Heuristic model/provider: absent.
+Score evaluator_role: outcome.
+Histogram bounds: 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56,
+                  5.12, 10.24, 20.48, 40.96, 81.92, +Inf.
+```
+
+Exact captured label-key sets (histogram suffixes listed explicitly):
+
+| Family | Keys |
+|---|---|
+| `agento11y_eval_duration_seconds_bucket` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `le`, `rule` |
+| `agento11y_eval_duration_seconds_count` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `rule` |
+| `agento11y_eval_duration_seconds_sum` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `rule` |
+| `agento11y_eval_enqueue_total` | `evaluator_kind`, `rule` |
+| `agento11y_eval_executions_total` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `rule`, `status` |
+| `agento11y_eval_judge_cost_usd_total` | `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `model`, `provider`, `rule` |
+| `agento11y_eval_judge_duration_seconds_bucket` | `le`, `model`, `provider` |
+| `agento11y_eval_judge_duration_seconds_count` | `model`, `provider` |
+| `agento11y_eval_judge_duration_seconds_sum` | `model`, `provider` |
+| `agento11y_eval_judge_requests_total` | `model`, `provider`, `status` |
+| `agento11y_eval_judge_tokens_total` | `direction`, `model`, `provider` |
+| `agento11y_eval_rule_action_fires_total` | `result`, `rule` |
+| `agento11y_eval_score_values_total` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `evaluator_role`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `passed`, `rule`, `score_key`, `score_value` |
+| `agento11y_eval_scores_total` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `evaluator_role`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `passed`, `rule`, `score_key` |
+
+The judge family rows above belong to the judge evaluators, not to heuristic evaluations:
+those families have no evaluator label on which to filter. Their presence does not imply
+that a heuristic called a judge. The judge cost row carries the configured profile model,
+whereas request/token/duration rows carry the response model.
+SynthKit currently uses `EvalDecl.JudgeModel` for the request/token/duration labels;
+that declaration must therefore name the response model to reproduce these rows.
+It does not separately model a judge invocation profile and its resolved response model.
+
+`agento11y_eval_enqueue_total` and `agento11y_eval_judge_cost_usd_total` are newly captured
+catalogue additions, not emitted by SynthKit yet. No cost or enqueue value is fabricated
+in this correction. Current `agento11y_eval_judge_errors_total` and
+`agento11y_eval_queue_depth` names are confirmed by the upstream metric definitions
+(`sigil/internal/eval/worker/metrics.go`, inspected 2026-09-06); their live error/queue
+shapes remain unverified in this successful window. The historical old-name capture is
+not treated as current-name runtime proof. Categorical `pass_match` behavior was observed
+on the live judge; the current synthetic evaluator config still models its existing
+string-score policy and does not expose that complete server configuration surface.
 
 ---
 
@@ -393,7 +450,7 @@ so two `-dump` runs agree). `grafana-ai-o11y.yaml` declares one-shot daily `inci
 | Mode | Effect |
 |---|---|
 | `provider_call_error` | A ~intensity fraction of generations error: `Generation.CallError` set (Lane A), Lane-B root span `status=ERROR`, and the `gen_ai_client_operation_duration_seconds` observation carries `error_type`/`error_category` (a DISTINCT series — absent on success, I13). Failed generations are not scored. error_type/category VALUES are real provider error vocabulary (`overloaded_error`/`rate_limit_error`/`api_error`/`timeout`) — synthetic fault injection; the label NAMES are signals-sourced. |
-| `eval_quality_regression` | Eval scores bias downward (number-rubric centre drops, bool/string flag bar rises) so `sigil_eval_score_values_total{passed=false}` rate climbs; `sigil_eval_scores_total`/`executions_total` maintained; `rule_action_fires_total` unaffected (fires per scoring event). |
+| `eval_quality_regression` | Eval scores bias downward (number-rubric centre drops, bool/string flag bar rises) so `agento11y_eval_score_values_total{passed=false}` rate climbs; `agento11y_eval_scores_total`/`executions_total` maintained; `rule_action_fires_total` unaffected (fires per scoring event). |
 
 ---
 
@@ -422,7 +479,7 @@ real sigil stack 2026-06-30), versus what is **PENDING** (the resume list — pi
 
 **Emitted + verified:** Lane A generations (coding + general), Lane B span trees (coding 2-level;
 general `agents.base` → `generateText`/`streamText` → `execute_tool` → openai `chat`), Lane C
-`gen_ai_client_*` metrics, the 6 archetypes, `sigil_eval_*` + `latest_scores` for the bound
+`gen_ai_client_*` metrics, the 6 archetypes, `agento11y_eval_*` + `latest_scores` for the bound
 evaluators/rules, `WorkflowStep` ingest for orchestration, `effective_version`, the full vocabulary.
 **True orchestration fan-out** (`general_orchestration` — sub-agent generations under distinct
 `agent_name`s parented to the orchestrator gen, with their own `sigil.<peer>` spans; see
@@ -441,28 +498,13 @@ inherits nothing and the final turn's results stay on its own `Input` rather tha
 
 Plus the **e2e sigil receiver** (the `just e2e` Docker harness decodes the three sigil ingest
 endpoints + correlates ingest kinds; see `e2e/receiver`) and the **live-captured eval families**
-(`sigil_eval_*` promoted to `v: ok` with corrected label shapes from `emea-cloud-demokit`).
+(current `agento11y_eval_*` names and common labels corrected from the reference capture).
 
 **PENDING — next steps (in rough priority):**
 
-1. **Heuristic evaluators live — BLOCKED, not merely deferred (assessed 2026-08-19).** Only
-   `llm_judge` produced eval series in the 2026-06-30 capture (`evaluator_kind=heuristic` exists in
-   the config surface but was never observed emitting), so the heuristic series shape is INFERRED,
-   not captured. The open question is narrow: a heuristic evaluator has no judge model, so per the
-   absent-dimension-is-omitted rule its series should carry NO `eval_ai_request_model` / `model` /
-   `provider` labels — but whether they are omitted or carry a placeholder is unverified, and
-   synthkit's emit currently assumes omission.
-   Updated boundary, 2026-09-06: the terraform reference stack now has one configured heuristic
-   evaluator and one enabled online rule. Read-only Agent Observability responses prove ingested
-   generations with a nonempty agent version, but no persisted online score was returned. The
-   configured direct model invocation fails because the model requires an inference profile;
-   failed generations have no output. A direct evaluator test returned false, which is not a
-   persisted online score. The rule retains its reviewed ten-percent sampling rate; ten arrivals
-   do not guarantee selection. No eval-family Mimir query was run before the score prerequisite,
-   so omitted versus placeholder judge labels remains unverified. No emitter change is justified.
-   Resume boundary: resolve model invocation within an explicitly authorized inference scope,
-   confirm a persisted heuristic score on the terraform reference stack, then query
-   `sigil_eval_scores_total{evaluator_kind="heuristic"}` and the `sigil_eval_judge_*` families for
-   that evaluator, and record which labels are present with provenance + date exactly as the
-   2026-06-30 capture above is recorded. If the capture contradicts the omission assumption, the
-   SYNTH is corrected, never the capture.
+1. **Heuristic metric capture completed, 2026-09-06.** Persisted online scores cleared
+   the original prerequisite. The reference series prove that `eval_ai_request_model`
+   is present and equals the scored model, while `model` and `provider` are absent on
+   heuristic rows. The current names are `agento11y_eval_*`, and score counters carry
+   `evaluator_role="outcome"`. The emitter is corrected to that capture, with a failing-first
+   regression. Exact evidence and remaining coverage limits are recorded above.
