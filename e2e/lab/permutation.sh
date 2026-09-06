@@ -370,6 +370,28 @@ create_cluster() {
   k3d kubeconfig get "$LAB_CLUSTER_NAME" >"$KUBECONFIG"
   chmod 600 "$KUBECONFIG"
   kubectl cluster-info >/dev/null || fail_phase "the new cluster did not answer cluster-info"
+  wait_for_apiserver
+}
+
+# `k3d cluster create --wait` returns once the server node is up and cluster-info answers, but a
+# fresh apiserver still serves 503 from /openapi/v3 for a few seconds while its aggregation
+# controllers start. `kubectl apply` validates client-side against that endpoint by default, so
+# an apply in that window fails with "failed to download openapi: the server is currently unable
+# to handle the request" and the permutation dies in deploy-receiver having observed nothing.
+# Nightly run 34020767181 lost two of five permutations this way on a loaded runner. Wait on the
+# readiness the apply actually depends on rather than turning validation off.
+wait_for_apiserver() {
+  local deadline=$((SECONDS + 120))
+  while true; do
+    if kubectl get --raw='/readyz' --request-timeout=10s >/dev/null 2>&1 \
+      && kubectl get --raw='/openapi/v3' --request-timeout=10s >/dev/null 2>&1; then
+      return 0
+    fi
+    if ((SECONDS >= deadline)); then
+      fail_phase "the apiserver did not become ready to serve /readyz and /openapi/v3 within 120s"
+    fi
+    sleep 2
+  done
 }
 
 import_images() {

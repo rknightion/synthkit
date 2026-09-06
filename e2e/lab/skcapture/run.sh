@@ -127,6 +127,20 @@ k3d cluster create "$CLUSTER_NAME" --servers 1 --agents 1 --wait
 created_cluster=true
 k3d kubeconfig get "$CLUSTER_NAME" >"$KUBECONFIG"
 
+# A fresh apiserver serves 503 from /openapi/v3 for a few seconds after `--wait` returns, and
+# `kubectl apply` validates against it by default; wait for the readiness the applies depend on
+# (same race as e2e/lab/permutation.sh wait_for_apiserver).
+log "waiting for the apiserver to serve /readyz and /openapi/v3"
+deadline=$((SECONDS + 120))
+until kubectl get --raw='/readyz' --request-timeout=10s >/dev/null 2>&1 \
+  && kubectl get --raw='/openapi/v3' --request-timeout=10s >/dev/null 2>&1; do
+  if ((SECONDS >= deadline)); then
+    echo "the apiserver did not become ready within 120s" >&2
+    exit 1
+  fi
+  sleep 2
+done
+
 log "importing local $IMAGE into $CLUSTER_NAME"
 k3d image import "$IMAGE" --cluster "$CLUSTER_NAME"
 
