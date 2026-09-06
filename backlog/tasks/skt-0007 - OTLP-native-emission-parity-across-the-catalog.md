@@ -1,10 +1,10 @@
 ---
 id: SKT-0007
 title: OTLP-native emission parity across the catalog
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-24 12:05'
-updated_date: '2026-09-06 09:28'
+updated_date: '2026-09-06 11:25'
 labels: []
 dependencies: []
 priority: high
@@ -47,9 +47,9 @@ Shares its seam with SKT-0006.05 (the OTLP logs lane): both follow the `core.OTL
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
-- [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -60,10 +60,14 @@ Shares its seam with SKT-0006.05 (the OTLP logs lane): both follow the `core.OTL
 2026-09-06 final reconciliation: Envoy native emission is now complete from a richer immutable capture, and CloudWatch Metric Streams lookup coverage expanded to 284 verified pairs with 52 explicit skips. The Azure half of the CSP contract is documented, but the Google receiver emitted name and resource envelope remains unresolved. AC1 therefore remains unchecked; all other parent criteria remain proven.
 
 2026-09-06: SK-88 resolved for both CSP kinds from source and vendor docs (see SKT-0007.09 and signals/otlp-native-verdicts.md), which completes the catalogue-wide evidence-backed verdict record: 20 OTEL-NATIVE, 24 SCRAPE-ONLY, 1 UNRESOLVED (portkey_gateway, outside this epic's scope). AC1 checked. Status stays In Progress until SKT-0007.09 AC2 lands or is explicitly descoped, then run the DoD gate and close.
+
+2026-09-06 closure: all seven ACs are checked. DoD: just check green on main at b1e2534 (CI 34029264851, including race, spdx and forbidden-words legs); no blueprint field or config struct changed in the closing work; the safe explicit dump ran in the 2026-09-07 wave (2,915 metric names, the one absent conditional family documented in signals/nettopo.md). SKT-0007.09 stays open as standalone low-priority work: its AC2 (csp_azure and csp_gcp opt-in lanes) is not a parent criterion; AC7 required later waves to be created from the evidence study, which they were.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 2026-09-06: Remains In Progress at 6/7. Envoy and CloudWatch advanced without inferred telemetry; the exact resume boundary is the missing Google receiver output needed to finish the catalogue-wide evidence-backed verdict.
+
+2026-09-06: Done at 7/7. Twenty OTEL-NATIVE and twenty-four SCRAPE-ONLY verdicts recorded with provenance, the lane mechanics cover every needed instrument, k8s_cluster, app, ai_agent, host, beyla_agent, envoy_gateway and the CloudWatch group emit OTel-native from captured or documented contracts, and the architecture guard holds. Remaining CSP lanes continue under SKT-0007.09.
 <!-- SECTION:FINAL_SUMMARY:END -->

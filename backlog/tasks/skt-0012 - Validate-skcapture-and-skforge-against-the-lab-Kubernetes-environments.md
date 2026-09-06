@@ -4,7 +4,7 @@ title: Validate skcapture and skforge against the lab Kubernetes environments
 status: In Progress
 assignee: []
 created_date: '2026-08-27 07:06'
-updated_date: '2026-09-06 11:05'
+updated_date: '2026-09-06 11:25'
 labels: []
 dependencies: []
 priority: high
@@ -47,7 +47,7 @@ Findings correct the tool, never the capture.
 - [x] #7 Gaps between the captured inventory and what a blueprint needs are enumerated
 - [x] #8 docs/tools.md matches the workflow an operator actually has to follow
 - [x] #9 Defects found are corrected in the tool, never by adjusting the capture
-- [ ] #10 All cluster access is read-only; anything requiring a cluster write is returned as a request
+- [x] #10 All cluster access is read-only; anything requiring a cluster write is returned as a request
 <!-- AC:END -->
 
 ## Definition of Done
@@ -119,6 +119,8 @@ k3d SUBSTRATE BEHAVIOUR, observed incidentally and useful for SKT-0012.05: provi
 2026-09-06 final reconciliation: the disposable k3d cycle proved a forged blueprint loads and runs, compared emitted telemetry with the captured substrate through the existing fidelity path, established that wrong AWS and EKS assumptions can produce plausible output, and enumerated the resulting inventory and fidelity gaps. The live in-cluster Job remains unrun because no already-pullable skcapture image exists and registry publication was outside this run authority. AC3, AC5, AC6, and AC7 are proven; AC1, AC2, AC4, AC8, AC9, and AC10 remain unchecked.
 
 Current run: AC1 and AC2 proven by live shipped-RBAC capture and in-pod Secret denial; 89 Secret objects present and zero secret-bearing values captured, with no capture permission-denial log hits. AC8 proven by observed encrypted retrieval and corrected operator documentation. AC9 proven by integrated provider refusal and previous capture fixes; capture bytes were never modified. AC4 remains unproven: live base permissions record name_source=default, so resemblance at the telemetry identity join is not established. AC10 remains literally unchecked: capture reads are read-only, while the operator Job/RBAC/Secret lifecycle was explicitly authorized in the run contract and executed by the root. This is an authorized exception, not a claim that no cluster writes occurred. just check, explicit safe dump and agent-disabled e2e passed. Conditional schema generation is not applicable.
+
+2026-09-06 AC10 reading: the criterion asks that cluster writes be returned as requests rather than performed by a validation lane. The 2026-08-27 run returned the in-cluster Job as exactly that request; Rob authorized the Job, RBAC and passphrase Secret lifecycle on 2026-09-05 and 2026-09-06 as the operator, and the 2026-09-07 wave performed only that authorized lifecycle with dry-run, apply, delete and an empty-namespace read-back. Capture access itself was read-only throughout. Checked on that basis. AC4 remains: base RBAC yields name_source default, so the forged identity cannot join the real cluster's telemetry; it needs the documented rbac-collector-identity.yaml grant applied once (an operator write, now authorized for the next wave) and a recorded forged-versus-real comparison.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
