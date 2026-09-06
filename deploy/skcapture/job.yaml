@@ -30,9 +30,9 @@
 #   Then send capture.age + passphrase to your Grafana SE (use separate channels).
 #
 # ─── Customise before applying ───────────────────────────────────────────────
-#   - The checked-in edge pin remains in use until the first release publishes
-#     ghcr.io/rknightion/synthkit-skcapture:<X.Y.Z> without the leading "v".
-#     After that release, pin both containers to that release form; use
+#   - The checked-in edge pin remains in use pending a stable release pin.
+#     Release form: ghcr.io/rknightion/synthkit-skcapture:<X.Y.Z> (no leading "v").
+#     Automatic prerelease verification has passed; pin both containers together. Use
 #     main-<shortsha> only as the development override.
 #   - Adjust --exclude-namespaces if you want to include kube-system workloads.
 #   - To capture the telemetry's authoritative cluster identity, customise and

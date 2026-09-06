@@ -82,9 +82,11 @@ estimate and adjust `min`/`max`/`desired` to match the customer's actual fleet s
 The in-cluster Job uses the `skcapture` ServiceAccount and never requires kubeconfig credentials
 to leave the cluster. The checked-in Job currently pins both containers to the proven edge image
 published from `Dockerfile.skcapture` by the shared container-publish reusable:
-`ghcr.io/rknightion/synthkit-skcapture:main-63c183a`. The next release will also publish the
+`ghcr.io/rknightion/synthkit-skcapture:main-63c183a`. Release-tag publication uses the
 release form `ghcr.io/rknightion/synthkit-skcapture:<X.Y.Z>`, where `<X.Y.Z>` is the release
-version without the leading `v`; use that form after it exists. For development against `main`,
+version without the leading `v`. Automatic prerelease `v1.4.0-rc.105` verified both image
+signatures and provenance on 2026-09-06; the shipped Job remains edge-pinned pending a stable
+release pin. For development against `main`,
 use the edge override form `ghcr.io/rknightion/synthkit-skcapture:main-<shortsha>`. The local
 `just skcapture-k3d` harness rewrites both references to its locally built `skcapture:dev`.
 
