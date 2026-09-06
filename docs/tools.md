@@ -75,13 +75,17 @@ Addon recognition combines the allowlisted Helm release name with known namespac
 
 ### Published in-cluster Job
 
-The shipped Job pins both containers to
-`ghcr.io/rknightion/synthkit-skcapture:main-63c183a`, built from `Dockerfile.skcapture`
-through the shared container-publish reusable. Follow `deploy/skcapture/README.md`: apply base
-RBAC, create the passphrase Secret from a protected file, apply the Job, wait for the capture
-container to finish, and copy the encrypted file from `output-hold` before its ten-minute window
-ends. Waiting for the whole Job first loses that retrieval window. Keep decrypted output outside
-Git, then delete the Job and its RBAC. The local k3d recipe substitutes its local image.
+The shipped Job currently pins both containers to the proven edge image
+`ghcr.io/rknightion/synthkit-skcapture:main-63c183a`, built from `Dockerfile.skcapture` through
+the shared container-publish reusable. The next release will also publish the release form
+`ghcr.io/rknightion/synthkit-skcapture:<X.Y.Z>`; `<X.Y.Z>` is the release version without the
+leading `v`, and that form becomes usable after it exists. For development against `main`, use
+the edge override form `ghcr.io/rknightion/synthkit-skcapture:main-<shortsha>`. Follow
+`deploy/skcapture/README.md`: apply base RBAC, create the passphrase Secret from a protected
+file, apply the Job, wait for the capture container to finish, and copy the encrypted file from
+`output-hold` before its ten-minute window ends. Waiting for the whole Job first loses that
+retrieval window. Keep decrypted output outside Git, then delete the Job and its RBAC. The local
+k3d recipe substitutes its local image.
 
 The live validation on 2026-09-06 ran the capture container under the base ServiceAccount:
 the permission audit allowed the seven declared topology resource types, denied Secret listing,

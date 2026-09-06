@@ -65,7 +65,6 @@ jobs:
         REVISION=${{ needs.identity.outputs.revision }}
 
   skcapture-image:
-    if: inputs.release_tag == ''
     needs: identity
     permissions:
       contents: write        # SBOMs attached to the release (when release_tag set)
@@ -82,7 +81,7 @@ jobs:
         REVISION=${{ needs.identity.outputs.revision }}
 
   verify-release:
-    needs: [identity, image]
+    needs: [identity, image, skcapture-image]
     if: inputs.release_tag != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -110,11 +109,17 @@ jobs:
           cache: false
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      - name: Download the publisher's exact platform digests
+      - name: Download the main publisher's exact platform digests
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          path: ${{ runner.temp }}/published-digests
+          path: ${{ runner.temp }}/published-main-digests
           pattern: digests-*
+          merge-multiple: true
+      - name: Download the skcapture publisher's exact platform digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ${{ runner.temp }}/published-skcapture-digests
+          pattern: image-synthkit-skcapture-digests-*
           merge-multiple: true
       - name: Verify exact image identity, signature, and provenance
         id: verify
@@ -122,12 +127,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.release_tag }}
           SOURCE_REVISION: ${{ needs.identity.outputs.revision }}
-          PUBLISHED_DIGESTS: ${{ runner.temp }}/published-digests
-          PUBLISHED_INDEX: ${{ runner.temp }}/published-index.json
+          PUBLISHED_DIGESTS: ${{ runner.temp }}/published-main-digests
+          PUBLISHED_INDEX: ${{ runner.temp }}/published-main-index.json
         run: |
           version="${RELEASE_TAG#v}"
           shopt -s nullglob
-          digest_files=("${PUBLISHED_DIGESTS}"/*)
+          digest_files=()
+          for digest_file in "${PUBLISHED_DIGESTS}"/*; do
+            [ -f "${digest_file}" ] || { echo "expected only regular digest files" >&2; exit 1; }
+            digest_files+=("${digest_file}")
+          done
           [ "${#digest_files[@]}" -eq 2 ] || { echo "expected two exact platform digests" >&2; exit 1; }
           mapfile -t digest_files < <(printf '%s\n' "${digest_files[@]}" | LC_ALL=C sort)
           sources=()
@@ -160,6 +169,56 @@ jobs:
             --platform linux/amd64 | tee verification.json
           echo "reference=${reference}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - name: Verify exact skcapture image signature and provenance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COSIGN_IMAGE: ghcr.io/sigstore/cosign/cosign@sha256:de9c65609e6bde17e6b48de485ee788407c9502fa08b8f4459f595b21f56cd00
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_REVISION: ${{ needs.identity.outputs.revision }}
+          PUBLISHED_DIGESTS: ${{ runner.temp }}/published-skcapture-digests
+          PUBLISHED_INDEX: ${{ runner.temp }}/published-skcapture-index.json
+        run: |
+          shopt -s nullglob
+          digest_files=()
+          for digest_file in "${PUBLISHED_DIGESTS}"/*; do
+            [ -f "${digest_file}" ] || { echo "expected only regular digest files" >&2; exit 1; }
+            digest_files+=("${digest_file}")
+          done
+          [ "${#digest_files[@]}" -eq 2 ] || { echo "expected two exact skcapture platform digests" >&2; exit 1; }
+          mapfile -t digest_files < <(printf '%s\n' "${digest_files[@]}" | LC_ALL=C sort)
+          sources=()
+          for digest_file in "${digest_files[@]}"; do
+            platform_digest="${digest_file##*/}"
+            [[ "${platform_digest}" =~ ^[0-9a-f]{64}$ ]] || { echo "invalid skcapture platform digest artifact" >&2; exit 1; }
+            sources+=("ghcr.io/rknightion/synthkit-skcapture@sha256:${platform_digest}")
+          done
+          docker buildx imagetools create --dry-run "${sources[@]}" > "${PUBLISHED_INDEX}"
+          digest=$(python3 - "${PUBLISHED_INDEX}" <<'PY'
+          import hashlib
+          from pathlib import Path
+          import sys
+
+          content = Path(sys.argv[1]).read_bytes()
+          if not content.endswith(b"\n"):
+              raise SystemExit("skcapture dry-run index did not end with the expected display newline")
+          content = content[:-1]
+          print("sha256:" + hashlib.sha256(content).hexdigest())
+          PY
+          )
+          reference="ghcr.io/rknightion/synthkit-skcapture@${digest}"
+          docker run --rm "${COSIGN_IMAGE}" verify \
+            --certificate-identity-regexp \
+              '^https://github\.com/rknightion/\.github/\.github/workflows/container-publish\.yml@[A-Za-z0-9._/-]+$' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${reference}"
+          gh attestation verify \
+            "oci://${reference}" \
+            --cert-oidc-issuer https://token.actions.githubusercontent.com \
+            --repo rknightion/synthkit \
+            --signer-workflow rknightion/.github/.github/workflows/container-publish.yml \
+            --source-digest "${SOURCE_REVISION}" \
+            --source-ref "refs/tags/${RELEASE_TAG}"
+          echo "reference=${reference}"
       - name: Exercise the published image through committed Compose
         env:
           SYNTHKIT_PUBLISHED_IMAGE_REF: ${{ steps.verify.outputs.reference }}

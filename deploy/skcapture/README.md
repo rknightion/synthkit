@@ -80,11 +80,13 @@ estimate and adjust `min`/`max`/`desired` to match the customer's actual fleet s
 ### Option 1: In-cluster Job (recommended)
 
 The in-cluster Job uses the `skcapture` ServiceAccount and never requires kubeconfig credentials
-to leave the cluster. Both containers use the immutable edge image published from
-`Dockerfile.skcapture` by the shared container-publish reusable:
-`ghcr.io/rknightion/synthkit-skcapture:main-63c183a`. The local `just skcapture-k3d` harness
-rewrites both references to its locally built `skcapture:dev`. Release-tag publication of this
-second image is not enabled yet.
+to leave the cluster. The checked-in Job currently pins both containers to the proven edge image
+published from `Dockerfile.skcapture` by the shared container-publish reusable:
+`ghcr.io/rknightion/synthkit-skcapture:main-63c183a`. The next release will also publish the
+release form `ghcr.io/rknightion/synthkit-skcapture:<X.Y.Z>`, where `<X.Y.Z>` is the release
+version without the leading `v`; use that form after it exists. For development against `main`,
+use the edge override form `ghcr.io/rknightion/synthkit-skcapture:main-<shortsha>`. The local
+`just skcapture-k3d` harness rewrites both references to its locally built `skcapture:dev`.
 
 ```sh
 # 1. Apply base RBAC (always required)

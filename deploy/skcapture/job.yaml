@@ -30,7 +30,10 @@
 #   Then send capture.age + passphrase to your Grafana SE (use separate channels).
 #
 # ─── Customise before applying ───────────────────────────────────────────────
-#   - Replace the image tag with your organisation's registry/tag.
+#   - The checked-in edge pin remains in use until the first release publishes
+#     ghcr.io/rknightion/synthkit-skcapture:<X.Y.Z> without the leading "v".
+#     After that release, pin both containers to that release form; use
+#     main-<shortsha> only as the development override.
 #   - Adjust --exclude-namespaces if you want to include kube-system workloads.
 #   - To capture the telemetry's authoritative cluster identity, customise and
 #     apply rbac-collector-identity.yaml before this Job.
