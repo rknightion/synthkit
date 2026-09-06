@@ -4,6 +4,13 @@ package inventory
 
 import (
 	"bytes"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"reflect"
+	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -245,4 +252,251 @@ func findingLines(section string) []string {
 		}
 	}
 	return lines
+}
+
+func TestWriteFindingsReportGroupsEvidenceWithoutChangingFindingTuples(t *testing.T) {
+	findings := []ScopedFinding{
+		{
+			Area: "k8s", Source: CorpusSource{Kind: "k3d_lab", Substrate: "k3s"}, Substrate: "k3s",
+			Finding: Finding{Kind: KindExtraMetric, Disposition: DispositionCoverageGap, Signal: "shared_metric", Field: "name"},
+		},
+		{
+			Area: "k8s", Source: CorpusSource{Kind: "synthkit_terraform_capture", Substrate: "aks"}, Substrate: "aks",
+			Finding: Finding{Kind: KindExtraMetric, Disposition: DispositionCoverageGap, Signal: "shared_metric", Field: "name"},
+		},
+		{
+			Area: "k8s-addons", Source: CorpusSource{Kind: "synthkit_terraform_capture", Substrate: "eks"}, Substrate: "eks",
+			Finding: Finding{Kind: KindExtraMetric, Disposition: DispositionCoverageGap, Signal: "shared_metric", Field: "name"},
+		},
+		{
+			Area: "k8s", Source: CorpusSource{Kind: "synthkit_terraform_capture", Substrate: "eks"}, Substrate: "eks",
+			Finding: Finding{Kind: KindExtraMetric, Disposition: DispositionCoverageGap, Signal: "shared_metric", Field: "labels"},
+		},
+		{
+			Area: "cw", Source: CorpusSource{Kind: "gcx_live_readback", Substrate: "eks"}, Substrate: "eks",
+			Finding: Finding{Kind: KindUnknownInstrumentEvidence, Disposition: DispositionCoverageGap, Signal: "another_metric", Field: "instrument_types"},
+		},
+	}
+
+	want := findingTupleSet(findings)
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatal(err)
+	}
+	report := out.String()
+	if got := renderedFindingTupleSet(report); !reflect.DeepEqual(got, want) {
+		t.Fatalf("report changed finding tuples:\n got=%v\nwant=%v\nreport:\n%s", got, want, report)
+	}
+	if got := len(findingLines(report)); got != 3 {
+		t.Fatalf("report has %d finding lines, want one per class/signal/field group:\n%s", got, report)
+	}
+	if got := countReportLinesWithPrefix(report, "PENDING: "); got != 2 {
+		t.Fatalf("report has %d PENDING lines, want one per signal:\n%s", got, report)
+	}
+	for _, wantEvidence := range []string{
+		"substrate `aks` from generic source `synthkit_terraform_capture`",
+		"substrate `eks` from generic source `synthkit_terraform_capture`",
+		"substrate `k3s` from generic source `k3d_lab`",
+	} {
+		if !strings.Contains(report, wantEvidence) {
+			t.Fatalf("report missing grouped evidence %q:\n%s", wantEvidence, report)
+		}
+	}
+	if got := strings.Count(report, "\n"); got > 27212 {
+		t.Fatalf("report has %d lines, want at most 27212:\n%s", got, report)
+	}
+}
+
+func TestWriteFindingsReportKeepsSwappedValuePairsWithTheirEvidence(t *testing.T) {
+	findings := []ScopedFinding{
+		{
+			Area: "cw", Source: CorpusSource{Kind: "capture", Substrate: "eks"}, Substrate: "eks",
+			Finding: Finding{
+				Kind: KindUnexpectedLabelKey, Disposition: DispositionContradiction,
+				Signal: "shared_metric", Field: "labels",
+				SynthValues: []string{"alpha"}, RealityValues: []string{"beta"},
+			},
+		},
+		{
+			Area: "k8s", Source: CorpusSource{Kind: "capture", Substrate: "eks"}, Substrate: "eks",
+			Finding: Finding{
+				Kind: KindUnexpectedLabelKey, Disposition: DispositionContradiction,
+				Signal: "shared_metric", Field: "labels",
+				SynthValues: []string{"beta"}, RealityValues: []string{"alpha"},
+			},
+		},
+	}
+
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatal(err)
+	}
+	report := out.String()
+	lines := findingLines(reportSection(report, "## Contradictions", "## Coverage gaps"))
+	if len(lines) != 1 {
+		t.Fatalf("report has %d grouped finding lines, want one:\n%s", len(lines), report)
+	}
+	for _, want := range []string{
+		"substrate `eks` from generic source `capture` (only-in-synth=[alpha]; synth=[alpha]; reality=[beta])",
+		"substrate `eks` from generic source `capture` (only-in-synth=[beta]; synth=[beta]; reality=[alpha])",
+	} {
+		if !strings.Contains(lines[0], want) {
+			t.Fatalf("grouped finding lost value-to-evidence association %q:\n%s", want, lines[0])
+		}
+	}
+	if strings.Contains(lines[0], "synth=[alpha, beta]") || strings.Contains(lines[0], "reality=[alpha, beta]") {
+		t.Fatalf("grouped finding independently merged swapped value sets:\n%s", lines[0])
+	}
+
+	if got := renderedFindingTupleSet(report); !reflect.DeepEqual(got, findingTupleSet(findings)) {
+		t.Fatalf("grouped evidence is no longer parseable as finding tuples:\n got=%v\nwant=%v\nreport:\n%s", got, findingTupleSet(findings), report)
+	}
+}
+
+func TestWriteFindingsReportCommittedCorpusPreservesTuplesAndBound(t *testing.T) {
+	const inventoryEnv = "SYNTHKIT_SIGNAL_FIDELITY_INVENTORY"
+	inventoryPath := strings.TrimSpace(os.Getenv(inventoryEnv))
+	if inventoryPath == "" {
+		t.Skipf("%s is unset; set it to an existing -inventory-json export to run the committed-corpus renderer regression", inventoryEnv)
+	}
+	repoRoot := reportTestRepoRoot(t)
+	if !filepath.IsAbs(inventoryPath) {
+		inventoryPath = filepath.Join(repoRoot, inventoryPath)
+	}
+	synth := readReportTestInventory(t, inventoryPath)
+	documents, err := LoadCorpusDir(filepath.Join(repoRoot, "reality-corpus"))
+	if err != nil {
+		t.Fatalf("load committed reality corpus: %v", err)
+	}
+	findings := CompareCorpus(synth, documents)
+
+	var out bytes.Buffer
+	if err := WriteFindingsReport(&out, findings); err != nil {
+		t.Fatalf("render committed-corpus findings: %v", err)
+	}
+	if got, want := renderedFindingTupleSet(out.String()), findingTupleSet(findings); !reflect.DeepEqual(got, want) {
+		t.Fatalf("committed-corpus report changed finding tuples: got %d, want %d", len(got), len(want))
+	}
+	wantPendingSignals := coverageGapSignalSet(findings)
+	if got := renderedPendingSignalSet(out.String()); !reflect.DeepEqual(got, wantPendingSignals) {
+		t.Fatalf("committed-corpus report changed PENDING signal set: got %d, want %d", len(got), len(wantPendingSignals))
+	}
+	if got := strings.Count(out.String(), "\n"); got > 27212 {
+		t.Fatalf("committed-corpus report has %d lines, want at most 27212", got)
+	}
+	t.Logf("committed corpus findings=%d report_lines=%d", len(findings), strings.Count(out.String(), "\n"))
+}
+
+func reportTestRepoRoot(t *testing.T) string {
+	t.Helper()
+	_, sourcePath, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve report test source path")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(sourcePath), "..", ".."))
+}
+
+func readReportTestInventory(t *testing.T, path string) Schema {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read inventory %q: %v", path, err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var schema Schema
+	if err := decoder.Decode(&schema); err != nil {
+		t.Fatalf("decode inventory %q: %v", path, err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			t.Fatalf("decode inventory %q: multiple JSON documents are not allowed", path)
+		}
+		t.Fatalf("decode inventory %q trailing JSON data: %v", path, err)
+	}
+	if schema.SchemaVersion != SchemaVersion {
+		t.Fatalf("inventory %q schema_version=%q, want %q", path, schema.SchemaVersion, SchemaVersion)
+	}
+	return schema
+}
+
+func coverageGapSignalSet(findings []ScopedFinding) map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, scoped := range findings {
+		if scoped.Finding.Disposition == DispositionCoverageGap {
+			set[scoped.Finding.Signal] = struct{}{}
+		}
+	}
+	return set
+}
+
+func renderedPendingSignalSet(report string) map[string]struct{} {
+	pattern := regexp.MustCompile("^PENDING: confirm (?:`[^`]*` )?signal `([^`]*)`")
+	set := make(map[string]struct{})
+	for _, line := range strings.Split(report, "\n") {
+		match := pattern.FindStringSubmatch(line)
+		if len(match) == 2 {
+			set[match[1]] = struct{}{}
+		}
+	}
+	return set
+}
+
+type reportFindingTuple struct {
+	class, signal, field, substrate, source string
+}
+
+func findingTupleSet(findings []ScopedFinding) map[reportFindingTuple]struct{} {
+	set := make(map[reportFindingTuple]struct{}, len(findings))
+	for _, scoped := range findings {
+		set[reportFindingTuple{
+			class:     string(scoped.Finding.Kind),
+			signal:    scoped.Finding.Signal,
+			field:     scoped.Finding.Field,
+			substrate: scoped.Substrate,
+			source:    scoped.Source.Kind,
+		}] = struct{}{}
+	}
+	return set
+}
+
+func renderedFindingTupleSet(report string) map[reportFindingTuple]struct{} {
+	linePattern := regexp.MustCompile("signal `([^`]*)`, field `([^`]*)`")
+	evidencePattern := regexp.MustCompile("substrate `([^`]*)` from generic source `([^`]*)`")
+	set := make(map[reportFindingTuple]struct{})
+	class := ""
+	for _, line := range strings.Split(report, "\n") {
+		if strings.HasPrefix(line, "### ") {
+			class = strings.TrimPrefix(line, "### ")
+			continue
+		}
+		if !strings.HasPrefix(line, "- `") {
+			continue
+		}
+		match := linePattern.FindStringSubmatch(line)
+		if len(match) != 3 {
+			continue
+		}
+		for _, evidence := range evidencePattern.FindAllStringSubmatch(line, -1) {
+			set[reportFindingTuple{
+				class:     class,
+				signal:    match[1],
+				field:     match[2],
+				substrate: evidence[1],
+				source:    evidence[2],
+			}] = struct{}{}
+		}
+	}
+	return set
+}
+
+func countReportLinesWithPrefix(report, prefix string) int {
+	count := 0
+	for _, line := range strings.Split(report, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			count++
+		}
+	}
+	return count
 }

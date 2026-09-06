@@ -6,7 +6,7 @@
 //	skforge inspect <capture> --key <passphrase-file> [--plain]
 //	    Decrypts (or reads plain) a capture file and re-emits it as indented JSON.
 //
-//	skforge prompt <capture> --key <file> [--plain] [--report <path>]
+//	skforge prompt <capture> --key <file> [--plain] [--report <path>] [--assume-aws]
 //	    Decrypts, maps the deterministic skeleton, and emits a self-contained LLM prompt.
 //	    Optionally writes a coverage report to --report.
 //
@@ -35,7 +35,7 @@ const usage = `skforge — synthkit blueprint forge
 
 Usage:
   skforge inspect <capture>  --key <passphrase-file> [--plain]
-  skforge prompt  <capture>  --key <file> [--plain] [--report <path>]
+  skforge prompt  <capture>  --key <file> [--plain] [--report <path>] [--assume-aws]
   skforge validate <blueprint.yaml>
 
 Subcommands:
@@ -49,6 +49,7 @@ Flags (inspect / prompt):
   --key   <file>   Path to a file containing the passphrase (trimmed). Required unless --plain.
   --plain          Skip decryption; treat the file as a plain JSON inventory.
   --report <path>  (prompt only) Write a coverage report to this path.
+  --assume-aws     Permit an AWS/EKS skeleton for a non-EKS or undetermined capture.
 `
 
 func main() {
@@ -142,13 +143,14 @@ func runInspect(args []string) {
 	fmt.Println(string(out))
 }
 
-// runPrompt implements: skforge prompt <capture> --key <file> [--plain] [--report <path>]
+// runPrompt implements: skforge prompt <capture> --key <file> [--plain] [--report <path>] [--assume-aws]
 func runPrompt(args []string) {
 	capturePath, flagArgs := splitPositional(args)
 	fs := flag.NewFlagSet("prompt", flag.ExitOnError)
 	keyFile := fs.String("key", "", "path to passphrase file")
 	plain := fs.Bool("plain", false, "skip decryption (plain JSON input)")
 	report := fs.String("report", "", "write coverage report to this path")
+	assumeAWS := fs.Bool("assume-aws", false, "permit an AWS/EKS skeleton for a non-EKS capture")
 	if err := fs.Parse(flagArgs); err != nil {
 		os.Exit(1)
 	}
@@ -171,7 +173,11 @@ func runPrompt(args []string) {
 	}
 
 	reg := runner.Catalog()
-	sk, gaps := forge.MapSkeleton(inv, reg)
+	sk, gaps, err := forge.MapSkeleton(inv, reg, *assumeAWS)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "skforge prompt: %v\n", err)
+		os.Exit(1)
+	}
 
 	prompt, err := forge.BuildPrompt(sk, gaps, forge.CatalogDescription(reg))
 	if err != nil {

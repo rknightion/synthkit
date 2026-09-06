@@ -8,6 +8,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/blueprint"
 	"github.com/rknightion/synthkit/internal/capture"
+	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/runner"
 	"gopkg.in/yaml.v3"
 )
@@ -31,7 +32,7 @@ func sampleInventory() *capture.Inventory {
 
 func TestMapSkeletonClusterAndAddons(t *testing.T) {
 	reg := runner.Catalog()
-	sk, gaps := MapSkeleton(sampleInventory(), reg)
+	sk, gaps := mustMapSkeleton(t, sampleInventory(), reg)
 
 	if sk.Name != "shopprod-capture" {
 		t.Fatalf("name: %q", sk.Name)
@@ -62,7 +63,7 @@ func TestMapSkeletonClusterAndAddons(t *testing.T) {
 // workloads are gaps (not in the skeleton) so they don't gate the load.
 func TestSkeletonLoads(t *testing.T) {
 	reg := runner.Catalog()
-	sk, _ := MapSkeleton(sampleInventory(), reg)
+	sk, _ := mustMapSkeleton(t, sampleInventory(), reg)
 	y, err := yaml.Marshal(sk)
 	if err != nil {
 		t.Fatalf("marshal skeleton: %v", err)
@@ -81,6 +82,15 @@ func hasGap(gaps []Gap, cat, name string) bool {
 	return false
 }
 
+func mustMapSkeleton(t *testing.T, inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) {
+	t.Helper()
+	sk, gaps, err := MapSkeleton(inv, reg, false)
+	if err != nil {
+		t.Fatalf("MapSkeleton: %v", err)
+	}
+	return sk, gaps
+}
+
 // TestMapSkeletonDedupesAddonKind guards SKT-0012.04 finding 2: two workloads of the same product
 // (different Detected names, same construct Kind, as capture's own addonKindTable can legitimately
 // produce — e.g. "argo-cd" and "argocd" both resolving to "argocd") must not double-declare the
@@ -89,14 +99,15 @@ func TestMapSkeletonDedupesAddonKind(t *testing.T) {
 	reg := runner.Catalog()
 	inv := &capture.Inventory{
 		Clusters: []capture.Cluster{{
-			Name: "dupprod",
+			Name:     "dupprod",
+			Provider: "eks",
 			Addons: []capture.Addon{
 				{Kind: "argocd", Detected: "argo-cd", Evidence: "namespace"},
 				{Kind: "argocd", Detected: "argocd", Evidence: "helm-annotation"},
 			},
 		}},
 	}
-	sk, _ := MapSkeleton(inv, reg)
+	sk, _ := mustMapSkeleton(t, inv, reg)
 	addons := sk.Environments[0].Cluster.Addons
 	if len(addons) != 1 || addons[0] != "argocd" {
 		t.Fatalf("expected exactly one deduplicated %q addon, got %+v", "argocd", addons)
@@ -110,14 +121,15 @@ func TestMapSkeletonResolvesKnownUnmappedNames(t *testing.T) {
 	reg := runner.Catalog()
 	inv := &capture.Inventory{
 		Clusters: []capture.Cluster{{
-			Name: "alloyprod",
+			Name:     "alloyprod",
+			Provider: "eks",
 			Addons: []capture.Addon{
 				{Kind: "", Detected: "grafana-k8s-monitoring-alloy-metrics", Evidence: "helm-annotation"},
 				{Kind: "", Detected: "grafana-k8s-monitoring-alloy-daemon", Evidence: "helm-annotation"},
 			},
 		}},
 	}
-	sk, gaps := MapSkeleton(inv, reg)
+	sk, gaps := mustMapSkeleton(t, inv, reg)
 	addons := sk.Environments[0].Cluster.Addons
 	if len(addons) != 1 || addons[0] != "alloy_health" {
 		t.Fatalf("expected the alloy-family names resolved and deduplicated to %q, got %+v", "alloy_health", addons)
@@ -135,7 +147,8 @@ func TestMapSkeletonClassifiesCapturedPlatformProducts(t *testing.T) {
 	reg := runner.Catalog()
 	inv := &capture.Inventory{
 		Clusters: []capture.Cluster{{
-			Name: "platformprod",
+			Name:     "platformprod",
+			Provider: "eks",
 			Addons: []capture.Addon{
 				{Detected: "crossplane", Evidence: "namespace"},
 				{Detected: "external-secrets", Evidence: "deployment"},
@@ -145,7 +158,7 @@ func TestMapSkeletonClassifiesCapturedPlatformProducts(t *testing.T) {
 			},
 		}},
 	}
-	sk, gaps := MapSkeleton(inv, reg)
+	sk, gaps := mustMapSkeleton(t, inv, reg)
 	if len(sk.Environments[0].Cluster.Addons) != 0 {
 		t.Fatalf("unmodelled platform products must not become addon declarations: %+v", sk.Environments[0].Cluster.Addons)
 	}
@@ -177,14 +190,15 @@ func TestMapSkeletonClassifiesCapturedPlatformProducts(t *testing.T) {
 func TestMapSkeletonRetainsCrossplaneImageFallback(t *testing.T) {
 	reg := runner.Catalog()
 	inv := &capture.Inventory{Clusters: []capture.Cluster{{
-		Name: "crossplane-image-only",
+		Name:     "crossplane-image-only",
+		Provider: "eks",
 		Workloads: []capture.Workload{{
 			Name:      "provider-grafana-generated",
 			Namespace: "platform",
 			Images:    []string{"xpkg.upbound.io/grafana/provider-grafana@sha256:placeholder"},
 		}},
 	}}}
-	_, gaps := MapSkeleton(inv, reg)
+	_, gaps := mustMapSkeleton(t, inv, reg)
 	gap, ok := findGap(gaps, "addon", "crossplane")
 	if !ok {
 		t.Fatal("expected the forge Crossplane image fallback to retain the product gap")
@@ -242,13 +256,24 @@ func TestMapSkeletonSurfacesUndeterminedProvider(t *testing.T) {
 			OS:           "linux",
 		}},
 	}}}
-	sk, gaps := MapSkeleton(inv, reg)
+	_, _, err := MapSkeleton(inv, reg, false)
+	if err == nil {
+		t.Fatal("undetermined provider must be refused unless --assume-aws is explicit")
+	}
+	if !strings.Contains(err.Error(), `provider "undetermined"`) || !strings.Contains(err.Error(), "--assume-aws") {
+		t.Fatalf("refusal = %q, want provider and --assume-aws guidance", err)
+	}
+
+	sk, gaps, err := MapSkeleton(inv, reg, true)
+	if err != nil {
+		t.Fatalf("explicit AWS assumption must permit a loadable skeleton: %v", err)
+	}
 	gap, ok := findGap(gaps, "addon", "undetermined-provider")
 	if !ok {
-		t.Fatalf("expected an explicit undetermined-provider gap, got %+v", gaps)
+		t.Fatalf("expected an explicit assumed-provider gap, got %+v", gaps)
 	}
-	if !strings.Contains(gap.Reason, "provider undetermined") {
-		t.Fatalf("provider gap reason = %q, want explicit undetermined evidence", gap.Reason)
+	if !strings.Contains(gap.Reason, "--assume-aws") {
+		t.Fatalf("provider gap reason = %q, want explicit assumption evidence", gap.Reason)
 	}
 	if sk.Environments[0].Cloud.Region == "" {
 		t.Fatal("undetermined-provider skeleton must retain a loadable placeholder region")
@@ -259,5 +284,18 @@ func TestMapSkeletonSurfacesUndeterminedProvider(t *testing.T) {
 	}
 	if _, err := blueprint.Load(y, reg); err != nil {
 		t.Fatalf("undetermined-provider skeleton must load: %v\n---\n%s", err, y)
+	}
+}
+
+func TestMapSkeletonRejectsNonEKSProvider(t *testing.T) {
+	_, _, err := MapSkeleton(&capture.Inventory{Clusters: []capture.Cluster{{
+		Name:     "gke-capture",
+		Provider: "gke",
+	}}}, runner.Catalog(), false)
+	if err == nil {
+		t.Fatal("non-EKS provider must be refused unless --assume-aws is explicit")
+	}
+	if !strings.Contains(err.Error(), `provider "gke"`) || !strings.Contains(err.Error(), "--assume-aws") {
+		t.Fatalf("refusal = %q, want provider and --assume-aws guidance", err)
 	}
 }

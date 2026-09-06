@@ -301,7 +301,7 @@ signal-fidelity:
     set -euo pipefail
     tmp=$(mktemp)
     trap 'rm -f "$tmp"' EXIT
-    DRY_RUN=true BLUEPRINT_NAMES={{ quote(signal_fidelity_blueprints) }} go run ./cmd/synthkit -once -inventory-json >"$tmp"
+    SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES={{ quote(signal_fidelity_blueprints) }} go run ./cmd/synthkit -once -inventory-json >"$tmp"
     go run ./cmd/signal-fidelity -synth "$tmp" -corpus reality-corpus
 
 # lint the chart and assert the credential and exposure render permutations (needs helm)
@@ -375,7 +375,7 @@ run:
 # print the full catalog series/label inventory for offline diff against signals/
 [group('dev')]
 dump:
-    DRY_RUN=true BLUEPRINT_NAMES={{ quote(dump_blueprints) }} go run ./cmd/synthkit -once -dump
+    SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES={{ quote(dump_blueprints) }} go run ./cmd/synthkit -once -dump
 
 # start the local Compose stack from the selected published image and wait for readiness
 [group('dev')]
@@ -397,6 +397,13 @@ down:
 [no-exit-message]
 lab *permutations:
     bash e2e/lab/run.sh {{ permutations }}
+
+# build and smoke-test the capture image for one target architecture (needs Docker)
+[group('build')]
+skcapture-image platform='linux/arm64':
+    docker build --platform {{ quote(platform) }} -f Dockerfile.skcapture -t skcapture:dev .
+    docker run --rm --platform {{ quote(platform) }} skcapture:dev --version
+    docker run --rm --platform {{ quote(platform) }} --entrypoint kubectl skcapture:dev version --client
 
 # run the disposable skcapture Job/RBAC/forge/fidelity proof in k3d (needs Docker, k3d, and kubectl)
 [group('dev')]
@@ -472,3 +479,8 @@ notices:
 sbom:
     mkdir -p dist/sbom
     go run github.com/anchore/syft/cmd/syft@{{ syft_version }} scan dir:. -o spdx-json=dist/sbom/synthkit.spdx.json -o cyclonedx-json=dist/sbom/synthkit.cdx.json
+
+# inspect, prompt, or validate an offline capture through the forge CLI
+[group('dev')]
+forge *args:
+    go run ./cmd/skforge {{ args }}

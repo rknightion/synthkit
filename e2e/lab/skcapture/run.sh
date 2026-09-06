@@ -87,26 +87,24 @@ wait_and_copy_capture() {
 }
 
 record_result() {
-  local provider name_source fidelity_exit
-  provider="$(jq -r '.clusters[0].provider' "$run_dir/capture.json")"
-  name_source="$(jq -r '.clusters[0].name_source' "$run_dir/capture.json")"
-  fidelity_exit="$(cat "$run_dir/fidelity-exit-code")"
-  {
+	local provider name_source
+	provider="$(jq -r '.clusters[0].provider' "$run_dir/capture.json")"
+	name_source="$(jq -r '.clusters[0].name_source' "$run_dir/capture.json")"
+	{
     printf '%s\n\n' '# skcapture k3d result'
     printf '%s\n' "- cluster: $CLUSTER_NAME (k3s via k3d)"
     printf '%s\n' '- Job: completed under the shipped skcapture ServiceAccount and skcapture-reader RBAC'
     printf '%s\n' '- encrypted output: retrieved using the documented output-hold kubectl cp path'
-    printf '%s\n' "- captured provider: $provider"
-    printf '%s\n' "- captured cluster-name source: $name_source"
-    printf '%s\n' "- forged selection: $forged_name (explicit BLUEPRINT_NAMES; no workload declarations, therefore no agent workload)"
-    printf '%s\n\n' "- fidelity comparator exit: $fidelity_exit; raw findings are in fidelity-report.txt"
-    printf '%s\n\n' '## Non-EKS conclusion'
-    printf '%s\n' "The k3d capture reports provider $provider. skforge's v1 skeleton still loads as"
-    printf '%s\n' 'cloud.provider: aws plus cluster.type: eks with placeholder AWS identity. It does not fail'
-    printf '%s\n' 'the forge or load step. The generated coverage report records the unsupported-provider gap, but'
-    printf '%s\n' 'the executable result is a plausible, loadable AWS/EKS blueprint for a non-EKS substrate. This is'
-    printf '%s\n' 'therefore a plausible-wrong assumption rather than a clear failure; see coverage-report.md.'
-  } >"$run_dir/result.md"
+		printf '%s\n' "- captured provider: $provider"
+		printf '%s\n' "- captured cluster-name source: $name_source"
+		printf '%s\n\n' '- forge behaviour: refused non-EKS skeleton without --assume-aws (proved in forge-refusal.txt)'
+		printf '%s\n\n' '## Non-EKS conclusion'
+		printf '%s\n' "The k3d capture reports provider $provider. blueprint.Load requires a cloud block whenever an"
+		printf '%s\n' 'environment declares a cluster, so a cloudless skeleton cannot load or run as a pure Kubernetes'
+		printf '%s\n' 'estate today. skforge therefore stopped before writing a blueprint and named the captured provider'
+		printf '%s\n' 'and --assume-aws in forge-refusal.txt. No AWS-shaped skeleton, validation, inventory, or fidelity'
+		printf '%s\n' 'result was created from this non-EKS capture.'
+	} >"$run_dir/result.md"
 }
 
 require_commands
@@ -149,39 +147,27 @@ assert_rbac
 openssl rand -base64 32 >"$tmp_dir/passphrase"
 chmod 600 "$tmp_dir/passphrase"
 kubectl -n "$NAMESPACE" create secret generic skcapture-pass --from-file=passphrase="$tmp_dir/passphrase"
-kubectl apply -f "$REPO_ROOT/deploy/skcapture/job.yaml"
+# The shipped Job has two containers. Rewrite both image references for this local-only proof,
+# so no registry pull can mask the image this run built and imported into k3d.
+sed -E "s|^([[:space:]]*image:[[:space:]]*).*|\\1$IMAGE|" "$REPO_ROOT/deploy/skcapture/job.yaml" >"$tmp_dir/job.yaml"
+if [[ "$(rg -c "^[[:space:]]*image: $IMAGE$" "$tmp_dir/job.yaml")" -ne 2 ]]; then
+  die "local Job manifest did not rewrite both shipped image references to $IMAGE"
+fi
+kubectl apply -f "$tmp_dir/job.yaml"
 wait_and_copy_capture
 kubectl -n "$NAMESPACE" logs "job/skcapture" -c skcapture >"$run_dir/skcapture.log"
 
-# skforge performs the required decryption; the helper below consumes only its plain JSON output
-# to materialize the same deterministic skeleton that skforge prompt includes for an LLM.
+# A k3d cluster is non-EKS. The default forge path must reject it before any AWS-shaped skeleton
+# is written. The refusal itself is the repeatable non-EKS proof.
 go run "$REPO_ROOT/cmd/skforge" inspect "$run_dir/capture.age" --key "$tmp_dir/passphrase" >"$run_dir/capture.json"
-go run "$REPO_ROOT/cmd/skforge" prompt "$run_dir/capture.age" --key "$tmp_dir/passphrase" \
-  --report "$run_dir/coverage-report.md" >"$run_dir/blueprint-prompt.txt"
-mkdir -p "$tmp_dir/blueprints" "$tmp_dir/data"
-forged_name="$(go run "$REPO_ROOT/e2e/lab/skcapture/forge-skeleton" -capture "$run_dir/capture.json" -out "$tmp_dir/blueprints/forged.yaml")"
-readonly forged_name
-go run "$REPO_ROOT/cmd/skforge" validate "$tmp_dir/blueprints/forged.yaml" >"$run_dir/forge-validate.txt"
-if rg -q '^workloads:' "$tmp_dir/blueprints/forged.yaml"; then
-  die "the deterministic baseline unexpectedly contains workloads; it is not the required non-agent selection"
+if go run "$REPO_ROOT/cmd/skforge" prompt "$run_dir/capture.age" --key "$tmp_dir/passphrase" \
+	>"$run_dir/blueprint-prompt.txt" 2>"$run_dir/forge-refusal.txt"; then
+	die "skforge unexpectedly forged an AWS/EKS skeleton for non-EKS provider $(jq -r '.clusters[0].provider' "$run_dir/capture.json")"
 fi
-
-DRY_RUN=true BLUEPRINTS="$tmp_dir/blueprints" BLUEPRINT_DATA_DIR="$tmp_dir/data" \
-  BLUEPRINT_NAMES="$forged_name" go run "$REPO_ROOT/cmd/synthkit" -env "$tmp_dir/empty.env" -once -inventory-json \
-  >"$run_dir/synth-inventory.json"
-
-set +e
-go run "$REPO_ROOT/cmd/signal-fidelity" -synth "$run_dir/synth-inventory.json" -corpus "$REPO_ROOT/reality-corpus" \
-  >"$run_dir/fidelity-report.txt" 2>&1
-fidelity_exit=$?
-set -e
-printf '%s\n' "$fidelity_exit" >"$run_dir/fidelity-exit-code"
+provider="$(jq -r '.clusters[0].provider' "$run_dir/capture.json")"
+rg -F -- "provider \"$provider\"" "$run_dir/forge-refusal.txt" >/dev/null ||
+	die "skforge refusal did not name the captured provider"
+rg -F -- '--assume-aws' "$run_dir/forge-refusal.txt" >/dev/null ||
+	die "skforge refusal did not name --assume-aws"
 record_result
-
-if ((fidelity_exit != 0)); then
-  log "fidelity comparator found unexempted divergences; recorded them in $run_dir/fidelity-report.txt"
-else
-  log "fidelity comparator passed; report recorded in $run_dir/fidelity-report.txt"
-fi
 log "result: $run_dir/result.md"
-exit "$fidelity_exit"

@@ -89,11 +89,22 @@ type Gap struct {
 //   - VpcID is always "vpc-PLACEHOLDER" (same reason).
 //   - Region comes from the capture when present; a missing value becomes a clearly-recorded
 //     "us-east-1" placeholder so the skeleton remains loadable for operator review.
-//   - Provider is always "aws"; non-eks and undetermined providers still emit Provider:"aws"
-//     plus an explicit Gap so the AWS-only placeholder cannot be mistaken for detection.
+//   - A non-EKS or undetermined provider is refused unless assumeAWS is true. blueprint.Load
+//     requires cloud identity for every cluster, so a cloudless Kubernetes skeleton cannot load.
+//   - With assumeAWS, Provider is "aws" and a Gap records the explicit caller assumption.
 //   - Cluster.Type is always "eks" (v1 only supports EKS).
 //   - NodeGroup.Desired = max(count, 1) so the blueprint loads without a zero-desired group.
-func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) {
+func MapSkeleton(inv *capture.Inventory, reg *core.Registry, assumeAWS bool) (*Skeleton, []Gap, error) {
+	for _, cl := range inv.Clusters {
+		provider := cl.Provider
+		if provider == "" {
+			provider = capture.ProviderUndetermined
+		}
+		if provider != "eks" && !assumeAWS {
+			return nil, nil, fmt.Errorf("capture provider %q cannot be mapped to the v1 AWS/EKS skeleton; rerun with --assume-aws only when the capture is known to be AWS", provider)
+		}
+	}
+
 	var gaps []Gap
 
 	sk := &Skeleton{}
@@ -120,23 +131,19 @@ func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) 
 				Reason:   "provider region unavailable; the v1 AWS-only skeleton uses us-east-1 as a loadable placeholder",
 			})
 		}
-		// The v1 skeleton is AWS-only, so retain its loadable AWS placeholder while making every
-		// non-EKS or undetermined capture result explicit. An empty provider is treated as
-		// undetermined for inventories assembled by older callers that predate the capture value.
+		// An empty provider is treated as undetermined for inventories assembled by older callers
+		// that predate the capture value. The preflight above rejects it unless the caller made an
+		// explicit AWS assumption.
 		provider := cl.Provider
 		if provider == "" {
 			provider = capture.ProviderUndetermined
 		}
 		if provider != "eks" {
-			reason := fmt.Sprintf("provider %q is unsupported by the v1 AWS-only skeleton; set a plausible AWS account/region or extend the catalog", provider)
-			if provider == capture.ProviderUndetermined {
-				reason = "provider undetermined; no supported provider label family was captured, so the AWS skeleton is only a placeholder"
-			}
 			gaps = append(gaps, Gap{
 				Category: "addon",
 				Name:     provider + "-provider",
 				Evidence: []string{"provider=" + provider},
-				Reason:   reason,
+				Reason:   fmt.Sprintf("provider %q was mapped as AWS only because --assume-aws was explicitly supplied", provider),
 			})
 		}
 
@@ -287,7 +294,7 @@ func MapSkeleton(inv *capture.Inventory, reg *core.Registry) (*Skeleton, []Gap) 
 		sk.Name = "capture"
 	}
 
-	return sk, gaps
+	return sk, gaps, nil
 }
 
 // reasonNoConstruct is the Gap.Reason for a detected name this build's catalog genuinely has no

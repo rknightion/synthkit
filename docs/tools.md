@@ -75,27 +75,27 @@ Addon recognition combines the allowlisted Helm release name with known namespac
 
 ### Disposable k3d proof of the Job path
 
-Maintainers can exercise the shipped Job, its RBAC, encryption, deterministic forge baseline,
-and the existing fidelity comparator without touching a customer or lab cluster:
+Maintainers can exercise the shipped Job, its RBAC, encryption, and non-EKS forge refusal without
+touching a customer or lab cluster:
 
 ```sh
 just skcapture-k3d
 ```
 
 The harness builds `Dockerfile.skcapture` locally, imports `skcapture:dev` into one disposable
-k3d cluster, applies only `deploy/skcapture/rbac.yaml` and `deploy/skcapture/job.yaml`, and copies
-the encrypted output from `output-hold` using the same documented `kubectl cp` path. It runs
-`skforge inspect` to decrypt, preserves the full `skforge prompt` and coverage report, materializes
-the deterministic no-workload skeleton, and runs that exact non-agent selection with
-`DRY_RUN=true` and an explicit `BLUEPRINT_NAMES` value. Results, including the unmodified fidelity
-report, are written below `artifacts/skcapture-k3d/`.
+k3d cluster, rewrites both Job container image references to that local image, then applies only
+`deploy/skcapture/rbac.yaml` and the rewritten Job manifest. It copies the encrypted output from
+`output-hold` using the same documented `kubectl cp` path and runs `skforge inspect` followed by
+the default `skforge prompt` path. Results, including the capture and the explicit forge result,
+are written below `artifacts/skcapture-k3d/`.
 
-This is deliberately a non-EKS contrast. The current v1 forge skeleton remains AWS/EKS-shaped so
-it can load, while recording an unsupported-provider gap. A k3d result consequently demonstrates
-a plausible-but-wrong AWS assumption rather than proving an EKS deployment. The fidelity command
-is never relaxed: any unexempted contradiction remains visible in its saved report and command
-exit code. Set `SKCAPTURE_K3D_CLUSTER_NAME` only to an unused lowercase name; the harness refuses
-to delete a pre-existing cluster.
+This is deliberately a non-EKS contrast. A k3d capture reports `undetermined`; the default forge
+command must then refuse before writing a blueprint, and the result record names that behaviour.
+The v1 loader requires a `cloud` block whenever an environment declares a cluster, so it cannot
+load a cloudless pure-Kubernetes skeleton today. The refusal tells the operator the captured
+provider and names `--assume-aws`, which is available only when the operator independently knows
+the cluster is AWS. Set `SKCAPTURE_K3D_CLUSTER_NAME` only to an unused lowercase name; the harness
+refuses to delete a pre-existing cluster.
 
 ## skforge — blueprint forge
 
@@ -105,10 +105,14 @@ to delete a pre-existing cluster.
 # Inspect a capture file
 skforge inspect capture.age --key /path/to/passphrase
 
-# Generate an LLM prompt + optional coverage report
+# Generate an LLM prompt + optional coverage report for an EKS capture
 skforge prompt capture.age \
   --key /path/to/passphrase \
   --report coverage.md > blueprint-prompt.txt
+
+# A non-EKS/undetermined capture is refused by default. Use this only when the
+# operator independently knows the captured cluster is AWS.
+skforge prompt capture.age --key /path/to/passphrase --assume-aws > blueprint-prompt.txt
 
 # Validate a blueprint draft
 skforge validate my-blueprint.yaml
@@ -118,7 +122,7 @@ skforge validate my-blueprint.yaml
 
 **`inspect`** — decrypt (or read plain) a capture file and print it as indented JSON for inspection.
 
-**`prompt`** — the main workflow step. Decrypts the capture, runs the deterministic skeleton mapper, and emits a self-contained LLM prompt to stdout. The prompt includes the captured inventory summary, a description of each construct kind available in the catalog, and instructions for the LLM to produce a valid blueprint YAML. Pass `--report <path>` to also write a coverage report showing which resources mapped to which construct kinds and which were not covered.
+**`prompt`** — the main workflow step. An EKS capture produces the deterministic AWS/EKS skeleton and a self-contained LLM prompt. A `gke`, `aks`, or `undetermined` capture fails before a skeleton is written, naming the observed provider and `--assume-aws`. The v1 schema requires cloud identity for every cluster, so a cloudless skeleton is not loadable. Pass `--assume-aws` only when independent evidence establishes that an otherwise undetected cluster is AWS; the resulting AWS placeholder remains called out as an explicit assumption. Pass `--report <path>` to also write a coverage report showing which resources mapped to which construct kinds and which were not covered.
 
 **`validate`** — load a blueprint file through the real registry and cardinality projection. Prints `OK`, `Name`, `Cardinality`, `Estimated`, and any `Diagnostics`. Exits non-zero if the blueprint is invalid. Useful for confirming an LLM-generated draft is structurally correct before running synthkit.
 

@@ -35,7 +35,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "forge-skeleton: parse capture: %v\n", err)
 		os.Exit(1)
 	}
-	skeleton, _ := forge.MapSkeleton(inv, runner.Catalog())
+	skeleton, _, err := forge.MapSkeleton(inv, runner.Catalog(), false)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "forge-skeleton: %v\n", err)
+		os.Exit(1)
+	}
 	data, err := yaml.Marshal(skeleton)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "forge-skeleton: marshal skeleton: %v\n", err)
