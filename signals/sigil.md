@@ -401,6 +401,34 @@ not treated as current-name runtime proof. Categorical `pass_match` behavior was
 on the live judge; the current synthetic evaluator config still models its existing
 string-score policy and does not expose that complete server configuration surface.
 
+#### Retirement snapshot, 2026-09-06
+
+A final read through 19:19:39 UTC returned the same 136 evaluation series and exact
+label-key sets, with no additional families. Eight successful scheduled generations
+carried 26 persisted scores: eight minimum-length passes, eight strict-length failures,
+eight JSON-schema failures, one numeric quality score of 5/pass and one categorical
+prose/fail. This is a small controlled sample, not an estimate of production quality.
+
+The Mimir instant read at 19:20:33 UTC added useful counter evidence:
+
+```text
+agento11y_eval_enqueue_total: 26
+agento11y_eval_executions_total: success=26, failed=0
+agento11y_eval_scores_total: passed=true 9, passed=false 17
+agento11y_eval_score_values_total: 25
+agento11y_eval_judge_requests_total: 2
+agento11y_eval_judge_tokens_total: input=916, output=84
+agento11y_eval_judge_cost_usd_total: 0.001336
+```
+
+These are sums of the returned cumulative series, not rates or billing receipts.
+The 26 scores versus 25 enumerated values corroborate that the one numeric score is
+not a `score_value` label. Failed quality checks still have successful evaluator
+executions: a negative score is not an execution error. The reported judge-cost
+counter is USD telemetry for the observed requests; no actual invoice was inspected.
+The enqueue/cost catalogue-only gaps remain recorded above. No further emitter
+change is justified by this repeat capture.
+
 ---
 
 ## Coding vs general archetype contract [slug: sigil-archetypes]

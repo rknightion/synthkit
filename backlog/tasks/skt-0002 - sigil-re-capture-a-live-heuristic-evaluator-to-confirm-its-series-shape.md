@@ -4,7 +4,7 @@ title: 'sigil: re-capture a live heuristic evaluator to confirm its series shape
 status: Done
 assignee: []
 created_date: '2026-08-14 16:09'
-updated_date: '2026-09-06 19:03'
+updated_date: '2026-09-06 19:22'
 labels: []
 dependencies: []
 references:
@@ -73,6 +73,8 @@ Final score prerequisite read, 2026-09-06T17:45:34Z: generations=62, agent_versi
 2026-09-06 capture completed after persisted online scores on the authorized terraform reference stack. Window 18:42:00-18:46:11 UTC: old-prefix queries returned HTTP 200/status success but zero series; current agento11y_eval_* queries returned heuristic=45, judge=22, all_eval=136 series. Heuristic eval_ai_request_model is PRESENT and equals the scored generation model; model/provider are absent. Score counters carry evaluator_role=outcome, execution/duration do not. Exact family/key sets and provenance are in signals/sigil.md. Corrected metric constants, scored-model labels and score-role labels; regression failed before the fix and passed afterwards.
 Validation: targeted aiagent/sigil tests, just gen, just check (including safe signal-fidelity inventory comparison), explicit safe-selection just dump, and SYNTHKIT_E2E_INCLUDE_AGENT=false just e2e passed. No agent-declaring blueprint or fixture was selected. CodeRabbit completed with one minor documentation finding: clarified that JudgeModel supplies synthetic judge response-model labels, retaining the unmodified live profile/response distinction. No extra test was added for that prose clarification. Docker context now excludes ignored codex/ and runtime/; declarative exclusion validated without a new test. Local scratch has an ignored nested Go module to prevent raw evidence Go files entering package discovery; no root dependency change.
 Coverage limits: enqueue and judge-cost families are catalogue-only; categorical pass_match configuration is not modeled; current judge-error and queue names are source-confirmed but unobserved in this successful live window. These do not leave the original heuristic label-key question unresolved. Stack identity is retained only in protected runtime evidence, per the run privacy contract.
+
+Final pre-retirement read on 2026-09-06: eight successful generations and 26 persisted online scores; same 136 evaluation series and exact label-key sets, no new families. Instant counters corroborate successful execution despite negative scores and exclusion of numeric scores from score_value enumeration. Added sanitized counter evidence to signals/sigil.md; no further emitter change warranted. AWS reference agent then retired under RKSY-0030 with 11 resources destroyed and live scoped sweep standing=0 unknown=0. Shared Grafana stack retained. just docs-check and diff whitespace validation passed; prose-only, no new tests or CodeRabbit review.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
