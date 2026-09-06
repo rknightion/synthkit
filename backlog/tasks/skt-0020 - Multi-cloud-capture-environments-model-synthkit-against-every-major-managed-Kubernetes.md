@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-29 09:20'
+updated_date: '2026-09-06 10:09'
 labels: []
 dependencies: []
 priority: high
@@ -31,11 +32,11 @@ This epic covers standing up the repository and the environments. Capturing from
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A synthkit-terraform repository exists, modelled on rkps-awsinfra, owned by and scoped to synthkit
+- [x] #1 A synthkit-terraform repository exists, modelled on rkps-awsinfra, owned by and scoped to synthkit
 - [ ] #2 AWS, Azure and GCP capture environments each stand up and tear down from terraform alone, with no hand steps
 - [ ] #3 Every environment tears down completely, verified by a post-destroy check rather than assumed
-- [ ] #4 The reality corpus carries captures from more than the two substrates it has today
-- [ ] #5 Per-substrate divergence is expressible in the corpus, so a shape verified on one cloud is never silently treated as evidence about another
+- [x] #4 The reality corpus carries captures from more than the two substrates it has today
+- [x] #5 Per-substrate divergence is expressible in the corpus, so a shape verified on one cloud is never silently treated as evidence about another
 <!-- AC:END -->
 
 ## Definition of Done
@@ -44,3 +45,9 @@ This epic covers standing up the repository and the environments. Capturing from
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
 - [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-06 per-AC evidence map: AC1 is the existing dedicated private repository with frozen contract (RKSY-0001). AC4 is the seven capture-v2 corpus files promoted by 73a13f4 and 8dc5d9b, with substrates aks, gke, eks, aws, azure, gcp and full. AC5 is SKT-0020.05 Done with per-substrate comparator evidence. AC2 and AC3 remain unchecked: reviewed RKSY-0002/0003/0004/0006 notes do not prove complete per-cloud apply/destroy cycles followed by sweeps. This run does not treat historical Done status or an UNKNOWN orphan check as proof. Parent remains To Do.
+<!-- SECTION:NOTES:END -->

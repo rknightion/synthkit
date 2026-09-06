@@ -83,6 +83,23 @@ container to finish, and copy the encrypted file from `output-hold` before its t
 ends. Waiting for the whole Job first loses that retrieval window. Keep decrypted output outside
 Git, then delete the Job and its RBAC. The local k3d recipe substitutes its local image.
 
+The live validation on 2026-09-06 ran the capture container under the base ServiceAccount:
+the permission audit allowed the seven declared topology resource types, denied Secret listing,
+and the capture log contained no `Forbidden`, `403`, `cannot list`, or `cannot get` hits.
+The encrypted output decrypted successfully and its recursive secret-field scan was empty
+against a cluster carrying real Secrets. Check permissions from inside the pod when a cluster
+proxy does not honour impersonation; an operator-context `--as` result alone is not proof.
+The API warns that webhook permissions may be absent from `auth can-i --list`, so also check
+Secret denial explicitly. Admission-injected init containers can delay startup.
+
+Base RBAC intentionally does not read collector ConfigMaps. This live capture detected EKS,
+node groups and workloads, but recorded `name_source: default`; no permission-denial log entry
+means neither that collector identity was recovered nor that the forged blueprint has the correct
+telemetry join key. Use the separately documented named-ConfigMap grant when that identity is
+needed. Decrypt with `just forge inspect ... --key ...` while redirecting stdout to a protected
+file; `just --quiet` suppresses the recipe output, including the JSON. Retrieve first, then wait
+for the whole Job to complete, and finally verify both namespace and cluster RBAC cleanup.
+
 ### Disposable k3d proof of the Job path
 
 Maintainers can exercise the shipped Job, its RBAC, encryption, and non-EKS forge refusal without

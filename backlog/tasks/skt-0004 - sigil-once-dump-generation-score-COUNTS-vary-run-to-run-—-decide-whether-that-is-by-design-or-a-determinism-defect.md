@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-08-19 07:34'
-updated_date: '2026-08-27 08:07'
+updated_date: '2026-09-06 10:10'
 labels:
   - needs-triage
 dependencies: []
@@ -97,6 +97,8 @@ The default blueprint selection emits no sigil traffic at all, so the reproducti
   == sigil: generations=194 workflow_steps=50 scores=90 ==
 
 Exactly the pattern this task recorded: workflow_steps pinned, generations/scores moving.
+
+2026-09-06 disposition, case (b): AC2 is conditional on a determinism defect. The recorded verdict was by design, with correlation-ID freshness driving aggregate counts and structural inventory remaining stable. Task stays Done with AC2 deliberately open. No agent blueprint was selected or dumped in this run.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

@@ -4,7 +4,7 @@ title: Validate skcapture and skforge against the lab Kubernetes environments
 status: In Progress
 assignee: []
 created_date: '2026-08-27 07:06'
-updated_date: '2026-09-05 23:59'
+updated_date: '2026-09-06 11:05'
 labels: []
 dependencies: []
 priority: high
@@ -38,23 +38,23 @@ Findings correct the tool, never the capture.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 skcapture runs in the EKS lab cluster under its shipped RBAC, and any additional permission it actually needs is recorded
-- [ ] #2 The zero-secret default is verified against a cluster carrying real secrets, not asserted from the code
+- [x] #1 skcapture runs in the EKS lab cluster under its shipped RBAC, and any additional permission it actually needs is recorded
+- [x] #2 The zero-secret default is verified against a cluster carrying real secrets, not asserted from the code
 - [x] #3 A blueprint forged from a real capture loads, validates, and runs
 - [ ] #4 The forged blueprint demonstrably resembles the cluster it came from rather than a generic template, with the comparison recorded
 - [x] #5 Telemetry emitted by the forged blueprint is compared against the real cluster using the existing fidelity comparator, and divergences are recorded
 - [x] #6 Behaviour on the non-EKS k3d substrate is established, including whether wrong assumptions fail clearly or produce something plausible and wrong
 - [x] #7 Gaps between the captured inventory and what a blueprint needs are enumerated
-- [ ] #8 docs/tools.md matches the workflow an operator actually has to follow
-- [ ] #9 Defects found are corrected in the tool, never by adjusting the capture
+- [x] #8 docs/tools.md matches the workflow an operator actually has to follow
+- [x] #9 Defects found are corrected in the tool, never by adjusting the capture
 - [ ] #10 All cluster access is read-only; anything requiring a cluster write is returned as a request
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -117,10 +117,14 @@ After: monitoring = {k8s_monitoring: true, alloy: true, alloy_version: v1.19.0}.
 k3d SUBSTRATE BEHAVIOUR, observed incidentally and useful for SKT-0012.05: provider unknown, region empty, one node group {name: k3s-unknown, instance_type: k3s, provisioner: unknown, count: 2}. It degrades LEGIBLY rather than producing something plausible and wrong — which is the question SKT-0012.05 exists to answer, so that half is now partly answered. The provisioner: unknown there is itself new from the SKT-0012.02 fix; before it, k3d nodes were reported as EKS-managed.
 
 2026-09-06 final reconciliation: the disposable k3d cycle proved a forged blueprint loads and runs, compared emitted telemetry with the captured substrate through the existing fidelity path, established that wrong AWS and EKS assumptions can produce plausible output, and enumerated the resulting inventory and fidelity gaps. The live in-cluster Job remains unrun because no already-pullable skcapture image exists and registry publication was outside this run authority. AC3, AC5, AC6, and AC7 are proven; AC1, AC2, AC4, AC8, AC9, and AC10 remain unchecked.
+
+Current run: AC1 and AC2 proven by live shipped-RBAC capture and in-pod Secret denial; 89 Secret objects present and zero secret-bearing values captured, with no capture permission-denial log hits. AC8 proven by observed encrypted retrieval and corrected operator documentation. AC9 proven by integrated provider refusal and previous capture fixes; capture bytes were never modified. AC4 remains unproven: live base permissions record name_source=default, so resemblance at the telemetry identity join is not established. AC10 remains literally unchecked: capture reads are read-only, while the operator Job/RBAC/Secret lifecycle was explicitly authorized in the run contract and executed by the root. This is an authorized exception, not a claim that no cluster writes occurred. just check, explicit safe dump and agent-disabled e2e passed. Conditional schema generation is not applicable.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 2026-09-06: Remains In Progress at 4/10. The complete k3d capture, forge, run, and fidelity path is proven. Resume the live half only after an authorized pullable skcapture image exists, then exercise shipped RBAC, verify the zero-secret default, reconcile operator docs, and evaluate the remaining real-cluster criteria.
+
+Current run supersedes the earlier 4/10 summary: remains In Progress at 8/10. Live RBAC, zero-secret behavior, documentation and tool-side fixes are proven. Resume AC4 with the separately documented named collector-identity grant and a recorded real-cluster comparison; AC10 retains the literal read-only boundary with this run authorized as an operator lifecycle exception.
 <!-- SECTION:FINAL_SUMMARY:END -->

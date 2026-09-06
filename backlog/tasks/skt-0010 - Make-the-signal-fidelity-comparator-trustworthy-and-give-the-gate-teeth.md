@@ -1,10 +1,10 @@
 ---
 id: SKT-0010
 title: Make the signal-fidelity comparator trustworthy and give the gate teeth
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-27 07:05'
-updated_date: '2026-09-05 23:59'
+updated_date: '2026-09-06 10:51'
 labels: []
 dependencies: []
 priority: high
@@ -39,14 +39,14 @@ Governing principle for the comparator, which the subtasks implement: **absent e
 - [x] #5 The real divergences the audit found are corrected in the emitters, with the corrected shape recorded in signals/ with provenance
 - [x] #6 Every coverage-gap metric carries a recorded verdict: synthkit should emit it, it is deliberately out of scope, or it is unresolved with a cantfind.md PENDING
 - [x] #7 CI fails on contradictions and reports coverage gaps without failing
-- [ ] #8 The report is small enough for a human to read end to end, and its size is stated in docs/reality-corpus.md as the standard it is held to
+- [x] #8 The report is small enough for a human to read end to end, and its size is stated in docs/reality-corpus.md as the standard it is held to
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
+- [x] #1 make gate (build vet test race rw-proto-check spdx-check forbidden-words)
 - [ ] #2 make blueprint-schema (only if a blueprint field or construct/workload config struct changed)
-- [ ] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
+- [x] #3 DRY_RUN=true go run ./cmd/synthkit -once -dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -89,4 +89,6 @@ Worth recording about the review itself: 65 of 108 changed paths were reviewed, 
 2026-09-05: Reconciled to 7/8 evidenced acceptance criteria; remains In Progress at the explicit report-size/readability standard in AC8. No historical skipped check was counted as a pass.
 
 2026-09-06: Remains In Progress at 7/8. The size standard and measurement now exist, but the current report is 810 lines over the 27,212-line bound; reduce it below the documented budget before checking AC8.
+
+Current run: all eight ACs are proven. Report size: 6323 lines (bound: 27212; size-only breaches are report-only). Grouping preserves all finding tuples and keeps each synth/reality pair attached to its evidence. just check, explicit safe dump compared against signals, and agent-disabled just e2e passed. The conditional schema-generation DoD is not applicable: no blueprint/config struct changed. Earlier over-bound summaries are superseded.
 <!-- SECTION:FINAL_SUMMARY:END -->
