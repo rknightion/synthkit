@@ -98,6 +98,32 @@ func TestConvertCaptureV2PreservesTypeEvidenceAndSanitizesIdentity(t *testing.T)
 	}
 }
 
+func TestConvertCaptureV2AcceptsAdditiveSchema21Header(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	raw["capture_schema_version"] = "2.1.0"
+	data, err = json.Marshal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := ConvertCaptureV2(data, CaptureV2PromotionSource{
+		Area: "00-canon", Kind: "synthkit_terraform_capture", Substrate: "eks", Scope: "cluster",
+		Collector: "grafana/k8s-monitoring", CollectorVersion: "4.5.0", CapturedOn: "2026-08-31", MetricProducerLabel: "ingest_path",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if document.Source.CaptureSchemaVersion != "2.1.0" {
+		t.Fatalf("version=%q, want 2.1.0", document.Source.CaptureSchemaVersion)
+	}
+}
+
 func TestConvertCaptureV2RejectsDuplicateMetricFamilies(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
 	if err != nil {

@@ -13,7 +13,10 @@ import (
 	"strings"
 )
 
-const captureV2SchemaVersion = "2.0.0"
+const (
+	captureV2SchemaVersion  = "2.0.0"
+	captureV21SchemaVersion = "2.1.0"
+)
 
 // CaptureV2PromotionSource supplies only the reviewed, generic provenance that cannot be
 // recovered safely from a raw capture. In particular, scope is a semantic class, not a captured
@@ -37,8 +40,9 @@ type CaptureV2PromotionSource struct {
 }
 
 type captureV2 struct {
-	SchemaVersion string `json:"schema_version"`
-	Tool          struct {
+	SchemaVersion        string `json:"schema_version"`
+	CaptureSchemaVersion string `json:"capture_schema_version"`
+	Tool                 struct {
 		Version string `json:"version"`
 	} `json:"tool"`
 	Provenance struct {
@@ -94,6 +98,13 @@ func ConvertCaptureV2(data []byte, source CaptureV2PromotionSource) (CorpusDocum
 	if capture.SchemaVersion != captureV2SchemaVersion {
 		return CorpusDocument{}, fmt.Errorf("capture schema_version: got %q, want %q", capture.SchemaVersion, captureV2SchemaVersion)
 	}
+	captureVersion := capture.SchemaVersion
+	if capture.CaptureSchemaVersion != "" {
+		if capture.CaptureSchemaVersion != captureV21SchemaVersion {
+			return CorpusDocument{}, fmt.Errorf("capture capture_schema_version: got %q, want %q", capture.CaptureSchemaVersion, captureV21SchemaVersion)
+		}
+		captureVersion = capture.CaptureSchemaVersion
+	}
 	if capture.Tool.Version == "" {
 		return CorpusDocument{}, fmt.Errorf("capture tool.version: must not be empty")
 	}
@@ -135,7 +146,7 @@ func ConvertCaptureV2(data []byte, source CaptureV2PromotionSource) (CorpusDocum
 			CollectorRole:          CollectorRoleAudited,
 			CollectorVersion:       source.CollectorVersion,
 			CapturedOn:             source.CapturedOn,
-			CaptureSchemaVersion:   capture.SchemaVersion,
+			CaptureSchemaVersion:   captureVersion,
 			CaptureToolVersion:     capture.Tool.Version,
 			CaptureSHA256:          hex.EncodeToString(hash[:]),
 			CaptureScope:           source.Scope,
