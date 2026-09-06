@@ -1,9 +1,11 @@
 ---
 id: SKT-0051
 title: Emit the captured agento11y_eval enqueue and judge-cost families
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-09-06 20:17'
+updated_date: '2026-09-06 21:06'
 labels:
   - ai-agent
   - signals
@@ -32,3 +34,9 @@ The 2026-09-06 heuristic-evaluator capture (signals/sigil.md, Lane C) observed t
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Wave 2026-09-09: implement enqueue and judge-cost emission test-first from sampled evaluator events and ledger token pricing, update the signal catalogue, and prove both families with an explicit judge fixture dump.
+<!-- SECTION:PLAN:END -->

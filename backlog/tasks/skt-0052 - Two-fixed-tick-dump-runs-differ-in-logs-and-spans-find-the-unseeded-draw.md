@@ -1,9 +1,11 @@
 ---
 id: SKT-0052
 title: 'Two fixed-tick dump runs differ in logs and spans: find the unseeded draw'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-09-06 20:17'
+updated_date: '2026-09-06 21:06'
 labels:
   - determinism
 dependencies: []
@@ -31,3 +33,9 @@ The 2026-09-08 wave could not prove whole-dump byte identity for the CSP lanes b
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Wave 2026-09-09: bisect the saved fixed-tick diff by field, fix each nondeterministic draw at source with a failing-first two-run test, document only evidenced by-design fields, and prove the final two-run diff.
+<!-- SECTION:PLAN:END -->
