@@ -30,9 +30,8 @@
 #   Then send capture.age + passphrase to your Grafana SE (use separate channels).
 #
 # ─── Customise before applying ───────────────────────────────────────────────
-#   - The checked-in edge pin remains in use pending a stable release pin.
-#     Release form: ghcr.io/rknightion/synthkit-skcapture:<X.Y.Z> (no leading "v").
-#     Automatic prerelease verification has passed; pin both containers together. Use
+#   - Both containers use the stable 1.4.0 release image. Release tags named vX.Y.Z publish
+#     the container tag without the leading "v". Pin both containers together. Use
 #     main-<shortsha> only as the development override.
 #   - Adjust --exclude-namespaces if you want to include kube-system workloads.
 #   - To capture the telemetry's authoritative cluster identity, customise and
@@ -76,7 +75,7 @@ spec:
       containers:
         - name: skcapture
           # Published by the shared reusable; just skcapture-k3d overrides this to skcapture:dev.
-          image: ghcr.io/rknightion/synthkit-skcapture:main-63c183a
+          image: ghcr.io/rknightion/synthkit-skcapture:1.4.0
           imagePullPolicy: IfNotPresent
 
           args:
@@ -110,7 +109,7 @@ spec:
         # Retains the shared emptyDir only long enough for the operator to copy
         # the encrypted capture. Delete the Job immediately after retrieval.
         - name: output-hold
-          image: ghcr.io/rknightion/synthkit-skcapture:main-63c183a
+          image: ghcr.io/rknightion/synthkit-skcapture:1.4.0
           imagePullPolicy: IfNotPresent
           command: ["/bin/sleep"]
           args: ["600"]

@@ -75,12 +75,11 @@ Addon recognition combines the allowlisted Helm release name with known namespac
 
 ### Published in-cluster Job
 
-The shipped Job currently pins both containers to the proven edge image
-`ghcr.io/rknightion/synthkit-skcapture:main-63c183a`, built from `Dockerfile.skcapture` through
-the shared container-publish reusable. Release-tag publication uses the release form
-`ghcr.io/rknightion/synthkit-skcapture:<X.Y.Z>`; `<X.Y.Z>` is the release version without the
-leading `v`. Automatic prerelease `v1.4.0-rc.105` verified both images on 2026-09-06; the
-shipped Job still awaits a stable release pin. For development against `main`, use
+The shipped Job pins both containers to the stable release image
+`ghcr.io/rknightion/synthkit-skcapture:1.4.0`, built from `Dockerfile.skcapture` through
+the shared container-publish reusable. A Git release tag named `vX.Y.Z` publishes the image as
+`ghcr.io/rknightion/synthkit-skcapture:<X.Y.Z>` without the leading `v`. Release `v1.4.0`
+verified both images' signatures and provenance on 2026-09-06. For development against `main`, use
 the edge override form `ghcr.io/rknightion/synthkit-skcapture:main-<shortsha>`. Follow
 `deploy/skcapture/README.md`: apply base RBAC, create the passphrase Secret from a protected
 file, apply the Job, wait for the capture container to finish, and copy the encrypted file from
