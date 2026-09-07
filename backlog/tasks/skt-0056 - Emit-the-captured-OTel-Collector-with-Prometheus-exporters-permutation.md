@@ -1,9 +1,10 @@
 ---
 id: SKT-0056
 title: Emit the captured OTel Collector with Prometheus exporters permutation
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-09-07 11:03'
+updated_date: '2026-09-07 13:37'
 labels:
   - integration
 dependencies: []
@@ -37,3 +38,9 @@ The deployment matrix explicitly says permutation 3 is not emitted even though S
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+L3 stopped before edits under the frozen construct-boundary rule. P3 uses the existing cluster fixture and resolver registration; its KSM, cAdvisor, node-exporter and kubelet families already belong to k8scluster. A new otelcolprom package would duplicate identity/state or cross-import another construct. No tests or lab run occurred. Resume by authorizing an existing-construct collector-path projection and deciding its explicit conflicts with additive native-OTLP and Alloy-specific monitoring switches; no P3 emission is claimed.
+<!-- SECTION:NOTES:END -->

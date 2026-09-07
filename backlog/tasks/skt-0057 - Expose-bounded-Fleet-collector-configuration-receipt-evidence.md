@@ -4,7 +4,7 @@ title: Expose bounded Fleet collector configuration receipt evidence
 status: Done
 assignee: []
 created_date: '2026-09-07 11:03'
-updated_date: '2026-09-07 13:52'
+updated_date: '2026-09-07 14:05'
 labels:
   - integration
 dependencies: []
@@ -35,7 +35,7 @@ The Fleet client records a successful GetConfig heartbeat but discards its respo
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -50,6 +50,8 @@ Pin the GetConfig response schema, reduce non-empty content to bounded SHA-256 r
 
 <!-- SECTION:NOTES:BEGIN -->
 Pinned Alloy Remote Config v0.0.12 response fields; content is reduced to SHA-256, opaque server hash discarded, response bounded to 1 MiB and one complete JSON value. Successful empty responses remain unavailable, not receipt. Per-collector lifecycle and receipt status are wired into authenticated control status. Test-first fixtures, integrated fleet/status/runner/control/command tests, and just check passed. CodeRabbit L1/L2 batch completed with no Fleet findings. No live Fleet call occurred; receipt never proves parsing or execution.
+
+Final integrated just check passed and the generation pass ran once with no drift. No blueprint config struct or renderer changed. Safe inventory output was generated, but a partial catalogue-name comparison does not establish full label/envelope conformance; the dump DoD is left unchecked. Live Fleet receipt is not claimed.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

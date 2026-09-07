@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-07 12:29'
-updated_date: '2026-09-07 13:51'
+updated_date: '2026-09-07 14:05'
 labels:
   - lab
 dependencies: []
@@ -34,7 +34,7 @@ The nightly signal-fidelity-k3d matrix has been red on three of the last five ru
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -49,6 +49,8 @@ Prove exact image residency in every node containerd namespace after import in b
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented direct per-node containerd k8s.io residency proof in both runners, one bounded import retry, and retained diagnostics on pass and failure. Simulations cover immediate pass, pass after two imports, persistent miss after two imports naming both nodes/reference, and untagged-reference normalization. Retained evidence: codex/scratch/wave-2026-09-11/residency/. bash -n, shellcheck and static lab-check passed. L1/L2 CodeRabbit completed; the sole minor normalization finding was reproduced and fixed in both scripts. No live lab or live containerd proof was run.
+
+Final integrated just check passed. One safe explicit-selection dump exists; its machine-name comparison against signals is incomplete for prose/expanded families and is not claimed full catalogue conformance. No renderer or construct changed; no live k3d run or e2e was authorized for this lane. Conditional generation DoD is not applicable to these scripts. The unchecked dump DoD is explicitly unproven, not a hidden pass.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

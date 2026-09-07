@@ -7,7 +7,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-07 08:10'
-updated_date: '2026-09-07 12:29'
+updated_date: '2026-09-07 14:04'
 labels:
   - corpus
   - reality-corpus
@@ -48,10 +48,14 @@ Wave 2026-09-10: apply the three reviewed routes in AWS, Azure, GCP order; proje
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-09-10 projected and cumulatively merged the reviewed AWS, Azure, and GCP candidates in scratch without changing the immutable raw captures. The frozen direct routes conflict with existing ambiguous_direct_producer corpus evidence and produce 27 unexempted signal-fidelity contradictions. The run allowed no route alteration, additional schema change, or new exemption, so none of the three routes or merged documents was committed and every acceptance criterion remains open. Resume by reconciling the direct-route semantics with the existing ambiguity evidence, then apply each reviewed route and CanonicalMerge in order, rename to the newest capture hash, record divergences, and require green fidelity.
+
+Correction to the previous wave note: only AWS had been projected and merged then; Azure and GCP had not. This wave projected Azure and GCP from their frozen raw captures and cumulatively merged all three in scratch. AWS families 1432 -> 1459, +27 names/+355 label-key pairs; Azure 2110 -> 2185, +75/+994; GCP 1022 -> 1049, +27/+344. All three candidate envelopes validate, all label values are elided and tag_ labels absent. Literal signal-fidelity recipes remain red: AWS 27, Azure 64, GCP 21 unexempted contradictions. No-comparable-producer counts are 7, 7 and 6 against the initial bound 6; AWS and Azure also fail the ratchet. Broad promrw identity is shared across jobs; no label/prefix-derived producer identity was invented. Exact new-family and label-pair lists are retained in the wave scratch structural-delta JSON documents. No corpus document, route or exemption was committed.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 Parked before corpus writes. All three cumulative-merge candidates are preserved, but the frozen routes produce 27 unexempted contradictions; no acceptance criterion is claimed.
+
+All three cumulative projections were actually attempted this wave. Promotion remains parked on their measured same-producer contradictions and, for two candidates, ratchet growth. Resume with reviewed job-level shape provenance, not new exemptions.
 <!-- SECTION:FINAL_SUMMARY:END -->
