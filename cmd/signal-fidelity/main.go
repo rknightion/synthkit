@@ -40,6 +40,7 @@ func runWithReportLineBound(args []string, output io.Writer, lineBound int) erro
 	synthPath := flags.String("synth", "", "path to a synthkit -inventory-json export")
 	corpusPath := flags.String("corpus", "reality-corpus", "path to the committed reality corpus")
 	exemptionsPath := flags.String("exemptions", "", "path to the contradiction exemption document (defaults inside the corpus)")
+	producerCoveragePath := flags.String("producer-coverage", "", "path to the producer coverage ratchet (defaults inside the corpus)")
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
 	}
@@ -83,6 +84,26 @@ func runWithReportLineBound(args []string, output io.Writer, lineBound int) erro
 	}
 	if exemptionErr != nil {
 		return exemptionErr
+	}
+	if *producerCoveragePath == "" {
+		*producerCoveragePath = filepath.Join(*corpusPath, "verdicts", "producer-coverage.json")
+	}
+	ratchet, ratchetErr := inventory.LoadProducerCoverageRatchet(*producerCoveragePath)
+	if errors.Is(ratchetErr, os.ErrNotExist) {
+		// A legacy corpus grants no unresolved-producer allowance.
+		zero := 0
+		ratchet = inventory.ProducerCoverageRatchet{Version: inventory.ProducerCoverageVersion, ExpectedCount: &zero}
+		ratchetErr = nil
+	}
+	if ratchetErr != nil {
+		return fmt.Errorf("producer coverage ratchet: %w", ratchetErr)
+	}
+	count := inventory.CountNoComparableProducers(findings)
+	if _, err := fmt.Fprintf(output, "Producer coverage ratchet: observed=%d expected=%d (report-only within bound; growth fails).\n", count, *ratchet.ExpectedCount); err != nil {
+		return err
+	}
+	if err := ratchet.Check(count); err != nil {
+		return err
 	}
 	if count := inventory.CountUnexemptedContradictions(findings); count > 0 {
 		return fmt.Errorf("%d unexempted contradiction findings", count)

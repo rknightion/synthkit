@@ -115,8 +115,8 @@ present; a family without it needs its own explicit manifest identity before
 the label is omitted from the privacy-safe projection. The comparator pairs metrics only where
 both sides carry a matching explicit producer. It never reconstructs a producer
 or an area from a metric name, prefix, document position, or elided label value;
-an unmapped family is a conversion error and a family without a matching
-producer is absent evidence.
+an unmapped family is a conversion error. Unmatched producer claims remain
+visible under the producer identity and coverage-ratchet rules below.
 
 When a synth producer selects the k8s-monitoring default allow-list, its metric
 producer provenance also records the pinned chart version and selected variant
@@ -358,6 +358,35 @@ a producer could not observe is a coverage gap that routes to a PENDING, and the
 fix is to make the producer observe it, not to exempt the field permanently. A
 corpus producer must therefore understand what its output means:
 
+- **Reviewed producer identity.** A metric comparison requires the family name
+  and a matching explicit `producers[].name`. Names, prefixes, label values,
+  document areas and prose never manufacture that identity. Different recorded
+  producer sets yield one `producer_mismatch` coverage gap per document/family,
+  naming both sets. Disjoint sets do not compare signal shapes. An overlapping
+  producer still compares with exactly the existing instrument, label and
+  histogram rules; allow-list version/variant remain configuration provenance.
+  In particular, `promrw` is the recorded identity shared by many sources, not
+  proof of different jobs: its existing family union cannot be split after
+  privacy elision. A shared `promrw` identity never licenses suppressing a
+  contradiction. Legacy documents without producer attribution retain their
+  existing comparisons.
+- **No comparable producer.** Each synthetic family/producer with no matching
+  explicitly attributed reality producer anywhere in the selected substrate
+  scope yields one `no_comparable_producer` finding in its own report section.
+  This accounting covers families observed by at least one attributed corpus
+  document; wholly unobserved families remain outside corpus coverage. Missing
+  synthetic attribution is reported as `(unrecorded)`, never inferred. A partial
+  producer overlap preserves the shared comparison and reports unmatched claims.
+  These findings are report-only, separately from coverage gaps and exemptions.
+  `verdicts/producer-coverage.json` records version
+  `synthkit.telemetry.producer-coverage/v1alpha1` and a nonnegative
+  `expected_count`. The command prints observed and expected counts and fails
+  closed on growth. A missing file means zero allowance; malformed records fail.
+  There are no per-finding reasons or exemption selectors. The initial baseline
+  count is six. The report remains visible before ratchet failure, and decreases
+  need no allowance increase. Same-producer PostgreSQL `env` and monitoring
+  build-info `source` differences remain contradictions; producer scoping cannot
+  erase them or rewrite observed evidence.
 - **Instrument type.** A metric whose `instrument_types` is exactly
   `["unknown"]` records that the producer could not observe an instrument shape.
   It yields a visible `unknown_instrument_evidence` coverage gap and PENDING

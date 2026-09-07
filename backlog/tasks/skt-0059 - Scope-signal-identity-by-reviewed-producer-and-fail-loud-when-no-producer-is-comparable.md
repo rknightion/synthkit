@@ -3,9 +3,11 @@ id: SKT-0059
 title: >-
   Scope signal identity by reviewed producer, and fail loud when no producer is
   comparable
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - '@codex'
 created_date: '2026-09-07 12:29'
+updated_date: '2026-09-07 13:24'
 labels:
   - corpus
 dependencies: []
@@ -26,10 +28,10 @@ Every corpus promotion is blocked behind the same 27 unexempted contradictions, 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Signal identity for comparison is the pair of metric family and reviewed producer, not the family name alone, and the contract is written into docs/reality-corpus.md as an evidence rule
-- [ ] #2 A synth and reality claim under the same reviewed producer compares exactly as it does today, so no existing contradiction class is weakened
-- [ ] #3 A synth and reality claim under different producers is one named coverage gap that states both producers, never a contradiction and never silent absence
-- [ ] #4 A synth signal whose producer matches no reality producer in scope produces a distinct visible finding rather than passing, and that finding kind is exercised by a test using the pg_stat_* and grafana_kubernetes_monitoring_build_info shapes
+- [x] #1 Signal identity for comparison is the pair of metric family and reviewed producer, not the family name alone, and the contract is written into docs/reality-corpus.md as an evidence rule
+- [x] #2 A synth and reality claim under the same reviewed producer compares exactly as it does today, so no existing contradiction class is weakened
+- [x] #3 A synth and reality claim under different producers is one named coverage gap that states both producers, never a contradiction and never silent absence
+- [x] #4 A synth signal whose producer matches no reality producer in scope produces a distinct visible finding rather than passing, and that finding kind is exercised by a test using the pg_stat_* and grafana_kubernetes_monitoring_build_info shapes
 - [ ] #5 The four preserved promotion candidates and the preserved control-plane read-back candidate reach zero unexempted contradictions under the new contract, with no exemption added and no route altered
 <!-- AC:END -->
 
@@ -39,3 +41,15 @@ Every corpus promotion is blocked behind the same 27 unexempted contradictions, 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Test the frozen same-producer, different-producer, and no-comparable outcomes; preserve legacy evidence and all existing contradiction classes. Add a strict versioned count ratchet and separate report section. Measure the unchanged producer sets of every blocking family and compare each preserved or freshly projected candidate in scratch before corpus edits. Write the contract once, review, and integrate with exact residue if frozen identity cannot resolve a real contradiction.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Producer-scoped contract implemented with same-producer comparisons unchanged, named producer_mismatch gaps, separate no_comparable_producer report and strict versioned count ratchet initially 6. Test-first fixtures and just check passed. CodeRabbit completed with two major findings; regression tests reproduced duplicate-name counting and duplicate JSON-key overwrite, both fixed and targeted tests green. AC5 remains unproven: unexempted contradictions before/after Rancher 25/25, AWS 27/27, Azure 64/64, GCP 21/21, control-plane 10/10. Candidate evaluations use actual projection, CanonicalMerge and comparator in scratch; no corpus evidence file changed. Recorded identity is promrw for both modeled and observed collision families; it is not a job identity. Frozen routes cannot distinguish those jobs. Resume with reviewed producer/shape attribution authority or evidence-backed same-producer model corrections; do not suppress findings or add exemptions.
+<!-- SECTION:NOTES:END -->

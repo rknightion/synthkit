@@ -314,8 +314,8 @@ func TestCompareCorpusDoesNotCompareCrossProducerFamilies(t *testing.T) {
 	reality.Inventory.AddMetric("shared_total", TransportPrometheusRW2, InstrumentGauge, map[string]string{"reality_key": ""}, nil)
 	reality.Inventory.AddMetricProducer("shared_total", Producer{Name: "reality-producer"})
 
-	if findings := CompareCorpus(synth, []CorpusDocument{reality}); len(findings) != 0 {
-		t.Fatalf("findings=%+v, cross-producer family must not compare", findings)
+	if findings := CompareCorpus(synth, []CorpusDocument{reality}); len(findings) != 2 || CountUnexemptedContradictions(findings) != 0 || CountNoComparableProducers(findings) != 1 {
+		t.Fatalf("findings=%+v, cross-producer family must report gap and unmatched claim", findings)
 	}
 }
 

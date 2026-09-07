@@ -35,7 +35,7 @@ func WriteFindingsReport(w io.Writer, findings []ScopedFinding) error {
 	if err := writeDispositionReport(w, "Coverage gaps", DispositionCoverageGap, ordered); err != nil {
 		return err
 	}
-	return nil
+	return writeDispositionReport(w, "No comparable producer", DispositionNoComparableProducer, ordered)
 }
 
 func writeEvidenceLegend(w io.Writer, findings []ScopedFinding) error {

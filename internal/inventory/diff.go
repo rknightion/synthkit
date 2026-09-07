@@ -28,6 +28,8 @@ const (
 	KindExtraTrace                FindingKind = "extra_trace"
 	KindExtraProfile              FindingKind = "extra_profile"
 	KindExtraSigil                FindingKind = "extra_sigil"
+	KindProducerMismatch          FindingKind = "producer_mismatch"
+	KindNoComparableProducer      FindingKind = "no_comparable_producer"
 )
 
 // Disposition says which side of the comparison is unsupported by the other
@@ -36,8 +38,9 @@ const (
 type Disposition string
 
 const (
-	DispositionContradiction Disposition = "contradiction"
-	DispositionCoverageGap   Disposition = "coverage_gap"
+	DispositionContradiction        Disposition = "contradiction"
+	DispositionCoverageGap          Disposition = "coverage_gap"
+	DispositionNoComparableProducer Disposition = "no_comparable_producer"
 )
 
 // Finding is one typed difference between a synthetic inventory and a reality

@@ -31,13 +31,47 @@ func TestRunPrintsReportLineCountAgainstBound(t *testing.T) {
 	if err := run([]string{"-synth", synthPath, "-corpus", corpusDir}, &output); err != nil {
 		t.Fatalf("run returned a report finding as an error: %v", err)
 	}
-	lines := strings.Split(strings.TrimSuffix(output.String(), "\n"), "\n")
+	body := strings.SplitN(output.String(), "Report size:", 2)[0]
+	lines := strings.Split(strings.TrimSuffix(body, "\n"), "\n")
 	if len(lines) < 2 {
 		t.Fatalf("report did not include a size line:\n%s", output.String())
 	}
-	want := fmt.Sprintf("Report size: %d lines (bound: %d; size-only breaches are report-only).", len(lines)-1, reportLineBound)
+	want := fmt.Sprintf("Report size: %d lines (bound: %d; size-only breaches are report-only).", len(lines), reportLineBound)
 	if !strings.Contains(output.String(), want) {
 		t.Fatalf("report missing size diagnostic %q:\n%s", want, output.String())
+	}
+}
+
+func TestRunProducerRatchetFailsAfterVisibleReport(t *testing.T) {
+	dir := t.TempDir()
+	synthPath := filepath.Join(dir, "synth.json")
+	corpusDir := filepath.Join(dir, "corpus")
+	if err := os.Mkdir(corpusDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	synth := inventory.New()
+	synth.Metrics = []inventory.Metric{testMetric("pg_stat_activity_count", "synthetic")}
+	synth.Metrics[0].Producers = []inventory.Producer{{Name: "modeled"}}
+	writeJSONFile(t, synthPath, synth)
+	real := testMetric("pg_stat_activity_count", "observed")
+	real.Producers = []inventory.Producer{{Name: "observed"}}
+	writeCorpusMetric(t, corpusDir, real)
+	writeExemptionsFile(t, corpusDir, nil)
+	args := []string{"-synth", synthPath, "-corpus", corpusDir}
+	var output bytes.Buffer
+	if err := run(args, &output); err == nil || !strings.Contains(err.Error(), "count grew") {
+		t.Fatalf("missing ratchet must fail on new findings: %v", err)
+	}
+	if !strings.Contains(output.String(), "## No comparable producer") {
+		t.Fatal(output.String())
+	}
+	writeJSONFile(t, filepath.Join(corpusDir, "verdicts", "producer-coverage.json"), map[string]any{"version": inventory.ProducerCoverageVersion, "expected_count": 1})
+	output.Reset()
+	if err := run(args, &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "observed=1 expected=1") {
+		t.Fatal(output.String())
 	}
 }
 

@@ -1293,9 +1293,11 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 			!containsString(document.Authority.Substrates, synth.Provenance.Substrate) {
 			continue
 		}
-		reality := producerScopedReality(synthCopy, withoutEnrichmentLabels(document.Inventory, document.Source.EnrichmentLabels))
+		observed := withoutEnrichmentLabels(document.Inventory, document.Source.EnrichmentLabels)
+		reality := producerScopedReality(synthCopy, observed)
 		comparison := scopedSynthSchema(withoutSelectorLabels(synthCopy), reality)
 		findings := Diff(comparison, reality)
+		findings = append(findings, producerMismatchFindings(synthCopy, observed)...)
 		findings = classifyAllowListAbsences(findings, synthCopy, reality)
 		comparisons = append(comparisons, corpusComparison{document: document, findings: findings})
 		for _, finding := range findings {
@@ -1309,6 +1311,7 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 		}
 	}
 	annotateSubstrateEvidence(out, comparisons)
+	out = append(out, noComparableProducerFindings(synthCopy, ordered)...)
 	sort.SliceStable(out, func(i, j int) bool { return compareScopedFindings(out[i], out[j]) < 0 })
 	return out
 }
