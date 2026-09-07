@@ -16,6 +16,7 @@ readonly CLUSTER_NAME="${SKCAPTURE_K3D_CLUSTER_NAME:-skcapture-k3d}"
 readonly OUTPUT_ROOT="${SKCAPTURE_K3D_OUTPUT_DIR:-$REPO_ROOT/artifacts/skcapture-k3d}"
 readonly IMAGE="skcapture:dev"
 readonly NAMESPACE="skcapture"
+readonly CONTAINERD_NAMESPACE="k8s.io"
 
 created_cluster=false
 tmp_dir=""
@@ -54,6 +55,146 @@ require_commands() {
 
 cluster_exists() {
   k3d cluster list --output json | jq -e --arg name "$CLUSTER_NAME" 'any(.[]?; .name == $name)' >/dev/null
+}
+
+containerd_image_matches_reference() {
+  local image_listing=$1
+  local image_reference=$2
+  local canonical_reference
+  local registry_prefix
+
+  # ctr normalizes Docker's unqualified names on import. Accept the exact input reference or
+  # the one canonical containerd name it maps to, but never a digest-only or unrelated image.
+  canonical_reference="$image_reference"
+  if [[ "$image_reference" == */* ]]; then
+    registry_prefix="${image_reference%%/*}"
+    if [[ "$registry_prefix" != *.* && "$registry_prefix" != *:* && "$registry_prefix" != localhost ]]; then
+      canonical_reference="docker.io/$image_reference"
+    fi
+  else
+    canonical_reference="docker.io/library/$image_reference"
+  fi
+  if [[ "$canonical_reference" != *@* && "${canonical_reference##*/}" != *:* ]]; then
+    canonical_reference+=":latest"
+  fi
+
+  printf '%s\n' "$image_listing" | grep -Fqx -- "$image_reference" \
+    || printf '%s\n' "$image_listing" | grep -Fqx -- "$canonical_reference"
+}
+
+format_missing_nodes() {
+  local joined=""
+  local missing_node
+  for missing_node in "${IMAGE_RESIDENCY_MISSING[@]}"; do
+    if [[ -n "$joined" ]]; then
+      joined+=","
+    fi
+    joined+="$missing_node"
+  done
+  printf '%s' "$joined"
+}
+
+check_image_residency() {
+  local attempt=$1
+  local node_list_json node_names node image_listing ctr_status
+  local node_count=0
+  local diagnostic="$run_dir/image-residency.txt"
+  IMAGE_RESIDENCY_MISSING=()
+
+  {
+    printf '%s\n' "attempt=$attempt"
+    printf '%s\n' "reference=$IMAGE"
+    printf '%s\n' "namespace=$CONTAINERD_NAMESPACE"
+    printf '%s\n' 'node_command=k3d node list --output json (filtered to this cluster)'
+    printf '%s\n' 'residency_command=docker exec <node> ctr --namespace k8s.io images list --quiet'
+  } >>"$diagnostic"
+
+  if ! node_list_json="$(k3d node list --output json 2>&1)"; then
+    printf '%s\n' "node-list=ERROR $node_list_json" >>"$diagnostic"
+    IMAGE_RESIDENCY_MISSING=("node-list")
+    return 1
+  fi
+  printf '%s\n' "node-list-json=$node_list_json" >>"$diagnostic"
+  if ! node_names="$(jq -r --arg cluster "$CLUSTER_NAME" '.[] | select((.cluster // "") == $cluster or ((.name // "") | startswith("k3d-" + $cluster + "-"))) | select(.role == "server" or .role == "agent") | .name' <<<"$node_list_json")"; then
+    printf '%s\n' 'node-list=ERROR invalid k3d node-list JSON' >>"$diagnostic"
+    IMAGE_RESIDENCY_MISSING=("node-list")
+    return 1
+  fi
+
+  while IFS= read -r node; do
+    [[ -n "$node" ]] || continue
+    node_count=$((node_count + 1))
+    if image_listing="$(docker exec "$node" ctr --namespace "$CONTAINERD_NAMESPACE" images list --quiet 2>&1)"; then
+      ctr_status=0
+    else
+      ctr_status=$?
+    fi
+    {
+      printf '%s\n' "node=$node"
+      printf '%s\n' "command=docker exec $node ctr --namespace $CONTAINERD_NAMESPACE images list --quiet"
+      printf '%s\n' "exit=$ctr_status"
+      printf '%s\n' 'listing<<EOF'
+      printf '%s\n' "$image_listing"
+      printf '%s\n' 'EOF'
+    } >>"$diagnostic"
+    if ((ctr_status == 0)) && containerd_image_matches_reference "$image_listing" "$IMAGE"; then
+      printf '%s\n' "node=$node residency=PASS reference=$IMAGE" >>"$diagnostic"
+    else
+      printf '%s\n' "node=$node residency=MISS reference=$IMAGE" >>"$diagnostic"
+      IMAGE_RESIDENCY_MISSING+=("$node")
+    fi
+  done <<<"$node_names"
+
+  if ((node_count == 0)); then
+    printf '%s\n' 'node-list=ERROR no server or agent nodes were returned' >>"$diagnostic"
+    IMAGE_RESIDENCY_MISSING=("node-list")
+    return 1
+  fi
+  if ((${#IMAGE_RESIDENCY_MISSING[@]} == 0)); then
+    printf '%s\n' "attempt=$attempt result=PASS" >>"$diagnostic"
+    return 0
+  fi
+  printf '%s\n' "attempt=$attempt result=MISS missing_nodes=$(format_missing_nodes)" >>"$diagnostic"
+  return 1
+}
+
+run_image_import() {
+  local attempt=$1
+  local import_status=0
+  local import_log="$run_dir/k3d-import.log"
+
+  printf '%s\n' "--- attempt=$attempt ---" >>"$import_log"
+  if k3d image import "$IMAGE" --cluster "$CLUSTER_NAME" >>"$import_log" 2>&1; then
+    :
+  else
+    import_status=$?
+  fi
+  printf '%s\n' "attempt=$attempt exit=$import_status" >>"$import_log"
+  return "$import_status"
+}
+
+import_image() {
+  if ! run_image_import 1; then
+    log "k3d image import returned non-zero; checking direct containerd residency"
+  fi
+  if check_image_residency 1; then
+    printf '%s\n' 'retry=not-needed' >>"$run_dir/image-residency.txt"
+    return 0
+  fi
+
+  log "image reference $IMAGE was missing from node(s) $(format_missing_nodes); retrying k3d image import once"
+  printf '%s\n' "retry=performed reason=missing_nodes=$(format_missing_nodes)" >>"$run_dir/image-residency.txt"
+  if ! run_image_import 2; then
+    log "retry k3d image import returned non-zero; checking direct containerd residency"
+  fi
+  if check_image_residency 2; then
+    printf '%s\n' 'retry=result=PASS' >>"$run_dir/image-residency.txt"
+    return 0
+  fi
+
+  local missing_nodes
+  missing_nodes="$(format_missing_nodes)"
+  die "image reference $IMAGE is absent from node(s) $missing_nodes after exactly one retry; see $run_dir/image-residency.txt"
 }
 
 assert_rbac() {
@@ -95,6 +236,7 @@ record_result() {
     printf '%s\n' "- cluster: $CLUSTER_NAME (k3s via k3d)"
     printf '%s\n' '- Job: completed under the shipped skcapture ServiceAccount and skcapture-reader RBAC'
     printf '%s\n' '- encrypted output: retrieved using the documented output-hold kubectl cp path'
+		printf '%s\n' "- image residency diagnostic: $run_dir/image-residency.txt"
 		printf '%s\n' "- captured provider: $provider"
 		printf '%s\n' "- captured cluster-name source: $name_source"
 		printf '%s\n\n' '- forge behaviour: refused non-EKS skeleton without --assume-aws (proved in forge-refusal.txt)'
@@ -140,7 +282,7 @@ until kubectl get --raw='/readyz' --request-timeout=10s >/dev/null 2>&1 \
 done
 
 log "importing local $IMAGE into $CLUSTER_NAME"
-k3d image import "$IMAGE" --cluster "$CLUSTER_NAME"
+import_image
 
 kubectl apply -f "$REPO_ROOT/deploy/skcapture/rbac.yaml"
 assert_rbac

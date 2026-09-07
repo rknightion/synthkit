@@ -1,9 +1,11 @@
 ---
 id: SKT-0058
 title: k3d image import reports success while the nodes loaded nothing
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-09-07 12:29'
+updated_date: '2026-09-07 13:51'
 labels:
   - lab
 dependencies: []
@@ -24,10 +26,10 @@ The nightly signal-fidelity-k3d matrix has been red on three of the last five ru
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The import phase proves the receiver image is resident in every cluster node containerd namespace after import, rather than trusting the k3d exit code
-- [ ] #2 A failed or partial import is retried once, and a still-absent image fails the import-images phase with a message naming the node and the image reference
-- [ ] #3 A retained diagnostic records the per-node residency check result on both the passing and the failing path
-- [ ] #4 The skcapture lab runner applies the same residency proof, because it imports through the same unreliable path
+- [x] #1 The import phase proves the receiver image is resident in every cluster node containerd namespace after import, rather than trusting the k3d exit code
+- [x] #2 A failed or partial import is retried once, and a still-absent image fails the import-images phase with a message naming the node and the image reference
+- [x] #3 A retained diagnostic records the per-node residency check result on both the passing and the failing path
+- [x] #4 The skcapture lab runner applies the same residency proof, because it imports through the same unreliable path
 <!-- AC:END -->
 
 ## Definition of Done
@@ -36,3 +38,21 @@ The nightly signal-fidelity-k3d matrix has been red on three of the last five ru
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Prove exact image residency in every node containerd namespace after import in both runners, test the false-success case before the fix, retry once on missing residency, retain per-node diagnostics, validate statically, then root reviews and integrates.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented direct per-node containerd k8s.io residency proof in both runners, one bounded import retry, and retained diagnostics on pass and failure. Simulations cover immediate pass, pass after two imports, persistent miss after two imports naming both nodes/reference, and untagged-reference normalization. Retained evidence: codex/scratch/wave-2026-09-11/residency/. bash -n, shellcheck and static lab-check passed. L1/L2 CodeRabbit completed; the sole minor normalization finding was reproduced and fixed in both scripts. No live lab or live containerd proof was run.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The import decision no longer trusts k3d exit status. Static and mocked acceptance is proven; next nightly supplies live residency evidence.
+<!-- SECTION:FINAL_SUMMARY:END -->
