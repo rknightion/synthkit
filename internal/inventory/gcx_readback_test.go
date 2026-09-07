@@ -110,6 +110,43 @@ func TestBuildGCXLiveReadbackScopesAreasAndElidesDeploymentIdentity(t *testing.T
 	}
 }
 
+func TestBuildGCXLiveReadbackRoutesOnlyExactControlPlaneJobs(t *testing.T) {
+	t.Parallel()
+	series := []map[string]string{
+		{
+			"__name__": "kube_node_info", "cluster": "deployment-cluster", "provider_id": "aws:///region-zone/i-instance",
+			"job": "integrations/kubernetes/kube-state-metrics", "kubelet_version": "v1.35.2-eks-build",
+		},
+		{"__name__": "scheduler_schedule_attempts_total", "cluster": "deployment-cluster", "instance": "scheduler-instance", "job": "kube-scheduler", "profile": "default-scheduler", "result": "scheduled"},
+		{"__name__": "scheduler_wrong_job_total", "cluster": "deployment-cluster", "instance": "wrong-instance", "job": "kube-controller-manager"},
+		{"__name__": "workqueue_depth", "cluster": "deployment-cluster", "instance": "controller-instance", "job": "kube-controller-manager", "name": "node"},
+		{"__name__": "workqueue_wrong_job", "cluster": "deployment-cluster", "instance": "wrong-instance", "job": "kube-scheduler"},
+		{"__name__": "cronjob_controller_job_creation_skew_duration_seconds", "cluster": "deployment-cluster", "instance": "controller-instance", "job": "kube-controller-manager"},
+	}
+
+	documents, err := BuildGCXLiveReadback(series, nil, "2026-09-07", "1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k8s := documentForArea(t, documents, "k8s")
+	wantNames := []string{
+		"cronjob_controller_job_creation_skew_duration_seconds",
+		"kube_node_info",
+		"scheduler_schedule_attempts_total",
+		"workqueue_depth",
+	}
+	if got := metricNames(k8s); !reflect.DeepEqual(got, wantNames) {
+		t.Fatalf("k8s metrics=%v, want only exact control-plane jobs %v", got, wantNames)
+	}
+	for _, name := range []string{"scheduler_schedule_attempts_total", "workqueue_depth", "cronjob_controller_job_creation_skew_duration_seconds"} {
+		metric := metricForName(t, k8s, name)
+		assertAttribute(t, metric, "cluster", nil, true)
+		assertAttribute(t, metric, "instance", nil, true)
+	}
+	assertAttribute(t, metricForName(t, k8s, "scheduler_schedule_attempts_total"), "job", []string{"kube-scheduler"}, false)
+	assertAttribute(t, metricForName(t, k8s, "workqueue_depth"), "job", []string{"kube-controller-manager"}, false)
+}
+
 func TestMergeCorpusDocumentFileUsesCanonicalCumulativeUnion(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

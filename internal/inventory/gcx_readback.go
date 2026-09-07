@@ -86,6 +86,8 @@ var trustedLiveJobValues = map[string]struct{}{
 	"integrations/aws-vpc-cni":                   {},
 	"integrations/kubernetes/kube-proxy":         {},
 	"integrations/kubernetes/kube-state-metrics": {},
+	"kube-controller-manager":                    {},
+	"kube-scheduler":                             {},
 }
 
 // prometheusMetadataInstruments maps the metric types a Prometheus-compatible metadata API
@@ -265,6 +267,11 @@ func liveMetricArea(name string, labels map[string]string) (string, bool) {
 	case strings.HasPrefix(name, "kubeproxy_"):
 		return "k8s", true
 	case name == "kubernetes_build_info" && labels["job"] == "integrations/kubernetes/kube-proxy":
+		return "k8s", true
+	case strings.HasPrefix(name, "scheduler_") && labels["job"] == "kube-scheduler":
+		return "k8s", true
+	case (strings.HasPrefix(name, "workqueue_") || strings.HasPrefix(name, "cronjob_controller_")) &&
+		labels["job"] == "kube-controller-manager":
 		return "k8s", true
 	case strings.HasPrefix(name, "awscni_"):
 		return "k8s-addons", true

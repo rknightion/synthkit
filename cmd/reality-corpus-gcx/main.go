@@ -30,6 +30,8 @@ var liveSeriesSelectors = []string{
 	`{__name__=~"awscni_.*"}`,
 	`{__name__=~"kubeproxy_.*"}`,
 	`{__name__="kubernetes_build_info",job="integrations/kubernetes/kube-proxy"}`,
+	`{__name__=~"scheduler_.*",job="kube-scheduler"}`,
+	`{__name__=~"workqueue_.*|cronjob_controller_.*",job="kube-controller-manager"}`,
 	`{__name__=~"aws_amazonmwaa_.*"}`,
 	`{__name__=~"aws_aoss_.*"}`,
 	`{__name__=~"aws_applicationelb_.*"}`,

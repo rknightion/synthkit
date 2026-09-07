@@ -47,8 +47,24 @@ func TestRunChecksContextThenReadsAndMergesOnlyInScopeSeries(t *testing.T) {
                     "aws_ec2_cpu_credit_usage_sum":[{"type":"gauge","help":""}]
                 }}`), nil
 		case strings.HasPrefix(call, "gcx metrics series "):
+			// A series response is scoped by the selector, but the read-back must
+			// still rely on the established builder's job admission checks. Each
+			// response includes one correctly scoped family and one adversarial
+			// family whose job belongs to the other control-plane component.
+			if strings.HasSuffix(call, `--match {__name__=~"scheduler_.*",job="kube-scheduler"}`) {
+				return []byte(`{"status":"success","data":[
+                    {"__name__":"scheduler_schedule_attempts_total","cluster":"deployment-cluster","instance":"kube-scheduler:10259","job":"kube-scheduler"},
+                    {"__name__":"scheduler_pending_pods","cluster":"deployment-cluster","instance":"kube-scheduler:10259","job":"kube-controller-manager"}
+                ]}`), nil
+			}
+			if strings.HasSuffix(call, `--match {__name__=~"workqueue_.*|cronjob_controller_.*",job="kube-controller-manager"}`) {
+				return []byte(`{"status":"success","data":[
+                    {"__name__":"workqueue_depth","cluster":"deployment-cluster","instance":"kube-controller-manager:10257","job":"kube-controller-manager"},
+                    {"__name__":"workqueue_adds_total","cluster":"deployment-cluster","instance":"kube-controller-manager:10257","job":"kube-scheduler"}
+                ]}`), nil
+			}
 			return []byte(`{"status":"success","data":[
-                    {"__name__":"kube_node_info","cluster":"deployment-cluster","provider_id":"aws:///zone/i-id","kubelet_version":"v1.35.2-eks-build","job":"integrations/kubernetes/kube-state-metrics"},
+                    {"__name__":"kube_node_info","cluster":"deployment-cluster","instance":"kube-state-metrics:8080","provider_id":"aws:///zone/i-id","kubelet_version":"v1.35.2-eks-build","job":"integrations/kubernetes/kube-state-metrics"},
                     {"__name__":"awscni_eni_allocated","cluster":"deployment-cluster"},
                     {"__name__":"aws_ec2_cpu_credit_usage_sum","aws_account_id":"account-id","region":"region"}
                 ]}`), nil
@@ -72,6 +88,21 @@ func TestRunChecksContextThenReadsAndMergesOnlyInScopeSeries(t *testing.T) {
 	}
 	if calls[0] != "gcx config check --context operator-selected" {
 		t.Fatalf("first call=%q, want explicit context check", calls[0])
+	}
+	for _, want := range []string{
+		`gcx metrics series --context operator-selected --since 24h -o json --match {__name__=~"scheduler_.*",job="kube-scheduler"}`,
+		`gcx metrics series --context operator-selected --since 24h -o json --match {__name__=~"workqueue_.*|cronjob_controller_.*",job="kube-controller-manager"}`,
+	} {
+		found := false
+		for _, call := range calls {
+			if call == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("calls missing exact selector command %q; calls=%v", want, calls)
+		}
 	}
 	seriesCall := strings.Join(calls[2:2+len(liveSeriesSelectors)], "\n")
 	for _, want := range []string{"gcx metrics series", "--context operator-selected", "--since 24h", "--match", "awscni_", "kubeproxy_", "aws_ec2_"} {
@@ -114,6 +145,29 @@ func TestRunChecksContextThenReadsAndMergesOnlyInScopeSeries(t *testing.T) {
 		metric := findCorpusMetric(t, documents, want.area, want.metric)
 		if len(metric.InstrumentTypes) != 1 || metric.InstrumentTypes[0] != want.instrument {
 			t.Errorf("%s/%s instrument_types=%v, want [%s]", want.area, want.metric, metric.InstrumentTypes, want.instrument)
+		}
+	}
+	kubeNodeInfo := findCorpusMetric(t, documents, "k8s", "kube_node_info")
+	for _, key := range []string{"cluster", "instance"} {
+		found := false
+		for _, label := range kubeNodeInfo.Labels {
+			if label.Key != key {
+				continue
+			}
+			found = true
+			if len(label.Values) != 0 || !label.ValuesElided {
+				t.Fatalf("k8s/kube_node_info %s=%v elided=%v, want elided identity", key, label.Values, label.ValuesElided)
+			}
+		}
+		if !found {
+			t.Fatalf("k8s/kube_node_info missing identity label %q", key)
+		}
+	}
+	for _, document := range documents {
+		for _, metric := range document.Inventory.Metrics {
+			if metric.Name == "scheduler_pending_pods" || metric.Name == "workqueue_adds_total" {
+				t.Fatalf("wrong-job returned series was admitted: %+v", metric)
+			}
 		}
 	}
 }
