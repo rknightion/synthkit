@@ -153,6 +153,14 @@ func BuildGCXLiveReadback(series []map[string]string, declaredInstruments map[st
 		"k8s":        New(),
 		"k8s-addons": New(),
 	}
+	type producerEvidence struct {
+		invalid bool
+		names   map[string]struct{}
+	}
+	producerEvidenceByArea := map[string]map[string]*producerEvidence{
+		"k8s":        {},
+		"k8s-addons": {},
+	}
 	eksClusters := observedEKSClusters(series)
 	// A classic histogram arrives as three component series. The synth and e2e inventories both
 	// record the family, so this producer must too or every histogram family the read-back covers
@@ -174,9 +182,31 @@ func BuildGCXLiveReadback(series []map[string]string, declaredInstruments map[st
 		if (area == "k8s" || area == "k8s-addons") && !belongsToObservedEKS(labels, eksClusters) {
 			continue
 		}
+		consumeProducerLabels := area == "k8s" || area == "k8s-addons"
+		if consumeProducerLabels {
+			evidence := producerEvidenceByArea[area][name]
+			if evidence == nil {
+				evidence = &producerEvidence{names: map[string]struct{}{}}
+				producerEvidenceByArea[area][name] = evidence
+			}
+			job := strings.TrimSpace(labels["job"])
+			_, trustedJob := trustedLiveJobValues[job]
+			transport := strings.TrimSpace(labels["rksy_ingest"])
+			if transport == "" {
+				// The robk read path predates the capture-stack ingest marker. Its
+				// Kubernetes selectors are the Prometheus remote-write path.
+				transport = "promrw"
+			}
+			if job == "" || !trustedJob || transport != "promrw" {
+				evidence.invalid = true
+			} else {
+				evidence.names[transport+"/"+job] = struct{}{}
+			}
+		}
 		metricLabels := make(map[string]string, len(labels)-1)
 		for key, value := range labels {
-			if key != "__name__" && !identityBearingLiveLabelKey(key) {
+			if key != "__name__" && !identityBearingLiveLabelKey(key) &&
+				(!consumeProducerLabels || (key != "job" && key != "rksy_ingest")) {
 				metricLabels[key] = value
 			}
 		}
@@ -187,6 +217,18 @@ func BuildGCXLiveReadback(series []map[string]string, declaredInstruments map[st
 		}
 		for _, instrument := range instruments {
 			schema.AddMetric(name, "", instrument, metricLabels, histogram)
+		}
+		inventories[area] = schema
+	}
+	for area, byFamily := range producerEvidenceByArea {
+		schema := inventories[area]
+		for name, evidence := range byFamily {
+			if evidence.invalid || len(evidence.names) == 0 {
+				continue
+			}
+			for producer := range evidence.names {
+				schema.AddMetricProducer(name, Producer{Name: producer})
+			}
 		}
 		inventories[area] = schema
 	}

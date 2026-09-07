@@ -7,7 +7,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-07 12:29'
-updated_date: '2026-09-07 14:05'
+updated_date: '2026-09-07 18:48'
 labels:
   - corpus
 dependencies: []
@@ -46,6 +46,8 @@ Every corpus promotion is blocked behind the same 27 unexempted contradictions, 
 
 <!-- SECTION:PLAN:BEGIN -->
 Test the frozen same-producer, different-producer, and no-comparable outcomes; preserve legacy evidence and all existing contradiction classes. Add a strict versioned count ratchet and separate report section. Measure the unchanged producer sets of every blocking family and compare each preserved or freshly projected candidate in scratch before corpus edits. Write the contract once, review, and integrate with exact residue if frozen identity cannot resolve a real contradiction.
+
+Wave 2026-09-12: implement the frozen composite transport/job producer identity test-first on capture and synth paths; consume both identity labels; measure all six preserved candidates before and after; retain same-producer contradictions; update the producer-coverage ratchet; retire only the now-unreachable kubelet-job exemption; review, gate, commit, and push before dependent promotions.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -54,6 +56,8 @@ Test the frozen same-producer, different-producer, and no-comparable outcomes; p
 Producer-scoped contract implemented with same-producer comparisons unchanged, named producer_mismatch gaps, separate no_comparable_producer report and strict versioned count ratchet initially 6. Test-first fixtures and just check passed. CodeRabbit completed with two major findings; regression tests reproduced duplicate-name counting and duplicate JSON-key overwrite, both fixed and targeted tests green. AC5 remains unproven: unexempted contradictions before/after Rancher 25/25, AWS 27/27, Azure 64/64, GCP 21/21, control-plane 10/10. Candidate evaluations use actual projection, CanonicalMerge and comparator in scratch; no corpus evidence file changed. Recorded identity is promrw for both modeled and observed collision families; it is not a job identity. Frozen routes cannot distinguish those jobs. Resume with reviewed producer/shape attribution authority or evidence-backed same-producer model corrections; do not suppress findings or add exemptions.
 
 Final source integration just check passed, including baseline fidelity with producer coverage observed=6 expected=6. Frozen-inventory raw counts before -> after: baseline contradictions 0 -> 0 and gaps 13995 -> 14013, new-kind 6; Rancher 25 -> 25 and 15604 -> 15623, new-kind 6; AWS 27 -> 27 and 14042 -> 14065, new-kind 7; Azure 64 -> 64 and 14127 -> 14171, new-kind 7; GCP 21 -> 21 and 14042 -> 14063, new-kind 6; preserved control-plane 10 -> 10 and 14016 -> 14034, new-kind 6. Literal candidate recipe reports are also retained; their grouped report rows are not raw finding totals. Protected pg_stat_* env and monitoring build-info source rows remain contradictions. Zero new exemptions. Safe dump was generated, but the partial metric-name catalogue comparison has parser/representation gaps and does not prove full label/envelope conformance; that DoD is not checked. Generation ran once without drift, although this task adds no generator input.
+
+Wave 2026-09-12 stopped at the mandatory step-2 honesty gate. The composite transport/job mechanism and focused package tests passed, but the protected contradictions did not survive reprojection: pg_stat_* contradictions were 5 to 0 for each of the AWS and Azure candidates, and grafana_kubernetes_monitoring_build_info was 1 to 0 for each Rancher, AWS, Azure and GCP candidate. The findings became producer mismatches because synth emitted promrw/langsmith-postgres where reality carried PostgreSQL integration producers, and promrw/integrations/kubernetes/kubernetes_monitoring_telemetry where reality carried promrw/integrations/static. This falsifies the producer-alignment assumption in the wave goal and triggers its hard stop. No implementation or corpus document was committed; no candidate was promoted; no exemption or ratchet was changed; no lane or live read-back was started. Resume only after correcting the frozen producer-ownership evidence, then rerun step 2 and require these protected contradictions to remain before any dependent promotion or lane.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

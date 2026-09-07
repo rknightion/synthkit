@@ -72,7 +72,11 @@ func TestBuildGCXLiveReadbackScopesAreasAndElidesDeploymentIdentity(t *testing.T
 	assertAttribute(t, metricForName(t, k8s, "kube_node_info"), "provider_id", nil, true)
 	// One deployment-specific observation makes the complete value set open-ended;
 	// retaining only the trusted value would falsely claim the discarded value never existed.
-	assertAttribute(t, metricForName(t, k8s, "kube_node_info"), "job", nil, true)
+	mixedJobMetric := metricForName(t, k8s, "kube_node_info")
+	assertNoAttribute(t, mixedJobMetric, "job")
+	if len(mixedJobMetric.Producers) != 0 {
+		t.Fatalf("mixed trusted/deployment-specific jobs produced identity: %+v", mixedJobMetric.Producers)
+	}
 	assertAttribute(t, metricForName(t, k8s, "kube_node_labels"), "label_node_kubernetes_io_instance_type", []string{"m6g.large"}, false)
 	assertAttribute(t, metricForName(t, k8s, "kube_node_labels"), "label_topology_kubernetes_io_region", []string{"region"}, false)
 	assertAttribute(t, metricForName(t, k8s, "kube_node_labels"), "label_karpenter_sh_nodepool", nil, true)
@@ -142,9 +146,14 @@ func TestBuildGCXLiveReadbackRoutesOnlyExactControlPlaneJobs(t *testing.T) {
 		metric := metricForName(t, k8s, name)
 		assertAttribute(t, metric, "cluster", nil, true)
 		assertAttribute(t, metric, "instance", nil, true)
+		assertNoAttribute(t, metric, "job")
 	}
-	assertAttribute(t, metricForName(t, k8s, "scheduler_schedule_attempts_total"), "job", []string{"kube-scheduler"}, false)
-	assertAttribute(t, metricForName(t, k8s, "workqueue_depth"), "job", []string{"kube-controller-manager"}, false)
+	if got, want := metricForName(t, k8s, "scheduler_schedule_attempts_total").Producers, []Producer{{Name: "promrw/kube-scheduler"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("scheduler producers=%+v, want %+v", got, want)
+	}
+	if got, want := metricForName(t, k8s, "workqueue_depth").Producers, []Producer{{Name: "promrw/kube-controller-manager"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("workqueue producers=%+v, want %+v", got, want)
+	}
 }
 
 func TestMergeCorpusDocumentFileUsesCanonicalCumulativeUnion(t *testing.T) {
@@ -234,6 +243,15 @@ func assertAttribute(t *testing.T, metric Metric, key string, values []string, e
 		}
 	}
 	t.Fatalf("metric %q missing attribute %q", metric.Name, key)
+}
+
+func assertNoAttribute(t *testing.T, metric Metric, key string) {
+	t.Helper()
+	for _, attribute := range metric.Labels {
+		if attribute.Key == key {
+			t.Fatalf("metric %q retained consumed identity attribute %q", metric.Name, key)
+		}
+	}
 }
 
 func TestDeclaredInstrumentTypesKeepsOnlyReportedTypes(t *testing.T) {

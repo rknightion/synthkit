@@ -5,6 +5,7 @@ package inventory
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/rknightion/synthkit/internal/sink/loki"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
@@ -126,7 +127,17 @@ func addPromSeries(out *Schema, series promrw.Series) {
 	case promrw.KindSummary:
 		instrument = InstrumentSummary
 	}
-	out.AddMetric(name, TransportPrometheusRW2, instrument, series.Labels, histogram)
+	labels := series.Labels
+	job := strings.TrimSpace(labels["job"])
+	if job != "" && strings.HasSuffix(series.Producer, "/"+job) {
+		labels = make(map[string]string, len(series.Labels)-1)
+		for key, value := range series.Labels {
+			if key != "job" {
+				labels[key] = value
+			}
+		}
+	}
+	out.AddMetric(name, TransportPrometheusRW2, instrument, labels, histogram)
 	if series.Producer != "" {
 		out.AddMetricProducer(name, Producer{
 			Name: series.Producer, AllowListVersion: series.ProducerAllowListVersion,

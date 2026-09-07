@@ -32,7 +32,7 @@ type CaptureV2PromotionSource struct {
 	// MetricProducerLabel identifies the capture-provided family label whose
 	// values are the producer identity. It is promotion configuration, never
 	// persisted, so the privacy-safe corpus retains only its generic values.
-	MetricProducerLabel string
+	MetricProducerLabel []string
 	// MetricProducerWhenAbsent is the reviewed generic identity for the path that
 	// directly omits MetricProducerLabel. Empty preserves fail-closed conversion.
 	// Supplying it is explicit promotion configuration, never a family-name guess.
@@ -117,7 +117,7 @@ func ConvertCaptureV2(data []byte, source CaptureV2PromotionSource) (CorpusDocum
 	if capture.Capture.Scope.IsScoped != (source.Scope != "full") {
 		return CorpusDocument{}, fmt.Errorf("capture scope and reviewed promotion scope disagree")
 	}
-	if strings.TrimSpace(source.MetricProducerLabel) == "" {
+	if len(source.MetricProducerLabel) == 0 {
 		return CorpusDocument{}, fmt.Errorf("promotion metric producer label: must not be empty")
 	}
 
@@ -167,7 +167,7 @@ func ConvertCaptureV2(data []byte, source CaptureV2PromotionSource) (CorpusDocum
 	return document, nil
 }
 
-func convertCaptureV2Metric(family captureV2Metric, producerLabel, producerWhenAbsent string) (Metric, error) {
+func convertCaptureV2Metric(family captureV2Metric, producerLabels []string, producerWhenAbsent string) (Metric, error) {
 	if family.Name == "" {
 		return Metric{}, fmt.Errorf("capture metric: name must not be empty")
 	}
@@ -188,15 +188,12 @@ func convertCaptureV2Metric(family captureV2Metric, producerLabel, producerWhenA
 		InstrumentTypeSource: family.TypeSource,
 		Labels:               []Attribute{},
 	}
+	producerLabelSet := make(map[string]struct{}, len(producerLabels))
+	for _, key := range producerLabels {
+		producerLabelSet[key] = struct{}{}
+	}
 	for _, label := range family.Labels {
-		if label.Key == producerLabel {
-			for _, value := range label.Values {
-				value = strings.TrimSpace(value)
-				if value == "" {
-					continue
-				}
-				metric.Producers = append(metric.Producers, Producer{Name: value})
-			}
+		if _, isProducerIdentity := producerLabelSet[label.Key]; isProducerIdentity {
 			continue
 		}
 		if label.Key == "" || strings.HasPrefix(label.Key, "tag_") {
@@ -204,7 +201,7 @@ func convertCaptureV2Metric(family captureV2Metric, producerLabel, producerWhenA
 		}
 		metric.Labels = append(metric.Labels, Attribute{Key: label.Key, Values: []string{}, ValuesElided: true})
 	}
-	normalizeProducers(&metric.Producers)
+	metric.Producers = captureV2MetricProducers(family, producerLabels)
 	if len(metric.Producers) == 0 && strings.TrimSpace(producerWhenAbsent) != "" {
 		metric.Producers = []Producer{{Name: strings.TrimSpace(producerWhenAbsent)}}
 	}
@@ -229,6 +226,48 @@ func convertCaptureV2Metric(family captureV2Metric, producerLabel, producerWhenA
 		metric.Histogram.Native = true
 	}
 	return metric, nil
+}
+
+func captureV2MetricProducers(family captureV2Metric, producerLabels []string) []Producer {
+	if len(producerLabels) == 0 {
+		return []Producer{}
+	}
+	valuesByKey := make(map[string][]string, len(producerLabels))
+	for _, label := range family.Labels {
+		for _, identityKey := range producerLabels {
+			if label.Key != identityKey {
+				continue
+			}
+			for _, value := range label.Values {
+				if value = strings.TrimSpace(value); value != "" {
+					valuesByKey[identityKey] = append(valuesByKey[identityKey], value)
+				}
+			}
+		}
+	}
+	components := compactStrings(valuesByKey[producerLabels[0]])
+	if len(components) == 0 {
+		return []Producer{}
+	}
+	for _, key := range producerLabels[1:] {
+		values := compactStrings(valuesByKey[key])
+		if len(values) == 0 {
+			continue
+		}
+		combined := make([]string, 0, len(components)*len(values))
+		for _, prefix := range components {
+			for _, value := range values {
+				combined = append(combined, prefix+"/"+value)
+			}
+		}
+		components = combined
+	}
+	producers := make([]Producer, 0, len(components))
+	for _, name := range components {
+		producers = append(producers, Producer{Name: name})
+	}
+	normalizeProducers(&producers)
+	return producers
 }
 
 func knownInstrumentType(value string) bool {

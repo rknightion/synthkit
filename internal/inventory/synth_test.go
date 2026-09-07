@@ -158,6 +158,26 @@ func TestFromSinksMergesClassicAndNativeHistogramFamily(t *testing.T) {
 	}
 }
 
+func TestFromSinksConsumesJobUsedByCompositeProducerIdentity(t *testing.T) {
+	prom := promrw.New("", "", "", true, nil)
+	prom.Capture = true
+	if err := prom.Write(context.Background(), []promrw.Series{{
+		Name: "requests_total", Labels: map[string]string{"job": "api", "method": "GET"},
+		Producer: "promrw/api", Kind: promrw.KindCounter, T: time.Unix(1, 0),
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	metric := FromSinks(prom, nil, nil, nil, nil, nil, nil).Metrics[0]
+	if got, want := metric.Producers, []Producer{{Name: "promrw/api"}}; !slices.Equal(got, want) {
+		t.Fatalf("producers=%+v, want %+v", got, want)
+	}
+	for _, label := range metric.Labels {
+		if label.Key == "job" {
+			t.Fatalf("job used by composite producer remained a compared label: %+v", metric.Labels)
+		}
+	}
+}
+
 func TestFromSinksProjectsSummaryKind(t *testing.T) {
 	prom := promrw.New("", "", "", true, nil)
 	prom.Capture = true

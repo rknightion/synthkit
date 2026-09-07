@@ -7,8 +7,43 @@ import (
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/sink/otlp"
+	"github.com/rknightion/synthkit/internal/sink/promrw"
 	pyroscope "github.com/rknightion/synthkit/internal/sink/pyroscope"
 )
+
+func TestStampedMetricsDerivesProducerFromSeriesJob(t *testing.T) {
+	var got []promrw.Series
+	w := &stampedMetrics{
+		sink:     metricWriterFunc(func(_ context.Context, batch []promrw.Series) error { got = batch; return nil }),
+		producer: producerPromRW,
+		budget:   newSeriesBudget(0),
+	}
+	input := []promrw.Series{{Name: "up", Labels: map[string]string{"job": "integrations/kubernetes/kubelet"}}}
+	if err := w.Write(context.Background(), input); err != nil {
+		t.Fatal(err)
+	}
+	if got[0].Producer != "promrw/integrations/kubernetes/kubelet" {
+		t.Fatalf("producer=%q, want composite transport/job identity", got[0].Producer)
+	}
+	if input[0].Producer != "" {
+		t.Fatalf("source series producer=%q, want clone-before-stamp", input[0].Producer)
+	}
+}
+
+func TestStampedMetricsKeepsTransportProducerWhenJobIsAbsent(t *testing.T) {
+	var got []promrw.Series
+	w := &stampedMetrics{
+		sink:     metricWriterFunc(func(_ context.Context, batch []promrw.Series) error { got = batch; return nil }),
+		producer: producerPromRW,
+		budget:   newSeriesBudget(0),
+	}
+	if err := w.Write(context.Background(), []promrw.Series{{Name: "up", Labels: map[string]string{"cluster": "test"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if got[0].Producer != producerPromRW {
+		t.Fatalf("producer=%q, want transport-only identity %q", got[0].Producer, producerPromRW)
+	}
+}
 
 // captureProfileSink implements core.PyroscopeWriter and captures the last Write call.
 type captureProfileSink struct {

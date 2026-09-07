@@ -1064,8 +1064,8 @@ func TestStampedMetricsPreservesExemplars(t *testing.T) {
 	if got[0].Labels[BlueprintLabel] != "bp-x" {
 		t.Fatalf("blueprint label not stamped: %v", got[0].Labels)
 	}
-	if got[0].Producer != producerPromRW {
-		t.Fatalf("producer = %q, want %q", got[0].Producer, producerPromRW)
+	if got[0].Producer != "promrw/api" {
+		t.Fatalf("producer = %q, want %q", got[0].Producer, "promrw/api")
 	}
 }
 

@@ -34,19 +34,20 @@ type CaptureV2CaptureRoute struct {
 	Collector           string                    `json:"collector"`
 	CollectorVersion    string                    `json:"collector_version"`
 	CapturedOn          string                    `json:"captured_on"`
-	MetricProducerLabel string                    `json:"metric_producer_label"`
+	MetricProducerLabel []string                  `json:"metric_producer_label"`
 	Limitations         []CaptureLimitation       `json:"limitations,omitempty"`
 	Families            []CaptureV2FamilyRoute    `json:"families"`
 	Unrouted            []CaptureV2UnroutedFamily `json:"unrouted"`
 }
 
-// CaptureV2FamilyRoute is the reviewed identity and signals-area ownership of
-// one exact captured metric family. Producers are explicit rather than copied
-// from a label value during privacy promotion.
+// CaptureV2FamilyRoute is the reviewed signals-area ownership of one exact
+// captured metric family. Producer identity is always derived from the ordered
+// metric_producer_label keys in the immutable capture. Producers exists only so
+// validation can reject legacy mapping tables instead of silently ignoring them.
 type CaptureV2FamilyRoute struct {
 	Name      string     `json:"name"`
 	Area      string     `json:"area"`
-	Producers []Producer `json:"producers"`
+	Producers []Producer `json:"producers,omitempty"`
 }
 
 // CaptureV2UnroutedReason describes why a producerless family is intentionally
@@ -175,10 +176,6 @@ func ProjectCaptureV2(data []byte, manifest CaptureV2RoutingManifest) (CaptureV2
 		if err != nil {
 			return CaptureV2Projection{}, err
 		}
-		if !sameProducers(metric.Producers, family.Producers) {
-			return CaptureV2Projection{}, fmt.Errorf("capture metric %q: reviewed producers do not match direct capture identity", captured.Name)
-		}
-		metric.Producers = append([]Producer(nil), family.Producers...)
 
 		document := documents[family.Area]
 		if document == nil {
@@ -266,11 +263,23 @@ func validateCaptureV2RoutingManifest(manifest CaptureV2RoutingManifest) error {
 		for _, field := range []struct{ name, value string }{
 			{"kind", capture.Kind}, {"substrate", capture.Substrate}, {"collector", capture.Collector},
 			{"collector_version", capture.CollectorVersion}, {"captured_on", capture.CapturedOn},
-			{"metric_producer_label", capture.MetricProducerLabel},
 		} {
 			if strings.TrimSpace(field.value) == "" {
 				return fmt.Errorf("capture routing sha256 %q: %s must not be empty", capture.SHA256, field.name)
 			}
+		}
+		if len(capture.MetricProducerLabel) == 0 {
+			return fmt.Errorf("capture routing sha256 %q: metric_producer_label must not be empty", capture.SHA256)
+		}
+		seenProducerLabels := make(map[string]struct{}, len(capture.MetricProducerLabel))
+		for i, label := range capture.MetricProducerLabel {
+			if strings.TrimSpace(label) == "" {
+				return fmt.Errorf("capture routing sha256 %q: metric_producer_label[%d] must not be empty", capture.SHA256, i)
+			}
+			if _, exists := seenProducerLabels[label]; exists {
+				return fmt.Errorf("capture routing sha256 %q: metric_producer_label %q is duplicated", capture.SHA256, label)
+			}
+			seenProducerLabels[label] = struct{}{}
 		}
 		if capture.Scope != "cluster" && capture.Scope != "cloud" && capture.Scope != "full" {
 			return fmt.Errorf("capture routing sha256 %q: scope must be cluster, cloud, or full", capture.SHA256)
@@ -293,13 +302,8 @@ func validateCaptureV2RoutingManifest(manifest CaptureV2RoutingManifest) error {
 			if _, ok := allowedCorpusAreas[family.Area]; !ok {
 				return fmt.Errorf("capture routing sha256 %q: family %q area %q is not allowed", capture.SHA256, family.Name, family.Area)
 			}
-			if len(family.Producers) == 0 {
-				return fmt.Errorf("capture routing sha256 %q: family %q must declare producers", capture.SHA256, family.Name)
-			}
-			for _, producer := range family.Producers {
-				if strings.TrimSpace(producer.Name) == "" || producer.AllowListVersion != "" || producer.AllowListVariant != "" {
-					return fmt.Errorf("capture routing sha256 %q: family %q has invalid producer identity", capture.SHA256, family.Name)
-				}
+			if len(family.Producers) != 0 {
+				return fmt.Errorf("capture routing sha256 %q: family %q must derive producers from metric_producer_label", capture.SHA256, family.Name)
 			}
 		}
 		seenUnrouted := make(map[string]struct{}, len(capture.Unrouted))
@@ -343,32 +347,6 @@ func captureV2SHA256(data []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func captureV2MetricHasDirectProducer(family captureV2Metric, producerLabel string) bool {
-	for _, label := range family.Labels {
-		if label.Key != producerLabel {
-			continue
-		}
-		for _, value := range label.Values {
-			if strings.TrimSpace(value) != "" {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func sameProducers(left, right []Producer) bool {
-	left = append([]Producer(nil), left...)
-	right = append([]Producer(nil), right...)
-	normalizeProducers(&left)
-	normalizeProducers(&right)
-	if len(left) != len(right) {
-		return false
-	}
-	for i := range left {
-		if left[i] != right[i] {
-			return false
-		}
-	}
-	return true
+func captureV2MetricHasDirectProducer(family captureV2Metric, producerLabels []string) bool {
+	return len(captureV2MetricProducers(family, producerLabels)) > 0
 }

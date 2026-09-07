@@ -7,6 +7,7 @@ import (
 	"log"
 	"maps"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/rknightion/synthkit/internal/core"
@@ -80,7 +81,7 @@ func (w *stampedMetrics) Write(ctx context.Context, batch []promrw.Series) error
 	}
 	stamped := make([]promrw.Series, len(batch))
 	for i, s := range batch {
-		s.Producer = w.producer
+		s.Producer = metricProducer(w.producer, s.Labels["job"])
 		s.ProducerAllowListVersion = w.allowListVersion
 		s.ProducerAllowListVariant = w.allowListVariant
 		if w.label != "" {
@@ -101,6 +102,15 @@ func (w *stampedMetrics) Write(ctx context.Context, batch []promrw.Series) error
 		return nil
 	}
 	return w.sink.Write(ctx, batch)
+}
+
+func metricProducer(transport, job string) string {
+	transport = strings.TrimSpace(transport)
+	job = strings.TrimSpace(job)
+	if transport == "" || job == "" {
+		return transport
+	}
+	return transport + "/" + job
 }
 
 // RecordMetricSuppression implements core.MetricSuppressionRecorder. The
