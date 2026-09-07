@@ -3,11 +3,11 @@ id: SKT-0053
 title: >-
   Merge the second AWS, Azure and GCP captures into the corpus by cumulative
   union
-status: In Progress
+status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-07 08:10'
-updated_date: '2026-09-07 09:08'
+updated_date: '2026-09-07 11:01'
 labels:
   - corpus
   - reality-corpus
@@ -42,3 +42,15 @@ The 2026-09-08 cloud lifecycles produced a second reviewed capture for each mana
 <!-- SECTION:PLAN:BEGIN -->
 Wave 2026-09-10: apply the three reviewed routes in AWS, Azure, GCP order; project and CanonicalMerge each same-identity document; rename only when structural evidence moves provenance; validate and commit each substrate separately.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-10 projected and cumulatively merged the reviewed AWS, Azure, and GCP candidates in scratch without changing the immutable raw captures. The frozen direct routes conflict with existing ambiguous_direct_producer corpus evidence and produce 27 unexempted signal-fidelity contradictions. The run allowed no route alteration, additional schema change, or new exemption, so none of the three routes or merged documents was committed and every acceptance criterion remains open. Resume by reconciling the direct-route semantics with the existing ambiguity evidence, then apply each reviewed route and CanonicalMerge in order, rename to the newest capture hash, record divergences, and require green fidelity.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Parked before corpus writes. All three cumulative-merge candidates are preserved, but the frozen routes produce 27 unexempted contradictions; no acceptance criterion is claimed.
+<!-- SECTION:FINAL_SUMMARY:END -->
