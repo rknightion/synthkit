@@ -4,6 +4,9 @@ package fleet
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -72,5 +75,32 @@ func TestControllerReusesClient(t *testing.T) {
 	c.unregisterRegistered(context.Background())
 	if c.client != before {
 		t.Errorf("client pointer changed across unregisterRegistered — not reused")
+	}
+}
+
+func TestControllerForwardsBoundedConfigReceiptSeparatelyFromHeartbeat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/GetConfig") {
+			_, _ = w.Write([]byte(`{"content":"logging { level = \"info\" }"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	var got Receipt
+	c := NewController(Config{
+		FMURL: srv.URL, StackID: "s", Token: "t",
+		ObserveReceipt: func(_ context.Context, collector string, receipt Receipt) {
+			if collector != "c1" {
+				t.Errorf("collector = %q, want c1", collector)
+			}
+			got = receipt
+		},
+	})
+	c.reconcile(context.Background(), []Collector{{ID: "c1", OS: "linux"}})
+	if got.State != ReceiptReceived || len(got.Digest) != 64 {
+		t.Fatalf("receipt = %+v, want a bounded received digest", got)
 	}
 }

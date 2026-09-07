@@ -19,6 +19,20 @@ At startup, a background controller goroutine owns all FM API side effects:
 
 The emitter reads the controller's roster and pushes Alloy self-metrics to Mimir each tick. Stale-series cleanup ensures that when the roster shrinks (or when collector scaling changes), departed collectors' `up=1` series do not persist after unregistration.
 
+### Configuration receipt evidence
+
+Authenticated `GET /control/status` reports each active synthetic collector's registration and
+heartbeat state alongside bounded configuration-receipt evidence. A `received` receipt carries
+only a SHA-256 digest of a non-empty returned configuration and its observation time. `stale`
+means Fleet returned `notModified`; `unavailable` includes an empty or unsupported successful
+response; `error` means the request did not yield a usable response. The previous valid digest is
+retained across stale, unavailable, and error observations.
+
+Receipt proves delivery only, never parsing or execution: synthetic collectors do not execute
+returned Alloy configuration. Diagnostics omit configuration content, Fleet's opaque response
+hash, credentials, and collector attributes. The response shape is pinned to
+`grafana/alloy-remote-config` v0.0.12, `api/collector/v1/collector.proto`.
+
 ### Emitted signals
 
 For each registered collector, synthkit emits the full Alloy self-metric set against `job="integrations/alloy"`:

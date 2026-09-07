@@ -117,9 +117,10 @@ func (c *Controller) reconcile(ctx context.Context, want []Collector) {
 			c.registered[col.ID] = true
 		}
 		start := time.Now()
-		err := client.GetConfig(ctx, col)
+		receipt, err := client.GetConfig(ctx, col)
 		code := operationalerr.CodeOf(err)
 		c.observe(ctx, fleethook.OpHeartbeat, col.ID, time.Since(start), code)
+		c.observeReceipt(ctx, col.ID, receipt)
 		if err != nil {
 			log.Printf("fleet: heartbeat failed: %s", operationalerr.Message(code))
 		}
@@ -153,6 +154,12 @@ func (c *Controller) observe(ctx context.Context, op, collector string, dur time
 	c.cfg.Observe(ctx, fleethook.Event{
 		Collector: collector, Op: op, Duration: dur, DryRun: c.cfg.DryRun, ErrorCode: operationalerr.Normalize(code),
 	})
+}
+
+func (c *Controller) observeReceipt(ctx context.Context, collector string, receipt Receipt) {
+	if c.cfg.ObserveReceipt != nil {
+		c.cfg.ObserveReceipt(ctx, collector, receipt)
+	}
 }
 
 // newClient constructs a Client from the current config. DryRun is forwarded.

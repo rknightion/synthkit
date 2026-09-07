@@ -4,11 +4,14 @@ package fleetstatus
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/fleet"
 	"github.com/rknightion/synthkit/internal/fleethook"
 	"github.com/rknightion/synthkit/internal/operationalerr"
 )
@@ -93,5 +96,45 @@ func TestInvalidErrorCodeNormalizesWithoutLeaking(t *testing.T) {
 	}
 	if got := s.Snapshot(); got.LastErrorCode != operationalerr.CodeInternal || got.LastError != "internal error" {
 		t.Fatalf("status = %+v", got)
+	}
+}
+
+func TestReceiptObserverKeepsOnlyBoundedPerCollectorReceiptEvidence(t *testing.T) {
+	s := NewStore()
+	s.now = fixedNow(1000)
+	obs := s.Observer()
+	receipts := s.ReceiptObserver()
+	ctx := context.Background()
+	obs(ctx, fleethook.Event{Collector: "collector-a", Op: fleethook.OpRegister})
+
+	content := "logging { level = \"info\" }"
+	sum := sha256.Sum256([]byte(content))
+	wantDigest := fmt.Sprintf("%x", sum)
+	receipts(ctx, "collector-a", fleet.Receipt{State: fleet.ReceiptReceived, Digest: wantDigest})
+
+	s.now = fixedNow(2000)
+	receipts(ctx, "collector-a", fleet.Receipt{State: fleet.ReceiptStale})
+	s.now = fixedNow(3000)
+	receipts(ctx, "collector-a", fleet.Receipt{State: fleet.ReceiptReceived, Digest: "raw-secret"})
+	if middle := s.Snapshot().Collectors[0]; middle.ReceiptState != fleet.ReceiptUnavailable || middle.ConfigDigest != wantDigest {
+		t.Fatalf("malformed receipt = %+v, want unavailable with prior digest retained", middle)
+	}
+	s.now = fixedNow(4000)
+	receipts(ctx, "collector-a", fleet.Receipt{State: fleet.ReceiptError})
+
+	g := s.Snapshot()
+	if len(g.Collectors) != 1 {
+		t.Fatalf("collector statuses = %+v, want one", g.Collectors)
+	}
+	got := g.Collectors[0]
+	if got.ID != "collector-a" || !got.Registered || got.ReceiptState != fleet.ReceiptError || got.ConfigDigest != wantDigest || got.LastConfigReceiptMs != 1000 || got.LastReceiptObservedMs != 4000 {
+		t.Fatalf("collector receipt = %+v", got)
+	}
+	encoded, err := json.Marshal(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), content) || strings.Contains(string(encoded), "raw-secret") {
+		t.Fatalf("receipt status leaked unbounded input: %s", encoded)
 	}
 }

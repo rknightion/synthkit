@@ -15,6 +15,7 @@ package fleet_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -173,11 +174,104 @@ func TestClientGetConfigPath(t *testing.T) {
 
 	c := fleet.NewClient(srv.URL, "s", "t")
 	col := fleet.Collector{ID: "x", OS: "linux"}
-	if err := c.GetConfig(context.Background(), col); err != nil {
+	if _, err := c.GetConfig(context.Background(), col); err != nil {
 		t.Fatalf("GetConfig: %v", err)
 	}
 	if gotPath != "/collector.v1.CollectorService/GetConfig" {
 		t.Errorf("path = %q, want /collector.v1.CollectorService/GetConfig", gotPath)
+	}
+}
+
+// TestClientGetConfigReceiptFixtures pins the observed collector.v1 GetConfig response
+// contract: a non-empty content is receipted as its bounded SHA-256 digest; not_modified
+// is stale evidence, and an empty successful response is not a configuration receipt.
+func TestClientGetConfigReceiptFixtures(t *testing.T) {
+	matching := "logging { level = \"info\" }"
+	nonMatching := "logging { level = \"debug\" }"
+	digest := func(content string) string {
+		sum := sha256.Sum256([]byte(content))
+		return fmt.Sprintf("%x", sum)
+	}
+	tests := []struct {
+		name       string
+		response   string
+		wantState  fleet.ReceiptState
+		wantDigest string
+	}{
+		{name: "matching configuration", response: fmt.Sprintf(`{"content":%q,"hash":"unretained","not_modified":false}`, matching), wantState: fleet.ReceiptReceived, wantDigest: digest(matching)},
+		{name: "nonmatching changed configuration", response: fmt.Sprintf(`{"content":%q,"hash":"unretained","not_modified":false}`, nonMatching), wantState: fleet.ReceiptReceived, wantDigest: digest(nonMatching)},
+		{name: "stale revision", response: `{"hash":"unretained","notModified":true}`, wantState: fleet.ReceiptStale},
+		{name: "successful empty heartbeat", response: `{}`, wantState: fleet.ReceiptUnavailable},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(test.response))
+			})
+			receipt, err := fleet.NewClient(srv.URL, "s", "t").GetConfig(context.Background(), fleet.Collector{ID: "c", OS: "linux"})
+			if err != nil {
+				t.Fatalf("GetConfig: %v", err)
+			}
+			if receipt.State != test.wantState || receipt.Digest != test.wantDigest {
+				t.Fatalf("receipt = %+v, want state=%q digest=%q", receipt, test.wantState, test.wantDigest)
+			}
+			if strings.Contains(receipt.Digest, matching) || strings.Contains(receipt.Digest, nonMatching) {
+				t.Fatalf("receipt leaked returned configuration: %+v", receipt)
+			}
+		})
+	}
+}
+
+func TestClientGetConfigChangedRevisionChangesReceiptDigest(t *testing.T) {
+	responses := []string{
+		`{"content":"logging { level = \"info\" }"}`,
+		`{"content":"logging { level = \"debug\" }"}`,
+	}
+	call := 0
+	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(responses[call]))
+		call++
+	})
+	c := fleet.NewClient(srv.URL, "s", "t")
+	first, err := c.GetConfig(context.Background(), fleet.Collector{ID: "c", OS: "linux"})
+	if err != nil {
+		t.Fatalf("first GetConfig: %v", err)
+	}
+	second, err := c.GetConfig(context.Background(), fleet.Collector{ID: "c", OS: "linux"})
+	if err != nil {
+		t.Fatalf("second GetConfig: %v", err)
+	}
+	if first.State != fleet.ReceiptReceived || second.State != fleet.ReceiptReceived || first.Digest == second.Digest {
+		t.Fatalf("changed receipts = first=%+v second=%+v, want distinct received digests", first, second)
+	}
+}
+
+func TestClientGetConfigErrorReturnsOnlyClosedFailureAndNoReceipt(t *testing.T) {
+	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"detail":"raw-secret"}`))
+	})
+	receipt, err := fleet.NewClient(srv.URL, "s", "t").GetConfig(context.Background(), fleet.Collector{ID: "c", OS: "linux"})
+	if operationalerr.CodeOf(err) != operationalerr.CodeRejected {
+		t.Fatalf("code = %q, want %q (err=%v)", operationalerr.CodeOf(err), operationalerr.CodeRejected, err)
+	}
+	if receipt.State != fleet.ReceiptError || receipt.Digest != "" {
+		t.Fatalf("receipt = %+v, want error state with no digest", receipt)
+	}
+}
+
+func TestClientGetConfigRejectsOversizedTrailingData(t *testing.T) {
+	payload := `{"content":"logging { level = \"info\" }"}` + strings.Repeat("x", (1<<20)+1)
+	srv := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(payload))
+	})
+	receipt, err := fleet.NewClient(srv.URL, "s", "t").GetConfig(context.Background(), fleet.Collector{ID: "c", OS: "linux"})
+	if operationalerr.CodeOf(err) != operationalerr.CodeRejected {
+		t.Fatalf("code = %q, want %q (err=%v)", operationalerr.CodeOf(err), operationalerr.CodeRejected, err)
+	}
+	if receipt.State != fleet.ReceiptError || receipt.Digest != "" {
+		t.Fatalf("receipt = %+v, want error state with no digest", receipt)
 	}
 }
 
@@ -242,7 +336,7 @@ func TestDryRunNoHTTP(t *testing.T) {
 	if err := c.RegisterCollector(context.Background(), col); err != nil {
 		t.Fatalf("dry-run RegisterCollector: %v", err)
 	}
-	if err := c.GetConfig(context.Background(), col); err != nil {
+	if _, err := c.GetConfig(context.Background(), col); err != nil {
 		t.Fatalf("dry-run GetConfig: %v", err)
 	}
 	if err := c.UnregisterCollector(context.Background(), col.ID); err != nil {

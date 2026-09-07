@@ -1371,6 +1371,11 @@ func (r *Runner) SetCycleObserver(fn CycleFunc) { r.cycleObs = fn }
 // be called once at startup before Run. nil leaves FM controllers uninstrumented.
 func (r *Runner) SetFleetObserver(o fleethook.Observer) { r.opts.Fleet.Observe = o }
 
+// SetFleetReceiptObserver installs the bounded receipt seam before Run builds controllers.
+func (r *Runner) SetFleetReceiptObserver(o fleet.ReceiptObserver) {
+	r.opts.Fleet.ObserveReceipt = o
+}
+
 // callCycleObs fires the cycle seam when set (no-op otherwise). Safe to call from the per-blueprint
 // goroutines: cycleObs is set once before Run and never mutated after.
 func (r *Runner) callCycleObs(ctx context.Context, blueprint string, dur time.Duration, dropped int) {

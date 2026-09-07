@@ -540,6 +540,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		}
 	}
 	r.SetFleetObserver(fleetFan(so.FleetObserver(), fs.Observer()))
+	r.SetFleetReceiptObserver(fs.ReceiptObserver())
 	hs := healthstatus.NewStore()
 	// Tick fan-out: selfobs.ObserveTick wraps fn (span + metric; transparent pass-through when
 	// disabled) and runs it exactly once; we capture fn's error and record duration+outcome to the

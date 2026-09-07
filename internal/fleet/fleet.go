@@ -13,6 +13,8 @@
 package fleet
 
 import (
+	"context"
+
 	"github.com/rknightion/synthkit/internal/construct/fleetmgmt"
 	"github.com/rknightion/synthkit/internal/fleethook"
 )
@@ -21,6 +23,29 @@ import (
 // of fleetmgmt.Collector so the construct (metric emitter) and the controller
 // (API registrar) always name the same byte-identical identities.
 type Collector = fleetmgmt.Collector
+
+// ReceiptState says whether a GetConfig result is usable as configuration-delivery evidence.
+// It deliberately says nothing about parsing or executing the returned configuration.
+type ReceiptState string
+
+const (
+	ReceiptReceived    ReceiptState = "received"
+	ReceiptStale       ReceiptState = "stale"
+	ReceiptUnavailable ReceiptState = "unavailable"
+	ReceiptError       ReceiptState = "error"
+)
+
+// Receipt retains only a bounded digest of returned configuration. Digest is populated only
+// for ReceiptReceived and is SHA-256 of the response content; raw configuration never escapes
+// the client.
+type Receipt struct {
+	State  ReceiptState
+	Digest string
+}
+
+// ReceiptObserver receives the sanitized GetConfig receipt independently of the lifecycle
+// observer. It exists so configuration delivery remains distinct from heartbeat liveness.
+type ReceiptObserver func(ctx context.Context, collector string, receipt Receipt)
 
 // Config is the runtime configuration for the fleet controller.
 type Config struct {
@@ -40,6 +65,9 @@ type Config struct {
 	// stdlib-only fleethook seam (self-observability + control-plane status). nil ⇒ the
 	// lifecycle is byte-for-byte unchanged.
 	Observe fleethook.Observer
+	// ObserveReceipt, when non-nil, receives the bounded configuration-receipt result from each
+	// GetConfig call. It never receives raw configuration or response fields.
+	ObserveReceipt ReceiptObserver
 }
 
 // RosterProvider returns the desired collector set at call time. A static fleet uses a closure

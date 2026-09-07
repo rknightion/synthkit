@@ -107,7 +107,19 @@ export interface PersistHealth {
   last_error: string;
 }
 // FM lifecycle health aggregate — mirrors internal/fleetstatus.FleetStat (json tags verbatim).
+export type FleetReceiptState = "received" | "stale" | "unavailable" | "error";
+export interface FleetCollectorStat {
+  id: string;
+  registered: boolean;
+  heartbeat_healthy: boolean;
+  last_heartbeat_ok_ms: number;
+  receipt_state: FleetReceiptState;
+  last_receipt_observed_ms: number;
+  last_config_receipt_ms: number;
+  config_digest?: string;
+}
 export interface FleetStat {
+  collectors?: FleetCollectorStat[];
   registered: number;    // collectors currently registered
   heartbeat_healthy?: number; // registered collectors whose latest heartbeat succeeded
   heartbeats: number;    // total heartbeat attempts
