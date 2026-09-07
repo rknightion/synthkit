@@ -146,6 +146,11 @@ capture, an exact `name`, `area`, and non-empty `producers` array. Every
 producerless family instead has an exact `unrouted` record. A capture route also
 records only generic promotion provenance: kind, substrate, scope,
 collector/version, capture date, and the capture-provided producer-label key.
+It may also carry `limitations`, an optional list of `{id, text}` entries for
+capture-specific limitations. These are reviewed generic text on the route and
+projected verbatim into `source.capture_limitations` on every document produced
+from it; IDs are stable slugs. A route or existing corpus document without the
+field remains valid.
 
 A capture route is exhaustive by classification, not by promotion. Each exact
 family must be either a direct route with an explicit area and producer set, or

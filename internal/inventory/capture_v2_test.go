@@ -293,6 +293,127 @@ func TestProjectCaptureV2ProjectsExplicitFamilyRoutesIntoTheirAreas(t *testing.T
 	}
 }
 
+func TestProjectCaptureV2ProjectsReviewedLimitationsIntoEveryDocument(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	limitations := []CaptureLimitation{
+		{ID: "selector-gap", Text: "One reviewed selector did not discover the expected targets."},
+		{ID: "retained-read", Text: "The source was retained telemetry rather than a pre-destroy capture."},
+	}
+	projection, err := ProjectCaptureV2(data, CaptureV2RoutingManifest{
+		Version: CaptureV2RoutingManifestVersion,
+		Captures: []CaptureV2CaptureRoute{{
+			SHA256:              captureV2SHA256(data),
+			Kind:                "synthkit_terraform_capture",
+			Substrate:           "eks",
+			Scope:               "cluster",
+			Collector:           "grafana/k8s-monitoring",
+			CollectorVersion:    "4.5.0",
+			CapturedOn:          "2026-08-31",
+			MetricProducerLabel: "ingest_path",
+			Limitations:         limitations,
+			Families: []CaptureV2FamilyRoute{
+				{Name: "example_requests_total", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_declared_unknown", Area: "cw", Producers: []Producer{{Name: "promrw"}}},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(projection.Documents) != 2 {
+		t.Fatalf("documents=%d, want two routed areas", len(projection.Documents))
+	}
+	for _, document := range projection.Documents {
+		if !reflect.DeepEqual(document.Source.CaptureLimitations, limitations) {
+			t.Fatalf("%s capture_limitations=%+v, want reviewed list %+v", document.Area, document.Source.CaptureLimitations, limitations)
+		}
+	}
+}
+
+func TestCaptureLimitationsValidateAndCanonicalMergeByID(t *testing.T) {
+	existing := validCorpusDocument("k8s", "producer", "k3s")
+	existing.Source.CaptureLimitations = []CaptureLimitation{
+		{ID: "shared", Text: "Earlier reviewed text."},
+		{ID: "existing-only", Text: "Existing reviewed limitation."},
+	}
+	existing.Inventory.AddMetric("requests_total", TransportPrometheusRW2, InstrumentCounter, nil, nil)
+
+	candidate := validCorpusDocument("k8s", "producer", "k3s")
+	candidate.Source.CaptureLimitations = []CaptureLimitation{
+		{ID: "shared", Text: "Candidate reviewed text wins."},
+		{ID: "candidate-only", Text: "Candidate reviewed limitation."},
+	}
+	candidate.Inventory.AddMetric("requests_total", TransportPrometheusRW2, InstrumentCounter, map[string]string{"method": "GET"}, nil)
+
+	merged, err := CanonicalMerge(existing, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []CaptureLimitation{
+		{ID: "candidate-only", Text: "Candidate reviewed limitation."},
+		{ID: "existing-only", Text: "Existing reviewed limitation."},
+		{ID: "shared", Text: "Candidate reviewed text wins."},
+	}
+	if !reflect.DeepEqual(merged.Source.CaptureLimitations, want) {
+		t.Fatalf("capture_limitations=%+v, want union by id %+v", merged.Source.CaptureLimitations, want)
+	}
+
+	for name, edit := range map[string]func(*CorpusDocument){
+		"blank id": func(document *CorpusDocument) {
+			document.Source.CaptureLimitations = []CaptureLimitation{{ID: " ", Text: "reviewed"}}
+		},
+		"blank text": func(document *CorpusDocument) {
+			document.Source.CaptureLimitations = []CaptureLimitation{{ID: "reviewed", Text: " "}}
+		},
+		"duplicate id": func(document *CorpusDocument) {
+			document.Source.CaptureLimitations = []CaptureLimitation{
+				{ID: "reviewed", Text: "First reviewed limitation."},
+				{ID: "reviewed", Text: "Second reviewed limitation."},
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			document := validCorpusDocument("k8s", "producer", "k3s")
+			edit(&document)
+			if err := validateCorpusDocument(document); err == nil {
+				t.Fatalf("accepted capture limitation with %s", name)
+			}
+		})
+	}
+}
+
+func TestCaptureLimitationsAreOptionalForExistingDocumentsAndManifests(t *testing.T) {
+	document := validCorpusDocument("k8s", "producer", "k3s")
+	if err := validateCorpusDocument(document); err != nil {
+		t.Fatalf("document without capture_limitations: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := CaptureV2RoutingManifest{
+		Version: CaptureV2RoutingManifestVersion,
+		Captures: []CaptureV2CaptureRoute{{
+			SHA256: captureV2SHA256(data), Kind: "synthkit_terraform_capture", Substrate: "eks", Scope: "cluster",
+			Collector: "grafana/k8s-monitoring", CollectorVersion: "4.5.0", CapturedOn: "2026-08-31", MetricProducerLabel: "ingest_path",
+			Families: []CaptureV2FamilyRoute{
+				{Name: "example_requests_total", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_duration_seconds", Area: "k8s", Producers: []Producer{{Name: "promrw"}}},
+				{Name: "example_declared_unknown", Area: "cw", Producers: []Producer{{Name: "promrw"}}},
+			},
+		}},
+	}
+	if _, err := ProjectCaptureV2(data, manifest); err != nil {
+		t.Fatalf("manifest without limitations: %v", err)
+	}
+}
+
 func TestProjectCaptureV2UsesExplicitRouteForProducerlessFamily(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
 	if err != nil {

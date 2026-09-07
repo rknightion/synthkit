@@ -35,6 +35,7 @@ type CaptureV2CaptureRoute struct {
 	CollectorVersion    string                    `json:"collector_version"`
 	CapturedOn          string                    `json:"captured_on"`
 	MetricProducerLabel string                    `json:"metric_producer_label"`
+	Limitations         []CaptureLimitation       `json:"limitations,omitempty"`
 	Families            []CaptureV2FamilyRoute    `json:"families"`
 	Unrouted            []CaptureV2UnroutedFamily `json:"unrouted"`
 }
@@ -228,6 +229,7 @@ func newCaptureV2ProjectionDocument(capture captureV2, hash string, route Captur
 			CaptureSHA256:          hash,
 			CaptureScope:           route.Scope,
 			CaptureWarnings:        captureV2WarningIDs(capture.Capture.Limitations),
+			CaptureLimitations:     append([]CaptureLimitation{}, route.Limitations...),
 			CaptureDurationSeconds: capture.Provenance.CaptureDurationSeconds,
 			CaptureWindow:          capture.Provenance.Window.Duration,
 			CaptureSoakDuration:    capture.Provenance.Estate.Load.SoakDuration,
@@ -275,6 +277,9 @@ func validateCaptureV2RoutingManifest(manifest CaptureV2RoutingManifest) error {
 		}
 		if len(capture.Families) == 0 && len(capture.Unrouted) == 0 {
 			return fmt.Errorf("capture routing sha256 %q: must contain at least one direct route or unrouted family", capture.SHA256)
+		}
+		if err := validateCaptureLimitations(capture.Limitations, fmt.Sprintf("capture routing sha256 %q limitations", capture.SHA256)); err != nil {
+			return err
 		}
 		seenFamilies := make(map[string]struct{}, len(capture.Families))
 		for _, family := range capture.Families {

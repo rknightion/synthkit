@@ -71,6 +71,9 @@ type CorpusSource struct {
 	CaptureSHA256        string   `json:"capture_sha256,omitempty"`
 	CaptureScope         string   `json:"capture_scope,omitempty"`
 	CaptureWarnings      []string `json:"capture_warnings,omitempty"`
+	// CaptureLimitations are reviewed, capture-specific caveats. IDs are stable slugs and
+	// text is generic so the corpus retains the evidence boundary without deployment identity.
+	CaptureLimitations []CaptureLimitation `json:"capture_limitations,omitempty"`
 	// Capture conditions retain the source-declared collection evidence without
 	// copying an estate or load-driver identity into the corpus.
 	CaptureDurationSeconds float64           `json:"capture_duration_seconds,omitempty"`
@@ -78,6 +81,13 @@ type CorpusSource struct {
 	CaptureSoakDuration    string            `json:"capture_soak_duration,omitempty"`
 	CaptureLoadDriven      string            `json:"capture_load_driven,omitempty"`
 	EnrichmentLabels       []EnrichmentLabel `json:"enrichment_labels,omitempty"`
+}
+
+// CaptureLimitation is one reviewed caveat attached to an immutable capture route and projected
+// verbatim into the corpus document derived from that route.
+type CaptureLimitation struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
 }
 
 // The two roles source.collector_role may declare. See CorpusSource.CollectorRole.
@@ -316,6 +326,9 @@ func validateCorpusDocument(document CorpusDocument) error {
 	if err := validateCaptureIdentity(document.Source); err != nil {
 		return err
 	}
+	if err := validateCaptureLimitations(document.Source.CaptureLimitations, "source.capture_limitations"); err != nil {
+		return err
+	}
 	if err := validateCapturedOn(document.Source.CapturedOn); err != nil {
 		return err
 	}
@@ -398,6 +411,23 @@ func validateCaptureIdentity(source CorpusSource) error {
 func validateNonEmpty(value, field string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s: must not be empty", field)
+	}
+	return nil
+}
+
+func validateCaptureLimitations(limitations []CaptureLimitation, field string) error {
+	seen := make(map[string]struct{}, len(limitations))
+	for i, limitation := range limitations {
+		if err := validateNonEmpty(limitation.ID, fmt.Sprintf("%s[%d].id", field, i)); err != nil {
+			return err
+		}
+		if _, ok := seen[limitation.ID]; ok {
+			return fmt.Errorf("%s[%d].id: duplicate ID %q", field, i, limitation.ID)
+		}
+		seen[limitation.ID] = struct{}{}
+		if err := validateNonEmpty(limitation.Text, fmt.Sprintf("%s[%d].text", field, i)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -549,6 +579,7 @@ func CanonicalMerge(existing, candidate CorpusDocument) (CorpusDocument, error) 
 
 	out := cloneCorpusDocument(existing)
 	out.Source.EnrichmentLabels = mergeEnrichmentLabels(out.Source.EnrichmentLabels, candidate.Source.EnrichmentLabels)
+	out.Source.CaptureLimitations = mergeCaptureLimitations(out.Source.CaptureLimitations, candidate.Source.CaptureLimitations)
 	structuralEvidence := mergeSchemas(&out.Inventory, candidate.Inventory)
 	// Provenance that is deliberately NOT part of the identity still has to be refreshable,
 	// or the clone pins the first-written text forever and a corrected mechanism can never
@@ -575,6 +606,25 @@ func CanonicalMerge(existing, candidate CorpusDocument) (CorpusDocument, error) 
 	}
 	normalizeCorpusDocument(&out)
 	return out, nil
+}
+
+func mergeCaptureLimitations(existing, candidate []CaptureLimitation) []CaptureLimitation {
+	byID := make(map[string]CaptureLimitation, len(existing)+len(candidate))
+	for _, limitation := range existing {
+		byID[limitation.ID] = limitation
+	}
+	for _, limitation := range candidate {
+		byID[limitation.ID] = limitation
+	}
+	out := make([]CaptureLimitation, 0, len(byID))
+	for _, limitation := range byID {
+		out = append(out, limitation)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // mergeEnrichmentLabels unions two declarations by key. An established declaration is curated
@@ -926,6 +976,7 @@ func normalizeElidedAttributes(attributes []Attribute) {
 func cloneCorpusDocument(document CorpusDocument) CorpusDocument {
 	out := document
 	out.Source.CaptureWarnings = append([]string{}, document.Source.CaptureWarnings...)
+	out.Source.CaptureLimitations = append([]CaptureLimitation{}, document.Source.CaptureLimitations...)
 	out.Source.EnrichmentLabels = make([]EnrichmentLabel, len(document.Source.EnrichmentLabels))
 	for i, label := range document.Source.EnrichmentLabels {
 		out.Source.EnrichmentLabels[i] = cloneEnrichmentLabel(label)
