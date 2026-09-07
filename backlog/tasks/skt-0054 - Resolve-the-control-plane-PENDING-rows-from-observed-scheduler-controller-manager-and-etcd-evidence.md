@@ -7,12 +7,13 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-07 08:10'
-updated_date: '2026-09-07 11:01'
+updated_date: '2026-09-07 12:29'
 labels:
   - signals
   - control-plane
   - corpus
-dependencies: []
+dependencies:
+  - SKT-0059
 priority: medium
 type: feature
 ordinal: 150000

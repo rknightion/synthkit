@@ -4,6 +4,7 @@ title: Model the Datadog agent receiver path from independent post-gateway captu
 status: To Do
 assignee: []
 created_date: '2026-09-07 11:03'
+updated_date: '2026-09-07 12:29'
 labels:
   - integration
 dependencies: []
@@ -37,3 +38,9 @@ Migration rehearsal needs a separate telemetry contract for estates temporarily 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Authorized live validation environment (Rob, 2026-09-07): stand up an instrumented application that ships to a Datadog agent, and have that agent forward to Alloy through the Alloy Datadog receiver, then on to Grafana Cloud. That chain is what an end user on this path actually gets, so it is the shape to observe. Either an EC2 instance or a deployment into the existing rkps-awsinfra cluster is acceptable; use a namespace named datadog-receiver-validation. Deploy Alloy from its Helm chart. Use the otel-demo application or an equivalent, carrying Datadog-native instrumentation, and include some statsd so metrics, logs and traces are all represented in Datadog-native format. A new construct, workload or blueprint may be created for this purpose. Leave the environment standing at the end of the run for Rob to inspect; he confirms destruction himself. This relates directly to the Portina use case, which stays out of the catalog per the customer-specific identifier rule in AGENTS.md.
+<!-- SECTION:NOTES:END -->
