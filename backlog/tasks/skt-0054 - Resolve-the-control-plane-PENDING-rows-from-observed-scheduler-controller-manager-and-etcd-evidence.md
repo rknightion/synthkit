@@ -3,10 +3,11 @@ id: SKT-0054
 title: >-
   Resolve the control-plane PENDING rows from observed scheduler,
   controller-manager and etcd evidence
-status: To Do
+status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-09-07 08:10'
+updated_date: '2026-09-07 09:08'
 labels:
   - signals
   - control-plane
@@ -37,3 +38,9 @@ signals/k8s.md (kube-scheduler and kube-controller-manager sections) and signals
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Wave 2026-09-10: add exact scheduler/controller-manager read-back selectors test-first; perform the one authorized read-back; judge the 104 observed control-plane families; correct catalogue, cantfind, and synth only toward observed shapes; run the final gates.
+<!-- SECTION:PLAN:END -->

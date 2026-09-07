@@ -3,10 +3,11 @@ id: SKT-0053
 title: >-
   Merge the second AWS, Azure and GCP captures into the corpus by cumulative
   union
-status: To Do
+status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-09-07 08:10'
+updated_date: '2026-09-07 09:08'
 labels:
   - corpus
   - reality-corpus
@@ -35,3 +36,9 @@ The 2026-09-08 cloud lifecycles produced a second reviewed capture for each mana
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Wave 2026-09-10: apply the three reviewed routes in AWS, Azure, GCP order; project and CanonicalMerge each same-identity document; rename only when structural evidence moves provenance; validate and commit each substrate separately.
+<!-- SECTION:PLAN:END -->
