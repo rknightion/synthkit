@@ -17,8 +17,8 @@
 //	Labels:   cluster + k8s_cluster_name + job on every series; NO blueprint label
 //	Instance: <node.PrivateIP>:2381 (one per control-plane node, capped at 3)
 //
-// Values are doc-sourced representative healthy-steady-state values
-// (managed EKS does not expose etcd directly).
+// Values are representative healthy-steady-state values. RKE2 2026-09
+// observed the disk histogram boundaries; managed EKS does not expose etcd.
 //
 // ARCHITECTURE invariants honoured:
 //   - I3:  counters via state.Add (cumulative); gauges via state.Set
@@ -49,15 +49,16 @@ const (
 	etcdQuorumCap = 3
 )
 
-// etcdWALBounds are the histogram bucket boundaries for etcd_disk_wal_fsync_duration_seconds.
-// Fast NVMe-backed etcd — most syncs complete in <4ms.
+// etcdWALBounds are the RKE2 2026-09 observed bucket boundaries for
+// etcd_disk_wal_fsync_duration_seconds.
 var etcdWALBounds = []float64{
-	0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024,
+	0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024, 2.048, 4.096, 8.192,
 }
 
-// etcdBackendBounds are the histogram bucket boundaries for etcd_disk_backend_commit_duration_seconds.
+// etcdBackendBounds are the RKE2 2026-09 observed bucket boundaries for
+// etcd_disk_backend_commit_duration_seconds.
 var etcdBackendBounds = []float64{
-	0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024,
+	0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024, 2.048, 4.096, 8.192,
 }
 
 // etcdRTTBounds are the histogram bucket boundaries for etcd_network_peer_round_trip_time_seconds.

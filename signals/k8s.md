@@ -1215,16 +1215,17 @@ metrics:
   - {root: workqueue_queue_duration_seconds, type: histogram, unit: seconds, v: ok, note: "buckets PENDING"}
   - {root: workqueue_work_duration_seconds, type: histogram, unit: seconds, v: ok, note: "buckets PENDING"}
   - {root: rest_client_requests_total, type: counter, unit: requests, v: ok, note: "live: code∈{200,201,403,404,409,429,500,<error>}, method∈{GET,POST,PUT,PATCH,DELETE}, host=<EKS endpoint>"}
-  - {root: etcd_request_duration_seconds, type: histogram, unit: seconds, v: ok, note: "live labels: operation,resource (NOT `type`),group(empty→omitted); buckets PENDING"}
-note: "label keys live-verified on EKS 2026-06-15 (SK-52); only histogram buckets remain PENDING"
+  - {root: etcd_request_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,group,instance,job,k8s_cluster_name,le,namespace,operation,resource,service,source; buckets [0.005,0.025,0.05,0.1,0.2,0.4,0.6,0.8,1,1.25,1.5,2,3,4,5,6,8,10,15,20,30,45,60]"}
+note: "label keys live-verified on EKS 2026-06-15 (SK-52); etcd_request_duration_seconds RKE2 bounds observed 2026-09; apiserver_request_duration_seconds bounds remain PENDING"
 ```
 
 ---
 
 ## kube-scheduler (→ Mimir) — ScopeSubstrate [slug: k8s-scheduler]
 
-*Provenance: doc-sourced (kube-prometheus-stack mixin; managed EKS does not expose scheduler).
-All `v: PENDING`. Opt-in via `control_plane.kube_scheduler` (default OFF).
+*Provenance: RKE2 2026-09 observed the three emitted scheduler roots marked below; EKS 2026-09 also
+observed them under `job="kube-scheduler"`. The prior EKS-unreachable conclusion was false.
+Unmarked rows remain `v: PENDING`. Opt-in via `control_plane.kube_scheduler` (default OFF).
 `job="kube-scheduler"`, `instance="kube-scheduler:10259"`.*
 
 ```yaml signals
@@ -1237,21 +1238,43 @@ labels:
   job: kube-scheduler
   instance: kube-scheduler:10259
 metrics:
-  - {root: scheduler_scheduling_attempt_duration_seconds, type: histogram, unit: seconds, v: PENDING, note: "profile=default-scheduler,result ∈ {scheduled,unschedulable,error}; buckets PENDING (SK-53)"}
-  - {root: scheduler_pending_pods, type: gauge, unit: count, v: PENDING, note: "queue ∈ {active,backoff,unschedulable,gated}"}
-  - {root: scheduler_schedule_attempts_total, type: counter, unit: count, v: PENDING, note: "profile,result"}
+  - {root: scheduler_scheduling_attempt_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 and EKS 2026-09; labels cloud,cluster,instance,job,k8s_cluster_name,le,profile,result; buckets [0.001,0.002,0.004,0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.024,2.048,4.096,8.192,16.384]"}
+  - {root: scheduler_pending_pods, type: gauge, unit: count, v: observed, note: "observed RKE2 and EKS 2026-09; queue ∈ {active,backoff,unschedulable,gated}"}
+  - {root: scheduler_schedule_attempts_total, type: counter, unit: count, v: observed, note: "observed RKE2 and EKS 2026-09; labels cloud,cluster,instance,job,k8s_cluster_name,profile,result; EKS instrument type unknown, existing emitter type retained"}
+  - {root: scheduler_event_handling_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,event,instance,job,k8s_cluster_name,le; buckets [0.0001,0.0002,0.0004,0.0008,0.0016,0.0032,0.0064,0.0128,0.0256,0.0512,0.1024,0.2048]"}
+  - {root: scheduler_framework_extension_point_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,extension_point,instance,job,k8s_cluster_name,le,profile,status; buckets [0.0001,0.0002,0.0004,0.0008,0.0016,0.0032,0.0064,0.0128,0.0256,0.0512,0.1024,0.2048]"}
+  - {root: scheduler_plugin_execution_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,extension_point,instance,job,k8s_cluster_name,le,plugin,status; buckets [0.00001,0.000015000000000000002,0.000022500000000000005,0.00003375000000000001,0.00005062500000000001,0.00007593750000000002,0.00011390625000000003,0.00017085937500000006,0.0002562890625000001,0.00038443359375000017,0.0005766503906250003,0.0008649755859375004,0.0012974633789062506,0.0019461950683593758,0.0029192926025390638,0.004378938903808595,0.006568408355712893,0.009852612533569338,0.014778918800354007,0.02216837820053101]"}
+  - {root: scheduler_pod_scheduling_attempts, type: histogram, unit: count, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,instance,job,k8s_cluster_name,le; buckets [1,2,4,8,16]"}
+  - {root: scheduler_pod_scheduling_sli_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels attempts,cloud,cluster,instance,job,k8s_cluster_name,le; buckets [0.01,0.02,0.04,0.08,0.16,0.32,0.64,1.28,2.56,5.12,10.24,20.48,40.96,81.92,163.84,327.68,655.36,1310.72,2621.44,5242.88]"}
+  - {root: scheduler_preemption_victims, type: histogram, unit: count, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,instance,job,k8s_cluster_name,le; buckets [1,2,4,8,16,32,64]"}
+  - {root: scheduler_queueing_hint_execution_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,event,hint,instance,job,k8s_cluster_name,le,plugin; buckets [0.00001,0.000015000000000000002,0.000022500000000000005,0.00003375000000000001,0.00005062500000000001,0.00007593750000000002,0.00011390625000000003,0.00017085937500000006,0.0002562890625000001,0.00038443359375000017,0.0005766503906250003,0.0008649755859375004,0.0012974633789062506,0.0019461950683593758,0.0029192926025390638,0.004378938903808595,0.006568408355712893,0.009852612533569338,0.014778918800354007,0.02216837820053101]"}
+  - {root: scheduler_scheduling_algorithm_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,instance,job,k8s_cluster_name,le; buckets [0.001,0.002,0.004,0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.024,2.048,4.096,8.192,16.384]"}
   - {root: workqueue_depth, type: gauge, unit: count, v: PENDING, note: "name=DynamicConfigMap"}
   - {root: workqueue_adds_total, type: counter, unit: count, v: PENDING}
   - {root: rest_client_requests_total, type: counter, unit: requests, v: PENDING, note: "code,method,host"}
-note: "v: PENDING — managed EKS does not expose kube-scheduler; doc-sourced. See SK-53"
+note: "observed scheduler rows use RKE2 and EKS 2026-09 evidence; remaining rows stay PENDING. See SK-53"
 ```
+
+### Coverage-audit disposition - RKE2 scheduler 2026-09
+
+| Raw row | Verdict | Evidence |
+|---|---|---|
+| `scheduler_cache_size` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `scheduler_goroutines` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `scheduler_inflight_events` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `scheduler_plugin_evaluation_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `scheduler_preemption_attempts_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `scheduler_queue_incoming_pods_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `scheduler_unschedulable_pods` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
 
 ---
 
 ## kube-controller-manager (→ Mimir) — ScopeSubstrate [slug: k8s-controller-manager]
 
-*Provenance: doc-sourced (kube-prometheus-stack mixin; managed EKS does not expose controller-manager).
-All `v: PENDING`. Opt-in via `control_plane.kube_controller_manager` (default OFF).
+*Provenance: EKS 2026-09 observed the two marked controller-manager workqueue histograms under
+`job="kube-controller-manager"`; the prior EKS-unreachable conclusion was false. Asserts and service
+labels are read-path enrichment, not emitter labels. Other rows remain `v: PENDING`. Opt-in via
+`control_plane.kube_controller_manager` (default OFF).
 `job="kube-controller-manager"`, `instance="kube-controller-manager:10257"`.*
 
 ```yaml signals
@@ -1266,13 +1289,13 @@ labels:
 metrics:
   - {root: workqueue_adds_total, type: counter, unit: count, v: PENDING, note: "name ∈ {node,replicaset,daemonset,deployment,disruption}"}
   - {root: workqueue_depth, type: gauge, unit: count, v: PENDING}
-  - {root: workqueue_queue_duration_seconds, type: histogram, unit: seconds, v: PENDING}
-  - {root: workqueue_work_duration_seconds, type: histogram, unit: seconds, v: PENDING}
+  - {root: workqueue_queue_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed EKS 2026-09; emitter labels cluster,instance,job,k8s_cluster_name,le,name; buckets [1e-8,1e-7,1e-6,1e-5,1e-4,0.001,0.01,0.1,1,2,4,6,8,10,15]"}
+  - {root: workqueue_work_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed EKS 2026-09; emitter labels cluster,instance,job,k8s_cluster_name,le,name; buckets [1e-8,1e-7,1e-6,1e-5,1e-4,0.001,0.01,0.1,1,2,4,6,8,10,15]"}
   - {root: workqueue_retries_total, type: counter, unit: count, v: PENDING, note: "=0 at baseline"}
   - {root: rest_client_requests_total, type: counter, unit: requests, v: PENDING, note: "code,method,host"}
 enums:
   name: [node, replicaset, daemonset, deployment, disruption]
-note: "v: PENDING — managed EKS does not expose kube-controller-manager; doc-sourced. See SK-53"
+note: "two workqueue histogram rows are observed on EKS 2026-09; remaining rows stay PENDING. See SK-53"
 ```
 
 ---

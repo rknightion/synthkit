@@ -17,6 +17,7 @@ package etcd_test
 import (
 	"context"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -207,6 +208,20 @@ func TestKindAndSignals(t *testing.T) {
 	}
 }
 
+// TestObservedDiskHistogramBounds pins the RKE2 2026-09 observed bucket
+// contract for the two etcd disk histograms we emit.
+func TestObservedDiskHistogramBounds(t *testing.T) {
+	c := buildDefault(t)
+	cap := tickOnce(t, c)
+	want := []float64{.001, .002, .004, .008, .016, .032, .064, .128, .256, .512, 1.024, 2.048, 4.096, 8.192}
+	for _, name := range []string{
+		"etcd_disk_wal_fsync_duration_seconds_bucket",
+		"etcd_disk_backend_commit_duration_seconds_bucket",
+	} {
+		assertHistogramBounds(t, cap, name, want)
+	}
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 func seriesVals(cap *coretest.MetricCapture) map[string]float64 {
@@ -228,4 +243,69 @@ func labelSig(labels map[string]string) string {
 		sb = append(sb, []byte(k+"="+labels[k]+";")...)
 	}
 	return string(sb)
+}
+
+func assertHistogramBounds(t *testing.T, cap *coretest.MetricCapture, name string, want []float64) {
+	t.Helper()
+	type boundGroup struct {
+		finite []float64
+		sawInf bool
+	}
+	groups := make(map[string]*boundGroup)
+	for _, series := range cap.Find(name) {
+		le, ok := series.Labels["le"]
+		if !ok {
+			t.Fatalf("%s: bucket series missing le label", name)
+		}
+		sig := labelSigWithoutLE(series.Labels)
+		group := groups[sig]
+		if group == nil {
+			group = &boundGroup{}
+			groups[sig] = group
+		}
+		if le == "+Inf" {
+			if group.sawInf {
+				t.Fatalf("%s{%s}: duplicate +Inf bucket", name, sig)
+			}
+			group.sawInf = true
+			continue
+		}
+		if group.sawInf {
+			t.Fatalf("%s{%s}: finite bucket %q emitted after +Inf", name, sig, le)
+		}
+		bound, err := strconv.ParseFloat(le, 64)
+		if err != nil {
+			t.Fatalf("%s{%s}: invalid le=%q: %v", name, sig, le, err)
+		}
+		group.finite = append(group.finite, bound)
+	}
+	if len(groups) == 0 {
+		t.Fatalf("%s: no bucket series found", name)
+	}
+	for sig, group := range groups {
+		if !group.sawInf {
+			t.Fatalf("%s{%s}: missing +Inf bucket", name, sig)
+		}
+		if len(group.finite) != len(want) {
+			t.Fatalf("%s{%s}: bounds=%v, want %v", name, sig, group.finite, want)
+		}
+		for i := range want {
+			if i > 0 && group.finite[i] <= group.finite[i-1] {
+				t.Fatalf("%s{%s}: bounds are not strictly ascending: %v", name, sig, group.finite)
+			}
+			if group.finite[i] != want[i] {
+				t.Fatalf("%s{%s}: bounds=%v, want %v", name, sig, group.finite, want)
+			}
+		}
+	}
+}
+
+func labelSigWithoutLE(labels map[string]string) string {
+	filtered := make(map[string]string, len(labels)-1)
+	for key, value := range labels {
+		if key != "le" {
+			filtered[key] = value
+		}
+	}
+	return labelSig(filtered)
 }

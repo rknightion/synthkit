@@ -340,8 +340,10 @@ note: "certmanager_certificate_challenge_status is event-gated (not emitted at i
 
 ## etcd (`job="integrations/etcd"`, instance `<nodeIP>:2381`, one per quorum node, capped at 3) [slug: k8s-etcd]
 
-*Provenance: doc-sourced (Grafana cloud-onboarding allowlist + etcd mixin). Managed EKS does not expose
-etcd directly — values are representative/plausible healthy-steady-state. All `v: PENDING` (see cantfind.md SK-49).
+*Provenance: RKE2 2026-09 observed the ten emitted roots below. Managed EKS does not expose etcd
+directly. The two disk-histogram bounds are live-observed; the remaining typed emitter contracts
+retain their existing types where capture metadata reported `instrument_types=unknown`. Other rows
+remain `v: PENDING` (see cantfind.md SK-49).
 Scope: substrate; no blueprint label. One Construct instance per cluster covers all quorum nodes.*
 
 ```yaml signals
@@ -355,19 +357,30 @@ labels:
   instance: <nodeIP>:2381    # one per control-plane node (capped at 3 quorum members)
 metrics:
   # etcd_server_* — per instance
-  - {root: etcd_server_has_leader, type: gauge, unit: bool, v: PENDING, note: "=1 (healthy); no extra labels"}
-  - {root: etcd_server_leader_changes_seen_total, type: counter, unit: count, v: PENDING}
-  - {root: etcd_server_proposals_failed_total, type: counter, unit: count, v: PENDING, note: "=0 (healthy)"}
-  - {root: etcd_server_quota_backend_bytes, type: gauge, unit: bytes, v: PENDING, note: "~8GiB default"}
+  - {root: etcd_server_has_leader, type: gauge, unit: bool, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,namespace,pod,source,workload; instrument type unknown in capture"}
+  - {root: etcd_server_leader_changes_seen_total, type: counter, unit: count, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,namespace,pod,source,workload; instrument type unknown in capture"}
+  - {root: etcd_server_proposals_failed_total, type: counter, unit: count, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,namespace,pod,source,workload; instrument type unknown in capture"}
+  - {root: etcd_server_quota_backend_bytes, type: gauge, unit: bytes, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,namespace,pod,source,workload; instrument type unknown in capture"}
   # etcd_disk_* — per instance
-  - {root: etcd_disk_wal_fsync_duration_seconds, type: histogram, unit: seconds, v: PENDING, note: "fast NVMe: typical 1-4ms; buckets doc-sourced — see SK-49"}
-  - {root: etcd_disk_backend_commit_duration_seconds, type: histogram, unit: seconds, v: PENDING, note: "buckets doc-sourced — see SK-49"}
+  - {root: etcd_disk_wal_fsync_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.001,0.002,0.004,0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.024,2.048,4.096,8.192]"}
+  - {root: etcd_disk_backend_commit_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.001,0.002,0.004,0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.024,2.048,4.096,8.192]"}
+  - {root: etcd_disk_backend_defrag_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.1,0.2,0.4,0.8,1.6,3.2,6.4,12.8,25.6,51.2,102.4,204.8,409.6]"}
+  - {root: etcd_disk_backend_snapshot_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.01,0.02,0.04,0.08,0.16,0.32,0.64,1.28,2.56,5.12,10.24,20.48,40.96,81.92,163.84,327.68,655.36]"}
+  - {root: etcd_disk_wal_write_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.001,0.002,0.004,0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.024,2.048,4.096,8.192]"}
   # etcd_mvcc_db_* — per instance
-  - {root: etcd_mvcc_db_total_size_in_bytes, type: gauge, unit: bytes, v: PENDING, note: "~100MB representative"}
-  - {root: etcd_mvcc_db_total_size_in_use_in_bytes, type: gauge, unit: bytes, v: PENDING}
+  - {root: etcd_mvcc_db_total_size_in_bytes, type: gauge, unit: bytes, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,namespace,pod,source,workload; instrument type unknown in capture"}
+  - {root: etcd_mvcc_db_total_size_in_use_in_bytes, type: gauge, unit: bytes, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,namespace,pod,source,workload; instrument type unknown in capture"}
+  - {root: etcd_mvcc_hash_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.01,0.02,0.04,0.08,0.16,0.32,0.64,1.28,2.56,5.12,10.24,20.48,40.96,81.92,163.84]"}
+  - {root: etcd_mvcc_hash_rev_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.01,0.02,0.04,0.08,0.16,0.32,0.64,1.28,2.56,5.12,10.24,20.48,40.96,81.92,163.84]"}
   # etcd_network_client_* — per instance
-  - {root: etcd_network_client_grpc_received_bytes_total, type: counter, unit: bytes, v: PENDING}
-  - {root: etcd_network_client_grpc_sent_bytes_total, type: counter, unit: bytes, v: PENDING}
+  - {root: etcd_network_client_grpc_received_bytes_total, type: counter, unit: bytes, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,namespace,pod,source,workload; instrument type unknown in capture"}
+  - {root: etcd_network_client_grpc_sent_bytes_total, type: counter, unit: bytes, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,namespace,pod,source,workload; instrument type unknown in capture"}
+  - {root: etcd_lease_object_counts, type: histogram, unit: count, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,instance,job,k8s_cluster_name,le,namespace,service,source; buckets [10,50,100,500,1000,2500,5000]"}
+  - {root: etcd_server_apply_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,op,pod,source,success,version,workload; buckets [0.0001,0.0002,0.0004,0.0008,0.0016,0.0032,0.0064,0.0128,0.0256,0.0512,0.1024,0.2048,0.4096,0.8192,1.6384,3.2768,6.5536,13.1072,26.2144,52.4288]"}
+  - {root: etcd_server_range_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,success,workload; buckets [0.0001,0.0002,0.0004,0.0008,0.0016,0.0032,0.0064,0.0128,0.0256,0.0512,0.1024,0.2048,0.4096,0.8192,1.6384,3.2768,6.5536,13.1072,26.2144,52.4288]"}
+  - {root: etcd_snap_db_fsync_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.001,0.002,0.004,0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.024,2.048,4.096,8.192]"}
+  - {root: etcd_snap_db_save_total_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.1,0.2,0.4,0.8,1.6,3.2,6.4,12.8,25.6,51.2]"}
+  - {root: etcd_snap_fsync_duration_seconds, type: histogram, unit: seconds, v: observed, note: "observed RKE2 2026-09; labels cloud,cluster,component,container,instance,job,k8s_cluster_name,le,namespace,pod,source,workload; buckets [0.001,0.002,0.004,0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.024,2.048,4.096,8.192]"}
   # etcd_network_peer_* — per instance × peer (To label = peer ID)
   - {root: etcd_network_peer_received_bytes_total, type: counter, unit: bytes, v: PENDING, note: "To label = peer ID"}
   - {root: etcd_network_peer_sent_bytes_total, type: counter, unit: bytes, v: PENDING}
@@ -384,8 +397,77 @@ enums:
   grpc_service: ["etcdserverpb.KV", "etcdserverpb.Watch", "etcdserverpb.Lease"]
   grpc_method: [Range, Put, Watch]
   grpc_code: [OK]
-note: "v: PENDING — managed EKS does not expose etcd; all values doc-sourced. See cantfind.md SK-49 for resolution path (bare-metal/self-managed etcd capture)"
+note: "RKE2-observed rows are marked observed; managed EKS does not expose etcd. Unobserved rows stay PENDING. See cantfind.md SK-49"
 ```
+
+### Coverage-audit disposition - RKE2 etcd 2026-09
+
+| Raw row | Verdict | Evidence |
+|---|---|---|
+| `etcd_bookmark_counts` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_cluster_version` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_debugging_auth_revision` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_disk_backend_commit_rebalance_duration_seconds` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_disk_backend_commit_spill_duration_seconds` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_disk_backend_commit_write_duration_seconds` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_lease_granted_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_lease_renewed_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_lease_revoked_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_lease_ttl_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_compact_revision` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_current_revision` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_db_compaction_keys_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_db_compaction_last` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_db_compaction_pause_duration_milliseconds` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_db_compaction_total_duration_milliseconds` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_events_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_index_compaction_pause_duration_milliseconds` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_keys_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_pending_events_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_slow_watcher_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_total_put_size_in_bytes` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_watch_stream_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_mvcc_watcher_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_server_lease_expired_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_snap_save_marshalling_duration_seconds` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_snap_save_total_duration_seconds` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_store_expires_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_store_reads_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_store_watch_requests_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_store_watchers` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_debugging_store_writes_total` | debug-only | observed RKE2 2026-09; debugging namespace is excluded from the baseline contract |
+| `etcd_disk_defrag_inflight` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_disk_wal_write_bytes_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_grpc_proxy_cache_hits_total` | proxy-only | observed RKE2 2026-09; grpc-proxy-only family is excluded from the direct etcd baseline |
+| `etcd_grpc_proxy_cache_keys_total` | proxy-only | observed RKE2 2026-09; grpc-proxy-only family is excluded from the direct etcd baseline |
+| `etcd_grpc_proxy_cache_misses_total` | proxy-only | observed RKE2 2026-09; grpc-proxy-only family is excluded from the direct etcd baseline |
+| `etcd_grpc_proxy_events_coalescing_total` | proxy-only | observed RKE2 2026-09; grpc-proxy-only family is excluded from the direct etcd baseline |
+| `etcd_grpc_proxy_watchers_coalescing_total` | proxy-only | observed RKE2 2026-09; grpc-proxy-only family is excluded from the direct etcd baseline |
+| `etcd_mvcc_db_open_read_transactions` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_mvcc_delete_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_mvcc_put_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_mvcc_range_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_mvcc_txn_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_network_known_peers` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_requests_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_client_requests_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_feature_enabled` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_go_version` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_health_failures` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_health_success` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_heartbeat_send_failures_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_id` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_is_leader` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_is_learner` | learner-only | observed RKE2 2026-09; learner topology is excluded from the quorum baseline |
+| `etcd_server_learner_promote_successes` | learner-only | observed RKE2 2026-09; learner topology is excluded from the quorum baseline |
+| `etcd_server_proposals_applied_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_proposals_committed_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_proposals_pending` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_read_indexes_failed_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_slow_apply_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_slow_read_indexes_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_snapshot_apply_in_progress_total` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
+| `etcd_server_version` | untyped | observed RKE2 2026-09 name and labels, but capture metadata records instrument_types=unknown |
 
 ---
 

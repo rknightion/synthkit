@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // controlplane.go — kube-apiserver, kube-scheduler, and kube-controller-manager metric
-// families for the k8scluster construct. These are DOC-SOURCED: managed EKS does not
-// expose these endpoints directly; values are representative.
+// families for the k8scluster construct. EKS 2026-09 read-back observed scheduler and
+// controller-manager through the monitoring pipeline; values remain representative.
 //
 // Substrate scope: labels cluster, k8s_cluster_name, job, instance only — NO blueprint label.
 // Each function emits one instance (one apiserver/scheduler/controller-manager per cluster).
@@ -14,6 +14,19 @@ import (
 
 // cpHistoBounds are the default seconds histogram bounds for all control-plane histograms.
 var cpHistoBounds = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+
+// etcdRequestBounds are the RKE2 2026-09 observed apiserver etcd-request
+// buckets. They are not the generic apiserver defaults.
+var etcdRequestBounds = []float64{.005, .025, .05, .1, .2, .4, .6, .8, 1, 1.25, 1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 45, 60}
+
+// schedulerAttemptBounds are the observed Rancher RKE2 scheduler attempt-duration
+// buckets (2026-09). They deliberately do not reuse the apiserver defaults.
+var schedulerAttemptBounds = []float64{.001, .002, .004, .008, .016, .032, .064, .128, .256, .512, 1.024, 2.048, 4.096, 8.192, 16.384}
+
+// controllerManagerWorkqueueBounds are the observed EKS controller-manager
+// workqueue duration buckets (2026-09). Asserts labels are read-path enrichment,
+// not emitter labels.
+var controllerManagerWorkqueueBounds = []float64{1e-8, 1e-7, 1e-6, 1e-5, 1e-4, .001, .01, .1, 1, 2, 4, 6, 8, 10, 15}
 
 // ── apiserver ────────────────────────────────────────────────────────────────────────
 
@@ -119,7 +132,7 @@ func emitApiServer(st *statelib.State, cluster string, tickSec, scale float64) {
 		if c.op == "list" {
 			latency = 0.01
 		}
-		st.Observe("etcd_request_duration_seconds", lbls, cpHistoBounds, statelib.LEPromV3, latency)
+		st.Observe("etcd_request_duration_seconds", lbls, etcdRequestBounds, statelib.LEPromV3, latency)
 	}
 }
 
@@ -153,7 +166,7 @@ func emitScheduler(st *statelib.State, cluster string, tickSec, scale float64) {
 			"profile": "default-scheduler",
 			"result":  c.result,
 		})
-		st.Observe("scheduler_scheduling_attempt_duration_seconds", lbls, cpHistoBounds, statelib.LEPromV3, c.latency)
+		st.Observe("scheduler_scheduling_attempt_duration_seconds", lbls, schedulerAttemptBounds, statelib.LEPromV3, c.latency)
 	}
 
 	// scheduler_pending_pods — gauge, label queue
@@ -211,8 +224,8 @@ func emitControllerManager(st *statelib.State, cluster string, tickSec, scale fl
 		wqLbls := merge(base, map[string]string{"name": name})
 		st.Add("workqueue_adds_total", wqLbls, scale*(1+float64(len(name)%3)))
 		st.Set("workqueue_depth", wqLbls, 0)
-		st.Observe("workqueue_queue_duration_seconds", wqLbls, cpHistoBounds, statelib.LEPromV3, 0.002)
-		st.Observe("workqueue_work_duration_seconds", wqLbls, cpHistoBounds, statelib.LEPromV3, 0.01)
+		st.Observe("workqueue_queue_duration_seconds", wqLbls, controllerManagerWorkqueueBounds, statelib.LEPromV3, 0.002)
+		st.Observe("workqueue_work_duration_seconds", wqLbls, controllerManagerWorkqueueBounds, statelib.LEPromV3, 0.01)
 		st.Add("workqueue_retries_total", wqLbls, 0)
 	}
 

@@ -6,6 +6,8 @@ package k8scluster_test
 
 import (
 	"context"
+	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -109,6 +111,14 @@ func TestApiServerEtcdHistogram(t *testing.T) {
 	}
 }
 
+// TestApiServerEtcdObservedHistogramBounds pins the RKE2 2026-09 observed
+// etcd-request buckets from the apiserver metrics endpoint.
+func TestApiServerEtcdObservedHistogramBounds(t *testing.T) {
+	mc := cpTick(t, cpCluster(true, false, false))
+	want := []float64{.005, .025, .05, .1, .2, .4, .6, .8, 1, 1.25, 1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 45, 60}
+	assertHistogramBounds(t, mc, "etcd_request_duration_seconds_bucket", want)
+}
+
 // ── scheduler unit tests ──────────────────────────────────────────────────────────────
 
 // TestSchedulerHeadlineFamilies asserts core scheduler families are present when KubeScheduler=true.
@@ -162,6 +172,15 @@ func TestSchedulerPendingPodQueues(t *testing.T) {
 			t.Errorf("scheduler_pending_pods: queue=%q not found", q)
 		}
 	}
+}
+
+// TestSchedulerObservedHistogramBounds pins the Rancher 2026-09 scheduler
+// attempt-duration buckets. The capture established the emitter buckets before
+// Grafana Cloud's read-path labels are applied.
+func TestSchedulerObservedHistogramBounds(t *testing.T) {
+	mc := cpTick(t, cpCluster(false, true, false))
+	want := []float64{.001, .002, .004, .008, .016, .032, .064, .128, .256, .512, 1.024, 2.048, 4.096, 8.192, 16.384}
+	assertHistogramBounds(t, mc, "scheduler_scheduling_attempt_duration_seconds_bucket", want)
 }
 
 // ── controller-manager unit tests ────────────────────────────────────────────────────
@@ -219,6 +238,20 @@ func TestControllerManagerWorkqueueNames(t *testing.T) {
 		if !names[want] {
 			t.Errorf("workqueue_depth{job=kube-controller-manager}: name=%q not found", want)
 		}
+	}
+}
+
+// TestControllerManagerObservedWorkqueueHistogramBounds pins the EKS 2026-09
+// controller-manager workqueue buckets. Asserts labels are read-path
+// enrichment and deliberately do not become emitter labels.
+func TestControllerManagerObservedWorkqueueHistogramBounds(t *testing.T) {
+	mc := cpTick(t, cpCluster(false, false, true))
+	want := []float64{1e-8, 1e-7, 1e-6, 1e-5, 1e-4, .001, .01, .1, 1, 2, 4, 6, 8, 10, 15}
+	for _, name := range []string{
+		"workqueue_queue_duration_seconds_bucket",
+		"workqueue_work_duration_seconds_bucket",
+	} {
+		assertHistogramBounds(t, mc, name, want)
 	}
 }
 
@@ -281,4 +314,74 @@ func TestControlPlaneGatingAllFalse(t *testing.T) {
 			t.Errorf("ControlPlane all-false: %q must be absent", nm)
 		}
 	}
+}
+
+func assertHistogramBounds(t *testing.T, mc *coretest.MetricCapture, name string, want []float64) {
+	t.Helper()
+	type boundGroup struct {
+		finite []float64
+		sawInf bool
+	}
+	groups := make(map[string]*boundGroup)
+	for _, series := range mc.Find(name) {
+		le, ok := series.Labels["le"]
+		if !ok {
+			t.Fatalf("%s: bucket series missing le label", name)
+		}
+		sig := histogramLabelSig(series.Labels)
+		group := groups[sig]
+		if group == nil {
+			group = &boundGroup{}
+			groups[sig] = group
+		}
+		if le == "+Inf" {
+			if group.sawInf {
+				t.Fatalf("%s{%s}: duplicate +Inf bucket", name, sig)
+			}
+			group.sawInf = true
+			continue
+		}
+		if group.sawInf {
+			t.Fatalf("%s{%s}: finite bucket %q emitted after +Inf", name, sig, le)
+		}
+		bound, err := strconv.ParseFloat(le, 64)
+		if err != nil {
+			t.Fatalf("%s{%s}: invalid le=%q: %v", name, sig, le, err)
+		}
+		group.finite = append(group.finite, bound)
+	}
+	if len(groups) == 0 {
+		t.Fatalf("%s: no bucket series found", name)
+	}
+	for sig, group := range groups {
+		if !group.sawInf {
+			t.Fatalf("%s{%s}: missing +Inf bucket", name, sig)
+		}
+		if len(group.finite) != len(want) {
+			t.Fatalf("%s{%s}: bounds=%v, want %v", name, sig, group.finite, want)
+		}
+		for i := range want {
+			if i > 0 && group.finite[i] <= group.finite[i-1] {
+				t.Fatalf("%s{%s}: bounds are not strictly ascending: %v", name, sig, group.finite)
+			}
+			if group.finite[i] != want[i] {
+				t.Fatalf("%s{%s}: bounds=%v, want %v", name, sig, group.finite, want)
+			}
+		}
+	}
+}
+
+func histogramLabelSig(labels map[string]string) string {
+	keys := make([]string, 0, len(labels)-1)
+	for key := range labels {
+		if key != "le" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	var sig string
+	for _, key := range keys {
+		sig += key + "=" + labels[key] + ";"
+	}
+	return sig
 }
