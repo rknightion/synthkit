@@ -49,14 +49,16 @@ _selfobs-build:
 # format Go sources and this justfile in place
 [group('check')]
 fmt:
-    gofmt -s -w .
+    # gitignored scratch (codex/) is not ours to format; list only tracked and
+    # untracked-but-not-ignored Go files so a campaign's scratch never enters the gate
+    git ls-files --cached --others --exclude-standard -z -- '*.go' | xargs -0 gofmt -s -w
     just --fmt
 
 # verify Go and justfile formatting; never mutates
 [group('check')]
 [no-exit-message]
 fmt-check:
-    @out=$(gofmt -l -s .); if [ -n "$out" ]; then echo "gofmt -s would rewrite:"; echo "$out"; exit 1; fi
+    @out=$(git ls-files --cached --others --exclude-standard -z -- '*.go' | xargs -0 gofmt -l -s); if [ -n "$out" ]; then echo "gofmt -s would rewrite:"; echo "$out"; exit 1; fi
     just --fmt --check
 
 # static analysis over the whole module (go vet; golangci-lint awaits cleanup of existing findings)

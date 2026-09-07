@@ -193,7 +193,7 @@ func BuildGCXLiveReadback(series []map[string]string, declaredInstruments map[st
 			_, trustedJob := trustedLiveJobValues[job]
 			transport := strings.TrimSpace(labels["rksy_ingest"])
 			if transport == "" {
-				// The robk read path predates the capture-stack ingest marker. Its
+				// The live-stack read path predates the capture-stack ingest marker. Its
 				// Kubernetes selectors are the Prometheus remote-write path.
 				transport = "promrw"
 			}
