@@ -1501,6 +1501,9 @@ definitions above: `kubelet_cgroup_manager_duration_seconds`,
 `kubelet_pod_worker_duration_seconds`. P3's `storage_operation_duration_seconds` has only the
 captured `+Inf` bucket, plus sum and count; the default Alloy permutation retains its separately
 observed literal `_count` surface. These differences are selected by the collector configuration.
+P3's captured `le` labels use bare integer strings (`1`, `5`, `10`), which differ from the default
+Alloy path's Prometheus-v3 forms (`1.0`, `5.0`, `10.0`). The P3 tests read all five exact label
+sets from the committed capture; numeric-bound equality alone does not prove this spelling.
 
 Names, producer identity, label keys and `le` sets come from the committed P3 metric corpus.
 KSM semantics are independently sourced from

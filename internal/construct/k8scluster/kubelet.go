@@ -201,6 +201,12 @@ func emitKubelet(
 		// their real operation_type values (the live-reference audit §kubelet_cgroup_manager_*
 		// / §kubelet_pod_worker_*); the other three carry only le.
 		hb := kubeletHistoBounds
+		leStyle := statelib.LEPromV3
+		if collectorProm {
+			// The P3 Collector egress capture retains bare integer bounds
+			// ("1", "5", "10"), unlike Alloy's Prometheus-v3 scrape path.
+			leStyle = statelib.LEBare
+		}
 		for _, h := range []struct {
 			name   string
 			mean   float64
@@ -212,7 +218,7 @@ func emitKubelet(
 		} {
 			samples := 3 + w.Shape.IntN(5)
 			for s := 0; s < samples; s++ {
-				st.Observe(h.name, kubBase, h.bounds, statelib.LEPromV3, h.mean*(0.5+w.Shape.Float64()))
+				st.Observe(h.name, kubBase, h.bounds, leStyle, h.mean*(0.5+w.Shape.Float64()))
 			}
 		}
 		// operation_type-fanned histograms.
@@ -228,7 +234,7 @@ func emitKubelet(
 				opLbls := merge(kubBase, map[string]string{"operation_type": op})
 				samples := 3 + w.Shape.IntN(5)
 				for s := 0; s < samples; s++ {
-					st.Observe(h.name, opLbls, hb, statelib.LEPromV3, h.mean*(0.5+w.Shape.Float64()))
+					st.Observe(h.name, opLbls, hb, leStyle, h.mean*(0.5+w.Shape.Float64()))
 				}
 			}
 		}

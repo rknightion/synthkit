@@ -180,28 +180,56 @@ func TestCollectorPromP3TargetFamiliesAndHistogramLayouts(t *testing.T) {
 		}
 	}
 
-	defaultLE := []string{"0.005", "0.01", "0.025", "0.05", "0.1", "0.25", "0.5", "1.0", "2.5", "5.0", "10.0", "+Inf"}
-	podStartLE := []string{"0.5", "1.0", "2.0", "3.0", "4.0", "5.0", "6.0", "8.0", "10.0", "20.0", "30.0", "45.0", "60.0", "120.0", "180.0", "240.0", "300.0", "360.0", "480.0", "600.0", "900.0", "1200.0", "1800.0", "2700.0", "3600.0", "+Inf"}
-	for _, tc := range []struct {
-		name string
-		want []string
-	}{
-		{"kubelet_cgroup_manager_duration_seconds", defaultLE},
-		{"kubelet_pleg_relist_duration_seconds", defaultLE},
-		{"kubelet_pod_worker_duration_seconds", defaultLE},
-		{"kubelet_pod_start_duration_seconds", podStartLE},
-		{"storage_operation_duration_seconds", []string{"+Inf"}},
+	// Read exact bucket-label strings from the independent capture. Numeric
+	// bounds alone would miss Collector "1" versus Alloy "1.0" formatting.
+	var corpus struct {
+		Inventory struct {
+			Metrics []struct {
+				Name   string `json:"name"`
+				Labels []struct {
+					Key          string   `json:"key"`
+					Values       []string `json:"values"`
+					ValuesElided bool     `json:"values_elided"`
+				} `json:"labels"`
+			} `json:"metrics"`
+		} `json:"inventory"`
+	}
+	b, err := os.ReadFile("../../../reality-corpus/k8s/k3d-lab-otel-collector-prom.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(b, &corpus); err != nil {
+		t.Fatal(err)
+	}
+	capturedLE := map[string][]string{}
+	for _, metric := range corpus.Inventory.Metrics {
+		for _, label := range metric.Labels {
+			if label.Key == "le" && !label.ValuesElided {
+				capturedLE[metric.Name] = label.Values
+			}
+		}
+	}
+	for _, name := range []string{
+		"kubelet_cgroup_manager_duration_seconds",
+		"kubelet_pleg_relist_duration_seconds",
+		"kubelet_pod_worker_duration_seconds",
+		"kubelet_pod_start_duration_seconds",
+		"storage_operation_duration_seconds",
 	} {
+		want := capturedLE[name]
+		if len(want) == 0 {
+			t.Fatalf("%s: capture has no retained bucket-label evidence", name)
+		}
 		seen := map[string]bool{}
-		for _, s := range mc.Find(tc.name + "_bucket") {
+		for _, s := range mc.Find(name + "_bucket") {
 			seen[s.Labels["le"]] = true
 		}
-		if len(seen) != len(tc.want) {
-			t.Errorf("%s bucket count=%d, want %d (%v)", tc.name, len(seen), len(tc.want), seen)
+		if len(seen) != len(want) {
+			t.Errorf("%s bucket count=%d, want %d (%v)", name, len(seen), len(want), seen)
 		}
-		for _, le := range tc.want {
+		for _, le := range want {
 			if !seen[le] {
-				t.Errorf("%s missing le=%q (got %v)", tc.name, le, seen)
+				t.Errorf("%s missing le=%q (got %v)", name, le, seen)
 			}
 		}
 	}
