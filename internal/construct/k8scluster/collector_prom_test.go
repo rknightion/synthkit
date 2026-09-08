@@ -10,6 +10,7 @@ import (
 	"github.com/rknightion/synthkit/internal/core/coretest"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -43,7 +44,10 @@ func TestCollectorPromEnvelopeAndExclusivity(t *testing.T) {
 	var corpus struct {
 		Inventory struct {
 			Metrics []struct {
-				Name   string `json:"name"`
+				Name      string `json:"name"`
+				Producers []struct {
+					Name string `json:"name"`
+				} `json:"producers"`
 				Labels []struct {
 					Key string `json:"key"`
 				} `json:"labels"`
@@ -58,8 +62,15 @@ func TestCollectorPromEnvelopeAndExclusivity(t *testing.T) {
 		t.Fatal(err)
 	}
 	allowed := map[string]map[string]bool{}
+	producerJobs := map[string]map[string]bool{}
 	for _, metric := range corpus.Inventory.Metrics {
 		allowed[metric.Name] = map[string]bool{}
+		producerJobs[metric.Name] = map[string]bool{}
+		for _, producer := range metric.Producers {
+			if strings.HasPrefix(producer.Name, "promrw/") {
+				producerJobs[metric.Name][strings.TrimPrefix(producer.Name, "promrw/")] = true
+			}
+		}
 		for _, l := range metric.Labels {
 			allowed[metric.Name][l.Key] = true
 		}
@@ -67,6 +78,9 @@ func TestCollectorPromEnvelopeAndExclusivity(t *testing.T) {
 	seen := map[string]bool{}
 	for _, s := range mc.All() {
 		for key := range s.Labels {
+			if key == "job" && producerJobs[s.Name][s.Labels[key]] {
+				continue
+			}
 			if !allowed[s.Name][key] {
 				t.Fatalf("uncaptured %s label %s", s.Name, key)
 			}
