@@ -6,9 +6,9 @@
     "substrate": "eks",
     "collector": "grafana/gcx",
     "collector_role": "reader",
-    "collector_version": "1.2.0",
-    "captured_on": "2026-08-27",
-    "instrument_type_source": "Stack Prometheus metadata API, read once per run and looked up by exact metric name through a fixed type table; a miss keeps the unknown sentinel. The API answers for the CloudWatch cloud-scraper ingest path, returns nothing for the Prometheus remote-write path, and its answer is a time-windowed snapshot rather than a catalogue, so an unknown here means unresolved rather than untyped.",
+    "collector_version": "(devel)",
+    "captured_on": "2026-09-08",
+    "instrument_type_source": "Series-only read-back. Instrument metadata was outside run authority and was not queried; unknown is retained. Reader version is local Go build metadata.",
     "enrichment_labels": [
       {
         "key": "__aggregation__",
@@ -51,17 +51,88 @@
     ]
   },
   "capture_volume": {
-    "runs": 2,
+    "runs": 3,
     "observed_contract_counts": [
       31,
-      31
+      33
     ]
   },
   "inventory": {
     "schema_version": "synthkit.telemetry.inventory/v1alpha1",
     "metrics": [
       {
+        "name": "cronjob_controller_job_creation_skew_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/kube-controller-manager"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            1,
+            2,
+            4,
+            8,
+            16,
+            32,
+            64,
+            128,
+            256,
+            512
+          ],
+          "native_schemas": []
+        }
+      },
+      {
         "name": "kube_node_info",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -145,11 +216,19 @@
             "values_elided": true
           },
           {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "system_uuid",
@@ -160,6 +239,11 @@
       },
       {
         "name": "kube_node_labels",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -219,10 +303,8 @@
           },
           {
             "key": "label_kubernetes_io_arch",
-            "values": [
-              "arm64"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "label_kubernetes_io_hostname",
@@ -231,10 +313,8 @@
           },
           {
             "key": "label_kubernetes_io_os",
-            "values": [
-              "linux"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "label_node_kubernetes_io_instance_type",
@@ -243,19 +323,13 @@
           },
           {
             "key": "label_topology_kubernetes_io_region",
-            "values": [
-              "eu-west-1"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "label_topology_kubernetes_io_zone",
-            "values": [
-              "eu-west-1a",
-              "eu-west-1b",
-              "eu-west-1c"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "node",
@@ -263,16 +337,29 @@
             "values_elided": true
           },
           {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
       {
         "name": "kube_pod_info",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -295,15 +382,8 @@
           },
           {
             "key": "created_by_kind",
-            "values": [
-              "AutoscalingListener",
-              "DaemonSet",
-              "EphemeralRunner",
-              "Job",
-              "ReplicaSet",
-              "StatefulSet"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "created_by_name",
@@ -317,11 +397,8 @@
           },
           {
             "key": "host_network",
-            "values": [
-              "false",
-              "true"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "instance",
@@ -366,11 +443,19 @@
             "values_elided": true
           },
           {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "source",
-            "values": [
-              "kubernetes"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "uid",
@@ -381,6 +466,11 @@
       },
       {
         "name": "kubeproxy_conntrack_reconciler_deleted_entries_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -413,10 +503,8 @@
           },
           {
             "key": "ip_family",
-            "values": [
-              "IPv4"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "job",
@@ -429,8 +517,99 @@
             "key": "k8s_cluster_name",
             "values": [],
             "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
           }
         ]
+      },
+      {
+        "name": "kubeproxy_conntrack_reconciler_sync_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.001,
+            0.002,
+            0.004,
+            0.008,
+            0.016,
+            0.032,
+            0.064,
+            0.128,
+            0.256,
+            0.512,
+            1.024,
+            2.048,
+            4.096,
+            8.192,
+            16.384
+          ],
+          "native_schemas": []
+        }
       },
       {
         "name": "kubeproxy_conntrack_reconciler_sync_duration_seconds_bucket",
@@ -598,6 +777,11 @@
       },
       {
         "name": "kubeproxy_iptables_ct_state_invalid_dropped_packets_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -637,6 +821,16 @@
           },
           {
             "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
             "values": [],
             "values_elided": true
           }
@@ -644,6 +838,11 @@
       },
       {
         "name": "kubeproxy_iptables_localhost_nodeports_accepted_packets_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -685,8 +884,165 @@
             "key": "k8s_cluster_name",
             "values": [],
             "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
           }
         ]
+      },
+      {
+        "name": "kubeproxy_network_programming_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0,
+            0.25,
+            0.5,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            65,
+            70,
+            75,
+            80,
+            85,
+            90,
+            95,
+            100,
+            105,
+            110,
+            115,
+            120,
+            150,
+            180,
+            210,
+            240,
+            270,
+            300
+          ],
+          "native_schemas": []
+        }
       },
       {
         "name": "kubeproxy_network_programming_duration_seconds_bucket",
@@ -841,6 +1197,87 @@
             "values_elided": true
           }
         ]
+      },
+      {
+        "name": "kubeproxy_sync_full_proxy_rules_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.001,
+            0.002,
+            0.004,
+            0.008,
+            0.016,
+            0.032,
+            0.064,
+            0.128,
+            0.256,
+            0.512,
+            1.024,
+            2.048,
+            4.096,
+            8.192,
+            16.384
+          ],
+          "native_schemas": []
+        }
       },
       {
         "name": "kubeproxy_sync_full_proxy_rules_duration_seconds_bucket",
@@ -1013,6 +1450,87 @@
         ]
       },
       {
+        "name": "kubeproxy_sync_partial_proxy_rules_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.001,
+            0.002,
+            0.004,
+            0.008,
+            0.016,
+            0.032,
+            0.064,
+            0.128,
+            0.256,
+            0.512,
+            1.024,
+            2.048,
+            4.096,
+            8.192,
+            16.384
+          ],
+          "native_schemas": []
+        }
+      },
+      {
         "name": "kubeproxy_sync_partial_proxy_rules_duration_seconds_bucket",
         "transports": [],
         "instrument_types": [
@@ -1183,6 +1701,87 @@
         ]
       },
       {
+        "name": "kubeproxy_sync_proxy_rules_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "ip_family",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.001,
+            0.002,
+            0.004,
+            0.008,
+            0.016,
+            0.032,
+            0.064,
+            0.128,
+            0.256,
+            0.512,
+            1.024,
+            2.048,
+            4.096,
+            8.192,
+            16.384
+          ],
+          "native_schemas": []
+        }
+      },
+      {
         "name": "kubeproxy_sync_proxy_rules_duration_seconds_bucket",
         "transports": [],
         "instrument_types": [
@@ -1348,6 +1947,11 @@
       },
       {
         "name": "kubeproxy_sync_proxy_rules_endpoint_changes_pending",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1387,6 +1991,16 @@
           },
           {
             "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
             "values": [],
             "values_elided": true
           }
@@ -1394,6 +2008,11 @@
       },
       {
         "name": "kubeproxy_sync_proxy_rules_endpoint_changes_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1433,6 +2052,16 @@
           },
           {
             "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
             "values": [],
             "values_elided": true
           }
@@ -1440,6 +2069,11 @@
       },
       {
         "name": "kubeproxy_sync_proxy_rules_iptables_last",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1472,12 +2106,8 @@
           },
           {
             "key": "ip_family",
-            "values": [
-              "<aggregated>",
-              "IPv4",
-              "IPv6"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "job",
@@ -1492,18 +2122,29 @@
             "values_elided": true
           },
           {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "table",
-            "values": [
-              "<aggregated>",
-              "filter",
-              "nat"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
       {
         "name": "kubeproxy_sync_proxy_rules_iptables_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1536,12 +2177,8 @@
           },
           {
             "key": "ip_family",
-            "values": [
-              "<aggregated>",
-              "IPv4",
-              "IPv6"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "job",
@@ -1552,22 +2189,33 @@
           },
           {
             "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
             "values": [],
             "values_elided": true
           },
           {
             "key": "table",
-            "values": [
-              "<aggregated>",
-              "filter",
-              "nat"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
       {
         "name": "kubeproxy_sync_proxy_rules_last_queued_timestamp_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1600,12 +2248,8 @@
           },
           {
             "key": "ip_family",
-            "values": [
-              "<aggregated>",
-              "IPv4",
-              "IPv6"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "job",
@@ -1616,6 +2260,16 @@
           },
           {
             "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
             "values": [],
             "values_elided": true
           }
@@ -1623,6 +2277,11 @@
       },
       {
         "name": "kubeproxy_sync_proxy_rules_last_timestamp_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1655,12 +2314,8 @@
           },
           {
             "key": "ip_family",
-            "values": [
-              "<aggregated>",
-              "IPv4",
-              "IPv6"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "job",
@@ -1671,6 +2326,16 @@
           },
           {
             "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
             "values": [],
             "values_elided": true
           }
@@ -1678,6 +2343,11 @@
       },
       {
         "name": "kubeproxy_sync_proxy_rules_no_local_endpoints_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1710,12 +2380,8 @@
           },
           {
             "key": "ip_family",
-            "values": [
-              "<aggregated>",
-              "IPv4",
-              "IPv6"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           },
           {
             "key": "job",
@@ -1730,18 +2396,29 @@
             "values_elided": true
           },
           {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "traffic_policy",
-            "values": [
-              "<aggregated>",
-              "external",
-              "internal"
-            ],
-            "values_elided": false
+            "values": [],
+            "values_elided": true
           }
         ]
       },
       {
         "name": "kubeproxy_sync_proxy_rules_service_changes_pending",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1781,6 +2458,16 @@
           },
           {
             "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
             "values": [],
             "values_elided": true
           }
@@ -1788,6 +2475,11 @@
       },
       {
         "name": "kubeproxy_sync_proxy_rules_service_changes_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1829,11 +2521,26 @@
             "key": "k8s_cluster_name",
             "values": [],
             "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
           }
         ]
       },
       {
         "name": "kubernetes_build_info",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-proxy"
+          }
+        ],
         "transports": [],
         "instrument_types": [
           "unknown"
@@ -1915,8 +2622,721 @@
             "key": "platform",
             "values": [],
             "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
           }
         ]
+      },
+      {
+        "name": "scheduler_pending_pods",
+        "producers": [
+          {
+            "name": "promrw/kube-scheduler"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "queue",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "scheduler_pod_scheduling_attempts",
+        "producers": [
+          {
+            "name": "promrw/kube-scheduler"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            1,
+            2,
+            4,
+            8,
+            16
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "scheduler_pod_scheduling_sli_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/kube-scheduler"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "attempts",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.01,
+            0.02,
+            0.04,
+            0.08,
+            0.16,
+            0.32,
+            0.64,
+            1.28,
+            2.56,
+            5.12,
+            10.24,
+            20.48,
+            40.96,
+            81.92,
+            163.84,
+            327.68,
+            655.36,
+            1310.72,
+            2621.44,
+            5242.88
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "scheduler_preemption_attempts_total",
+        "producers": [
+          {
+            "name": "promrw/kube-scheduler"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "scheduler_preemption_victims",
+        "producers": [
+          {
+            "name": "promrw/kube-scheduler"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            1,
+            2,
+            4,
+            8,
+            16,
+            32,
+            64
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "scheduler_schedule_attempts_total",
+        "producers": [
+          {
+            "name": "promrw/kube-scheduler"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "profile",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "result",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "scheduler_scheduling_attempt_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/kube-scheduler"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "profile",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "result",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.001,
+            0.002,
+            0.004,
+            0.008,
+            0.016,
+            0.032,
+            0.064,
+            0.128,
+            0.256,
+            0.512,
+            1.024,
+            2.048,
+            4.096,
+            8.192,
+            16.384
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "workqueue_adds_total",
+        "producers": [
+          {
+            "name": "promrw/kube-controller-manager"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "workqueue_depth",
+        "producers": [
+          {
+            "name": "promrw/kube-controller-manager"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "workqueue_queue_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/kube-controller-manager"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            1e-08,
+            1e-07,
+            1e-06,
+            9.999999999999999e-06,
+            9.999999999999999e-05,
+            0.001,
+            0.01,
+            0.1,
+            1,
+            2,
+            4,
+            6,
+            8,
+            10,
+            15
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "workqueue_work_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/kube-controller-manager"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "asserts_env",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "asserts_site",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            1e-08,
+            1e-07,
+            1e-06,
+            9.999999999999999e-06,
+            9.999999999999999e-05,
+            0.001,
+            0.01,
+            0.1,
+            1,
+            2,
+            4,
+            6,
+            8,
+            10,
+            15
+          ],
+          "native_schemas": []
+        }
       }
     ],
     "logs": [],
