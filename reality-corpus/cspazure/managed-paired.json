@@ -1,0 +1,1840 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "cspazure",
+  "source": {
+    "kind": "azure_managed_paired_capture",
+    "substrate": "azure",
+    "collector": "prometheus-http-api",
+    "collector_role": "reader",
+    "collector_version": "v1",
+    "captured_on": "2026-09-08",
+    "capture_sha256": "e506a5863f6803cbc8e018bb22af4288411ddf98549473fa30b6f9246d346fd9",
+    "capture_schema_version": "paired-prometheus-egress/v1",
+    "capture_tool_version": "wave-2026-09-16",
+    "capture_scope": "cloud",
+    "capture_window": "1800s",
+    "capture_soak_duration": "45m",
+    "capture_load_driven": "yes",
+    "instrument_type_source": "Authenticated Prometheus metadata API; absent metadata remains unknown. Name suffixes establish no type. Managed sender wire protocol and implementation version are not exposed by this read-back.",
+    "capture_limitations": [
+      {
+        "id": "selected-claims-only",
+        "text": "Selected the 25 campaign signal/producer claims. Only positively observed families are projected; missing families are absent evidence, not unsupported. Paired rksy_ingest/job values were retained on each raw series before identity consumption and privacy elision."
+      },
+      {
+        "id": "managed-egress-readback",
+        "text": "Observations are read back from the dedicated capture tenant after managed Azure Monitor ingestion. No new enrichment exclusion is declared. The managed sender implementation version and wire protocol are unknown."
+      },
+      {
+        "id": "load-shape",
+        "text": "Three load-driver replicas drive HTTP, PostgreSQL and Redis for at least 45 minutes. The standing Service Bus leg is unsigned and returns 401. A separate 2.5-minute six-message signed send/receive exercise and one malformed-header HTTP400 control occurred inside the 30-minute capture window; every receive matched its sent body. This is not a 45-minute message-load soak, and no server fault was induced."
+      }
+    ]
+  },
+  "authority": {
+    "substrates": [
+      "azure"
+    ]
+  },
+  "capture_volume": {
+    "runs": 1,
+    "observed_contract_counts": [
+      23
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [
+      {
+        "name": "azure_microsoft_dbforpostgresql_flexibleservers_cpu_percent_average_percent",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_ServerName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_dbforpostgresql_flexibleservers_memory_percent_average_percent",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_ServerName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_dbforpostgresql_flexibleservers_storage_percent_average_percent",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_ServerName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_applicationgateways_applicationgatewaytotaltime_average_milliseconds",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_Listener",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_applicationgateways_currentconnections_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_applicationgateways_failedrequests_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_BackendSettingsPool",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_applicationgateways_responsestatus_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_HttpStatusGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_applicationgateways_throughput_average_bytespersecond",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_applicationgateways_totalrequests_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_BackendSettingsPool",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_loadbalancers_allocatedsnatports_average_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_BackendIPAddress",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_FrontendIPAddress",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_ProtocolType",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_loadbalancers_bytecount_total_bytes",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_Direction",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_FrontendIPAddress",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_FrontendPort",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_Protocol",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_loadbalancers_packetcount_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_Direction",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_FrontendIPAddress",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_FrontendPort",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_Protocol",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_loadbalancers_snatconnectioncount_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_BackendIPAddress",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_ConnectionState",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_FrontendIPAddress",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_loadbalancers_syncount_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_Direction",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_FrontendIPAddress",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_FrontendPort",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_Protocol",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_network_loadbalancers_usedsnatports_average_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_BackendIPAddress",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_FrontendIPAddress",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_ProtocolType",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_servicebus_namespaces_activeconnections_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_servicebus_namespaces_activemessages_average_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_EntityName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_servicebus_namespaces_incomingmessages_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_EntityName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_servicebus_namespaces_incomingrequests_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_EntityName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_servicebus_namespaces_messages_average_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_EntityName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_servicebus_namespaces_outgoingmessages_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_EntityName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_servicebus_namespaces_size_average_bytes",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_EntityName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "azure_microsoft_servicebus_namespaces_successfulrequests_total_count",
+        "producers": [
+          {
+            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "dimension_EntityName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_capture",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tag_rksy_cloud",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      }
+    ],
+    "logs": [],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}

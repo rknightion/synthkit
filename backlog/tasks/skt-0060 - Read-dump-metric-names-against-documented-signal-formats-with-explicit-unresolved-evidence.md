@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-08 00:13'
-updated_date: '2026-09-08 15:41'
+updated_date: '2026-09-08 22:07'
 labels:
   - corpus
 dependencies: []
@@ -55,6 +55,8 @@ Wave 2026-09-14: diagnose eight parse gaps, apply syntax-only catalogue fixes at
 Final integration selection adds the P3 reference blueprint: 2973 resolved of3347 names,374 unresolved and8parse gaps. The earlier2972/3346 observation remains the measurement before that selection addition.
 
 Eight syntax gaps closed without telemetry-name changes; syntax alone leaves 374 unresolved. Reader resolves 3269/3347; current normative Envoy inventory yields 3317/3347 with 30 remaining. Fresh P3-inclusive dump: 3327/3357, 154 blocks, zero gaps, same 30 classified names. CloudWatch mapping resolves 122/126 source names; Envoy parse-gap hypothesis disproved. No emitter changed for reader findings. Fail-first tests, CodeRabbit disposition and full gate retained in codex/scratch/wave-2026-09-14/. Name resolution only; label/envelope conformance unproven. AC wording aligns with goal-authorized syntax and sourced catalogue corrections.
+
+Wave catalogue correction: all 103 already-sourced dotless Azure native names now have twelve additive sink: otlp blocks (119 rows, 103 unique roots, no stats), preserving the tables and reader. Retained September-13 selection is 3347/3347; fresh preflight wildcard selection was 3606/3709 with 103 unresolved; integrated fresh wildcard selection is 3711/3711 with no parse gaps. Additional observed-only managed names do not change that dump result. This supersedes older unresolved-count summaries without rewriting their historical measurements. Name resolution does not validate envelopes. Source integration bcf1687689fc9199e8f232b3cef23370b56f5aba; exact-source CI34279467976 success. Evidence: codex/scratch/wave-2026-09-16/conformance-fixed-integrated.json, conformance-live-integrated.json and l1/brief.md.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -63,4 +65,6 @@ Eight syntax gaps closed without telemetry-name changes; syntax alone leaves 374
 Integrated in 4dbe491. Reader command: just signals-conformance dump.txt. Explicit-selection measurement resolves2972 of3346 metric names, leaving374 unresolved and8named YAML parse gaps. Name evidence only; dumped label keys are retained but not compared, and unresolved names are not proven emitter defects. Focused tests and isolated integrated just check passed. CodeRabbit minor indentation finding fixed; no remaining finding. No blueprint schema change was required by the reader.
 
 Eight syntax gaps closed without telemetry-name changes; syntax alone leaves 374 unresolved. Reader resolves 3269/3347; current normative Envoy inventory yields 3317/3347 with 30 remaining. Fresh P3-inclusive dump: 3327/3357, 154 blocks, zero gaps, same 30 classified names. CloudWatch mapping resolves 122/126 source names; Envoy parse-gap hypothesis disproved. No emitter changed for reader findings. Fail-first tests, CodeRabbit disposition and full gate retained in codex/scratch/wave-2026-09-14/. Name resolution only; label/envelope conformance unproven. AC wording aligns with goal-authorized syntax and sourced catalogue corrections.
+
+Current catalogue evidence: retained selection3347/3347 and integrated fresh wildcard3711/3711, no unresolved names or parse gaps. Reader source unchanged; additive sourced Azure native blocks landed in bcf1687689fc9199e8f232b3cef23370b56f5aba.
 <!-- SECTION:FINAL_SUMMARY:END -->

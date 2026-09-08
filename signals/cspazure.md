@@ -1079,3 +1079,59 @@ Corpus comparison treats configured `tag_*` keys and the optional `env` scope ab
 metadata. Their absence in a capture is a coverage gap, not proof that the configured shape is
 impossible. Capture-v2 projection additionally removes tag keys for privacy, so that projection
 cannot establish their absence at source. Fixed Azure metric keys retain strict comparison.
+
+
+## Additional managed-ingest observations [slug: cspazure-managed-observed-20260908]
+
+An independent ephemeral Azure capture on 2026-09-08 observed the following additional full
+metric names after managed Azure Monitor ingestion. Each row retained its `job` together with
+`rksy_ingest=azure-monitor-managed` on each original series before privacy elision. These are
+observed names, not an implemented synth contract. Instrument type, unit metadata and the managed
+sender wire protocol are not established by this series-only read; suffixes do not establish them.
+The existing declared families above remain separately sourced.
+
+Source: the campaign managed-ingest series inventory, SHA-256 `d86464c4c366df694c5730753a68f9ba465eaf9d84a42a6d64c783951d4d8b18`.
+This was a bounded names diagnostic during the loaded estate; final claim promotion uses its own
+completed-soak capture. Only structural names and generic producer identity are recorded here.
+
+| Observed metric name | Observed job |
+|---|---|
+| `azure_microsoft_dbforpostgresql_flexibleservers_iops_average_count` | `cloud/azure/microsoft-dbforpostgresql-flexibleservers` |
+| `azure_microsoft_dbforpostgresql_flexibleservers_is_db_alive_maximum_count` | `cloud/azure/microsoft-dbforpostgresql-flexibleservers` |
+| `azure_microsoft_dbforpostgresql_flexibleservers_storage_used_average_bytes` | `cloud/azure/microsoft-dbforpostgresql-flexibleservers` |
+| `azure_microsoft_network_applicationgateways_backendlastbyteresponsetime_average_milliseconds` | `cloud/azure/microsoft-network-applicationgateways` |
+| `azure_microsoft_network_applicationgateways_bytesreceived_total_bytes` | `cloud/azure/microsoft-network-applicationgateways` |
+| `azure_microsoft_network_applicationgateways_bytessent_total_bytes` | `cloud/azure/microsoft-network-applicationgateways` |
+| `azure_microsoft_network_applicationgateways_capacityunits_average_count` | `cloud/azure/microsoft-network-applicationgateways` |
+| `azure_microsoft_network_applicationgateways_computeunits_average_count` | `cloud/azure/microsoft-network-applicationgateways` |
+| `azure_microsoft_network_applicationgateways_healthyhostcount_average_count` | `cloud/azure/microsoft-network-applicationgateways` |
+| `azure_microsoft_network_applicationgateways_unhealthyhostcount_average_count` | `cloud/azure/microsoft-network-applicationgateways` |
+| `azure_microsoft_servicebus_namespaces_activeconnections_average_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_activeconnections_count_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_activeconnections_maximum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_activeconnections_minimum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_activemessages_maximum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_activemessages_minimum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_deadletteredmessages_average_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_deadletteredmessages_maximum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_deadletteredmessages_minimum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_incomingrequests_average_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_incomingrequests_count_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_incomingrequests_maximum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_incomingrequests_minimum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_messages_maximum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_messages_minimum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_pendingcheckpointoperationcount_average_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_pendingcheckpointoperationcount_count_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_pendingcheckpointoperationcount_maximum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_pendingcheckpointoperationcount_minimum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_pendingcheckpointoperationcount_total_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_scheduledmessages_average_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_scheduledmessages_maximum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_scheduledmessages_minimum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_size_maximum_bytes` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_size_minimum_bytes` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_successfulrequests_average_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_successfulrequests_count_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_successfulrequests_maximum_count` | `cloud/azure/microsoft-servicebus-namespaces` |
+| `azure_microsoft_servicebus_namespaces_successfulrequests_minimum_count` | `cloud/azure/microsoft-servicebus-namespaces` |

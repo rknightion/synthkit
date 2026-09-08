@@ -5,127 +5,127 @@
     {
       "signal": "azure_microsoft_dbforpostgresql_flexibleservers_cpu_percent_average_percent",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_dbforpostgresql_flexibleservers_cpu_percent_average_percent preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_dbforpostgresql_flexibleservers_memory_percent_average_percent",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_dbforpostgresql_flexibleservers_memory_percent_average_percent preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_dbforpostgresql_flexibleservers_storage_percent_average_percent",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_dbforpostgresql_flexibleservers_storage_percent_average_percent preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_applicationgatewaytotaltime_average_milliseconds",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_applicationgatewaytotaltime_average_milliseconds preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_currentconnections_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_currentconnections_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_failedrequests_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_failedrequests_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_responsestatus_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_responsestatus_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_throughput_average_bytespersecond",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_throughput_average_bytespersecond preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_totalrequests_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_totalrequests_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_allocatedsnatports_average_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_allocatedsnatports_average_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_bytecount_total_bytes",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_bytecount_total_bytes preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_packetcount_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_packetcount_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_snatconnectioncount_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_snatconnectioncount_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_syncount_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_syncount_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_usedsnatports_average_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_usedsnatports_average_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_activeconnections_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_activeconnections_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_activemessages_average_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_activemessages_average_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_incomingmessages_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job; matching family captures record the different azure-monitor-alloy/integrations/azure producer. Require an independent capture of azure_microsoft_servicebus_namespaces_incomingmessages_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_incomingrequests_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_incomingrequests_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_messages_average_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_messages_average_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_outgoingmessages_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job; matching family captures record the different azure-monitor-alloy/integrations/azure producer. Require an independent capture of azure_microsoft_servicebus_namespaces_outgoingmessages_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_servererrors_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job; matching family captures record the different azure-monitor-alloy/integrations/azure producer. Require an independent capture of azure_microsoft_servicebus_namespaces_servererrors_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Still unsettled: exact signal/producer selector returned no series in the final 30-minute capture after at least 45 minutes regular estate load. The same namespace yielded eight other claim families, including message-flow families after a separate six-message signed send/receive exercise. One malformed-header control returned HTTP400 but no corresponding error family was observed; no server fault was induced. Require an independently observed matching error family with per-series azure-monitor-managed route and literal job. Absence is not unsupportedness; no inference from HTTP status, other families or name suffixes."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_size_average_bytes",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_size_average_bytes preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_successfulrequests_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_successfulrequests_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_usererrors_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "The serverless emitter deliberately declares this cloud/azure job; matching family captures record the different azure-monitor-alloy/integrations/azure producer. Require an independent capture of azure_microsoft_servicebus_namespaces_usererrors_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
+      "reason": "Still unsettled: exact signal/producer selector returned no series in the final 30-minute capture after at least 45 minutes regular estate load. The same namespace yielded eight other claim families, including message-flow families after a separate six-message signed send/receive exercise. One malformed-header control returned HTTP400 but no corresponding error family was observed; no server fault was induced. Require an independently observed matching error family with per-series azure-monitor-managed route and literal job. Absence is not unsupportedness; no inference from HTTP status, other families or name suffixes."
     },
     {
       "signal": "container_cpu_usage_seconds_total",
