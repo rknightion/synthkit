@@ -17576,6 +17576,20 @@
           "reason": "missing_producer_and_area"
         }
       ]
+    },
+    {
+      "sha256": "3f6e4183640f17d66ddca36c0bd0d9a25e265d379824af04c3ea4ac54cd46252",
+      "families": []
+    },
+    {
+      "sha256": "bb88dfc3ab8c1f8a11f2baa80619df5e37a3dba17dc61f68c659b829bdbcd317",
+      "families": [
+        {
+          "name": "traces_host_info",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "apm"
+        }
+      ]
     }
   ]
 }
