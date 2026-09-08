@@ -44,3 +44,13 @@ id = "generic-api-key"
   [[rules.allowlists]]
   description = "lowercase snake_case metric names in construct test inventories"
   regexes = ['''^[a-z][a-z0-9]*(?:_[a-z0-9]+){2,}$''']
+
+  # The native Datadog envelope records these observed attribute NAMES, never values.
+  # Leading underscores exclude them from the ordinary lowercase metric-name rule above.
+  # Match only these two exact values; no path or broader underscore vocabulary is exempt.
+  [[rules.allowlists]]
+  description = "two observed Datadog sampling attribute names, not credential values"
+  regexes = [
+    '^_sampling_priority_v1$',
+    '^_sampling_priority_rate_v1$',
+  ]

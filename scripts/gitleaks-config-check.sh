@@ -74,6 +74,19 @@ cat >>"$fixture/internal/construct/vpccni/vpccni_test.go" <<EOF
 var notACredential = "${grafana_value}"
 EOF
 
+# Captured Datadog attribute names are keys, not credentials. Suppression must be exact:
+# a neighboring version remains a finding, and a real token shape in this file still fires.
+cat >"$fixture/cmd/synthkit/datadog_attributes.json" <<EOF
+{"key": "_sampling_priority_v1"}
+{"key": "_sampling_priority_rate_v1"}
+{"credential": "${grafana_value}"}
+{"api_key": "${generic_value}"}
+EOF
+near_miss_value="$(printf '%s%s' '_sampling_priority_rate_' 'v2')"
+cat >"$fixture/cmd/synthkit/datadog_near_miss.json" <<EOF
+{"key": "${near_miss_value}"}
+EOF
+
 docker run --rm -v "$fixture:/scan" -w /scan "$image" \
 	dir --no-banner --exit-code 0 --report-format json --report-path /scan/report.json . >/dev/null
 
@@ -81,7 +94,7 @@ detected="$(python3 - "$fixture/report.json" <<'PY'
 import json, sys
 with open(sys.argv[1]) as fh:
     for f in json.load(fh) or []:
-        print(f"{f['RuleID']}\t{f['File']}")
+        print(f"{f['RuleID']}\t{f['File']}\t{f['StartLine']}")
 PY
 )"
 
@@ -107,6 +120,11 @@ expect_detected "generic-api-key	cmd/synthkit/detect_me.go"
 expect_detected "grafana-cloud-api-token	internal/construct/vpccni/vpccni_test.go"
 expect_absent "generic-api-key	cmd/synthkit/canaries_test.go"
 expect_absent "generic-api-key	internal/construct/vpccni/vpccni_test.go"
+expect_absent "generic-api-key	cmd/synthkit/datadog_attributes.json	1"
+expect_absent "generic-api-key	cmd/synthkit/datadog_attributes.json	2"
+expect_detected "generic-api-key	cmd/synthkit/datadog_attributes.json	4"
+expect_detected "generic-api-key	cmd/synthkit/datadog_near_miss.json	1"
+expect_detected "grafana-cloud-api-token	cmd/synthkit/datadog_attributes.json	3"
 
 if [[ "$fail" -ne 0 ]]; then
 	echo "gitleaks-config-check: FAILED"
