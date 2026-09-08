@@ -1,10 +1,10 @@
 ---
 id: SKT-0069
 title: Keep secret scanning active for captured Datadog attribute names
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-08 17:30'
-updated_date: '2026-09-08 17:38'
+updated_date: '2026-09-08 17:49'
 labels: []
 dependencies: []
 priority: medium
@@ -21,12 +21,12 @@ Exact-SHA CI flagged three generic-api-key matches in the independently sanitize
 <!-- AC:BEGIN -->
 - [x] #1 Only the two exact observed attribute names are suppressed by the generic-api-key rule
 - [x] #2 Failing-before and passing-after evidence preserves generic credentials, a near-miss value and dedicated Grafana token detection in the same fixture file
-- [ ] #3 Full-history secret scan and exact-SHA CI pass with the original findings retained as evidence
+- [x] #3 Full-history secret scan and exact-SHA CI pass with the original findings retained as evidence
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -43,4 +43,12 @@ Extend the existing scanner-config fixture with the two metadata keys and a non-
 CodeRabbit completed with one major guard-specificity finding and one minor Markdown finding. The guard now checks finding source lines and includes a generic credential in the same metadata fixture; the two literal metadata lines must be absent while generic line 4, dedicated Grafana line 3 and the neighboring value remain detected. Markdown keys are code spans. All review findings are being addressed.
 
 Baseline scanner-config gate failed on unsuppressed captured keys. A deliberate broad regex/global path mutant failed near-miss and same-file Grafana controls. After CodeRabbit review, a rule-local path mutant failed the new same-file generic line-4 guard. Final exact config passed all nine line-specific assertions using native gitleaks 8.30.1 (same version as CI); the preceding Docker seven-assertion guard and full-history scan also passed. Evidence under codex/scratch/wave-2026-09-15/gitleaks-*. Exact corrected-SHA CI acceptance remains pending.
+
+Corrected code SHA 2c1703f42b5d500bf9c9efb098ce67168f832136 passed exact-SHA just check and all ten CI jobs in run 34258392650, including the Docker secret-scan/config controls and E2E. Native full-history scan at the committed code scanned 467 commits with zero leaks. First CI run 34257092216 at 429af6f234027ce254d5b4baff4d49d14c9d0ee3 remains a retained failure: three metadata-name matches; E2E itself passed. CodeRabbit reviewed three files, one major and one minor finding, both fixed. No generation or telemetry dump was needed for this scanner-only change.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Two exact anchored Datadog attribute-name exceptions replace no credential rule and exempt no path. Baseline and overbroad mutation controls failed for the intended reasons; the final nine line-specific controls and full-history scan pass. Exact code-SHA CI run 34258392650 passed all ten jobs. No live credential was found or copied; the original evidence artifact and commit history remain intact.
+<!-- SECTION:FINAL_SUMMARY:END -->
