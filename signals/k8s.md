@@ -1449,9 +1449,13 @@ on 2026-09-05, OpenTelemetry Collector chart 0.171.0 (chart appVersion/image 0.1
 families and 173 OTLP-log records across the two source shapes below. Root review promoted 142
 target metric families to `reality-corpus/k8s/k3d-lab-otel-collector-prom.json` and both classified
 log sources to `reality-corpus/logs/k3d-lab-otel-collector-prom.json`; the four `scrape_*` families
-and exact `up` family were excluded as scrape health/volume rather than target telemetry. RW1 does
-not carry TYPE metadata, so the promoted instrument types remain unknown rather than being inferred
-from names. The areas `k8s` and `logs` were decided from the output, not pre-guessed. The source was
+and exact `up` family were excluded as scrape health/volume rather than target telemetry. This
+capture's RW1 stream carried no `MetricMetadata` records for these families, so the promoted
+instrument types remain unknown rather than being inferred from names. That is a property of this
+capture, not of the transport: RW1 does carry TYPE metadata and the receiver decodes it
+(`e2e/receiver/receiver_test.go` `TestReceiverRecordsDeclaredInstrumentTypesFromRW1Metadata` and
+`TestReceiverRW1MetadataProvesAHistogramFamily`). The areas `k8s` and `logs` were decided from the
+output, not pre-guessed. The source was
 Grafana Cloud's current “OTel with Prometheus exporters” page, resolved through Context7 as
 `/grafana/k8s-monitoring-helm` and retrieved 2026-09-05.*
 
