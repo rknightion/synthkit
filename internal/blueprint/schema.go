@@ -151,6 +151,8 @@ type ClusterDecl struct {
 	NodeGroups    []NodeGroupDecl   `yaml:"node_groups"`
 	K8sMonitoring K8sMonitoringDecl `yaml:"k8s_monitoring"`
 	OTel          yaml.Node         `yaml:"otel"` // k8s_cluster receiver-native emission switches; decoded via registry
+	// OTelCollectorProm selects the exclusive captured Collector Prometheus envelope.
+	OTelCollectorProm bool `yaml:"otel_collector_prom"`
 	// PrometheusOperatorRemoteWrite selects the observed Prometheus Operator
 	// collector envelope; decoded through the k8s_cluster registry config.
 	PrometheusOperatorRemoteWrite yaml.Node `yaml:"prometheus_operator_remote_write"`

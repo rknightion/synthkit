@@ -62,9 +62,11 @@ type LogRecord struct {
 	Severity     Severity
 	SeverityText string // "" ⇒ derived from Severity via Text()
 	Body         string
-	Attrs        map[string]any
-	TraceID      string
-	SpanID       string
+	// BodyMap preserves structured receiver bodies. Non-nil takes precedence over Body.
+	BodyMap map[string]any
+	Attrs   map[string]any
+	TraceID string
+	SpanID  string
 }
 
 // LogResource is one resource's block carrying its log records, mirroring trace Resource

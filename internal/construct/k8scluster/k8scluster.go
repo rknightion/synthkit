@@ -39,7 +39,9 @@ const (
 // Config carries the optional native OTLP metrics switch. All identity still comes from
 // fx.Cluster; the switch only changes which signal classes this construct declares/emits.
 type Config struct {
-	OTel *OTelObs `yaml:"otel"`
+	// OTelCollectorProm selects the captured Collector Prometheus envelope, exclusive with Alloy.
+	OTelCollectorProm bool     `yaml:"otel_collector_prom"`
+	OTel              *OTelObs `yaml:"otel"`
 	// PrometheusOperatorRemoteWrite selects the observed Prometheus Operator
 	// ServiceMonitor remote-write envelope. It is intentionally a narrow
 	// per-family projection, not a replacement k8s construct or catalogue.
@@ -85,6 +87,7 @@ type Construct struct {
 
 	// otelMetrics is resolved once at construction. The OTLP lane owns a separate cumulative
 	// state store so enabling it cannot perturb the established Prometheus state or draw order.
+	collectorProm       bool
 	otelMetrics         bool
 	otlpState           *nativeOTLPState
 	allowLists          allowlist.Projection
@@ -110,6 +113,12 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 	podChurnPerMinute := 0
 	selection := allowlist.K8sMonitoringSelection{}
 	if conf != nil {
+		if conf.OTelCollectorProm && fx.Cluster.K8sMonitoring.Features["pod_logs"] && fx.Cluster.K8sMonitoring.PodLogsMethod != "" && fx.Cluster.K8sMonitoring.PodLogsMethod != podLogsOTel {
+			return nil, errors.New("k8s_cluster: otel_collector_prom pod logs require opentelemetry")
+		}
+		if conf.OTelCollectorProm && (fx.Cluster.K8sMonitoring.Alloy || conf.PrometheusOperatorRemoteWrite != nil || conf.DefaultAllowLists != nil || otelMetrics) {
+			return nil, errors.New("k8s_cluster: otel_collector_prom is exclusive with Alloy, operator remote write, default allow lists, and native metrics")
+		}
 		if conf.PrometheusOperatorRemoteWrite != nil {
 			if strings.TrimSpace(conf.PrometheusOperatorRemoteWrite.Prometheus) == "" || strings.TrimSpace(conf.PrometheusOperatorRemoteWrite.PrometheusReplica) == "" {
 				return nil, errors.New("k8s_cluster: prometheus_operator_remote_write requires prometheus and prometheus_replica")
@@ -130,6 +139,7 @@ func New(cfg any, fx *fixture.Set) (core.Construct, error) {
 	baseNames, spans := initPodLifecycleState(fx.Cluster)
 	return &Construct{
 		clust:               fx.Cluster,
+		collectorProm:       conf != nil && conf.OTelCollectorProm,
 		st:                  state.NewState(),
 		otelMetrics:         otelMetrics,
 		otlpState:           newNativeOTLPState(),
@@ -151,6 +161,9 @@ func (c *Construct) Kind() string { return kind }
 // pod-log transport (podLogsViaOpenTelemetry). Logs stays declared unconditionally: cluster
 // events, node/journal logs and object manifests are Loki-native on either pod-log transport.
 func (c *Construct) Signals() []core.SignalClass {
+	if c.collectorProm {
+		return []core.SignalClass{core.Metrics, core.OTLPLogs}
+	}
 	sigs := []core.SignalClass{core.Metrics, core.Logs}
 	if podLogsOTLPNative(c.clust) {
 		sigs = append(sigs, core.OTLPLogs)
@@ -255,6 +268,10 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		return err
 	}
 
+	if c.collectorProm {
+		return emitCollectorPromLogs(ctx, now, cl, w)
+	}
+
 	// ── k8s Events + node logs + pod logs (Loki) ─────────────────────────────
 	if err := emitEvents(ctx, now, cluster, cl, w); err != nil {
 		return err
@@ -268,6 +285,9 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 // projectMetrics filters only source-selected metric FAMILIES. All series for a
 // source/name pair take the same path; labels and metric names are never altered.
 func (c *Construct) projectMetrics(writer core.MetricWriter, batch []promrw.Series) []promrw.Series {
+	if c.collectorProm {
+		return projectCollectorProm(batch)
+	}
 	if !c.allowLists.Enabled() {
 		return c.projectOperatorRemoteWrite(batch)
 	}

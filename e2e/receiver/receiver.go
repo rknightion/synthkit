@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/snappy"
 	collectorlogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	collectormetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
@@ -69,6 +70,11 @@ type Receiver struct {
 	// inventory intentionally records only structural facts, so restart evidence must
 	// live beside it rather than smuggling values or timestamps into Schema.
 	counterSamples []CounterSample
+	// otlpMetrics retains each decoded ResourceMetrics envelope. The canonical inventory is
+	// intentionally flattened for existing comparisons, so this receiver-local capture keeps
+	// resource, scope and datapoint attributes, plus the native metric metadata, available to
+	// a future envelope-aware capture without changing inventory.Schema.
+	otlpMetrics []*metricspb.ResourceMetrics
 }
 
 // CounterSample is one producer-declared RW2 counter observation. Timestamp is Unix
@@ -86,6 +92,7 @@ func New() *Receiver {
 		inv:                 inventory.New(),
 		declaredInstruments: map[string]string{},
 		histogramProof:      inventory.ClassicHistogramProof{},
+		otlpMetrics:         []*metricspb.ResourceMetrics{},
 	}
 }
 
@@ -104,6 +111,7 @@ func (r *Receiver) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/workflow-steps:export", r.handleSigilWorkflowSteps)
 	mux.HandleFunc("POST /api/v1/scores:export", r.handleSigilScores)
 	mux.HandleFunc("GET /__inventory", r.handleInventory)
+	mux.HandleFunc("GET /__otlp_metrics", r.handleNativeOTLPMetrics)
 	mux.HandleFunc("GET /__counter_samples", r.handleCounterSamples)
 	return mux
 }
@@ -682,6 +690,13 @@ func (r *Receiver) handleOTLPMetrics(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Receiver) addOTLPMetrics(rm *metricspb.ResourceMetrics) int {
+	if rm == nil {
+		return 0
+	}
+	// Keep the native envelope before deriving the legacy flattened labels below. A deep
+	// copy prevents a later caller from mutating the receiver's capture through a returned
+	// protobuf while retaining every OTLP field, including scope/schema/unit metadata.
+	r.otlpMetrics = append(r.otlpMetrics, proto.Clone(rm).(*metricspb.ResourceMetrics))
 	resourceAttrs := attributeStrings(rm.GetResource().GetAttributes())
 	decoded := 0
 	for _, sm := range rm.GetScopeMetrics() {
@@ -1294,6 +1309,28 @@ func (r *Receiver) handleInventory(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
+// OTLPMetrics returns deep copies of every decoded native ResourceMetrics envelope. The
+// canonical Snapshot remains the flattened compatibility view consumed by existing callers.
+func (r *Receiver) OTLPMetrics() []*metricspb.ResourceMetrics {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return cloneOTLPMetrics(r.otlpMetrics)
+}
+
+// handleNativeOTLPMetrics returns the retained native envelopes as the standard OTLP
+// ExportMetricsServiceRequest JSON shape. It is a diagnostic capture route; /__inventory is
+// deliberately left as the unchanged canonical inventory contract.
+func (r *Receiver) handleNativeOTLPMetrics(w http.ResponseWriter, _ *http.Request) {
+	request := &collectormetricspb.ExportMetricsServiceRequest{ResourceMetrics: r.OTLPMetrics()}
+	encoded, err := (protojson.MarshalOptions{EmitUnpopulated: true}).Marshal(request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(encoded)
+}
+
 // CounterSamples returns a stable deep copy of every exact counter observation.
 func (r *Receiver) CounterSamples() []CounterSample {
 	r.mu.Lock()
@@ -1431,4 +1468,18 @@ func cloneInt32s(values []int32) []int32 {
 		return nil
 	}
 	return append([]int32{}, values...)
+}
+
+func cloneOTLPMetrics(values []*metricspb.ResourceMetrics) []*metricspb.ResourceMetrics {
+	if values == nil {
+		return []*metricspb.ResourceMetrics{}
+	}
+	out := make([]*metricspb.ResourceMetrics, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		out = append(out, proto.Clone(value).(*metricspb.ResourceMetrics))
+	}
+	return out
 }

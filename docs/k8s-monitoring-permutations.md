@@ -20,7 +20,7 @@ the two lanes remain distinct.
 |---|---|---|---|
 | 1 | Alloy `k8s-monitoring`, Prometheus remote-write, and Loki-native pod logs | **Emitted** | Use `cluster.k8s_monitoring.enabled: true`, `alloy: true`, and `features.cluster_metrics: true`; add `features.pod_logs: true` and `pod_logs_method: loki` for pod logs |
 | 2 | Alloy `k8s-monitoring` with `podLogsViaOpenTelemetry` | **Emitted** | Keep the Alloy baseline and set `cluster.k8s_monitoring.features.pod_logs: true` plus `cluster.k8s_monitoring.pod_logs_method: opentelemetry` |
-| 3 | OTel Collector with Prometheus exporters | **Not yet emitted** | No supported switch; see [Permutation 3](#3-otel-collector-with-prometheus-exporters) |
+| 3 | OTel Collector with Prometheus exporters | **Emitted for the captured target-family projection** | Set `cluster.otel_collector_prom: true`; see [Permutation 3](#3-otel-collector-with-prometheus-exporters) |
 | 4 | OTel Collector native receivers | **Emitted for the native metric surface** | Set `cluster.otel.metrics: true`; the reference `k8s-otel-native` blueprint also keeps `k8s_monitoring.features.cluster_metrics: true` |
 | 5 | Prometheus remote-write through the Helm Operator path | **Emitted for the captured family subset** | Set `cluster.prometheus_operator_remote_write` with both `prometheus` and `prometheus_replica` |
 
@@ -57,13 +57,18 @@ node-exporter, kubelet, and cAdvisor, then sends those Prometheus-shaped metrics
 Its logs and cluster events use OTLP. That combination is close to permutation 1 for metric names,
 but it is a separate deployment path because its log shape differs.
 
-**Synthkit does not emit this permutation yet.** P3 was captured in the credential-free k3d lab on
-2026-09-05: 147 Prometheus-shaped RW1 metric families and two OTLP pod-log/event sources. Its
-authoritative captured contract is [signals/k8s.md — slug
-`k8s-otel-collector-prom`](https://github.com/rknightion/synthkit/blob/main/signals/k8s.md). No switch
-should therefore be presented as selecting it. The existing `k8s-ksm`, `k8s-node-exporter`,
-`k8s-cadvisor`, and `k8s-kubelet` slugs remain the source for shared Prometheus-shaped names; the
-new P3 slug owns the distinct Collector envelope and OTLP log shape.
+Select `cluster.otel_collector_prom: true` and leave `k8s_monitoring.alloy` false. The
+[`k8s-collector-prom` reference blueprint](https://github.com/rknightion/synthkit/blob/main/blueprints/k8s-collector-prom.yaml)
+is a small synthetic example. Enable `features.pod_logs` for filelog-shaped pod records; events
+use the OTLP object envelope. Explicit Alloy, native metrics, Operator projection and default
+allow-list selections conflict with this mode and fail during load.
+
+The projection accepts the 142 captured target metric families and only their observed label keys;
+its actual emitted subset is limited to families present in the existing renderers. It adds the
+pinned Collector scope and omits `source`. Captured scrape-health families are excluded. The
+metric sink uses **RW2**, while the capture used RW1: this is label/envelope support, not exact
+Collector wire reproduction. The authoritative evidence is [signals/k8s.md — slug
+`k8s-otel-collector-prom`](https://github.com/rknightion/synthkit/blob/main/signals/k8s.md).
 
 ### 4. OTel Collector native receivers
 

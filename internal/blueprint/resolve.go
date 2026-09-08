@@ -607,11 +607,14 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				if err != nil {
 					return nil, err
 				}
-				if kind == KindK8sCluster && (e.Cluster.OTel.Kind != 0 || e.Cluster.PrometheusOperatorRemoteWrite.Kind != 0 || e.Cluster.DefaultAllowLists.Kind != 0 || e.Cluster.SeriesChurnPerMinute != 0) {
+				if kind == KindK8sCluster && (e.Cluster.OTelCollectorProm || e.Cluster.OTel.Kind != 0 || e.Cluster.PrometheusOperatorRemoteWrite.Kind != 0 || e.Cluster.DefaultAllowLists.Kind != 0 || e.Cluster.SeriesChurnPerMinute != 0) {
 					// ClusterDecl owns public topology keys while the construct config owns their
 					// behavior. Re-wrap the typed declaration before strict decoding so blueprint
 					// stays catalog-agnostic.
-					content := make([]*yaml.Node, 0, 8)
+					content := make([]*yaml.Node, 0, 10)
+					if e.Cluster.OTelCollectorProm {
+						content = append(content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "otel_collector_prom"}, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "true"})
+					}
 					if e.Cluster.OTel.Kind != 0 {
 						content = append(content,
 							&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "otel"}, &e.Cluster.OTel)

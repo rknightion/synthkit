@@ -146,6 +146,9 @@ func convertLogRecords(in []LogRecord) []*logspb.LogRecord {
 			Body:           &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: rec.Body}},
 			Attributes:     kvs(rec.Attrs),
 		}
+		if rec.BodyMap != nil {
+			pr.Body = anyVal(rec.BodyMap)
+		}
 		if !rec.Time.IsZero() {
 			pr.TimeUnixNano = uint64(rec.Time.UnixNano())
 		}

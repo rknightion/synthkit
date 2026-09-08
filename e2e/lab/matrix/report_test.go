@@ -90,8 +90,8 @@ func TestEmptyAndFailedReadAsOppositeThings(t *testing.T) {
 	report := Build("run", "now", 2, "", []Result{empty, failed}, map[string]inventory.Schema{})
 	markdown := report.Markdown()
 
-	if !strings.Contains(markdown, "decoded zero requests in 300s") {
-		t.Errorf("empty permutation must state that nothing was sent:\n%s", markdown)
+	if !strings.Contains(markdown, "decoded zero receipt items in 300s") {
+		t.Errorf("empty permutation must state that no receipt items were decoded:\n%s", markdown)
 	}
 	if !strings.Contains(markdown, "This is evidence about the permutation, not a broken lab.") {
 		t.Error("empty permutation must be attributed to the permutation")

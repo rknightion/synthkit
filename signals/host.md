@@ -609,3 +609,16 @@ non-monotonic cumulative OTLP Sums in the emitter while the corpus's Prometheus-
 records them as `gauge`; that type distinction is capture-blocked by existing SK-103, not a reason
 to alter their emitted wire shape. No family is missing, and no new capture or emitter change is
 made by this triage.
+
+## Datadog receiver path: component output limitation
+
+Grafana Alloy's `otelcol.receiver.datadog` exposes `metrics` and `traces` in its
+`output` block. It exposes no logs output. Upstream receiver configuration fields
+for logs do not create a routable Alloy output, so logs cannot be modelled or
+validated through this component. This limitation does not describe other Datadog
+log-forwarding paths.
+
+Source: [Alloy component reference](https://grafana.com/docs/alloy/latest/reference/components/otelcol/otelcol.receiver.datadog/),
+checked 2026-09-08 against the current official component documentation. Preserving
+an OTLP envelope in the local e2e receiver is capture capability, not proof of a
+complete independently observed Datadog host or Kubernetes emission contract.

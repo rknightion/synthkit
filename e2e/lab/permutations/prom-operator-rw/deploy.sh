@@ -5,6 +5,8 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
+: "${LAB_KUBECTL_CONTEXT:?LAB_KUBECTL_CONTEXT must name the disposable k3d context}"
+
 readonly CHART_REPO_NAME="prometheus-community"
 readonly CHART_REPO_URL="https://prometheus-community.github.io/helm-charts"
 readonly CHART_REF="prometheus-community/kube-prometheus-stack"
@@ -13,11 +15,11 @@ readonly HELM_RELEASE="synthkit-prometheus-operator"
 
 helm repo add "$CHART_REPO_NAME" "$CHART_REPO_URL" >/dev/null
 helm repo update "$CHART_REPO_NAME" >/dev/null
-helm upgrade --install "$HELM_RELEASE" "$CHART_REF" \
+helm --kube-context "$LAB_KUBECTL_CONTEXT" upgrade --install "$HELM_RELEASE" "$CHART_REF" \
   --version "$CHART_VERSION" \
   --namespace "$LAB_RECEIVER_NAMESPACE" \
   --values "$LAB_PERMUTATION_DIR/values.yaml" \
   --wait \
   --timeout 15m
 
-kubectl apply --filename "$LAB_PERMUTATION_DIR/servicemonitor.yaml" >/dev/null
+kubectl --context "$LAB_KUBECTL_CONTEXT" apply --filename "$LAB_PERMUTATION_DIR/servicemonitor.yaml" >/dev/null

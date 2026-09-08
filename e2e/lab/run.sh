@@ -32,7 +32,17 @@ readonly REPO_ROOT
 readonly PERMUTATIONS_DIR="$SCRIPT_DIR/permutations"
 readonly WORKER="$SCRIPT_DIR/permutation.sh"
 
-readonly LAB_OUTPUT_DIR="${LAB_OUTPUT_DIR:-$REPO_ROOT/artifacts/signal-fidelity-k3d}"
+absolute_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "$PWD" "$1" ;;
+  esac
+}
+
+# Capture the caller-relative output directory before report generation changes into the nested
+# e2e/lab Go module. The worker inherits this absolute value, so its result paths are stable too.
+LAB_OUTPUT_DIR="$(absolute_path "${LAB_OUTPUT_DIR:-$REPO_ROOT/artifacts/signal-fidelity-k3d}")"
+readonly LAB_OUTPUT_DIR
 readonly RUN_ID="${LAB_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 readonly CAPTURED_AT="${LAB_CAPTURED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 readonly RESULTS_DIR="$LAB_OUTPUT_DIR/results-$RUN_ID"
@@ -299,14 +309,17 @@ main() {
 
   log "all jobs finished; building the combined report"
   local report_status=0
-  go run "$REPO_ROOT/e2e/lab/cmd/lab-matrix" report \
-    -results "$RESULTS_DIR" \
-    -out "$REPORT_MD" \
-    -json "$REPORT_JSON" \
-    -run-id "$RUN_ID" \
-    -generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    -max-parallel "$MAX_PARALLEL" \
-    -parallelism-note "$PARALLELISM_NOTE" || report_status=$?
+  (
+    cd "$REPO_ROOT/e2e/lab"
+    go run ./cmd/lab-matrix report \
+      -results "$RESULTS_DIR" \
+      -out "$REPORT_MD" \
+      -json "$REPORT_JSON" \
+      -run-id "$RUN_ID" \
+      -generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      -max-parallel "$MAX_PARALLEL" \
+      -parallelism-note "$PARALLELISM_NOTE"
+  ) || report_status=$?
 
   log "combined report: $REPORT_MD"
   log "machine-readable report: $REPORT_JSON"

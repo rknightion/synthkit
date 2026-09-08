@@ -410,7 +410,7 @@ func (r Report) Markdown() string {
 		r.Captured, r.Partial, r.Empty, r.Failed, r.Skipped)
 
 	b.WriteString("## Matrix\n\n")
-	b.WriteString("| permutation | outcome | phase reached | duration | metrics | logs | traces | requests decoded | capture status |\n")
+	b.WriteString("| permutation | outcome | phase reached | duration | metrics | logs | traces | receipt items decoded | capture status |\n")
 	b.WriteString("|---|---|---|---|---|---|---|---|---|\n")
 	for _, result := range r.Results {
 		captureStatus := result.CaptureStatus
@@ -422,10 +422,11 @@ func (r Report) Markdown() string {
 			result.Counts.Metrics, result.Counts.Logs, result.Counts.Traces,
 			result.ReceiptTotal(), captureStatus)
 	}
+	b.WriteString("\nReceipt items are protocol-dependent decoded units, not HTTP requests: for example, Prometheus Remote Write series, OTLP metric/log/span records, Loki streams, and Remote Write metadata records.\n")
 	b.WriteString("\nOutcome meanings, because an empty corpus entry has two opposite causes:\n\n")
 	b.WriteString("- `captured` — the permutation's declared acceptance predicate was satisfied.\n")
 	b.WriteString("- `partial` — the harness completed and evidence arrived, but the acceptance predicate was not satisfied inside the capture window. Partial evidence, not a capture.\n")
-	b.WriteString("- `empty` — the harness completed every step, the collector deployed and reported ready, and the receiver then decoded ZERO requests. This is a finding about the permutation.\n")
+	b.WriteString("- `empty` — the harness completed every step, the collector deployed and reported ready, and the receiver then decoded ZERO receipt items. This is a finding about the permutation.\n")
 	b.WriteString("- `failed` — the harness could not complete its own steps. This run observed nothing and makes NO claim about the permutation.\n")
 	b.WriteString("- `skipped` — not selected for this run.\n\n")
 
@@ -496,9 +497,9 @@ func (r Report) nonCapturedSection() string {
 			fmt.Fprintf(&b, "- cause: %s\n", orDash(result.FailureReason))
 			fmt.Fprintf(&b, "- worker exit code: %d\n", result.ExitCode)
 		case OutcomeEmpty:
-			fmt.Fprintf(&b, "The harness completed every step and the collector reported ready, then decoded zero requests in %ds. Nothing was sent. This is evidence about the permutation, not a broken lab.\n\n", result.CaptureWindowSeconds)
+			fmt.Fprintf(&b, "The harness completed every step and the collector reported ready, then decoded zero receipt items in %ds. This is evidence about the permutation, not a broken lab.\n\n", result.CaptureWindowSeconds)
 		case OutcomePartial:
-			fmt.Fprintf(&b, "Evidence arrived (%d request(s) decoded; metrics=%d logs=%d traces=%d) but the acceptance predicate was not satisfied in %ds.\n\n",
+			fmt.Fprintf(&b, "Evidence arrived (%d receipt item(s) decoded; metrics=%d logs=%d traces=%d) but the acceptance predicate was not satisfied in %ds.\n\n",
 				result.ReceiptTotal(), result.Counts.Metrics, result.Counts.Logs, result.Counts.Traces, result.CaptureWindowSeconds)
 			for _, failed := range result.FailedChecks() {
 				fmt.Fprintf(&b, "- unmet acceptance check: %s\n", failed)

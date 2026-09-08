@@ -334,3 +334,14 @@ func TestLogsBlueprintRecoveredFromStamp(t *testing.T) {
 		t.Errorf("blueprint = %q, want k8s-logs-events", got.Blueprint)
 	}
 }
+
+func TestStructuredLogBodyPreservesMapAndStringCompatibility(t *testing.T) {
+	got := convertLogRecords([]LogRecord{{Body: "legacy"}, {BodyMap: map[string]any{"type": "ADDED", "object": map[string]any{"kind": "Event"}}}})
+	if got[0].Body.GetStringValue() != "legacy" {
+		t.Fatal("string body changed")
+	}
+	fields := got[1].Body.GetKvlistValue().GetValues()
+	if len(fields) != 2 || fields[0].Key != "object" || fields[0].Value.GetKvlistValue().GetValues()[0].Value.GetStringValue() != "Event" {
+		t.Fatalf("structured body lost: %v", got[1].Body)
+	}
+}

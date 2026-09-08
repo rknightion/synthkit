@@ -1477,10 +1477,12 @@ Grafana Cloud's current “OTel with Prometheus exporters” page, resolved thro
   `log.file.path`, `log.iostream`, and `logtag`. This differs from the `alloy-default` capture's
   Loki streams and its underscore-form label vocabulary.
 
-This is **captured evidence**, not a statement that synthkit can select this exact Collector
-envelope today. synthkit's default `k8s_cluster` output models the Alloy-default remote-write lane;
-an operator-facing supported-versus-captured permutation selection statement remains a root-owned
-documentation decision.
+Select `cluster.otel_collector_prom: true` for the captured target-family and label projection
+and the OTLP pod-log/event attribute envelope. This is exclusive with explicit Alloy emission,
+Prometheus Operator projection, default allow lists and native metrics. Pod logs still respect
+the `pod_logs` feature switch. Metrics use synthkit's existing RW2 sink; the captured RW1 wire
+encoding is not reproduced. The projection emits the intersection with existing renderers, so
+captured families absent from the renderer remain coverage gaps.
 
 ## OTel Collector native-receivers permutation — OBSERVED, NOT EMITTED [slug: k8s-otel-native-permutation]
 
@@ -1621,3 +1623,18 @@ Sources: [node store](https://github.com/kubernetes/kube-state-metrics/blob/main
 [job store](https://github.com/kubernetes/kube-state-metrics/blob/main/internal/store/job.go),
 [Prometheus data model](https://prometheus.io/docs/concepts/data_model/), and this catalogue's
 node OS observations. Upstream store source re-read 2026-09-08.
+
+### Control-plane histogram profiles reconciled from retained captures
+
+The generic workqueue renderer selects the observed RKE2 10-bucket profile (build-info
+`v1.34.3+rke2r1`). The managed control-plane capture additionally contains boundaries
+2, 4, 6, 8 and 15 seconds. Those five boundaries remain retained coverage evidence; the captures
+do not agree on one profile. Scheduler and controller-manager direct scrape envelopes omit
+`source`. Kube-proxy and API-server histogram boundaries follow the retained direct captures,
+including their exact observed floating-point values. No comparison tolerance was added.
+
+P3 event metadata semantics were verified against the Collector v0.158.0
+[`k8sobjectsreceiver` conversion source](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.158.0/receiver/k8sobjectsreceiver/unstructured_to_logdata.go)
+on 2026-09-08: `event.domain=k8s`, `event.name` is the Event object metadata name,
+and `k8s.resource.name=events`. A watch record carries a map body with `type` and
+`object`, not a Loki logfmt string. The synthetic object body is a minimal Event representation.

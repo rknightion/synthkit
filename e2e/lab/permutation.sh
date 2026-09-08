@@ -43,6 +43,8 @@ readonly CONFORMANCE_SOURCE="$REPO_ROOT/internal/construct/k8scluster/conformanc
 # would present as a create-cluster FAILURE for a permutation whose deployment is fine. The
 # prefix is short for that reason and require_commands enforces the limit at preflight.
 readonly LAB_CLUSTER_NAME="synthkit-lab-$PERMUTATION"
+readonly LAB_KUBECTL_CONTEXT="k3d-${LAB_CLUSTER_NAME}"
+export LAB_KUBECTL_CONTEXT
 readonly AUX_CONTAINER_NAME="synthkit-skt000603-receiver-$PERMUTATION"
 readonly RECEIVER_IMAGE="${LAB_RECEIVER_IMAGE:-synthkit-skt000603/receiver:4.5.0-lab}"
 readonly WORKLOAD_IMAGE="docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"
@@ -51,7 +53,17 @@ readonly RECEIVER_NAMESPACE="monitoring"
 readonly CAPTURE_SUBSTRATE="k3s"
 readonly CONTAINERD_NAMESPACE="k8s.io"
 
-readonly LAB_OUTPUT_DIR="${LAB_OUTPUT_DIR:-$REPO_ROOT/artifacts/signal-fidelity-k3d}"
+absolute_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "$PWD" "$1" ;;
+  esac
+}
+
+# Resolve caller-relative artifact paths before normalize_candidate changes into e2e/lab's
+# nested Go module. This worker can also be invoked directly, without run.sh.
+LAB_OUTPUT_DIR="$(absolute_path "${LAB_OUTPUT_DIR:-$REPO_ROOT/artifacts/signal-fidelity-k3d}")"
+readonly LAB_OUTPUT_DIR
 readonly RUN_ID="${LAB_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 readonly CAPTURED_AT="${LAB_CAPTURED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 readonly RECEIVER_LOCAL_PORT="${LAB_RECEIVER_LOCAL_PORT:-19099}"
@@ -59,7 +71,8 @@ readonly CAPTURE_TIMEOUT_SECONDS="${LAB_CAPTURE_TIMEOUT_SECONDS:-300}"
 readonly SKIP_IMAGE_BUILD="${LAB_SKIP_IMAGE_BUILD:-false}"
 
 readonly PERMUTATION_OUTPUT_DIR="$LAB_OUTPUT_DIR/$PERMUTATION"
-readonly RESULTS_DIR="${LAB_RESULTS_DIR:-$LAB_OUTPUT_DIR/results}"
+RESULTS_DIR="$(absolute_path "${LAB_RESULTS_DIR:-$LAB_OUTPUT_DIR/results}")"
+readonly RESULTS_DIR
 readonly RESULT_FILE="$RESULTS_DIR/$PERMUTATION.json"
 readonly RAW_INVENTORY="$PERMUTATION_OUTPUT_DIR/inventory-$RUN_ID.json"
 readonly CANDIDATE_JSON="$PERMUTATION_OUTPUT_DIR/candidate-$RUN_ID.json"
@@ -188,9 +201,9 @@ write_diagnostics() {
   # must never fall back to the operator's current kube context.
   [[ -d "$PERMUTATION_OUTPUT_DIR" ]] || return 0
   if [[ -n "${KUBECONFIG:-}" && -f "${KUBECONFIG:-}" ]]; then
-    kubectl --request-timeout=30s --namespace "$RECEIVER_NAMESPACE" get pods --output=wide \
+    kubectl --context "$LAB_KUBECTL_CONTEXT" --request-timeout=30s --namespace "$RECEIVER_NAMESPACE" get pods --output=wide \
       >"$PERMUTATION_OUTPUT_DIR/diagnostic-pods-$RUN_ID.txt" 2>&1 || true
-    kubectl --request-timeout=30s --all-namespaces get events --sort-by=.lastTimestamp \
+    kubectl --context "$LAB_KUBECTL_CONTEXT" --request-timeout=30s --all-namespaces get events --sort-by=.lastTimestamp \
       >"$PERMUTATION_OUTPUT_DIR/diagnostic-events-$RUN_ID.txt" 2>&1 || true
   fi
   # Phase logs live in LAB_TMP, which teardown removes. Copy them out before that happens, or a
@@ -370,7 +383,7 @@ create_cluster() {
   export KUBECONFIG="$LAB_TMP/kubeconfig"
   k3d kubeconfig get "$LAB_CLUSTER_NAME" >"$KUBECONFIG"
   chmod 600 "$KUBECONFIG"
-  kubectl cluster-info >/dev/null || fail_phase "the new cluster did not answer cluster-info"
+  kubectl --context "$LAB_KUBECTL_CONTEXT" cluster-info >/dev/null || fail_phase "the new cluster did not answer cluster-info"
   wait_for_apiserver
 }
 
@@ -384,8 +397,8 @@ create_cluster() {
 wait_for_apiserver() {
   local deadline=$((SECONDS + 120))
   while true; do
-    if kubectl get --raw='/readyz' --request-timeout=10s >/dev/null 2>&1 \
-      && kubectl get --raw='/openapi/v3' --request-timeout=10s >/dev/null 2>&1; then
+    if kubectl --context "$LAB_KUBECTL_CONTEXT" get --raw='/readyz' --request-timeout=10s >/dev/null 2>&1 \
+      && kubectl --context "$LAB_KUBECTL_CONTEXT" get --raw='/openapi/v3' --request-timeout=10s >/dev/null 2>&1; then
       return 0
     fi
     if ((SECONDS >= deadline)); then
@@ -542,11 +555,11 @@ import_images() {
 deploy_receiver() {
   PHASE="deploy-receiver"
   log "deploying capture receiver with temporary TLS"
-  kubectl apply --filename "$RECEIVER_MANIFEST" >/dev/null || fail_phase "receiver manifest apply failed"
-  kubectl --namespace "$RECEIVER_NAMESPACE" create secret tls synthkit-skt000603-receiver-tls \
+  kubectl --context "$LAB_KUBECTL_CONTEXT" apply --filename "$RECEIVER_MANIFEST" >/dev/null || fail_phase "receiver manifest apply failed"
+  kubectl --context "$LAB_KUBECTL_CONTEXT" --namespace "$RECEIVER_NAMESPACE" create secret tls synthkit-skt000603-receiver-tls \
     --cert="$TLS_CERT" --key="$TLS_KEY" --dry-run=client --output=yaml \
-    | kubectl apply --filename=- >/dev/null || fail_phase "receiver TLS secret apply failed"
-  kubectl --namespace "$RECEIVER_NAMESPACE" rollout status \
+    | kubectl --context "$LAB_KUBECTL_CONTEXT" apply --filename=- >/dev/null || fail_phase "receiver TLS secret apply failed"
+  kubectl --context "$LAB_KUBECTL_CONTEXT" --namespace "$RECEIVER_NAMESPACE" rollout status \
     deployment/synthkit-skt000603-receiver --timeout=180s >/dev/null \
     || fail_phase "the capture receiver never became ready"
 }
@@ -554,17 +567,17 @@ deploy_receiver() {
 deploy_workloads() {
   PHASE="deploy-workloads"
   log "deploying pinned two-service workload deck"
-  kubectl apply --filename "$WORKLOAD_MANIFEST" >/dev/null || fail_phase "workload manifest apply failed"
-  kubectl --namespace otel-demo rollout status deployment/lab-catalog --timeout=180s >/dev/null \
+  kubectl --context "$LAB_KUBECTL_CONTEXT" apply --filename "$WORKLOAD_MANIFEST" >/dev/null || fail_phase "workload manifest apply failed"
+  kubectl --context "$LAB_KUBECTL_CONTEXT" --namespace otel-demo rollout status deployment/lab-catalog --timeout=180s >/dev/null \
     || fail_phase "workload lab-catalog never became ready"
-  kubectl --namespace otel-demo rollout status deployment/lab-checkout --timeout=180s >/dev/null \
+  kubectl --context "$LAB_KUBECTL_CONTEXT" --namespace otel-demo rollout status deployment/lab-checkout --timeout=180s >/dev/null \
     || fail_phase "workload lab-checkout never became ready"
 }
 
 start_port_forward() {
   PHASE="port-forward"
   log "starting local receiver port-forward on 127.0.0.1:$RECEIVER_LOCAL_PORT"
-  kubectl --namespace "$RECEIVER_NAMESPACE" port-forward \
+  kubectl --context "$LAB_KUBECTL_CONTEXT" --namespace "$RECEIVER_NAMESPACE" port-forward \
     --address 127.0.0.1 \
     "service/$RECEIVER_SERVICE" "$RECEIVER_LOCAL_PORT:9099" \
     >"$LAB_TMP/port-forward.log" 2>&1 &
@@ -698,13 +711,15 @@ wait_for_capture() {
 normalize_candidate() {
   PHASE="normalize"
   [[ -s "$RAW_INVENTORY" ]] || return 0
-  go run "$REPO_ROOT/e2e/lab/cmd/lab-matrix" normalize \
-    -in "$RAW_INVENTORY" \
-    -out "$CANDIDATE_JSON" \
-    -substrate "$CAPTURE_SUBSTRATE" \
-    -collector-version "$PERMUTATION_COLLECTOR_VERSION" \
-    -captured-at "$CAPTURED_AT" \
-    || fail_phase "could not normalize the receiver inventory into a candidate"
+  (
+    cd "$REPO_ROOT/e2e/lab"
+    go run ./cmd/lab-matrix normalize \
+      -in "$RAW_INVENTORY" \
+      -out "$CANDIDATE_JSON" \
+      -substrate "$CAPTURE_SUBSTRATE" \
+      -collector-version "$PERMUTATION_COLLECTOR_VERSION" \
+      -captured-at "$CAPTURED_AT"
+  ) || fail_phase "could not normalize the receiver inventory into a candidate"
 }
 
 

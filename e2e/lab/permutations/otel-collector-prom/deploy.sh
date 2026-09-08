@@ -7,6 +7,8 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
+: "${LAB_KUBECTL_CONTEXT:?LAB_KUBECTL_CONTEXT must name the disposable k3d context}"
+
 readonly OTEL_CHART_REPO_NAME="open-telemetry"
 readonly OTEL_CHART_REPO_URL="https://open-telemetry.github.io/opentelemetry-helm-charts"
 readonly OTEL_CHART_REF="open-telemetry/opentelemetry-collector"
@@ -21,26 +23,26 @@ helm repo update >/dev/null
 # These source deployments are the documented setup for the two exporters that kubelet does not
 # embed. Their release names intentionally match the documentation and their labels are selected
 # by the documented Prometheus receiver relabel rules in values-deployment.yaml.
-helm upgrade --install ksm prometheus-community/kube-state-metrics \
+helm --kube-context "$LAB_KUBECTL_CONTEXT" upgrade --install ksm prometheus-community/kube-state-metrics \
   --namespace default \
   --create-namespace \
   --wait \
   --timeout 10m
 
-helm upgrade --install nodeexporter prometheus-community/prometheus-node-exporter \
+helm --kube-context "$LAB_KUBECTL_CONTEXT" upgrade --install nodeexporter prometheus-community/prometheus-node-exporter \
   --namespace default \
   --create-namespace \
   --wait \
   --timeout 10m
 
-helm upgrade --install synthkit-otel-prom-deployment "$OTEL_CHART_REF" \
+helm --kube-context "$LAB_KUBECTL_CONTEXT" upgrade --install synthkit-otel-prom-deployment "$OTEL_CHART_REF" \
   --version "$CHART_VERSION" \
   --namespace "$LAB_RECEIVER_NAMESPACE" \
   --values "$LAB_PERMUTATION_DIR/values-deployment.yaml" \
   --wait \
   --timeout 10m
 
-helm upgrade --install synthkit-otel-prom-daemonset "$OTEL_CHART_REF" \
+helm --kube-context "$LAB_KUBECTL_CONTEXT" upgrade --install synthkit-otel-prom-daemonset "$OTEL_CHART_REF" \
   --version "$CHART_VERSION" \
   --namespace "$LAB_RECEIVER_NAMESPACE" \
   --values "$LAB_PERMUTATION_DIR/values-daemonset.yaml" \

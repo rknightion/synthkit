@@ -25,7 +25,7 @@ const ResultVersion = "synthkit.lab.permutation-result/v1alpha1"
 //   - OutcomeFailed     the harness could not complete its own steps, so this run observed
 //     nothing and makes NO claim about the permutation.
 //   - OutcomeEmpty      the harness completed every step, the collector deployed and reported
-//     ready, and the receiver then recorded zero requests for the whole
+//     ready, and the receiver then recorded zero receipt items for the whole
 //     capture window. That is a finding ABOUT the permutation.
 //   - OutcomePartial    evidence arrived but the permutation's declared acceptance predicate
 //     was not satisfied inside the window.
@@ -151,7 +151,9 @@ func (r Result) Validate() error {
 	return nil
 }
 
-// ReceiptTotal is the number of decoded producer requests across every protocol.
+// ReceiptTotal is the number of decoded receipt items across every protocol. Its unit depends on
+// the transport, such as a Remote Write series, an OTLP record, a Loki stream, or a metadata
+// record; it is never an HTTP request count.
 func (r Result) ReceiptTotal() int {
 	total := 0
 	for _, count := range r.Receipts {

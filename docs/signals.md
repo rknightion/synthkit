@@ -149,3 +149,12 @@ The `signals/` catalogue is meant to grow. When you discover a real signal via a
 Never invent a metric, label, or field name. If a name cannot be sourced, add a PENDING SK-N entry to [`cantfind.md`](https://github.com/rknightion/synthkit/blob/main/cantfind.md) and flag it rather than emitting an assumed name.
 
 For the full per-area index, see [Signal Areas](signal-areas.md). For construct wiring, see [Constructs](constructs.md) and [Emission Switches](emission-switches.md).
+
+## Check dumped names against the catalogue
+
+Run `DUMP_BLUEPRINTS=<explicit,comma-separated,selection> just dump > dump.txt`, then
+`just signals-conformance dump.txt`. The JSON report counts resolved and unresolved names and
+names every YAML parse gap. It supports CloudWatch stat expansion, brace alternatives, prose
+name declarations and separate native OTLP names. This checks names only: it retains dumped
+label keys but does not validate them. A prose mention is weaker evidence than a parsed contract.
+An unresolved name is an investigation input, not a proven renderer defect.

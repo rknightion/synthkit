@@ -34,7 +34,8 @@ type testWsCfg struct {
 }
 
 type testK8sConfig struct {
-	OTel *struct {
+	OTelCollectorProm bool `yaml:"otel_collector_prom"`
+	OTel              *struct {
 		Metrics bool `yaml:"metrics"`
 	} `yaml:"otel"`
 	PrometheusOperatorRemoteWrite *struct {
@@ -227,6 +228,32 @@ environments:
 			cfg.PrometheusOperatorRemoteWrite.Prometheus != "monitoring/operator" ||
 			cfg.PrometheusOperatorRemoteWrite.PrometheusReplica != "operator-0" {
 			t.Fatalf("k8s_cluster config = %#v, want Prometheus Operator remote-write envelope", instance.Config)
+		}
+		return
+	}
+	t.Fatal("no k8s_cluster construct resolved")
+}
+
+func TestResolveK8sCollectorProm(t *testing.T) {
+	y := `
+name: k8s-prometheus-operator
+environments:
+  - name: prod
+    cloud: {provider: aws, account_id: "111122223333", region: eu-west-1, vpc_id: vpc-test}
+    cluster:
+      type: eks
+      name: operator-cluster
+      node_groups: [{name: general, instance_type: m6i.large, desired: 2}]
+      otel_collector_prom: true
+`
+	r := load(t, y)
+	for _, instance := range r.Constructs {
+		if instance.Kind != KindK8sCluster {
+			continue
+		}
+		cfg, ok := instance.Config.(*testK8sConfig)
+		if !ok || !cfg.OTelCollectorProm {
+			t.Fatalf("collector switch not resolved: %#v", instance.Config)
 		}
 		return
 	}

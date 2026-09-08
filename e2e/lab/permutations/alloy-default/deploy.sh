@@ -5,6 +5,8 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
+: "${LAB_KUBECTL_CONTEXT:?LAB_KUBECTL_CONTEXT must name the disposable k3d context}"
+
 readonly CHART_REPO_NAME="grafana"
 readonly CHART_REPO_URL="https://grafana.github.io/helm-charts"
 readonly CHART_REF="grafana/k8s-monitoring"
@@ -13,7 +15,7 @@ readonly HELM_RELEASE="synthkit-k8s-monitoring"
 
 helm repo add "$CHART_REPO_NAME" "$CHART_REPO_URL" >/dev/null
 helm repo update "$CHART_REPO_NAME" >/dev/null
-helm upgrade --install "$HELM_RELEASE" "$CHART_REF" \
+helm --kube-context "$LAB_KUBECTL_CONTEXT" upgrade --install "$HELM_RELEASE" "$CHART_REF" \
   --version "$CHART_VERSION" \
   --namespace "$LAB_RECEIVER_NAMESPACE" \
   --values "$LAB_SHARED_DIR/k8s-monitoring-values.yaml" \

@@ -1,0 +1,35 @@
+# Small two-node Kubernetes estate using the captured Collector Prometheus envelope.
+# Two workers represent a small redundant cluster, with the standard substrate pods.
+name: k8s-collector-prom
+label: k8s-collector-prom
+shape: business_hours_plateau
+metadata:
+  description: "Collector Prometheus target-family projection and OTLP pod logs/events; metrics use RW2."
+  owner: platform-observability
+  category: reference
+  tags: [kubernetes, otel, reference]
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "410000000019"
+      region: us-west-2
+      vpc_id: vpc-0collector01
+      # No cloud service inventory is part of this collector-only example.
+      cloudwatch: {albs: 0, s3_buckets: 0, firehose: false, nlb: false, ebs: false, nat_gateway: false, eks: false, private_link: false}
+    cluster:
+      type: eks
+      name: collector-example-prod
+      node_groups:
+        - {name: general, instance_type: m6i.large, desired: 2}
+      observability:
+        cloudwatch: false
+      otel_collector_prom: true
+      k8s_monitoring:
+        enabled: true
+        alloy: false
+        pod_logs_method: opentelemetry
+        features:
+          cluster_metrics: true
+          pod_logs: true

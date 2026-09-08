@@ -486,3 +486,8 @@ sbom:
 [group('dev')]
 forge *args:
     go run ./cmd/skforge {{ args }}
+
+# Resolve an explicit-selection dump against documented metric names (unresolved is evidence).
+[group("check")]
+signals-conformance dump_file:
+    go run ./internal/conformance -signals signals -dump {{ quote(dump_file) }}

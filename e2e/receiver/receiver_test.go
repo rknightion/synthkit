@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -13,8 +14,10 @@ import (
 	"time"
 
 	logspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	metricservicepb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	logs "go.opentelemetry.io/proto/otlp/logs/v1"
+	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -151,6 +154,160 @@ func TestReceiverClassifiesOTLPSummaryAndPreservesNestedDimensionTypes(t *testin
 		}
 	}
 	t.Fatalf("labels=%v, want JSON-valued Dimensions with native nested types", metric.Labels)
+}
+
+func TestReceiverPreservesNativeOTLPMetricsEnvelope(t *testing.T) {
+	rec := New()
+	srv := httptest.NewServer(rec.Handler())
+	defer srv.Close()
+
+	rm := &metricspb.ResourceMetrics{
+		Resource: &resourcepb.Resource{Attributes: []*commonpb.KeyValue{
+			stringAttribute("placement", "resource"),
+			stringAttribute("resource.only", "resource-value"),
+		}},
+		SchemaUrl: "https://schemas.example/resource",
+		ScopeMetrics: []*metricspb.ScopeMetrics{{
+			Scope: &commonpb.InstrumentationScope{
+				Name:    "receiver.scope",
+				Version: "1.2.3",
+				Attributes: []*commonpb.KeyValue{
+					stringAttribute("placement", "scope"),
+					stringAttribute("scope.only", "scope-value"),
+				},
+			},
+			SchemaUrl: "https://schemas.example/scope",
+			Metrics: []*metricspb.Metric{
+				{
+					Name: "native_counter",
+					Unit: "By",
+					Data: &metricspb.Metric_Sum{Sum: &metricspb.Sum{
+						IsMonotonic:            true,
+						AggregationTemporality: metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_DELTA,
+						DataPoints: []*metricspb.NumberDataPoint{{
+							Attributes: []*commonpb.KeyValue{stringAttribute("placement", "datapoint")},
+						}},
+					}},
+				},
+				{
+					Name: "native_histogram",
+					Unit: "s",
+					Data: &metricspb.Metric_Histogram{Histogram: &metricspb.Histogram{
+						AggregationTemporality: metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_CUMULATIVE,
+						DataPoints: []*metricspb.HistogramDataPoint{{
+							Attributes: []*commonpb.KeyValue{stringAttribute("histogram.point", "present")},
+						}},
+					}},
+				},
+			},
+		}},
+	}
+	postOTLPMetrics(t, srv.URL, rm)
+
+	got := rec.OTLPMetrics()
+	if len(got) != 1 {
+		t.Fatalf("native OTLP resource metrics = %d, want 1", len(got))
+	}
+	gotRM := got[0]
+	if gotRM.GetSchemaUrl() != rm.GetSchemaUrl() {
+		t.Errorf("resource schema URL = %q, want %q", gotRM.GetSchemaUrl(), rm.GetSchemaUrl())
+	}
+	if gotRM.GetResource().GetAttributes()[0].GetKey() != "placement" ||
+		gotRM.GetResource().GetAttributes()[0].GetValue().GetStringValue() != "resource" {
+		t.Errorf("resource attributes = %v, want placement=resource", gotRM.GetResource().GetAttributes())
+	}
+	scopeMetrics := gotRM.GetScopeMetrics()
+	if len(scopeMetrics) != 1 {
+		t.Fatalf("scope metrics = %d, want 1", len(scopeMetrics))
+	}
+	scope := scopeMetrics[0]
+	if scope.GetSchemaUrl() != "https://schemas.example/scope" {
+		t.Errorf("scope schema URL = %q", scope.GetSchemaUrl())
+	}
+	if scope.GetScope().GetName() != "receiver.scope" || scope.GetScope().GetVersion() != "1.2.3" {
+		t.Errorf("scope = %v, want receiver.scope/1.2.3", scope.GetScope())
+	}
+	if got := nativeAttributeValue(scope.GetScope().GetAttributes(), "placement"); got != "scope" {
+		t.Errorf("scope placement = %q, want scope", got)
+	}
+	if got := nativeAttributeValue(scope.GetMetrics()[0].GetSum().GetDataPoints()[0].GetAttributes(), "placement"); got != "datapoint" {
+		t.Errorf("datapoint placement = %q, want datapoint", got)
+	}
+	counter := scope.GetMetrics()[0]
+	if counter.GetUnit() != "By" || !counter.GetSum().GetIsMonotonic() ||
+		counter.GetSum().GetAggregationTemporality() != metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_DELTA {
+		t.Errorf("counter envelope = %v, want unit=By delta monotonic", counter)
+	}
+	histogram := scope.GetMetrics()[1]
+	if histogram.GetUnit() != "s" ||
+		histogram.GetHistogram().GetAggregationTemporality() != metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_CUMULATIVE {
+		t.Errorf("histogram envelope = %v, want unit=s cumulative", histogram)
+	}
+
+	// The native view is a deep copy: a caller cannot mutate the receiver's capture by
+	// editing the returned protobuf. The flattened inventory remains the compatibility view.
+	gotRM.GetResource().GetAttributes()[0].Value = &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "mutated"}}
+	if got := nativeAttributeValue(rec.OTLPMetrics()[0].GetResource().GetAttributes(), "placement"); got != "resource" {
+		t.Errorf("native capture was mutated through snapshot: placement=%q", got)
+	}
+	flat := findMetric(rec.Snapshot(), "native_counter")
+	if flat == nil || !containsAttributeValue(flat.Labels, "placement", "datapoint") {
+		t.Fatalf("flattened counter view = %#v, want datapoint placement", flat)
+	}
+
+	resp, err := srv.Client().Get(srv.URL + "/__otlp_metrics")
+	if err != nil {
+		t.Fatalf("GET /__otlp_metrics: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("/__otlp_metrics status = %d, want 200", resp.StatusCode)
+	}
+	var served metricservicepb.ExportMetricsServiceRequest
+	encoded, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read /__otlp_metrics: %v", err)
+	}
+	if err := protojson.Unmarshal(encoded, &served); err != nil {
+		t.Fatalf("decode /__otlp_metrics: %v", err)
+	}
+	if len(served.GetResourceMetrics()) != 1 || served.GetResourceMetrics()[0].GetSchemaUrl() != rm.GetSchemaUrl() {
+		t.Fatalf("served native envelope = %v, want one resource with schema URL %q", served.GetResourceMetrics(), rm.GetSchemaUrl())
+	}
+}
+
+func stringAttribute(key, value string) *commonpb.KeyValue {
+	return &commonpb.KeyValue{Key: key, Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: value}}}
+}
+
+func nativeAttributeValue(attrs []*commonpb.KeyValue, key string) string {
+	for _, attr := range attrs {
+		if attr != nil && attr.GetKey() == key {
+			return attr.GetValue().GetStringValue()
+		}
+	}
+	return ""
+}
+
+func postOTLPMetrics(t *testing.T, url string, resources ...*metricspb.ResourceMetrics) {
+	t.Helper()
+	var request []byte
+	for _, resource := range resources {
+		encoded, err := proto.Marshal(resource)
+		if err != nil {
+			t.Fatalf("marshal ResourceMetrics: %v", err)
+		}
+		request = protowire.AppendTag(request, 1, protowire.BytesType)
+		request = protowire.AppendBytes(request, encoded)
+	}
+	resp, err := http.Post(url+"/otlp/v1/metrics", "application/x-protobuf", bytes.NewReader(request)) //nolint:noctx
+	if err != nil {
+		t.Fatalf("POST OTLP metrics: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("OTLP metrics status = %d, want 200", resp.StatusCode)
+	}
 }
 
 func TestReceiverPreservesExactCounterSamples(t *testing.T) {
