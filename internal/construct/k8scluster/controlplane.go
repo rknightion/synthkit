@@ -23,10 +23,9 @@ var etcdRequestBounds = []float64{.005, .025, .05, .1, .2, .4, .6, .8, 1, 1.25, 
 // buckets (2026-09). They deliberately do not reuse the apiserver defaults.
 var schedulerAttemptBounds = []float64{.001, .002, .004, .008, .016, .032, .064, .128, .256, .512, 1.024, 2.048, 4.096, 8.192, 16.384}
 
-// controllerManagerWorkqueueBounds are the observed EKS controller-manager
-// workqueue duration buckets (2026-09). Asserts labels are read-path enrichment,
-// not emitter labels.
-var controllerManagerWorkqueueBounds = []float64{1e-8, 1e-7, 1e-6, 1e-5, 1e-4, .001, .01, .1, 1, 2, 4, 6, 8, 10, 15}
+// controllerManagerWorkqueueBounds select the directly observed RKE2 workqueue
+// profile. Managed control planes with additional buckets remain corpus coverage.
+var controllerManagerWorkqueueBounds = []float64{1e-08, 9.9999999999999995e-08, 9.9999999999999995e-07, 9.9999999999999991e-06, 9.9999999999999991e-05, 0.001, 0.01, 0.10000000000000001, 1, 10}
 
 // ── apiserver ────────────────────────────────────────────────────────────────────────
 
@@ -87,7 +86,7 @@ func emitApiServer(st *statelib.State, cluster string, tickSec, scale float64) {
 		case "POST":
 			latency = 0.04
 		}
-		st.Observe("apiserver_request_duration_seconds", lbls, cpHistoBounds, statelib.LEPromV3, latency)
+		st.Observe("apiserver_request_duration_seconds", lbls, etcdRequestBounds, statelib.LEPromV3, latency)
 	}
 
 	// apiserver_current_inflight_requests — gauge, label request_kind
@@ -106,8 +105,8 @@ func emitApiServer(st *statelib.State, cluster string, tickSec, scale float64) {
 	wqLbls := merge(base, map[string]string{"name": wqName})
 	st.Add("workqueue_adds_total", wqLbls, scale*3)
 	st.Set("workqueue_depth", wqLbls, 0)
-	st.Observe("workqueue_queue_duration_seconds", wqLbls, cpHistoBounds, statelib.LEPromV3, 0.001)
-	st.Observe("workqueue_work_duration_seconds", wqLbls, cpHistoBounds, statelib.LEPromV3, 0.005)
+	st.Observe("workqueue_queue_duration_seconds", wqLbls, controllerManagerWorkqueueBounds, statelib.LEPromV3, 0.001)
+	st.Observe("workqueue_work_duration_seconds", wqLbls, controllerManagerWorkqueueBounds, statelib.LEPromV3, 0.005)
 
 	// rest_client_requests_total — counter, labels code/method/host
 	st.Add("rest_client_requests_total", merge(base, map[string]string{

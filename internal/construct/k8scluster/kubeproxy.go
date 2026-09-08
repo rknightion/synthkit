@@ -38,8 +38,11 @@ import (
 
 const jobKubeProxy = "integrations/kubernetes/kube-proxy"
 
-// kubeProxyHistoBounds are the default Prometheus seconds histogram bounds.
-var kubeProxyHistoBounds = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+// kubeProxyHistoBounds are the directly captured kube-proxy exponential bounds.
+var kubeProxyHistoBounds = []float64{0.001, 0.002, 0.0040000000000000001, 0.0080000000000000002, 0.016, 0.032000000000000001, 0.064000000000000001, 0.128, 0.25600000000000001, 0.51200000000000001, 1.024, 2.048, 4.0960000000000001, 8.1920000000000002, 16.384}
+
+// Network programming uses its own upstream linear and long-tail buckets.
+var kubeProxyNetworkBounds = []float64{0, 0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 150, 180, 210, 240, 270, 300}
 
 // kubeProxyIPFamilies are the IP family label values on per-family metrics.
 var kubeProxyIPFamilies = []string{"IPv4", "IPv6"}
@@ -82,7 +85,11 @@ func emitKubeProxy(
 				{"kubeproxy_sync_partial_proxy_rules_duration_seconds", 0.02},
 				{"kubeproxy_network_programming_duration_seconds", 0.08},
 			} {
-				st.Observe(h.name, ipLbls, kubeProxyHistoBounds, statelib.LEPromV3, h.mean*(0.5+float64(fnv1a32(instance+h.name)%100)/100.0))
+				histogramBounds := kubeProxyHistoBounds
+				if h.name == "kubeproxy_network_programming_duration_seconds" {
+					histogramBounds = kubeProxyNetworkBounds
+				}
+				st.Observe(h.name, ipLbls, histogramBounds, statelib.LEPromV3, h.mean*(0.5+float64(fnv1a32(instance+h.name)%100)/100.0))
 			}
 		}
 

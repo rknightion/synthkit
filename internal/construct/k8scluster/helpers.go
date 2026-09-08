@@ -68,10 +68,10 @@ func k8sJobLabels(cluster, job string) map[string]string {
 }
 
 // stampSourceForJob preserves the established source="kubernetes" stamp for
-// k8s-monitoring metric jobs, except for kube-proxy where the capture confirms
-// source is absent. Addon jobs use their own capture-scoped helper.
+// k8s-monitoring metric jobs, except for kube-proxy, scheduler and controller-manager, whose captures
+// confirm source is absent. Addon jobs use their own capture-scoped helper.
 func stampSourceForJob(labels map[string]string) {
-	if labels["job"] == jobKubeProxy {
+	if labels["job"] == jobKubeProxy || labels["job"] == jobScheduler || labels["job"] == jobControllerManager {
 		delete(labels, "source")
 		return
 	}

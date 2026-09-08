@@ -996,3 +996,11 @@ note: "data-plane: job=envoy; extra topology labels: architecture,availability_z
 ## Cluster Autoscaler — UNVERIFIED on EKS-Karpenter stacks [slug: k8s-cluster-autoscaler]
 
 (Already documented above. See cantfind.md SK-72 — the `job` label is Ⓐ assumed; the entire `cluster_autoscaler_*` family has NEVER been live-captured on the reference cluster because EKS+Karpenter does not run cluster-autoscaler.)
+
+### Direct CoreDNS scrape envelope correction, 2026-09-08
+
+The preserved RKE2 direct capture observes the per-pod CoreDNS job with `app`, `workload`,
+`pod`, `namespace`, `container` and `instance`, and no `service` key on its 23 comparable
+families. The default synthetic envelope follows that direct scrape. Older service-discovery
+observations remain in the corpus; their additional `service` key remains coverage evidence.
+Raw capture SHA-256: `bb88dfc3ab8c1f8a11f2baa80619df5e37a3dba17dc61f68c659b829bdbcd317`.

@@ -854,13 +854,16 @@ func TestBuildNilCluster(t *testing.T) {
 // TestSourceIsJobScoped verifies collector-side source follows the captured job rule.
 func TestSourceIsJobScoped(t *testing.T) {
 	cl := coretest.Cluster()
+	cl.K8sMonitoring.ControlPlane.KubeProxy = true
+	cl.K8sMonitoring.ControlPlane.KubeScheduler = true
+	cl.K8sMonitoring.ControlPlane.KubeControllerManager = true
 	c := buildConstruct(t, cl)
 	mc := &coretest.MetricCapture{}
 	lc := &coretest.LogCapture{}
 	tick(t, c, mc, lc)
 
 	for _, s := range mc.All() {
-		if s.Labels["job"] == "integrations/kubernetes/kube-proxy" {
+		if s.Labels["job"] == "integrations/kubernetes/kube-proxy" || s.Labels["job"] == "kube-scheduler" || s.Labels["job"] == "kube-controller-manager" {
 			if _, hasSource := s.Labels["source"]; hasSource {
 				t.Errorf("kube-proxy series %q unexpectedly carries source=%q", s.Name, s.Labels["source"])
 			}

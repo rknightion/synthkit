@@ -203,8 +203,8 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	scale := interval.Seconds() / 30.0 // cadence-invariant volume (I3)
 
 	// baseMap is the universal label set for the per-pod scrape job.
-	// app, workload, service are real labels added by Alloy/k8s-monitoring
-	// (svc-coredns.md §A2, §A4 Job 1 — present on every per-pod series).
+	// app and workload are collector labels. The retained direct per-pod
+	// capture has no service label; older service-discovery captures may add it.
 	// NOTE: asserts_env is Asserts read-side injection — NOT emitted here.
 	baseMap := map[string]string{
 		"cluster":          cluster,
@@ -212,7 +212,6 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		"job":              coreDNSJob,
 		"app":              "kube-dns",
 		"workload":         "ReplicaSet/coredns",
-		"service":          "kube-dns",
 	}
 
 	// podMaps: one label-map per coredns pod (stamped with pod/namespace/container/instance).
@@ -483,7 +482,6 @@ func (c *Construct) emitCacheHits(reqRate, scale float64, w *core.World) {
 		"job":              coreDNSJob,
 		"app":              "kube-dns",
 		"workload":         "ReplicaSet/coredns",
-		"service":          "kube-dns",
 	}, coreDNSPort)
 
 	emitForType := func(cacheType string, weight float64) {
@@ -502,7 +500,6 @@ func (c *Construct) emitCacheHits(reqRate, scale float64, w *core.World) {
 				"job":              coreDNSJob,
 				"app":              "kube-dns",
 				"workload":         "ReplicaSet/coredns",
-				"service":          "kube-dns",
 			}
 			lbls := mergeLabels(baseMap, extra)
 			c.st.Add("coredns_cache_hits_total", lbls, reqRate*weight*scale)

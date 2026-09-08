@@ -241,12 +241,12 @@ func TestControllerManagerWorkqueueNames(t *testing.T) {
 	}
 }
 
-// TestControllerManagerObservedWorkqueueHistogramBounds pins the EKS 2026-09
-// controller-manager workqueue buckets. Asserts labels are read-path
+// TestControllerManagerObservedWorkqueueHistogramBounds pins the RKE2 2026-09
+// controller-manager workqueue profile. Asserts labels are read-path
 // enrichment and deliberately do not become emitter labels.
 func TestControllerManagerObservedWorkqueueHistogramBounds(t *testing.T) {
 	mc := cpTick(t, cpCluster(false, false, true))
-	want := []float64{1e-8, 1e-7, 1e-6, 1e-5, 1e-4, .001, .01, .1, 1, 2, 4, 6, 8, 10, 15}
+	want := []float64{1e-8, 1e-7, 1e-6, 9.999999999999999e-6, 9.999999999999999e-5, .001, .01, .1, 1, 10}
 	for _, name := range []string{
 		"workqueue_queue_duration_seconds_bucket",
 		"workqueue_work_duration_seconds_bucket",
