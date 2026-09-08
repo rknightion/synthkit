@@ -9,7 +9,7 @@
     "collector_role": "audited",
     "collector_version": "0.171.0",
     "captured_on": "2026-09-05",
-    "instrument_type_source": "Metrics were decoded from Prometheus Remote-Write v1, which carries no TYPE metadata, so instrument types remain unknown and were not inferred from names. Log sources and transport were decoded directly from OTLP log records."
+    "instrument_type_source": "Metrics were decoded from Prometheus Remote-Write v1, which carries no TYPE metadata, so instrument types remain unknown and were not inferred from names. Log sources and transport were decoded directly from OTLP log records. Reprojected under transport/job identity from retained raw candidate hashes 3d6d789959a98fad862cf53282f33a5897230bacaf9de87714b80f16262c7c00 and 63e19e0b1ef2598641bd11959ee21ff8377199ac1d3b2315b77b3d18940db5cd; job consumed before value elision."
   },
   "authority": {
     "substrates": [
