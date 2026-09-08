@@ -1,6 +1,6 @@
 {
   "version": "synthkit.telemetry.producer-coverage/v1alpha1",
-  "expected_count": 103,
+  "expected_count": 198,
   "claims": [
     {
       "signal": "azure_microsoft_servicebus_namespaces_incomingmessages_total_count",
@@ -123,6 +123,116 @@
       "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
     },
     {
+      "signal": "grafana_kubernetes_monitoring_build_info",
+      "producer": "promrw/integrations/kubernetes/kubernetes_monitoring_telemetry",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_request_duration_seconds",
+      "producer": "promrw",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_request_duration_seconds",
+      "producer": "promrw/langsmith-backend",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_request_duration_seconds",
+      "producer": "promrw/langsmith-host-backend",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_request_duration_seconds",
+      "producer": "promrw/langsmith-platform-backend",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_request_duration_seconds",
+      "producer": "promrw/langsmith-playground",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_active_requests",
+      "producer": "promrw/acme-backend/acme-backend",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_active_requests",
+      "producer": "promrw/common-services/acme-backend-api-auth",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_active_requests",
+      "producer": "promrw/common-services/acme-backend-api-content-gen",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_active_requests",
+      "producer": "promrw/datagen/acme-datagen-analysis",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_active_requests",
+      "producer": "promrw/datagen/acme-datagen-extraction-api",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_active_requests",
+      "producer": "promrw/knowledge-layer-api/knowledge-layer-api",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_active_requests",
+      "producer": "promrw/live-assistance/acme-live-assistant",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_active_requests",
+      "producer": "promrw/ui/collab-editor-cs",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_request_duration_seconds",
+      "producer": "promrw/acme-backend/acme-backend",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_request_duration_seconds",
+      "producer": "promrw/common-services/acme-backend-api-auth",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_request_duration_seconds",
+      "producer": "promrw/common-services/acme-backend-api-content-gen",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_request_duration_seconds",
+      "producer": "promrw/datagen/acme-datagen-analysis",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_request_duration_seconds",
+      "producer": "promrw/datagen/acme-datagen-extraction-api",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_request_duration_seconds",
+      "producer": "promrw/knowledge-layer-api/knowledge-layer-api",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_request_duration_seconds",
+      "producer": "promrw/live-assistance/acme-live-assistant",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "http_server_request_duration_seconds",
+      "producer": "promrw/ui/collab-editor-cs",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
       "signal": "kubernetes_build_info",
       "producer": "promrw/integrations/kubernetes/kube-proxy",
       "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
@@ -243,6 +353,11 @@
       "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
     },
     {
+      "signal": "node_os_info",
+      "producer": "promrw/integrations/macos-node",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
       "signal": "node_textfile_scrape_error",
       "producer": "promrw/integrations/macos-node",
       "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
@@ -261,6 +376,46 @@
       "signal": "pg_replication_is_replica",
       "producer": "dbo11y/integrations/db-o11y",
       "reason": "Recorded database integration transport or job differs; require paired evidence before attributing generic PostgreSQL families."
+    },
+    {
+      "signal": "pg_stat_activity_count",
+      "producer": "promrw/langsmith-postgres",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "pg_stat_database_blks_hit",
+      "producer": "promrw/langsmith-postgres",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "pg_stat_database_numbackends",
+      "producer": "dbo11y/integrations/db-o11y",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "pg_stat_database_numbackends",
+      "producer": "promrw/langsmith-postgres",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "pg_stat_database_xact_commit",
+      "producer": "promrw/langsmith-postgres",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "pg_stat_database_xact_rollback",
+      "producer": "promrw/langsmith-postgres",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "pg_up",
+      "producer": "dbo11y/integrations/db-o11y",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "pg_up",
+      "producer": "promrw/langsmith-postgres",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
     },
     {
       "signal": "process_cpu_seconds_total",
@@ -516,6 +671,326 @@
       "signal": "rest_client_requests_total",
       "producer": "promrw/kube-scheduler",
       "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+    },
+    {
+      "signal": "scrape_duration_seconds",
+      "producer": "promrw/integrations/alloy",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/acme-agent-runtime/acme-agent-runtime",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/acme-backend/acme-backend",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/acme-frontend/acme-frontend",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/cart-store/cart-store",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/catalog/catalog",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/checkout/checkout",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/common-services/acme-backend-api-auth",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/common-services/acme-backend-api-content-gen",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/datagen/acme-datagen-analysis",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/datagen/acme-datagen-extraction-api",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/documentdb-store/documentdb-store",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/k8sfull-api/k8sfull-api",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/knowledge-layer-api/knowledge-layer-api",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/live-assistance/acme-live-assistant",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/logs-api/logs-api",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/opensearch-vectors/opensearch-vectors",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/otlp-api-enriched/otlp-api-enriched",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/otlp-api-naked/otlp-api-naked",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/portkey/portkey",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/profiling-api/profiling-api",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/profiling-worker/profiling-worker",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/rds-acl/rds-acl",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/ui/acme-frontend-ui",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/ui/acme-frontend-ui-plugin",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "target_info",
+      "producer": "promrw/ui/collab-editor-cs",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "up",
+      "producer": "promrw/integrations/alloy",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "up",
+      "producer": "promrw/integrations/docker",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "up",
+      "producer": "promrw/integrations/macos-node",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "up",
+      "producer": "promrw/integrations/node_exporter",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "up",
+      "producer": "promrw/integrations/windows_exporter",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_adds_total",
+      "producer": "promrw/argocd-metrics",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_adds_total",
+      "producer": "promrw/aws-load-balancer-controller",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_adds_total",
+      "producer": "promrw/cainjector",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_adds_total",
+      "producer": "promrw/gateway-helm",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_adds_total",
+      "producer": "promrw/integrations/kubernetes/kube-apiserver",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_adds_total",
+      "producer": "promrw/kube-controller-manager",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_adds_total",
+      "producer": "promrw/kube-scheduler",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_depth",
+      "producer": "promrw/argocd-metrics",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_depth",
+      "producer": "promrw/aws-load-balancer-controller",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_depth",
+      "producer": "promrw/cainjector",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_depth",
+      "producer": "promrw/gateway-helm",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_depth",
+      "producer": "promrw/integrations/kubernetes/kube-apiserver",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_depth",
+      "producer": "promrw/kube-controller-manager",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_depth",
+      "producer": "promrw/kube-scheduler",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_longest_running_processor_seconds",
+      "producer": "promrw/argocd-metrics",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_longest_running_processor_seconds",
+      "producer": "promrw/cainjector",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_longest_running_processor_seconds",
+      "producer": "promrw/gateway-helm",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_queue_duration_seconds",
+      "producer": "promrw/argocd-metrics",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_queue_duration_seconds",
+      "producer": "promrw/aws-load-balancer-controller",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_queue_duration_seconds",
+      "producer": "promrw/integrations/kubernetes/kube-apiserver",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_queue_duration_seconds",
+      "producer": "promrw/kube-controller-manager",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_retries_total",
+      "producer": "promrw/argocd-metrics",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_retries_total",
+      "producer": "promrw/aws-load-balancer-controller",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_retries_total",
+      "producer": "promrw/cainjector",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_retries_total",
+      "producer": "promrw/gateway-helm",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_retries_total",
+      "producer": "promrw/kube-controller-manager",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_unfinished_work_seconds",
+      "producer": "promrw/argocd-metrics",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_unfinished_work_seconds",
+      "producer": "promrw/cainjector",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_unfinished_work_seconds",
+      "producer": "promrw/gateway-helm",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_work_duration_seconds",
+      "producer": "promrw/argocd-metrics",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_work_duration_seconds",
+      "producer": "promrw/aws-load-balancer-controller",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_work_duration_seconds",
+      "producer": "promrw/integrations/kubernetes/kube-apiserver",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "workqueue_work_duration_seconds",
+      "producer": "promrw/kube-controller-manager",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
     }
   ]
 }
