@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-07 11:03'
-updated_date: '2026-09-08 21:13'
+updated_date: '2026-09-08 22:11'
 labels:
   - integration
 dependencies: []
@@ -86,4 +86,6 @@ Wave close: AWS SSO failed at preflight. No recovery attempted under the goal au
 Capture boundary advanced: native metrics/traces envelope evidence is now retained and reviewed, with the named metric ingested. The earlier no-envelope/no-auth resume statement is historical. Broader 0/4 acceptance remains open: next implement the independently scoped host/Kubernetes receiver surface and its reviewed corpus producer mapping from the preserved evidence; leave the validation environment standing.
 
 AC2 and AC4 complete; AC1 and AC3 remain open. Next: independently capture the standalone-host path, then source value mechanics for the observed unimplemented receiver families. Kubernetes evidence and its one-family selectable subset are integrated; preserve the standing validation environment. This supersedes historical no-auth/no-envelope/no-corpus resume statements.
+
+Kubernetes construct, native corpus projection and direct envelope checks landed in bcf1687689fc9199e8f232b3cef23370b56f5aba; CI run 34279467976 succeeded at that exact SHA. AC1 and AC3 remain open for the standalone-host path. The one implemented Kubernetes family is distinct from the 194 observed-unimplemented families. Preserve the standing validation environment.
 <!-- SECTION:FINAL_SUMMARY:END -->

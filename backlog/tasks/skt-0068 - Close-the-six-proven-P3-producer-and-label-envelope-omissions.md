@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-08 17:16'
-updated_date: '2026-09-08 21:13'
+updated_date: '2026-09-08 22:11'
 labels: []
 dependencies: []
 priority: medium
@@ -50,4 +50,6 @@ Wave closure: all six scoped omissions are implemented. Retained lane failing-be
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 All five acceptance criteria proven: missing kubelet producer memberships and four P3-only keys repaired with sourced coherent values and mutation-proven boundaries. Full gate passed; integration SHA and CI will be recorded in the wave report.
+
+Source integration commit bcf1687689fc9199e8f232b3cef23370b56f5aba is published on main; CI run 34279467976 succeeded at that exact SHA. The six P3 repairs and their negative controls are in that commit. Later corpus-only promotions preserve all 142 P3 families and do not change these emitters.
 <!-- SECTION:FINAL_SUMMARY:END -->
