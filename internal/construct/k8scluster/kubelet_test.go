@@ -163,6 +163,12 @@ func TestStorageOperationDurationCount(t *testing.T) {
 	if len(series) == 0 {
 		t.Fatal("storage_operation_duration_seconds_count: no series emitted")
 	}
+	if got := len(findSeries(mc, "storage_operation_duration_seconds_bucket")); got != 0 {
+		t.Fatalf("default kubelet path unexpectedly emitted storage histogram buckets: %d", got)
+	}
+	if got := len(findSeries(mc, "storage_operation_duration_seconds_sum")); got != 0 {
+		t.Fatalf("default kubelet path unexpectedly emitted storage histogram sum: %d", got)
+	}
 
 	// Required label keys
 	requiredKeys := []string{"operation_name", "status", "volume_plugin", "migrated", "node"}

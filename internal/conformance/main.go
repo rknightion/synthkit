@@ -48,7 +48,11 @@ type Report struct {
 
 var blockRE = regexp.MustCompile("(?s)```ya?ml signals[^\\n]*\\n(.*?)\\n```")
 var codeRE = regexp.MustCompile("`([^`\\n]+)`")
+var textBlockRE = regexp.MustCompile("(?s)```text[^\\n]*\\n(.*?)\\n```")
+var headingRE = regexp.MustCompile(`(?m)^#{1,6}\s+.*$`)
 var nameRE = regexp.MustCompile(`^[A-Za-z_:][A-Za-z0-9_:.{}*,|/-]*$`)
+
+var cwStatSuffixes = []string{"_sum", "_average", "_maximum", "_minimum", "_sample_count"}
 
 func ParseDump(r io.Reader) (Dump, error) {
 	d := Dump{Metrics: map[string]map[string]Shape{DumpPrometheus: {}, DumpOTLPMetrics: {}}}
@@ -131,6 +135,119 @@ func list(v any) []string {
 }
 func str(v any) string { s, _ := v.(string); return s }
 
+// cloudWatchSourceBase translates the source identity printed by a CloudWatch
+// metric stream into the documented pre-mangled Prometheus base name. The
+// source identity has no statistic, so Compare matches it only against a
+// documented five-stat expansion.
+func cloudWatchSourceBase(name string) (string, bool) {
+	const sourcePrefix = "amazonaws.com/"
+	if !strings.HasPrefix(name, sourcePrefix) {
+		return "", false
+	}
+	parts := strings.Split(strings.TrimPrefix(name, sourcePrefix), "/")
+	if len(parts) != 3 || parts[0] != "AWS" || parts[1] == "" || parts[2] == "" {
+		return "", false
+	}
+	var metric strings.Builder
+	previousLowerOrDigit := false
+	for _, r := range parts[2] {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			if previousLowerOrDigit {
+				metric.WriteByte('_')
+			}
+			metric.WriteRune(r + ('a' - 'A'))
+			previousLowerOrDigit = false
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			metric.WriteRune(r)
+			previousLowerOrDigit = true
+		case r == '_' || r == '.':
+			metric.WriteByte('_')
+			previousLowerOrDigit = false
+		case r == '%':
+			metric.WriteString("_percent")
+			previousLowerOrDigit = false
+		default:
+			return "", false
+		}
+	}
+	return "aws_" + strings.ToLower(parts[1]) + "_" + metric.String(), true
+}
+
+func documentedCloudWatchStat(names map[string]bool, source string) bool {
+	base, ok := cloudWatchSourceBase(source)
+	if !ok {
+		return false
+	}
+	for _, suffix := range cwStatSuffixes {
+		if names[base+suffix] {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Contract) addYAMLBlock(b map[string]any) {
+	sink := str(b["sink"])
+	section := DumpPrometheus
+	if sink == "otlp" || sink == "otlp_metrics" {
+		section = DumpOTLPMetrics
+	}
+	if sink == "loki" || sink == "otlp_logs" || sink == "otlp_traces" || sink == "pyroscope" || sink == "sigil" {
+		return
+	}
+	family := str(b["family"])
+	stats := list(b["stats"])
+	var walk func(any)
+	walk = func(v any) {
+		switch x := v.(type) {
+		case map[string]any:
+			if root := str(x["root"]); root != "" {
+				kind := str(x["type"])
+				c.add(section, root, kind)
+				if len(stats) > 0 {
+					base := root
+					if family != "" && !strings.HasPrefix(root, family+"_") {
+						base = family + "_" + root
+					}
+					for _, stat := range stats {
+						c.add(section, base+stat, kind)
+					}
+				}
+			}
+			for key, z := range x {
+				if key == "info_series" {
+					for _, n := range list(z) {
+						c.add(section, n, "gauge")
+					}
+				}
+				walk(z)
+			}
+		case []any:
+			for _, z := range x {
+				walk(z)
+			}
+		}
+	}
+	walk(b)
+}
+
+func (c *Contract) addProseNameInSection(section, name string) {
+	name = strings.TrimSpace(strings.Trim(name, ",;()[]."))
+	if !nameRE.MatchString(name) || !strings.ContainsAny(name, "_.") {
+		return
+	}
+	c.add(section, name, "")
+}
+
+func (c *Contract) addProseName(name string) {
+	section := DumpPrometheus
+	if strings.Contains(name, ".") {
+		section = DumpOTLPMetrics
+	}
+	c.addProseNameInSection(section, name)
+}
+
 func ParseSignals(files map[string]string) (Contract, error) {
 	c := Contract{Names: map[string]map[string]bool{DumpPrometheus: {}, DumpOTLPMetrics: {}}, ParseGaps: []Gap{}}
 	paths := make([]string, 0, len(files))
@@ -142,8 +259,17 @@ func ParseSignals(files map[string]string) (Contract, error) {
 		content := files[path]
 		for _, match := range blockRE.FindAllStringSubmatch(content, -1) {
 			c.YAMLBlocks++
-			var b map[string]any
-			if err := yaml.Unmarshal([]byte(match[1]), &b); err != nil {
+			decoder := yaml.NewDecoder(strings.NewReader(match[1]))
+			for {
+				var b map[string]any
+				err := decoder.Decode(&b)
+				if err == io.EOF {
+					break
+				}
+				if err == nil {
+					c.addYAMLBlock(b)
+					continue
+				}
 				family := ""
 				for _, line := range strings.Split(match[1], "\n") {
 					line = strings.TrimSpace(line)
@@ -153,67 +279,38 @@ func ParseSignals(files map[string]string) (Contract, error) {
 					}
 				}
 				c.ParseGaps = append(c.ParseGaps, Gap{path, family, err.Error()})
-				continue
+				break
 			}
-			sink := str(b["sink"])
-			section := DumpPrometheus
-			if sink == "otlp" || sink == "otlp_metrics" {
-				section = DumpOTLPMetrics
-			}
-			if sink == "loki" || sink == "otlp_logs" || sink == "otlp_traces" || sink == "pyroscope" || sink == "sigil" {
-				continue
-			}
-			family := str(b["family"])
-			stats := list(b["stats"])
-			var walk func(any)
-			walk = func(v any) {
-				switch x := v.(type) {
-				case map[string]any:
-					if root := str(x["root"]); root != "" {
-						kind := str(x["type"])
-						c.add(section, root, kind)
-						if len(stats) > 0 {
-							base := root
-							if family != "" && !strings.HasPrefix(root, family+"_") {
-								base = family + "_" + root
-							}
-							for _, stat := range stats {
-								c.add(section, base+stat, kind)
-							}
-						}
-					}
-					for key, z := range x {
-						if key == "info_series" {
-							for _, n := range list(z) {
-								c.add(section, n, "gauge")
-							}
-						}
-						walk(z)
-					}
-				case []any:
-					for _, z := range x {
-						walk(z)
-					}
-				}
-			}
-			walk(b)
 		}
 		// Prose names are section-aware: dotted names describe native OTLP names.
 		// Underscore names remain Prometheus names; no automatic wire-name conversion.
 		prose := blockRE.ReplaceAllString(content, "")
 		for _, m := range codeRE.FindAllStringSubmatch(prose, -1) {
 			n := m[1]
-			if !nameRE.MatchString(n) {
+			if !strings.Contains(n, "{") && strings.Contains(n, ",") {
+				for _, candidate := range strings.Split(n, ",") {
+					c.addProseName(candidate)
+				}
 				continue
 			}
-			if !strings.ContainsAny(n, "_.") {
-				continue
+			c.addProseName(n)
+		}
+		for _, match := range textBlockRE.FindAllStringSubmatchIndex(prose, -1) {
+			nativeOTLP := false
+			headings := headingRE.FindAllString(prose[:match[0]], -1)
+			if len(headings) > 0 {
+				heading := headings[len(headings)-1]
+				if strings.Contains(strings.ToLower(heading), "native otlp") {
+					nativeOTLP = true
+				}
 			}
-			section := DumpPrometheus
-			if strings.Contains(n, ".") {
-				section = DumpOTLPMetrics
+			for _, token := range strings.Fields(prose[match[2]:match[3]]) {
+				if nativeOTLP {
+					c.addProseNameInSection(DumpOTLPMetrics, token)
+				} else {
+					c.addProseName(token)
+				}
 			}
-			c.add(section, n, "")
 		}
 	}
 	return c, nil
@@ -224,6 +321,11 @@ func Compare(c Contract, d Dump) Report {
 		for name := range names {
 			r.Total++
 			found := c.Names[section][name]
+			if !found && section == DumpOTLPMetrics {
+				// CloudWatch metric streams arrive as OTLP source identities.
+				// Their documented contract is the promrw five-stat expansion.
+				found = documentedCloudWatchStat(c.Names[DumpPrometheus], name)
+			}
 			if !found {
 				for pattern := range c.Names[section] {
 					if !strings.Contains(pattern, "*") {

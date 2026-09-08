@@ -275,7 +275,7 @@ sink: promrw
 labels:
   client: <client-service>
   server: <server-service>
-  connection_type: ""|database|virtual_node|messaging_system   # synthkit emits ""|database only
+  connection_type: '""|database|virtual_node|messaging_system'   # synthkit emits ""|database only
   client_blueprint: <blueprint>
   server_blueprint: <blueprint>
   client_cluster: <cluster-name>
@@ -322,7 +322,7 @@ sink: promrw
 labels:
   client: <client-service>
   server: <server-service>
-  connection_type: ""|database|virtual_node|messaging_system   # synthkit emits ""|database only
+  connection_type: '""|database|virtual_node|messaging_system'   # synthkit emits ""|database only
   client_blueprint: <blueprint>
   server_blueprint: <blueprint>
   client_cluster: <cluster-name>

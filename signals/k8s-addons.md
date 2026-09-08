@@ -98,7 +98,7 @@ metrics:
   - {root: awslbc_controller_top_talkers, type: gauge, unit: count, v: ok, note: "carries controller/name/namespace labels; controller (short-form) ∈ {ingress,albgateway,nlbgateway,targetgroupbinding} (the reference cluster 2026-06-16); live-confirmed"}
   - {root: awslbc_quic_target_missing_server_id, type: counter, unit: count, v: ok, note: event-gated}
   # AWS SDK series (event-gated — entire family absent under idle)
-  - {root: aws_api_calls_total, type: counter, unit: calls, v: ok, note: "service,operation,status_code labels; error_code ONLY on errored calls (I13, never error_code="")"}
+  - {root: aws_api_calls_total, type: counter, unit: calls, v: ok, note: 'service,operation,status_code labels; error_code ONLY on errored calls (I13, never error_code="")'}
   - {root: aws_api_call_duration_seconds, type: histogram, unit: seconds, v: ok}
   - {root: aws_api_call_retries, type: histogram, unit: count, v: ok}
   - {root: aws_api_requests_total, type: counter, unit: requests, v: ok}
@@ -829,7 +829,33 @@ unit, temporality, monotonicity, datapoint-attribute, and (where applicable) his
 The construct carries the exact resource attributes, scopes, and resource schema URL values onto
 the wire, including the data plane's captured empty schema URL.
 
-### Native OTLP — EnvoyProxy data plane
+The following name inventories are copied from the normative current JSON above. They make
+its complete name surface readable here; per-family attributes and envelopes remain in that
+record and name resolution alone does not validate them.
+
+Control plane:
+
+```text
+Sum (9), Unit 1:
+resource_apply_total, resource_delete_total, status_update_total, topology_injector_webhook_events_total, watchable_event_total, watchable_publish_total, watchable_subscribe_total, xds_snapshot_create_total, xds_snapshot_update_total
+Gauge (2), Unit 1:
+wasm_cache_entries, watchable_depth
+Histogram (5), Unit 1:
+resource_apply_duration_seconds, resource_delete_duration_seconds, status_update_duration_seconds, watchable_subscribe_duration_seconds, xds_stream_duration_seconds
+```
+
+Data plane:
+
+```text
+Sum (113), Unit (empty):
+cluster.client_ssl_socket_factory.ssl_context_update_by_sds, cluster.external.upstream_rq, cluster.external.upstream_rq_completed, cluster.external.upstream_rq_xx, cluster.http2.rx_reset, cluster.http2.tx_reset, cluster.internal.upstream_rq, cluster.internal.upstream_rq_completed, cluster.internal.upstream_rq_xx, cluster.lb_recalculate_zone_structures, cluster.membership_change, cluster.ssl.ciphers, cluster.ssl.curves, cluster.ssl.handshake, cluster.ssl.sigalgs, cluster.ssl.versions, cluster.total_match_count, cluster.update_attempt, cluster.update_failure, cluster.update_no_rebuild, cluster.update_success, cluster.upstream_cx_destroy, cluster.upstream_cx_destroy_remote, cluster.upstream_cx_destroy_remote_with_active_rq, cluster.upstream_cx_destroy_with_active_rq, cluster.upstream_cx_http1_total, cluster.upstream_cx_http2_total, cluster.upstream_cx_rx_bytes_total, cluster.upstream_cx_total, cluster.upstream_cx_tx_bytes_total, cluster.upstream_rq, cluster.upstream_rq_completed, cluster.upstream_rq_pending_failure_eject, cluster.upstream_rq_pending_total, cluster.upstream_rq_total, cluster.upstream_rq_tx_reset, cluster.upstream_rq_xx, cluster_manager.cds.config_reload, cluster_manager.cds.update_attempt, cluster_manager.cds.update_failure, cluster_manager.cds.update_success, cluster_manager.cluster_added, cluster_manager.cluster_updated, cluster_manager.cluster_updated_via_merge, cluster_manager.update_merge_cancelled, cluster_manager.update_out_of_merge_window, dns.cares.not_found, dns.cares.resolve_total, filesystem.flushed_by_timer, filesystem.write_buffered, filesystem.write_completed, http.downstream_cx_destroy, http.downstream_cx_destroy_local, http.downstream_cx_destroy_remote, http.downstream_cx_http1_total, http.downstream_cx_http2_total, http.downstream_cx_rx_bytes_total, http.downstream_cx_ssl_total, http.downstream_cx_total, http.downstream_cx_tx_bytes_total, http.downstream_rq_completed, http.downstream_rq_http1_total, http.downstream_rq_http2_total, http.downstream_rq_total, http.downstream_rq_xx, http.health_check.ok, http.health_check.request_total, http.rds.config_reload, http.rds.update_attempt, http.rds.update_failure, http.rds.update_success, http.rq_reset_after_downstream_response_started, http.rq_total, http.tracing.health_check, http.tracing.random_sampling, listener.admin.downstream_cx_total, listener.admin.http.downstream_rq_completed, listener.admin.http.downstream_rq_xx, listener.admin.main_thread.downstream_cx_total, listener.downstream_cx_destroy, listener.downstream_cx_total, listener.http.downstream_rq_completed, listener.http.downstream_rq_xx, listener.server_ssl_socket_factory.ssl_context_update_by_sds, listener.ssl.ciphers, listener.ssl.curves, listener.ssl.handshake, listener.ssl.no_certificate, listener.ssl.versions, listener.worker_downstream_cx_total, listener_manager.lds.update_attempt, listener_manager.lds.update_failure, listener_manager.lds.update_success, listener_manager.listener_added, listener_manager.listener_create_success, main_thread.watchdog_miss, runtime.load_success, runtime.override_dir_not_exists, sds.update_attempt, sds.update_failure, sds.update_success, server.dynamic_unknown_fields, server.main_thread.watchdog_miss, server.static_unknown_fields, server.wip_protos, server.worker_watchdog_miss, tls_inspector.alpn_found, tls_inspector.alpn_not_found, tls_inspector.sni_found, tls_inspector.tls_found, tracing.opentelemetry.spans_sent, tracing.opentelemetry.timer_flushed, workers.watchdog_miss
+Gauge (75), Unit (empty):
+cluster.circuit_breakers.cx_open, cluster.circuit_breakers.cx_pool_open, cluster.circuit_breakers.rq_open, cluster.circuit_breakers.rq_pending_open, cluster.http2.outbound_control_frames_active, cluster.http2.outbound_frames_active, cluster.http2.pending_send_bytes, cluster.http2.streams_active, cluster.max_host_weight, cluster.membership_degraded, cluster.membership_excluded, cluster.membership_healthy, cluster.membership_total, cluster.ssl.certificate.expiration_unix_time_seconds, cluster.update_time, cluster.upstream_cx_active, cluster.upstream_cx_rx_bytes_buffered, cluster.upstream_rq_active, cluster.upstream_rq_pending_active, cluster.version, cluster.warming_state, cluster_manager.active_clusters, cluster_manager.cds.config_reload_time_ms, cluster_manager.cds.update_time, cluster_manager.cds.version, cluster_manager.warming_clusters, control_plane.connected_state, dns.cares.pending_resolutions, filesystem.write_total_buffered, http.downstream_cx_active, http.downstream_cx_http1_active, http.downstream_cx_http2_active, http.downstream_cx_rx_bytes_buffered, http.downstream_cx_ssl_active, http.downstream_rq_active, http.rds.config_reload_time_ms, http.rds.update_time, http.rds.version, http2.outbound_control_frames_active, http2.outbound_frames_active, http2.pending_send_bytes, http2.streams_active, listener.admin.downstream_cx_active, listener.admin.downstream_pre_cx_active, listener.admin.main_thread.downstream_cx_active, listener.downstream_cx_active, listener.downstream_pre_cx_active, listener.ssl.certificate.expiration_unix_time_seconds, listener.worker_downstream_cx_active, listener_manager.lds.update_time, listener_manager.lds.version, listener_manager.total_listeners_active, listener_manager.total_listeners_warming, listener_manager.workers_started, runtime.num_keys, runtime.num_layers, sds.update_time, sds.version, server.compilation_settings.fips_mode, server.concurrency, server.days_until_first_cert_expiring, server.hot_restart_epoch, server.hot_restart_generation, server.live, server.memory_allocated, server.memory_heap_size, server.memory_physical_size, server.parent_connections, server.state, server.stats_recent_lookups, server.total_connections, server.uptime, server.version, thread_local_cluster_manager.main_thread.clusters_inflated, thread_local_cluster_manager.worker_clusters_inflated
+Histogram (18), Unit (empty):
+cluster.external.upstream_rq_time, cluster.internal.upstream_rq_time, cluster.update_duration, cluster.upstream_cx_connect_ms, cluster.upstream_cx_length_ms, cluster.upstream_rq_per_cx, cluster.upstream_rq_time, cluster_manager.cds.update_duration, http.downstream_cx_length_ms, http.downstream_rq_time, http.rds.update_duration, listener.admin.connections_accepted_per_socket_event, listener.connections_accepted_per_socket_event, listener.downstream_cx_length_ms, listener_manager.lds.update_duration, sds.update_duration, server.initialization_time_ms, tls_inspector.bytes_processed
+```
+
+### Native OTLP — EnvoyProxy data plane (historical 2026-09-04 observation)
 
 `proxy_telemetry.otel_sink: true` models the `telemetry.metrics.sinks[].openTelemetry` sink on the
 `EnvoyProxy` CR. It is an additive sink: `prometheus_disable: false` keeps the existing `envoy_*`
@@ -843,9 +869,9 @@ The live EKS capture on 2026-09-04 (record
 `fc9ca6cd2ec0eba6df29e6e9add36b5019981a3d5453892d132c113721f83f91`) observed 162 names: 78 Sum, 69 Gauge, and 15 Histogram. Every
 observed metric has an empty OTLP Unit and the InstrumentationScope has an empty name and version.
 The resource attribute key set is exactly `telemetry.sdk.name`, `telemetry.sdk.language`, and
-`telemetry.sdk.version`; no identity attributes were recorded. Synthkit declares the switch but
-currently withholds this native data-plane lane until the missing resource values, per-family
-attribute mapping, and histogram bounds are captured.
+`telemetry.sdk.version`; no identity attributes were recorded. At that observation, Synthkit declared the switch but
+withheld this native data-plane lane pending resource values, per-family attribute mapping,
+and histogram bounds. The full current contract above supersedes that limitation.
 
 The complete captured name and instrument inventory is below. The Unit column is `(empty)` for
 all three groups.
@@ -869,7 +895,7 @@ the native Histogram datapoints remain withheld; an empty descriptor is not coun
 parity. The resource key set is proven, but the captured record did not retain the resource
 attribute values; those values remain **PENDING SK-110** as well.
 
-### Native OTLP — EnvoyGateway control plane
+### Native OTLP — EnvoyGateway control plane (historical 2026-09-04 observation)
 
 `gateway_telemetry.otel_sink: true` models the `telemetry.metrics.sinks[].openTelemetry` sink on
 the `EnvoyGateway` controller. It is also additive: `prometheus_disable: false` keeps the control
@@ -880,9 +906,10 @@ families. The control-plane capture carries none of the scrape-only `controller_
 The live EKS capture on 2026-09-04 (record
 `e2e/lab/captures/beyla-envoygateway-otlp-588571dc6a53c4e4.md`, SHA-256
 `588571dc6a53c4e4717de43171399a99646cfed98641fcad0ce8b6f60b69ff35`) observed 12 underscore names,
-identical to the controller's Prometheus spelling: 7 Sum, 1 Gauge, and 4 Histogram. Every observed metric has Unit `1`. Synthkit
-declares the switch but currently withholds this native control-plane lane until its missing
-resource, scope, per-family attribute, and histogram-bound details are captured.
+identical to the controller's Prometheus spelling: 7 Sum, 1 Gauge, and 4 Histogram. Every observed metric has Unit `1`. At that observation, Synthkit
+declared the switch but withheld this native control-plane lane pending resource, scope,
+per-family attribute, and histogram-bound details. The full current contract above supersedes
+that limitation.
 
 ```text
 Sum (7), Unit 1:

@@ -154,7 +154,7 @@ For the full per-area index, see [Signal Areas](signal-areas.md). For construct 
 
 Run `DUMP_BLUEPRINTS=<explicit,comma-separated,selection> just dump > dump.txt`, then
 `just signals-conformance dump.txt`. The JSON report counts resolved and unresolved names and
-names every YAML parse gap. It supports CloudWatch stat expansion, brace alternatives, prose
+names every YAML parse gap. It supports CloudWatch stat expansion and the documented CloudWatch source-identity → pre-mangled five-stat mapping, brace alternatives, prose
 name declarations and separate native OTLP names. This checks names only: it retains dumped
 label keys but does not validate them. A prose mention is weaker evidence than a parsed contract.
 An unresolved name is an investigation input, not a proven renderer defect.

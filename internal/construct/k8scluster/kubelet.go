@@ -7,7 +7,8 @@
 // confirmed present on a live reference cluster capture (the live-reference audit):
 //   - kubernetes_build_info (per-node)
 //   - volume_manager_total_volumes (per-node)
-//   - storage_operation_duration_seconds_count (per-node, cumulative)
+//   - storage_operation_duration_seconds_count (per-node, cumulative) on the default kubelet path
+//   - storage_operation_duration_seconds (per-node classic histogram) on the P3 Collector path
 //   - prober_probe_total + prober_probe_duration_seconds_{bucket,count,sum} (pod-scoped)
 package k8scluster
 
@@ -127,6 +128,7 @@ func emitKubelet(
 	replicas int,
 	tickSec, scale float64,
 	w *core.World,
+	collectorProm bool,
 ) {
 	totalAppPods := len(workloadDeployments(cl)) * replicas
 	perNode := totalAppPods / len(nodes)
@@ -170,6 +172,20 @@ func emitKubelet(
 		st.Add("kubelet_server_expiration_renew_errors", kubBase, 0)
 		// kubelet_certificate_manager_server_ttl_seconds (in allow-list)
 		st.Set("kubelet_certificate_manager_server_ttl_seconds", kubBase, 7*86400)
+
+		if collectorProm {
+			// The P3 capture attributes the Go runtime and API client families to
+			// the kubelet scrape job. Keep both on that node target.
+			// Model a quiet node with dozens of worker/watch goroutines and ten
+			// API reads per 30 seconds (scale is tickSec/30). These small-node
+			// baseline values are illustrative; the capture elides sample values.
+			st.Set("go_goroutines", kubBase, float64(32+ni))
+			st.Add("rest_client_requests_total", merge(kubBase, map[string]string{
+				"code":   "200",
+				"method": "GET",
+				"host":   "kubernetes.default.svc:443",
+			}), scale*10)
+		}
 
 		// kubelet_runtime_operations_total + _errors_total (in allow-list, counters)
 		for _, opType := range runtimeOps {
@@ -254,8 +270,15 @@ func emitKubelet(
 		// volume_manager_total_volumes (per node)
 		emitVolumeManagerTotalVolumes(st, kubBase)
 
-		// storage_operation_duration_seconds_count (per node, cumulative)
-		emitStorageOperationDuration(st, kubBase, node, scale, w)
+		if collectorProm {
+			// P3 retains the kubelet producer as a classic histogram with only its
+			// +Inf bucket at egress.
+			emitStorageOperationDurationHistogram(st, kubBase, node, w)
+		} else {
+			// The default kubelet path preserves the separately observed literal
+			// _count counter; no histogram bounds are inferred for that envelope.
+			emitStorageOperationDurationCount(st, kubBase, node, scale, w)
+		}
 	}
 
 	// prober_* (pod-scoped) — gated by KubeletProbes; off by default.
@@ -303,11 +326,30 @@ func emitVolumeManagerTotalVolumes(st *state.State, kubBase map[string]string) {
 	}
 }
 
-// emitStorageOperationDuration emits storage_operation_duration_seconds_count per node,
-// cumulative counter. The 2026-08-30 k3d collector-egress refresh observed this active family
-// with node, operation_name, status, volume_plugin, and migrated but no _bucket or `le` series,
-// so it remains a literal counter and this function never chooses histogram bounds.
-func emitStorageOperationDuration(st *state.State, kubBase map[string]string, node string, scale float64, w *core.World) {
+// emitStorageOperationDurationHistogram emits the P3 storage_operation_duration_seconds
+// classic histogram per node. The P3 Collector capture observed only its +Inf bucket at
+// egress, so the bounds are intentionally empty. This is separate from the default kubelet
+// path's literal _count observation below.
+func emitStorageOperationDurationHistogram(st *state.State, kubBase map[string]string, node string, w *core.World) {
+	for _, op := range storageOps {
+		lbls := merge(kubBase, map[string]string{
+			"node":           node,
+			"operation_name": op,
+			"status":         "success",
+			"volume_plugin":  "kubernetes.io/csi",
+			"migrated":       "false",
+		})
+		// Model one successful local storage bookkeeping operation per tick,
+		// taking 10-30 ms; this latency is modeled, not retained capture data.
+		st.Observe("storage_operation_duration_seconds", lbls, nil, statelib.LEPromV3, 0.02*(0.5+w.Shape.Float64()))
+	}
+}
+
+// emitStorageOperationDurationCount preserves the default kubelet path's active literal
+// counter. The 2026-08-30 k3d Alloy capture observed storage_operation_duration_seconds_count
+// with no _bucket, _sum, histogram block, or le label reaching egress, so this path does not
+// infer histogram bounds.
+func emitStorageOperationDurationCount(st *state.State, kubBase map[string]string, node string, scale float64, w *core.World) {
 	for _, op := range storageOps {
 		lbls := merge(kubBase, map[string]string{
 			"node":           node,

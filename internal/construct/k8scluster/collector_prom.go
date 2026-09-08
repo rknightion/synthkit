@@ -12,6 +12,7 @@ import (
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
+	"github.com/rknightion/synthkit/internal/state"
 )
 
 // projectCollectorProm applies the observed target-family projection. The process-wide
@@ -19,10 +20,11 @@ import (
 func projectCollectorProm(batch []promrw.Series) []promrw.Series {
 	out := make([]promrw.Series, 0, len(batch))
 	for _, s := range batch {
-		keys, ok := collectorPromLabels[s.Name]
+		family, ok := collectorPromFamily(s.Name)
 		if !ok {
 			continue
 		}
+		keys := collectorPromLabels[family]
 		switch s.Labels["job"] {
 		case jobKSM, jobKubelet, jobCAdvisor, jobNodeExporter:
 		default:
@@ -45,6 +47,83 @@ func projectCollectorProm(batch []promrw.Series) []promrw.Series {
 		out = append(out, s)
 	}
 	return out
+}
+
+// collectorPromFamily resolves the base family for the classic histogram
+// components materialized by state.State. The retained P3 inventory records
+// histogram roots (for example storage_operation_duration_seconds), while the
+// RW2 batch carries the Prometheus _bucket/_sum/_count series names.
+func collectorPromFamily(name string) (string, bool) {
+	if _, ok := collectorPromLabels[name]; ok {
+		return name, true
+	}
+	for _, suffix := range []string{"_bucket", "_count", "_sum"} {
+		if strings.HasSuffix(name, suffix) {
+			family := strings.TrimSuffix(name, suffix)
+			if _, ok := collectorPromLabels[family]; ok {
+				return family, true
+			}
+		}
+	}
+	return "", false
+}
+
+// emitCollectorPromTargetInfo adds the four target_info producers retained by
+// the P3 capture. The capture elides target values, so these are deterministic
+// target identities shaped from the same scrape endpoints as their producers.
+func emitCollectorPromTargetInfo(st *state.State, cluster string, nodes []fixture.Node) {
+	for ni, n := range nodes {
+		node := n.Hostname
+		address := n.PrivateIP
+		if address == "" {
+			address = nodeInternalIP(node)
+		}
+
+		// cAdvisor is scraped from the kubelet endpoint on each node.
+		st.Set("target_info", merge(cadvisorLabels(cluster, node), map[string]string{
+			"k8s_node_name":  node,
+			"server_address": address,
+			"server_port":    "10250",
+			"url_scheme":     "https",
+		}), 1)
+
+		// KSM has one stable service target in the synthetic cluster.
+		if ni == 0 {
+			ksmPod := "kube-state-metrics-" + hex16(cluster)[:10]
+			st.Set("target_info", merge(ksmLabels(cluster), map[string]string{
+				"k8s_container_name":  "kube-state-metrics",
+				"k8s_namespace_name":  "kube-system",
+				"k8s_pod_name":        ksmPod,
+				"k8s_pod_uid":         podUID(cluster, "kube-system", ksmPod),
+				"k8s_replicaset_name": "kube-state-metrics",
+				"server_address":      strings.TrimSuffix(ksmInstance, ":8080"),
+				"server_port":         "8080",
+				"url_scheme":          "http",
+			}), 1)
+		}
+
+		// Kubelet is a node target rather than a pod target.
+		st.Set("target_info", merge(kubeletLabels(cluster, node), map[string]string{
+			"k8s_node_name":  node,
+			"server_address": address,
+			"server_port":    "10250",
+			"url_scheme":     "https",
+		}), 1)
+
+		// node-exporter is a DaemonSet pod target.
+		pod := nodeExporterPodName(ni)
+		st.Set("target_info", merge(nodeExporterLabels(cluster, node, ni), map[string]string{
+			"k8s_container_name": "node-exporter",
+			"k8s_daemonset_name": nodeExporterDS,
+			"k8s_namespace_name": "monitoring",
+			"k8s_node_name":      node,
+			"k8s_pod_name":       pod,
+			"k8s_pod_uid":        podUID(cluster, "monitoring", pod),
+			"server_address":     address,
+			"server_port":        "9100",
+			"url_scheme":         "http",
+		}), 1)
+	}
 }
 
 // emitCollectorPromLogs uses the P3 resource/record split documented in signals/k8s.md.

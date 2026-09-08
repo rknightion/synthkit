@@ -42,6 +42,209 @@ func TestParseYAMLStatsAndFamilyExpansion(t *testing.T) {
 	}
 }
 
+func TestCloudWatchSourceNameResolvesAgainstDocumentedStatSeries(t *testing.T) {
+	contract, err := ParseSignals(map[string]string{
+		"signals/cw.md": "```yaml signals\n" +
+			"family: aws_applicationelb\n" +
+			"scope: blueprint\n" +
+			"sink: promrw\n" +
+			"stats: [_sum, _average, _maximum, _minimum, _sample_count]\n" +
+			"metrics:\n" +
+			"  - {root: request_count, type: gauge, unit: count, v: ok}\n" +
+			"  - {root: client_tlsnegotiation_error_count, type: gauge, unit: count, v: ok}\n" +
+			"  - {root: httpcode_target_2_xx_count, type: gauge, unit: count, v: ok}\n" +
+			"---\n" +
+			"family: aws_ec2\n" +
+			"scope: blueprint\n" +
+			"sink: promrw\n" +
+			"stats: [_sum, _average, _maximum, _minimum, _sample_count]\n" +
+			"metrics:\n" +
+			"  - {root: ebsbyte_balance_percent, type: gauge, unit: percent, v: ok}\n" +
+			"---\n" +
+			"family: aws_firehose\n" +
+			"scope: blueprint\n" +
+			"sink: promrw\n" +
+			"stats: [_sum, _average, _maximum, _minimum, _sample_count]\n" +
+			"metrics:\n" +
+			"  - {root: delivery_to_http_endpoint_bytes, type: gauge, unit: bytes, v: ok}\n" +
+			"```\n",
+	})
+	if err != nil {
+		t.Fatalf("ParseSignals() error = %v", err)
+	}
+	dump, err := ParseDump(strings.NewReader("== otlp metrics: series name → attribute keys ==\n" +
+		"amazonaws.com/AWS/ApplicationELB/RequestCount  {[job]}\n" +
+		"amazonaws.com/AWS/ApplicationELB/ClientTLSNegotiationErrorCount  {[job]}\n" +
+		"amazonaws.com/AWS/ApplicationELB/HTTPCode_Target_2XX_Count  {[job]}\n" +
+		"amazonaws.com/AWS/EC2/EBSByteBalance%  {[job]}\n" +
+		"amazonaws.com/AWS/Firehose/DeliveryToHttpEndpoint.Bytes  {[job]}\n"))
+	if err != nil {
+		t.Fatalf("ParseDump() error = %v", err)
+	}
+	report := Compare(contract, dump)
+	if got, want := report.Resolved, 5; got != want {
+		t.Errorf("Resolved = %d, want %d", got, want)
+	}
+	if got := len(report.UnresolvedNames); got != 0 {
+		t.Errorf("UnresolvedNames = %v, want none", report.UnresolvedNames)
+	}
+}
+
+func TestCloudWatchSourceNameDoesNotResolveAnUndocumentedMetric(t *testing.T) {
+	contract, err := ParseSignals(map[string]string{
+		"signals/cw.md": "```yaml signals\n" +
+			"family: aws_applicationelb\n" +
+			"scope: blueprint\n" +
+			"sink: promrw\n" +
+			"stats: [_sum]\n" +
+			"metrics:\n" +
+			"  - {root: request_count, type: gauge, unit: count, v: ok}\n" +
+			"```\n",
+	})
+	if err != nil {
+		t.Fatalf("ParseSignals() error = %v", err)
+	}
+	dump, err := ParseDump(strings.NewReader("== otlp metrics: series name → attribute keys ==\n" +
+		"amazonaws.com/AWS/ApplicationELB/UndocumentedMetric  {[job]}\n"))
+	if err != nil {
+		t.Fatalf("ParseDump() error = %v", err)
+	}
+	if got, want := Compare(contract, dump).Resolved, 0; got != want {
+		t.Errorf("Resolved = %d, want %d", got, want)
+	}
+}
+
+func TestParseYAMLSignalBlockWithMultipleDocuments(t *testing.T) {
+	contract, err := ParseSignals(map[string]string{
+		"signals/cw.md": "```yaml signals\n" +
+			"family: aws_privatelinkendpoints\n" +
+			"scope: blueprint\n" +
+			"sink: promrw\n" +
+			"stats: [_sum]\n" +
+			"metrics:\n" +
+			"  - {root: active_connections, type: gauge, unit: count, v: ok}\n" +
+			"---\n" +
+			"family: aws_privatelinkservices\n" +
+			"scope: blueprint\n" +
+			"sink: promrw\n" +
+			"stats: [_sum]\n" +
+			"metrics:\n" +
+			"  - {root: active_connections, type: gauge, unit: count, v: ok}\n" +
+			"```\n",
+	})
+	if err != nil {
+		t.Fatalf("ParseSignals() error = %v", err)
+	}
+	dump, err := ParseDump(strings.NewReader("== otlp metrics: series name → attribute keys ==\n" +
+		"amazonaws.com/AWS/PrivateLinkServices/ActiveConnections  {[job]}\n"))
+	if err != nil {
+		t.Fatalf("ParseDump() error = %v", err)
+	}
+	if got, want := Compare(contract, dump).Resolved, 1; got != want {
+		t.Errorf("Resolved = %d, want %d", got, want)
+	}
+}
+
+func TestParseTextInventoryAndDelimitedProseNames(t *testing.T) {
+	contract, err := ParseSignals(map[string]string{
+		"signals/example.md": "```text\n" +
+			"Sum (1):\n" +
+			"envoy.cluster.upstream_rq\n" +
+			"```\n" +
+			"### Native OTLP inventory\n" +
+			"```text\n" +
+			"envoy_control_plane_connected_state\n" +
+			"```\n" +
+			"Documented Prometheus names: `rds_metric_one, rds_metric_two`.\n",
+	})
+	if err != nil {
+		t.Fatalf("ParseSignals() error = %v", err)
+	}
+	if !contract.Names[DumpPrometheus]["rds_metric_two"] {
+		t.Fatalf("contract did not retain rds_metric_two: %v", contract.Names[DumpPrometheus])
+	}
+	dump, err := ParseDump(strings.NewReader("== metrics: series name → label keys ==\n" +
+		"rds_metric_one  {[job]}\n" +
+		"rds_metric_two  {[job]}\n" +
+		"== otlp metrics: series name → attribute keys ==\n" +
+		"envoy.cluster.upstream_rq  {[job]}\n" +
+		"envoy_control_plane_connected_state  {[job]}\n"))
+	if err != nil {
+		t.Fatalf("ParseDump() error = %v", err)
+	}
+	report := Compare(contract, dump)
+	if got, want := report.Resolved, 4; got != want {
+		t.Errorf("Resolved = %d, want %d; unresolved = %v", got, want, report.UnresolvedNames)
+	}
+}
+
+func TestTextInventoryDoesNotCrossPrometheusAndOTLPSections(t *testing.T) {
+	contract, err := ParseSignals(map[string]string{
+		"signals/example.md": "### Prometheus inventory\n```text\nonly_prometheus_metric\n```\n",
+	})
+	if err != nil {
+		t.Fatalf("ParseSignals() error = %v", err)
+	}
+	dump, err := ParseDump(strings.NewReader("== otlp metrics: series name → attribute keys ==\n" +
+		"only_prometheus_metric  {[job]}\n"))
+	if err != nil {
+		t.Fatalf("ParseDump() error = %v", err)
+	}
+	if got, want := Compare(contract, dump).Resolved, 0; got != want {
+		t.Errorf("Resolved = %d, want %d", got, want)
+	}
+}
+
+func TestTextInventoryUsesTheNearestHeadingIncludingAtDocumentStart(t *testing.T) {
+	contract, err := ParseSignals(map[string]string{
+		"signals/example.md": "### Native OTLP inventory\n" +
+			"```text\n" +
+			"initial_native_metric\n" +
+			"```\n" +
+			"#### Prometheus inventory\n" +
+			"```text\n" +
+			"later_prometheus_metric\n" +
+			"```\n",
+	})
+	if err != nil {
+		t.Fatalf("ParseSignals() error = %v", err)
+	}
+	dump, err := ParseDump(strings.NewReader("== metrics: series name → label keys ==\n" +
+		"later_prometheus_metric  {[job]}\n" +
+		"== otlp metrics: series name → attribute keys ==\n" +
+		"initial_native_metric  {[job]}\n"))
+	if err != nil {
+		t.Fatalf("ParseDump() error = %v", err)
+	}
+	if got, want := Compare(contract, dump).Resolved, 2; got != want {
+		t.Errorf("Resolved = %d, want %d", got, want)
+	}
+}
+
+func TestCloudWatchSourceNameRejectsUnsupportedCharacters(t *testing.T) {
+	contract, err := ParseSignals(map[string]string{
+		"signals/cw.md": "```yaml signals\n" +
+			"family: aws_applicationelb\n" +
+			"scope: blueprint\n" +
+			"sink: promrw\n" +
+			"stats: [_sum]\n" +
+			"metrics:\n" +
+			"  - {root: request_count, type: gauge, unit: count, v: ok}\n" +
+			"```\n",
+	})
+	if err != nil {
+		t.Fatalf("ParseSignals() error = %v", err)
+	}
+	dump, err := ParseDump(strings.NewReader("== otlp metrics: series name → attribute keys ==\n" +
+		"amazonaws.com/AWS/ApplicationELB/RequestCount!  {[job]}\n"))
+	if err != nil {
+		t.Fatalf("ParseDump() error = %v", err)
+	}
+	if got, want := Compare(contract, dump).Resolved, 0; got != want {
+		t.Errorf("Resolved = %d, want %d", got, want)
+	}
+}
+
 func TestParseProseAlternativesAndDynamicNames(t *testing.T) {
 	contract, err := ParseSignals(map[string]string{
 		"signals/host.md": "## Native receiver\n" +

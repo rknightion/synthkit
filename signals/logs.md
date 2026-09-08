@@ -318,7 +318,8 @@ sink: otlp
 span_kind: SPAN_KIND_CLIENT
 parent_span_id: ""        # trace root
 span_name: "<http.method>"   # e.g. "POST" — method only; full name in original_span_name
-scope: "@opentelemetry/instrumentation-fetch"   # instrumentation scope (faro-web-sdk)
+instrumentation_scope:
+  scope: "@opentelemetry/instrumentation-fetch"   # instrumentation scope (faro-web-sdk)
 resource_attrs:           # the browser-RUM resource (distinct from backend services)
   - telemetry.distro.name        # = faro-web-sdk
   - telemetry.distro.version     # = 2.7.0

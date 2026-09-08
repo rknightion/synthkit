@@ -223,7 +223,7 @@ sink: otlp
 labels:
   http_request_method: GET|POST|…
   http_route: /api/v1/…
-  http_response_status_code: "200"|"500"
+  http_response_status_code: '"200"|"500"'
   service_name: <workload-name>
   service_namespace: <k8s-namespace>
   service_version: "1.0.0"

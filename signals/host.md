@@ -259,6 +259,49 @@ metrics:
 
 ---
 
+## P3 node-exporter CPU families [slug: host-node-p3-cpu]
+
+These seven families are emitted only by the selected OTel Collector Prometheus-exporter
+Kubernetes permutation in `signals/k8s.md` [slug: k8s-otel-collector-prom]. They do not extend
+the standalone host `integration` or `full` profiles. The committed
+`reality-corpus/k8s/k3d-lab-otel-collector-prom.json` captures their names, producer
+`promrw/integrations/node_exporter`, and label keys; RW1 types are unknown and values elided.
+
+Instrument semantics are sourced independently from node-exporter v1.12.1
+[`cpufreq_common.go`](https://github.com/prometheus/node_exporter/blob/v1.12.1/collector/cpufreq_common.go),
+[`cpufreq_linux.go`](https://github.com/prometheus/node_exporter/blob/v1.12.1/collector/cpufreq_linux.go),
+and [`cpu_linux.go`](https://github.com/prometheus/node_exporter/blob/v1.12.1/collector/cpu_linux.go).
+Frequency values are sysfs kHz multiplied by 1000. Governor gauges are 1 for the selected governor
+and 0 for other available governors. Isolation is sparse: only isolated CPU IDs emit, at value 1.
+This source version establishes semantics, not the exporter version of the earlier capture.
+
+The model uses a server CPU range of 0.8-3.5 GHz with a 2.4 GHz operating point, one available
+`performance` governor, and one reserved final CPU for a latency-sensitive system workload.
+Those hardware choices are explicitly modeled; they are not recovered capture values.
+
+```yaml signals
+family: node_exporter_p3_cpu
+scope: substrate
+sink: promrw
+labels:
+  job: integrations/node_exporter
+  cluster: <cluster>
+  k8s_cluster_name: <cluster>
+  instance: <node-target>
+  namespace: <exporter-namespace>
+  cpu: <index>
+  otel_scope_name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver
+  otel_scope_version: "0.158.0"
+metrics:
+  - {root: node_cpu_frequency_max_hertz, type: gauge, unit: hertz, v: ok, note: "P3 only; sysfs CPU maximum frequency"}
+  - {root: node_cpu_frequency_min_hertz, type: gauge, unit: hertz, v: ok, note: "P3 only; sysfs CPU minimum frequency"}
+  - {root: node_cpu_scaling_frequency_hertz, type: gauge, unit: hertz, v: ok, note: "P3 only; sysfs current scaling frequency"}
+  - {root: node_cpu_scaling_frequency_max_hertz, type: gauge, unit: hertz, v: ok, note: "P3 only; sysfs scaling maximum"}
+  - {root: node_cpu_scaling_frequency_min_hertz, type: gauge, unit: hertz, v: ok, note: "P3 only; sysfs scaling minimum"}
+  - {root: node_cpu_isolated, type: gauge, unit: bool, v: ok, note: "P3 only; sparse CPU IDs read from sysfs isolated; value=1"}
+  - {root: node_cpu_scaling_governor, type: gauge, unit: bool, v: ok, note: "P3 only; additional governor label; selected=1, other available=0"}
+```
+
 ## macOS node_exporter [slug: host-node-macos]
 
 `job=integrations/macos-node`. The macOS exporter build exposes a macOS-specific memory model

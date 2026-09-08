@@ -569,20 +569,20 @@ resource_attributes:
   telemetry.distro.name: opentelemetry-ebpf-instrumentation   # v: ok (attrs.go:121-124)
 span_attributes:
   # HTTP server (SERVER span kind):
-  http.request.method: GET|POST|PUT|DELETE|…
-  http.response.status_code: <code>
-  http.route: <route>
-  server.address: <host>
-  server.port: <port>
-  url.path: <path>
+  - http.request.method: GET|POST|PUT|DELETE|…
+  - http.response.status_code: <code>
+  - http.route: <route>
+  - server.address: <host>
+  - server.port: <port>
+  - url.path: <path>
   # HTTP client (CLIENT span kind):
-  http.request.method: <method>
-  server.address: <target-host>
-  server.port: <target-port>
+  - http.request.method: <method>
+  - server.address: <target-host>
+  - server.port: <target-port>
   # DB client:
-  db.operation.name: <op>
-  db.system.name: <system>
-  server.address: <db-host>
+  - db.operation.name: <op>
+  - db.system.name: <system>
+  - server.address: <db-host>
   # gen_ai client: see signals/genai.md [slug: genai-spans]
   # span.metrics.skip: true  # stamped by Beyla to prevent double-count (tracesgen.go:336,1265)
 correlation_fields:

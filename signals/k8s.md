@@ -717,7 +717,8 @@ All carry `node`. Histograms emit `_bucket{le}` + `_sum` + `_count`.
   `node_memory_working_set_bytes` (gauge) — node-level only.
 - ⚠ `rest_client_requests_total` (`code, method, host`) appears on the REAL kubelet job (card 23) but in
   synth is emitted by the **cluster-autoscaler add-on** (§2.3), not the k8scluster construct.
-  `go_goroutines` / `process_*` self-metrics on the real kubelet job are NOT emitted by synth here.
+  `go_goroutines` / `process_*` self-metrics on the real kubelet job are NOT emitted by the default
+  permutation here. The explicitly selected P3 envelope below includes captured `go_goroutines`.
 
 > **Recording rules / scrape meta (NOT construct output).** Under these jobs the live stack also returns
 > `up`, `scrape_samples_scraped`, the `node_namespace_pod_container:*` and `cluster:namespace:pod_*` recording
@@ -913,39 +914,40 @@ family: k8s_events
 scope: substrate
 sink: loki
 
-# --- Cluster events stream ---
-stream_labels:
-  cluster: <cluster-name>
-  k8s_cluster_name: <cluster-name>
-  job: integrations/kubernetes/eventhandler
-  service_name: integrations/kubernetes/eventhandler
-  source: kubernetes-events
-  namespace: <namespace>      # omitted for cluster-scoped objects
-  reason: Scheduled|Pulling|Pulled|Created|Started|Killing|BackOff|FailedScheduling|ScalingReplicaSet
-  level: Info|Warning         # Warning is sparse (first pod only, idle baseline)
-structured_metadata:
-  name: <object-name>         # pod name (kubelet events) or deployment (controller events)
-  node: <node-hostname>       # kubelet events only; omitted for non-kubelet events
-body_fields:
-  - logfmt: "kind objectAPIversion objectRV eventRV reportingcontroller reportinginstance sourcecomponent sourcehost reason type count msg"
-enums:
-  reason_Info: [Scheduled, Pulling, Pulled, Created, Started, Killing, ScalingReplicaSet]
-  reason_Warning: [BackOff, FailedScheduling]
+streams:
+  # --- Cluster events stream ---
+  - stream_labels:
+      cluster: <cluster-name>
+      k8s_cluster_name: <cluster-name>
+      job: integrations/kubernetes/eventhandler
+      service_name: integrations/kubernetes/eventhandler
+      source: kubernetes-events
+      namespace: <namespace>      # omitted for cluster-scoped objects
+      reason: Scheduled|Pulling|Pulled|Created|Started|Killing|BackOff|FailedScheduling|ScalingReplicaSet
+      level: Info|Warning         # Warning is sparse (first pod only, idle baseline)
+    structured_metadata:
+      name: <object-name>         # pod name (kubelet events) or deployment (controller events)
+      node: <node-hostname>       # kubelet events only; omitted for non-kubelet events
+    body_fields:
+      - logfmt: "kind objectAPIversion objectRV eventRV reportingcontroller reportinginstance sourcecomponent sourcehost reason type count msg"
+    enums:
+      reason_Info: [Scheduled, Pulling, Pulled, Created, Started, Killing, ScalingReplicaSet]
+      reason_Warning: [BackOff, FailedScheduling]
 
-# --- Manifests stream ---
-stream_labels:
-  cluster: <cluster-name>
-  k8s_cluster_name: <cluster-name>
-  job: integrations/kubernetes/manifests
-  service_name: integrations/kubernetes/manifests
-  action: manifest|created|deleted|modified   # ⚠ NOT "sync"
-  k8s_kind: Pod|Deployment|StatefulSet|DaemonSet
-  k8s_namespace_name: <namespace>
-structured_metadata:
-  k8s_deployment_name: <deploy-name>   # Deployment manifests
-  k8s_pod_name: <pod-name>             # Pod manifests
-body_fields:
-  - JSON: '{"apiVersion":"...","kind":"...","metadata":{"name":"...","namespace":"..."}}'
+  # --- Manifests stream ---
+  - stream_labels:
+      cluster: <cluster-name>
+      k8s_cluster_name: <cluster-name>
+      job: integrations/kubernetes/manifests
+      service_name: integrations/kubernetes/manifests
+      action: manifest|created|deleted|modified   # ⚠ NOT "sync"
+      k8s_kind: Pod|Deployment|StatefulSet|DaemonSet
+      k8s_namespace_name: <namespace>
+    structured_metadata:
+      k8s_deployment_name: <deploy-name>   # Deployment manifests
+      k8s_pod_name: <pod-name>             # Pod manifests
+    body_fields:
+      - JSON: '{"apiVersion":"...","kind":"...","metadata":{"name":"...","namespace":"..."}}'
 ```
 
 ---
@@ -1432,7 +1434,7 @@ relevant_fields:
 
 ---
 
-## OTel Collector with Prometheus exporters permutation — OBSERVED, NOT EMITTED [slug: k8s-otel-collector-prom]
+## OTel Collector with Prometheus exporters permutation — EMITTED [slug: k8s-otel-collector-prom]
 
 This is the documented Grafana Cloud Kubernetes Monitoring alternative
 `configuration/config-other-methods/otel-collector`: a metrics **Deployment** scrapes cAdvisor,
@@ -1481,8 +1483,53 @@ Select `cluster.otel_collector_prom: true` for the captured target-family and la
 and the OTLP pod-log/event attribute envelope. This is exclusive with explicit Alloy emission,
 Prometheus Operator projection, default allow lists and native metrics. Pod logs still respect
 the `pod_logs` feature switch. Metrics use synthkit's existing RW2 sink; the captured RW1 wire
-encoding is not reproduced. The projection emits the intersection with existing renderers, so
-captured families absent from the renderer remain coverage gaps.
+encoding is not reproduced and is a deliberate non-goal: RW2 supports both classic and native
+histograms without changing the telemetry shape. The reference blueprint
+`blueprints/k8s-collector-prom.yaml` emits all 142 captured target families and both OTLP log
+sources, with no foreign metric family. Five classic-histogram roots expand to their `_bucket`,
+`_sum` and `_count` components, so the raw dump contains 152 names. Family completeness does not
+establish observed sample values or instrument types: the captured RW1 types remain unknown and
+values remain elided. No corpus value or type was rewritten to obtain this result.
+
+### P3 family completion and source semantics
+
+The seventeen additions are the two KSM rows below, seven CPU rows in
+`signals/host.md` [slug: host-node-p3-cpu], `go_goroutines`, `rest_client_requests_total`,
+`target_info`, and five classic histograms. Four histograms reuse the documented kubelet
+definitions above: `kubelet_cgroup_manager_duration_seconds`,
+`kubelet_pleg_relist_duration_seconds`, `kubelet_pod_start_duration_seconds`, and
+`kubelet_pod_worker_duration_seconds`. P3's `storage_operation_duration_seconds` has only the
+captured `+Inf` bucket, plus sum and count; the default Alloy permutation retains its separately
+observed literal `_count` surface. These differences are selected by the collector configuration.
+
+Names, producer identity, label keys and `le` sets come from the committed P3 metric corpus.
+KSM semantics are independently sourced from
+[`internal/store/node.go` at 240b184ff27610a4f5743f49351427e7e89aec2c](https://github.com/kubernetes/kube-state-metrics/blob/240b184ff27610a4f5743f49351427e7e89aec2c/internal/store/node.go):
+`kube_node_role` is a Gauge with value 1 for each node-role label; `kube_node_spec_pod_cidrs`
+is a Gauge with value 1 for each `Node.Spec.PodCIDRs` item. This current source establishes
+semantics, not the exporter version in the older capture. The synthetic fixture models worker
+nodes with one IPv4 /24 pod subnet each; captured role/CIDR values are not available.
+
+The collector's `target_info` family is emitted under the four captured jobs. `job` is consumed
+as producer identity by the corpus projection, so its absence from the corpus's ordinary label
+list does not mean the wire label is absent. Target resource keys are the captured family-level
+union; the corpus does not retain an exact per-job key map. The model assigns node keys to node
+targets and pod ownership keys to KSM/node-exporter targets. No scope labels are added to
+`target_info`, matching its captured key set. Sample values and target identity values are modeled.
+
+```yaml signals
+family: k8s_collector_prom_completion
+scope: substrate
+sink: promrw
+note: "P3 only; names/keys/bounds from reality-corpus/k8s/k3d-lab-otel-collector-prom.json; types sourced separately, numeric values modeled"
+metrics:
+  - {root: kube_node_role, type: gauge, unit: info, v: ok, note: "KSM job; node,role; value=1 per role; source node.go at 240b184ff27610a4f5743f49351427e7e89aec2c"}
+  - {root: kube_node_spec_pod_cidrs, type: gauge, unit: info, v: ok, note: "KSM job; node,pod_cidr; value=1 per CIDR; same pinned node.go source"}
+  - {root: go_goroutines, type: gauge, unit: count, v: ok, note: "P3 kubelet job; Go runtime gauge semantics already documented in host.md; captured values elided"}
+  - {root: rest_client_requests_total, type: counter, unit: requests, v: ok, note: "P3 kubelet job; code,host,method; existing client counter semantics; modeled quiet-node API read cadence"}
+  - {root: storage_operation_duration_seconds, type: histogram, unit: seconds, v: ok, buckets: [], note: "P3 kubelet job; +Inf-only captured le layout, sum/count; operation_name,status,volume_plugin,migrated; node key omitted by captured projection; default permutation remains literal count-only"}
+  - {root: target_info, type: gauge, unit: info, v: ok, note: "Four captured producer jobs; value=1; target resource keys vary by modeled scrape target; no otel_scope_name or otel_scope_version"}
+```
 
 ## OTel Collector native-receivers permutation — OBSERVED, NOT EMITTED [slug: k8s-otel-native-permutation]
 

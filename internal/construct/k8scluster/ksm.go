@@ -187,6 +187,22 @@ func emitKSMNodeObjects(st *state.State, cluster string, cl *fixture.Cluster, no
 	}
 }
 
+// emitCollectorPromKSMNodeFamilies adds the two KSM node families that are
+// present in the P3 target projection. fixture.Node deliberately has no
+// role/CIDR fields, so these values are narrow deterministic model values;
+// cluster and node identity remain sourced from the resolved fixture.
+// Model worker nodes with one IPv4 /24 pod subnet each, the common single-stack
+// CNI allocation shape; neither the role nor CIDR value survives in the capture.
+func emitCollectorPromKSMNodeFamilies(st *state.State, cluster string, nodes []fixture.Node) {
+	for i, n := range nodes {
+		base := merge(ksmLabels(cluster), map[string]string{"node": n.Hostname})
+		st.Set("kube_node_role", merge(base, map[string]string{"role": "worker"}), 1)
+		st.Set("kube_node_spec_pod_cidrs", merge(base, map[string]string{
+			"pod_cidr": fmt.Sprintf("10.244.%d.0/24", (i%254)+1),
+		}), 1)
+	}
+}
+
 // emitKSMNodeConditions emits kube_node_status_condition for every node. When notReadyIdx >= 0 that
 // node's Ready condition is flipped (true→0, false→1) to model the node_not_ready failure mode —
 // bending VALUES on the existing series, never the schema. PIDPressure is always emitted; on

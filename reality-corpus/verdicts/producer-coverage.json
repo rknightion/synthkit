@@ -5,352 +5,352 @@
     {
       "signal": "azure_microsoft_dbforpostgresql_flexibleservers_cpu_percent_average_percent",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_dbforpostgresql_flexibleservers_cpu_percent_average_percent preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers."
     },
     {
       "signal": "azure_microsoft_dbforpostgresql_flexibleservers_memory_percent_average_percent",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_dbforpostgresql_flexibleservers_memory_percent_average_percent preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers."
     },
     {
       "signal": "azure_microsoft_dbforpostgresql_flexibleservers_storage_percent_average_percent",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_dbforpostgresql_flexibleservers_storage_percent_average_percent preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_applicationgatewaytotaltime_average_milliseconds",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_applicationgatewaytotaltime_average_milliseconds preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_currentconnections_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_currentconnections_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_failedrequests_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_failedrequests_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_responsestatus_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_responsestatus_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_throughput_average_bytespersecond",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_throughput_average_bytespersecond preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
     },
     {
       "signal": "azure_microsoft_network_applicationgateways_totalrequests_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_applicationgateways_totalrequests_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_allocatedsnatports_average_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_allocatedsnatports_average_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_bytecount_total_bytes",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_bytecount_total_bytes preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_packetcount_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_packetcount_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_snatconnectioncount_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_snatconnectioncount_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_syncount_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_syncount_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
     },
     {
       "signal": "azure_microsoft_network_loadbalancers_usedsnatports_average_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_network_loadbalancers_usedsnatports_average_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_activeconnections_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_activeconnections_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_activemessages_average_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_activemessages_average_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_incomingmessages_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job; matching family captures record the different azure-monitor-alloy/integrations/azure producer. Require an independent capture of azure_microsoft_servicebus_namespaces_incomingmessages_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_incomingrequests_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_incomingrequests_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_messages_average_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_messages_average_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_outgoingmessages_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job; matching family captures record the different azure-monitor-alloy/integrations/azure producer. Require an independent capture of azure_microsoft_servicebus_namespaces_outgoingmessages_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_servererrors_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job; matching family captures record the different azure-monitor-alloy/integrations/azure producer. Require an independent capture of azure_microsoft_servicebus_namespaces_servererrors_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_size_average_bytes",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_size_average_bytes preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_successfulrequests_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job, but existing capture route/job pairing is ambiguous; generic Azure route identity does not establish a different real pipeline. Require an independent capture of azure_microsoft_servicebus_namespaces_successfulrequests_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_usererrors_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The serverless emitter deliberately declares this cloud/azure job; matching family captures record the different azure-monitor-alloy/integrations/azure producer. Require an independent capture of azure_microsoft_servicebus_namespaces_usererrors_total_count preserving paired rksy_ingest and job evidence for producer azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces."
     },
     {
       "signal": "container_cpu_usage_seconds_total",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_cpu_usage_seconds_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_fs_reads_total",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_fs_reads_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_fs_writes_total",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_fs_writes_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_last_seen",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_last_seen from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_memory_usage_bytes",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_memory_usage_bytes from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_network_receive_bytes_total",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_receive_bytes_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_network_receive_errors_total",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_receive_errors_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_network_receive_packets_dropped_total",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_receive_packets_dropped_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_network_transmit_bytes_total",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_transmit_bytes_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_network_transmit_errors_total",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_transmit_errors_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_network_transmit_packets_dropped_total",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_transmit_packets_dropped_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "container_spec_memory_reservation_limit_bytes",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_spec_memory_reservation_limit_bytes from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "go_gc_duration_seconds",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_gc_duration_seconds from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "go_goroutines",
       "producer": "promrw/integrations/alloy",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "Fleet Management intentionally models this Alloy collector self-metric job; current family evidence belongs to other scrape targets. Require an independent capture of go_goroutines from producer promrw/integrations/alloy, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "go_goroutines",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_goroutines from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "go_memstats_alloc_bytes",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_memstats_alloc_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "go_memstats_heap_alloc_bytes",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_memstats_heap_alloc_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "go_memstats_heap_inuse_bytes",
       "producer": "promrw/integrations/alloy",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "Fleet Management intentionally models this Alloy collector self-metric job; current family evidence belongs to other scrape targets. Require an independent capture of go_memstats_heap_inuse_bytes from producer promrw/integrations/alloy, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "go_memstats_heap_inuse_bytes",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_memstats_heap_inuse_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "go_threads",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_threads from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "grafana_kubernetes_monitoring_build_info",
       "producer": "promrw/integrations/kubernetes/kubernetes_monitoring_telemetry",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared Kubernetes monitoring telemetry job differs from the captured static scrape job. Require an independent capture of grafana_kubernetes_monitoring_build_info from producer promrw/integrations/kubernetes/kubernetes_monitoring_telemetry, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_request_duration_seconds",
       "producer": "promrw",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The documented Portkey scrape deliberately has transport-only identity; current family captures record promrw/integrations/kubernetes/kube-state-metrics. Require an independent capture of http_request_duration_seconds from producer promrw, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_request_duration_seconds",
       "producer": "promrw/langsmith-backend",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of http_request_duration_seconds from producer promrw/langsmith-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_request_duration_seconds",
       "producer": "promrw/langsmith-host-backend",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of http_request_duration_seconds from producer promrw/langsmith-host-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_request_duration_seconds",
       "producer": "promrw/langsmith-platform-backend",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of http_request_duration_seconds from producer promrw/langsmith-platform-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_request_duration_seconds",
       "producer": "promrw/langsmith-playground",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of http_request_duration_seconds from producer promrw/langsmith-playground, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_active_requests",
       "producer": "promrw/acme-backend/acme-backend",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_active_requests from producer promrw/acme-backend/acme-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_active_requests",
       "producer": "promrw/common-services/acme-backend-api-auth",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_active_requests from producer promrw/common-services/acme-backend-api-auth, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_active_requests",
       "producer": "promrw/common-services/acme-backend-api-content-gen",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_active_requests from producer promrw/common-services/acme-backend-api-content-gen, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_active_requests",
       "producer": "promrw/datagen/acme-datagen-analysis",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_active_requests from producer promrw/datagen/acme-datagen-analysis, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_active_requests",
       "producer": "promrw/datagen/acme-datagen-extraction-api",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_active_requests from producer promrw/datagen/acme-datagen-extraction-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_active_requests",
       "producer": "promrw/knowledge-layer-api/knowledge-layer-api",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_active_requests from producer promrw/knowledge-layer-api/knowledge-layer-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_active_requests",
       "producer": "promrw/live-assistance/acme-live-assistant",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_active_requests from producer promrw/live-assistance/acme-live-assistant, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_active_requests",
       "producer": "promrw/ui/collab-editor-cs",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_active_requests from producer promrw/ui/collab-editor-cs, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_request_duration_seconds",
       "producer": "promrw/acme-backend/acme-backend",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_request_duration_seconds from producer promrw/acme-backend/acme-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_request_duration_seconds",
       "producer": "promrw/common-services/acme-backend-api-auth",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_request_duration_seconds from producer promrw/common-services/acme-backend-api-auth, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_request_duration_seconds",
       "producer": "promrw/common-services/acme-backend-api-content-gen",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_request_duration_seconds from producer promrw/common-services/acme-backend-api-content-gen, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_request_duration_seconds",
       "producer": "promrw/datagen/acme-datagen-analysis",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_request_duration_seconds from producer promrw/datagen/acme-datagen-analysis, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_request_duration_seconds",
       "producer": "promrw/datagen/acme-datagen-extraction-api",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_request_duration_seconds from producer promrw/datagen/acme-datagen-extraction-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_request_duration_seconds",
       "producer": "promrw/knowledge-layer-api/knowledge-layer-api",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_request_duration_seconds from producer promrw/knowledge-layer-api/knowledge-layer-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_request_duration_seconds",
       "producer": "promrw/live-assistance/acme-live-assistant",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_request_duration_seconds from producer promrw/live-assistance/acme-live-assistant, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "http_server_request_duration_seconds",
       "producer": "promrw/ui/collab-editor-cs",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of http_server_request_duration_seconds from producer promrw/ui/collab-editor-cs, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "leader_election_master_status",
       "producer": "promrw/gateway-helm",
-      "reason": "Reviewed cumulative evidence adds coverage under an independently observed producer. This synthetic job remains unmatched; shared names do not establish equivalence."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of leader_election_master_status from producer promrw/gateway-helm, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "machine_memory_bytes",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of machine_memory_bytes from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "machine_scrape_error",
       "producer": "promrw/integrations/docker",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of machine_scrape_error from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "node_boot_time_seconds",
@@ -460,7 +460,7 @@
     {
       "signal": "node_os_info",
       "producer": "promrw/integrations/macos-node",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of node_os_info from producer promrw/integrations/macos-node, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "node_textfile_scrape_error",
@@ -485,537 +485,537 @@
     {
       "signal": "pg_stat_activity_count",
       "producer": "promrw/langsmith-postgres",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of pg_stat_activity_count from producer promrw/langsmith-postgres, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "pg_stat_database_blks_hit",
       "producer": "promrw/langsmith-postgres",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of pg_stat_database_blks_hit from producer promrw/langsmith-postgres, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "pg_stat_database_numbackends",
       "producer": "dbo11y/integrations/db-o11y",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared Database Observability PostgreSQL route and job differ from the captured standalone PostgreSQL integration. Require an independent capture of pg_stat_database_numbackends from producer dbo11y/integrations/db-o11y, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "pg_stat_database_numbackends",
       "producer": "promrw/langsmith-postgres",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of pg_stat_database_numbackends from producer promrw/langsmith-postgres, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "pg_stat_database_xact_commit",
       "producer": "promrw/langsmith-postgres",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of pg_stat_database_xact_commit from producer promrw/langsmith-postgres, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "pg_stat_database_xact_rollback",
       "producer": "promrw/langsmith-postgres",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of pg_stat_database_xact_rollback from producer promrw/langsmith-postgres, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "pg_up",
       "producer": "dbo11y/integrations/db-o11y",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared Database Observability PostgreSQL route and job differ from the captured standalone PostgreSQL integration. Require an independent capture of pg_up from producer dbo11y/integrations/db-o11y, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "pg_up",
       "producer": "promrw/langsmith-postgres",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of pg_up from producer promrw/langsmith-postgres, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/acme-backend/acme-backend",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_cpu_seconds_total from producer promrw/acme-backend/acme-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/common-services/acme-backend-api-auth",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_cpu_seconds_total from producer promrw/common-services/acme-backend-api-auth, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/common-services/acme-backend-api-content-gen",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_cpu_seconds_total from producer promrw/common-services/acme-backend-api-content-gen, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/datagen/acme-datagen-analysis",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_cpu_seconds_total from producer promrw/datagen/acme-datagen-analysis, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/datagen/acme-datagen-extraction-api",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_cpu_seconds_total from producer promrw/datagen/acme-datagen-extraction-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_cpu_seconds_total from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/knowledge-layer-api/knowledge-layer-api",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_cpu_seconds_total from producer promrw/knowledge-layer-api/knowledge-layer-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/langsmith-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_cpu_seconds_total from producer promrw/langsmith-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/langsmith-host-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_cpu_seconds_total from producer promrw/langsmith-host-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/langsmith-platform-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_cpu_seconds_total from producer promrw/langsmith-platform-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/langsmith-playground",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_cpu_seconds_total from producer promrw/langsmith-playground, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/live-assistance/acme-live-assistant",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_cpu_seconds_total from producer promrw/live-assistance/acme-live-assistant, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/ui/collab-editor-cs",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_cpu_seconds_total from producer promrw/ui/collab-editor-cs, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_max_fds",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_max_fds from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_max_fds",
       "producer": "promrw/langsmith-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_max_fds from producer promrw/langsmith-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_max_fds",
       "producer": "promrw/langsmith-host-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_max_fds from producer promrw/langsmith-host-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_max_fds",
       "producer": "promrw/langsmith-platform-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_max_fds from producer promrw/langsmith-platform-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_max_fds",
       "producer": "promrw/langsmith-playground",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_max_fds from producer promrw/langsmith-playground, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_open_fds",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_open_fds from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_open_fds",
       "producer": "promrw/langsmith-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_open_fds from producer promrw/langsmith-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_open_fds",
       "producer": "promrw/langsmith-host-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_open_fds from producer promrw/langsmith-host-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_open_fds",
       "producer": "promrw/langsmith-platform-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_open_fds from producer promrw/langsmith-platform-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_open_fds",
       "producer": "promrw/langsmith-playground",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_open_fds from producer promrw/langsmith-playground, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/acme-backend/acme-backend",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_resident_memory_bytes from producer promrw/acme-backend/acme-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/common-services/acme-backend-api-auth",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_resident_memory_bytes from producer promrw/common-services/acme-backend-api-auth, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/common-services/acme-backend-api-content-gen",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_resident_memory_bytes from producer promrw/common-services/acme-backend-api-content-gen, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/datagen/acme-datagen-analysis",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_resident_memory_bytes from producer promrw/datagen/acme-datagen-analysis, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/datagen/acme-datagen-extraction-api",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_resident_memory_bytes from producer promrw/datagen/acme-datagen-extraction-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/karpenter",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_resident_memory_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/knowledge-layer-api/knowledge-layer-api",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_resident_memory_bytes from producer promrw/knowledge-layer-api/knowledge-layer-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/langsmith-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_resident_memory_bytes from producer promrw/langsmith-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/langsmith-host-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_resident_memory_bytes from producer promrw/langsmith-host-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/langsmith-platform-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_resident_memory_bytes from producer promrw/langsmith-platform-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/langsmith-playground",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_resident_memory_bytes from producer promrw/langsmith-playground, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/live-assistance/acme-live-assistant",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_resident_memory_bytes from producer promrw/live-assistance/acme-live-assistant, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_start_time_seconds",
       "producer": "promrw/langsmith-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_start_time_seconds from producer promrw/langsmith-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_start_time_seconds",
       "producer": "promrw/langsmith-host-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_start_time_seconds from producer promrw/langsmith-host-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_start_time_seconds",
       "producer": "promrw/langsmith-platform-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_start_time_seconds from producer promrw/langsmith-platform-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_start_time_seconds",
       "producer": "promrw/langsmith-playground",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_start_time_seconds from producer promrw/langsmith-playground, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_virtual_memory_bytes",
       "producer": "promrw/langsmith-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_virtual_memory_bytes from producer promrw/langsmith-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_virtual_memory_bytes",
       "producer": "promrw/langsmith-host-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_virtual_memory_bytes from producer promrw/langsmith-host-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_virtual_memory_bytes",
       "producer": "promrw/langsmith-platform-backend",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_virtual_memory_bytes from producer promrw/langsmith-platform-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "process_virtual_memory_bytes",
       "producer": "promrw/langsmith-playground",
-      "reason": "The platform service job differs from the captured standalone integration job; same family name does not establish the same producer."
+      "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_virtual_memory_bytes from producer promrw/langsmith-playground, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "rest_client_requests_total",
       "producer": "promrw/aws-load-balancer-controller",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of rest_client_requests_total from producer promrw/aws-load-balancer-controller, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "rest_client_requests_total",
       "producer": "promrw/cainjector",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of rest_client_requests_total from producer promrw/cainjector, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "rest_client_requests_total",
       "producer": "promrw/gateway-helm",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of rest_client_requests_total from producer promrw/gateway-helm, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "rest_client_requests_total",
       "producer": "promrw/integrations/cluster-autoscaler",
-      "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of rest_client_requests_total from producer promrw/integrations/cluster-autoscaler, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "scrape_duration_seconds",
       "producer": "promrw/integrations/alloy",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "Fleet Management intentionally models this Alloy collector self-metric job; current family evidence belongs to other scrape targets. Require an independent capture of scrape_duration_seconds from producer promrw/integrations/alloy, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/acme-agent-runtime/acme-agent-runtime",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/acme-agent-runtime/acme-agent-runtime, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/acme-backend/acme-backend",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/acme-backend/acme-backend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/acme-frontend/acme-frontend",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/acme-frontend/acme-frontend, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/cart-store/cart-store",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/cart-store/cart-store, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/catalog/catalog",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/catalog/catalog, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/checkout/checkout",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/checkout/checkout, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/common-services/acme-backend-api-auth",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/common-services/acme-backend-api-auth, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/common-services/acme-backend-api-content-gen",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/common-services/acme-backend-api-content-gen, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/datagen/acme-datagen-analysis",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/datagen/acme-datagen-analysis, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/datagen/acme-datagen-extraction-api",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/datagen/acme-datagen-extraction-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/documentdb-store/documentdb-store",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/documentdb-store/documentdb-store, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/k8sfull-api/k8sfull-api",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/k8sfull-api/k8sfull-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/knowledge-layer-api/knowledge-layer-api",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/knowledge-layer-api/knowledge-layer-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/live-assistance/acme-live-assistant",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/live-assistance/acme-live-assistant, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/logs-api/logs-api",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/logs-api/logs-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/opensearch-vectors/opensearch-vectors",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/opensearch-vectors/opensearch-vectors, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/otlp-api-enriched/otlp-api-enriched",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/otlp-api-enriched/otlp-api-enriched, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/otlp-api-naked/otlp-api-naked",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/otlp-api-naked/otlp-api-naked, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/portkey/portkey",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/portkey/portkey, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/profiling-api/profiling-api",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/profiling-api/profiling-api, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/profiling-worker/profiling-worker",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/profiling-worker/profiling-worker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/rds-acl/rds-acl",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/rds-acl/rds-acl, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/ui/acme-frontend-ui",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/ui/acme-frontend-ui, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/ui/acme-frontend-ui-plugin",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/ui/acme-frontend-ui-plugin, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "target_info",
       "producer": "promrw/ui/collab-editor-cs",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of target_info from producer promrw/ui/collab-editor-cs, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "up",
       "producer": "promrw/integrations/alloy",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "Fleet Management intentionally models this Alloy collector self-metric job; current family evidence belongs to other scrape targets. Require an independent capture of up from producer promrw/integrations/alloy, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "up",
       "producer": "promrw/integrations/docker",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of up from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "up",
       "producer": "promrw/integrations/macos-node",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of up from producer promrw/integrations/macos-node, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "up",
       "producer": "promrw/integrations/windows_exporter",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of up from producer promrw/integrations/windows_exporter, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_adds_total",
       "producer": "promrw/argocd-metrics",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_adds_total from producer promrw/argocd-metrics, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_adds_total",
       "producer": "promrw/aws-load-balancer-controller",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_adds_total from producer promrw/aws-load-balancer-controller, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_adds_total",
       "producer": "promrw/cainjector",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_adds_total from producer promrw/cainjector, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_adds_total",
       "producer": "promrw/gateway-helm",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_adds_total from producer promrw/gateway-helm, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_depth",
       "producer": "promrw/argocd-metrics",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_depth from producer promrw/argocd-metrics, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_depth",
       "producer": "promrw/aws-load-balancer-controller",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_depth from producer promrw/aws-load-balancer-controller, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_depth",
       "producer": "promrw/cainjector",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_depth from producer promrw/cainjector, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_depth",
       "producer": "promrw/gateway-helm",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_depth from producer promrw/gateway-helm, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_longest_running_processor_seconds",
       "producer": "promrw/argocd-metrics",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_longest_running_processor_seconds from producer promrw/argocd-metrics, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_longest_running_processor_seconds",
       "producer": "promrw/cainjector",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_longest_running_processor_seconds from producer promrw/cainjector, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_longest_running_processor_seconds",
       "producer": "promrw/gateway-helm",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_longest_running_processor_seconds from producer promrw/gateway-helm, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_queue_duration_seconds",
       "producer": "promrw/argocd-metrics",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_queue_duration_seconds from producer promrw/argocd-metrics, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_queue_duration_seconds",
       "producer": "promrw/aws-load-balancer-controller",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_queue_duration_seconds from producer promrw/aws-load-balancer-controller, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_retries_total",
       "producer": "promrw/argocd-metrics",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_retries_total from producer promrw/argocd-metrics, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_retries_total",
       "producer": "promrw/aws-load-balancer-controller",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_retries_total from producer promrw/aws-load-balancer-controller, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_retries_total",
       "producer": "promrw/cainjector",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_retries_total from producer promrw/cainjector, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_retries_total",
       "producer": "promrw/gateway-helm",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_retries_total from producer promrw/gateway-helm, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_unfinished_work_seconds",
       "producer": "promrw/argocd-metrics",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_unfinished_work_seconds from producer promrw/argocd-metrics, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_unfinished_work_seconds",
       "producer": "promrw/cainjector",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_unfinished_work_seconds from producer promrw/cainjector, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_unfinished_work_seconds",
       "producer": "promrw/gateway-helm",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_unfinished_work_seconds from producer promrw/gateway-helm, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_work_duration_seconds",
       "producer": "promrw/argocd-metrics",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_work_duration_seconds from producer promrw/argocd-metrics, retaining its observed route/job pairing and family shape."
     },
     {
       "signal": "workqueue_work_duration_seconds",
       "producer": "promrw/aws-load-balancer-controller",
-      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+      "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_work_duration_seconds from producer promrw/aws-load-balancer-controller, retaining its observed route/job pairing and family shape."
     }
   ]
 }

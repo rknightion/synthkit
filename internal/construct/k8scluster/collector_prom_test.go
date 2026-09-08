@@ -77,11 +77,19 @@ func TestCollectorPromEnvelopeAndExclusivity(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for _, s := range mc.All() {
+		family := s.Name
+		for _, suffix := range []string{"_bucket", "_count", "_sum"} {
+			candidate := strings.TrimSuffix(s.Name, suffix)
+			if candidate != s.Name && allowed[candidate] != nil {
+				family = candidate
+				break
+			}
+		}
 		for key := range s.Labels {
-			if key == "job" && producerJobs[s.Name][s.Labels[key]] {
+			if key == "job" && producerJobs[family][s.Labels[key]] {
 				continue
 			}
-			if !allowed[s.Name][key] {
+			if !allowed[family][key] {
 				t.Fatalf("uncaptured %s label %s", s.Name, key)
 			}
 		}
@@ -93,7 +101,7 @@ func TestCollectorPromEnvelopeAndExclusivity(t *testing.T) {
 		if _, ok := s.Labels["source"]; ok {
 			t.Fatalf("P3 source leaked on %s", s.Name)
 		}
-		if s.Labels["otel_scope_name"] == "" || s.Labels["otel_scope_version"] != "0.158.0" {
+		if s.Name != "target_info" && (s.Labels["otel_scope_name"] == "" || s.Labels["otel_scope_version"] != "0.158.0") {
 			t.Fatalf("P3 scope missing on %s", s.Name)
 		}
 	}
@@ -116,5 +124,85 @@ func TestCollectorPromEnvelopeAndExclusivity(t *testing.T) {
 	}
 	if !event || !pod {
 		t.Fatalf("P3 events=%v podlogs=%v", event, pod)
+	}
+}
+
+func TestCollectorPromP3TargetFamiliesAndHistogramLayouts(t *testing.T) {
+	cl := coretest.Cluster()
+	cl.K8sMonitoring.Alloy = false
+	c := buildConstructWithConfig(t, &k8scluster.Config{OTelCollectorProm: true}, cl)
+	mc := &coretest.MetricCapture{}
+	w := coretest.World(mc, nil, nil)
+	if err := c.Tick(context.Background(), time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC), w); err != nil {
+		t.Fatal(err)
+	}
+
+	// These are the target families absent from the retained 125-family baseline. Keep
+	// this list explicit so a successful test proves the P3 additions rather than only
+	// proving that some family with a shared prefix was emitted.
+	for _, name := range []string{
+		"go_goroutines",
+		"kube_node_role",
+		"kube_node_spec_pod_cidrs",
+		"kubelet_cgroup_manager_duration_seconds",
+		"kubelet_pleg_relist_duration_seconds",
+		"kubelet_pod_start_duration_seconds",
+		"kubelet_pod_worker_duration_seconds",
+		"node_cpu_frequency_max_hertz",
+		"node_cpu_frequency_min_hertz",
+		"node_cpu_isolated",
+		"node_cpu_scaling_frequency_hertz",
+		"node_cpu_scaling_frequency_max_hertz",
+		"node_cpu_scaling_frequency_min_hertz",
+		"node_cpu_scaling_governor",
+		"rest_client_requests_total",
+		"storage_operation_duration_seconds",
+		"target_info",
+	} {
+		found := false
+		for _, s := range mc.All() {
+			if s.Name == name || strings.HasPrefix(s.Name, name+"_") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("P3 target family %q was not emitted", name)
+		}
+	}
+	isolated := mc.Find("node_cpu_isolated")
+	if len(isolated) != len(cl.Nodes) {
+		t.Fatalf("modeled node_cpu_isolated series=%d, want one reserved CPU per node", len(isolated))
+	}
+	for _, s := range isolated {
+		if s.Value != 1 {
+			t.Errorf("modeled node_cpu_isolated[%s]=%v, want 1", s.Labels["cpu"], s.Value)
+		}
+	}
+
+	defaultLE := []string{"0.005", "0.01", "0.025", "0.05", "0.1", "0.25", "0.5", "1.0", "2.5", "5.0", "10.0", "+Inf"}
+	podStartLE := []string{"0.5", "1.0", "2.0", "3.0", "4.0", "5.0", "6.0", "8.0", "10.0", "20.0", "30.0", "45.0", "60.0", "120.0", "180.0", "240.0", "300.0", "360.0", "480.0", "600.0", "900.0", "1200.0", "1800.0", "2700.0", "3600.0", "+Inf"}
+	for _, tc := range []struct {
+		name string
+		want []string
+	}{
+		{"kubelet_cgroup_manager_duration_seconds", defaultLE},
+		{"kubelet_pleg_relist_duration_seconds", defaultLE},
+		{"kubelet_pod_worker_duration_seconds", defaultLE},
+		{"kubelet_pod_start_duration_seconds", podStartLE},
+		{"storage_operation_duration_seconds", []string{"+Inf"}},
+	} {
+		seen := map[string]bool{}
+		for _, s := range mc.Find(tc.name + "_bucket") {
+			seen[s.Labels["le"]] = true
+		}
+		if len(seen) != len(tc.want) {
+			t.Errorf("%s bucket count=%d, want %d (%v)", tc.name, len(seen), len(tc.want), seen)
+		}
+		for _, le := range tc.want {
+			if !seen[le] {
+				t.Errorf("%s missing le=%q (got %v)", tc.name, le, seen)
+			}
+		}
 	}
 }

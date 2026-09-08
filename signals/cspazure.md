@@ -667,7 +667,7 @@ labels:
   # serverless dimension labels (underscore form):
   dimension_Endpoint: <fqdn>
   dimension_HttpStatusGroup: 2xx|3xx|4xx|5xx    # ⚠ lowercase on serverless; azure_exporter: uppercase 2XX/4XX + dimensionEndpoint/dimensionHttpStatusGroup (no underscore)
-  dimension_HttpStatus: "200"|"404"|...
+  dimension_HttpStatus: '"200"|"404"|...'
   dimension_ClientCountry: <country>
   dimension_ClientRegion: <region>
   dimension_Origin: <origin-fqdn:port>

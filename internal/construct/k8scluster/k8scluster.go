@@ -202,6 +202,9 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 	// ── KSM families ────────────────────────────────────────────────────────
 	emitKSMNodeObjects(c.st, cluster, cl, nodes, factor)
+	if c.collectorProm {
+		emitCollectorPromKSMNodeFamilies(c.st, cluster, nodes)
+	}
 	emitKSMNamespacePhase(c.st, cluster, cl)
 	emitKSMDeploymentMeta(c.st, cluster, cl, replicas)
 	emitKSMReplicaSets(c.st, cluster, cl, replicas)
@@ -226,9 +229,12 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 	// ── node-exporter ────────────────────────────────────────────────────────
 	emitNodeExporter(c.st, cluster, cl, nodes, factor, tickSec, scale, w)
+	if c.collectorProm {
+		emitCollectorPromNodeCPU(c.st, cluster, nodes)
+	}
 
 	// ── kubelet ──────────────────────────────────────────────────────────────
-	emitKubelet(c.st, cluster, cl, nodes, replicas, tickSec, scale, w)
+	emitKubelet(c.st, cluster, cl, nodes, replicas, tickSec, scale, w, c.collectorProm)
 
 	// ── kubelet resources ────────────────────────────────────────────────────
 	emitKubeletResources(c.st, cluster, nodes, factor, tickSec)
@@ -253,6 +259,9 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		emitControllerManager(c.st, cluster, tickSec, scale)
 	}
 	emitWindowsExporter(c.st, cluster, cl, nodes, factor, tickSec, scale, w)
+	if c.collectorProm {
+		emitCollectorPromTargetInfo(c.st, cluster, nodes)
+	}
 
 	// ── scale-down retirement ─────────────────────────────────────────────────
 	// Drop series for pods/nodes that existed at the high-water mark but are gone now, so they

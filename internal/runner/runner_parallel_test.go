@@ -140,6 +140,11 @@ func TestRunParallelIsolation(t *testing.T) {
 	}
 	injectConstruct(t, r, "alpha", "slow", &sleepConstruct{delay: 200 * time.Millisecond}, master)
 
+	// A queued ticker timestamp can precede the overrun; the dropped-tick
+	// observation may therefore arrive only after another slow cycle. Wait for
+	// the contract evidence, with a deadline that still bounds a broken runner.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	var mu sync.Mutex
 	seen := map[string]int{}
 	maxDropped := map[string]int{}
@@ -149,11 +154,12 @@ func TestRunParallelIsolation(t *testing.T) {
 		if dropped > maxDropped[bp] {
 			maxDropped[bp] = dropped
 		}
+		if seen["beta"] >= 4 && seen["beta"] > seen["alpha"] && maxDropped["alpha"] >= 1 {
+			cancel()
+		}
 		mu.Unlock()
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
-	defer cancel()
 	_ = r.Run(ctx)
 
 	mu.Lock()
