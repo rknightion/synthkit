@@ -15565,6 +15565,2017 @@
     {
       "sha256": "c5c7990ba9556664cb2e081c875cd9a6b751ca6274c7ac5543e9dad7dbf90c60",
       "families": []
+    },
+    {
+      "sha256": "e3e5ddcea697af99b5d1508c25806c6afc2cfb05791f610f9313cf150971ac52",
+      "families": [
+        {
+          "name": "kube_pod_container_status_waiting_reason",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "k8s"
+        },
+        {
+          "name": "stackdriver_bigtable_cluster_bigtable_googleapis_com_cluster_cpu_load",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_cluster_bigtable_googleapis_com_cluster_cpu_load_by_app_profile_by_method_by_table",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_cluster_bigtable_googleapis_com_cluster_cpu_load_hottest_node",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_cluster_bigtable_googleapis_com_cluster_node_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_cluster_bigtable_googleapis_com_cluster_storage_utilization",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_cluster_bigtable_googleapis_com_disk_bytes_used",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_cluster_bigtable_googleapis_com_disk_storage_capacity",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_latencies",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_modified_rows_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_multi_cluster_failovers_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_received_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_request_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_returned_rows_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_sent_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_table_bytes_used",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_billable_instance_time",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_completed_probe_attempt_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_completed_probe_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_containers",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_cpu_usage",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_max_request_concurrencies",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_memory_usage",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_network_received_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_network_sent_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_probe_attempt_latencies",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_probe_latencies",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_startup_latencies",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_available_for_failover",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_cpu_reserved_cores",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_cpu_utilization",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_disk_quota",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_disk_read_ops_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_disk_utilization",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_disk_write_ops_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_instance_state",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_memory_quota",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_memory_utilization",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_network_received_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_network_sent_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_num_backends",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_transaction_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_up",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_cpu_usage_time",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_cpu_utilization",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_read_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_read_ops_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_write_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_write_ops_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_network_received_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_network_sent_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gcs_bucket_storage_googleapis_com_api_request_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gcs_bucket_storage_googleapis_com_network_received_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gcs_bucket_storage_googleapis_com_network_sent_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gcs_bucket_storage_googleapis_com_storage_object_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_gcs_bucket_storage_googleapis_com_storage_total_bytes",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_backend_latencies",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_backend_request_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_backend_response_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_frontend_tcp_rtt",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_request_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_request_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_response_bytes_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_total_latencies",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_delivery_latency_health_score",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_num_unacked_messages_by_region",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_num_undelivered_messages",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_oldest_unacked_message_age",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_pull_ack_request_count",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_unacked_bytes_by_region",
+          "reason": "missing_producer_unique_exact_area",
+          "area": "cspgcp"
+        },
+        {
+          "name": "gcp_exporter_build_info",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "kafka_consumer_join_time_max",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "kafka_consumer_rebalance_latency_avg",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "kafka_consumer_rebalance_latency_max",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "kafka_consumer_sync_time_max",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_audited_resource_logging_googleapis_com_byte_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_audited_resource_logging_googleapis_com_log_entry_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigquery_dataset_logging_googleapis_com_byte_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigquery_dataset_logging_googleapis_com_log_entry_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_cluster_bigtable_googleapis_com_cluster_cpu_load_hottest_node_high_granularity",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_cluster_bigtable_googleapis_com_disk_per_node_storage_capacity",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_memory_layer_ineligible_reason_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_data_boost_eligibility_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_data_boost_ineligible_reasons",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_read_latencies_by_storage_tier",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_read_request_count_by_storage_tier",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_server_request_max_per_minute_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_table_bytes_transferred_to_infrequent_access",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_bigtable_table_bigtable_googleapis_com_table_change_stream_log_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_logging_googleapis_com_byte_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_logging_googleapis_com_log_entry_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_cpu_allocation_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_cpu_utilizations",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_instance_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_instance_count_with_readiness",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_memory_allocation_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_memory_tmpfs_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_container_memory_utilizations",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_request_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloud_run_revision_run_googleapis_com_request_latencies",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_cpu_usage_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_disk_bytes_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_disk_bytes_used_by_data_type",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_disk_read_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_disk_write_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_memory_components",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_memory_total_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_memory_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_mysql_replication_available_for_failover",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_network_connection_attempt_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_backends_in_wait",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_blocks_read_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_checkpoint_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_deadlock_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_disk_read_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_disk_write_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_new_connection_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_num_backends_by_application",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_num_backends_by_state",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_statements_executed_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_temp_bytes_written_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_temp_files_written_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_transaction_id_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_transaction_id_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_tuple_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_tuples_fetched_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_tuples_processed_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_tuples_returned_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_vacuum_oldest_transaction_age",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_write_ahead_log_flushed_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_write_ahead_log_inserted_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_write_ahead_log_redo_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_postgresql_write_ahead_log_written_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_replication_log_archive_failure_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_replication_log_archive_success_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_swap_bytes_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_swap_pages_swapped_in_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_swap_pages_swapped_out_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_cloudsql_googleapis_com_database_uptime",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_logging_googleapis_com_byte_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_database_logging_googleapis_com_log_entry_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_aggregate_execution_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_aggregate_io_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_aggregate_latencies",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_aggregate_lock_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_aggregate_row_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_aggregate_shared_blk_access_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_perquery_execution_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_perquery_io_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_perquery_latencies",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_perquery_lock_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_perquery_row_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_perquery_shared_blk_access_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_pertag_execution_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_pertag_io_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_pertag_latencies",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_pertag_lock_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_pertag_row_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_cloudsql_instance_database_cloudsql_googleapis_com_database_postgresql_insights_pertag_shared_blk_access_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_dns_managed_zone_logging_googleapis_com_byte_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_dns_managed_zone_logging_googleapis_com_log_entry_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_backend_service_loadbalancing_googleapis_com_application_lb_backend_latencies",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_backend_service_loadbalancing_googleapis_com_application_lb_backend_request_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_backend_service_loadbalancing_googleapis_com_application_lb_backend_request_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_backend_service_loadbalancing_googleapis_com_application_lb_backend_response_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_backend_service_logging_googleapis_com_byte_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_backend_service_logging_googleapis_com_log_entry_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_forwarding_rule_loadbalancing_googleapis_com_application_lb_request_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_forwarding_rule_loadbalancing_googleapis_com_application_lb_request_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_forwarding_rule_loadbalancing_googleapis_com_application_lb_response_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_forwarding_rule_loadbalancing_googleapis_com_application_lb_total_latencies",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_firewall_dropped_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_firewall_dropped_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_cpu_load_15_m",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_cpu_load_1_m",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_cpu_load_5_m",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_cpu_runnable_task_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_cpu_usage_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_disk_bytes_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_disk_io_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_disk_merged_operation_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_disk_operation_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_disk_operation_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_disk_operation_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_disk_percent_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_disk_queue_length",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_disk_weighted_io_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_memory_anonymous_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_memory_bytes_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_memory_dirty_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_memory_page_cache_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_memory_percent_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_memory_unevictable_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_system_os_feature_enabled",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_system_problem_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_system_problem_state",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_guest_system_uptime",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_clock_accuracy_ptp_kvm_nanosecond_accuracy",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_cpu_guest_visible_vcpus",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_cpu_reserved_cores",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_cpu_scheduler_wait_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_average_io_latency",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_average_io_queue_depth",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_max_read_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_max_read_ops_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_max_write_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_max_write_ops_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_performance_status",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_disk_provisioning_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_integrity_early_boot_validation_status",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_integrity_late_boot_validation_status",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_memory_balloon_ram_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_memory_balloon_ram_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_memory_balloon_swap_in_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_memory_balloon_swap_out_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_network_received_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_network_sent_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_uptime",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_instance_uptime_total",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_allocated_ports",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_closed_connections_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_dropped_received_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_dropped_sent_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_new_connections_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_open_connections",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_port_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_received_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_received_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_sent_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_nat_sent_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_compute_googleapis_com_network_dropped_packets_no_vm_receive_buffers_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_logging_googleapis_com_byte_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_logging_googleapis_com_log_entry_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_networking_googleapis_com_vm_flow_connection_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_networking_googleapis_com_vm_flow_egress_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_networking_googleapis_com_vm_flow_egress_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_networking_googleapis_com_vm_flow_external_rtt",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_networking_googleapis_com_vm_flow_ingress_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_networking_googleapis_com_vm_flow_ingress_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gce_instance_networking_googleapis_com_vm_flow_rtt",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gcs_bucket_storage_googleapis_com_storage_total_byte_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gcs_bucket_storage_googleapis_com_storage_v_2_total_byte_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gcs_bucket_storage_googleapis_com_storage_v_2_total_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_gcs_bucket_storage_googleapis_com_storage_v_2_total_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_global_logging_googleapis_com_byte_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_global_logging_googleapis_com_log_entry_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_https_lb_rule_loadbalancing_googleapis_com_https_backend_request_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_instance_group_compute_googleapis_com_instance_group_predicted_capacity",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_instance_group_compute_googleapis_com_instance_group_predicted_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_instance_group_compute_googleapis_com_instance_group_predicted_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_instance_group_compute_googleapis_com_instance_group_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_cluster_kubernetes_io_cluster_version",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_cluster_logging_googleapis_com_byte_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_cluster_logging_googleapis_com_log_entry_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_cpu_core_usage_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_cpu_limit_cores",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_cpu_limit_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_cpu_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_cpu_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_cpu_request_cores",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_cpu_request_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_ephemeral_storage_limit_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_ephemeral_storage_request_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_ephemeral_storage_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_io_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_io_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_memory_limit_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_memory_limit_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_memory_page_fault_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_memory_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_memory_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_memory_request_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_memory_request_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_memory_swap_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_memory_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_restart_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_container_kubernetes_io_container_uptime",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_cpu_allocatable_cores",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_cpu_allocatable_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_cpu_core_usage_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_cpu_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_cpu_total_cores",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_daemon_cpu_core_usage_time",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_daemon_cpu_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_daemon_cpu_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_daemon_io_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_daemon_io_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_daemon_memory_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_daemon_memory_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_daemon_memory_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_ephemeral_storage_allocatable_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_ephemeral_storage_inodes_free",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_ephemeral_storage_inodes_total",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_ephemeral_storage_total_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_ephemeral_storage_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_interruption_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_io_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_io_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_latencies_startup",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_logs_input_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_memory_allocatable_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_memory_allocatable_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_memory_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_memory_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_memory_swap_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_memory_total_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_memory_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_network_received_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_network_sent_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_pid_limit",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_pid_used",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_kubernetes_io_node_status_condition",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_networking_googleapis_com_node_flow_egress_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_networking_googleapis_com_node_flow_egress_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_networking_googleapis_com_node_flow_ingress_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_networking_googleapis_com_node_flow_ingress_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_networking_googleapis_com_node_flow_rtt",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_node_pool_kubernetes_io_node_pool_interruption_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_cpu_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_cpu_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_ephemeral_storage_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_io_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_io_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_latencies_pod_first_ready",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_memory_pressure_full_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_memory_pressure_some_total_stall_time_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_network_policy_event_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_network_received_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_network_sent_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_volume_total_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_volume_used_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_kubernetes_io_pod_volume_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_networking_googleapis_com_pod_flow_egress_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_networking_googleapis_com_pod_flow_egress_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_networking_googleapis_com_pod_flow_ingress_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_networking_googleapis_com_pod_flow_ingress_packets_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_pod_networking_googleapis_com_pod_flow_rtt",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_scale_kubernetes_io_autoscaler_container_cpu_per_replica_recommended_request_cores",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_scale_kubernetes_io_autoscaler_container_memory_per_replica_recommended_request_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_k_8_s_scale_kubernetes_io_autoscaler_latencies_per_hpa_recommendation_scale_latency_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_monitoring_api_calls_total",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_monitoring_last_scrape_duration_seconds",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_monitoring_last_scrape_error",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_monitoring_last_scrape_timestamp",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_monitoring_scrape_errors_total",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_monitoring_scrapes_total",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_ack_latencies",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_ack_message_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_backlog_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_billable_bytes_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_byte_cost",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_config_updates_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_num_retained_acked_messages",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_num_retained_acked_messages_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_oldest_retained_acked_message_age",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_oldest_retained_acked_message_age_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_oldest_unacked_message_age_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_pull_ack_message_operation_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_pull_message_operation_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_pull_request_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_retained_acked_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_retained_acked_bytes_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_subscription_pubsub_googleapis_com_subscription_sent_message_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_byte_cost",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_config_updates_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_message_sizes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_num_retained_acked_messages_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_num_retained_messages",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_num_unacked_messages_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_oldest_retained_acked_message_age_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_oldest_retained_message_age",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_oldest_unacked_message_age_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_retained_acked_bytes_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_retained_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_send_message_operation_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_send_request_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_send_request_latencies",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_pubsub_topic_pubsub_googleapis_com_topic_unacked_bytes_by_region",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_clients_blocked_clients",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_clients_connected_clients",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_clients_maxclients",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_clients_recent_max_input_buffer",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_clients_recent_max_output_buffer",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_clients_tracking_clients",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_commandstats_calls_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_commandstats_failed_calls_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_commandstats_rejected_calls_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_commandstats_usec_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_cpu_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_cross_cluster_replication_role",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_errorstats_errors_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_json_documents_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_json_used_memory",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_keyspace_keys_with_expiration",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_keyspace_total_keys",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_dataset_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_lua_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_maxmemory",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_maxmemory_policy",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_mem_not_counted_for_evict",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_normal_clients_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_number_of_cached_scripts",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_number_of_functions",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_peak_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_replica_clients_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_rss_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_scripts_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_usage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_memory_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_aof_enabled",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_aof_last_cow_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_aof_last_rewrite_time_sec",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_aof_rewrite_in_progress",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_async_loading",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_current_cow_peak",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_current_cow_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_current_fork_percentage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_loading",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_rdb_last_bgsave_time_sec",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_persistence_rdb_last_cow_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_replication_offset",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_replication_sync_full_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_replication_sync_partial_err_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_replication_sync_partial_ok_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_server_healthy",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_server_uptime",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_acl_access_denied_auths_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_connections_received_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_evicted_clients_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_evicted_keys_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_expire_cycle_cpu_millisecond_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_expired_keys_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_expired_keys_percentage",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_expired_time_cap_reached_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_keyspace_hits_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_keyspace_misses_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_latest_fork_usec",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_net_input_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_net_output_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_pubsub_channels",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_pubsub_patterns",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_pubsubshard_channels",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_rejected_connections_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_total_fork_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_tracking_total_items",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_tracking_total_keys",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_node_redis_googleapis_com_cluster_node_stats_tracking_total_prefixes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_clients_average_connected_clients",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_clients_maximum_connected_clients",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_clients_total_connected_clients",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_commandstats_total_calls_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_commandstats_total_usec_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_cpu_average_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_cpu_maximum_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_keyspace_total_keys",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_memory_average_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_memory_maximum_utilization",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_memory_size",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_memory_total_used_memory",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_persistence_rdb_saves_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_search_attributes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_search_average_used_memory_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_search_background_indexing_in_progress",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_search_indexed_keys",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_search_indexes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_search_maximum_used_memory_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_search_query_requests_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_search_total_used_memory_bytes",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_average_evicted_keys",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_average_expired_keys",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_average_keyspace_hits",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_average_keyspace_misses",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_maximum_evicted_keys",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_maximum_expired_keys",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_maximum_keyspace_hits",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_maximum_keyspace_misses",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_total_connections_received_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_total_evicted_keys_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_total_expired_keys_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_total_keyspace_hits_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_total_keyspace_misses_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_total_net_input_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_total_net_output_bytes_count",
+          "reason": "missing_producer_and_area"
+        },
+        {
+          "name": "stackdriver_redis_googleapis_com_cluster_redis_googleapis_com_cluster_stats_total_rejected_connections_count",
+          "reason": "missing_producer_and_area"
+        }
+      ]
     }
   ]
 }

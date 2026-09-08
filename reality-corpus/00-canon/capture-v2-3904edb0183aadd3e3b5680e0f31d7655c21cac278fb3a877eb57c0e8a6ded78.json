@@ -7,10 +7,10 @@
     "collector": "grafana/k8s-monitoring",
     "collector_role": "audited",
     "collector_version": "4.5.0",
-    "captured_on": "2026-08-31",
+    "captured_on": "2026-09-06",
     "capture_schema_version": "2.0.0",
     "capture_tool_version": "2.1.0",
-    "capture_sha256": "3904edb0183aadd3e3b5680e0f31d7655c21cac278fb3a877eb57c0e8a6ded78",
+    "capture_sha256": "e3e5ddcea697af99b5d1508c25806c6afc2cfb05791f610f9313cf150971ac52",
     "capture_scope": "cloud",
     "capture_warnings": [
       "ALLOY_VERSION_UNKNOWN",
@@ -21,9 +21,9 @@
       "UNTYPED_FAMILIES_ARE_A_SENDER_PROPERTY",
       "WINDOW_EXCEEDS_SOAK"
     ],
-    "capture_duration_seconds": 183.1,
+    "capture_duration_seconds": 112.6,
     "capture_window": "1h",
-    "capture_soak_duration": "30m",
+    "capture_soak_duration": "2h",
     "capture_load_driven": "yes"
   },
   "authority": {
@@ -32,9 +32,10 @@
     ]
   },
   "capture_volume": {
-    "runs": 1,
+    "runs": 2,
     "observed_contract_counts": [
-      1022
+      1022,
+      1048
     ]
   },
   "inventory": {
@@ -584,11 +585,11 @@
           "classic": true,
           "native": false,
           "bucket_bounds": [
-            0.000005,
-            0.00001,
-            0.00002,
-            0.00004,
-            0.00008,
+            5e-06,
+            1e-05,
+            2e-05,
+            4e-05,
+            8e-05,
             0.00016,
             0.00032,
             0.00064,
@@ -11429,10 +11430,10 @@
           "classic": true,
           "native": false,
           "bucket_bounds": [
-            6.399999999999999e-8,
-            6.399999999999999e-7,
-            0.000007167999999999999,
-            0.00008191999999999999,
+            6.399999999999999e-08,
+            6.399999999999999e-07,
+            7.167999999999999e-06,
+            8.191999999999999e-05,
             0.0009175039999999999,
             0.010485759999999998,
             0.11744051199999998
@@ -16832,10 +16833,10 @@
           "classic": true,
           "native": false,
           "bucket_bounds": [
-            6.399999999999999e-8,
-            6.399999999999999e-7,
-            0.000007167999999999999,
-            0.00008191999999999999,
+            6.399999999999999e-08,
+            6.399999999999999e-07,
+            7.167999999999999e-06,
+            8.191999999999999e-05,
             0.0009175039999999999,
             0.010485759999999998,
             0.11744051199999998
@@ -16896,10 +16897,10 @@
           "classic": true,
           "native": false,
           "bucket_bounds": [
-            6.399999999999999e-8,
-            6.399999999999999e-7,
-            0.000007167999999999999,
-            0.00008191999999999999,
+            6.399999999999999e-08,
+            6.399999999999999e-07,
+            7.167999999999999e-06,
+            8.191999999999999e-05,
             0.0009175039999999999,
             0.010485759999999998,
             0.11744051199999998
@@ -16960,10 +16961,10 @@
           "classic": true,
           "native": false,
           "bucket_bounds": [
-            6.399999999999999e-8,
-            6.399999999999999e-7,
-            0.000007167999999999999,
-            0.00008191999999999999,
+            6.399999999999999e-08,
+            6.399999999999999e-07,
+            7.167999999999999e-06,
+            8.191999999999999e-05,
             0.0009175039999999999,
             0.010485759999999998,
             0.11744051199999998
@@ -17024,10 +17025,10 @@
           "classic": true,
           "native": false,
           "bucket_bounds": [
-            6.399999999999999e-8,
-            6.399999999999999e-7,
-            0.000007167999999999999,
-            0.00008191999999999999,
+            6.399999999999999e-08,
+            6.399999999999999e-07,
+            7.167999999999999e-06,
+            8.191999999999999e-05,
             0.0009175039999999999,
             0.010485759999999998,
             0.11744051199999998
@@ -17088,10 +17089,10 @@
           "classic": true,
           "native": false,
           "bucket_bounds": [
-            6.399999999999999e-8,
-            6.399999999999999e-7,
-            0.000007167999999999999,
-            0.00008191999999999999,
+            6.399999999999999e-08,
+            6.399999999999999e-07,
+            7.167999999999999e-06,
+            8.191999999999999e-05,
             0.0009175039999999999,
             0.010485759999999998,
             0.11744051199999998
@@ -17220,6 +17221,56 @@
           },
           {
             "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "grafana_kubernetes_monitoring_build_info",
+        "producers": [
+          {
+            "name": "promrw/integrations/static"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "platform",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "version",
             "values": [],
             "values_elided": true
           }
@@ -17820,6 +17871,11 @@
             "values_elided": true
           },
           {
+            "key": "error_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "http_request_method",
             "values": [],
             "values_elided": true
@@ -18100,6 +18156,177 @@
         }
       },
       {
+        "name": "http_request_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "histogram"
+        ],
+        "instrument_type_source": "observed",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "handler",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "method",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "http_server_active_requests",
+        "producers": [
+          {
+            "name": "promrw/cart"
+          },
+          {
+            "name": "promrw/shipping"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "gauge"
+        ],
+        "instrument_type_source": "metadata",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "http_request_method",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "http_route",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_deployment_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_namespace_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_pod_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "network_protocol_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server_address",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server_port",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "url_scheme",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
         "name": "http_server_duration_milliseconds",
         "producers": [
           {
@@ -18324,6 +18551,122 @@
             5000,
             7500,
             10000
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "http_server_request_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/shipping"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "histogram"
+        ],
+        "instrument_type_source": "observed",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "http_request_method",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "http_response_status_code",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "http_route",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_deployment_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_namespace_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_pod_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "network_protocol_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server_address",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server_port",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "url_scheme",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": true,
+          "bucket_bounds": [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.075,
+            0.1,
+            0.25,
+            0.5,
+            0.75,
+            1,
+            2.5,
+            5,
+            7.5,
+            10
           ],
           "native_schemas": []
         }
@@ -20338,6 +20681,11 @@
             "values_elided": true
           },
           {
+            "key": "error",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "error_code",
             "values": [],
             "values_elided": true
@@ -20444,6 +20792,11 @@
             "values_elided": true
           },
           {
+            "key": "error",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "error_code",
             "values": [],
             "values_elided": true
@@ -20546,6 +20899,11 @@
           },
           {
             "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "error",
             "values": [],
             "values_elided": true
           },
@@ -20661,6 +21019,11 @@
             "values_elided": true
           },
           {
+            "key": "error",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "error_code",
             "values": [],
             "values_elided": true
@@ -20757,6 +21120,11 @@
           },
           {
             "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "error",
             "values": [],
             "values_elided": true
           },
@@ -20867,6 +21235,11 @@
             "values_elided": true
           },
           {
+            "key": "error",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "error_code",
             "values": [],
             "values_elided": true
@@ -20969,6 +21342,11 @@
           },
           {
             "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "error",
             "values": [],
             "values_elided": true
           },
@@ -21079,6 +21457,11 @@
             "values_elided": true
           },
           {
+            "key": "error",
+            "values": [],
+            "values_elided": true
+          },
+          {
             "key": "error_code",
             "values": [],
             "values_elided": true
@@ -21181,6 +21564,11 @@
           },
           {
             "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "error",
             "values": [],
             "values_elided": true
           },
@@ -28899,6 +29287,161 @@
         ]
       },
       {
+        "name": "kube_certificatesigningrequest_cert_length",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "certificatesigningrequest",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "signer_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_certificatesigningrequest_condition",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "certificatesigningrequest",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "condition",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "signer_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_certificatesigningrequest_created",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "certificatesigningrequest",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "signer_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
         "name": "kube_configmap_created",
         "producers": [
           {
@@ -31139,6 +31682,356 @@
         ]
       },
       {
+        "name": "kube_job_created",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_job_info",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_job_owner",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_job_spec_parallelism",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_job_status_failed",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_job_status_ready",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_job_status_succeeded",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "job_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
         "name": "kube_lease_owner",
         "producers": [
           {
@@ -31679,6 +32572,111 @@
         ]
       },
       {
+        "name": "kube_node_labels",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_agentpool",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_beta_kubernetes_io_instance_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_cloud_google_com_gke_nodepool",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_eks_amazonaws_com_nodegroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_k8s_io_cloud_provider_aws",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_kubernetes_azure_com_cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_kubernetes_io_arch",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_kubernetes_io_hostname",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_kubernetes_io_os",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_node_kubernetes_io_instance_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_topology_kubernetes_io_region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "label_topology_kubernetes_io_zone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
         "name": "kube_node_spec_pod_cidrs",
         "producers": [
           {
@@ -31988,6 +32986,61 @@
           },
           {
             "key": "status",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "kube_pod_completion_time",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kube-state-metrics"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "uid",
             "values": [],
             "values_elided": true
           }
@@ -55070,6 +56123,116 @@
         ]
       },
       {
+        "name": "node_os_info",
+        "producers": [
+          {
+            "name": "promrw/integrations/node_exporter"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "build_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "component",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id_like",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pretty_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "version_codename",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "version_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
         "name": "node_os_version",
         "producers": [
           {
@@ -66372,6 +67535,125 @@
         }
       },
       {
+        "name": "scrape_duration_seconds",
+        "producers": [
+          {
+            "name": "azure-monitor-alloy"
+          },
+          {
+            "name": "azure-monitor-managed"
+          },
+          {
+            "name": "dbo11y"
+          },
+          {
+            "name": "promrw"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "component",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "provider_account",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "provider_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "provider_region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
         "name": "scrape_samples_post_metric_relabeling",
         "producers": [
           {
@@ -67924,6 +69206,421 @@
         ]
       },
       {
+        "name": "target_info",
+        "producers": [
+          {
+            "name": "azure-monitor-managed"
+          },
+          {
+            "name": "otlp-native"
+          },
+          {
+            "name": "promrw"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "gauge"
+        ],
+        "instrument_type_source": "metadata",
+        "labels": [
+          {
+            "key": "azure_vm_scaleset_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud_account_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud_availability_zone",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud_platform",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud_provider",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud_region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud_resource_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host_arch",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_deployment_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_namespace_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_node_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_pod_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_pod_start_time",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_pod_uid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os_build_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "os_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_args_count",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_command",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_command_args",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_command_line",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_executable_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_executable_path",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_owner",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_pid",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_runtime_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_runtime_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "process_runtime_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceGroup",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "resourceName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_criticality",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_instance_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "telemetry_auto_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "telemetry_distro_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "telemetry_distro_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "telemetry_sdk_language",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "telemetry_sdk_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "telemetry_sdk_version",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "up",
+        "producers": [
+          {
+            "name": "azure-monitor-alloy"
+          },
+          {
+            "name": "azure-monitor-managed"
+          },
+          {
+            "name": "dbo11y"
+          },
+          {
+            "name": "promrw"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "app",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "component",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "credential",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "namespace",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "pod",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "provider_account",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "provider_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "provider_region",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "server_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionID",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "subscriptionName",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "workload",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
         "name": "v8js_gc_duration_seconds",
         "producers": [
           {
@@ -68656,6 +70353,410 @@
             120,
             300,
             600
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "workqueue_adds_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kubelet"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "workqueue_depth",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kubelet"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "workqueue_longest_running_processor_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kubelet"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "workqueue_queue_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kubelet"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "histogram"
+        ],
+        "instrument_type_source": "observed",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            1e-08,
+            1e-07,
+            1e-06,
+            9.999999999999999e-06,
+            9.999999999999999e-05,
+            0.001,
+            0.01,
+            0.1,
+            1,
+            2,
+            4,
+            6,
+            8,
+            10,
+            15
+          ],
+          "native_schemas": []
+        }
+      },
+      {
+        "name": "workqueue_retries_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kubelet"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "workqueue_unfinished_work_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kubelet"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "unknown"
+        ],
+        "instrument_type_source": "undetermined",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "workqueue_work_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/integrations/kubernetes/kubelet"
+          }
+        ],
+        "transports": [],
+        "instrument_types": [
+          "histogram"
+        ],
+        "instrument_type_source": "observed",
+        "labels": [
+          {
+            "key": "cloud",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cluster",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "k8s_cluster_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "le",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "node",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "histogram": {
+          "classic": true,
+          "native": false,
+          "bucket_bounds": [
+            1e-08,
+            1e-07,
+            1e-06,
+            9.999999999999999e-06,
+            9.999999999999999e-05,
+            0.001,
+            0.01,
+            0.1,
+            1,
+            2,
+            4,
+            6,
+            8,
+            10,
+            15
           ],
           "native_schemas": []
         }
