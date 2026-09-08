@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-07 08:10'
-updated_date: '2026-09-08 01:34'
+updated_date: '2026-09-08 01:50'
 labels:
   - signals
   - control-plane
@@ -52,6 +52,8 @@ Wave 2026-09-10: add exact scheduler/controller-manager read-back selectors test
 2026-09-10 catalogue reconciliation landed from observed evidence. The 104-family Rancher audit resolved 14 existing rows, added 19 typed catalogue rows, and recorded 71 explicit not-modelled verdicts, accounting for all 90 previously uncatalogued scheduler and etcd families. Two additional observed controller-manager histogram rows were corrected from the EKS read-back. SK-49 and SK-53 and the stale managed-control-plane provenance were corrected. Construct label sets and histogram bounds were aligned to observation; targeted tests, the safe explicit k8s-control-plane inventory dump, signal fidelity with zero new exemptions, just check, exact-head CI, and the one authorized e2e run passed. The one authorized read-back did run and merged 33 k8s contracts, but the selector diff and merged document were not committed: adding the document reduced contradictions from 25 to 10, with the remainder exposing a missing family-and-job-scoped shape contract for scheduler and workqueue evidence. The run allowed no second schema change, route alteration, or new exemption. Resume from the preserved selector diff and merged read-back candidate by defining that scoped shape contract, then integrate both and rerun fidelity; AC1 remains open.
 
 Wave 2026-09-11 integrated the preserved exact-job selectors and tests. The one authorized series-only read-back ran: merged 1190 cw metric contracts into scratch; cumulative families 618 -> 1190; merged 33 k8s metric contracts into scratch; cumulative families 31 -> 48. The existing entrypoint additionally invokes version and metadata commands outside authority, so a retained scratch adapter ran only config check and metrics series, with the environment token unset. Fresh evidence wins over the preserved candidate. Fresh comparison has 15 raw contradictions and 6 no-comparable-producer findings, but exemption accounting fails because capture-k8s-build-info-kubelet-job expected 1 match and got 0 after privacy elision. This is not a finalized unexempted count. No exemption changed and no corpus merge was committed. Resume with a reviewed identity-preserving privacy and job-shape contract; do not restore identifying values or weaken the frozen exemption to force a pass.
+
+Final structural audit clarifies the non-elided count: the current committed document has 46 value-bearing label entries, comprising all 30 entries from the previous retained candidate unchanged plus 16 additional job-value entries retained from the committed baseline. The previous candidate count of 30 must not be read as the current total. These additional values are the reviewed job vocabulary; no second live read-back was used. The document remains explicitly not globally value-free.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
