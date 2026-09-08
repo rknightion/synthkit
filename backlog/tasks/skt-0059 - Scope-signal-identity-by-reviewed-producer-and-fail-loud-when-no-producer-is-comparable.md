@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-07 12:29'
-updated_date: '2026-09-08 01:45'
+updated_date: '2026-09-08 15:41'
 labels:
   - corpus
 dependencies: []
@@ -50,6 +50,8 @@ Test the frozen same-producer, different-producer, and no-comparable outcomes; p
 Wave 2026-09-12: implement the frozen composite transport/job producer identity test-first on capture and synth paths; consume both identity labels; measure all six preserved candidates before and after; retain same-producer contradictions; update the producer-coverage ratchet; retire only the now-unreachable kubelet-job exemption; review, gate, commit, and push before dependent promotions.
 
 Wave 2026-09-13: verify producer pairing and family ownership from source and immutable evidence; measure all six candidates before mutation; add fail-first contract and ratchet controls; resolve live-job privacy handling; retire only unreachable exemption; review, gate and commit forward before promotions.
+
+Wave 2026-09-14: inspect the 178 previously uninspected unmatched claims from emitter source and captured producer evidence. Preserve the settled producer contract and the 25 previously reviewed macOS/database gaps; sharpen each remaining reason to name the evidence needed. Root alone updates the exact claim list after triage, without normalization or comparator weakening.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -66,6 +68,10 @@ Correction: ee723e0 committed the composite mechanism, routing manifest and seve
 Source re-derivation confirms the platform activity family and chart telemetry build-info have different producer jobs from their captured counterparts. Family capture marginals do not preserve transport/job pairings: multi-valued components now keep transport-only identity instead of inventing Cartesian pairs. Baseline unmatched claims remain 103; each is now triaged and an unknown family/producer pair fails even at unchanged count. Both identity labels remain consumed. The live-job vocabulary stays a privacy admission set rather than a family map. The obsolete kubelet-job exemption is retired because job is consumed into identity; exemptions added 0. Initial just check passed with observed=103 expected=103, disproving the goal note that the current default gate sees at most six. Candidate contradiction residue is still visible, not an AC5 pass.
 
 Final ordered fallback retained203explicit unmatched claims after P3 reprojection. Source inspection confirms the macOS job is intentional and differs from Linux capture producers; dbo11y similarly differs from the plain PostgreSQL exporter in both route and job. No same-producer defect was established and no normalization or adjacent task is justified for those observations. A future independent matching-producer capture is the precise evidence boundary.
+
+Wave 2026-09-14 source triage: all 178 previously uninspected claims dispositioned, 157 legitimate distinct-producer gaps and 21 Azure claims with ambiguous capture route/job pairing; no emitter defect established. All 203 signal/producer pairs remain, with 178 reasons sharpened to name the exact independent capture required. The 23 macOS and two database claims settled last wave were skipped without re-investigation. A generic Azure route is insufficient evidence that a different real pipeline was observed; the capture must preserve paired route and job attribution. No normalization, label-ignore widening, comparison weakening, exemption or new task was used.
+
+All 203 exact pairs and expected_count 203 retained. The 178 new inspections: 157 legitimate different producers, 21 ambiguous Azure pairings, zero proven emitter defects. All 203 reasons sharpened, including 23 macOS and two database reasons reused from settled source conclusions without reinvestigation. No identity normalization, comparator weakening or exemption change. Evidence: codex/scratch/wave-2026-09-14/l3-final-dispositions.json and fallback-settled-25.json.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -74,4 +80,6 @@ Final ordered fallback retained203explicit unmatched claims after P3 reprojectio
 AC1-4 implemented and reviewed; AC5 remains open. Same-producer behavior is preserved rather than used to hide the still-red candidates. Initial visible unmatched-producer bound is 6.
 
 Settled mechanism ce93918 and attributed-shape correction 9426333 are pushed. Both protected-family assumptions were re-derived from emitter ownership: they are different producers, not same-producer contradictions. Marginal transport/job sets no longer invent Cartesian pairs; both identity labels are consumed. Explicit unmatched claims reject same-count substitution as well as growth. Baseline103, cloud cumulative219, final required-promotion set203. All six evaluated scopes reached zero unexempted contradictions after sourced emitter corrections; no exemption added. trustedLiveJobValues remains a privacy vocabulary, not a family mapping table. Full gates passed and the named exemption became unreachable and was retired.
+
+All 203 exact pairs and expected_count 203 retained. The 178 new inspections: 157 legitimate different producers, 21 ambiguous Azure pairings, zero proven emitter defects. All 203 reasons sharpened, including 23 macOS and two database reasons reused from settled source conclusions without reinvestigation. No identity normalization, comparator weakening or exemption change. Evidence: codex/scratch/wave-2026-09-14/l3-final-dispositions.json and fallback-settled-25.json.
 <!-- SECTION:FINAL_SUMMARY:END -->

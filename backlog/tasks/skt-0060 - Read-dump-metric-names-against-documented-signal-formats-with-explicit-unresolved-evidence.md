@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-08 00:13'
-updated_date: '2026-09-08 01:35'
+updated_date: '2026-09-08 15:41'
 labels:
   - corpus
 dependencies: []
@@ -23,7 +23,7 @@ The scratch conformance reader leaves 2330 names unresolved because it cannot pa
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 A supported command and tested reader handle the documented YAML, prose and expansion formats without changing emitters or catalogue entries.
+- [x] #1 A supported command and tested reader handle documented YAML, prose and expansion formats without changing emitters; root-owned syntax and sourced catalogue inventory corrections retain exact telemetry names.
 - [x] #2 An explicit-selection dump measurement reports resolved and unresolved names and every named parse gap, with limits on label and envelope claims.
 - [x] #3 Focused tests, the integrated gate and CodeRabbit review complete before source integration.
 <!-- AC:END -->
@@ -45,16 +45,22 @@ Promote the reader into a tested package, pin format cases with fail-first tests
 3. Parse the stable `-dump` sections with sorted label or attribute keys, compare names by Prometheus and OTLP transport, and expose resolved, unresolved, and gap evidence with explicit scope limits.
 4. Add a small CLI under `internal/conformance` and a just recipe that reads `signals/` and stdin without mutating emitters or catalogue files.
 5. Run focused tests, the explicit-selection dump measurement, and the proportionate repository checks; review the final diff before task finalization.
+
+Wave 2026-09-14: diagnose eight parse gaps, apply syntax-only catalogue fixes at the root wiring pass, then remeasure the retained explicit selection before evaluating Envoy and CloudWatch name-resolution hypotheses. Keep name evidence separate from label and envelope conformance; classify every remaining unresolved name with its evidence boundary.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Final integration selection adds the P3 reference blueprint: 2973 resolved of3347 names,374 unresolved and8parse gaps. The earlier2972/3346 observation remains the measurement before that selection addition.
+
+Eight syntax gaps closed without telemetry-name changes; syntax alone leaves 374 unresolved. Reader resolves 3269/3347; current normative Envoy inventory yields 3317/3347 with 30 remaining. Fresh P3-inclusive dump: 3327/3357, 154 blocks, zero gaps, same 30 classified names. CloudWatch mapping resolves 122/126 source names; Envoy parse-gap hypothesis disproved. No emitter changed for reader findings. Fail-first tests, CodeRabbit disposition and full gate retained in codex/scratch/wave-2026-09-14/. Name resolution only; label/envelope conformance unproven. AC wording aligns with goal-authorized syntax and sourced catalogue corrections.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 Integrated in 4dbe491. Reader command: just signals-conformance dump.txt. Explicit-selection measurement resolves2972 of3346 metric names, leaving374 unresolved and8named YAML parse gaps. Name evidence only; dumped label keys are retained but not compared, and unresolved names are not proven emitter defects. Focused tests and isolated integrated just check passed. CodeRabbit minor indentation finding fixed; no remaining finding. No blueprint schema change was required by the reader.
+
+Eight syntax gaps closed without telemetry-name changes; syntax alone leaves 374 unresolved. Reader resolves 3269/3347; current normative Envoy inventory yields 3317/3347 with 30 remaining. Fresh P3-inclusive dump: 3327/3357, 154 blocks, zero gaps, same 30 classified names. CloudWatch mapping resolves 122/126 source names; Envoy parse-gap hypothesis disproved. No emitter changed for reader findings. Fail-first tests, CodeRabbit disposition and full gate retained in codex/scratch/wave-2026-09-14/. Name resolution only; label/envelope conformance unproven. AC wording aligns with goal-authorized syntax and sourced catalogue corrections.
 <!-- SECTION:FINAL_SUMMARY:END -->

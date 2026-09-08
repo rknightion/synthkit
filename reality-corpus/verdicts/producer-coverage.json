@@ -355,107 +355,107 @@
     {
       "signal": "node_boot_time_seconds",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_boot_time_seconds with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_cpu_seconds_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_cpu_seconds_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_disk_io_time_seconds_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_disk_io_time_seconds_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_disk_read_bytes_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_disk_read_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_disk_written_bytes_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_disk_written_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_filesystem_avail_bytes",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_avail_bytes with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_filesystem_files",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_files with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_filesystem_files_free",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_files_free with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_filesystem_readonly",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_readonly with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_filesystem_size_bytes",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_size_bytes with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_load1",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_load1 with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_load15",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_load15 with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_load5",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_load5 with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_network_receive_bytes_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_network_receive_drop_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_drop_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_network_receive_errs_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_errs_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_network_receive_packets_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_packets_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_network_transmit_bytes_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_network_transmit_drop_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_drop_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_network_transmit_errs_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_errs_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_network_transmit_packets_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_packets_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_os_info",
@@ -465,22 +465,22 @@
     {
       "signal": "node_textfile_scrape_error",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_textfile_scrape_error with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "node_uname_info",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The modeled macOS exporter job differs from captured Linux node-exporter jobs; no macOS capture establishes comparability."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_uname_info with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
     },
     {
       "signal": "pg_locks_count",
       "producer": "dbo11y/integrations/db-o11y",
-      "reason": "Recorded database integration transport or job differs; require paired evidence before attributing generic PostgreSQL families."
+      "reason": "The declared database-observability pipeline is distinct from the captured plain PostgreSQL exporter. Resolve pg_locks_count with an independent database-observability capture containing this family and the paired dbo11y route and integrations/db-o11y job, retaining label keys and collector/exporter versions; promrw/integration/postgresql evidence does not establish this producer."
     },
     {
       "signal": "pg_replication_is_replica",
       "producer": "dbo11y/integrations/db-o11y",
-      "reason": "Recorded database integration transport or job differs; require paired evidence before attributing generic PostgreSQL families."
+      "reason": "The declared database-observability pipeline is distinct from the captured plain PostgreSQL exporter. Resolve pg_replication_is_replica with an independent database-observability capture containing this family and the paired dbo11y route and integrations/db-o11y job, retaining label keys and collector/exporter versions; promrw/integration/postgresql evidence does not establish this producer."
     },
     {
       "signal": "pg_stat_activity_count",

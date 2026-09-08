@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-07 11:03'
-updated_date: '2026-09-08 01:26'
+updated_date: '2026-09-08 15:40'
 labels:
   - integration
 dependencies: []
@@ -60,10 +60,18 @@ Live construction needed trace_id_cache_size = 100 because the pinned Alloy defa
 Correction: the Alloy Datadog receiver output exposes metrics and traces only. Although its upstream config carries logs fields, this component has no routable logs output; logs are out of scope for this path. The standing environment remains intended retained validation state. Receipt counters are datapoints and spans, not requests.
 
 Receiver envelope-preservation prerequisite committed in 4dbe491: deep-copied resource, scope and datapoint placement, scope metadata, schema URLs, unit, temporality and monotonicity are available separately while Snapshot remains flattened. Focused and race tests passed. The broader Datadog host/Kubernetes capture and selectable construct acceptance remains open; resume with an authorized new capture using the preserved envelopes. No such capture or live receipt is claimed this wave.
+
+Wave 2026-09-14 preflight: AWS SSO session expired or invalid. Per the frozen goal, both the independent envelope capture and deployed read-back stop at authentication; no recovery, cluster mutation, capture or Grafana read-back was attempted. Both earmarked read-backs remain unused. Logs are excluded by the Alloy component output contract, not deferred.
+
+Wave close: AWS SSO failed at preflight. No recovery attempted under the goal auth stop; no namespace operation or Datadog capture occurred, and both read-back allowances remain unused. Metrics/traces remain authorized; logs are excluded as a component limitation. Resume after authentication is restored: inspect Application sync policy read-only, prefer an ephemeral envelope capture, preserve the environment, and stop before any durable infrastructure-source change.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 Parked with partial metrics/traces hop evidence and a deliberately standing environment. Full logs/host-path/envelope/corpus/construct acceptance is unproven; preserve the environment until the operator confirms destruction.
+
+Current resume boundary: establish working AWS authentication outside this run, then inspect the standing Application sync policy read-only before using an ephemeral envelope-preserving metrics/traces capture path. Preserve the standing environment. No current deployment identity, ingestion or resource-count claim is made from this failed preflight.
+
+Wave close: AWS SSO failed at preflight. No recovery attempted under the goal auth stop; no namespace operation or Datadog capture occurred, and both read-back allowances remain unused. Metrics/traces remain authorized; logs are excluded as a component limitation. Resume after authentication is restored: inspect Application sync policy read-only, prefer an ephemeral envelope capture, preserve the environment, and stop before any durable infrastructure-source change.
 <!-- SECTION:FINAL_SUMMARY:END -->
