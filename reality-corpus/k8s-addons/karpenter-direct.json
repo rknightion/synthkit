@@ -1,0 +1,268 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "k8s-addons",
+  "source": {
+    "kind": "karpenter_direct_scrape",
+    "substrate": "eks",
+    "collector": "kubernetes-sigs/karpenter",
+    "collector_role": "audited",
+    "collector_version": "1.14.1",
+    "captured_on": "2026-09-08",
+    "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+    "capture_schema_version": "paired-prometheus-egress/v1",
+    "capture_tool_version": "wave-2026-09-16",
+    "instrument_type_source": "Prometheus 3.12.0 scraped exporter TYPE metadata and forwarded RW2 to a local receiver. Paired job evidence and labels were read per series from this collector; missing metadata stays unknown.",
+    "capture_limitations": [
+      {
+        "id": "selected-claims-only",
+        "text": "Only the 10 named campaign claim families were selected; this is not the full exporter inventory. All per-series route/job pairings were retained before privacy elision."
+      },
+      {
+        "id": "local-collector-path",
+        "text": "The collector used explicit local scrape targets, forwarded RW2, and applied job/instance target labels. It did not reproduce Kubernetes discovery enrichment or a Grafana gateway."
+      }
+    ]
+  },
+  "authority": {
+    "substrates": [
+      "eks"
+    ]
+  },
+  "capture_volume": {
+    "runs": 1,
+    "observed_contract_counts": [
+      10
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [
+      {
+        "name": "go_gc_duration_seconds",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "summary"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "quantile",
+            "values": [
+              "0.0",
+              "0.25",
+              "0.5",
+              "0.75",
+              "1.0"
+            ],
+            "values_elided": false
+          }
+        ]
+      },
+      {
+        "name": "go_goroutines",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_alloc_bytes",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_heap_alloc_bytes",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_memstats_heap_inuse_bytes",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "go_threads",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_cpu_seconds_total",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_max_fds",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_open_fds",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "process_resident_memory_bytes",
+        "producers": [
+          {
+            "name": "promrw/karpenter"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      }
+    ],
+    "logs": [],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}

@@ -130,67 +130,67 @@
     {
       "signal": "container_cpu_usage_seconds_total",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_cpu_usage_seconds_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_fs_reads_total",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_fs_reads_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_fs_writes_total",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_fs_writes_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_last_seen",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_last_seen from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_memory_usage_bytes",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_memory_usage_bytes from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_network_receive_bytes_total",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_receive_bytes_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_network_receive_errors_total",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_receive_errors_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_network_receive_packets_dropped_total",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_receive_packets_dropped_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_network_transmit_bytes_total",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_transmit_bytes_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_network_transmit_errors_total",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_transmit_errors_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_network_transmit_packets_dropped_total",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_transmit_packets_dropped_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_spec_memory_reservation_limit_bytes",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_spec_memory_reservation_limit_bytes from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "go_gc_duration_seconds",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_gc_duration_seconds from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "go_goroutines",
@@ -200,17 +200,17 @@
     {
       "signal": "go_goroutines",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_goroutines from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "go_memstats_alloc_bytes",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_memstats_alloc_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "go_memstats_heap_alloc_bytes",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_memstats_heap_alloc_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "go_memstats_heap_inuse_bytes",
@@ -220,12 +220,12 @@
     {
       "signal": "go_memstats_heap_inuse_bytes",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_memstats_heap_inuse_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "go_threads",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_threads from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "grafana_kubernetes_monitoring_build_info",
@@ -345,132 +345,132 @@
     {
       "signal": "machine_memory_bytes",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of machine_memory_bytes from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "machine_scrape_error",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of machine_scrape_error from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "node_boot_time_seconds",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_boot_time_seconds with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_boot_time_seconds with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_cpu_seconds_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_cpu_seconds_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_cpu_seconds_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_disk_io_time_seconds_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_disk_io_time_seconds_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_disk_io_time_seconds_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_disk_read_bytes_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_disk_read_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_disk_read_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_disk_written_bytes_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_disk_written_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_disk_written_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_filesystem_avail_bytes",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_avail_bytes with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_avail_bytes with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_filesystem_files",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_files with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_files with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_filesystem_files_free",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_files_free with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_files_free with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_filesystem_readonly",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_readonly with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_readonly with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_filesystem_size_bytes",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_size_bytes with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_filesystem_size_bytes with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_load1",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_load1 with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_load1 with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_load15",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_load15 with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_load15 with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_load5",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_load5 with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_load5 with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_network_receive_bytes_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_network_receive_drop_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_drop_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_drop_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_network_receive_errs_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_errs_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_errs_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_network_receive_packets_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_packets_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_receive_packets_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_network_transmit_bytes_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_bytes_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_network_transmit_drop_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_drop_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_drop_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_network_transmit_errs_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_errs_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_errs_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_network_transmit_packets_total",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_packets_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_network_transmit_packets_total with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_os_info",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of node_os_info from producer promrw/integrations/macos-node, retaining its observed route/job pairing and family shape."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of node_os_info from producer promrw/integrations/macos-node, retaining its observed route/job pairing and family shape. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_textfile_scrape_error",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_textfile_scrape_error with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_textfile_scrape_error with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "node_uname_info",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_uname_info with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer."
+      "reason": "The declared macOS exporter is distinct from captured Linux node-exporter jobs. Resolve node_uname_info with an independent macOS exporter capture containing this family and the paired promrw transport and integrations/macos-node job, retaining label keys and exporter version; Linux evidence does not establish this producer. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "pg_locks_count",
@@ -550,7 +550,7 @@
     {
       "signal": "process_cpu_seconds_total",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_cpu_seconds_total from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "process_cpu_seconds_total",
@@ -590,7 +590,7 @@
     {
       "signal": "process_max_fds",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_max_fds from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "process_max_fds",
@@ -615,7 +615,7 @@
     {
       "signal": "process_open_fds",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_open_fds from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "process_open_fds",
@@ -665,7 +665,7 @@
     {
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/karpenter",
-      "reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_resident_memory_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "process_resident_memory_bytes",
@@ -895,12 +895,12 @@
     {
       "signal": "up",
       "producer": "promrw/integrations/docker",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of up from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "up",
       "producer": "promrw/integrations/macos-node",
-      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of up from producer promrw/integrations/macos-node, retaining its observed route/job pairing and family shape."
+      "reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of up from producer promrw/integrations/macos-node, retaining its observed route/job pairing and family shape. Select the actual Darwin/macOS node_exporter build and its integration keep-set, not a Linux VM hosted on macOS (internal/construct/host/host.go, topology.go; internal/nodeexp/profiles.go macosIntegrationNames). Retain per-series identity before key unions, exporter build/collector versions and enabled collectors, TYPE metadata, four observed CPU modes, filesystem and BSD-device label shape where applicable. A missing family stays absent evidence; do not infer its type from a suffix."
     },
     {
       "signal": "up",

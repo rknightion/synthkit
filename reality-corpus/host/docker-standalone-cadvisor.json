@@ -1,0 +1,1377 @@
+{
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "area": "host",
+  "source": {
+    "kind": "standalone_docker_cadvisor",
+    "substrate": "linux",
+    "collector": "google/cadvisor",
+    "collector_role": "audited",
+    "collector_version": "0.55.1",
+    "captured_on": "2026-09-08",
+    "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+    "capture_schema_version": "paired-prometheus-egress/v1",
+    "capture_tool_version": "wave-2026-09-16",
+    "instrument_type_source": "Prometheus 3.12.0 scraped exporter TYPE metadata and forwarded RW2 to a local receiver. Paired job evidence and labels were read per series from this collector; missing metadata stays unknown.",
+    "capture_limitations": [
+      {
+        "id": "selected-claims-only",
+        "text": "Only the 15 named campaign claim families were selected; this is not the full exporter inventory. All per-series route/job pairings were retained before privacy elision."
+      },
+      {
+        "id": "local-collector-path",
+        "text": "The collector used explicit local scrape targets, forwarded RW2, and applied job/instance target labels. It did not reproduce Kubernetes discovery enrichment or a Grafana gateway."
+      }
+    ]
+  },
+  "authority": {
+    "substrates": [
+      "linux"
+    ]
+  },
+  "capture_volume": {
+    "runs": 1,
+    "observed_contract_counts": [
+      15
+    ]
+  },
+  "inventory": {
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "metrics": [
+      {
+        "name": "container_cpu_usage_seconds_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "cpu",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_fs_reads_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_fs_writes_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_last_seen",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_memory_usage_bytes",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_receive_bytes_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_receive_errors_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_receive_packets_dropped_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_transmit_bytes_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_transmit_errors_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_network_transmit_packets_dropped_total",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "counter"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interface",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "container_spec_memory_reservation_limit_bytes",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "container_label_io_prometheus_image_variant",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_maintainer",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_authors",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_created",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_description",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_documentation",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_licenses",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_revision",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_title",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_url",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_vendor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "container_label_org_opencontainers_image_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "image",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "name",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "machine_memory_bytes",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "boot_id",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "machine_id",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "machine_scrape_error",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      },
+      {
+        "name": "up",
+        "producers": [
+          {
+            "name": "promrw/integrations/docker"
+          }
+        ],
+        "transports": [
+          "prometheus_remote_write_v2"
+        ],
+        "instrument_types": [
+          "unknown"
+        ],
+        "labels": [
+          {
+            "key": "instance",
+            "values": [],
+            "values_elided": true
+          }
+        ]
+      }
+    ],
+    "logs": [],
+    "traces": [],
+    "profiles": [],
+    "sigil": [],
+    "receipts": []
+  }
+}

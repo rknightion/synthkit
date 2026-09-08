@@ -1,0 +1,210 @@
+{
+  "version": 1,
+  "configured_bound": 203,
+  "starting_observed_unresolved": 203,
+  "after_docker_karpenter_observed_unresolved": 178,
+  "removed_observed_pairs": [
+    {
+      "signal": "container_cpu_usage_seconds_total",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_cpu_usage_seconds_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_fs_reads_total",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_fs_reads_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_fs_writes_total",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_fs_writes_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_last_seen",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_last_seen from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_memory_usage_bytes",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_memory_usage_bytes from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_network_receive_bytes_total",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_receive_bytes_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_network_receive_errors_total",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_receive_errors_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_network_receive_packets_dropped_total",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_receive_packets_dropped_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_network_transmit_bytes_total",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_transmit_bytes_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_network_transmit_errors_total",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_transmit_errors_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_network_transmit_packets_dropped_total",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_network_transmit_packets_dropped_total from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "container_spec_memory_reservation_limit_bytes",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of container_spec_memory_reservation_limit_bytes from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "go_gc_duration_seconds",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_gc_duration_seconds from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "go_goroutines",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_goroutines from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "go_memstats_alloc_bytes",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_memstats_alloc_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "go_memstats_heap_alloc_bytes",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_memstats_heap_alloc_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "go_memstats_heap_inuse_bytes",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_memstats_heap_inuse_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "go_threads",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of go_threads from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "machine_memory_bytes",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of machine_memory_bytes from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "machine_scrape_error",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of machine_scrape_error from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    },
+    {
+      "signal": "process_cpu_seconds_total",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_cpu_seconds_total from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "process_max_fds",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_max_fds from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "process_open_fds",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_open_fds from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "process_resident_memory_bytes",
+      "producer": "promrw/karpenter",
+      "status": "comparable",
+      "evidence": "reality-corpus/k8s-addons/karpenter-direct.json",
+      "capture_sha256": "ff43b2c9b9be41abd59042ed2f5964ec3f9d44afb53d82bbbacd910712261c08",
+      "previous_reason": "The declared Karpenter controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of process_resident_memory_bytes from producer promrw/karpenter, retaining its observed route/job pairing and family shape. Scrape the Karpenter controller metrics endpoint under its literal karpenter job (internal/construct/karpenter/karpenter.go), retaining controller version and declared TYPE/summary/histogram metadata. Shared Go/process/workqueue families from other controllers do not establish this producer; preserve each series job before any attribute union."
+    },
+    {
+      "signal": "up",
+      "producer": "promrw/integrations/docker",
+      "status": "comparable",
+      "evidence": "reality-corpus/host/docker-standalone-cadvisor.json",
+      "capture_sha256": "c7f5161caa26bab1a52f1f6b60f069cb8fe34d15c5d37fb932d0ba1e0d2b47ab",
+      "previous_reason": "The standalone host construct intentionally declares this OS exporter or Docker cAdvisor job; the captured family has other target jobs. Require an independent capture of up from producer promrw/integrations/docker, retaining its observed route/job pairing and family shape. The capture must select the standalone Docker cAdvisor target, not a Kubernetes cAdvisor endpoint: host topology declares a separate Docker job on the same host (internal/construct/host/topology.go and host.go). Retain collector/exporter versions, TYPE metadata, per-series job pairing, and container label keys before elision; a family-level union of Kubernetes jobs cannot settle this standalone claim."
+    }
+  ],
+  "added_observed_pairs": [],
+  "comparison_rules_changed": false
+}
