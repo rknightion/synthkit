@@ -3,11 +3,11 @@ id: SKT-0059
 title: >-
   Scope signal identity by reviewed producer, and fail loud when no producer is
   comparable
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-07 12:29'
-updated_date: '2026-09-08 00:20'
+updated_date: '2026-09-08 01:45'
 labels:
   - corpus
 dependencies: []
@@ -32,14 +32,14 @@ Every corpus promotion is blocked behind the same 27 unexempted contradictions, 
 - [x] #2 A synth and reality claim under the same reviewed producer compares exactly as it does today, so no existing contradiction class is weakened
 - [x] #3 A synth and reality claim under different producers is one named coverage gap that states both producers, never a contradiction and never silent absence
 - [x] #4 A synth signal whose producer matches no reality producer in scope produces a distinct visible finding rather than passing, and that finding kind is exercised by a test using the pg_stat_* and grafana_kubernetes_monitoring_build_info shapes
-- [ ] #5 The four preserved promotion candidates and the preserved control-plane read-back candidate reach zero unexempted contradictions under the new contract, with no exemption added and no route altered
+- [x] #5 The four preserved promotion candidates and the preserved control-plane read-back candidate reach zero unexempted contradictions under the new contract, with no exemption added and no route altered
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -64,10 +64,14 @@ Wave 2026-09-12 stopped at the mandatory step-2 honesty gate. The composite tran
 Correction: ee723e0 committed the composite mechanism, routing manifest and seven reprojected canonical documents after the prior report. The prior sentence saying no implementation or corpus document was committed is no longer true. The experiment is the retained committed base; this wave corrects forward. The old protected-family comparison assumptions are being re-derived from their actual emitting constructs.
 
 Source re-derivation confirms the platform activity family and chart telemetry build-info have different producer jobs from their captured counterparts. Family capture marginals do not preserve transport/job pairings: multi-valued components now keep transport-only identity instead of inventing Cartesian pairs. Baseline unmatched claims remain 103; each is now triaged and an unknown family/producer pair fails even at unchanged count. Both identity labels remain consumed. The live-job vocabulary stays a privacy admission set rather than a family map. The obsolete kubelet-job exemption is retired because job is consumed into identity; exemptions added 0. Initial just check passed with observed=103 expected=103, disproving the goal note that the current default gate sees at most six. Candidate contradiction residue is still visible, not an AC5 pass.
+
+Final ordered fallback retained203explicit unmatched claims after P3 reprojection. Source inspection confirms the macOS job is intentional and differs from Linux capture producers; dbo11y similarly differs from the plain PostgreSQL exporter in both route and job. No same-producer defect was established and no normalization or adjacent task is justified for those observations. A future independent matching-producer capture is the precise evidence boundary.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 AC1-4 implemented and reviewed; AC5 remains open. Same-producer behavior is preserved rather than used to hide the still-red candidates. Initial visible unmatched-producer bound is 6.
+
+Settled mechanism ce93918 and attributed-shape correction 9426333 are pushed. Both protected-family assumptions were re-derived from emitter ownership: they are different producers, not same-producer contradictions. Marginal transport/job sets no longer invent Cartesian pairs; both identity labels are consumed. Explicit unmatched claims reject same-count substitution as well as growth. Baseline103, cloud cumulative219, final required-promotion set203. All six evaluated scopes reached zero unexempted contradictions after sourced emitter corrections; no exemption added. trustedLiveJobValues remains a privacy vocabulary, not a family mapping table. Full gates passed and the named exemption became unreachable and was retired.
 <!-- SECTION:FINAL_SUMMARY:END -->

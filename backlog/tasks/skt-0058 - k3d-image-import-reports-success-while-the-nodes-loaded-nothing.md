@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-07 12:29'
-updated_date: '2026-09-07 14:05'
+updated_date: '2026-09-08 01:34'
 labels:
   - lab
 dependencies: []
@@ -51,6 +51,8 @@ Prove exact image residency in every node containerd namespace after import in b
 Implemented direct per-node containerd k8s.io residency proof in both runners, one bounded import retry, and retained diagnostics on pass and failure. Simulations cover immediate pass, pass after two imports, persistent miss after two imports naming both nodes/reference, and untagged-reference normalization. Retained evidence: codex/scratch/wave-2026-09-11/residency/. bash -n, shellcheck and static lab-check passed. L1/L2 CodeRabbit completed; the sole minor normalization finding was reproduced and fixed in both scripts. No live lab or live containerd proof was run.
 
 Final integrated just check passed. One safe explicit-selection dump exists; its machine-name comparison against signals is incomplete for prose/expanded families and is not claimed full catalogue conformance. No renderer or construct changed; no live k3d run or e2e was authorized for this lane. Conditional generation DoD is not applicable to these scripts. The unchecked dump DoD is explicitly unproven, not a hidden pass.
+
+New local live proof: five captured permutations, partial0 empty0 failed0 in the successful matrix; both nodes per permutation passed residency on the first import. Executed at base7cbafe0, which includes d7e0281, plus isolated harness patch cda6bda011c23aa52c9dbab132894cac3c46dd01e5d8b6ccb6f62e745be12ecb. The first attempt failed in harness setup and remains separate. All ten created clusters across both attempts were deleted; none retained. Final harness corrections integrated in4dbe491. This is local execution proof, not a green nightly claim.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

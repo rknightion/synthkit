@@ -2,9 +2,10 @@
 id: SKT-0055
 title: Model the Datadog agent receiver path from independent post-gateway captures
 status: Parked
-assignee: []
+assignee:
+  - '@codex'
 created_date: '2026-09-07 11:03'
-updated_date: '2026-09-07 14:04'
+updated_date: '2026-09-08 01:26'
 labels:
   - integration
 dependencies: []
@@ -43,6 +44,8 @@ Migration rehearsal needs a separate telemetry contract for estates temporarily 
 
 <!-- SECTION:PLAN:BEGIN -->
 Build only the authorized isolated environment through ArgoCD and pinned Helm resources. Keep identity and credential values runtime-only. Verify receiver capabilities first; current Alloy documentation supports metrics and traces, not logs. Retain every created resource and label unsupported log evidence explicitly. Capture pre-ingest and use the single reserved post-ingest read-back only after positive upstream evidence.
+
+Wave 2026-09-13 implements the receiver envelope-preservation prerequisite only, keeping flattened callers compatible; broader Datadog construct and capture acceptance stays open.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -53,6 +56,10 @@ Authorized live validation environment (Rob, 2026-09-07): stand up an instrument
 Wave 2026-09-11 built the authorized isolated native Agent -> experimental Alloy Datadog receiver -> delta-to-cumulative -> batch -> cloud and capture exporter paths. The environment is intentionally left standing, including failed or rebuilding resources, for operator inspection; these are not orphans. Independent pre-ingest evidence contains 202 gauge families, one trace shape, 7441 metric datapoints and 11 spans, zero logs. Those receipt counters are not HTTP request counts. One authorized post-ingest series-only read-back returned one explicit metric family. Both privacy-elided derived evidence routes are retained separately; job is declared as observed read-path enrichment, while missing host/source keys remain differences. Correction to the earlier plan: logs are unproven, not unsupported; pinned upstream source supports logs, but the Agent path was disabled. Native-envelope reconstruction is parked because the capture receiver flattens resource and datapoint attributes and does not retain scope/schema/unit/temporality. A delivery path alone is not an independent construct boundary. No construct, blueprint or corpus promotion is claimed.
 
 Live construction needed trace_id_cache_size = 100 because the pinned Alloy default zero failed construction. The runtime Application carries that override and Alloy-only injection opt-out. A source follow-up commit was rejected fetch first; no reconciliation or second push was attempted. Generic chart source is published, injection follow-up is local, and the cache fix remains uncommitted. Automatic admission injection caused scheduling pressure; no global collector/injector settings changed. dd_internal_stats_payload was rejected by the cloud for timestamp zero; positive evidence for another family does not make that rejection green. Resume with explicit publication authority, envelope-preserving capture, source-specific catalogue ownership and native logs proof. Both read-back allowances are consumed.
+
+Correction: the Alloy Datadog receiver output exposes metrics and traces only. Although its upstream config carries logs fields, this component has no routable logs output; logs are out of scope for this path. The standing environment remains intended retained validation state. Receipt counters are datapoints and spans, not requests.
+
+Receiver envelope-preservation prerequisite committed in 4dbe491: deep-copied resource, scope and datapoint placement, scope metadata, schema URLs, unit, temporality and monotonicity are available separately while Snapshot remains flattened. Focused and race tests passed. The broader Datadog host/Kubernetes capture and selectable construct acceptance remains open; resume with an authorized new capture using the preserved envelopes. No such capture or live receipt is claimed this wave.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

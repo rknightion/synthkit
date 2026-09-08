@@ -3,11 +3,11 @@ id: SKT-0054
 title: >-
   Resolve the control-plane PENDING rows from observed scheduler,
   controller-manager and etcd evidence
-status: Parked
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-07 08:10'
-updated_date: '2026-09-07 14:00'
+updated_date: '2026-09-08 01:34'
 labels:
   - signals
   - control-plane
@@ -27,7 +27,7 @@ signals/k8s.md (kube-scheduler and kube-controller-manager sections) and signals
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 cmd/reality-corpus-gcx selects the kube-scheduler and kube-controller-manager jobs, the read-back ran once and reality-corpus/k8s/eks-live-readback.json carries their families with elided identity values, pasted
+- [x] #1 cmd/reality-corpus-gcx selects the kube-scheduler and kube-controller-manager jobs, the read-back ran once and reality-corpus/k8s/eks-live-readback.json carries their families with elided identity values, pasted
 - [x] #2 Every previously PENDING kube-scheduler, kube-controller-manager and etcd row that the Rancher or EKS evidence observed is marked observed with substrate provenance, and synth's label sets and histogram bounds for those families match the observation, proven by signal-fidelity with zero exemptions added
 - [x] #3 Each of the 90 uncatalogued scheduler_ and etcd_ families has either a new catalogue row with provenance or a recorded verdict naming why it is not modelled, and the count of each is pasted
 - [x] #4 cantfind.md SK-49 and SK-53 are re-resolved from the observations, and the stale EKS-cannot-expose provenance text in signals/k8s.md and signals/k8s-addons.md is corrected
@@ -36,7 +36,7 @@ signals/k8s.md (kube-scheduler and kube-controller-manager sections) and signals
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
@@ -60,4 +60,6 @@ Wave 2026-09-11 integrated the preserved exact-job selectors and tests. The one 
 Parked with catalogue and construct work proven: AC2 through AC4 and the applicable gates are complete. AC1 remains open because the single read-back result cannot be integrated truthfully until the family-and-job-scoped scheduler and workqueue shape contract is defined.
 
 Selector source and fixtures land; AC1 remains open because the fresh read-back cannot be promoted with valid exemption accounting and green fidelity.
+
+Committed 5fede23: reality-corpus/k8s/eks-live-readback.json grows from 31 to 48 families, with 17 new names and no removal. The single authorized series-only adapter read returned 33 Kubernetes contracts; it called config check once and metrics series 27 times, metadata/version commands zero times. The public command was not the entrypoint. Thirty legacy non-elided label entries remain; the cumulative document is not globally value-free. Isolated just check and signal fidelity passed with no added exemption. The incidental CloudWatch read-back remains scratch-only.
 <!-- SECTION:FINAL_SUMMARY:END -->
