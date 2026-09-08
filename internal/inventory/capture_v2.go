@@ -117,8 +117,8 @@ func ConvertCaptureV2(data []byte, source CaptureV2PromotionSource) (CorpusDocum
 	if capture.Capture.Scope.IsScoped != (source.Scope != "full") {
 		return CorpusDocument{}, fmt.Errorf("capture scope and reviewed promotion scope disagree")
 	}
-	if len(source.MetricProducerLabel) == 0 {
-		return CorpusDocument{}, fmt.Errorf("promotion metric producer label: must not be empty")
+	if err := validateMetricProducerLabels(source.MetricProducerLabel); err != nil {
+		return CorpusDocument{}, fmt.Errorf("promotion metric producer label: %w", err)
 	}
 
 	schema := New()
@@ -249,6 +249,25 @@ func captureV2MetricProducers(family captureV2Metric, producerLabels []string) [
 	if len(components) == 0 {
 		return []Producer{}
 	}
+	// Family captures retain marginal value sets, not individual series. A
+	// Cartesian product is only proven when at most one component has multiple
+	// values. Otherwise retain the directly observed transport identities; a
+	// job-scoped synthetic claim remains visibly unmatched until paired evidence
+	// is available. Never manufacture transport/job pairs from independent sets.
+	multiple := 0
+	for _, key := range producerLabels {
+		if len(compactStrings(valuesByKey[key])) > 1 {
+			multiple++
+		}
+	}
+	if multiple > 1 {
+		producers := make([]Producer, 0, len(components))
+		for _, name := range components {
+			producers = append(producers, Producer{Name: name})
+		}
+		normalizeProducers(&producers)
+		return producers
+	}
 	for _, key := range producerLabels[1:] {
 		values := compactStrings(valuesByKey[key])
 		if len(values) == 0 {
@@ -314,4 +333,24 @@ func compactStrings(values []string) []string {
 		}
 	}
 	return out
+}
+
+func validateMetricProducerLabels(labels []string) error {
+	if len(labels) == 0 {
+		return fmt.Errorf("metric_producer_label must not be empty")
+	}
+	seen := map[string]bool{}
+	for i, label := range labels {
+		if strings.TrimSpace(label) == "" {
+			return fmt.Errorf("metric_producer_label[%d] must not be empty", i)
+		}
+		if label != strings.TrimSpace(label) {
+			return fmt.Errorf("metric_producer_label[%d] must not contain surrounding whitespace", i)
+		}
+		if seen[label] {
+			return fmt.Errorf("metric_producer_label %q is duplicated", label)
+		}
+		seen[label] = true
+	}
+	return nil
 }

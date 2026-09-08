@@ -107,16 +107,22 @@ finding applies; matching evidence elsewhere neither suppresses nor broadens
 it.
 
 Reviewed schema-2 captures can be converted into generic candidate records only
-through a reviewed, hash-keyed routing manifest. The manifest names the
-capture-provided producer-label key, then explicitly records each exact family,
-its generic producer identity, and its owning signals area. Promotion checks
-the reviewed producer against the capture's direct label when that label is
-present; a family without it needs its own explicit manifest identity before
-the label is omitted from the privacy-safe projection. The comparator pairs metrics only where
-both sides carry a matching explicit producer. It never reconstructs a producer
-or an area from a metric name, prefix, document position, or elided label value;
-an unmapped family is a conversion error. Unmatched producer claims remain
-visible under the producer identity and coverage-ratchet rules below.
+through a reviewed, hash-keyed routing manifest. The manifest names an ordered set of
+capture-provided identity label keys and routes each exact family to its signals
+area. The standard keys are the ingest marker and `job`. Projection consumes
+both as identity before eliding values; neither becomes a compared label.
+Per-family producer overrides are rejected. A missing job preserves the direct
+transport identity. If more than one identity component has multiple values,
+the family-level capture cannot prove their pairing: projection preserves only
+the directly observed transport identities. It never invents the Cartesian
+product of independent value sets. These transport-only claims do not match
+job-scoped synthetic claims and their coverage gaps stay visible.
+
+Synthetic producers come from the catalog transport and each emitted series'
+own job. A family name, area, prefix or elided value never selects a producer.
+The live read-back admits a fixed vocabulary of generic literal job values for
+privacy; that vocabulary does not map families to jobs. Unknown live values
+cannot become public producer identities.
 
 When a synth producer selects the k8s-monitoring default allow-list, its metric
 producer provenance also records the pinned chart version and selected variant
@@ -142,7 +148,8 @@ signals area, so the corpus loader deliberately does not treat it as an evidence
 document. Its version is
 `synthkit.telemetry.capture-v2-routing/v1alpha1`. It contains one route for
 each immutable raw-capture SHA-256 and, for every promoted metric family in that
-capture, an exact `name`, `area`, and non-empty `producers` array. Every
+capture, an exact `name` and `area`. Producer values are derived only from the
+reviewed identity-label keys, never from a per-family override. Every
 producerless family instead has an exact `unrouted` record. A capture route also
 records only generic promotion provenance: kind, substrate, scope,
 collector/version, capture date, and the capture-provided producer-label key.
@@ -153,7 +160,7 @@ from it; IDs are stable slugs. A route or existing corpus document without the
 field remains valid.
 
 A capture route is exhaustive by classification, not by promotion. Each exact
-family must be either a direct route with an explicit area and producer set, or
+family must be either a direct route with an explicit area and directly observed identity, or
 an `unrouted` record with one exact reason:
 
 - `missing_producer_and_area`
@@ -164,8 +171,7 @@ separate residue. A consumer asking to compare an unrouted family receives an
 error, rather than absent evidence or a fallback projection. The converter
 rejects a missing capture hash, a direct family without a route, a producerless
 family without an unrouted record, stale routes or residue, duplicate
-classification, an unknown area, or a reviewed producer that does not equal the
-raw capture's direct producer identity. It has no prefix fallback, source
+classification, an unknown area, or a forbidden per-family producer override. It has no prefix fallback, source
 splitting, default area, or synthetic-union fallback. Do not create a
 placeholder or infer a row from the synthetic union: an unrouted row is visible
 residue, not corpus evidence.
@@ -365,28 +371,27 @@ corpus producer must therefore understand what its output means:
   naming both sets. Disjoint sets do not compare signal shapes. An overlapping
   producer still compares with exactly the existing instrument, label and
   histogram rules; allow-list version/variant remain configuration provenance.
-  In particular, `promrw` is the recorded identity shared by many sources, not
-  proof of different jobs: its existing family union cannot be split after
-  privacy elision. A shared `promrw` identity never licenses suppressing a
-  contradiction. Legacy documents without producer attribution retain their
-  existing comparisons.
+  A transport-only identity is not proof of a job match. Family unions cannot be
+  split into per-job shapes after privacy elision. Legacy documents without
+  producer attribution retain their existing comparisons.
 - **No comparable producer.** Each synthetic family/producer with no matching
   explicitly attributed reality producer anywhere in the selected substrate
   scope yields one `no_comparable_producer` finding in its own report section.
-  This accounting covers families observed by at least one attributed corpus
-  document; wholly unobserved families remain outside corpus coverage. Missing
-  synthetic attribution is reported as `(unrecorded)`, never inferred. A partial
-  producer overlap preserves the shared comparison and reports unmatched claims.
-  These findings are report-only, separately from coverage gaps and exemptions.
-  `verdicts/producer-coverage.json` records version
-  `synthkit.telemetry.producer-coverage/v1alpha1` and a nonnegative
-  `expected_count`. The command prints observed and expected counts and fails
-  closed on growth. A missing file means zero allowance; malformed records fail.
-  There are no per-finding reasons or exemption selectors. The initial baseline
-  count is six. The report remains visible before ratchet failure, and decreases
-  need no allowance increase. Same-producer PostgreSQL `env` and monitoring
-  build-info `source` differences remain contradictions; producer scoping cannot
-  erase them or rewrite observed evidence.
+  Wholly unobserved families remain outside corpus coverage. Missing synthetic
+  attribution is reported as `(unrecorded)`, never inferred. Partial overlap
+  preserves comparison and reports the unmatched claims.
+  `verdicts/producer-coverage.json` retains the versioned count bound and records
+  each reviewed family/producer pair with its triage reason. Growth fails, and a
+  newly unmatched pair fails even when another pair disappears and the count
+  stays unchanged. Smaller explicit blueprint selections may observe a subset.
+  The baseline observation under the composite contract is 103, replacing the
+  earlier transport-only observation of six. The command prints its actual
+  selected-scope count; a smaller default selection is not evidence that the
+  full observation disappeared. Ratchet entries do not exempt contradictions.
+  Same-producer shape differences still contradict. The platform PostgreSQL
+  activity family and chart telemetry build-info family have different jobs
+  from the captured standalone integration and static scrape respectively;
+  requiring those unrelated producers to contradict was an attribution error.
 - **Instrument type.** A metric whose `instrument_types` is exactly
   `["unknown"]` records that the producer could not observe an instrument shape.
   It yields a visible `unknown_instrument_evidence` coverage gap and PENDING

@@ -2,18 +2,6 @@
   "version": "synthkit.telemetry.contradiction-exemptions/v1alpha1",
   "exemptions": [
     {
-      "id": "capture-k8s-build-info-kubelet-job",
-      "reason": "The EKS readback did not observe the kubelet build-info job value that synthkit models alongside kube-proxy.",
-      "area": "k8s",
-      "source_kind": "gcx_live_readback",
-      "substrate": "eks",
-      "finding_kind": "label_value_contradiction",
-      "field": "labels.job",
-      "signal": "kubernetes_build_info",
-      "only_in_synth": ["integrations/kubernetes/kubelet"],
-      "expected_matches": 1
-    },
-    {
       "id": "capture-manifest-service-name",
       "reason": "The corpus observes collector egress before Loki derives service_name; synthkit intentionally models the final ingested stream after that destination-side derivation.",
       "area": "k8s",
@@ -22,7 +10,9 @@
       "finding_kind": "unexpected_label_key",
       "field": "stream_labels",
       "signal": "loki[family=k8s_manifests]",
-      "only_in_synth": ["service_name"],
+      "only_in_synth": [
+        "service_name"
+      ],
       "expected_matches": 1
     }
   ]

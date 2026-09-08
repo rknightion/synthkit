@@ -968,3 +968,36 @@ func metricByName(t *testing.T, schema Schema, name string) Metric {
 	t.Fatalf("metric %q missing from %+v", name, schema.Metrics)
 	return Metric{}
 }
+
+func TestCaptureV2DoesNotInventUnobservedProducerPairs(t *testing.T) {
+	var family captureV2Metric
+	if err := json.Unmarshal([]byte(`{"name":"shared_total","type":"counter","type_source":"observed","labels":[{"key":"rksy_ingest","values":["promrw","dbo11y"]},{"key":"job","values":["integration/postgresql","integrations/db-o11y"]}]}`), &family); err != nil {
+		t.Fatal(err)
+	}
+	metric, err := convertCaptureV2Metric(family, []string{"rksy_ingest", "job"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Producer{{Name: "dbo11y"}, {Name: "promrw"}}
+	if !reflect.DeepEqual(metric.Producers, want) {
+		t.Fatalf("unpaired family values invented producer pairs: got=%+v want=%+v", metric.Producers, want)
+	}
+	for _, key := range []string{"rksy_ingest", "job"} {
+		if hasMetricLabel(metric, key) {
+			t.Fatalf("identity label %s became a compared label", key)
+		}
+	}
+}
+
+func TestCaptureV2RejectsInvalidIdentityKeys(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "capture-v2-sanitized.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, keys := range [][]string{{""}, {" ingest_path"}, {"ingest_path "}, {"ingest_path", "ingest_path"}} {
+		_, err := ConvertCaptureV2(data, CaptureV2PromotionSource{Area: "00-canon", Kind: "synthkit_terraform_capture", Substrate: "eks", Scope: "cluster", Collector: "grafana/k8s-monitoring", CollectorVersion: "4.5.0", CapturedOn: "2026-08-31", MetricProducerLabel: keys, MetricProducerWhenAbsent: "promrw"})
+		if err == nil {
+			t.Errorf("invalid keys %q accepted", keys)
+		}
+	}
+}

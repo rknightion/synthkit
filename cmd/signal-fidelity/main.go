@@ -102,7 +102,7 @@ func runWithReportLineBound(args []string, output io.Writer, lineBound int) erro
 	if _, err := fmt.Fprintf(output, "Producer coverage ratchet: observed=%d expected=%d (report-only within bound; growth fails).\n", count, *ratchet.ExpectedCount); err != nil {
 		return err
 	}
-	if err := ratchet.Check(count); err != nil {
+	if err := ratchet.CheckFindings(findings); err != nil {
 		return err
 	}
 	if count := inventory.CountUnexemptedContradictions(findings); count > 0 {

@@ -104,6 +104,10 @@ func (w *stampedMetrics) Write(ctx context.Context, batch []promrw.Series) error
 	return w.sink.Write(ctx, batch)
 }
 
+// metricProducer uses the synthetic series' declared job, which is already
+// public in the same dry-run inventory. This is not the live-capture privacy
+// boundary: restricting these synthetic jobs to an unrelated reader vocabulary
+// would erase valid configurable producer identities.
 func metricProducer(transport, job string) string {
 	transport = strings.TrimSpace(transport)
 	job = strings.TrimSpace(job)

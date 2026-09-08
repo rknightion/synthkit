@@ -64,6 +64,11 @@ var retainedLiveLabelValues = map[string]struct{}{
 	"traffic_policy":                                 {},
 }
 
+// trustedLiveJobValues is a privacy vocabulary, not a family-to-producer map.
+// It only admits literal generic job values already used by the fixed live-read
+// selectors or documented cloud integrations. It never assigns a job from a
+// family name. Unknown jobs are elided and cannot assert reviewed identity.
+// Keep this boundary explicit: arbitrary live job values may contain identities.
 var trustedLiveJobValues = map[string]struct{}{
 	"cloud/aws/amazonmwaa":                       {},
 	"cloud/aws/aoss":                             {},

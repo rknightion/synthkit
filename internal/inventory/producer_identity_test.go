@@ -120,3 +120,19 @@ func TestNoComparableProducerCountsNamesOnce(t *testing.T) {
 		t.Fatalf("duplicate provenance counted as multiple identities: got=%d want=1", got)
 	}
 }
+
+func TestProducerCoverageTriagedClaimsRejectReplacement(t *testing.T) {
+	data := []byte(`{"version":"synthkit.telemetry.producer-coverage/v1alpha1","expected_count":1,"claims":[{"signal":"shared_total","producer":"promrw/known","reason":"Different observed job; requires independently paired evidence."}]}`)
+	ratchet, err := DecodeProducerCoverageRatchet(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	findings := []ScopedFinding{{Finding: Finding{Kind: KindNoComparableProducer, Signal: "shared_total", SynthValues: []string{"promrw/known"}}}}
+	if err := ratchet.CheckFindings(findings); err != nil {
+		t.Fatal(err)
+	}
+	findings[0].Finding.SynthValues = []string{"promrw/new"}
+	if err := ratchet.CheckFindings(findings); err == nil {
+		t.Fatal("same count hid a new unmatched claim")
+	}
+}

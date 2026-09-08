@@ -268,18 +268,8 @@ func validateCaptureV2RoutingManifest(manifest CaptureV2RoutingManifest) error {
 				return fmt.Errorf("capture routing sha256 %q: %s must not be empty", capture.SHA256, field.name)
 			}
 		}
-		if len(capture.MetricProducerLabel) == 0 {
-			return fmt.Errorf("capture routing sha256 %q: metric_producer_label must not be empty", capture.SHA256)
-		}
-		seenProducerLabels := make(map[string]struct{}, len(capture.MetricProducerLabel))
-		for i, label := range capture.MetricProducerLabel {
-			if strings.TrimSpace(label) == "" {
-				return fmt.Errorf("capture routing sha256 %q: metric_producer_label[%d] must not be empty", capture.SHA256, i)
-			}
-			if _, exists := seenProducerLabels[label]; exists {
-				return fmt.Errorf("capture routing sha256 %q: metric_producer_label %q is duplicated", capture.SHA256, label)
-			}
-			seenProducerLabels[label] = struct{}{}
+		if err := validateMetricProducerLabels(capture.MetricProducerLabel); err != nil {
+			return fmt.Errorf("capture routing sha256 %q: %w", capture.SHA256, err)
 		}
 		if capture.Scope != "cluster" && capture.Scope != "cloud" && capture.Scope != "full" {
 			return fmt.Errorf("capture routing sha256 %q: scope must be cluster, cloud, or full", capture.SHA256)

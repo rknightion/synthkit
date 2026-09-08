@@ -65562,16 +65562,10 @@
         "name": "pg_exporter_last_scrape_duration_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -65626,16 +65620,10 @@
         "name": "pg_exporter_last_scrape_error",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -65690,16 +65678,10 @@
         "name": "pg_exporter_scrapes_total",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -65904,16 +65886,10 @@
         "name": "pg_scrape_collector_duration_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -65973,16 +65949,10 @@
         "name": "pg_scrape_collector_success",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66042,16 +66012,10 @@
         "name": "pg_settings_allow_alter_system",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66111,16 +66075,10 @@
         "name": "pg_settings_allow_in_place_tablespaces",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66180,16 +66138,10 @@
         "name": "pg_settings_allow_system_table_mods",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66249,16 +66201,10 @@
         "name": "pg_settings_archive_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66318,16 +66264,10 @@
         "name": "pg_settings_array_nulls",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66387,16 +66327,10 @@
         "name": "pg_settings_authentication_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66456,16 +66390,10 @@
         "name": "pg_settings_autovacuum",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66525,16 +66453,10 @@
         "name": "pg_settings_autovacuum_analyze_scale_factor",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66594,16 +66516,10 @@
         "name": "pg_settings_autovacuum_analyze_threshold",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66663,16 +66579,10 @@
         "name": "pg_settings_autovacuum_freeze_max_age",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66732,16 +66642,10 @@
         "name": "pg_settings_autovacuum_max_workers",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66801,16 +66705,10 @@
         "name": "pg_settings_autovacuum_multixact_freeze_max_age",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66870,16 +66768,10 @@
         "name": "pg_settings_autovacuum_naptime_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -66939,16 +66831,10 @@
         "name": "pg_settings_autovacuum_vacuum_cost_delay_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67008,16 +66894,10 @@
         "name": "pg_settings_autovacuum_vacuum_cost_limit",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67077,16 +66957,10 @@
         "name": "pg_settings_autovacuum_vacuum_insert_scale_factor",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67146,16 +67020,10 @@
         "name": "pg_settings_autovacuum_vacuum_insert_threshold",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67215,16 +67083,10 @@
         "name": "pg_settings_autovacuum_vacuum_scale_factor",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67284,16 +67146,10 @@
         "name": "pg_settings_autovacuum_vacuum_threshold",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67353,16 +67209,10 @@
         "name": "pg_settings_autovacuum_work_mem_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67422,16 +67272,10 @@
         "name": "pg_settings_backend_flush_after_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67491,16 +67335,10 @@
         "name": "pg_settings_bgwriter_delay_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67560,16 +67398,10 @@
         "name": "pg_settings_bgwriter_flush_after_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67629,16 +67461,10 @@
         "name": "pg_settings_bgwriter_lru_maxpages",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67698,16 +67524,10 @@
         "name": "pg_settings_bgwriter_lru_multiplier",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67767,16 +67587,10 @@
         "name": "pg_settings_block_size",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67836,16 +67650,10 @@
         "name": "pg_settings_bonjour",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67905,16 +67713,10 @@
         "name": "pg_settings_check_function_bodies",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -67974,16 +67776,10 @@
         "name": "pg_settings_checkpoint_completion_target",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68043,16 +67839,10 @@
         "name": "pg_settings_checkpoint_flush_after_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68112,16 +67902,10 @@
         "name": "pg_settings_checkpoint_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68181,16 +67965,10 @@
         "name": "pg_settings_checkpoint_warning_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68250,16 +68028,10 @@
         "name": "pg_settings_client_connection_check_interval_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68319,16 +68091,10 @@
         "name": "pg_settings_commit_delay",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68388,16 +68154,10 @@
         "name": "pg_settings_commit_siblings",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68457,16 +68217,10 @@
         "name": "pg_settings_commit_timestamp_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68526,16 +68280,10 @@
         "name": "pg_settings_cpu_index_tuple_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68595,16 +68343,10 @@
         "name": "pg_settings_cpu_operator_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68664,16 +68406,10 @@
         "name": "pg_settings_cpu_tuple_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68733,16 +68469,10 @@
         "name": "pg_settings_cursor_tuple_fraction",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68802,16 +68532,10 @@
         "name": "pg_settings_data_checksums",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68871,16 +68595,10 @@
         "name": "pg_settings_data_directory_mode",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -68940,16 +68658,10 @@
         "name": "pg_settings_data_sync_retry",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69009,16 +68721,10 @@
         "name": "pg_settings_deadlock_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69078,16 +68784,10 @@
         "name": "pg_settings_debug_assertions",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69147,16 +68847,10 @@
         "name": "pg_settings_debug_discard_caches",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69216,16 +68910,10 @@
         "name": "pg_settings_debug_pretty_print",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69285,16 +68973,10 @@
         "name": "pg_settings_debug_print_parse",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69354,16 +69036,10 @@
         "name": "pg_settings_debug_print_plan",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69423,16 +69099,10 @@
         "name": "pg_settings_debug_print_rewritten",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69492,16 +69162,10 @@
         "name": "pg_settings_default_statistics_target",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69561,16 +69225,10 @@
         "name": "pg_settings_default_transaction_deferrable",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69630,16 +69288,10 @@
         "name": "pg_settings_default_transaction_read_only",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69699,16 +69351,10 @@
         "name": "pg_settings_effective_cache_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69768,16 +69414,10 @@
         "name": "pg_settings_effective_io_concurrency",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69837,16 +69477,10 @@
         "name": "pg_settings_enable_async_append",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69906,16 +69540,10 @@
         "name": "pg_settings_enable_bitmapscan",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -69975,16 +69603,10 @@
         "name": "pg_settings_enable_gathermerge",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70044,16 +69666,10 @@
         "name": "pg_settings_enable_group_by_reordering",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70113,16 +69729,10 @@
         "name": "pg_settings_enable_hashagg",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70182,16 +69792,10 @@
         "name": "pg_settings_enable_hashjoin",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70251,16 +69855,10 @@
         "name": "pg_settings_enable_incremental_sort",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70320,16 +69918,10 @@
         "name": "pg_settings_enable_indexonlyscan",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70389,16 +69981,10 @@
         "name": "pg_settings_enable_indexscan",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70458,16 +70044,10 @@
         "name": "pg_settings_enable_material",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70527,16 +70107,10 @@
         "name": "pg_settings_enable_memoize",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70596,16 +70170,10 @@
         "name": "pg_settings_enable_mergejoin",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70665,16 +70233,10 @@
         "name": "pg_settings_enable_nestloop",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70734,16 +70296,10 @@
         "name": "pg_settings_enable_parallel_append",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70803,16 +70359,10 @@
         "name": "pg_settings_enable_parallel_hash",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70872,16 +70422,10 @@
         "name": "pg_settings_enable_partition_pruning",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -70941,16 +70485,10 @@
         "name": "pg_settings_enable_partitionwise_aggregate",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71010,16 +70548,10 @@
         "name": "pg_settings_enable_partitionwise_join",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71079,16 +70611,10 @@
         "name": "pg_settings_enable_presorted_aggregate",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71148,16 +70674,10 @@
         "name": "pg_settings_enable_seqscan",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71217,16 +70737,10 @@
         "name": "pg_settings_enable_sort",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71286,16 +70800,10 @@
         "name": "pg_settings_enable_tidscan",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71355,16 +70863,10 @@
         "name": "pg_settings_escape_string_warning",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71424,16 +70926,10 @@
         "name": "pg_settings_event_triggers",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71493,16 +70989,10 @@
         "name": "pg_settings_exit_on_error",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71562,16 +71052,10 @@
         "name": "pg_settings_extra_float_digits",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71631,16 +71115,10 @@
         "name": "pg_settings_from_collapse_limit",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71700,16 +71178,10 @@
         "name": "pg_settings_fsync",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71769,16 +71241,10 @@
         "name": "pg_settings_full_page_writes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71838,16 +71304,10 @@
         "name": "pg_settings_geqo",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71907,16 +71367,10 @@
         "name": "pg_settings_geqo_effort",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -71976,16 +71430,10 @@
         "name": "pg_settings_geqo_generations",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72045,16 +71493,10 @@
         "name": "pg_settings_geqo_pool_size",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72114,16 +71556,10 @@
         "name": "pg_settings_geqo_seed",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72183,16 +71619,10 @@
         "name": "pg_settings_geqo_selection_bias",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72252,16 +71682,10 @@
         "name": "pg_settings_geqo_threshold",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72321,16 +71745,10 @@
         "name": "pg_settings_gin_fuzzy_search_limit",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72390,16 +71808,10 @@
         "name": "pg_settings_gin_pending_list_limit_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72459,16 +71871,10 @@
         "name": "pg_settings_gss_accept_delegation",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72528,16 +71934,10 @@
         "name": "pg_settings_hash_mem_multiplier",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72597,16 +71997,10 @@
         "name": "pg_settings_hot_standby",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72666,16 +72060,10 @@
         "name": "pg_settings_hot_standby_feedback",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72735,16 +72123,10 @@
         "name": "pg_settings_huge_page_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72804,16 +72186,10 @@
         "name": "pg_settings_idle_in_transaction_session_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72873,16 +72249,10 @@
         "name": "pg_settings_idle_session_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -72942,16 +72312,10 @@
         "name": "pg_settings_ignore_checksum_failure",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73011,16 +72375,10 @@
         "name": "pg_settings_ignore_invalid_pages",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73080,16 +72438,10 @@
         "name": "pg_settings_ignore_system_indexes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73149,16 +72501,10 @@
         "name": "pg_settings_in_hot_standby",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73218,16 +72564,10 @@
         "name": "pg_settings_integer_datetimes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73287,16 +72627,10 @@
         "name": "pg_settings_io_combine_limit_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73356,16 +72690,10 @@
         "name": "pg_settings_jit",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73425,16 +72753,10 @@
         "name": "pg_settings_jit_above_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73494,16 +72816,10 @@
         "name": "pg_settings_jit_debugging_support",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73563,16 +72879,10 @@
         "name": "pg_settings_jit_dump_bitcode",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73632,16 +72942,10 @@
         "name": "pg_settings_jit_expressions",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73701,16 +73005,10 @@
         "name": "pg_settings_jit_inline_above_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73770,16 +73068,10 @@
         "name": "pg_settings_jit_optimize_above_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73839,16 +73131,10 @@
         "name": "pg_settings_jit_profiling_support",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73908,16 +73194,10 @@
         "name": "pg_settings_jit_tuple_deforming",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -73977,16 +73257,10 @@
         "name": "pg_settings_join_collapse_limit",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74046,16 +73320,10 @@
         "name": "pg_settings_krb_caseins_users",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74115,16 +73383,10 @@
         "name": "pg_settings_lo_compat_privileges",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74184,16 +73446,10 @@
         "name": "pg_settings_lock_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74253,16 +73509,10 @@
         "name": "pg_settings_log_autovacuum_min_duration_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74322,16 +73572,10 @@
         "name": "pg_settings_log_checkpoints",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74391,16 +73635,10 @@
         "name": "pg_settings_log_connections",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74460,16 +73698,10 @@
         "name": "pg_settings_log_disconnections",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74529,16 +73761,10 @@
         "name": "pg_settings_log_duration",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74598,16 +73824,10 @@
         "name": "pg_settings_log_executor_stats",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74667,16 +73887,10 @@
         "name": "pg_settings_log_file_mode",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74736,16 +73950,10 @@
         "name": "pg_settings_log_hostname",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74805,16 +74013,10 @@
         "name": "pg_settings_log_lock_waits",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74874,16 +74076,10 @@
         "name": "pg_settings_log_min_duration_sample_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -74943,16 +74139,10 @@
         "name": "pg_settings_log_min_duration_statement_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75012,16 +74202,10 @@
         "name": "pg_settings_log_parameter_max_length_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75081,16 +74265,10 @@
         "name": "pg_settings_log_parameter_max_length_on_error_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75150,16 +74328,10 @@
         "name": "pg_settings_log_parser_stats",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75219,16 +74391,10 @@
         "name": "pg_settings_log_planner_stats",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75288,16 +74454,10 @@
         "name": "pg_settings_log_recovery_conflict_waits",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75357,16 +74517,10 @@
         "name": "pg_settings_log_replication_commands",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75426,16 +74580,10 @@
         "name": "pg_settings_log_rotation_age_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75495,16 +74643,10 @@
         "name": "pg_settings_log_rotation_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75564,16 +74706,10 @@
         "name": "pg_settings_log_startup_progress_interval_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75633,16 +74769,10 @@
         "name": "pg_settings_log_statement_sample_rate",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75702,16 +74832,10 @@
         "name": "pg_settings_log_statement_stats",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75771,16 +74895,10 @@
         "name": "pg_settings_log_temp_files_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75840,16 +74958,10 @@
         "name": "pg_settings_log_transaction_sample_rate",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75909,16 +75021,10 @@
         "name": "pg_settings_log_truncate_on_rotation",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -75978,16 +75084,10 @@
         "name": "pg_settings_logging_collector",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76047,16 +75147,10 @@
         "name": "pg_settings_logical_decoding_work_mem_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76116,16 +75210,10 @@
         "name": "pg_settings_maintenance_io_concurrency",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76185,16 +75273,10 @@
         "name": "pg_settings_maintenance_work_mem_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76254,16 +75336,10 @@
         "name": "pg_settings_max_connections",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76323,16 +75399,10 @@
         "name": "pg_settings_max_files_per_process",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76392,16 +75462,10 @@
         "name": "pg_settings_max_function_args",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76461,16 +75525,10 @@
         "name": "pg_settings_max_identifier_length",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76530,16 +75588,10 @@
         "name": "pg_settings_max_index_keys",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76599,16 +75651,10 @@
         "name": "pg_settings_max_locks_per_transaction",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76668,16 +75714,10 @@
         "name": "pg_settings_max_logical_replication_workers",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76737,16 +75777,10 @@
         "name": "pg_settings_max_notify_queue_pages",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76806,16 +75840,10 @@
         "name": "pg_settings_max_parallel_apply_workers_per_subscription",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76875,16 +75903,10 @@
         "name": "pg_settings_max_parallel_maintenance_workers",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -76944,16 +75966,10 @@
         "name": "pg_settings_max_parallel_workers",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77013,16 +76029,10 @@
         "name": "pg_settings_max_parallel_workers_per_gather",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77082,16 +76092,10 @@
         "name": "pg_settings_max_pred_locks_per_page",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77151,16 +76155,10 @@
         "name": "pg_settings_max_pred_locks_per_relation",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77220,16 +76218,10 @@
         "name": "pg_settings_max_pred_locks_per_transaction",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77289,16 +76281,10 @@
         "name": "pg_settings_max_prepared_transactions",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77358,16 +76344,10 @@
         "name": "pg_settings_max_replication_slots",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77427,16 +76407,10 @@
         "name": "pg_settings_max_slot_wal_keep_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77496,16 +76470,10 @@
         "name": "pg_settings_max_stack_depth_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77565,16 +76533,10 @@
         "name": "pg_settings_max_standby_archive_delay_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77634,16 +76596,10 @@
         "name": "pg_settings_max_standby_streaming_delay_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77703,16 +76659,10 @@
         "name": "pg_settings_max_sync_workers_per_subscription",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77772,16 +76722,10 @@
         "name": "pg_settings_max_wal_senders",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77841,16 +76785,10 @@
         "name": "pg_settings_max_wal_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77910,16 +76848,10 @@
         "name": "pg_settings_max_worker_processes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -77979,16 +76911,10 @@
         "name": "pg_settings_min_dynamic_shared_memory_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78048,16 +76974,10 @@
         "name": "pg_settings_min_parallel_index_scan_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78117,16 +77037,10 @@
         "name": "pg_settings_min_parallel_table_scan_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78186,16 +77100,10 @@
         "name": "pg_settings_min_wal_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78255,16 +77163,10 @@
         "name": "pg_settings_multixact_member_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78324,16 +77226,10 @@
         "name": "pg_settings_multixact_offset_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78393,16 +77289,10 @@
         "name": "pg_settings_notify_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78462,16 +77352,10 @@
         "name": "pg_settings_parallel_leader_participation",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78531,16 +77415,10 @@
         "name": "pg_settings_parallel_setup_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78600,16 +77478,10 @@
         "name": "pg_settings_parallel_tuple_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78669,16 +77541,10 @@
         "name": "pg_settings_pg_stat_statements_max",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78738,16 +77604,10 @@
         "name": "pg_settings_pg_stat_statements_save",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78807,16 +77667,10 @@
         "name": "pg_settings_pg_stat_statements_track_planning",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78876,16 +77730,10 @@
         "name": "pg_settings_pg_stat_statements_track_utility",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -78985,16 +77833,10 @@
         "name": "pg_settings_port",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79054,16 +77896,10 @@
         "name": "pg_settings_post_auth_delay_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79123,16 +77959,10 @@
         "name": "pg_settings_pre_auth_delay_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79192,16 +78022,10 @@
         "name": "pg_settings_quote_all_identifiers",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79261,16 +78085,10 @@
         "name": "pg_settings_random_page_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79330,16 +78148,10 @@
         "name": "pg_settings_rds_blue_green_block_restricted_commands",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79399,16 +78211,10 @@
         "name": "pg_settings_rds_check_execution_context",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79468,16 +78274,10 @@
         "name": "pg_settings_rds_check_extension_connections",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79537,16 +78337,10 @@
         "name": "pg_settings_rds_connections_counters_dealloc_percent",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79606,16 +78400,10 @@
         "name": "pg_settings_rds_delegated_extension_allow_drop_cascade",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79675,16 +78463,10 @@
         "name": "pg_settings_rds_enable_connections_counters",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79744,16 +78526,10 @@
         "name": "pg_settings_rds_enable_logical_seed_lsn",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79813,16 +78589,10 @@
         "name": "pg_settings_rds_enable_pgactive",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79882,16 +78652,10 @@
         "name": "pg_settings_rds_enable_rsdl_counters",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -79951,16 +78715,10 @@
         "name": "pg_settings_rds_instance_store_replication_tooling",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80020,16 +78778,10 @@
         "name": "pg_settings_rds_logical_replication",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80089,16 +78841,10 @@
         "name": "pg_settings_rds_max_connections_counters_entries",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80158,16 +78904,10 @@
         "name": "pg_settings_rds_max_connections_counters_entries_sl",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80227,16 +78967,10 @@
         "name": "pg_settings_rds_max_rsdl_counters_entries",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80296,16 +79030,10 @@
         "name": "pg_settings_rds_max_stored_credentials",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80365,16 +79093,10 @@
         "name": "pg_settings_rds_rds_reserved_connections",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80434,16 +79156,10 @@
         "name": "pg_settings_rds_replica_identity_full",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80503,16 +79219,10 @@
         "name": "pg_settings_rds_restrict_password_commands",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80572,16 +79282,10 @@
         "name": "pg_settings_rds_restrict_subconninfo",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80641,16 +79345,10 @@
         "name": "pg_settings_rds_rsdl_counters_dealloc_percent",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80710,16 +79408,10 @@
         "name": "pg_settings_recovery_min_apply_delay_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80779,16 +79471,10 @@
         "name": "pg_settings_recovery_target_inclusive",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80848,16 +79534,10 @@
         "name": "pg_settings_recursive_worktable_factor",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80917,16 +79597,10 @@
         "name": "pg_settings_remove_temp_files_after_crash",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -80986,16 +79660,10 @@
         "name": "pg_settings_reserved_connections",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81055,16 +79723,10 @@
         "name": "pg_settings_restart_after_crash",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81124,16 +79786,10 @@
         "name": "pg_settings_row_security",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81193,16 +79849,10 @@
         "name": "pg_settings_scram_iterations",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81262,16 +79912,10 @@
         "name": "pg_settings_segment_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81331,16 +79975,10 @@
         "name": "pg_settings_send_abort_for_crash",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81400,16 +80038,10 @@
         "name": "pg_settings_send_abort_for_kill",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81469,16 +80101,10 @@
         "name": "pg_settings_seq_page_cost",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81538,16 +80164,10 @@
         "name": "pg_settings_serializable_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81607,16 +80227,10 @@
         "name": "pg_settings_server_version_num",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81676,16 +80290,10 @@
         "name": "pg_settings_shared_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81745,16 +80353,10 @@
         "name": "pg_settings_shared_memory_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81814,16 +80416,10 @@
         "name": "pg_settings_shared_memory_size_in_huge_pages",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81883,16 +80479,10 @@
         "name": "pg_settings_ssl",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -81952,16 +80542,10 @@
         "name": "pg_settings_ssl_passphrase_command_supports_reload",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82021,16 +80605,10 @@
         "name": "pg_settings_ssl_prefer_server_ciphers",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82090,16 +80668,10 @@
         "name": "pg_settings_standard_conforming_strings",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82159,16 +80731,10 @@
         "name": "pg_settings_statement_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82228,16 +80794,10 @@
         "name": "pg_settings_subtransaction_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82297,16 +80857,10 @@
         "name": "pg_settings_summarize_wal",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82366,16 +80920,10 @@
         "name": "pg_settings_superuser_reserved_connections",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82435,16 +80983,10 @@
         "name": "pg_settings_sync_replication_slots",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82504,16 +81046,10 @@
         "name": "pg_settings_synchronize_seqscans",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82573,16 +81109,10 @@
         "name": "pg_settings_syslog_sequence_numbers",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82642,16 +81172,10 @@
         "name": "pg_settings_syslog_split_messages",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82711,16 +81235,10 @@
         "name": "pg_settings_tcp_keepalives_count",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82780,16 +81298,10 @@
         "name": "pg_settings_tcp_keepalives_idle_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82849,16 +81361,10 @@
         "name": "pg_settings_tcp_keepalives_interval_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82918,16 +81424,10 @@
         "name": "pg_settings_tcp_user_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -82987,16 +81487,10 @@
         "name": "pg_settings_temp_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83056,16 +81550,10 @@
         "name": "pg_settings_temp_file_limit_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83125,16 +81613,10 @@
         "name": "pg_settings_trace_connection_negotiation",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83194,16 +81676,10 @@
         "name": "pg_settings_trace_notify",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83263,16 +81739,10 @@
         "name": "pg_settings_trace_sort",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83332,16 +81802,10 @@
         "name": "pg_settings_track_activities",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83401,16 +81865,10 @@
         "name": "pg_settings_track_activity_query_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83470,16 +81928,10 @@
         "name": "pg_settings_track_commit_timestamp",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83539,16 +81991,10 @@
         "name": "pg_settings_track_counts",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83608,16 +82054,10 @@
         "name": "pg_settings_track_io_timing",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83677,16 +82117,10 @@
         "name": "pg_settings_track_wal_io_timing",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83746,16 +82180,10 @@
         "name": "pg_settings_transaction_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83815,16 +82243,10 @@
         "name": "pg_settings_transaction_deferrable",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83884,16 +82306,10 @@
         "name": "pg_settings_transaction_read_only",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -83953,16 +82369,10 @@
         "name": "pg_settings_transaction_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84022,16 +82432,10 @@
         "name": "pg_settings_transform_null_equals",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84091,16 +82495,10 @@
         "name": "pg_settings_unix_socket_permissions",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84160,16 +82558,10 @@
         "name": "pg_settings_update_process_title",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84229,16 +82621,10 @@
         "name": "pg_settings_vacuum_buffer_usage_limit_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84298,16 +82684,10 @@
         "name": "pg_settings_vacuum_cost_delay_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84367,16 +82747,10 @@
         "name": "pg_settings_vacuum_cost_limit",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84436,16 +82810,10 @@
         "name": "pg_settings_vacuum_cost_page_dirty",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84505,16 +82873,10 @@
         "name": "pg_settings_vacuum_cost_page_hit",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84574,16 +82936,10 @@
         "name": "pg_settings_vacuum_cost_page_miss",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84643,16 +82999,10 @@
         "name": "pg_settings_vacuum_failsafe_age",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84712,16 +83062,10 @@
         "name": "pg_settings_vacuum_freeze_min_age",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84781,16 +83125,10 @@
         "name": "pg_settings_vacuum_freeze_table_age",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84850,16 +83188,10 @@
         "name": "pg_settings_vacuum_multixact_failsafe_age",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84919,16 +83251,10 @@
         "name": "pg_settings_vacuum_multixact_freeze_min_age",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -84988,16 +83314,10 @@
         "name": "pg_settings_vacuum_multixact_freeze_table_age",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85057,16 +83377,10 @@
         "name": "pg_settings_wal_block_size",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85126,16 +83440,10 @@
         "name": "pg_settings_wal_buffers_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85195,16 +83503,10 @@
         "name": "pg_settings_wal_decode_buffer_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85264,16 +83566,10 @@
         "name": "pg_settings_wal_init_zero",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85333,16 +83629,10 @@
         "name": "pg_settings_wal_keep_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85402,16 +83692,10 @@
         "name": "pg_settings_wal_log_hints",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85471,16 +83755,10 @@
         "name": "pg_settings_wal_receiver_create_temp_slot",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85540,16 +83818,10 @@
         "name": "pg_settings_wal_receiver_status_interval_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85609,16 +83881,10 @@
         "name": "pg_settings_wal_receiver_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85678,16 +83944,10 @@
         "name": "pg_settings_wal_recycle",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85747,16 +84007,10 @@
         "name": "pg_settings_wal_retrieve_retry_interval_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85816,16 +84070,10 @@
         "name": "pg_settings_wal_segment_size_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85885,16 +84133,10 @@
         "name": "pg_settings_wal_sender_timeout_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -85954,16 +84196,10 @@
         "name": "pg_settings_wal_skip_threshold_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -86023,16 +84259,10 @@
         "name": "pg_settings_wal_summary_keep_time_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -86092,16 +84322,10 @@
         "name": "pg_settings_wal_writer_delay_seconds",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -86161,16 +84385,10 @@
         "name": "pg_settings_wal_writer_flush_after_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -86230,16 +84448,10 @@
         "name": "pg_settings_work_mem_bytes",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -86299,16 +84511,10 @@
         "name": "pg_settings_zero_damaged_pages",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -86368,16 +84574,10 @@
         "name": "pg_stat_activity_max_tx_duration",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -86472,16 +84672,10 @@
         "name": "pg_stat_archiver_archived_count",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -86541,16 +84735,10 @@
         "name": "pg_stat_archiver_failed_count",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -86610,16 +84798,10 @@
         "name": "pg_stat_archiver_last_archive_age",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -87044,16 +85226,10 @@
         "name": "pg_stat_database_conflicts_confl_active_logicalslot",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -87123,16 +85299,10 @@
         "name": "pg_stat_database_conflicts_confl_bufferpin",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -87202,16 +85372,10 @@
         "name": "pg_stat_database_conflicts_confl_deadlock",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -87281,16 +85445,10 @@
         "name": "pg_stat_database_conflicts_confl_lock",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -87360,16 +85518,10 @@
         "name": "pg_stat_database_conflicts_confl_snapshot",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -87439,16 +85591,10 @@
         "name": "pg_stat_database_conflicts_confl_tablespace",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -89273,16 +87419,10 @@
         "name": "pg_static",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -89987,16 +88127,10 @@
         "name": "postgres_exporter_build_info",
         "producers": [
           {
-            "name": "dbo11y/integration/postgresql"
+            "name": "dbo11y"
           },
           {
-            "name": "dbo11y/integrations/db-o11y"
-          },
-          {
-            "name": "promrw/integration/postgresql"
-          },
-          {
-            "name": "promrw/integrations/db-o11y"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -93769,244 +91903,16 @@
         "name": "scrape_samples_post_metric_relabeling",
         "producers": [
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-cache-redis"
+            "name": "azure-monitor-alloy"
           },
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-compute-virtualmachinescalesets"
+            "name": "azure-monitor-managed"
           },
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-containerservice-managedclusters"
+            "name": "dbo11y"
           },
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "azure-monitor-alloy/integration/postgresql"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-cache-redis"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-compute-virtualmachinescalesets"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-containerservice-managedclusters"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "azure-monitor-managed/integration/postgresql"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-cache-redis"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-compute-virtualmachinescalesets"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-containerservice-managedclusters"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "dbo11y/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "dbo11y/integration/postgresql"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-cache-redis"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-compute-virtualmachinescalesets"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-containerservice-managedclusters"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "promrw/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "promrw/integration/postgresql"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -94116,244 +92022,16 @@
         "name": "scrape_samples_scraped",
         "producers": [
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-cache-redis"
+            "name": "azure-monitor-alloy"
           },
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-compute-virtualmachinescalesets"
+            "name": "azure-monitor-managed"
           },
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-containerservice-managedclusters"
+            "name": "dbo11y"
           },
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "azure-monitor-alloy/integration/postgresql"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-cache-redis"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-compute-virtualmachinescalesets"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-containerservice-managedclusters"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "azure-monitor-managed/integration/postgresql"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-cache-redis"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-compute-virtualmachinescalesets"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-containerservice-managedclusters"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "dbo11y/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "dbo11y/integration/postgresql"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-cache-redis"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-compute-virtualmachinescalesets"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-containerservice-managedclusters"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "promrw/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "promrw/integration/postgresql"
+            "name": "promrw"
           }
         ],
         "transports": [],
@@ -94463,244 +92141,16 @@
         "name": "scrape_series_added",
         "producers": [
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-cache-redis"
+            "name": "azure-monitor-alloy"
           },
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-compute-virtualmachinescalesets"
+            "name": "azure-monitor-managed"
           },
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-containerservice-managedclusters"
+            "name": "dbo11y"
           },
           {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "azure-monitor-alloy/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "azure-monitor-alloy/integration/postgresql"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-cache-redis"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-compute-virtualmachinescalesets"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-containerservice-managedclusters"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "azure-monitor-managed/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "azure-monitor-managed/integration/postgresql"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-cache-redis"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-compute-virtualmachinescalesets"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-containerservice-managedclusters"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "dbo11y/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "dbo11y/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "dbo11y/integration/postgresql"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-cache-redis"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-compute-virtualmachinescalesets"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-containerservice-managedclusters"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-dbforpostgresql-flexibleservers"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-documentdb-databaseaccounts"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-applicationgateways"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-loadbalancers"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-privatednszones"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-publicipaddresses"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-network-virtualnetworks"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-search-searchservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-servicebus-namespaces"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-blobservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-fileservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-queueservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-storage-storageaccounts-tableservices"
-          },
-          {
-            "name": "promrw/cloud/azure/microsoft-web-sites"
-          },
-          {
-            "name": "promrw/cloud/azure/rksy-azure-refresh"
-          },
-          {
-            "name": "promrw/integration/postgresql"
+            "name": "promrw"
           }
         ],
         "transports": [],

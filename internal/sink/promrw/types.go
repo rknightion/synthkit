@@ -22,8 +22,8 @@ type Series struct {
 	Value  float64
 	T      time.Time
 	// Producer fields are composition-root inventory metadata. They are never
-	// encoded on the remote-write wire and must be supplied explicitly rather than
-	// recovered from a metric name or label value.
+	// encoded on the remote-write wire. The composition root stamps its declared
+	// transport plus the series' own job; metric names never determine ownership.
 	Producer                 string
 	ProducerAllowListVersion string
 	ProducerAllowListVariant string
