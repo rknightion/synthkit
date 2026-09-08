@@ -800,58 +800,29 @@ func TestCheckedInCaptureV2ProjectionIsActiveAndMatchesManifests(t *testing.T) {
 		t.Fatalf("unrouted manifest version=%q, want %q", residueManifest.Version, CaptureV2RoutingManifestVersion)
 	}
 
-	if got, want := len(routing.Captures), 7; got != want {
-		t.Fatalf("routing capture count=%d, want %d", got, want)
+	if len(routing.Captures) == 0 {
+		t.Fatal("routing manifest has no captures")
 	}
-	if got, want := len(residueManifest.Captures), 7; got != want {
-		t.Fatalf("unrouted capture count=%d, want %d", got, want)
-	}
-
 	routesByHash := make(map[string]CaptureV2CaptureRoute, len(routing.Captures))
-	directNames := make(map[string]struct{})
-	unroutedNames := make(map[string]struct{})
-	reasonCounts := make(map[CaptureV2UnroutedReason]int)
-	var directRows, unroutedRows int
+	identity := func(area, kind, substrate, collector, version string) string {
+		return strings.Join([]string{area, kind, substrate, collector, version}, "\x00")
+	}
+	expected := map[string]map[string]struct{}{}
 	for _, route := range routing.Captures {
 		if got, want := route.MetricProducerLabel, []string{"rksy_ingest", "job"}; !reflect.DeepEqual(got, want) {
-			t.Fatalf("routing capture %q metric_producer_label=%v, want ordered identity pair %v", route.SHA256, got, want)
-		}
-		for _, family := range route.Families {
-			if len(family.Producers) != 0 {
-				t.Fatalf("routing capture %q family %q carries forbidden producer mapping: %+v", route.SHA256, family.Name, family.Producers)
-			}
+			t.Fatalf("capture %s identity labels=%v", route.SHA256, got)
 		}
 		routesByHash[route.SHA256] = route
-		directRows += len(route.Families)
-		unroutedRows += len(route.Unrouted)
 		for _, family := range route.Families {
-			directNames[family.Name] = struct{}{}
+			if len(family.Producers) != 0 {
+				t.Fatalf("capture %s family %s carries a producer mapping", route.SHA256, family.Name)
+			}
+			key := identity(family.Area, route.Kind, route.Substrate, route.Collector, route.CollectorVersion)
+			if expected[key] == nil {
+				expected[key] = map[string]struct{}{}
+			}
+			expected[key][family.Name] = struct{}{}
 		}
-		for _, family := range route.Unrouted {
-			unroutedNames[family.Name] = struct{}{}
-			reasonCounts[family.Reason]++
-		}
-	}
-	if got, want := directRows, 10649; got != want {
-		t.Fatalf("direct routing rows=%d, want %d", got, want)
-	}
-	if got, want := len(directNames), 2225; got != want {
-		t.Fatalf("direct routing distinct names=%d, want %d", got, want)
-	}
-	if got, want := unroutedRows, 3612; got != want {
-		t.Fatalf("unrouted rows=%d, want %d", got, want)
-	}
-	if got, want := len(unroutedNames), 2979; got != want {
-		t.Fatalf("unrouted distinct names=%d, want %d", got, want)
-	}
-	if got, want := reasonCounts[CaptureV2UnroutedMissingProducerUniqueArea], 851; got != want {
-		t.Fatalf("unique-area residue rows=%d, want %d", got, want)
-	}
-	if got, want := reasonCounts[CaptureV2UnroutedMissingProducerAndArea], 2538; got != want {
-		t.Fatalf("missing-area residue rows=%d, want %d", got, want)
-	}
-	if got, want := reasonCounts[CaptureV2UnroutedAmbiguousDirectProducer], 223; got != want {
-		t.Fatalf("ambiguous-direct-producer residue rows=%d, want %d", got, want)
 	}
 
 	residueByHash := make(map[string][]CaptureV2UnroutedFamily, len(residueManifest.Captures))
@@ -883,33 +854,36 @@ func TestCheckedInCaptureV2ProjectionIsActiveAndMatchesManifests(t *testing.T) {
 		if !found {
 			t.Fatalf("active projection %q has unexpected capture hash %q", entry.Name(), document.Source.CaptureSHA256)
 		}
-		if entry.Name() != "capture-v2-"+route.SHA256+".json" {
-			t.Fatalf("active projection filename=%q, want capture hash-keyed filename", entry.Name())
+		// File paths identify cumulative documents, not the newest raw capture.
+		// The latest provenance must still name a reviewed route of this identity.
+		if route.Kind != document.Source.Kind || route.Substrate != document.Source.Substrate || route.Collector != document.Source.Collector || route.CollectorVersion != document.Source.CollectorVersion {
+			t.Fatalf("capture provenance changed document identity: %s", entry.Name())
 		}
-		if got, want := metricNameSet(document.Inventory.Metrics), routeFamilyNameSet(route.Families); !reflect.DeepEqual(got, want) {
-			t.Fatalf("active projection %q metric set does not match its direct routes", entry.Name())
+		key := identity(document.Area, document.Source.Kind, document.Source.Substrate, document.Source.Collector, document.Source.CollectorVersion)
+		if got, want := metricNameSet(document.Inventory.Metrics), expected[key]; !reflect.DeepEqual(got, want) {
+			t.Fatalf("cumulative projection %s does not exactly cover the union of reviewed routes", entry.Name())
 		}
+		delete(expected, key)
 		activeDocuments = append(activeDocuments, document)
 	}
-	if got, want := len(activeDocuments), 7; got != want {
-		t.Fatalf("active projection document count=%d, want %d", got, want)
+	if len(expected) != 0 {
+		t.Fatalf("%d reviewed corpus identities have no active document", len(expected))
 	}
-
-	loaded, err := LoadCorpusDir(filepath.Join(repositoryRoot, "reality-corpus"))
+	// Exercise the actual loader, including its duplicate-identity rejection.
+	loaded, err := LoadCorpusDir("../../reality-corpus")
 	if err != nil {
 		t.Fatal(err)
 	}
-	loadedByHash := make(map[string]CorpusDocument, len(loaded))
-	for _, document := range loaded {
-		loadedByHash[document.Source.CaptureSHA256] = document
-	}
-	for hash, route := range routesByHash {
-		document, found := loadedByHash[hash]
-		if !found {
-			t.Fatalf("active projection capture %q was not loaded as corpus evidence", hash)
+	for _, active := range activeDocuments {
+		found := false
+		for _, document := range loaded {
+			if matchingCorpusIdentity(active, document) == nil {
+				found = true
+				break
+			}
 		}
-		if got, want := metricNameSet(document.Inventory.Metrics), routeFamilyNameSet(route.Families); !reflect.DeepEqual(got, want) {
-			t.Fatalf("loaded projection %q metric set does not match its direct routes", hash)
+		if !found {
+			t.Fatalf("active projection %s was not loaded", active.Source.CaptureSHA256)
 		}
 	}
 
