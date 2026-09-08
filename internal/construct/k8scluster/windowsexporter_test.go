@@ -206,7 +206,7 @@ func TestKSMNodeLabelsOSAware(t *testing.T) {
 	nodes := []fixture.Node{linuxNode, winNode, emptyNode}
 
 	st := state.NewState()
-	emitKSMNodeObjects(st, cluster, cl, nodes, 0.5)
+	emitKSMNodeObjects(st, cluster, cl, nodes, 0.5, false)
 	collected := collectAll(st)
 
 	knsLabels, ok := collected["kube_node_labels"]

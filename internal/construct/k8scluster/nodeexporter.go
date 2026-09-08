@@ -117,13 +117,33 @@ func emitNodeExporter(
 	nodes []fixture.Node,
 	factor, tickSec, scale float64,
 	w *core.World,
+	collectorProm bool,
 ) {
 	osd := osDetailFor(platformOr(cl.Platform))
 	for ni, n := range nodes {
 		base := nodeExporterLabels(cluster, n.Hostname, ni)
 		top := nodeTopology(n, osd)
 		nodeexp.EmitLinux(st, base, top, nodeexp.ProfileK8s, factor, tickSec, scale, w.Shape)
+		if collectorProm {
+			emitCollectorPromFilesystemStatusFailure(st, base)
+		}
 	}
+}
+
+// emitCollectorPromFilesystemStatusFailure models the node-exporter failed-mount
+// path retained by the P3 capture. node-exporter v1.9.1 emits device_error and
+// readonly before omitting capacity/inode metrics when statfs returns an error.
+// `permission denied` is one observed OS-error string, not an error enum: this is
+// one illustrative failed mount alongside the healthy default mount emitted by nodeexp.
+func emitCollectorPromFilesystemStatusFailure(st *state.State, base map[string]string) {
+	failedMount := merge(base, map[string]string{
+		"device":       "/dev/nvme0n1p2",
+		"device_error": "permission denied",
+		"fstype":       "ext4",
+		"mountpoint":   "/var/lib/kubelet/pods",
+	})
+	st.Set("node_filesystem_device_error", failedMount, 1)
+	st.Set("node_filesystem_readonly", failedMount, 0)
 }
 
 // emitCollectorPromNodeCPU emits the cpufreq and isolation gauges present in

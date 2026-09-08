@@ -1508,6 +1508,29 @@ unchanged on all 142 families. This is additional evidence in the existing docum
 configuration divergence and candidate hash recorded in provenance; the sourced semantics below
 remain the instrument contract.
 
+### P3 producer and label envelope completion
+
+The P3 selection emits `process_cpu_seconds_total` and `process_resident_memory_bytes`
+under both the captured kubelet job and node-exporter job. The kubelet rows use only
+the kubelet envelope; they never inherit node-exporter's namespace labels.
+`kube_node_info` carries `pod_cidr`, using the same deterministic per-node /24 as
+`kube_node_spec_pod_cidrs`; [KSM v2.20.0 node.go](https://github.com/kubernetes/kube-state-metrics/blob/v2.20.0/internal/store/node.go)
+provides the descriptor. P3 `machine_memory_bytes` carries a deterministic UUID-shaped
+`boot_id`, sourced from [cAdvisor v0.52.1 machine.go](https://github.com/google/cadvisor/blob/v0.52.1/info/v1/machine.go).
+Container siblings do not acquire it.
+
+P3 models one additional failed filesystem mount. Only its
+`node_filesystem_device_error` and `node_filesystem_readonly` status rows carry
+`device_error="permission denied"`, with error value 1 and read-only value 0.
+The error text is one observed OS-error example, not a closed enum. The failed
+mount emits no capacity or inode rows; the healthy representative mount and
+non-P3 output are unchanged. This follows node-exporter v1.9.1
+[filesystem_common.go](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/filesystem_common.go)
+and [filesystem_linux.go](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/filesystem_linux.go):
+status rows precede the error check, and a failed stat skips capacity emission.
+`target_info` remains free of scope keys. Tests deliberately inject filesystem,
+container, kubelet, target-info and non-P3 label leaks and reject them.
+
 ### P3 family completion and source semantics
 
 The seventeen additions are the two KSM rows below, seven CPU rows in

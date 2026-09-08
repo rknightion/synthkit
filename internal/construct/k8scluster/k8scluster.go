@@ -201,7 +201,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	scale := tickSec / 30.0
 
 	// ── KSM families ────────────────────────────────────────────────────────
-	emitKSMNodeObjects(c.st, cluster, cl, nodes, factor)
+	emitKSMNodeObjects(c.st, cluster, cl, nodes, factor, c.collectorProm)
 	if c.collectorProm {
 		emitCollectorPromKSMNodeFamilies(c.st, cluster, nodes)
 	}
@@ -225,10 +225,10 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	emitKSMPods(c.st, cluster, cl, nodes, replicas, scale, now, w, notReadyIdx)
 
 	// ── cAdvisor ────────────────────────────────────────────────────────────
-	emitCAdvisor(c.st, cluster, cl, nodes, replicas, factor, tickSec, scale, now, w)
+	emitCAdvisor(c.st, cluster, cl, nodes, replicas, factor, tickSec, scale, now, w, c.collectorProm)
 
 	// ── node-exporter ────────────────────────────────────────────────────────
-	emitNodeExporter(c.st, cluster, cl, nodes, factor, tickSec, scale, w)
+	emitNodeExporter(c.st, cluster, cl, nodes, factor, tickSec, scale, w, c.collectorProm)
 	if c.collectorProm {
 		emitCollectorPromNodeCPU(c.st, cluster, nodes)
 	}

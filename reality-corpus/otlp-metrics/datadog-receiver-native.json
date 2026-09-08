@@ -1,0 +1,7318 @@
+{
+  "area": "otlp-metrics",
+  "authority": {
+    "substrates": [
+      "kubernetes"
+    ]
+  },
+  "capture_volume": {
+    "observed_contract_counts": [
+      195
+    ],
+    "runs": 1
+  },
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "inventory": {
+    "logs": [],
+    "metrics": [
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "domain",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.agent.point.dropped",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "domain",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.agent.point.sent",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "agent_version_major",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "agent_version_minor",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "agent_version_patch",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "python_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.agent.python.version",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "agent",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "domain",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.agent.retry_queue_duration.bytes_per_sec",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "agent",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "domain",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.agent.retry_queue_duration.capacity_bytes",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "agent",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "domain",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.agent.retry_queue_duration.capacity_secs",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "package_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.agent.running",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.agent.up",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.aggregated_context",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "metrics_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.aggregated_context_by_type",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.bytes_dropped",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.bytes_dropped_queue",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.bytes_dropped_writer",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.bytes_sent",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.events",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.metric_dropped_on_receive",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.metrics",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "metrics_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.metrics_by_type",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.packets_dropped",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.packets_dropped_queue",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.packets_dropped_writer",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.packets_sent",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "client",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_transport",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "client_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.dogstatsd.client.service_checks",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "agent",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.process.containers.host_count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "agent",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.process.processes.host_count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.cpu_percent",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.events.max_eps.current_rate",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.events.max_eps.max_rate",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.events.max_eps.reached_max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.events.max_eps.sample_rate",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.heap_alloc",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.heartbeat",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.internal.process_payload_ms.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.internal.process_payload_ms.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.internal.process_payload_ms.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.obfuscation.sql_cache.hits",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.obfuscation.sql_cache.misses",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "is_trace_buffer_set",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.out_chan_fill",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.payload_accepted",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.payload_refused",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.rate_response_bytes.95percentile",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.rate_response_bytes.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.rate_response_bytes.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.rate_response_bytes.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.rate_response_bytes.median",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "success",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.serve_traces_ms.95percentile",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "success",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.serve_traces_ms.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "success",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.serve_traces_ms.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "success",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.serve_traces_ms.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "success",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.serve_traces_ms.median",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.spans_dropped",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.spans_received",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "status",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.tcp_connections",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.trace",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.traces_bytes",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "priority",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.traces_priority",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "connection_type",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "endpoint_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "interpreter",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "lang_version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "tracer_version",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.receiver.traces_received",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "sampler",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "sampling_priority",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "target_service",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.sampler.kept",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.sampler.rare.hits",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.sampler.rare.misses",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.sampler.rare.shrinks",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "sampler",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "sampling_priority",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "target_service",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.sampler.seen",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "sampler",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.sampler.size",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.bytes",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.client_payloads",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.connection_fill.95percentile",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.connection_fill.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.connection_fill.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.connection_fill.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.connection_fill.median",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.encode_ms.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.encode_ms.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.encode_ms.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.errors",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.flush_duration.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.flush_duration.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.flush_duration.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.payloads",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.queue_fill.95percentile",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.queue_fill.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.queue_fill.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.queue_fill.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.queue_fill.median",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.retries",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.splits",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.stats_buckets",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.stats_writer.stats_entries",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.tag_buffer.memory_usage",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.tag_buffer.pending_payloads",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.bytes",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.bytes_uncompressed",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.connection_fill.95percentile",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.connection_fill.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.connection_fill.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.connection_fill.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.connection_fill.median",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.encode_ms.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.encode_ms.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.encode_ms.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.errors",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.events",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.flush_duration.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.flush_duration.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.flush_duration.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.payloads",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.queue_fill.95percentile",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.queue_fill.avg",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.queue_fill.count",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.queue_fill.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.queue_fill.median",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.retries",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.spans",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.version",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "datadog.trace_agent.trace_writer.traces",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "dd.internal.stats.payload",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "dd.internal.stats.payload",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "example_metric.increment",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.context_switches",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.guest",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.guest.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.guestnice.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.idle",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.idle.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.interrupt",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.iowait",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.iowait.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.irq.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.nice.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.num_cores",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.softirq.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.steal.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.stolen",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.system",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.system.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.user",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "core",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.cpu.user.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.disk.free",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.disk.in_use",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.disk.read_time",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.disk.read_time_pct",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.disk.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.disk.used",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.disk.utilized",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.disk.write_time",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.disk.write_time_pct",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.file_handles.allocated",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.file_handles.allocated_unused",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.file_handles.in_use",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.file_handles.max",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.file_handles.used",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.inodes.free",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.inodes.in_use",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.inodes.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.inodes.used",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.fs.inodes.utilized",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.avg_q_sz",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.avg_rq_sz",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.await",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.block_in",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.block_out",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.r_await",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.r_s",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.rkb_s",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.rrqm_s",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.svctm",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.util",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.w_await",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.w_s",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.wkb_s",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "device",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_label",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "device_name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.io.wrqm_s",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.load.1",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.load.15",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.load.5",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.load.norm.1",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.load.norm.15",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.load.norm.5",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.buffered",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.cached",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.commit_limit",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.committed_as",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.free",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.page_tables",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.pct_usable",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.shared",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.slab",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.slab_reclaimable",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.usable",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.mem.used",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.swap.cached",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.swap.free",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.swap.pct_free",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.swap.swap_in",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.swap.swap_out",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.swap.total",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.swap.used",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      },
+      {
+        "instrument_type_source": "native Gauge projects directly to inventory gauge",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "system.uptime",
+        "producers": [
+          {
+            "name": "datadog-receiver"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      }
+    ],
+    "profiles": [],
+    "receipts": [],
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "sigil": [],
+    "traces": []
+  },
+  "source": {
+    "capture_limitations": [
+      {
+        "id": "post-processor-temporality",
+        "text": "Capture follows delta-to-cumulative and batch processors; it does not establish receiver input temporality."
+      },
+      {
+        "id": "flattened-compatibility-projection",
+        "text": "Inventory labels are a compatibility union of native resource and datapoint keys. The artifact remains authoritative for placement, scope and schema URLs; native-envelope tests verify emitted placement separately."
+      },
+      {
+        "id": "standalone-host-not-established",
+        "text": "This Kubernetes path does not establish a standalone host path."
+      },
+      {
+        "id": "post-gateway-is-separate",
+        "text": "Earlier post-gateway evidence is a separately attributed translated metric with unknown instrument evidence and different key presence."
+      },
+      {
+        "id": "alloy-logs-output-absent",
+        "text": "Grafana Alloy exposes metrics and traces outputs for this component, but no logs output; logs are outside this receiver path."
+      }
+    ],
+    "capture_scope": "full",
+    "captured_on": "2026-09-08",
+    "collector": "grafana/alloy",
+    "collector_role": "audited",
+    "collector_version": "1.19.2",
+    "instrument_type_source": "Decoded from the retained native OTLP Metric data-shape field. Gauge records inventory gauge. The 86 non-monotonic cumulative Sums use inventory gauge only as a compatibility category; their actual OTLP kind, cumulative temporality, monotonicity, scope and resource-versus-datapoint placement remain in the authoritative native-envelope artifact.",
+    "kind": "datadog_receiver_native_envelope",
+    "permutation": "kubernetes-agent-alloy-egress",
+    "substrate": "kubernetes"
+  }
+}

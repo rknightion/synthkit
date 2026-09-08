@@ -16,6 +16,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/cspazure"
 	"github.com/rknightion/synthkit/internal/construct/cspgcp"
 	"github.com/rknightion/synthkit/internal/construct/cwinfra"
+	"github.com/rknightion/synthkit/internal/construct/datadogreceiver"
 	"github.com/rknightion/synthkit/internal/construct/dbo11ymysql"
 	"github.com/rknightion/synthkit/internal/construct/dbo11ypg"
 	"github.com/rknightion/synthkit/internal/construct/docdb"
@@ -157,6 +158,11 @@ func Catalog() *core.Registry {
 	azure.OTLPMetricProducer = fixedMetricProducer(producerOTLPNative)
 	reg.RegisterConstruct(azure)
 	reg.RegisterConstruct(withMetricProducers(cspgcp.Registration(), producerUnlabelled, producerOTLPNative))
+
+	// Receiver egress retains its own native producer identity.
+	datadog := datadogreceiver.Registration()
+	datadog.OTLPMetricProducer = fixedMetricProducer("datadog-receiver")
+	reg.RegisterConstruct(datadog)
 
 	// AI integration constructs (blueprint integrations: map — Spec 2b scrape/poll sources).
 	reg.RegisterConstruct(withMetricProducer(portkeygateway.Registration(), producerPromRW))

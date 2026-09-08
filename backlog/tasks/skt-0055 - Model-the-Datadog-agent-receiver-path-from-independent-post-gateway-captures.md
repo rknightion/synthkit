@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-07 11:03'
-updated_date: '2026-09-08 17:23'
+updated_date: '2026-09-08 21:13'
 labels:
   - integration
 dependencies: []
@@ -28,16 +28,16 @@ Migration rehearsal needs a separate telemetry contract for estates temporarily 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 An independently captured host and Kubernetes agent path records Datadog agent, Alloy receiver and gateway versions/settings with metric names, instrument/histogram semantics and promoted label keys; runtime credentials and stack choice require explicit authorization and are excluded from published evidence.
-- [ ] #2 A reviewed signals contract and sanitized reality-corpus evidence distinguish receiver-specific counter suffixes, attribute promotion, host-label absence and unsupported families from native exporter contracts; unknown evidence remains explicit.
+- [x] #2 A reviewed signals contract and sanitized reality-corpus evidence distinguish receiver-specific counter suffixes, attribute promotion, host-label absence and unsupported families from native exporter contracts; unknown evidence remains explicit.
 - [ ] #3 Selectable host and Kubernetes blueprint declarations emit the supported observed receiver surface through the existing isolated construct and runner architecture; no private consumer code or customer-shaped blueprint is imported.
-- [ ] #4 Inventory and fidelity comparisons verify the receiver selection against capture, including divergence and absent-evidence cases; generated blueprint documentation and an explicitly synthetic example expose support and limits. Native defaults remain unchanged.
+- [x] #4 Inventory and fidelity comparisons verify the receiver selection against capture, including divergence and absent-evidence cases; generated blueprint documentation and an explicitly synthetic example expose support and limits. Native defaults remain unchanged.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -48,6 +48,8 @@ Build only the authorized isolated environment through ArgoCD and pinned Helm re
 Wave 2026-09-13 implements the receiver envelope-preservation prerequisite only, keeping flattened callers compatible; broader Datadog construct and capture acceptance stays open.
 
 Wave 2026-09-15: inspect standing sync policy; temporarily route the existing capture Service to an independent raw OTLP recorder, preserve metric and trace envelopes, restore the selector and remove the temporary Pod. Compare against retained post-gateway evidence and spend the dedicated post-ingest query only after observed capture. No source Application edit, logs, or selectable-construct completion is implied.
+
+Wave 2026-09-16: derive the Kubernetes receiver projection and selectable contract from committed native envelopes, preserving post-processor and post-gateway differences. Root owns shared integration and generated documentation. Standalone host evidence remains open and AC 3 cannot be closed in full solely by Kubernetes evidence.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -68,6 +70,8 @@ Wave 2026-09-14 preflight: AWS SSO session expired or invalid. Per the frozen go
 Wave close: AWS SSO failed at preflight. No recovery attempted under the goal auth stop; no namespace operation or Datadog capture occurred, and both read-back allowances remain unused. Metrics/traces remain authorized; logs are excluded as a component limitation. Resume after authentication is restored: inspect Application sync policy read-only, prefer an ephemeral envelope capture, preserve the environment, and stop before any durable infrastructure-source change.
 
 Wave 2026-09-15: independent native envelope capture succeeded. Sanitized evidence e2e/acceptance/datadog-native-envelope-2026-09-08.json preserves placement, scope/schema, units, instrument semantics and attribute value types across 11 raw OTLP requests: 8 metrics, 3 traces; 195 metric names, 3810 datapoints, 3 spans. Named post-ingest metric read-back succeeded. Temporary recorder removed; capture Service selector restored and four standing deployments available. The first selector attempt self-healed before receipts; joining the existing selector plus one authorized collector restart succeeded. No Application/source edit. Logs excluded. Earlier post-gateway evidence remains separately attributed. No complete host path, reviewed corpus producer projection, selectable construct or trace-ingestion claim.
+
+Wave promotion: committed-artifact projection contains 195 families across 234 native envelopes. A Kubernetes cluster add-on emits the supported example metric; its six-per-minute basis is the independently read native app loop. Direct artifact tests preserve resource/datapoint placement, exact scope, empty unit and non-monotonic cumulative Sum semantics; swapped placement is rejected. The flattened corpus cannot validate placement. All 194 other observed names remain explicitly unimplemented, not unsupported. Root also rejected nonfinite rates and corrected elapsed-time accrual after failing-before evidence. New blueprint identity wiring, just gen, integrated fidelity and full just check pass. AC1 and AC3 remain open because host evidence and selectable host support are not established; logs remain outside the Alloy output boundary.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -80,4 +84,6 @@ Current resume boundary: establish working AWS authentication outside this run, 
 Wave close: AWS SSO failed at preflight. No recovery attempted under the goal auth stop; no namespace operation or Datadog capture occurred, and both read-back allowances remain unused. Metrics/traces remain authorized; logs are excluded as a component limitation. Resume after authentication is restored: inspect Application sync policy read-only, prefer an ephemeral envelope capture, preserve the environment, and stop before any durable infrastructure-source change.
 
 Capture boundary advanced: native metrics/traces envelope evidence is now retained and reviewed, with the named metric ingested. The earlier no-envelope/no-auth resume statement is historical. Broader 0/4 acceptance remains open: next implement the independently scoped host/Kubernetes receiver surface and its reviewed corpus producer mapping from the preserved evidence; leave the validation environment standing.
+
+AC2 and AC4 complete; AC1 and AC3 remain open. Next: independently capture the standalone-host path, then source value mechanics for the observed unimplemented receiver families. Kubernetes evidence and its one-family selectable subset are integrated; preserve the standing validation environment. This supersedes historical no-auth/no-envelope/no-corpus resume statements.
 <!-- SECTION:FINAL_SUMMARY:END -->

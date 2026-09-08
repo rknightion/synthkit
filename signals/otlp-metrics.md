@@ -561,7 +561,7 @@ A producer with an observed unnamed metrics scope sets `MetricResource.PreserveE
 
 ## Datadog receiver collector-egress evidence [slug: datadog-receiver-egress]
 
-This is observed receiver evidence, not a selectable synthetic workload contract. The
+The `datadog_receiver` cluster add-on selects the observed Kubernetes receiver subset. The
 [2026-09-08 native envelope capture](../e2e/acceptance/datadog-native-envelope-2026-09-08.json)
 records 195 metric names as 234 distinct envelopes and two trace-envelope shapes, from 11 decoded
 OTLP requests (eight metrics, three traces). It preserves resource versus datapoint placement,
@@ -572,7 +572,7 @@ name and its own envelope; it does not infer one global attribute map from their
 The path is Datadog-native instrumentation and Agent through Alloy 1.19.2's experimental Datadog
 receiver, delta-to-cumulative and batch processors, then parallel capture/cloud exporters. The
 capture is after those processors: it does not establish the receiver input temporality. The
-standalone host path and a selectable synthkit implementation remain unproven under SKT-0055.
+standalone host path remains unproven under SKT-0055. The selectable implementation currently covers only `example_metric.increment`; 194 observed families remain unimplemented.
 Logs are excluded because the Alloy component has no routable logs output.
 
 | Observed native family | Instrument at capture | Unit | Resource keys | Datapoint keys |
@@ -585,3 +585,29 @@ only, and unknown instrument type. That is a recorded translation and attribute 
 permission to rewrite either observation. The new post-ingest check returned the named translated
 metric; it did not query trace ingestion. The observed `do.work` spans carry an unspecified kind;
 the artifact retains their separate resource/scope/span-attribute shapes and schema URLs.
+
+
+The reviewed projection is `reality-corpus/otlp-metrics/datadog-receiver-native.json`.
+It retains all 195 names, with per-family key unions and explicit unknown boundaries.
+`reality-corpus/verdicts/datadog-receiver-classification.json` preserves each native
+placement shape and distinguishes implemented from observed-but-unimplemented families.
+The flattened corpus comparison cannot validate placement, scope, or temporality;
+`internal/construct/datadogreceiver` compares the emitted envelope directly with the
+immutable artifact and rejects a resource/datapoint placement swap. The inventory's
+`gauge` compatibility class for a non-monotonic Sum does not change its native instrument.
+
+`blueprints/datadog-receiver-kubernetes.yaml` supplies explicit synthetic identities and
+six increments per minute, sourced from the captured application's one-increment,
+ten-second loop. This is a periodic-worker example, not a claim about every Datadog Agent.
+No Prometheus copy, logs, native-exporter substitution, or standalone-host declaration is emitted.
+
+```yaml signals
+family: datadog_receiver_example
+sink: otlp
+metrics:
+  - {root: example_metric.increment, type: gauge, unit: ""}
+```
+
+Here `type: gauge` is only the catalogue reader's compatibility category. On the
+wire the instrument remains a non-monotonic cumulative Sum with empty unit, resource
+keys `host.name`, `service.name`, `source`, and no datapoint attributes.

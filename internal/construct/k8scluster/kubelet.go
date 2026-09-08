@@ -185,6 +185,12 @@ func emitKubelet(
 				"method": "GET",
 				"host":   "kubernetes.default.svc:443",
 			}), scale*10)
+			// The captured P3 envelope also has the kubelet's own process families.
+			// A quiet, long-running per-node kubelet plausibly consumes a few milliseconds
+			// of CPU per 30-second tick and tens of MiB RSS; the capture elides values.
+			// kubBase intentionally has no node-exporter DaemonSet namespace labels.
+			st.Add("process_cpu_seconds_total", kubBase, tickSec*0.003)
+			st.Set("process_resident_memory_bytes", kubBase, float64(48+ni)*1024*1024)
 		}
 
 		// kubelet_runtime_operations_total + _errors_total (in allow-list, counters)

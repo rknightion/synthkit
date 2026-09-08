@@ -139,6 +139,26 @@ Source: [Microsoft.Compute/virtualMachines supported metrics](https://github.com
 | `azure_network_in_total_total` | `Bytes` | — |
 | `azure_network_out_total_total` | `Bytes` | — |
 
+```yaml signals
+family: azure_microsoft_compute_virtualmachines
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_vmavailabilitymetric_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_percentage_cpu_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_available_memory_bytes_average, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_cpu_credits_consumed_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_cpu_credits_remaining_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_disk_read_bytes_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_disk_write_bytes_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_disk_read_operations/sec_average, type: gauge, unit: CountPerSecond, v: ok}
+  - {root: azure_disk_write_operations/sec_average, type: gauge, unit: CountPerSecond, v: ok}
+  - {root: azure_inbound_flows_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_outbound_flows_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_network_in_total_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_network_out_total_total, type: gauge, unit: Bytes, v: ok}
+```
+
 ### SQL databases — `Microsoft.Sql/servers/databases`
 
 Source: [Microsoft.Sql/servers/databases supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-sql-servers-databases-metrics.md).
@@ -157,6 +177,24 @@ Source: [Microsoft.Sql/servers/databases supported metrics](https://github.com/m
 | `azure_dtu_consumption_percent_average` | `Percent` | — |
 | `azure_dtu_limit_average` | `Count` | — |
 
+```yaml signals
+family: azure_microsoft_sql_servers_databases
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_connection_successful_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_deadlock_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_sessions_count_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_cpu_percent_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_cpu_limit_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_cpu_used_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_storage_maximum, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_storage_percent_maximum, type: gauge, unit: Percent, v: ok}
+  - {root: azure_dtu_used_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_dtu_consumption_percent_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_dtu_limit_average, type: gauge, unit: Count, v: ok}
+```
+
 ### SQL elastic pools — `Microsoft.Sql/servers/elasticpools`
 
 Source: [Microsoft.Sql/servers/elasticpools supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-sql-servers-elasticpools-metrics.md).
@@ -172,6 +210,22 @@ Source: [Microsoft.Sql/servers/elasticpools supported metrics](https://github.co
 | `azure_sessions_count_average` | `Count` | — |
 | `azure_allocated_data_storage_percent_average` | `Percent` | — |
 | `azure_storage_percent_average` | `Percent` | — |
+
+```yaml signals
+family: azure_microsoft_sql_servers_elasticpools
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_allocated_data_storage_average, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_storage_used_average, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_storage_limit_average, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_cpu_percent_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_sql_instance_memory_percent_maximum, type: gauge, unit: Percent, v: ok}
+  - {root: azure_edtu_used_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_sessions_count_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_allocated_data_storage_percent_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_storage_percent_average, type: gauge, unit: Percent, v: ok}
+```
 
 ### PostgreSQL Flexible Server — `Microsoft.DBforPostgreSQL/flexibleServers`
 
@@ -197,6 +251,30 @@ Source: [Microsoft.DBforPostgreSQL/flexibleServers supported metrics](https://gi
 | `azure_read_throughput_average` | `Count` | — |
 | `azure_write_throughput_average` | `Count` | — |
 
+```yaml signals
+family: azure_microsoft_dbforpostgresql_flexibleservers
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_active_connections_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_connections_succeeded_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_connections_failed_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_cpu_percent_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_storage_used_maximum, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_storage_percent_maximum, type: gauge, unit: Percent, v: ok}
+  - {root: azure_read_iops_maximum, type: gauge, unit: Count, v: ok}
+  - {root: azure_write_iops_maximum, type: gauge, unit: Count, v: ok}
+  - {root: azure_database_size_bytes_average, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_storage_percent_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_memory_percent_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_read_iops_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_write_iops_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_network_bytes_ingress_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_network_bytes_egress_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_read_throughput_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_write_throughput_average, type: gauge, unit: Count, v: ok}
+```
+
 ### Storage Blob — `Microsoft.Storage/storageAccounts/blobServices`
 
 Source: [Microsoft.Storage/storageAccounts/blobServices supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-storage-storageaccounts-blobservices-metrics.md).
@@ -212,6 +290,21 @@ Source: [Microsoft.Storage/storageAccounts/blobServices supported metrics](https
 | `azure_availability_average` | `Percent` | — |
 | `azure_transactions_total` | `Count` | `ApiName`, `ResponseType` |
 
+```yaml signals
+family: azure_microsoft_storage_storageaccounts_blobservices
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_containercount_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_blobcount_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_blobcapacity_average, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_indexcapacity_average, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_ingress_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_egress_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_availability_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_transactions_total, type: gauge, unit: Count, v: ok}
+```
+
 ### Storage Queue — `Microsoft.Storage/storageAccounts/queueServices`
 
 Source: [Microsoft.Storage/storageAccounts/queueServices supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-storage-storageaccounts-queueservices-metrics.md).
@@ -226,6 +319,20 @@ Source: [Microsoft.Storage/storageAccounts/queueServices supported metrics](http
 | `azure_availability_average` | `Percent` | — |
 | `azure_transactions_total` | `Count` | `ApiName`, `ResponseType` |
 
+```yaml signals
+family: azure_microsoft_storage_storageaccounts_queueservices
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_queuecount_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_queuemessagecount_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_queuecapacity_average, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_ingress_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_egress_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_availability_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_transactions_total, type: gauge, unit: Count, v: ok}
+```
+
 ### Load Balancer — `Microsoft.Network/loadBalancers`
 
 Source: [Microsoft.Network/loadBalancers supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-network-loadbalancers-metrics.md).
@@ -239,6 +346,19 @@ Source: [Microsoft.Network/loadBalancers supported metrics](https://github.com/m
 | `azure_usedsnatports_average` | `Count` | — |
 | `azure_allocatedsnatports_average` | `Count` | — |
 
+```yaml signals
+family: azure_microsoft_network_loadbalancers
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_syncount_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_packetcount_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_bytecount_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_snatconnectioncount_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_usedsnatports_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_allocatedsnatports_average, type: gauge, unit: Count, v: ok}
+```
+
 ### Application Gateway — `Microsoft.Network/applicationGateways`
 
 Source: [Microsoft.Network/applicationGateways supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-network-applicationgateways-metrics.md).
@@ -251,6 +371,19 @@ Source: [Microsoft.Network/applicationGateways supported metrics](https://github
 | `azure_throughput_average` | `BytesPerSecond` | — |
 | `azure_applicationgatewaytotaltime_average` | `MilliSeconds` | — |
 | `azure_currentconnections_total` | `Count` | — |
+
+```yaml signals
+family: azure_microsoft_network_applicationgateways
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_totalrequests_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_failedrequests_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_responsestatus_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_throughput_average, type: gauge, unit: BytesPerSecond, v: ok}
+  - {root: azure_applicationgatewaytotaltime_average, type: gauge, unit: MilliSeconds, v: ok}
+  - {root: azure_currentconnections_total, type: gauge, unit: Count, v: ok}
+```
 
 ### Front Door/CDN — `Microsoft.Cdn/profiles`
 
@@ -267,6 +400,22 @@ Source: [Microsoft.Cdn/profiles supported metrics](https://github.com/microsoftd
 | `azure_originlatency_average` | `MilliSeconds` | — |
 | `azure_originrequestcount_total` | `Count` | — |
 | `azure_requestcount_total` | `Count` | `Endpoint`, `ClientCountry`, `HttpStatusGroup` |
+
+```yaml signals
+family: azure_microsoft_cdn_profiles
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_percentage4xx_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_percentage5xx_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_requestsize_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_responsesize_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_totallatency_average, type: gauge, unit: MilliSeconds, v: ok}
+  - {root: azure_originhealthpercentage_average, type: gauge, unit: Percent, v: ok}
+  - {root: azure_originlatency_average, type: gauge, unit: MilliSeconds, v: ok}
+  - {root: azure_originrequestcount_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_requestcount_total, type: gauge, unit: Count, v: ok}
+```
 
 ### Event Hubs — `Microsoft.EventHub/namespaces`
 
@@ -288,6 +437,26 @@ Source: [Microsoft.EventHub/namespaces supported metrics](https://github.com/mic
 | `azure_outgoingmessages_total` | `Count` | `EntityName` |
 | `azure_capturedmessages_total` | `Count` | `EntityName` |
 
+```yaml signals
+family: azure_microsoft_eventhub_namespaces
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_activeconnections_maximum, type: gauge, unit: Count, v: ok}
+  - {root: azure_connectionsopened_maximum, type: gauge, unit: Count, v: ok}
+  - {root: azure_connectionsclosed_maximum, type: gauge, unit: Count, v: ok}
+  - {root: azure_incomingrequests_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_successfulrequests_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_throttledrequests_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_usererrors_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_servererrors_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_incomingbytes_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_outgoingbytes_total, type: gauge, unit: Bytes, v: ok}
+  - {root: azure_incomingmessages_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_outgoingmessages_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_capturedmessages_total, type: gauge, unit: Count, v: ok}
+```
+
 ### Service Bus — `Microsoft.ServiceBus/namespaces`
 
 Source: [Microsoft.ServiceBus/namespaces supported metrics](https://github.com/microsoftdocs/azure-monitor-docs/blob/main/articles/azure-monitor/reference/supported-metrics/microsoft-servicebus-namespaces-metrics.md).
@@ -304,6 +473,23 @@ Source: [Microsoft.ServiceBus/namespaces supported metrics](https://github.com/m
 | `azure_messages_average` | `Count` | — |
 | `azure_activemessages_average` | `Count` | `EntityName` |
 | `azure_size_average` | `Bytes` | `EntityName` |
+
+```yaml signals
+family: azure_microsoft_servicebus_namespaces
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_incomingmessages_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_outgoingmessages_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_incomingrequests_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_successfulrequests_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_activeconnections_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_usererrors_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_servererrors_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_messages_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_activemessages_average, type: gauge, unit: Count, v: ok}
+  - {root: azure_size_average, type: gauge, unit: Bytes, v: ok}
+```
 
 ### Cognitive Services — `Microsoft.CognitiveServices/accounts`
 
@@ -325,6 +511,23 @@ boundary.
 | `azure_processedprompttokens_total` | `Count` | `ModelDeploymentName`, `ModelName` |
 | `azure_generatedtokens_total` | `Count` | `ModelDeploymentName`, `ModelName` |
 | `azure_tokenspersecond_average` | `Count` | `ModelDeploymentName`, `ModelName` |
+
+```yaml signals
+family: azure_microsoft_cognitiveservices_accounts
+scope: substrate
+sink: otlp
+metrics:
+  - {root: azure_totalcalls_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_successfulcalls_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_blockedcalls_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_totalerrors_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_clienterrors_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_servererrors_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_totaltokencalls_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_processedprompttokens_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_generatedtokens_total, type: gauge, unit: Count, v: ok}
+  - {root: azure_tokenspersecond_average, type: gauge, unit: Count, v: ok}
+```
 
 `ProcessedFineTunedTrainingHours` is explicitly excluded from the native lane while SK-45 remains
 unresolved. Its existing `azure_microsoft_cognitiveservices_accounts_processed_fine_tuned_training_hours_total_count`

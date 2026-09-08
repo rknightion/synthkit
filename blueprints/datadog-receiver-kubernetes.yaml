@@ -1,0 +1,36 @@
+# Receiver egress example, based on the independently captured Kubernetes path.
+# This declares only the implemented example metric; the full observed inventory
+# and its 194 unimplemented families remain in the reviewed corpus.
+name: datadog-receiver-kubernetes
+label: datadog-receiver-kubernetes
+shape: business_hours_plateau
+metadata:
+  description: "Datadog Agent to Alloy receiver: the observed example metric as native OTLP."
+  category: reference
+  links:
+    signals: ./signals/otlp-metrics.md
+environments:
+  - name: example
+    cloud:
+      provider: aws
+      account_id: "411000000155"
+      region: eu-west-1
+      vpc_id: vpc-datadog-example
+      # This receiver example declares no managed cloud service workload.
+      cloudwatch: {albs: 0, s3_buckets: 0, firehose: false, nlb: false, ebs: false, nat_gateway: false, eks: false, private_link: false}
+    cluster:
+      type: eks
+      name: datadog-example-cluster
+      # One small application node is sufficient for this single-service example.
+      node_groups: [{name: general, instance_type: m6i.large, desired: 1}]
+      observability: {cloudwatch: false}
+      k8s_monitoring: {enabled: false}
+      addons:
+        - name: datadog_receiver
+          host_name: datadog-example-node
+          service_name: example-service
+          source: example-agent
+          # The captured application's loop increments once, then sleeps 10s:
+          # six increments/minute for a small periodic worker. Source-derived,
+          # not inferred from elided samples or increased for visibility.
+          increments_per_minute: 6

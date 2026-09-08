@@ -308,6 +308,19 @@ AWS CloudWatch infrastructure metric-stream families (ALB/NLB/EBS/NAT/S3/EKS/Fir
 | `eks` | bool | yes | emit AWS/EKS control-plane family (default true) |
 | `private_link` | bool | yes | emit AWS/PrivateLink endpoints+services families (default true) |
 
+## datadog_receiver config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+Kubernetes Datadog Agent to Alloy Datadog receiver native metric egress
+
+| key | type | optional | description |
+|---|---|---|---|
+| `host_name` | string |  |  |
+| `service_name` | string |  |  |
+| `source` | string |  |  |
+| `increments_per_minute` | float |  |  |
+
 ## dbo11y_mysql config
 
 **Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology

@@ -31,26 +31,27 @@ import (
 // OTLP lane emitting the construct's EXISTING promrw family names — see that file's
 // "not permission to re-emit" note.
 var otlpNativeAllowed = map[string]bool{
-	"k8s_cluster":   true,
-	"host":          true,
-	"web_service":   true,
-	"app":           true,
-	"ai_agent":      true,
-	"beyla_agent":   true,
-	"envoy_gateway": true,
-	"cw_infra":      true,
-	"ec2":           true,
-	"rds":           true,
-	"docdb":         true,
-	"neptune":       true,
-	"elasticache":   true,
-	"aoss":          true,
-	"mwaa":          true,
-	"glue":          true,
-	"bedrock":       true,
-	"agentcore":     true,
-	"csp_azure":     true,
-	"csp_gcp":       true,
+	"datadog_receiver": true,
+	"k8s_cluster":      true,
+	"host":             true,
+	"web_service":      true,
+	"app":              true,
+	"ai_agent":         true,
+	"beyla_agent":      true,
+	"envoy_gateway":    true,
+	"cw_infra":         true,
+	"ec2":              true,
+	"rds":              true,
+	"docdb":            true,
+	"neptune":          true,
+	"elasticache":      true,
+	"aoss":             true,
+	"mwaa":             true,
+	"glue":             true,
+	"bedrock":          true,
+	"agentcore":        true,
+	"csp_azure":        true,
+	"csp_gcp":          true,
 }
 
 // otlpScrapeOnlyForbidden is the SCRAPE-ONLY list from signals/otlp-native-verdicts.md:
@@ -227,10 +228,10 @@ func TestOTLPVerdictCoverageIsComplete(t *testing.T) {
 	checkStale("otlpScrapeOnlyForbidden", otlpScrapeOnlyForbidden)
 	checkStale("otlpUnresolved", otlpUnresolved)
 
-	const wantTotal = 45
+	const wantTotal = 46
 	if got := len(allKinds); got != wantTotal {
 		t.Errorf("runner.Catalog() registers %d kinds, want %d (signals/otlp-native-verdicts.md "+
-			"was measured against 45 catalog packages on 2026-08-27 — if the catalog has genuinely "+
+			"includes the 2026-09-08 Datadog receiver addition to the 45-package baseline — if the catalog has genuinely "+
 			"grown or shrunk, re-run the SKT-0007.01 study and update both files)", got, wantTotal)
 	}
 }

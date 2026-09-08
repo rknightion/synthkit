@@ -80,7 +80,7 @@ func hex16(parts ...string) string {
 // emitKSMNodeObjects emits kube_node_info (discovery gate) plus created, labels,
 // capacity, allocatable for every node. Platform identity (os_image, runtime, kubelet/kernel
 // versions) flows from cl.Platform; capacity pods is the instance-type MaxPods.
-func emitKSMNodeObjects(st *state.State, cluster string, cl *fixture.Cluster, nodes []fixture.Node, factor float64) {
+func emitKSMNodeObjects(st *state.State, cluster string, cl *fixture.Cluster, nodes []fixture.Node, factor float64, collectorProm bool) {
 	region := clusterRegion(nodes)
 	plat := platformOr(cl.Platform)
 	_ = factor
@@ -110,6 +110,12 @@ func emitKSMNodeObjects(st *state.State, cluster string, cl *fixture.Cluster, no
 			"provider_id":               providerID,
 			"system_uuid":               fmt.Sprintf("ec2%013x", hostHash),
 		})
+		if collectorProm {
+			// KSM v2.20.0 emits Node.Spec.PodCIDR as pod_cidr on kube_node_info.
+			// Keep the deterministic P3 allocation shared with kube_node_spec_pod_cidrs,
+			// while retaining the established non-P3 envelope.
+			info["pod_cidr"] = collectorPromPodCIDR(ni)
+		}
 		st.Set("kube_node_info", info, 1)
 		st.Set("kube_node_created", merge(ksmLabels(cluster), map[string]string{"node": node}), float64(clusterCreatedUnix))
 
@@ -198,9 +204,13 @@ func emitCollectorPromKSMNodeFamilies(st *state.State, cluster string, nodes []f
 		base := merge(ksmLabels(cluster), map[string]string{"node": n.Hostname})
 		st.Set("kube_node_role", merge(base, map[string]string{"role": "worker"}), 1)
 		st.Set("kube_node_spec_pod_cidrs", merge(base, map[string]string{
-			"pod_cidr": fmt.Sprintf("10.244.%d.0/24", (i%254)+1),
+			"pod_cidr": collectorPromPodCIDR(i),
 		}), 1)
 	}
+}
+
+func collectorPromPodCIDR(nodeIndex int) string {
+	return fmt.Sprintf("10.244.%d.0/24", (nodeIndex%254)+1)
 }
 
 // emitKSMNodeConditions emits kube_node_status_condition for every node. When notReadyIdx >= 0 that

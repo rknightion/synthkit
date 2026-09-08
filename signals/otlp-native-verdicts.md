@@ -49,6 +49,7 @@ target only, must NOT gain an OTLP metrics lane · **UNRESOLVED** = evidence not
 
 | Kind | Package | Verdict | Evidence | Date |
 |---|---|---|---|---|
+| `datadog_receiver` | `construct/datadogreceiver` | OTEL-NATIVE | The committed 2026-09-08 Datadog Agent to Alloy native egress capture establishes receiver OTLP envelopes. The selectable Kubernetes subset and boundaries are in `signals/otlp-metrics.md`. | 2026-09-08 |
 | `k8s_cluster` | `construct/k8scluster` | OTEL-NATIVE | `k8sclusterreceiver/metadata.yaml` defines `k8s.pod.phase`, `k8s.deployment.available`, `k8s.container.cpu_limit`, `k8s.statefulset.ready_pods` … as OTel instruments built from the API server, not from KSM text; `kubeletstatsreceiver` supplies the container/pod/node CPU + memory groups (`k8s.container.cpu.node.utilization`, `k8s.pod.memory.node.utilization`, node/pod/container metric groups). Vendor docs via ctx7 `/open-telemetry/opentelemetry-collector-contrib`. | 2026-08-27 |
 | `host` | `construct/host` | OTEL-NATIVE | `hostmetricsreceiver` scrapers emit `system.cpu.time` (8 Linux `state` values), `system.memory.usage`, `system.filesystem.usage`, `system.network.io`/`.packets`/`.errors`/`.dropped`/`.connections` — OTel names, not `node_exporter` names. Vendor docs via ctx7 `/open-telemetry/opentelemetry-collector-contrib`. | 2026-08-27 |
 | `web_service` | `workload/webservice` | OTEL-NATIVE — **built** | `signals/otlp-metrics.md`, live-validated 2026-06-18: `http.server.request.duration`, `http.server.active_requests`. The only kind declaring `core.OTLPMetrics` today. | 2026-06-18 |
@@ -101,12 +102,12 @@ target only, must NOT gain an OTLP metrics lane · **UNRESOLVED** = evidence not
 
 | Verdict | Kinds |
 |---|---|
-| OTEL-NATIVE | 20 (of which 13 are "different namespace": the 11 CloudWatch kinds + `csp_azure` + `csp_gcp`) |
+| OTEL-NATIVE | 21 (of which 13 are "different namespace": the 11 CloudWatch kinds + `csp_azure` + `csp_gcp`) |
 | SCRAPE-ONLY — must NOT gain an OTLP metrics lane | 24 (including `k8s_profiling`, which has no metrics class at all) |
 | UNRESOLVED | 1 (`portkey_gateway`) |
-| **Total** | **45** |
+| **Total** | **46** |
 
-Of the 20 OTEL-NATIVE kinds, exactly one (`web_service`) is built today.
+The original 2026-08-27 study found one built OTEL-NATIVE kind (`web_service`). That historical implementation count is not a current inventory; the receiver promotion adds one native kind to the verdict table.
 
 ---
 

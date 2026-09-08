@@ -1,9 +1,11 @@
 ---
 id: SKT-0068
 title: Close the six proven P3 producer and label envelope omissions
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@codex'
 created_date: '2026-09-08 17:16'
+updated_date: '2026-09-08 21:13'
 labels: []
 dependencies: []
 priority: medium
@@ -18,16 +20,34 @@ The independent P3 envelope review established six genuine emitter divergences, 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 P3 process metrics carry both observed kubelet and node-exporter producers with their own label maps
-- [ ] #2 P3 kube_node_info and machine_memory_bytes carry the independently sourced pod_cidr and boot_id keys
-- [ ] #3 Only the two observed filesystem status families carry device_error with an explicitly sourced coherent status model
-- [ ] #4 Failing-before and passing-after evidence proves the changes and preservation of non-P3 output, sibling filesystem/container labels and scope-free target_info
-- [ ] #5 Catalogue, exact inventory comparison and final gates agree without weaker producer matching or new exemptions
+- [x] #1 P3 process metrics carry both observed kubelet and node-exporter producers with their own label maps
+- [x] #2 P3 kube_node_info and machine_memory_bytes carry the independently sourced pod_cidr and boot_id keys
+- [x] #3 Only the two observed filesystem status families carry device_error with an explicitly sourced coherent status model
+- [x] #4 Failing-before and passing-after evidence proves the changes and preservation of non-P3 output, sibling filesystem/container labels and scope-free target_info
+- [x] #5 Catalogue, exact inventory comparison and final gates agree without weaker producer matching or new exemptions
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Wave 2026-09-16: L2 implements the six scoped P3 omissions with failing-before, mutation-proven preservation controls and targeted tests. Root integrates sourced catalogue notes, compares inventory and runs review and final gates without weaker producer matching.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Wave closure: all six scoped omissions are implemented. Retained lane failing-before and passing-after mutation logs prove filesystem/container siblings, kubelet namespace separation, non-P3 preservation and scope-free target_info. Root inventory retains exactly 142 captured families with no missing family; source descriptors and catalogue notes agree. Full just check passed after updating the new blueprint runtime-name registry entry; no producer matching or exemption change. Evidence: codex/scratch/wave-2026-09-16/l2, p3-inventory-proof.txt, integration-precommit-check-after.txt. CodeRabbit reviewed the changed emitter/tests with no P3 finding.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All five acceptance criteria proven: missing kubelet producer memberships and four P3-only keys repaired with sourced coherent values and mutation-proven boundaries. Full gate passed; integration SHA and CI will be recorded in the wave report.
+<!-- SECTION:FINAL_SUMMARY:END -->

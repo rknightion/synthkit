@@ -36,6 +36,7 @@ func emitCAdvisor(
 	factor, tickSec, scale float64,
 	now time.Time,
 	w *core.World,
+	collectorProm bool,
 ) {
 	_ = now
 
@@ -111,6 +112,19 @@ func emitCAdvisor(
 	// machine_memory_bytes (per node) — base carries node=<hostname> (CadvisorK8s).
 	for _, n := range nodes {
 		mbase := merge(cadvisorLabels(cluster, n.Hostname), map[string]string{"node": n.Hostname})
+		if collectorProm {
+			// cAdvisor's machine info exposes a host BootID. Scope it to this P3
+			// machine family: container series must not inherit host boot identity.
+			mbase["boot_id"] = collectorPromBootID(cluster, n.Hostname)
+		}
 		nodeexp.EmitMachine(st, mbase, memBytesForNode(n), nodeexp.CadvisorK8s)
 	}
+}
+
+func collectorPromBootID(cluster, node string) string {
+	// UUID-shaped, stable synthetic host identity. It deliberately derives only
+	// from declared cluster/node identity, never from the captured deployment UUID.
+	head := hex16("boot-id", cluster, node)
+	tail := hex16("boot-id-tail", cluster, node)
+	return head[:8] + "-" + head[8:12] + "-" + head[12:16] + "-" + tail[:4] + "-" + tail[4:]
 }
