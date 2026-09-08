@@ -1,11 +1,106 @@
 {
   "version": "synthkit.telemetry.producer-coverage/v1alpha1",
-  "expected_count": 198,
+  "expected_count": 219,
   "claims": [
+    {
+      "signal": "azure_microsoft_dbforpostgresql_flexibleservers_cpu_percent_average_percent",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_dbforpostgresql_flexibleservers_memory_percent_average_percent",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_dbforpostgresql_flexibleservers_storage_percent_average_percent",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_applicationgateways_applicationgatewaytotaltime_average_milliseconds",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_applicationgateways_currentconnections_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_applicationgateways_failedrequests_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_applicationgateways_responsestatus_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_applicationgateways_throughput_average_bytespersecond",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_applicationgateways_totalrequests_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_loadbalancers_allocatedsnatports_average_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_loadbalancers_bytecount_total_bytes",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_loadbalancers_packetcount_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_loadbalancers_snatconnectioncount_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_loadbalancers_syncount_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_network_loadbalancers_usedsnatports_average_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_servicebus_namespaces_activeconnections_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_servicebus_namespaces_activemessages_average_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
     {
       "signal": "azure_microsoft_servicebus_namespaces_incomingmessages_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
       "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+    },
+    {
+      "signal": "azure_microsoft_servicebus_namespaces_incomingrequests_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_servicebus_namespaces_messages_average_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_outgoingmessages_total_count",
@@ -16,6 +111,16 @@
       "signal": "azure_microsoft_servicebus_namespaces_servererrors_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
       "reason": "Observed family belongs to different recorded jobs; matching producer evidence is absent. Do not infer equivalence from the family name."
+    },
+    {
+      "signal": "azure_microsoft_servicebus_namespaces_size_average_bytes",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
+    },
+    {
+      "signal": "azure_microsoft_servicebus_namespaces_successfulrequests_total_count",
+      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
+      "reason": "Cumulative independent capture brings this family into coverage, but its recorded producers do not match this synthetic job. No equivalence is inferred from the shared family name."
     },
     {
       "signal": "azure_microsoft_servicebus_namespaces_usererrors_total_count",
