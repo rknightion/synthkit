@@ -1605,3 +1605,19 @@ StatefulSet, Job, CronJob, HorizontalPodAutoscaler, ResourceQuota and Replicatio
 therefore never exercised, and their absence from the corpus says nothing about the receiver.
 Confirm them against a cluster that runs those objects before treating the list above as
 complete. Tracked as cantfind SK-101.
+
+### Conditional metric keys in corpus comparisons
+
+`kube_node_labels` carries an open `label_*` bag selected from the node's actual labels and
+kube-state-metrics' allowlist. A managed-nodegroup capture cannot disprove a Karpenter label, or
+the reverse. `node_os_info` carries `variant_id` and `build_id` only for OS variants that supply
+them, as recorded above. `kube_job_owner` supplies `owner_kind`, `owner_name` and
+`owner_is_controller` for owned Jobs; upstream emits empty values for ownerless Jobs, and
+Prometheus treats empty label values as absent. A capture of ownerless Jobs cannot disprove the
+owned-Job shape. These conditional-key differences remain coverage findings. Other keys retain
+the strict contradiction rule.
+
+Sources: [node store](https://github.com/kubernetes/kube-state-metrics/blob/main/internal/store/node.go),
+[job store](https://github.com/kubernetes/kube-state-metrics/blob/main/internal/store/job.go),
+[Prometheus data model](https://prometheus.io/docs/concepts/data_model/), and this catalogue's
+node OS observations. Upstream store source re-read 2026-09-08.

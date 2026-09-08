@@ -105,6 +105,12 @@ func FromSinks(prom *promrw.Sink, lokiSink *loki.Sink, traceSink *otlp.Sink, met
 }
 
 func addPromSeries(out *Schema, series promrw.Series) {
+	observation := New()
+	addPromSeriesShape(&observation, series)
+	mergeProducerObservation(out, observation)
+}
+
+func addPromSeriesShape(out *Schema, series promrw.Series) {
 	name := series.Name
 	instrument := InstrumentGauge
 	var histogram *Histogram
@@ -147,6 +153,12 @@ func addPromSeries(out *Schema, series promrw.Series) {
 }
 
 func addOTLPMetricResource(out *Schema, resource otlp.MetricResource) {
+	observation := New()
+	addOTLPMetricResourceShape(&observation, resource)
+	mergeProducerObservation(out, observation)
+}
+
+func addOTLPMetricResourceShape(out *Schema, resource otlp.MetricResource) {
 	resourceAttrs := stringify(resource.Attrs)
 	for _, metric := range resource.Metrics {
 		instrument := InstrumentGauge

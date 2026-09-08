@@ -871,3 +871,8 @@ metrics:
 
 Logs: `{job="integrations/azure_event_hubs", topic="<hub>"}`; body = raw Azure Monitor JSON
 (`time, resourceId, category, operationName, level, location`) — NOT logfmt.
+
+Corpus comparison treats configured `tag_*` keys and the optional `env` scope above as open
+metadata. Their absence in a capture is a coverage gap, not proof that the configured shape is
+impossible. Capture-v2 projection additionally removes tag keys for privacy, so that projection
+cannot establish their absence at source. Fixed Azure metric keys retain strict comparison.

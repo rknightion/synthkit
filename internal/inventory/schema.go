@@ -46,6 +46,9 @@ type Schema struct {
 	SchemaVersion string      `json:"schema_version"`
 	Provenance    *Provenance `json:"provenance,omitempty"`
 	Metrics       []Metric    `json:"metrics"`
+	// ProducerMetrics retains direct per-producer observations before the flattened
+	// family union loses attribution. Legacy inventories may omit this evidence.
+	ProducerMetrics []Metric `json:"producer_metrics,omitempty"`
 	// AllowListSuppressions are direct emission-boundary records for metric
 	// families a selected upstream allow-list dropped. They make absence visible
 	// without trying to recover it from the final inventory.
@@ -403,6 +406,19 @@ func (s *Schema) AddReceipt(protocol string, count int) {
 // Normalize makes externally-constructed schemas deterministic and ensures nil collection
 // fields encode as empty arrays. Add* already maintains this invariant incrementally.
 func (s *Schema) Normalize() {
+	if len(s.ProducerMetrics) > 0 {
+		shapes := Schema{Metrics: s.ProducerMetrics}
+		shapes.Normalize()
+		s.ProducerMetrics = shapes.Metrics
+		sort.Slice(s.ProducerMetrics, func(i, j int) bool {
+			a, b := s.ProducerMetrics[i], s.ProducerMetrics[j]
+			if a.Name != b.Name {
+				return a.Name < b.Name
+			}
+			return compareStrings(producerNames(a.Producers), producerNames(b.Producers)) < 0
+		})
+	}
+
 	if s.SchemaVersion == "" {
 		s.SchemaVersion = SchemaVersion
 	}

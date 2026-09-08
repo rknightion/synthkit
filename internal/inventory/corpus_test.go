@@ -359,15 +359,15 @@ func TestCompareCorpusClassifiesExplicitAllowListAbsenceInsideCoverageTaxonomy(t
 func TestCompareCorpusNamesMatchingAndAbsentSubstrateEvidence(t *testing.T) {
 	synth := New()
 	// The clean GCP capture records label_cloud_google_com_gke_nodepool on
-	// kube_node_labels; the committed EKS corpus records
+	// example_node_labels; the committed EKS corpus records
 	// label_eks_amazonaws_com_nodegroup for the same family. These are observed
 	// cloud-specific label keys, not invented fixture values.
-	synth.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
+	synth.AddMetric("example_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
 
 	eks := validCorpusDocument("k8s", "producer-eks", "eks")
-	eks.Inventory.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
+	eks.Inventory.AddMetric("example_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
 	gcp := validCorpusDocument("k8s", "producer-gcp", "gcp")
-	gcp.Inventory.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_cloud_google_com_gke_nodepool": ""}, nil)
+	gcp.Inventory.AddMetric("example_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_cloud_google_com_gke_nodepool": ""}, nil)
 	k3s := validCorpusDocument("k8s", "producer-k3s", "k3s")
 	k3s.Inventory.AddMetric("kube_node_info", TransportPrometheusRW2, InstrumentGauge, nil, nil)
 
@@ -380,7 +380,7 @@ func TestCompareCorpusNamesMatchingAndAbsentSubstrateEvidence(t *testing.T) {
 		}
 	}
 	if contradiction == nil {
-		t.Fatalf("findings=%+v, want GCP kube_node_labels contradiction", findings)
+		t.Fatalf("findings=%+v, want GCP example_node_labels contradiction", findings)
 	}
 	if got, want := contradiction.MatchingSubstrates, []string{"eks"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("matching substrates=%v, want %v", got, want)
@@ -392,12 +392,12 @@ func TestCompareCorpusNamesMatchingAndAbsentSubstrateEvidence(t *testing.T) {
 
 func TestCompareCorpusRequiresEverySubstrateDocumentToContainSignalBeforeMatching(t *testing.T) {
 	synth := New()
-	synth.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
+	synth.AddMetric("example_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
 
 	gcp := validCorpusDocument("k8s", "producer-gcp", "gcp")
-	gcp.Inventory.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_cloud_google_com_gke_nodepool": ""}, nil)
+	gcp.Inventory.AddMetric("example_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_cloud_google_com_gke_nodepool": ""}, nil)
 	eksWithSignal := validCorpusDocument("k8s", "producer-eks-default", "eks")
-	eksWithSignal.Inventory.AddMetric("kube_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
+	eksWithSignal.Inventory.AddMetric("example_node_labels", TransportPrometheusRW2, InstrumentGauge, map[string]string{"label_eks_amazonaws_com_nodegroup": ""}, nil)
 	eksWithoutSignal := validCorpusDocument("k8s", "producer-eks-alternate", "eks")
 	eksWithoutSignal.Inventory.AddMetric("kube_node_info", TransportPrometheusRW2, InstrumentGauge, nil, nil)
 

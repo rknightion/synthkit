@@ -992,6 +992,10 @@ func cloneCorpusDocument(document CorpusDocument) CorpusDocument {
 
 func cloneSchema(schema Schema) Schema {
 	out := schema
+	out.ProducerMetrics = make([]Metric, len(schema.ProducerMetrics))
+	for i, metric := range schema.ProducerMetrics {
+		out.ProducerMetrics[i] = cloneMetric(metric)
+	}
 	out.AllowListSuppressions = append([]MetricSuppression{}, schema.AllowListSuppressions...)
 	out.Metrics = make([]Metric, len(schema.Metrics))
 	for i, metric := range schema.Metrics {
@@ -1295,7 +1299,7 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 		}
 		observed := withoutEnrichmentLabels(document.Inventory, document.Source.EnrichmentLabels)
 		reality := producerScopedReality(synthCopy, observed)
-		comparison := scopedSynthSchema(withoutSelectorLabels(synthCopy), reality)
+		comparison := scopedSynthSchema(withoutSelectorLabels(producerShapeSynth(synthCopy, reality)), reality)
 		findings := Diff(comparison, reality)
 		findings = append(findings, producerMismatchFindings(synthCopy, observed)...)
 		findings = classifyAllowListAbsences(findings, synthCopy, reality)

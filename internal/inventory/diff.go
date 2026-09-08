@@ -747,6 +747,18 @@ func diffMetric(out *[]Finding, synth, reality metricView) {
 // the document cannot retain a label that only one job emits; source is a corpus modelling gap,
 // not evidence that the synthetic producer invented it.
 func appendMetricLabelKeyDirectional(out *[]Finding, signal string, synthKeys, realityKeys []string) {
+	// These are documented conditional fields, not closed key universes. Keep
+	// absence visible without declaring a valid platform/object variant invented.
+	var conditional []string
+	for _, key := range difference(synthKeys, realityKeys) {
+		if conditionalMetricLabel(signal, key) {
+			conditional = append(conditional, key)
+		}
+	}
+	if len(conditional) > 0 {
+		*out = append(*out, Finding{Kind: KindUnexpectedLabelKey, Disposition: DispositionCoverageGap, Signal: signal, Field: "labels", SynthValues: conditional, RealityValues: cloneStrings(realityKeys)})
+		synthKeys = difference(synthKeys, conditional)
+	}
 	synthOnly := difference(synthKeys, realityKeys)
 	if signal == "kubernetes_build_info" && containsString(synthOnly, "source") {
 		synthWithoutSource := difference(synthKeys, []string{"source"})
@@ -957,4 +969,24 @@ func compareStrings(a, b []string) int {
 	default:
 		return 0
 	}
+}
+
+// conditionalMetricLabel is the sourced open-key contract in signals/k8s.md
+// and signals/cspazure.md.
+// It does not relax fixed label keys on these families or keys on other families.
+func conditionalMetricLabel(signal, key string) bool {
+	// Azure tags are opt-in free-form metadata; env is optional fixture scope.
+	// Capture projection also deliberately omits tag keys for privacy.
+	if strings.HasPrefix(signal, "azure_microsoft_") && (strings.HasPrefix(key, "tag_") || key == "env") {
+		return true
+	}
+	switch signal {
+	case "kube_node_labels":
+		return strings.HasPrefix(key, "label_")
+	case "node_os_info":
+		return key == "variant_id" || key == "build_id"
+	case "kube_job_owner":
+		return key == "owner_kind" || key == "owner_name" || key == "owner_is_controller"
+	}
+	return false
 }
