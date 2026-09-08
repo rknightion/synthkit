@@ -129,6 +129,8 @@ note: "⚠ LBC does NOT emit rest_client_* (cluster-autoscaler only)"
 
 ## ExternalDNS (✅ real `job="external-dns"`, ns `external-dns`, instance `<podIP>:7979`; ~~`integrations/external-dns`~~) [slug: k8s-externaldns]
 
+Instrument semantics below are sourced from ExternalDNS v0.22.0 [`pkg/http/http.go`](https://github.com/kubernetes-sigs/external-dns/blob/v0.22.0/pkg/http/http.go), [`provider/cached_provider.go`](https://github.com/kubernetes-sigs/external-dns/blob/v0.22.0/provider/cached_provider.go), and [`provider/webhook/webhook.go`](https://github.com/kubernetes-sigs/external-dns/blob/v0.22.0/provider/webhook/webhook.go). The documented catalogue was stale: these are enabled conditionally by the provider-cache and webhook-provider modes, while the synthetic emitter deliberately emits their family shape alongside the native Cloudflare path. The webhook names are upstream **gauges** despite their `_total` suffix.
+
 `external_dns_controller_last_sync_timestamp_seconds`, `_last_reconcile_timestamp_seconds`,
 `_consecutive_soft_errors`, `_no_op_runs_total` (C), `_verified_records` (`record_type`),
 `external_dns_registry_records`, `_source_records`, `_registry_endpoints_total`, `_source_endpoints_total`,
@@ -162,7 +164,16 @@ metrics:
   - {root: external_dns_registry_errors_total, type: counter, unit: errors, v: ok}
   - {root: external_dns_source_errors_total, type: counter, unit: errors, v: ok}
   - {root: external_dns_build_info, type: gauge, unit: info, v: ok}
-  - {root: external_dns_http_request_duration_seconds_count, type: counter, unit: requests, v: ok, note: "also _sum; no _bucket"}
+  - {root: external_dns_http_request_duration_seconds, type: summary, unit: seconds, v: ok, note: "quantile series; labels handler=instrumented_http,scheme,host,path,method,status; also _sum/_count; no _bucket"}
+  - {root: external_dns_http_request_duration_seconds_sum, type: counter, unit: seconds, v: ok, note: "summary _sum; labels +handler,scheme,host,path,method,status; no quantile"}
+  - {root: external_dns_http_request_duration_seconds_count, type: counter, unit: requests, v: ok, note: "summary _count; labels +handler,scheme,host,path,method,status; no quantile; no _bucket"}
+  - {root: external_dns_provider_cache_apply_changes_calls, type: counter, unit: count, v: ok, note: "provider-cache ApplyChanges calls; no metric-specific labels"}
+  - {root: external_dns_webhook_provider_adjustendpoints_errors_total, type: gauge, unit: errors, v: ok, note: "webhook-provider method accumulator; no metric-specific labels"}
+  - {root: external_dns_webhook_provider_adjustendpoints_requests_total, type: gauge, unit: requests, v: ok, note: "webhook-provider method accumulator; no metric-specific labels"}
+  - {root: external_dns_webhook_provider_applychanges_errors_total, type: gauge, unit: errors, v: ok, note: "webhook-provider method accumulator; no metric-specific labels"}
+  - {root: external_dns_webhook_provider_applychanges_requests_total, type: gauge, unit: requests, v: ok, note: "webhook-provider method accumulator; no metric-specific labels"}
+  - {root: external_dns_webhook_provider_records_errors_total, type: gauge, unit: errors, v: ok, note: "webhook-provider method accumulator; no metric-specific labels"}
+  - {root: external_dns_webhook_provider_records_requests_total, type: gauge, unit: requests, v: ok, note: "webhook-provider method accumulator; no metric-specific labels"}
 loki_logs:
   job: integrations/external-dns
   service_name: external-dns
@@ -173,6 +184,8 @@ note: "⚠ no controller-runtime / no rest_client_*"
 ---
 
 ## CoreDNS (✅ real `job="integrations/kubernetes/kube-dns"`, app=`kube-dns`, container=`coredns`, ns `kube-system`, instance `<podIP>:9153`; ~~`integrations/coredns`~~) [slug: k8s-coredns]
+
+Instrument semantics below are sourced from CoreDNS v1.14.7 [`cache`](https://github.com/coredns/coredns/blob/v1.14.7/plugin/cache/metrics.go), [`forward`](https://github.com/coredns/coredns/blob/v1.14.7/plugin/forward/metrics.go), [`health`](https://github.com/coredns/coredns/blob/v1.14.7/plugin/health/overloaded.go), [`kubernetes`](https://github.com/coredns/coredns/blob/v1.14.7/plugin/kubernetes/metrics.go) and [`kubernetes/object`](https://github.com/coredns/coredns/blob/v1.14.7/plugin/kubernetes/object/metrics.go), [`local`](https://github.com/coredns/coredns/blob/v1.14.7/plugin/local/metrics.go), and [`reload`](https://github.com/coredns/coredns/blob/v1.14.7/plugin/reload/metrics.go).
 
 `coredns_dns_requests_total` (C; `zone=".",view="",proto,family,type`), `coredns_dns_responses_total`
 (C; `rcode,plugin="forward"`), `coredns_dns_request_duration_seconds` (H), `_request_size_bytes` (H),
@@ -226,12 +239,24 @@ metrics:
   - {root: coredns_cache_entries, type: gauge, unit: count, v: ok, note: "type ∈ {denial,success}"}
   - {root: coredns_cache_hits_total, type: counter, unit: count, v: ok}
   - {root: coredns_cache_misses_total, type: counter, unit: count, v: ok}
+  - {root: coredns_cache_requests_total, type: counter, unit: requests, v: ok, note: "+server,zones,view"}
   - {root: coredns_cache_evictions_total, type: counter, unit: count, v: ok}
   - {root: coredns_forward_healthcheck_broken_total, type: counter, unit: count, v: ok}
+  - {root: coredns_forward_max_concurrent_rejects_total, type: counter, unit: requests, v: ok, note: "no metric-specific labels"}
   - {root: coredns_proxy_request_duration_seconds, type: histogram, unit: seconds, v: ok, buckets: [0.00025,0.0005,0.001,0.002,0.004,0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.024,2.048,4.096,8.192], note: 'proxy_name="forward",to,rcode; buckets confirmed via reality-corpus/k8s-addons/k3d-lab.json 2026-08-27 (SKT-0010.03) — synth previously truncated at 2.048, now matches through 8.192'}
   - {root: coredns_proxy_healthcheck_failures_total, type: counter, unit: count, v: ok}
+  - {root: coredns_proxy_conn_cache_hits_total, type: counter, unit: count, v: ok, note: "+proxy_name,to,proto"}
+  - {root: coredns_proxy_conn_cache_misses_total, type: counter, unit: count, v: ok, note: "+proxy_name,to,proto"}
   - {root: coredns_health_request_duration_seconds, type: histogram, unit: seconds, v: ok}
+  - {root: coredns_health_request_failures_total, type: counter, unit: failures, v: ok, note: "no metric-specific labels"}
+  - {root: coredns_kubernetes_dns_programming_duration_seconds, type: histogram, unit: seconds, v: ok, note: "+service_kind; leaf _bucket,_count,_sum"}
+  - {root: coredns_kubernetes_dns_programming_duration_seconds_bucket, type: histogram, unit: seconds, v: ok, note: "+service_kind,le; histogram leaf"}
+  - {root: coredns_kubernetes_dns_programming_duration_seconds_count, type: counter, unit: observations, v: ok, note: "+service_kind; histogram leaf"}
+  - {root: coredns_kubernetes_dns_programming_duration_seconds_sum, type: counter, unit: seconds, v: ok, note: "+service_kind; histogram leaf"}
+  - {root: coredns_kubernetes_rest_client_requests_total, type: counter, unit: requests, v: ok, note: "+method,code,host"}
+  - {root: coredns_local_localhost_requests_total, type: counter, unit: requests, v: ok, note: "no metric-specific labels"}
   - {root: coredns_panics_total, type: counter, unit: count, v: ok, note: "=0 always"}
+  - {root: coredns_reload_failed_total, type: counter, unit: failures, v: ok, note: "no metric-specific labels"}
   - {root: coredns_plugin_enabled, type: gauge, unit: bool, v: ok}
 enums:
   rcode: [NOERROR(93%), NXDOMAIN(6%), SERVFAIL(1%)]
@@ -774,6 +799,7 @@ metrics:
   - {root: workqueue_retries_total, type: counter, unit: count, v: ok}
   - {root: workqueue_unfinished_work_seconds, type: gauge, unit: seconds, v: ok}
   - {root: workqueue_work_duration_seconds, type: histogram, unit: seconds, v: ok}
+  - {root: redis_uptime_in_seconds, type: gauge, unit: seconds, v: ok, note: "redis_exporter v1.91.1 INFO Server uptime; no metric-specific labels; source https://github.com/oliver006/redis_exporter/blob/v1.91.1/exporter/exporter.go"}
 not_emitted: ["controller_runtime_* (argocd does not emit it)", "argocd_notifications_* (not scraped on this stack)"]
 note: "two redis histogram families (version artifact: _duration vs _duration_seconds); app-controller is StatefulSet (pod argocd-application-controller-0); redis_exporter sidecar container='metrics'"
 ```

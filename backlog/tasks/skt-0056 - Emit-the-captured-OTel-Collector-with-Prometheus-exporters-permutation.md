@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-07 11:03'
-updated_date: '2026-09-08 15:41'
+updated_date: '2026-09-08 17:23'
 labels:
   - integration
 dependencies: []
@@ -62,6 +62,8 @@ Root completed the interrupted implementation lane. Integration 4dbe491 provides
 Historical 125/142 acceptance remains recorded above. This authorized extension closes every remaining captured family rather than changing or dropping the capture.
 
 Wave complete at 2b964945ddec8b4584091aafd0769dbf23519c75: 17 added families; 142/142 collapsed families, 152 raw components, zero missing/foreign, both log contracts unchanged. Capture-derived le tests failed first and passed after P3-only bare formatting; non-P3 storage behavior preserved. Full exact-source just check passed. Local E2E passed once at preceding edc985d, before formatting correction. RW1 is a deliberate non-goal. P3 comparison: 143 raw, zero unexempted, zero unmatched; not full envelope proof. Evidence in codex/scratch/wave-2026-09-14/: p3-final-proof.txt, p3-exact-le-fail-first.log, p3-exact-le-pass.log, p3-exact-le-sha-check.log.
+
+Wave 2026-09-15: additional same-identity P3 RW1 recapture with send_metadata true recovered declared types for 136 of 137 unknown families; CanonicalMerge adds 24 counters and 112 gauges while retaining historical unknown observations. All 142 family names, label maps, producers and transports are unchanged. target_info remains unknown because the pinned exporter generates it without metadata. The six independently proved envelope omissions are tracked under SKT-0068; Done still denotes the established family/projection delivery scope, not perfect envelope fidelity.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

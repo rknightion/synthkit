@@ -71,6 +71,8 @@ labels:
 
 ## MySQL metric families (`dbo11y_mysql`) [slug: dbo11ymysql]
 
+MySQL global-variable spelling and gauge semantics are sourced from mysqld_exporter v0.20.0 [`collector/global_variables.go`](https://github.com/prometheus/mysqld_exporter/blob/v0.20.0/collector/global_variables.go) and [`collector/collector.go`](https://github.com/prometheus/mysqld_exporter/blob/v0.20.0/collector/collector.go): it reads `SHOW GLOBAL VARIABLES`, lowercases the unaltered key, and combines it with the `mysql_global_variables` FQName.
+
 - `database_observability_connection_info` (G=1) — ⚠ ALL SIX labels required (`provider_name,
   provider_region, provider_account, db_instance_identifier, engine="mysql", engine_version`) or the
   app instance-list is empty (T1); plus the six target labels.
@@ -121,8 +123,8 @@ metrics:
   - {root: database_observability_connection_info, type: gauge, unit: bool, v: ok, note: "G=1; ALL SIX labels required (T1)"}
   - {root: database_observability_setup_consumers_enabled, type: gauge, unit: bool, v: ok, note: "G=1; consumer_name label"}
   - {root: mysql_global_variables_performance_schema, type: gauge, unit: bool, v: ok, note: "=1"}
-  - {root: mysql_global_variables_max_digest_length, type: gauge, unit: bytes, v: ok, note: "=1024 (short form)"}
-  - {root: mysql_global_variables_max_sql_text_length, type: gauge, unit: bytes, v: ok, note: "=1024"}
+  - {root: mysql_global_variables_performance_schema_max_digest_length, type: gauge, unit: bytes, v: ok, note: "=1024; SHOW GLOBAL VARIABLES key is preserved verbatim"}
+  - {root: mysql_global_variables_performance_schema_max_sql_text_length, type: gauge, unit: bytes, v: ok, note: "=1024; SHOW GLOBAL VARIABLES key is preserved verbatim"}
   - {root: mysql_global_variables_max_digest_length, type: gauge, unit: bytes, v: ok, note: "=4096 (long form)"}
   - {root: mysql_global_variables_max_connections, type: gauge, unit: count, v: ok, note: "=512"}
   - {root: mysql_global_status_threads_connected, type: gauge, unit: count, v: ok}

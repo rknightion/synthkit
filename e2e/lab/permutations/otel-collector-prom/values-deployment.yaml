@@ -111,6 +111,7 @@ config:
   exporters:
     prometheusremotewrite/capture:
       endpoint: https://synthkit-skt000603-receiver.monitoring.svc.cluster.local:9099/api/prom/push
+      send_metadata: true
       external_labels:
         cluster: synthkit-k3s-lab
         k8s.cluster.name: synthkit-k3s-lab

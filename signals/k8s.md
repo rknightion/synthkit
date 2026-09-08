@@ -1450,16 +1450,16 @@ families and 173 OTLP-log records across the two source shapes below. Root revie
 target metric families to `reality-corpus/k8s/k3d-lab-otel-collector-prom.json` and both classified
 log sources to `reality-corpus/logs/k3d-lab-otel-collector-prom.json`; the four `scrape_*` families
 and exact `up` family were excluded as scrape health/volume rather than target telemetry. This
-capture's RW1 stream carried no `MetricMetadata` records for these families, so the promoted
-instrument types remain unknown rather than being inferred from names. That is a property of this
+capture's RW1 stream carried no `MetricMetadata` records for these families, so that original capture
+recorded unknown instrument types rather than inferring them from names. That is a property of this
 capture, not of the transport: RW1 does carry TYPE metadata and the receiver decodes it
 (`e2e/receiver/receiver_test.go` `TestReceiverRecordsDeclaredInstrumentTypesFromRW1Metadata` and
 `TestReceiverRW1MetadataProvesAHistogramFamily`). The cause is the exporter default -
 `prometheusremotewriteexporter` ships `send_metadata: false` and
-`protobuf_message: io.prometheus.write.v1.Request`, and
-`e2e/lab/permutations/otel-collector-prom/values-deployment.yaml` overrides neither, so no
-`MetricMetadata` record was ever emitted. A recapture with `send_metadata: true` would carry
-declared types on the same RW1 path. The areas `k8s` and `logs` were decided from the
+`protobuf_message: prometheus.WriteRequest` (RW1), and
+the original `e2e/lab/permutations/otel-collector-prom/values-deployment.yaml` overrode neither,
+so that stream emitted no `MetricMetadata` record. The 2026-09-08 recapture sets
+`send_metadata: true` on the same RW1 path, deliberately diverging from the documented default. The areas `k8s` and `logs` were decided from the
 output, not pre-guessed. The source was
 Grafana Cloud's current “OTel with Prometheus exporters” page, resolved through Context7 as
 `/grafana/k8s-monitoring-helm` and retrieved 2026-09-05.*
@@ -1497,8 +1497,16 @@ histograms without changing the telemetry shape. The reference blueprint
 `blueprints/k8s-collector-prom.yaml` emits all 142 captured target families and both OTLP log
 sources, with no foreign metric family. Five classic-histogram roots expand to their `_bucket`,
 `_sum` and `_count` components, so the raw dump contains 152 names. Family completeness does not
-establish observed sample values or instrument types: the captured RW1 types remain unknown and
-values remain elided. No corpus value or type was rewritten to obtain this result.
+establish observed sample values: values remain elided. The additional 2026-09-08 recapture
+recovered declared types for 136 of the 137 previously unknown families, through 1,395 decoded
+RW1 metadata records. `CanonicalMerge` added 24 counter and 112 gauge declarations while retaining
+the old unknown observations; the five histogram declarations are unchanged. `target_info` remains
+unknown because contrib v0.158.0
+[`addResourceTargetInfo`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.158.0/pkg/translator/prometheusremotewrite/helper.go)
+generates its value-1 sample directly without metadata. Labels, producers and transport are
+unchanged on all 142 families. This is additional evidence in the existing document, with its
+configuration divergence and candidate hash recorded in provenance; the sourced semantics below
+remain the instrument contract.
 
 ### P3 family completion and source semantics
 

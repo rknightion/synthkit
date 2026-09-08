@@ -162,6 +162,18 @@ blueprint's SDK-instrument declaration itself, dated **2026-08-28**. The exercis
 |---|---|---|---|
 | `app_queue_depth` | Gauge | `{item}` | — |
 
+The explicit native row below records the same declared application instrument on its OTLP lane.
+This is a transport-specific catalogue entry; it does not make Prometheus name evidence resolve
+arbitrary OTLP names.
+
+```yaml signals
+family: workload_app_native
+scope: blueprint
+sink: otlp
+metrics:
+  - {root: app_queue_depth, type: gauge, unit: "{item}", v: ok, note: "blueprints/profiling-demo.yaml inline instrument; no datapoint attributes"}
+```
+
 For `ai_agent`, the two families below are the semantic-convention instruments whose documented
 OTLP-to-Prometheus translation is already reconciled in `signals/genai.md`: dots become underscores,
 the seconds unit adds `_seconds`, and annotation units do not add a suffix. Provenance: live capture
@@ -546,3 +558,30 @@ contracts are receiver-native forms rather than rewrites of the existing `azure_
 `stackdriver_*` scrape names.
 
 A producer with an observed unnamed metrics scope sets `MetricResource.PreserveEmptyScope` so the sink retains it. Other zero scopes retain the historical `synthkit` fallback. This does not add scope labels to the query contract.
+
+## Datadog receiver collector-egress evidence [slug: datadog-receiver-egress]
+
+This is observed receiver evidence, not a selectable synthetic workload contract. The
+[2026-09-08 native envelope capture](../e2e/acceptance/datadog-native-envelope-2026-09-08.json)
+records 195 metric names as 234 distinct envelopes and two trace-envelope shapes, from 11 decoded
+OTLP requests (eight metrics, three traces). It preserves resource versus datapoint placement,
+attribute value types, scope name/version, schema URLs, instrument, unit, temporality and
+monotonicity while eliding identifying values and sample content. The artifact lists every observed
+name and its own envelope; it does not infer one global attribute map from their union.
+
+The path is Datadog-native instrumentation and Agent through Alloy 1.19.2's experimental Datadog
+receiver, delta-to-cumulative and batch processors, then parallel capture/cloud exporters. The
+capture is after those processors: it does not establish the receiver input temporality. The
+standalone host path and a selectable synthkit implementation remain unproven under SKT-0055.
+Logs are excluded because the Alloy component has no routable logs output.
+
+| Observed native family | Instrument at capture | Unit | Resource keys | Datapoint keys |
+|---|---|---|---|---|
+| `example_metric.increment` | non-monotonic cumulative Sum | absent | `host.name`, `service.name`, `source` | none |
+
+Its scope is the Datadog receiver translator at `v1.19.2`, and both metric schema URLs are absent.
+The earlier post-gateway evidence recorded `example_metric_increment` with `job` and `service_name`
+only, and unknown instrument type. That is a recorded translation and attribute difference, not
+permission to rewrite either observation. The new post-ingest check returned the named translated
+metric; it did not query trace ingestion. The observed `do.work` spans carry an unspecified kind;
+the artifact retains their separate resource/scope/span-attribute shapes and schema URLs.

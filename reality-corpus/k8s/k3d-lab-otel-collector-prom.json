@@ -8,8 +8,8 @@
     "collector": "open-telemetry/opentelemetry-collector",
     "collector_role": "audited",
     "collector_version": "0.171.0",
-    "captured_on": "2026-09-05",
-    "instrument_type_source": "Metrics were decoded from Prometheus Remote-Write v1, which carries no TYPE metadata, so instrument types remain unknown and were not inferred from names. Log sources and transport were decoded directly from OTLP log records. Reprojected under transport/job identity from retained raw candidate hashes 3d6d789959a98fad862cf53282f33a5897230bacaf9de87714b80f16262c7c00 and 63e19e0b1ef2598641bd11959ee21ff8377199ac1d3b2315b77b3d18940db5cd; job consumed before value elision."
+    "captured_on": "2026-09-08",
+    "instrument_type_source": "Original 2026-09-05 evidence: Metrics were decoded from a Prometheus Remote-Write v1 stream with no MetricMetadata records: the prometheusremotewriteexporter defaults send_metadata to false and protobuf_message to RW1, and this lab configuration overrides neither. RW1 supports TYPE metadata, but this capture omitted it; instrument types remain unknown unless histogram structure proves them and were not inferred from names. Log sources and transport were decoded directly from OTLP log records. Reprojected under transport/job identity from retained raw candidate hashes 3d6d789959a98fad862cf53282f33a5897230bacaf9de87714b80f16262c7c00 and 63e19e0b1ef2598641bd11959ee21ff8377199ac1d3b2315b77b3d18940db5cd; job consumed before value elision. Additional same-identity RW1 recapture (candidate SHA256 c5e342e3b0fb44bbf9dd6b119edf857808ae08d1b49ab1f309c184b71d07873d) deliberately sets send_metadata: true, diverging from the documented exporter default while retaining chart 0.171.0 / contrib 0.158.0, jobs and RW1 transport. The receiver observed 1395 MetricMetadata records; 136 of the 137 formerly unknown families now have a declared counter or gauge type. target_info still has no declared type in the decoded inventory: pinned contrib v0.158.0 addResourceTargetInfo generates its Value=1 sample directly without a metadata record (pkg/translator/prometheusremotewrite/helper.go). CanonicalMerge retains the earlier unknown observations alongside new declared types; no prior observations are removed. The five original histogram types are unchanged."
   },
   "authority": {
     "substrates": [
@@ -17,7 +17,7 @@
     ]
   },
   "capture_volume": {
-    "runs": 1,
+    "runs": 2,
     "observed_contract_counts": [
       142
     ]
@@ -36,6 +36,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -107,6 +108,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -178,6 +180,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -254,6 +257,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -330,6 +334,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -406,6 +411,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -482,6 +488,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -558,6 +565,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -629,6 +637,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -700,6 +709,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -771,6 +781,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -842,6 +853,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -913,6 +925,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -984,6 +997,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -1055,6 +1069,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -1126,6 +1141,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -1197,6 +1213,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -1268,6 +1285,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1309,6 +1327,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1360,6 +1379,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1411,6 +1431,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1462,6 +1483,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1513,6 +1535,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1564,6 +1587,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1615,6 +1639,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1666,6 +1691,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1717,6 +1743,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1768,6 +1795,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1819,6 +1847,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1870,6 +1899,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1921,6 +1951,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -1972,6 +2003,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2023,6 +2055,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2089,6 +2122,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2140,6 +2174,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2191,6 +2226,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2242,6 +2278,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2293,6 +2330,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2339,6 +2377,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2425,6 +2464,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2476,6 +2516,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2527,6 +2568,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2573,6 +2615,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2629,6 +2672,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2685,6 +2729,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2741,6 +2786,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2797,6 +2843,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2878,6 +2925,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -2954,6 +3002,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3030,6 +3079,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -3091,6 +3141,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3182,6 +3233,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3253,6 +3305,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3309,6 +3362,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3370,6 +3424,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3421,6 +3476,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3472,6 +3528,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3538,6 +3595,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3589,6 +3647,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3640,6 +3699,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3691,6 +3751,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3742,6 +3803,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3793,6 +3855,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3844,6 +3907,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -3977,6 +4041,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4287,6 +4352,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4333,6 +4399,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4374,6 +4441,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -4420,6 +4488,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -4466,6 +4535,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4552,6 +4622,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4598,6 +4669,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4649,6 +4721,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4700,6 +4773,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -4756,6 +4830,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4807,6 +4882,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4858,6 +4934,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4909,6 +4986,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -4960,6 +5038,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5016,6 +5095,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -5072,6 +5152,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5153,6 +5234,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5214,6 +5296,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5280,6 +5363,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5341,6 +5425,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5402,6 +5487,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5463,6 +5549,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5529,6 +5616,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5590,6 +5678,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5656,6 +5745,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5717,6 +5807,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5763,6 +5854,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5809,6 +5901,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5855,6 +5948,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5901,6 +5995,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5947,6 +6042,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -5993,6 +6089,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6039,6 +6136,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6085,6 +6183,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6131,6 +6230,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6177,6 +6277,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6223,6 +6324,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6269,6 +6371,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6315,6 +6418,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6361,6 +6465,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6407,6 +6512,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6453,6 +6559,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6499,6 +6606,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6545,6 +6653,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6591,6 +6700,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6637,6 +6747,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6683,6 +6794,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6729,6 +6841,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6775,6 +6888,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6821,6 +6935,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6867,6 +6982,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6913,6 +7029,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -6959,6 +7076,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7005,6 +7123,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7051,6 +7170,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7097,6 +7217,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7143,6 +7264,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7189,6 +7311,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7235,6 +7358,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7281,6 +7405,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7327,6 +7452,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7373,6 +7499,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7419,6 +7546,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7465,6 +7593,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -7516,6 +7645,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -7567,6 +7697,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -7618,6 +7749,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -7672,6 +7804,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -7721,6 +7854,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [
@@ -7767,6 +7901,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "counter",
           "unknown"
         ],
         "labels": [
@@ -7987,6 +8122,7 @@
           "prometheus_remote_write_v1"
         ],
         "instrument_types": [
+          "gauge",
           "unknown"
         ],
         "labels": [

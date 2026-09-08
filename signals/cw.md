@@ -511,7 +511,7 @@ info_series: aws_firehose_info
 **Universal core — present on ALL engines** (postgres/mysql/aurora-postgresql/aurora-mysql); ✅ synthkit emits this on the standalone instance:
 `cpuutilization, database_connections, freeable_memory, read_iops, write_iops, read_latency, write_latency, read_throughput, write_throughput, network_receive_throughput, network_transmit_throughput, disk_queue_depth, swap_usage`. ⚠ `read_latency`/`write_latency` are in **seconds** (SK-6 live-verified). All engines also emit the EBS-budget pair `ebsbyte_balance_percent, ebsiobalance_percent` (📋 not yet emitted; literal CW `%`→`_percent`). t-class burstable instances additionally emit the CPU-credit family `cpucredit_balance, cpucredit_usage, cpusurplus_credit_balance, cpusurplus_credits_charged` (📋).
 
-**Standalone PostgreSQL (`engine=postgres`):** ✅ `burst_balance, free_storage_space`; 📋 `transaction_logs_disk_usage, transaction_logs_generation, maximum_used_transaction_ids, replication_slot_disk_usage, oldest_replication_slot_lag, oldest_logical_replication_slot_lag, checkpoint_lag`. ⚠ `replica_lag` appears ONLY on the read-replica instance — a lone standalone primary does NOT emit it (synthkit corrected 2026-06-14 to drop the always-emitted `aws_rds_replica_lag`).
+**Standalone PostgreSQL (`engine=postgres`):** ✅ `burst_balance, free_storage_space, transaction_logs_disk_usage, transaction_logs_generation, maximum_used_transaction_ids, replication_slot_disk_usage`; 📋 `oldest_replication_slot_lag, oldest_logical_replication_slot_lag, checkpoint_lag`. ⚠ `replica_lag` appears ONLY on the read-replica instance — a lone standalone primary does NOT emit it (synthkit corrected 2026-06-14 to drop the always-emitted `aws_rds_replica_lag`).
 
 **Standalone MySQL (`engine=mysql`):** ✅ `burst_balance, free_storage_space`; 📋 `bin_log_disk_usage, lvmread_iops, lvmwrite_iops`.
 
@@ -554,7 +554,37 @@ metrics:   # ✅ EMITTED on the standalone instance only; Aurora + 📋 families
   # standalone PostgreSQL / MySQL
   - {root: burst_balance, type: gauge, unit: percent, v: ok}
   - {root: free_storage_space, type: gauge, unit: bytes, v: ok}
-documented_not_emitted: [ebsbyte_balance_percent, ebsiobalance_percent, cpucredit_balance, cpucredit_usage, cpusurplus_credit_balance, cpusurplus_credits_charged, "postgres: transaction_logs_disk_usage/transaction_logs_generation/maximum_used_transaction_ids/replication_slot_disk_usage/oldest_replication_slot_lag/oldest_logical_replication_slot_lag/checkpoint_lag", "postgres replica: replica_lag (read-replica ONLY)", "mysql: bin_log_disk_usage/lvmread_iops/lvmwrite_iops", "Aurora PG + Aurora MySQL families (see prose)"]
+  - {root: maximum_used_transaction_ids, type: gauge, unit: count, v: ok}
+  - {root: replication_slot_disk_usage, type: gauge, unit: bytes, v: ok}
+  - {root: transaction_logs_disk_usage, type: gauge, unit: bytes, v: ok}
+  - {root: transaction_logs_generation, type: gauge, unit: bytes_per_second, v: ok}
+documented_not_emitted: [ebsbyte_balance_percent, ebsiobalance_percent, cpucredit_balance, cpucredit_usage, cpusurplus_credit_balance, cpusurplus_credits_charged, "postgres: oldest_replication_slot_lag/oldest_logical_replication_slot_lag/checkpoint_lag", "postgres replica: replica_lag (read-replica ONLY)", "mysql: bin_log_disk_usage/lvmread_iops/lvmwrite_iops", "Aurora PG + Aurora MySQL families (see prose)"]
+```
+
+### RDS native Metric Streams source aliases [slug: cw-rds-native-aliases]
+
+The four PostgreSQL roots below were labelled documented-not-emitted in this catalogue. That
+status was stale: `internal/construct/rds/rds.go` emits them, and
+`internal/cw/streamtable_rdsfamily.go` maps their exact namespace, source name and unit.
+The root decision is to document these four exact native OTLP aliases, rather than treating all
+documented-not-emitted prose as an emitted source contract. Name resolution remains name-only;
+these rows neither prove a live deployment nor relax producer matching.
+
+Source: [Amazon RDS instance metrics](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-metrics.html)
+and [Metric Streams OTLP unit translation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-metric-streams-formats-opentelemetry-translation-100.html),
+as implemented in the reviewed mapping at commit `c6622f786fadc286061403234d1deee16eaeb30a`.
+Each source Summary carries the period count and sum and the minimum/maximum quantiles; the
+Prometheus path expands the corresponding base into five per-period gauges.
+
+```yaml signals
+family: cw_rds_native_aliases
+scope: blueprint
+sink: otlp
+metrics:
+  - {root: amazonaws.com/AWS/RDS/MaximumUsedTransactionIDs, type: summary, unit: "{Count}", v: ok, note: "source alias for aws_rds_maximum_used_transaction_ids; DBInstanceIdentifier dimension"}
+  - {root: amazonaws.com/AWS/RDS/ReplicationSlotDiskUsage, type: summary, unit: By, v: ok, note: "source alias for aws_rds_replication_slot_disk_usage; DBInstanceIdentifier dimension"}
+  - {root: amazonaws.com/AWS/RDS/TransactionLogsDiskUsage, type: summary, unit: By, v: ok, note: "source alias for aws_rds_transaction_logs_disk_usage; DBInstanceIdentifier dimension"}
+  - {root: amazonaws.com/AWS/RDS/TransactionLogsGeneration, type: summary, unit: By/s, v: ok, note: "source alias for aws_rds_transaction_logs_generation; DBInstanceIdentifier dimension"}
 ```
 
 ## ElastiCache — `aws_elasticache_*` (✅ single-node Redis modelled; Valkey/Memcached/cluster-mode/tiering 📋 documented, not yet modelled) [slug: cw-elasticache]

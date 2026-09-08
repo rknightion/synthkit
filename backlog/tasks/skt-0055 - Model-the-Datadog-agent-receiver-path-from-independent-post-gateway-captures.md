@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-07 11:03'
-updated_date: '2026-09-08 15:40'
+updated_date: '2026-09-08 17:23'
 labels:
   - integration
 dependencies: []
@@ -46,6 +46,8 @@ Migration rehearsal needs a separate telemetry contract for estates temporarily 
 Build only the authorized isolated environment through ArgoCD and pinned Helm resources. Keep identity and credential values runtime-only. Verify receiver capabilities first; current Alloy documentation supports metrics and traces, not logs. Retain every created resource and label unsupported log evidence explicitly. Capture pre-ingest and use the single reserved post-ingest read-back only after positive upstream evidence.
 
 Wave 2026-09-13 implements the receiver envelope-preservation prerequisite only, keeping flattened callers compatible; broader Datadog construct and capture acceptance stays open.
+
+Wave 2026-09-15: inspect standing sync policy; temporarily route the existing capture Service to an independent raw OTLP recorder, preserve metric and trace envelopes, restore the selector and remove the temporary Pod. Compare against retained post-gateway evidence and spend the dedicated post-ingest query only after observed capture. No source Application edit, logs, or selectable-construct completion is implied.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -64,6 +66,8 @@ Receiver envelope-preservation prerequisite committed in 4dbe491: deep-copied re
 Wave 2026-09-14 preflight: AWS SSO session expired or invalid. Per the frozen goal, both the independent envelope capture and deployed read-back stop at authentication; no recovery, cluster mutation, capture or Grafana read-back was attempted. Both earmarked read-backs remain unused. Logs are excluded by the Alloy component output contract, not deferred.
 
 Wave close: AWS SSO failed at preflight. No recovery attempted under the goal auth stop; no namespace operation or Datadog capture occurred, and both read-back allowances remain unused. Metrics/traces remain authorized; logs are excluded as a component limitation. Resume after authentication is restored: inspect Application sync policy read-only, prefer an ephemeral envelope capture, preserve the environment, and stop before any durable infrastructure-source change.
+
+Wave 2026-09-15: independent native envelope capture succeeded. Sanitized evidence e2e/acceptance/datadog-native-envelope-2026-09-08.json preserves placement, scope/schema, units, instrument semantics and attribute value types across 11 raw OTLP requests: 8 metrics, 3 traces; 195 metric names, 3810 datapoints, 3 spans. Named post-ingest metric read-back succeeded. Temporary recorder removed; capture Service selector restored and four standing deployments available. The first selector attempt self-healed before receipts; joining the existing selector plus one authorized collector restart succeeded. No Application/source edit. Logs excluded. Earlier post-gateway evidence remains separately attributed. No complete host path, reviewed corpus producer projection, selectable construct or trace-ingestion claim.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -74,4 +78,6 @@ Parked with partial metrics/traces hop evidence and a deliberately standing envi
 Current resume boundary: establish working AWS authentication outside this run, then inspect the standing Application sync policy read-only before using an ephemeral envelope-preserving metrics/traces capture path. Preserve the standing environment. No current deployment identity, ingestion or resource-count claim is made from this failed preflight.
 
 Wave close: AWS SSO failed at preflight. No recovery attempted under the goal auth stop; no namespace operation or Datadog capture occurred, and both read-back allowances remain unused. Metrics/traces remain authorized; logs are excluded as a component limitation. Resume after authentication is restored: inspect Application sync policy read-only, prefer an ephemeral envelope capture, preserve the environment, and stop before any durable infrastructure-source change.
+
+Capture boundary advanced: native metrics/traces envelope evidence is now retained and reviewed, with the named metric ingested. The earlier no-envelope/no-auth resume statement is historical. Broader 0/4 acceptance remains open: next implement the independently scoped host/Kubernetes receiver surface and its reviewed corpus producer mapping from the preserved evidence; leave the validation environment standing.
 <!-- SECTION:FINAL_SUMMARY:END -->
