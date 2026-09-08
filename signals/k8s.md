@@ -1454,7 +1454,12 @@ capture's RW1 stream carried no `MetricMetadata` records for these families, so 
 instrument types remain unknown rather than being inferred from names. That is a property of this
 capture, not of the transport: RW1 does carry TYPE metadata and the receiver decodes it
 (`e2e/receiver/receiver_test.go` `TestReceiverRecordsDeclaredInstrumentTypesFromRW1Metadata` and
-`TestReceiverRW1MetadataProvesAHistogramFamily`). The areas `k8s` and `logs` were decided from the
+`TestReceiverRW1MetadataProvesAHistogramFamily`). The cause is the exporter default -
+`prometheusremotewriteexporter` ships `send_metadata: false` and
+`protobuf_message: io.prometheus.write.v1.Request`, and
+`e2e/lab/permutations/otel-collector-prom/values-deployment.yaml` overrides neither, so no
+`MetricMetadata` record was ever emitted. A recapture with `send_metadata: true` would carry
+declared types on the same RW1 path. The areas `k8s` and `logs` were decided from the
 output, not pre-guessed. The source was
 Grafana Cloud's current “OTel with Prometheus exporters” page, resolved through Context7 as
 `/grafana/k8s-monitoring-helm` and retrieved 2026-09-05.*
