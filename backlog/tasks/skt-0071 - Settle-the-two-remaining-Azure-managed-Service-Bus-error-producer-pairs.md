@@ -1,10 +1,11 @@
 ---
 id: SKT-0071
 title: Settle the two remaining Azure managed Service Bus error producer pairs
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - '@codex'
 created_date: '2026-09-08 22:07'
-updated_date: '2026-09-08 22:07'
+updated_date: '2026-09-09 18:33'
 labels:
   - corpus
   - needs-triage
@@ -24,7 +25,7 @@ The independent completed-soak Azure capture settled 23 of 25 managed producer c
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Independently observe or source a precise current limitation for each exact error-family producer pair, retaining per-series route/job evidence and load/fault conditions without inventing type from a suffix
-- [ ] #2 Reconcile the corpus and pair-level reasons without weaker matching, label ignores, capture rewriting or a lower configured producer bound
+- [x] #2 Reconcile the corpus and pair-level reasons without weaker matching, label ignores, capture rewriting or a lower configured producer bound
 - [ ] #3 Any future authorized capture environment is fully torn down with verified all-cloud absence; do not induce a provider server fault without an explicit safe method and authority
 <!-- AC:END -->
 
@@ -34,3 +35,21 @@ The independent completed-soak Azure capture settled 23 of 25 managed producer c
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Wave 2026-09-17: L4 reads current official Service Bus documentation and forwarding conditions. Root reconciles pair-level reasons only where sourced; no Azure lifecycle, induced fault, capture rewrite or comparator change.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Current Microsoft Service Bus monitoring and supported-metrics docs define ServerErrors and UserErrors; current Grafana supported-resource-types docs list their exact mapped names. Neither source specifies zero-valued versus omitted output when qualifying errors do not occur. Both pairs remain unsettled. Only pair reason text changed; no Azure lifecycle, fault, capture rewrite, label ignore, matching change or producer-bound reduction.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Documentary route completed with honest non-settlement. Resume with precise source for zero-versus-absent export and forwarding behavior, or separately authorized qualifying-load evidence. AC1 remains open; no new Azure estate was created.
+<!-- SECTION:FINAL_SUMMARY:END -->
