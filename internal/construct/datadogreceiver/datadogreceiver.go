@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package datadogreceiver models the observed Kubernetes Datadog Agent -> Alloy
+// Package datadogreceiver models observed host and Kubernetes Datadog Agent -> Alloy
 // Datadog-receiver egress path. It is deliberately a receiver-output construct:
 // its metric names and envelopes come from the retained native OTLP capture, not
 // from a Prometheus spelling or the post-gateway read-back.
@@ -32,7 +32,8 @@ const (
 	exampleMetricIncrement = "example_metric.increment"
 )
 
-// Config is the Kubernetes receiver declaration. HostName, ServiceName, and
+// Config selects the captured receiver path. Empty Mode retains Kubernetes behavior.
+// HostName, ServiceName, and
 // Source are values supplied by the selected synthetic topology; the capture
 // establishes their resource placement and value type, while deliberately
 // eliding their original values. IncrementsPerMinute has no default because the
@@ -40,10 +41,12 @@ const (
 // A blueprint selecting this construct must document its real-world basis beside
 // the declared rate.
 type Config struct {
-	HostName            string  `yaml:"host_name"`
-	ServiceName         string  `yaml:"service_name"`
-	Source              string  `yaml:"source"`
-	IncrementsPerMinute float64 `yaml:"increments_per_minute"`
+	Mode                  string  `yaml:"mode"`                   // kubernetes (default) or host
+	DeploymentEnvironment string  `yaml:"deployment_environment"` // required only for the observed host example
+	HostName              string  `yaml:"host_name"`
+	ServiceName           string  `yaml:"service_name"`
+	Source                string  `yaml:"source"`
+	IncrementsPerMinute   float64 `yaml:"increments_per_minute"`
 }
 
 // Construct renders the currently source-backed subset of the native receiver
@@ -51,29 +54,45 @@ type Config struct {
 // not emitted here merely because it was observed: its data-point value mechanics
 // must also be sourced, rather than fabricated from a privacy-elided sample.
 type Construct struct {
-	hostName            string
-	serviceName         string
-	source              string
-	incrementsPerMinute float64
-	fixtureCPUCount     int
-	fixtureMemoryBytes  float64
-	start               time.Time
-	last                time.Time
-	value               float64
+	hostMode              bool
+	deploymentEnvironment string
+	hostName              string
+	serviceName           string
+	source                string
+	incrementsPerMinute   float64
+	fixtureCPUCount       int
+	fixtureMemoryBytes    float64
+	start                 time.Time
+	last                  time.Time
+	value                 float64
 }
 
 var _ core.Construct = (*Construct)(nil)
 
-// Build validates a Kubernetes-only receiver declaration. The receiver capture
-// proves this path in Kubernetes only; accepting a nil cluster fixture would
-// silently turn it into unobserved standalone-host support.
+// Build validates path-specific fixtures and declaration-backed identities.
 func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	c, ok := cfg.(*Config)
 	if !ok || c == nil {
 		return nil, fmt.Errorf("datadog_receiver: Build called with %T, want *Config", cfg)
 	}
-	if fx == nil || fx.Cluster == nil {
-		return nil, fmt.Errorf("datadog_receiver: fixture.Cluster is required for the observed Kubernetes path")
+	hostMode := c.Mode == "host"
+	switch c.Mode {
+	case "", "kubernetes":
+		if fx == nil || fx.Cluster == nil {
+			return nil, fmt.Errorf("datadog_receiver: fixture.Cluster is required for the observed Kubernetes path")
+		}
+		if c.DeploymentEnvironment != "" {
+			return nil, fmt.Errorf("datadog_receiver: deployment_environment is only observed on the host example")
+		}
+	case "host":
+		if fx != nil && fx.Cluster != nil {
+			return nil, fmt.Errorf("datadog_receiver: host mode must not carry a Kubernetes fixture")
+		}
+		if c.DeploymentEnvironment == "" {
+			return nil, fmt.Errorf("datadog_receiver: host deployment_environment is required")
+		}
+	default:
+		return nil, fmt.Errorf("datadog_receiver: mode must be host or kubernetes")
 	}
 	if c.HostName == "" || c.ServiceName == "" || c.Source == "" {
 		return nil, fmt.Errorf("datadog_receiver: host_name, service_name, and source are required resource attributes")
@@ -81,14 +100,19 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	if c.IncrementsPerMinute <= 0 || math.IsNaN(c.IncrementsPerMinute) || math.IsInf(c.IncrementsPerMinute, 0) {
 		return nil, fmt.Errorf("datadog_receiver: increments_per_minute must be finite, positive, and declaration-backed")
 	}
-	capacity := fixtureCapacity(fx.Cluster)
+	var capacity capacity
+	if !hostMode {
+		capacity = fixtureCapacity(fx.Cluster)
+	}
 	return &Construct{
-		hostName:            c.HostName,
-		serviceName:         c.ServiceName,
-		source:              c.Source,
-		incrementsPerMinute: c.IncrementsPerMinute,
-		fixtureCPUCount:     capacity.cpuCount,
-		fixtureMemoryBytes:  capacity.memoryBytes,
+		hostMode:              hostMode,
+		deploymentEnvironment: c.DeploymentEnvironment,
+		hostName:              c.HostName,
+		serviceName:           c.ServiceName,
+		source:                c.Source,
+		incrementsPerMinute:   c.IncrementsPerMinute,
+		fixtureCPUCount:       capacity.cpuCount,
+		fixtureMemoryBytes:    capacity.memoryBytes,
 	}, nil
 }
 
@@ -96,7 +120,8 @@ func (c *Construct) Kind() string                { return Kind }
 func (c *Construct) Signals() []core.SignalClass { return []core.SignalClass{core.OTLPMetrics} }
 func (c *Construct) Interval() time.Duration     { return interval }
 
-// Tick emits the one receiver envelope whose value mechanism is explicitly
+// Tick emits the example plus system families for the Kubernetes path. The
+// example value mechanism is explicitly
 // declaration-backed. It is a non-monotonic cumulative Sum after the observed
 // delta-to-cumulative processor; this makes no claim about receiver input
 // temporality. The rate is a declaration value, never an inferred capture value.
@@ -131,8 +156,12 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			}},
 		}},
 	}}
-	resources = append(resources, c.cpuFixtureResources(now)...)
-	resources = append(resources, c.memoryLoadFixtureResources(now)...)
+	if c.hostMode {
+		resources[0].Attrs["deployment.environment.name"] = c.deploymentEnvironment
+	} else {
+		resources = append(resources, c.cpuFixtureResources(now)...)
+		resources = append(resources, c.memoryLoadFixtureResources(now)...)
+	}
 	return w.OTLPMetrics.Write(ctx, resources)
 }
 

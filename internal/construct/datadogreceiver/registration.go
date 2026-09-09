@@ -9,8 +9,9 @@ import "github.com/rknightion/synthkit/internal/core"
 func Registration() core.ConstructReg {
 	return core.ConstructReg{
 		Kind:      Kind,
-		Doc:       "Kubernetes Datadog Agent to Alloy Datadog receiver native metric egress",
+		Doc:       "Host or Kubernetes Datadog Agent to Alloy Datadog receiver native metric egress",
 		Scope:     core.ScopeSubstrate,
+		Group:     core.GroupIntegration,
 		NewConfig: func() any { return &Config{} },
 		Build:     Build,
 	}

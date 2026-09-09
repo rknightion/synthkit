@@ -13,7 +13,7 @@ gcx_context := env('GCX_CONTEXT', 'default')
 # SKT-0043: keep the agent-observability blueprint out of unattended fidelity
 # runs until its rejected-payload defect is fixed. An intentional agent audit can
 # still opt in by setting SIGNAL_FIDELITY_BLUEPRINTS explicitly.
-safe_signal_fidelity_blueprints := 'acme-ai-eval,acme-ai-platform,acme-ai-platform-eval,aws-cloud-services,aws-cloudwatch-infra,aws-otlp-native,csp-azure,datadog-receiver-kubernetes,dbo11y-mysql,fleet-management,high-dpm-churn,hostfleet,hosts-bare,hosts-linux-docker,hosts-macos,hosts-windows,k8s-control-plane,k8s-cost-power,k8s-full-stack,k8s-logs-events,k8s-minimal,k8s-otel-native,k8s-windows-mixed,netobs-enterprise,netobs-global,netobs-spoke,otlp-native,profiling-demo,synthetic-checks'
+safe_signal_fidelity_blueprints := 'acme-ai-eval,acme-ai-platform,acme-ai-platform-eval,aws-cloud-services,aws-cloudwatch-infra,aws-otlp-native,csp-azure,datadog-receiver-host,datadog-receiver-kubernetes,dbo11y-mysql,fleet-management,high-dpm-churn,hostfleet,hosts-bare,hosts-linux-docker,hosts-macos,hosts-windows,k8s-control-plane,k8s-cost-power,k8s-full-stack,k8s-logs-events,k8s-minimal,k8s-otel-native,k8s-windows-mixed,netobs-enterprise,netobs-global,netobs-spoke,otlp-native,profiling-demo,synthetic-checks'
 signal_fidelity_blueprints := env('SIGNAL_FIDELITY_BLUEPRINTS', safe_signal_fidelity_blueprints)
 dump_blueprints := env('DUMP_BLUEPRINTS', '*')
 

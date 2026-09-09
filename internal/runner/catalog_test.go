@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/allowlist"
+	"github.com/rknightion/synthkit/internal/construct/datadogreceiver"
 	"github.com/rknightion/synthkit/internal/construct/k8scluster"
 	"github.com/rknightion/synthkit/internal/core"
 )
@@ -24,5 +25,17 @@ func TestCatalogCarriesSelectedAllowListProducerProvenance(t *testing.T) {
 	}
 	if got.promRW != producerPromRW || got.promRWAllowListVersion != allowlist.K8sMonitoringChartVersion || got.promRWAllowListVariant != "cluster-metrics,node-exporter=integration" {
 		t.Fatalf("producer provenance=%+v, want explicit promrw chart selection", got)
+	}
+}
+
+func TestDatadogReceiverProducerSeparatesCapturedPaths(t *testing.T) {
+	reg, ok := Catalog().Construct(datadogreceiver.Kind)
+	if !ok {
+		t.Fatal("receiver registration missing")
+	}
+	for mode, want := range map[string]string{"": "datadog-receiver", "kubernetes": "datadog-receiver", "host": "datadog-receiver-host"} {
+		if got := reg.OTLPMetricProducer(&datadogreceiver.Config{Mode: mode}); got != want {
+			t.Errorf("mode %q producer=%q, want %q", mode, got, want)
+		}
 	}
 }

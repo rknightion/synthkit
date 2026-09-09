@@ -310,12 +310,14 @@ AWS CloudWatch infrastructure metric-stream families (ALB/NLB/EBS/NAT/S3/EKS/Fir
 
 ## datadog_receiver config
 
-**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+**Location:** `integrations.datadog_receiver`  ·  **group:** integration
 
-Kubernetes Datadog Agent to Alloy Datadog receiver native metric egress
+Host or Kubernetes Datadog Agent to Alloy Datadog receiver native metric egress
 
 | key | type | optional | description |
 |---|---|---|---|
+| `mode` | string |  | kubernetes (default) or host |
+| `deployment_environment` | string |  | required only for the observed host example |
 | `host_name` | string |  |  |
 | `service_name` | string |  |  |
 | `source` | string |  |  |

@@ -161,7 +161,12 @@ func Catalog() *core.Registry {
 
 	// Receiver egress retains its own native producer identity.
 	datadog := datadogreceiver.Registration()
-	datadog.OTLPMetricProducer = fixedMetricProducer("datadog-receiver")
+	datadog.OTLPMetricProducer = func(cfg any) string {
+		if c, ok := cfg.(*datadogreceiver.Config); ok && c != nil && c.Mode == "host" {
+			return "datadog-receiver-host"
+		}
+		return "datadog-receiver"
+	}
 	reg.RegisterConstruct(datadog)
 
 	// AI integration constructs (blueprint integrations: map — Spec 2b scrape/poll sources).

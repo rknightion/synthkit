@@ -571,8 +571,8 @@ name and its own envelope; it does not infer one global attribute map from their
 
 The path is Datadog-native instrumentation and Agent through Alloy 1.19.2's experimental Datadog
 receiver, delta-to-cumulative and batch processors, then parallel capture/cloud exporters. The
-capture is after those processors: it does not establish the receiver input temporality. The
-standalone host path remains unproven under SKT-0055. The Kubernetes implementation covers `example_metric.increment` plus 31 fixture-backed
+capture is after those processors: it does not establish the receiver input temporality. The standalone host path is independently retained in the
+[2026-09-09 host envelope](../e2e/acceptance/datadog-host-native-envelope-2026-09-09.json). The Kubernetes implementation covers `example_metric.increment` plus 31 fixture-backed
 CPU, memory, load and uptime families; 163 observed families remain unimplemented.
 Logs are excluded because the Alloy component has no routable logs output.
 
@@ -600,7 +600,7 @@ immutable artifact and rejects a resource/datapoint placement swap. The inventor
 `blueprints/datadog-receiver-kubernetes.yaml` supplies explicit synthetic identities and
 six increments per minute, sourced from the captured application's one-increment,
 ten-second loop. This is a periodic-worker example, not a claim about every Datadog Agent.
-No Prometheus copy, logs, native-exporter substitution, or standalone-host declaration is emitted.
+No Prometheus copy, logs, or native-exporter substitution is emitted.
 
 ```yaml signals
 family: datadog_receiver_example
@@ -660,3 +660,20 @@ metrics:
   - {root: system.mem.used, type: gauge, unit: ""}
   - {root: system.uptime, type: gauge, unit: ""}
 ```
+
+The standalone declaration in `blueprints/datadog-receiver-host.yaml` selects
+`integrations.datadog_receiver` with `mode: host`. Empty mode keeps Kubernetes
+behavior. Host mode requires no cluster and an explicit `deployment_environment`;
+it emits only `example_metric.increment`, with resource keys `host.name`,
+`service.name`, `source`, and `deployment.environment.name`, and no datapoint keys.
+The scope, empty unit, and non-monotonic cumulative Sum match the independent
+host artifact directly. Its producer is `datadog-receiver-host`, distinct from
+the Kubernetes producer, so the two observed attribute placements remain separate.
+The capture records 281 names, 300 metric envelopes, 4080 datapoints, 14 spans and
+three trace envelopes across 39 requests. Agent 7.83.0 and Alloy 1.19.2 ran on an
+isolated standalone host. The named gateway read-back retains
+`deployment_environment_name`, `job`, and `service_name`; host/source are absent.
+Gateway version and trace ingestion remain unknown; timestamp-zero internal
+samples were rejected. Host system families and synthetic traces are not emitted.
+The host corpus projection below covers only the supported example envelope;
+the full native artifact retains every observed but unimplemented family.
