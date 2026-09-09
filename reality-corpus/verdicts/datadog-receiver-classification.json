@@ -2,8 +2,9 @@
   "artifact": "e2e/acceptance/datadog-native-envelope-2026-09-08.json",
   "classification_counts": {
     "implemented_declaration_backed": 1,
+    "implemented_fixture_mechanics": 31,
     "observed_unimplemented_agent_descriptor_needed": 114,
-    "observed_unimplemented_fixture_mechanics_candidate": 80
+    "observed_unimplemented_fixture_mechanics_candidate": 49
   },
   "compatibility_projection": "datadog-receiver-native-envelope-projection.candidate.json",
   "counts": {
@@ -4774,9 +4775,9 @@
     },
     {
       "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -4805,9 +4806,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -4836,9 +4837,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -4870,9 +4871,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -4904,9 +4905,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -4935,9 +4936,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -4969,9 +4970,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5000,9 +5001,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5031,9 +5032,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -5065,9 +5066,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -5099,9 +5100,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -5133,9 +5134,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5164,9 +5165,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -5198,9 +5199,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -5232,9 +5233,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5263,9 +5264,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5294,9 +5295,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -5328,9 +5329,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5359,9 +5360,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "core",
         "host.name",
@@ -5395,7 +5396,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5431,7 +5432,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5467,7 +5468,7 @@
       "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5503,7 +5504,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5539,7 +5540,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5575,7 +5576,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5611,7 +5612,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5647,7 +5648,7 @@
       "aggregation_temporality": "AGGREGATION_TEMPORALITY_CUMULATIVE",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5683,7 +5684,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5719,7 +5720,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5750,7 +5751,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5781,7 +5782,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5812,7 +5813,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5843,7 +5844,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -5874,7 +5875,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5910,7 +5911,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5946,7 +5947,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -5982,7 +5983,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -6018,7 +6019,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_name",
@@ -6054,7 +6055,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6110,7 +6111,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6166,7 +6167,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6222,7 +6223,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -6253,7 +6254,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -6284,7 +6285,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6340,7 +6341,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6396,7 +6397,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6452,7 +6453,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6508,7 +6509,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6564,7 +6565,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6620,7 +6621,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6676,7 +6677,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6732,7 +6733,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6788,7 +6789,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 2,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no block-device identity, filesystem capacity, or I/O statistics. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "device",
         "device_label",
@@ -6842,9 +6843,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -6873,9 +6874,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -6904,9 +6905,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -6935,9 +6936,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -6966,9 +6967,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -6997,9 +6998,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7030,7 +7031,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no kernel memory-accounting value for it. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7061,7 +7062,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no kernel memory-accounting value for it. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7092,7 +7093,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no kernel memory-accounting value for it. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7123,7 +7124,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no kernel memory-accounting value for it. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7152,9 +7153,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7185,7 +7186,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no kernel memory-accounting value for it. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7214,9 +7215,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7247,7 +7248,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no kernel memory-accounting value for it. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7278,7 +7279,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no kernel memory-accounting value for it. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7309,7 +7310,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no kernel memory-accounting value for it. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7338,9 +7339,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7369,9 +7370,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7400,9 +7401,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7433,7 +7434,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no swap configuration or counters. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7464,7 +7465,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no swap configuration or counters. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7495,7 +7496,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no swap configuration or counters. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7526,7 +7527,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no swap configuration or counters. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7557,7 +7558,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no swap configuration or counters. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7588,7 +7589,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no swap configuration or counters. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7619,7 +7620,7 @@
       "aggregation_temporality": "",
       "category": "observed_unimplemented_fixture_mechanics_candidate",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement, but the Kubernetes fixture declares no swap configuration or counters. It remains observed and unimplemented, not unsupported.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"
@@ -7648,9 +7649,9 @@
     },
     {
       "aggregation_temporality": "",
-      "category": "observed_unimplemented_fixture_mechanics_candidate",
+      "category": "implemented_fixture_mechanics",
       "envelope_count": 1,
-      "evidence": "The native envelope proves this receiver egress family and placement. A future isolated renderer needs a direct source-backed mapping from Kubernetes Agent system collection to fixture mechanics; it must not import the host construct.",
+      "evidence": "The native envelope proves this receiver egress family and placement. internal/construct/datadogreceiver implements an idle synthetic Kubernetes host using selected-node capacity and Datadog Agent system-check arithmetic; no workload rate is asserted.",
       "flattened_compatibility_keys": [
         "host.name",
         "source"

@@ -55,6 +55,8 @@ type Construct struct {
 	serviceName         string
 	source              string
 	incrementsPerMinute float64
+	fixtureCPUCount     int
+	fixtureMemoryBytes  float64
 	start               time.Time
 	last                time.Time
 	value               float64
@@ -79,11 +81,14 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	if c.IncrementsPerMinute <= 0 || math.IsNaN(c.IncrementsPerMinute) || math.IsInf(c.IncrementsPerMinute, 0) {
 		return nil, fmt.Errorf("datadog_receiver: increments_per_minute must be finite, positive, and declaration-backed")
 	}
+	capacity := fixtureCapacity(fx.Cluster)
 	return &Construct{
 		hostName:            c.HostName,
 		serviceName:         c.ServiceName,
 		source:              c.Source,
 		incrementsPerMinute: c.IncrementsPerMinute,
+		fixtureCPUCount:     capacity.cpuCount,
+		fixtureMemoryBytes:  capacity.memoryBytes,
 	}, nil
 }
 
@@ -108,7 +113,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		c.value += c.incrementsPerMinute * now.Sub(c.last).Minutes()
 		c.last = now
 	}
-	return w.OTLPMetrics.Write(ctx, []otlp.MetricResource{{
+	resources := []otlp.MetricResource{{
 		Attrs: map[string]any{
 			"host.name":    c.hostName,
 			"service.name": c.serviceName,
@@ -125,5 +130,25 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 				Attrs: map[string]any{}, Start: c.start, Time: now, Value: c.value,
 			}},
 		}},
-	}})
+	}}
+	resources = append(resources, c.cpuFixtureResources(now)...)
+	resources = append(resources, c.memoryLoadFixtureResources(now)...)
+	return w.OTLPMetrics.Write(ctx, resources)
+}
+
+type capacity struct {
+	cpuCount    int
+	memoryBytes float64
+}
+
+// fixtureCapacity stays inside the receiver construct: the native artifact establishes
+// the receiver envelope, while the Kubernetes fixture establishes only the available
+// hardware shape. It deliberately does not reuse the host construct's emitter.
+func fixtureCapacity(cluster *fixture.Cluster) capacity {
+	instanceType := ""
+	if len(cluster.Nodes) > 0 {
+		instanceType = cluster.Nodes[0].InstanceType
+	}
+	spec := fixture.LookupInstanceSpec(instanceType)
+	return capacity{cpuCount: spec.VCPU, memoryBytes: spec.MemBytes}
 }

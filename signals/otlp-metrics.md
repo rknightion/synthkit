@@ -572,7 +572,8 @@ name and its own envelope; it does not infer one global attribute map from their
 The path is Datadog-native instrumentation and Agent through Alloy 1.19.2's experimental Datadog
 receiver, delta-to-cumulative and batch processors, then parallel capture/cloud exporters. The
 capture is after those processors: it does not establish the receiver input temporality. The
-standalone host path remains unproven under SKT-0055. The selectable implementation currently covers only `example_metric.increment`; 194 observed families remain unimplemented.
+standalone host path remains unproven under SKT-0055. The Kubernetes implementation covers `example_metric.increment` plus 31 fixture-backed
+CPU, memory, load and uptime families; 163 observed families remain unimplemented.
 Logs are excluded because the Alloy component has no routable logs output.
 
 | Observed native family | Instrument at capture | Unit | Resource keys | Datapoint keys |
@@ -611,3 +612,51 @@ metrics:
 Here `type: gauge` is only the catalogue reader's compatibility category. On the
 wire the instrument remains a non-monotonic cumulative Sum with empty unit, resource
 keys `host.name`, `service.name`, `source`, and no datapoint attributes.
+
+The 31 system families model an idle synthetic node. CPU idle is 100 percent, busy
+components and load are zero, per-core idle time equals synthetic uptime, and
+context switches stay zero. Memory total, free and usable equal selected-node
+capacity in MiB; used is zero and usable fraction is one. These are explicit
+minimal mechanics, not measurements or activity inferred from elided samples.
+Source: Datadog Agent system checks under
+https://github.com/DataDog/datadog-agent/tree/main/pkg/collector/corechecks/system
+(read 2026-09-09). Native envelope types remain those in the immutable capture.
+Storage, kernel-memory accounting and swap candidates lack fixture state and
+remain observed but unimplemented, with per-family reasons in the classification.
+
+```yaml signals
+family: datadog_receiver_system
+sink: otlp
+metrics:
+  - {root: system.cpu.context_switches, type: gauge, unit: ""}
+  - {root: system.cpu.guest, type: gauge, unit: ""}
+  - {root: system.cpu.guest.total, type: gauge, unit: ""}
+  - {root: system.cpu.guestnice.total, type: gauge, unit: ""}
+  - {root: system.cpu.idle, type: gauge, unit: ""}
+  - {root: system.cpu.idle.total, type: gauge, unit: ""}
+  - {root: system.cpu.interrupt, type: gauge, unit: ""}
+  - {root: system.cpu.iowait, type: gauge, unit: ""}
+  - {root: system.cpu.iowait.total, type: gauge, unit: ""}
+  - {root: system.cpu.irq.total, type: gauge, unit: ""}
+  - {root: system.cpu.nice.total, type: gauge, unit: ""}
+  - {root: system.cpu.num_cores, type: gauge, unit: ""}
+  - {root: system.cpu.softirq.total, type: gauge, unit: ""}
+  - {root: system.cpu.steal.total, type: gauge, unit: ""}
+  - {root: system.cpu.stolen, type: gauge, unit: ""}
+  - {root: system.cpu.system, type: gauge, unit: ""}
+  - {root: system.cpu.system.total, type: gauge, unit: ""}
+  - {root: system.cpu.user, type: gauge, unit: ""}
+  - {root: system.cpu.user.total, type: gauge, unit: ""}
+  - {root: system.load.1, type: gauge, unit: ""}
+  - {root: system.load.15, type: gauge, unit: ""}
+  - {root: system.load.5, type: gauge, unit: ""}
+  - {root: system.load.norm.1, type: gauge, unit: ""}
+  - {root: system.load.norm.15, type: gauge, unit: ""}
+  - {root: system.load.norm.5, type: gauge, unit: ""}
+  - {root: system.mem.free, type: gauge, unit: ""}
+  - {root: system.mem.pct_usable, type: gauge, unit: ""}
+  - {root: system.mem.total, type: gauge, unit: ""}
+  - {root: system.mem.usable, type: gauge, unit: ""}
+  - {root: system.mem.used, type: gauge, unit: ""}
+  - {root: system.uptime, type: gauge, unit: ""}
+```
