@@ -3,11 +3,11 @@ id: SKT-0070
 title: >-
   Close standalone Docker machine identity gaps from the independent cAdvisor
   capture
-status: In Progress
+status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-08 21:15'
-updated_date: '2026-09-10 22:03'
+updated_date: '2026-09-10 22:07'
 labels: []
 dependencies: []
 priority: medium
@@ -22,7 +22,7 @@ The standalone Docker cAdvisor capture promoted in reality-corpus/host/docker-st
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Source the standalone cAdvisor machine descriptor and model boot_id and machine_id only where observed
+- [x] #1 Source the standalone cAdvisor machine descriptor and model boot_id and machine_id only where observed
 - [x] #2 Retain failing-before and passing-after proof with negative controls for container siblings and non-Docker paths
 - [ ] #3 Inventory and fidelity pass without rewriting evidence, weakening producer comparison, or adding exemptions
 <!-- AC:END -->
@@ -31,7 +31,7 @@ The standalone Docker cAdvisor capture promoted in reality-corpus/host/docker-st
 <!-- DOD:BEGIN -->
 - [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -76,6 +76,8 @@ Log delta from reality-corpus/k8s/k3d-lab.json, enumerated by source, transport,
 The Loki k8s_pod_logs and kubernetes-events shapes remain present. Fresh C2 has 107/107 attributed candidate families; the promotion retains 100/100, with no compared metric job key. machine_memory_bytes carries promrw/integrations/kubernetes/cadvisor. C2 and the previous wave's retained candidate have identical 107 family names and identical derived producer sets; no additions, removals or producer differences. Captured job values are consumed by the receiver before value elision; metric job-key removal is intentional and symmetric with synth.
 
 This record is written to task notes before either authorized legacy document is retired. The terminal report reproduces the delta after all verification; the captured documents and results are not rewritten.
+
+Wave 2026-09-19 integrated source/corpus a6a6a323eaf0ba261655b9b6210581064130c6fc: just gen-check and just spdx-check passed. Full just check ran and failed at signal-fidelity: contradiction exemption "capture-manifest-service-name" expected_matches=1 but matched 0 findings. The report has no contradictions; manifest stream labels are now a coverage gap with only-in-synth service_name and only-in-reality instance. The gate exits before emitting or checking the producer-coverage ratchet, so no final ratchet pass is claimed. Frozen expected_count remains 203, exactly one exemption remains, and comparator/policy hashes are unchanged. just dump passed: all metric family names unchanged (3063), intended machine_memory_bytes machine_id label addition only; OTLP metrics 678, both log inventories and profiles unchanged. Two trace model-name subsets vary in the sampled dump; trace code unchanged. just gen was not applicable: no blueprint field, config struct or skill changed. AC1 and AC2 now supported by integrated source and focused evidence. AC3 and full-check DoD remain open. No exemption, comparator, bound or unrelated manifest-emitter change is authorized to manufacture green.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -86,4 +88,6 @@ AC3 remains open. Resume by authorizing a producer-scoped treatment of the legac
 Current acceptance is AC2 only. AC1 model integration and AC3 fidelity remain open; no Docker identity implementation landed.
 
 Resume at the capture producer boundary: authorize and implement direct producer provenance in the standard e2e receiver/lab path, with no inference from family names and no capture rewriting; re-capture alloy-default at chart 4.5.0, verify every family and machine_memory_bytes attribution, then retire superseded documents and apply the archived Docker patch before unchanged fidelity. Existing comparator, exemptions and producer bound remain frozen. AC2 only; integrated Docker acceptance was not run against the known unattributed replacement.
+
+Current wave disposition supersedes older archive-only summaries: Docker implementation and direct RW1/RW2 attribution are integrated and pushed, fresh 107/107 attributed capture promoted as 100/100, and both authorized legacy documents retired after the full delta note. SKT-0070 is Parked with AC1 and AC2 checked, AC3 unchecked. Resume at the frozen manifest exemption cardinality boundary: authorize the handling of capture-manifest-service-name now matching zero contradictions after the fresh capture; keep authentic capture data intact, then rerun unchanged fidelity and exact-head CI. This wave does not authorize changing the exemption, its expected_matches, the comparator or the producer bound. The former machine identity contradiction is absent, but no complete integrated pass is claimed.
 <!-- SECTION:FINAL_SUMMARY:END -->
