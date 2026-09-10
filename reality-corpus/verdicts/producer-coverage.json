@@ -3,16 +3,6 @@
   "expected_count": 203,
   "claims": [
     {
-      "signal": "azure_microsoft_dbforpostgresql_flexibleservers_cpu_percent_average_percent",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_dbforpostgresql_flexibleservers_memory_percent_average_percent",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
       "signal": "azure_microsoft_dbforpostgresql_flexibleservers_storage_percent_average_percent",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
       "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
@@ -191,6 +181,16 @@
       "signal": "go_gc_duration_seconds",
       "producer": "promrw/karpenter",
       "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
+    },
+    {
+      "signal": "go_gc_duration_seconds_count",
+      "producer": "promrw/karpenter",
+      "reason": "The attributed k3d Alloy-default capture records this component only from promrw/integrations/kubernetes/kube-dns; the lab runs no Karpenter. The independent karpenter-direct.json capture records the base go_gc_duration_seconds summary but not this component family, so it supplies no comparable promrw/karpenter component evidence. Absent producer evidence remains a coverage gap, not refutation."
+    },
+    {
+      "signal": "go_gc_duration_seconds_sum",
+      "producer": "promrw/karpenter",
+      "reason": "The attributed k3d Alloy-default capture records this component only from promrw/integrations/kubernetes/kube-dns; the lab runs no Karpenter. The independent karpenter-direct.json capture records the base go_gc_duration_seconds summary but not this component family, so it supplies no comparable promrw/karpenter component evidence. Absent producer evidence remains a coverage gap, not refutation."
     },
     {
       "signal": "go_goroutines",
