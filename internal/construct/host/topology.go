@@ -8,6 +8,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/nodeexp"
+	"github.com/rknightion/synthkit/internal/state"
 )
 
 // Default magnitudes applied when a fixture.Host leaves a field zero. These are
@@ -61,6 +62,45 @@ func baseLabels(h *fixture.Host) map[string]string {
 // dockerBase returns the identity labels for the Docker cadvisor lane.
 func dockerBase(h *fixture.Host) map[string]string {
 	return map[string]string{"job": "integrations/docker", "instance": h.Hostname}
+}
+
+// emitDockerMachine keeps the shared cAdvisor machine mechanics for the Docker lane,
+// then adds the two machine identity labels observed on machine_memory_bytes in the
+// standalone cAdvisor descriptor. cAdvisor's machine descriptor has machine_id,
+// system_uuid, and boot_id as base labels; the committed standalone capture retains
+// machine_id and boot_id from that descriptor plus the scrape target's instance label;
+// system_uuid stays absent.
+// Container series and the machine scrape/up siblings retain their original labels.
+func emitDockerMachine(st *state.State, base map[string]string, memTotal float64, seed string) {
+	nodeexp.EmitMachine(st, base, memTotal, nodeexp.CadvisorDocker)
+
+	// Replace only the machine_memory_bytes gauge that the shared emitter just wrote.
+	// DeleteGauge uses the original identity pair, leaving machine_scrape_error and up
+	// untouched and preserving the shared metric names and gauge semantics.
+	st.DeleteGauge("machine_memory_bytes", base)
+	bootID, machineID := dockerMachineIdentity(seed)
+	machineLabels := cloneHostLabels(base)
+	machineLabels["boot_id"] = bootID
+	machineLabels["machine_id"] = machineID
+	st.Set("machine_memory_bytes", machineLabels, memTotal)
+}
+
+// dockerMachineIdentity returns stable synthetic forms of cAdvisor's machine
+// descriptor identity fields. Values are derived solely from the declared construct
+// seed, never from a captured host identifier or a customer environment.
+func dockerMachineIdentity(seed string) (bootID, machineID string) {
+	bootHex := dockerHash(seed, "boot-id")[:32]
+	machineID = dockerHash(seed, "machine-id")[:32]
+	bootID = bootHex[:8] + "-" + bootHex[8:12] + "-" + bootHex[12:16] + "-" + bootHex[16:20] + "-" + bootHex[20:]
+	return bootID, machineID
+}
+
+func cloneHostLabels(labels map[string]string) map[string]string {
+	cloned := make(map[string]string, len(labels))
+	for key, value := range labels {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 // profileOf maps the fixture profile string to a nodeexp.Profile. Anything other than

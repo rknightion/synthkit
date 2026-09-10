@@ -435,8 +435,17 @@ metrics:
 the native cadvisor identity labels **`name`** (container name), **`image`** (`image:tag`), and
 **`id`** (`/system.slice/docker-<hash>.scope`) — they do **NOT** carry a `container` label
 (`container` is a LOGS-only Alloy relabel, see `[slug: host-logs]`). The cpu metric adds
-`cpu="total"`; the per-device fs counters add `device`. `machine_*` series are host-level and
-carry only `{instance, job}`.
+`cpu="total"`; the per-device fs counters add `device`. `machine_memory_bytes` carries
+`{instance, job, boot_id, machine_id}`; `machine_scrape_error` and `up` carry only
+`{instance, job}`. The two machine identity labels never propagate to container or primary
+host-exporter series, and `system_uuid` remains absent.
+
+Provenance: standalone cAdvisor 0.55.1 capture
+`reality-corpus/host/docker-standalone-cadvisor.json` (2026-09-08), paired producer
+`promrw/integrations/docker`, and upstream `metrics/prometheus_machine.go` at
+`f5bec3744d92f01556c6ca528ee52f3a26402d6d`. The descriptor supplies the machine keys; the
+capture establishes their retained placement. Synthetic values use deterministic seed-derived
+UUID-shaped boot identity and 32-hex machine identity, never captured host values.
 
 > ⚠ This is the standalone-Docker lane (no Kubernetes). It carries NO pod/namespace/node labels —
 > contrast the k8s cAdvisor family which DOES carry `container`/`pod`/`namespace`/`node`
@@ -470,7 +479,7 @@ metrics:
   - {root: container_network_receive_packets_dropped_total, type: counter, unit: count, v: ok, note: "+name,image,id"}
   - {root: container_network_transmit_packets_dropped_total, type: counter, unit: count, v: ok, note: "+name,image,id"}
   - {root: container_last_seen, type: gauge, unit: unix_timestamp, v: ok, note: "+name,image,id"}
-  - {root: machine_memory_bytes, type: gauge, unit: bytes, v: ok, note: "host-level; labels: instance,job only"}
+  - {root: machine_memory_bytes, type: gauge, unit: bytes, v: ok, note: "host-level; labels: instance,job,boot_id,machine_id only"}
   - {root: machine_scrape_error, type: gauge, unit: bool, v: ok, note: "host-level; labels: instance,job only"}
 ```
 

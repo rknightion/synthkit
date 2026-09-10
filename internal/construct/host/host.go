@@ -106,7 +106,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		for _, ct := range dockerContainers(c.seed) {
 			nodeexp.EmitContainer(c.st, db, ct, nodeexp.CadvisorDocker, factor, tickSec, scale, w.Shape)
 		}
-		nodeexp.EmitMachine(c.st, db, top.MemTotal, nodeexp.CadvisorDocker)
+		emitDockerMachine(c.st, db, top.MemTotal, c.seed)
 	}
 
 	series := c.st.Collect(now)
