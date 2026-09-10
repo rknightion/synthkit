@@ -54,17 +54,20 @@ type Config struct {
 // not emitted here merely because it was observed: its data-point value mechanics
 // must also be sourced, rather than fabricated from a privacy-elided sample.
 type Construct struct {
-	hostMode              bool
-	deploymentEnvironment string
-	hostName              string
-	serviceName           string
-	source                string
-	incrementsPerMinute   float64
-	fixtureCPUCount       int
-	fixtureMemoryBytes    float64
-	start                 time.Time
-	last                  time.Time
-	value                 float64
+	hostMode               bool
+	deploymentEnvironment  string
+	hostName               string
+	serviceName            string
+	source                 string
+	incrementsPerMinute    float64
+	fixtureCPUCount        int
+	fixtureMemoryBytes     float64
+	fixtureLast            time.Time
+	fixtureCPUTotals       []fixtureCPUTotals
+	fixtureContextSwitches float64
+	start                  time.Time
+	last                   time.Time
+	value                  float64
 }
 
 var _ core.Construct = (*Construct)(nil)
@@ -159,8 +162,8 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	if c.hostMode {
 		resources[0].Attrs["deployment.environment.name"] = c.deploymentEnvironment
 	} else {
-		resources = append(resources, c.cpuFixtureResources(now)...)
-		resources = append(resources, c.memoryLoadFixtureResources(now)...)
+		resources = append(resources, c.cpuFixtureResources(now, w)...)
+		resources = append(resources, c.memoryLoadFixtureResources(now, w)...)
 	}
 	return w.OTLPMetrics.Write(ctx, resources)
 }

@@ -9,13 +9,16 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/core/coretest"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/shape"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 )
 
@@ -205,36 +208,198 @@ func TestFixtureCapacityUsesSelectedClusterNode(t *testing.T) {
 	if got, want := metrics["system.mem.total"][0].Metrics[0].Numbers[0].Value, memoryMiB; got != want {
 		t.Errorf("system.mem.total = %v, want selected node capacity %v", got, want)
 	}
-	for _, name := range []string{"system.mem.free", "system.mem.usable"} {
-		if got, want := metrics[name][0].Metrics[0].Numbers[0].Value, memoryMiB; got != want {
-			t.Errorf("%s = %v, want idle-host capacity %v", name, got, want)
-		}
-	}
-	if got := metrics["system.mem.used"][0].Metrics[0].Numbers[0].Value; got != 0 {
-		t.Errorf("system.mem.used = %v, want 0 for idle host", got)
-	}
-	if got := metrics["system.mem.pct_usable"][0].Metrics[0].Numbers[0].Value; got != 1 {
-		t.Errorf("system.mem.pct_usable = %v, want 1 for idle host", got)
-	}
-	if got := metrics["system.cpu.idle"][0].Metrics[0].Numbers[0].Value; got != 100 {
-		t.Errorf("system.cpu.idle = %v, want 100 for idle host", got)
-	}
-	if got := metrics["system.cpu.user"][0].Metrics[0].Numbers[0].Value; got != 0 {
-		t.Errorf("system.cpu.user = %v, want 0 for idle host", got)
-	}
 	if got := metrics["system.uptime"][1].Metrics[0].Numbers[0].Value; got != 30 {
 		t.Errorf("system.uptime after 30s = %v, want 30", got)
 	}
-	for _, resource := range metrics["system.cpu.idle.total"] {
-		if got := resource.Metrics[0].Numbers[0].Value; got != 0 && got != 30 {
-			t.Errorf("system.cpu.idle.total = %v, want synthetic uptime value", got)
+}
+
+func TestFixtureMechanicsArithmeticVariationAndDeterminism(t *testing.T) {
+	first := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	times := []time.Time{first, first.Add(15 * time.Second), first.Add(30 * time.Second)}
+	run := func() []otlp.MetricResource {
+		constructed, err := Build(&Config{
+			HostName: "agent-node", ServiceName: "example-service", Source: "agent", IncrementsPerMinute: 0.5,
+		}, &fixture.Set{Cluster: coretest.Cluster()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		capture := &otlpMetricCapture{}
+		world := &core.World{OTLPMetrics: capture, Shape: shape.New("", nil)}
+		for _, now := range times {
+			if err := constructed.Tick(context.Background(), now, world); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return capture.resources
+	}
+	resources := run()
+	if again := run(); !reflect.DeepEqual(resources, again) {
+		t.Fatal("fixture mechanics changed for the same shape seed and tick sequence")
+	}
+
+	metrics := metricResourcesByName(resources)
+	for tick := range times {
+		cpu := fixtureCPUSample(metrics, tick)
+		if got, want := cpu.user+cpu.system+cpu.iowait+cpu.idle+cpu.stolen, 100.0; math.Abs(got-want) > 1e-9 {
+			t.Errorf("tick %d CPU partition = %.12f, want %.12f", tick, got, want)
+		}
+		// The Agent's system percentage includes IRQ + softirq, which it also
+		// reports separately as interrupt; guest is likewise outside its denominator.
+		if got, want := cpu.user+cpu.system+cpu.interrupt+cpu.iowait+cpu.idle+cpu.stolen+cpu.guest, 100+cpu.interrupt+cpu.guest; math.Abs(got-want) > 1e-9 {
+			t.Errorf("tick %d Agent CPU identity = %.12f, want %.12f", tick, got, want)
+		}
+		assertFixtureMechanicsInBand(t, metrics, tick)
+		coreCountValue := metricValue(metrics, "system.cpu.num_cores", tick)
+		coreCount := int(coreCountValue)
+		if coreCount < 1 || float64(coreCount) != coreCountValue {
+			t.Fatalf("tick %d CPU core count = %v, want a positive integer", tick, coreCountValue)
+		}
+		wantCoreCounts := make(map[string]int, coreCount)
+		for core := 0; core < coreCount; core++ {
+			wantCoreCounts[strconv.Itoa(core)] = 1
+		}
+		for _, name := range cpuCoreTotalMetricNames {
+			if got := fixtureCoreCounts(metrics, tick, name); !reflect.DeepEqual(got, wantCoreCounts) {
+				t.Errorf("tick %d %s cores = %v, want %v", tick, name, got, wantCoreCounts)
+			}
+		}
+		for core := 0; core < coreCount; core++ {
+			totals := fixtureCoreTotals(metrics, tick, strconv.Itoa(core))
+			if got, want := len(totals), len(cpuCoreTotalMetricNames); got != want {
+				t.Errorf("tick %d core %d totals = %d, want %d", tick, core, got, want)
+				continue
+			}
+			var sum float64
+			for _, value := range totals {
+				sum += value
+			}
+			if got, want := sum, times[tick].Sub(first).Seconds(); math.Abs(got-want) > 1e-9 {
+				t.Errorf("tick %d core %d total CPU time = %.12f, want elapsed %.12f", tick, core, got, want)
+			}
+			if tick > 0 {
+				previous := fixtureCoreTotals(metrics, tick-1, strconv.Itoa(core))
+				for name, value := range totals {
+					if value < previous[name] {
+						t.Errorf("tick %d core %d %s fell from %.12f to %.12f", tick, core, name, previous[name], value)
+					}
+				}
+			}
+		}
+		if tick > 0 {
+			if got, before := metricValue(metrics, "system.cpu.context_switches", tick), metricValue(metrics, "system.cpu.context_switches", tick-1); got <= before {
+				t.Errorf("tick %d context switches = %v, want increase from %v", tick, got, before)
+			}
+		}
+		for _, window := range []string{"1", "5", "15"} {
+			if got, want := metricValue(metrics, "system.load.norm."+window, tick), metricValue(metrics, "system.load."+window, tick)/metricValue(metrics, "system.cpu.num_cores", tick); math.Abs(got-want) > 1e-12 {
+				t.Errorf("tick %d normalized load %s = %.12f, want %.12f", tick, window, got, want)
+			}
+		}
+		if got, want := metricValue(metrics, "system.mem.used", tick), metricValue(metrics, "system.mem.total", tick)-metricValue(metrics, "system.mem.free", tick); math.Abs(got-want) > 1e-12 {
+			t.Errorf("tick %d used memory = %.12f, want %.12f", tick, got, want)
+		}
+		if got, want := metricValue(metrics, "system.mem.pct_usable", tick), metricValue(metrics, "system.mem.usable", tick)/metricValue(metrics, "system.mem.total", tick); math.Abs(got-want) > 1e-12 {
+			t.Errorf("tick %d usable memory fraction = %.12f, want %.12f", tick, got, want)
 		}
 	}
-	for _, resource := range metrics["system.cpu.context_switches"] {
-		if got := resource.Metrics[0].Numbers[0].Value; got != 0 {
-			t.Errorf("system.cpu.context_switches = %v, want 0 without work", got)
+	if got, then := metricValue(metrics, "system.cpu.idle", 2), metricValue(metrics, "system.cpu.idle", 1); got == then {
+		t.Fatal("CPU idle stayed frozen across distinct ticks")
+	}
+	if got, then := metricValue(metrics, "system.mem.free", 2), metricValue(metrics, "system.mem.free", 1); got == then {
+		t.Fatal("free memory stayed frozen across distinct ticks")
+	}
+	if got, then := metricValue(metrics, "system.load.1", 2), metricValue(metrics, "system.load.1", 1); got == then {
+		t.Fatal("one-minute load stayed frozen across distinct ticks")
+	}
+
+	bad := append([]otlp.MetricResource(nil), resources...)
+	badByName := metricResourcesByName(bad)
+	badResource := badByName["system.cpu.idle"][2]
+	badResource.Metrics = append([]otlp.Metric(nil), badResource.Metrics...)
+	badResource.Metrics[0].Numbers = append([]otlp.NumberPoint(nil), badResource.Metrics[0].Numbers...)
+	badResource.Metrics[0].Numbers[0].Value = 101
+	badByName["system.cpu.idle"][2] = badResource
+	if err := fixtureMechanicsBandError(badByName, 2); err == nil {
+		t.Fatal("fixture band control accepted CPU idle outside [0,100]")
+	}
+}
+
+func TestFixtureSeriesVariationIsReceiverScoped(t *testing.T) {
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	world := &core.World{Shape: shape.New("", nil)}
+	first := &Construct{hostName: "agent-node-a"}
+	second := &Construct{hostName: "agent-node-b"}
+	firstValue := first.fixtureSeriesVar(world, now, "system.mem.free", 0.10, 0.04)
+	if again := first.fixtureSeriesVar(world, now, "system.mem.free", 0.10, 0.04); firstValue != again {
+		t.Fatalf("receiver-scoped variation changed for the same identity: %v then %v", firstValue, again)
+	}
+	if secondValue := second.fixtureSeriesVar(world, now, "system.mem.free", 0.10, 0.04); firstValue == secondValue {
+		t.Fatalf("shared shape engine gave distinct receivers the same variation: %v", firstValue)
+	}
+}
+
+type fixtureCPUValues struct{ user, system, interrupt, iowait, idle, stolen, guest float64 }
+
+func fixtureCPUSample(metrics map[string][]otlp.MetricResource, tick int) fixtureCPUValues {
+	return fixtureCPUValues{
+		user: metricValue(metrics, "system.cpu.user", tick), system: metricValue(metrics, "system.cpu.system", tick),
+		interrupt: metricValue(metrics, "system.cpu.interrupt", tick), iowait: metricValue(metrics, "system.cpu.iowait", tick),
+		idle: metricValue(metrics, "system.cpu.idle", tick), stolen: metricValue(metrics, "system.cpu.stolen", tick), guest: metricValue(metrics, "system.cpu.guest", tick),
+	}
+}
+
+func fixtureCoreTotals(metrics map[string][]otlp.MetricResource, tick int, core string) map[string]float64 {
+	out := map[string]float64{}
+	wantTime := metrics["system.cpu.idle"][tick].Metrics[0].Numbers[0].Time
+	for _, name := range cpuCoreTotalMetricNames {
+		for _, resource := range metrics[name] {
+			point := resource.Metrics[0].Numbers[0]
+			if point.Attrs["core"] == core && point.Time.Equal(wantTime) {
+				out[name] = point.Value
+			}
 		}
 	}
+	return out
+}
+
+func fixtureCoreCounts(metrics map[string][]otlp.MetricResource, tick int, name string) map[string]int {
+	counts := map[string]int{}
+	wantTime := metrics["system.cpu.idle"][tick].Metrics[0].Numbers[0].Time
+	for _, resource := range metrics[name] {
+		point := resource.Metrics[0].Numbers[0]
+		if point.Time.Equal(wantTime) {
+			core, ok := point.Attrs["core"].(string)
+			if !ok {
+				core = "<non-string-core>"
+			}
+			counts[core]++
+		}
+	}
+	return counts
+}
+
+func metricValue(metrics map[string][]otlp.MetricResource, name string, tick int) float64 {
+	return metrics[name][tick].Metrics[0].Numbers[0].Value
+}
+
+func assertFixtureMechanicsInBand(t *testing.T, metrics map[string][]otlp.MetricResource, tick int) {
+	t.Helper()
+	if err := fixtureMechanicsBandError(metrics, tick); err != nil {
+		t.Error(err)
+	}
+}
+
+func fixtureMechanicsBandError(metrics map[string][]otlp.MetricResource, tick int) error {
+	for _, name := range []string{"system.cpu.guest", "system.cpu.idle", "system.cpu.interrupt", "system.cpu.iowait", "system.cpu.stolen", "system.cpu.system", "system.cpu.user"} {
+		value := metricValue(metrics, name, tick)
+		if value < 0 || value > 100 {
+			return fmt.Errorf("%s = %v outside [0,100]", name, value)
+		}
+	}
+	if usable, total := metricValue(metrics, "system.mem.usable", tick), metricValue(metrics, "system.mem.total", tick); usable < 0 || usable > total {
+		return fmt.Errorf("usable memory = %v outside [0,%v]", usable, total)
+	}
+	return nil
 }
 
 var cpuFixtureMechanicNames = []string{
@@ -242,6 +407,12 @@ var cpuFixtureMechanicNames = []string{
 	"system.cpu.idle", "system.cpu.idle.total", "system.cpu.interrupt", "system.cpu.iowait", "system.cpu.iowait.total",
 	"system.cpu.irq.total", "system.cpu.nice.total", "system.cpu.num_cores", "system.cpu.softirq.total",
 	"system.cpu.steal.total", "system.cpu.stolen", "system.cpu.system", "system.cpu.system.total", "system.cpu.user", "system.cpu.user.total",
+}
+
+var cpuCoreTotalMetricNames = []string{
+	"system.cpu.guest.total", "system.cpu.guestnice.total", "system.cpu.idle.total",
+	"system.cpu.iowait.total", "system.cpu.irq.total", "system.cpu.nice.total",
+	"system.cpu.softirq.total", "system.cpu.steal.total", "system.cpu.system.total", "system.cpu.user.total",
 }
 
 var memoryLoadFixtureMechanicNames = []string{
@@ -298,6 +469,27 @@ func TestNativeEnvelopeComparisonRejectsSwappedPlacement(t *testing.T) {
 	bad.Metrics[0].Numbers[0].Attrs = map[string]any{"host.name": "agent-node", "service.name": "example-service", "source": "agent"}
 	if err := matchesCapturedEnvelope(bad, capturedExampleEnvelope(t)); err == nil {
 		t.Fatal("native envelope comparison accepted resource keys moved to the datapoint")
+	}
+}
+
+// TestFixtureEnvelopeComparisonRejectsPlacementMutation proves the immutable native
+// envelope check also protects a fixture family, not only the example declaration.
+func TestFixtureEnvelopeComparisonRejectsPlacementMutation(t *testing.T) {
+	constructed, err := Build(&Config{HostName: "agent-node", ServiceName: "example-service", Source: "agent", IncrementsPerMinute: 0.5}, &fixture.Set{Cluster: coretest.Cluster()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	capture := &otlpMetricCapture{}
+	if err := constructed.Tick(context.Background(), time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC), &core.World{OTLPMetrics: capture, Shape: shape.New("", nil)}); err != nil {
+		t.Fatal(err)
+	}
+	bad := metricResourcesByName(capture.resources)["system.cpu.context_switches"][0]
+	bad.Attrs = map[string]any{}
+	bad.Metrics = append([]otlp.Metric(nil), bad.Metrics...)
+	bad.Metrics[0].Numbers = append([]otlp.NumberPoint(nil), bad.Metrics[0].Numbers...)
+	bad.Metrics[0].Numbers[0].Attrs = map[string]any{"host.name": "agent-node", "source": "agent"}
+	if err := matchesCapturedEnvelope(bad, capturedEnvelopeByName(t, "system.cpu.context_switches")[0]); err == nil {
+		t.Fatal("fixture envelope comparison accepted resource keys moved to the datapoint")
 	}
 }
 

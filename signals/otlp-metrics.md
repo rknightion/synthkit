@@ -613,11 +613,19 @@ Here `type: gauge` is only the catalogue reader's compatibility category. On the
 wire the instrument remains a non-monotonic cumulative Sum with empty unit, resource
 keys `host.name`, `service.name`, `source`, and no datapoint attributes.
 
-The 31 system families model an idle synthetic node. CPU idle is 100 percent, busy
-components and load are zero, per-core idle time equals synthetic uptime, and
-context switches stay zero. Memory total, free and usable equal selected-node
-capacity in MiB; used is zero and usable fraction is one. These are explicit
-minimal mechanics, not measurements or activity inferred from elided samples.
+The 31 system families model bounded, deterministic system observations for the selected
+Kubernetes node. The numeric baselines and variation bands come from the retained
+same-producer Kubernetes Agent-to-Alloy receiver capture; selected-node CPU count and
+memory capacity remain declaration-backed fixture values. Datadog Agent current main
+(`pkg/collector/corechecks/system/cpu/cpu/cpu.go`) derives CPU percentages from elapsed
+CPU time and reports `system` inclusive of IRQ/softirq while also reporting that time as
+`interrupt`; consequently the seven exported percentages sum to `100 + interrupt +
+guest`, rather than an invented normalized partition. The observed guest, guestnice,
+nice, hard-IRQ and steal modes remain zero. Per-core raw time is a disjoint elapsed-time
+partition, context switches are an increasing synthetic model of the Linux cumulative
+`Ctxt` source, loads retain the Agent's raw/CPU-count normalization, and memory retains
+`used = total - free` and `pct_usable = usable / total`. The immutable native envelope
+contract remains unchanged.
 Source: Datadog Agent system checks under
 https://github.com/DataDog/datadog-agent/tree/main/pkg/collector/corechecks/system
 (read 2026-09-09). Native envelope types remain those in the immutable capture.
