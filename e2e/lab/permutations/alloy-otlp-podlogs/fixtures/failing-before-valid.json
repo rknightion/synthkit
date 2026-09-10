@@ -1,0 +1,27 @@
+[
+  {
+    "name": "inventory schema version",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "prometheus_remote_write_v1 receipt",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "otlp_logs receipt",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "ambient metric labels",
+    "status": "FAIL",
+    "detail": "cluster, k8s_cluster_name, job, instance and source=kubernetes were not all observed"
+  },
+  {
+    "name": "otlp pod-log stream",
+    "status": "PASS",
+    "detail": ""
+  }
+]
