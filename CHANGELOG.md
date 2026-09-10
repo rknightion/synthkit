@@ -2,6 +2,21 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.5.1](https://github.com/rknightion/synthkit/compare/v1.5.0...v1.5.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **datadogreceiver:** ground system fixture values in captured baselines ([33f4cf4](https://github.com/rknightion/synthkit/commit/33f4cf42bd8ec615a2846fe6e31d888078b69459))
+* **deps:** update module github.com/grafana/grafana-foundation-sdk/go to v0.0.19 ([#140](https://github.com/rknightion/synthkit/issues/140)) ([8351510](https://github.com/rknightion/synthkit/commit/83515101a689cfdef85a92cb9ecbb494ec56036c))
+* **deps:** update module github.com/grafana/grafana-foundation-sdk/go to v0.0.20 ([#142](https://github.com/rknightion/synthkit/issues/142)) ([a949d9c](https://github.com/rknightion/synthkit/commit/a949d9cdef5e78d44bf82b88a29c91dded0aee00))
+
+
+### Documentation
+
+* **backlog:** reconcile receiver wave and precise capture attribution blocker ([7a2c5bc](https://github.com/rknightion/synthkit/commit/7a2c5bc21dd525e6435ef06bd9a9f974fbce2bf9))
+* **datadogreceiver:** classify all standalone host capture families ([0ac777b](https://github.com/rknightion/synthkit/commit/0ac777b5fd87c14e836d496402844aa556968eea))
+
 ## [1.5.0](https://github.com/rknightion/synthkit/compare/v1.4.0...v1.5.0) (2026-09-09)
 
 
