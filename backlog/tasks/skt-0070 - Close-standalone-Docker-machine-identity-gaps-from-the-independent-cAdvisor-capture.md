@@ -7,7 +7,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-08 21:15'
-updated_date: '2026-09-10 22:07'
+updated_date: '2026-09-10 23:11'
 labels: []
 dependencies: []
 priority: medium
@@ -78,6 +78,24 @@ The Loki k8s_pod_logs and kubernetes-events shapes remain present. Fresh C2 has 
 This record is written to task notes before either authorized legacy document is retired. The terminal report reproduces the delta after all verification; the captured documents and results are not rewritten.
 
 Wave 2026-09-19 integrated source/corpus a6a6a323eaf0ba261655b9b6210581064130c6fc: just gen-check and just spdx-check passed. Full just check ran and failed at signal-fidelity: contradiction exemption "capture-manifest-service-name" expected_matches=1 but matched 0 findings. The report has no contradictions; manifest stream labels are now a coverage gap with only-in-synth service_name and only-in-reality instance. The gate exits before emitting or checking the producer-coverage ratchet, so no final ratchet pass is claimed. Frozen expected_count remains 203, exactly one exemption remains, and comparator/policy hashes are unchanged. just dump passed: all metric family names unchanged (3063), intended machine_memory_bytes machine_id label addition only; OTLP metrics 678, both log inventories and profiles unchanged. Two trace model-name subsets vary in the sampled dump; trace code unchanged. just gen was not applicable: no blueprint field, config struct or skill changed. AC1 and AC2 now supported by integrated source and focused evidence. AC3 and full-check DoD remain open. No exemption, comparator, bound or unrelated manifest-emitter change is authorized to manufacture green.
+
+Wave 2026-09-19 review (main thread, 2026-09-11), all findings reproduced locally at 61f8eeec855a7e87d73281d4d549a3d50fde1113 against a scratch corpus copy; no repository file changed to obtain them.
+
+ROOT CAUSE of the exemption zero-match is NOT a stale exemption. internal/inventory/corpus.go:1529 dispositionAgainstPermutation (SKT-0013) demotes EVERY finding from a permutation-tagged document to coverage_gap. reality-corpus/k8s/k3d-lab.json carried no source.permutation, so its findings kept contradiction disposition and the exemption matched. The replacement k3d-lab-4.5.0.json is tagged permutation=alloy-default, so all of its findings are demoted and the exemption can never match. Proven by deleting only source.permutation from the promoted document in a scratch copy: the manifest service_name contradiction returns and it is the ONLY contradiction that returns. Flipping the log source field back to the retired document's empty value changes nothing, so classification was not the cause.
+
+CONSEQUENCE the wave did not record: every remaining k3s / k3d_lab corpus document is now permutation-tagged (k8s/k3d-lab-4.5.0.json alloy-default, k8s/k3d-lab-otel-collector-prom.json, k8s/k3d-lab-otel-receivers.json, logs/k3d-lab-otel-collector-prom.json, logs/k3d-lab-otel-receivers.json, host/k3d-lab-otel-receivers.json). The whole k3d capture lab therefore yields zero contradictions by construction, so the fidelity gate has no contradiction teeth on the lab at all. That is a gate regression introduced by the authorised retirement, not only one dead exemption.
+
+SECOND BLOCKER behind the first, never reached because execution exits at the exemption error: clearing the exemption makes the gate fail with 'untriaged no-comparable-producer claim: signal=go_gc_duration_seconds_count producers=[promrw/karpenter]', and go_gc_duration_seconds_sum is the same. Cause: the retired document carried go_gc_duration_seconds{,_count,_sum} with NO producers, so producerScopedReality kept them unscoped; the attributed replacement records promrw/integrations/kubernetes/kube-dns, which does not intersect synth's promrw/karpenter, so the family drops out of scoped reality. Base go_gc_duration_seconds is already a triaged claim for exactly this reason; the two component suffixes are not. Retiring the exemption alone does NOT make CI green.
+
+CLAIMS INVARIANT: producer_coverage.go:59 requires len(claims) == expected_count. The list is 203 claims against 157 observed no-comparable-producer findings, so 48 claims are stale. Adding two claims therefore needs either expected_count 205 (bound growth) or two stale claims removed (bound unchanged).
+
+RATCHET NUMBER the wave could not emit: observed=157 expected=203, report-only within bound. Pre-promotion it was observed=155 with zero untriaged claims.
+
+PROVEN GREEN PATH, exit 0 in scratch: narrow the permutation demotion so a document naming the permutation synth models compares live, plus swap two stale claims for the two go_gc_duration_seconds_{count,sum} / promrw/karpenter claims keeping expected_count at 203. Result is exactly one contradiction, the manifest service_name one, matched by the existing exemption so expected_matches=1 is satisfied. Retiring the exemption instead also reaches exit 0 but leaves the lab without contradiction teeth.
+
+Report claims re-verified as accurate: head and origin/main 61f8eeec855a, ci run 34535843775 failure with signal-fidelity the only failing job, all 75 k8s and 25 k8s-addons metric families present in the 100-family promotion with none missing, both otlp_logs pod-log envelopes structurally absent from the replacement, frozen policy files byte-unchanged across be566eca..61f8eeec, focused host and receiver packages pass, no k3d cluster and no owned container remaining, and the sibling rkps-awsinfra doc-0001 edit preserved.
+
+A1 root-judgement re-grade: endorsed on substance, flagged on process. e2e/lab/permutations/alloy-default/acceptance.jq was created 2026-08-27 in e534c58, so it predates the wave and section 1.2's hard edge says a pre-wave seam is not amendable under the grant; the root graded the change on content and did not name the seam age. The change itself is net stricter, removing a check the commissioned deliverable made impossible and adding an observed-producer check plus a job-absence check, with three negative controls each failing only its intended check. The CodeRabbit major finding asking that job be retained was correctly rejected against the frozen consumed-job contract. Three reviews ran against a one-to-two budget, disclosed.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
