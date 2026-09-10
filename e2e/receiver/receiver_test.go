@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
@@ -107,8 +109,11 @@ func TestReceiverCapturesAllLanes(t *testing.T) {
 				hasJob = true
 			}
 		}
-		if !hasCluster || !hasJob {
-			t.Errorf("e2e_demo_total label keys = %v, want cluster+job", keys)
+		if !hasCluster || hasJob {
+			t.Errorf("e2e_demo_total label keys = %v, want cluster without job", keys)
+		}
+		if got, want := metric.Producers, []inventory.Producer{{Name: "promrw/demo"}}; !reflect.DeepEqual(got, want) {
+			t.Errorf("e2e_demo_total producers = %#v, want %#v", got, want)
 		}
 	}
 
@@ -125,6 +130,60 @@ func TestReceiverCapturesAllLanes(t *testing.T) {
 	// OTLP metrics
 	if findMetric(got, "http.server.request.count") == nil {
 		t.Errorf("OTLP metric not captured: %v", got.Metrics)
+	}
+}
+
+func TestReceiverDerivesPromRWProducerFromRW2(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		labels       map[string]string
+		producers    []inventory.Producer
+		jobPreserved bool
+	}{
+		{name: "job", labels: map[string]string{"cluster": "c1", "job": "integrations/docker"}, producers: []inventory.Producer{{Name: "promrw/integrations/docker"}}},
+		{name: "no job", labels: map[string]string{"cluster": "c1"}, producers: []inventory.Producer{}},
+		{name: "empty job", labels: map[string]string{"cluster": "c1", "job": ""}, producers: []inventory.Producer{}, jobPreserved: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rec := New()
+			srv := httptest.NewServer(rec.Handler())
+			defer srv.Close()
+
+			metrics := promrw.New(srv.URL+"/api/prom/push", "u", "tok", false, func() int { return 0 })
+			if err := metrics.Write(context.Background(), []promrw.Series{{
+				Name: "rw2_attributed_total", Labels: test.labels, Value: 1, T: time.Unix(1, 0), Kind: promrw.KindCounter,
+			}}); err != nil {
+				t.Fatalf("promrw Write: %v", err)
+			}
+
+			metric := findMetric(rec.Snapshot(), "rw2_attributed_total")
+			if metric == nil {
+				t.Fatal("RW2 metric missing")
+			}
+			if !reflect.DeepEqual(metric.Producers, test.producers) {
+				t.Fatalf("RW2 producers = %#v, want %#v", metric.Producers, test.producers)
+			}
+			if got := containsAttributeKey(metric.Labels, "job"); got != test.jobPreserved {
+				t.Fatalf("RW2 labels = %#v, job preserved = %t, want %t", metric.Labels, got, test.jobPreserved)
+			}
+			if !containsAttributeValue(metric.Labels, "cluster", "c1") {
+				t.Fatalf("RW2 labels = %#v, want unchanged cluster label", metric.Labels)
+			}
+		})
+	}
+}
+
+func TestReceiverPromRWProducerPrefixMatchesRunner(t *testing.T) {
+	source, err := os.ReadFile("../../internal/runner/catalog.go")
+	if err != nil {
+		t.Fatalf("read runner catalog: %v", err)
+	}
+	match := regexp.MustCompile(`(?m)^\s*producerPromRW\s*=\s*"([^"]+)"`).FindStringSubmatch(string(source))
+	if len(match) != 2 {
+		t.Fatal("runner producerPromRW constant not found")
+	}
+	if producerPromRW != match[1] {
+		t.Fatalf("receiver producer prefix = %q, runner producerPromRW = %q", producerPromRW, match[1])
 	}
 }
 
@@ -538,11 +597,50 @@ func TestReceiverCapturesPrometheusRemoteWriteV1(t *testing.T) {
 	if !contains(metric.Transports, inventory.TransportPrometheusRW1) {
 		t.Errorf("RW1 transports = %v, want %q", metric.Transports, inventory.TransportPrometheusRW1)
 	}
-	if !containsAttributeValue(metric.Labels, "instance", "i-1") || !containsAttributeValue(metric.Labels, "job", "synthetic") {
-		t.Errorf("RW1 labels = %#v, want instance=i-1 and job=synthetic", metric.Labels)
+	if !containsAttributeValue(metric.Labels, "instance", "i-1") || containsAttributeValue(metric.Labels, "job", "synthetic") {
+		t.Errorf("RW1 labels = %#v, want instance=i-1 without job", metric.Labels)
+	}
+	if got, want := metric.Producers, []inventory.Producer{{Name: "promrw/synthetic"}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("RW1 producers = %#v, want %#v", got, want)
 	}
 	if gotReceiptCount(got, inventory.TransportPrometheusRW1) != 1 {
 		t.Errorf("RW1 receipt missing: %#v", got.Receipts)
+	}
+}
+
+func TestReceiverLeavesRW1WithoutJobUnattributed(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		labels       map[string]string
+		jobPreserved bool
+	}{
+		{name: "no job", labels: map[string]string{"__name__": "rw1_unattributed_total", "instance": "i-1"}},
+		{name: "empty job", labels: map[string]string{"__name__": "rw1_unattributed_total", "instance": "i-1", "job": ""}, jobPreserved: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rec := New()
+			srv := httptest.NewServer(rec.Handler())
+			defer srv.Close()
+
+			var request []byte
+			request = protowire.AppendTag(request, 1, protowire.BytesType)
+			request = protowire.AppendBytes(request, rw1Series(t, test.labels))
+			postRW1(t, srv.URL, request)
+
+			metric := findMetric(rec.Snapshot(), "rw1_unattributed_total")
+			if metric == nil {
+				t.Fatal("RW1 metric missing")
+			}
+			if len(metric.Producers) != 0 {
+				t.Fatalf("RW1 producers = %#v, want none", metric.Producers)
+			}
+			if !containsAttributeValue(metric.Labels, "instance", "i-1") {
+				t.Fatalf("RW1 labels = %#v, want unchanged instance label", metric.Labels)
+			}
+			if got := containsAttributeKey(metric.Labels, "job"); got != test.jobPreserved {
+				t.Fatalf("RW1 labels = %#v, job preserved = %t, want %t", metric.Labels, got, test.jobPreserved)
+			}
+		})
 	}
 }
 
@@ -683,6 +781,15 @@ func contains(values []string, want string) bool {
 func containsAttributeValue(attrs []inventory.Attribute, key, value string) bool {
 	for _, attr := range attrs {
 		if attr.Key == key && contains(attr.Values, value) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsAttributeKey(attrs []inventory.Attribute, key string) bool {
+	for _, attr := range attrs {
+		if attr.Key == key {
 			return true
 		}
 	}

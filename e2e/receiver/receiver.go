@@ -42,6 +42,10 @@ const (
 	instrumentSummary  = "summary"
 	instrumentInfo     = "info"
 	instrumentStateSet = "stateset"
+	// producerPromRW is the Remote-Write producer prefix. Its source of truth is
+	// internal/runner/catalog.go's producerPromRW; TestReceiverPromRWProducerPrefixMatchesRunner
+	// pins this receiver-local copy to that composition-root constant without importing runner.
+	producerPromRW = "promrw"
 )
 
 // receiptRW1Metadata counts decoded prompb.MetricMetadata records. Remote-write v1 carries them
@@ -206,11 +210,12 @@ func (r *Receiver) decodeRW2(raw []byte) (int, int) {
 		// native histogram sample, and never from the series name. A classic-histogram
 		// suffix establishes the family's bucket shape but declares no type.
 		instrument := rw2Instrument(ts)
-		histogram := rw2Histogram(labels, ts)
+		producer, metricLabels := promRWProducer(labels)
+		histogram := rw2Histogram(metricLabels, ts)
 		if instrument == inventory.InstrumentUnknown {
-			instrument = seriesInstrument(labels, histogram)
+			instrument = seriesInstrument(metricLabels, histogram)
 		}
-		_, hasBound := labels[inventory.BucketBoundLabel]
+		_, hasBound := metricLabels[inventory.BucketBoundLabel]
 		r.histogramProof.Observe(name, hasBound)
 		if instrument == inventory.InstrumentHistogram && histogram == nil {
 			// RW2 metadata declaring HISTOGRAM is the PRODUCER saying this series belongs to a
@@ -222,7 +227,10 @@ func (r *Receiver) decodeRW2(raw []byte) (int, int) {
 				r.histogramProof.Prove(name)
 			}
 		}
-		r.inv.AddMetric(name, inventory.TransportPrometheusRW2, instrument, labels, histogram)
+		r.inv.AddMetric(name, inventory.TransportPrometheusRW2, instrument, metricLabels, histogram)
+		if producer.Name != "" {
+			r.inv.AddMetricProducer(name, producer)
+		}
 		if instrument == inventory.InstrumentCounter {
 			for _, sample := range ts.Samples {
 				if sample == nil {
@@ -364,13 +372,34 @@ func (r *Receiver) decodeRW1(raw []byte) (int, int) {
 		if name == "" {
 			continue
 		}
-		instrument := seriesInstrument(labels, histogram)
-		_, hasBound := labels[inventory.BucketBoundLabel]
+		producer, metricLabels := promRWProducer(labels)
+		instrument := seriesInstrument(metricLabels, histogram)
+		_, hasBound := metricLabels[inventory.BucketBoundLabel]
 		r.histogramProof.Observe(name, hasBound)
-		r.inv.AddMetric(name, inventory.TransportPrometheusRW1, instrument, labels, histogram)
+		r.inv.AddMetric(name, inventory.TransportPrometheusRW1, instrument, metricLabels, histogram)
+		if producer.Name != "" {
+			r.inv.AddMetricProducer(name, producer)
+		}
 		decoded++
 	}
 	return decoded, metadata
+}
+
+// promRWProducer consumes a non-empty Remote-Write job label into direct producer evidence.
+// The returned label map is only a copy when a producer was observed, so an unattributed series
+// retains its exact decoded labels.
+func promRWProducer(labels map[string]string) (inventory.Producer, map[string]string) {
+	job := labels["job"]
+	if job == "" {
+		return inventory.Producer{}, labels
+	}
+	metricLabels := make(map[string]string, len(labels)-1)
+	for key, value := range labels {
+		if key != "job" {
+			metricLabels[key] = value
+		}
+	}
+	return inventory.Producer{Name: producerPromRW + "/" + job}, metricLabels
 }
 
 // seriesInstrument reads the instrument type out of the series itself, never out of its name.
@@ -1399,6 +1428,7 @@ func cloneSchema(src inventory.Schema) inventory.Schema {
 	for i, metric := range src.Metrics {
 		dst.Metrics[i] = inventory.Metric{
 			Name:            metric.Name,
+			Producers:       append([]inventory.Producer(nil), metric.Producers...),
 			Transports:      cloneStrings(metric.Transports),
 			InstrumentTypes: cloneStrings(metric.InstrumentTypes),
 			Labels:          cloneAttributes(metric.Labels),
