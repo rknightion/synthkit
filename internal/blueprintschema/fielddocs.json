@@ -150,6 +150,8 @@
   "github.com/rknightion/synthkit/internal/construct/cwinfra.Config.NLB": "emit AWS/NetworkELB family (default true)",
   "github.com/rknightion/synthkit/internal/construct/cwinfra.Config.PrivateLink": "emit AWS/PrivateLink endpoints+services families (default true)",
   "github.com/rknightion/synthkit/internal/construct/cwinfra.Config.S3Buckets": "S3Buckets is the number of S3 buckets to emit: nil/omitted → default 2; explicit 0 disables the S3 family entirely; N emits N. See s3Count.",
+  "github.com/rknightion/synthkit/internal/construct/datadogreceiver.Config.DeploymentEnvironment": "required only for the observed host example",
+  "github.com/rknightion/synthkit/internal/construct/datadogreceiver.Config.Mode": "kubernetes (default) or host",
   "github.com/rknightion/synthkit/internal/construct/ec2.Construct.maxNodes": "high-water mark of live node count; used for scale-down retirement",
   "github.com/rknightion/synthkit/internal/construct/etcd.Construct.instances": "\"<ip>:2381\" — one per quorum node",
   "github.com/rknightion/synthkit/internal/construct/fleetmgmt.Collector.App": "short role, e.g. \"alloy-logs\" (metric label `app`; FM attr `workloadName`)",

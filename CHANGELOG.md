@@ -2,6 +2,81 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.5.1](https://github.com/rknightion/synthkit/compare/v1.5.0...v1.5.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **datadogreceiver:** ground system fixture values in captured baselines ([33f4cf4](https://github.com/rknightion/synthkit/commit/33f4cf42bd8ec615a2846fe6e31d888078b69459))
+* **deps:** update module github.com/grafana/grafana-foundation-sdk/go to v0.0.19 ([#140](https://github.com/rknightion/synthkit/issues/140)) ([8351510](https://github.com/rknightion/synthkit/commit/83515101a689cfdef85a92cb9ecbb494ec56036c))
+* **deps:** update module github.com/grafana/grafana-foundation-sdk/go to v0.0.20 ([#142](https://github.com/rknightion/synthkit/issues/142)) ([a949d9c](https://github.com/rknightion/synthkit/commit/a949d9cdef5e78d44bf82b88a29c91dded0aee00))
+
+
+### Documentation
+
+* **backlog:** reconcile receiver wave and precise capture attribution blocker ([7a2c5bc](https://github.com/rknightion/synthkit/commit/7a2c5bc21dd525e6435ef06bd9a9f974fbce2bf9))
+* **datadogreceiver:** classify all standalone host capture families ([0ac777b](https://github.com/rknightion/synthkit/commit/0ac777b5fd87c14e836d496402844aa556968eea))
+
+## [1.5.0](https://github.com/rknightion/synthkit/compare/v1.4.0...v1.5.0) (2026-09-09)
+
+
+### Features
+
+* **aiagent:** emit eval enqueue and judge cost ([2fd132c](https://github.com/rknightion/synthkit/commit/2fd132c7ca5e4601b88f7b80672674e5d656177b))
+* complete P3 metrics and narrow conformance evidence ([edc985d](https://github.com/rknightion/synthkit/commit/edc985d89c94d505b9e519fb70943bebb13813cb))
+* **corpus:** accept additive capture schema 2.1 ([e3dac54](https://github.com/rknightion/synthkit/commit/e3dac5415691d50d758329a9992a15a40a386f7b))
+* **corpus:** integrate expanded control-plane series readback ([5fede23](https://github.com/rknightion/synthkit/commit/5fede235cd9c37aaf6bdb69ec28194536698439b))
+* **corpus:** promote cumulative AWS capture evidence ([535d01b](https://github.com/rknightion/synthkit/commit/535d01ba2fad7cc42f3e4c74eaef48c9693ef76e))
+* **corpus:** promote cumulative Azure capture evidence ([a18bf4d](https://github.com/rknightion/synthkit/commit/a18bf4dd6d2f1a8adc4560e60576a38a9114cd10))
+* **corpus:** promote cumulative GCP capture evidence ([7a96ddb](https://github.com/rknightion/synthkit/commit/7a96ddbe6ee61d8a6d3a32a5ad0845286d4fd7f1))
+* **corpus:** promote cumulative Rancher control-plane evidence ([75e7b79](https://github.com/rknightion/synthkit/commit/75e7b79b9a37590d585d6ec33ad6a43868d8587f))
+* **corpus:** promote producer-attributed P3 captures ([1f759d8](https://github.com/rknightion/synthkit/commit/1f759d88485086acbf80ee301241e0cff9aa4cb6))
+* **corpus:** retain reviewed capture limitations ([bbf663b](https://github.com/rknightion/synthkit/commit/bbf663b4b1309b997e411b21752c2434c0dfc4f4))
+* **corpus:** select observed control-plane jobs for read-back ([5a6dd18](https://github.com/rknightion/synthkit/commit/5a6dd18f7675c3a4ca9ca13736b0e1e1c567c6f5))
+* **fleet:** expose bounded configuration receipt evidence ([255e8f7](https://github.com/rknightion/synthkit/commit/255e8f7eba6ccd16275550724bcfe36c4a51f315))
+* **inventory:** report producer-scoped identity coverage with a strict ratchet ([71ca8d4](https://github.com/rknightion/synthkit/commit/71ca8d452407c67adbaa5adaa32c6a7fbd667add))
+* **k8s:** align control-plane telemetry with observations ([ad11bec](https://github.com/rknightion/synthkit/commit/ad11bec46f426d09e722cdab90843636a3d328d8))
+* **k8s:** emit Collector envelopes and integrate capture tooling ([4dbe491](https://github.com/rknightion/synthkit/commit/4dbe4911c83d4bbae0835bf5e4d9df2233a54f61))
+* model sourced Datadog system receiver families ([a62b439](https://github.com/rknightion/synthkit/commit/a62b439a905958d461e79aae812addc126d56777))
+* select independently captured Datadog host receiver path ([ff701d7](https://github.com/rknightion/synthkit/commit/ff701d79495f9f48fdf497e17a2c9f640a2f684c))
+
+
+### Bug Fixes
+
+* **dump:** make fixed-tick trace inventory deterministic ([e51b1eb](https://github.com/rknightion/synthkit/commit/e51b1eb89be3aa3380eed7d6afd0730e808decef))
+* **gate:** keep gitignored campaign scratch out of gofmt and drop a stack slug ([7cbafe0](https://github.com/rknightion/synthkit/commit/7cbafe0ea21513911dcf93a3c39b91f78e855447))
+* **inventory:** compare attributed shapes and conditional metadata ([9426333](https://github.com/rknightion/synthkit/commit/94263330d2df3199a72813d8fa89854baa44e9a1))
+* **inventory:** settle producer identity and ratchet unmatched claims ([ce93918](https://github.com/rknightion/synthkit/commit/ce93918c0fc750dbcf7cab001550eef69a363f87))
+* **k8s:** match captured control-plane buckets and scrape labels ([a98aba0](https://github.com/rknightion/synthkit/commit/a98aba0dcdf0464f2c85ae1ce7b976b3cdffdc6c))
+* **lab:** verify per-node image residency and retain bounded retry evidence ([d7e0281](https://github.com/rknightion/synthkit/commit/d7e0281ca0a9c88352eb023c3f143df47169ce0a))
+* preserve captured P3 histogram bucket labels ([2b96494](https://github.com/rknightion/synthkit/commit/2b964945ddec8b4584091aafd0769dbf23519c75))
+* resolve Azure and P3 envelopes and add Datadog receiver subset ([bcf1687](https://github.com/rknightion/synthkit/commit/bcf1687689fc9199e8f232b3cef23370b56f5aba))
+* scope scanner exceptions to observed Datadog attribute names ([2c1703f](https://github.com/rknightion/synthkit/commit/2c1703f42b5d500bf9c9efb098ce67168f832136))
+
+
+### Documentation
+
+* **backlog:** file SKT-0053 and SKT-0054, record the Rancher promotion decisions ([42e3771](https://github.com/rknightion/synthkit/commit/42e3771e8de802626b8aeee6d5910e538c1cbdb1))
+* **backlog:** file the corpus identity contract and the k3d import defect ([cebe724](https://github.com/rknightion/synthkit/commit/cebe724a46e40359c7f878a1dc6411533187aa5a))
+* **backlog:** reconcile corpus and control-plane tasks ([5d1455d](https://github.com/rknightion/synthkit/commit/5d1455dc2d35a211e6504590dd165991028a7117))
+* **backlog:** reconcile measured promotion and receiver boundaries ([cf6a0fe](https://github.com/rknightion/synthkit/commit/cf6a0febf633088ebd03984af80845d1cfff631b))
+* **backlog:** reconcile release follow-up wave ([1750cf5](https://github.com/rknightion/synthkit/commit/1750cf53bc2595f3d3262071fded03afac6aa99e))
+* **backlog:** start release follow-up wave ([6dd58eb](https://github.com/rknightion/synthkit/commit/6dd58eb6d19a6101080e5ac4c7428eabb6101c46))
+* **backlog:** track migration rehearsal integration gaps ([10e7fa2](https://github.com/rknightion/synthkit/commit/10e7fa2518939c4e27a0dd4660fe42cd00e87514))
+* close catalogue names and preserve typed P3 and Datadog captures ([429af6f](https://github.com/rknightion/synthkit/commit/429af6f234027ce254d5b4baff4d49d14c9d0ee3))
+* close scanner finding with exact-SHA CI evidence ([db6d66d](https://github.com/rknightion/synthkit/commit/db6d66d4ee3f780a983bb0bb5f934d2da95452c5))
+* reconcile evidence gaps and completed P3 scope ([b4b8711](https://github.com/rknightion/synthkit/commit/b4b87116d06a43b5cfd196c196359bfbeb337a01))
+* record exact source and CI evidence for receiver and P3 tasks ([4a9348a](https://github.com/rknightion/synthkit/commit/4a9348a45955e0d6621aebe2d36cb403ce731cff))
+* retain host receiver evidence and precise campaign parks ([bcdd624](https://github.com/rknightion/synthkit/commit/bcdd62409cfb72e22ce85e2191c24701c4bac80b))
+* **signals:** correct the RW1 TYPE-metadata claim in the P3 provenance ([3fa1384](https://github.com/rknightion/synthkit/commit/3fa13844e72faac6dcd902944b607b6379703d6d))
+* **signals:** name the exporter default that lost the P3 instrument types ([4eb4416](https://github.com/rknightion/synthkit/commit/4eb44160cea7f2b3a995872acf2730e98c9236d2))
+* **skcapture:** pin stable 1.4.0 image ([e23acc2](https://github.com/rknightion/synthkit/commit/e23acc2c51af449866f676af1c0d8c7eedae4e05))
+* sync authorised Astra root judgement ([a1f1288](https://github.com/rknightion/synthkit/commit/a1f128842860bfa0992156df735e4d4accef1c52))
+* sync fan-out protocol, delegated root authority for unattended runs ([3e4c0b1](https://github.com/rknightion/synthkit/commit/3e4c0b1b29f41d4416052bc595bddf28aef85b5f))
+* sync fan-out protocol, explicit add does not bound the commit ([4f0f0da](https://github.com/rknightion/synthkit/commit/4f0f0dae0af992a8e3b4ff961f07b1273447ce51))
+* **tracker:** clarify retained control-plane label counts ([0240066](https://github.com/rknightion/synthkit/commit/0240066787a3b0d8777d4f4246f03785b5bd7825))
+* **tracker:** reconcile producer identity and capture campaign ([887267a](https://github.com/rknightion/synthkit/commit/887267a81239ca65b87b7299fa630d364d7d4df3))
+
 ## [1.4.0](https://github.com/rknightion/synthkit/compare/v1.3.1...v1.4.0) (2026-09-06)
 
 

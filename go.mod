@@ -13,7 +13,7 @@ go 1.27.0
 require (
 	filippo.io/age v1.3.2
 	github.com/golang/snappy v1.0.0
-	github.com/grafana/grafana-foundation-sdk/go v0.0.18
+	github.com/grafana/grafana-foundation-sdk/go v0.0.20
 	github.com/grafana/nanogit v1.4.2
 	github.com/grafana/pyroscope-go v1.4.2
 	github.com/moby/moby/api v1.56.0
@@ -93,5 +93,5 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
-	google.golang.org/grpc v1.83.1 // indirect
+	google.golang.org/grpc v1.83.2 // indirect
 )

@@ -1,11 +1,12 @@
 # Receiver egress example, based on the independently captured Kubernetes path.
-# This declares only the implemented example metric; the full observed inventory
-# and its 194 unimplemented families remain in the reviewed corpus.
+# This declares the example metric plus 31 bounded, deterministic CPU, memory, load
+# and uptime families grounded in same-producer Agent observations. The remaining 163
+# observed families stay unimplemented.
 name: datadog-receiver-kubernetes
 label: datadog-receiver-kubernetes
 shape: business_hours_plateau
 metadata:
-  description: "Datadog Agent to Alloy receiver: the observed example metric as native OTLP."
+  description: "Datadog Agent to Alloy receiver: example metric and bounded system families as native OTLP."
   category: reference
   links:
     signals: ./signals/otlp-metrics.md

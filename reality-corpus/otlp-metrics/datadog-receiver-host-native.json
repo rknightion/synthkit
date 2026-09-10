@@ -1,0 +1,91 @@
+{
+  "area": "otlp-metrics",
+  "authority": {
+    "substrates": [
+      "host"
+    ]
+  },
+  "capture_volume": {
+    "observed_contract_counts": [
+      1
+    ],
+    "runs": 1
+  },
+  "corpus_version": "synthkit.telemetry.reality-corpus/v1alpha1",
+  "inventory": {
+    "logs": [],
+    "metrics": [
+      {
+        "instrument_type_source": "native non-monotonic cumulative Sum projects to inventory gauge; native envelope remains authoritative for the distinction",
+        "instrument_types": [
+          "gauge"
+        ],
+        "labels": [
+          {
+            "key": "deployment.environment.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "host.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "service.name",
+            "values": [],
+            "values_elided": true
+          },
+          {
+            "key": "source",
+            "values": [],
+            "values_elided": true
+          }
+        ],
+        "name": "example_metric.increment",
+        "producers": [
+          {
+            "name": "datadog-receiver-host"
+          }
+        ],
+        "transports": [
+          "otlp_metrics"
+        ]
+      }
+    ],
+    "profiles": [],
+    "receipts": [],
+    "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+    "sigil": [],
+    "traces": []
+  },
+  "source": {
+    "capture_limitations": [
+      {
+        "id": "supported-example-projection",
+        "text": "Projects only example_metric.increment from e2e/acceptance/datadog-host-native-envelope-2026-09-09.json. The full native artifact preserves 281 observed names; other host families remain unimplemented, not unsupported."
+      },
+      {
+        "id": "flattened-compatibility-projection",
+        "text": "Labels union native resource and datapoint keys. Direct artifact tests verify placement, scope, empty unit and non-monotonic cumulative Sum semantics."
+      },
+      {
+        "id": "post-processor-temporality",
+        "text": "Capture follows delta-to-cumulative and batch; receiver input temporality is not established."
+      },
+      {
+        "id": "gateway-boundary",
+        "text": "Hosted gateway version and trace ingestion are unknown. The named translated metric was read back with deployment_environment_name, job and service_name, without host/source. Timestamp-zero internal samples were rejected."
+      }
+    ],
+    "capture_scope": "full",
+    "captured_on": "2026-09-09",
+    "collector": "grafana/alloy",
+    "collector_role": "audited",
+    "collector_version": "1.19.2",
+    "instrument_type_source": "Native non-monotonic cumulative Sum uses inventory gauge as a compatibility category only; the immutable host artifact retains actual native semantics.",
+    "kind": "datadog_receiver_native_envelope",
+    "permutation": "standalone-host-agent-alloy-egress",
+    "substrate": "host"
+  }
+}

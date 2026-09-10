@@ -1,0 +1,24 @@
+# Independently captured standalone Agent -> Alloy receiver example.
+# Host support emits only the declaration-backed example metric. The complete
+# observed system/Agent inventory remains evidence, not claimed implementation.
+name: datadog-receiver-host
+label: datadog-receiver-host
+shape: business_hours_plateau
+metadata:
+  description: "Standalone Datadog Agent to Alloy receiver: native example metric."
+  category: reference
+  links:
+    signals: ./signals/otlp-metrics.md
+environments:
+  - name: example
+integrations:
+  datadog_receiver:
+    enabled: true
+    mode: host
+    host_name: datadog-example-host
+    service_name: example-host-worker
+    source: example-host-agent
+    deployment_environment: example
+    # The independently captured host application's loop increments once and
+    # sleeps ten seconds: six increments per minute for a periodic worker.
+    increments_per_minute: 6

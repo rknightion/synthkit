@@ -571,8 +571,9 @@ name and its own envelope; it does not infer one global attribute map from their
 
 The path is Datadog-native instrumentation and Agent through Alloy 1.19.2's experimental Datadog
 receiver, delta-to-cumulative and batch processors, then parallel capture/cloud exporters. The
-capture is after those processors: it does not establish the receiver input temporality. The
-standalone host path remains unproven under SKT-0055. The selectable implementation currently covers only `example_metric.increment`; 194 observed families remain unimplemented.
+capture is after those processors: it does not establish the receiver input temporality. The standalone host path is independently retained in the
+[2026-09-09 host envelope](../e2e/acceptance/datadog-host-native-envelope-2026-09-09.json). The Kubernetes implementation covers `example_metric.increment` plus 31 fixture-backed
+CPU, memory, load and uptime families; 163 observed families remain unimplemented.
 Logs are excluded because the Alloy component has no routable logs output.
 
 | Observed native family | Instrument at capture | Unit | Resource keys | Datapoint keys |
@@ -599,7 +600,7 @@ immutable artifact and rejects a resource/datapoint placement swap. The inventor
 `blueprints/datadog-receiver-kubernetes.yaml` supplies explicit synthetic identities and
 six increments per minute, sourced from the captured application's one-increment,
 ten-second loop. This is a periodic-worker example, not a claim about every Datadog Agent.
-No Prometheus copy, logs, native-exporter substitution, or standalone-host declaration is emitted.
+No Prometheus copy, logs, or native-exporter substitution is emitted.
 
 ```yaml signals
 family: datadog_receiver_example
@@ -611,3 +612,76 @@ metrics:
 Here `type: gauge` is only the catalogue reader's compatibility category. On the
 wire the instrument remains a non-monotonic cumulative Sum with empty unit, resource
 keys `host.name`, `service.name`, `source`, and no datapoint attributes.
+
+The 31 system families model bounded, deterministic system observations for the selected
+Kubernetes node. The numeric baselines and variation bands come from the retained
+same-producer Kubernetes Agent-to-Alloy receiver capture; selected-node CPU count and
+memory capacity remain declaration-backed fixture values. Datadog Agent current main
+(`pkg/collector/corechecks/system/cpu/cpu/cpu.go`) derives CPU percentages from elapsed
+CPU time and reports `system` inclusive of IRQ/softirq while also reporting that time as
+`interrupt`; consequently the seven exported percentages sum to `100 + interrupt +
+guest`, rather than an invented normalized partition. The observed guest, guestnice,
+nice, hard-IRQ and steal modes remain zero. Per-core raw time is a disjoint elapsed-time
+partition, context switches are an increasing synthetic model of the Linux cumulative
+`Ctxt` source, loads retain the Agent's raw/CPU-count normalization, and memory retains
+`used = total - free` and `pct_usable = usable / total`. The immutable native envelope
+contract remains unchanged.
+Source: Datadog Agent system checks under
+https://github.com/DataDog/datadog-agent/tree/main/pkg/collector/corechecks/system
+(read 2026-09-09). Native envelope types remain those in the immutable capture.
+Storage, kernel-memory accounting and swap candidates lack fixture state and
+remain observed but unimplemented, with per-family reasons in the classification.
+
+```yaml signals
+family: datadog_receiver_system
+sink: otlp
+metrics:
+  - {root: system.cpu.context_switches, type: gauge, unit: ""}
+  - {root: system.cpu.guest, type: gauge, unit: ""}
+  - {root: system.cpu.guest.total, type: gauge, unit: ""}
+  - {root: system.cpu.guestnice.total, type: gauge, unit: ""}
+  - {root: system.cpu.idle, type: gauge, unit: ""}
+  - {root: system.cpu.idle.total, type: gauge, unit: ""}
+  - {root: system.cpu.interrupt, type: gauge, unit: ""}
+  - {root: system.cpu.iowait, type: gauge, unit: ""}
+  - {root: system.cpu.iowait.total, type: gauge, unit: ""}
+  - {root: system.cpu.irq.total, type: gauge, unit: ""}
+  - {root: system.cpu.nice.total, type: gauge, unit: ""}
+  - {root: system.cpu.num_cores, type: gauge, unit: ""}
+  - {root: system.cpu.softirq.total, type: gauge, unit: ""}
+  - {root: system.cpu.steal.total, type: gauge, unit: ""}
+  - {root: system.cpu.stolen, type: gauge, unit: ""}
+  - {root: system.cpu.system, type: gauge, unit: ""}
+  - {root: system.cpu.system.total, type: gauge, unit: ""}
+  - {root: system.cpu.user, type: gauge, unit: ""}
+  - {root: system.cpu.user.total, type: gauge, unit: ""}
+  - {root: system.load.1, type: gauge, unit: ""}
+  - {root: system.load.15, type: gauge, unit: ""}
+  - {root: system.load.5, type: gauge, unit: ""}
+  - {root: system.load.norm.1, type: gauge, unit: ""}
+  - {root: system.load.norm.15, type: gauge, unit: ""}
+  - {root: system.load.norm.5, type: gauge, unit: ""}
+  - {root: system.mem.free, type: gauge, unit: ""}
+  - {root: system.mem.pct_usable, type: gauge, unit: ""}
+  - {root: system.mem.total, type: gauge, unit: ""}
+  - {root: system.mem.usable, type: gauge, unit: ""}
+  - {root: system.mem.used, type: gauge, unit: ""}
+  - {root: system.uptime, type: gauge, unit: ""}
+```
+
+The standalone declaration in `blueprints/datadog-receiver-host.yaml` selects
+`integrations.datadog_receiver` with `mode: host`. Empty mode keeps Kubernetes
+behavior. Host mode requires no cluster and an explicit `deployment_environment`;
+it emits only `example_metric.increment`, with resource keys `host.name`,
+`service.name`, `source`, and `deployment.environment.name`, and no datapoint keys.
+The scope, empty unit, and non-monotonic cumulative Sum match the independent
+host artifact directly. Its producer is `datadog-receiver-host`, distinct from
+the Kubernetes producer, so the two observed attribute placements remain separate.
+The capture records 281 names, 300 metric envelopes, 4080 datapoints, 14 spans and
+three trace envelopes across 39 requests. Agent 7.83.0 and Alloy 1.19.2 ran on an
+isolated standalone host. The named gateway read-back retains
+`deployment_environment_name`, `job`, and `service_name`; host/source are absent.
+Gateway version and trace ingestion remain unknown; timestamp-zero internal
+samples were rejected. Host system families and synthetic traces are not emitted.
+The host corpus projection below covers only the supported example envelope;
+the full native artifact retains every observed but unimplemented family.
