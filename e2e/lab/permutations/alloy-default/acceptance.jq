@@ -4,6 +4,8 @@
 # not met rather than only that the run timed out.
 def receipt($protocol): ([.receipts[]? | select(.protocol == $protocol) | (.count // 0)] | add // 0);
 def metric_label($key): any(.metrics[]?.labels[]?; .key == $key and ((.values // []) | length) > 0);
+def metric_label_key($key): any(.metrics[]?.labels[]?; .key == $key);
+def metric_producer($prefix): any(.metrics[]?.producers[]?; (.name | startswith($prefix)) and .name != $prefix);
 def label_value($key; $value): any(.metrics[]?.labels[]?; .key == $key and (((.values // []) | index($value)) != null));
 def check($name; $ok; $detail): {name: $name, status: (if $ok then "PASS" else "FAIL" end), detail: (if $ok then "" else $detail end)};
 [
@@ -17,8 +19,14 @@ def check($name; $ok; $detail): {name: $name, status: (if $ok then "PASS" else "
     (receipt("loki") > 0);
     "no Loki push was decoded, so the Loki-native pod-log lane produced nothing"),
   check("ambient metric labels";
-    (metric_label("cluster") and metric_label("k8s_cluster_name") and metric_label("job") and metric_label("instance") and label_value("source"; "kubernetes"));
-    "cluster, k8s_cluster_name, job, instance and source=kubernetes were not all observed"),
+    (metric_label("cluster") and metric_label("k8s_cluster_name") and metric_label("instance") and label_value("source"; "kubernetes"));
+    "cluster, k8s_cluster_name, instance and source=kubernetes were not all observed"),
+  check("observed Prometheus Remote-Write producer";
+    metric_producer("promrw/");
+    "no nonempty promrw/ producer identity was observed"),
+  check("consumed metric job labels";
+    (metric_label_key("job") | not);
+    "a captured metric retained a job label after producer attribution"),
   check("loki pod-log stream";
     (any(.logs[]?; .transport == "loki"));
     "no Loki-transport log stream was decoded")
