@@ -967,6 +967,68 @@ func TestPermutationDocumentNeverContradictsButStillReportsCoverage(t *testing.T
 	}
 }
 
+func TestModelledPermutationKeepsContradictionsLive(t *testing.T) {
+	document := validCorpusDocument("k8s", "k3d_lab", "k3s")
+	document.Source.Permutation = "alloy-default"
+	document.Inventory.AddLog("pod_logs", TransportLoki, map[string]string{
+		"container": "app", "namespace": "default", "pod": "app-0",
+	}, nil)
+
+	synth := New()
+	synth.AddLog("pod_logs", TransportLoki, map[string]string{
+		"container": "app", "namespace": "default", "pod": "app-0", "synth_only": "yes",
+	}, nil)
+
+	for _, test := range []struct {
+		name        string
+		declaration []string
+		disposition Disposition
+	}{
+		{name: "modelled", declaration: []string{"alloy-default"}, disposition: DispositionContradiction},
+		{name: "not modelled", declaration: []string{"otel-receivers"}, disposition: DispositionCoverageGap},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			synth.ModelledPermutations = test.declaration
+			findings := CompareCorpus(synth, []CorpusDocument{document})
+			for _, finding := range findings {
+				if finding.Finding.Kind == KindUnexpectedLabelKey &&
+					finding.Finding.Field == "stream_labels" &&
+					containsString(finding.Finding.SynthValues, "synth_only") &&
+					finding.Finding.Disposition == test.disposition {
+					return
+				}
+			}
+			t.Fatalf("findings=%+v, want pod_logs synth-only stream label disposition %q", findings, test.disposition)
+		})
+	}
+}
+
+func TestEmptyModelledPermutationsKeepLegacyPermutationDemotion(t *testing.T) {
+	document := validCorpusDocument("k8s", "k3d_lab", "k3s")
+	document.Source.Permutation = "alloy-default"
+	document.Inventory.AddLog("pod_logs", TransportLoki, map[string]string{
+		"container": "app", "namespace": "default", "pod": "app-0",
+	}, nil)
+
+	for _, declaration := range [][]string{nil, {}} {
+		synth := New()
+		synth.ModelledPermutations = declaration
+		synth.AddLog("pod_logs", TransportLoki, map[string]string{
+			"container": "app", "namespace": "default", "pod": "app-0", "synth_only": "yes",
+		}, nil)
+		for _, finding := range CompareCorpus(synth, []CorpusDocument{document}) {
+			if finding.Finding.Kind == KindUnexpectedLabelKey &&
+				finding.Finding.Field == "stream_labels" &&
+				containsString(finding.Finding.SynthValues, "synth_only") &&
+				finding.Finding.Disposition == DispositionCoverageGap {
+				goto next
+			}
+		}
+		t.Fatalf("declaration=%v did not preserve legacy permutation demotion", declaration)
+	next:
+	}
+}
+
 // The paired half of SKT-0013.06. Once the capture receiver stopped asserting `classic` from a
 // `_count` suffix, a reality entry can legitimately carry NO representation. Left ungated, that
 // turned synthkit's correct classic claim into a brand-new contradiction — trading a false

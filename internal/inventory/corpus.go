@@ -992,6 +992,7 @@ func cloneCorpusDocument(document CorpusDocument) CorpusDocument {
 
 func cloneSchema(schema Schema) Schema {
 	out := schema
+	out.ModelledPermutations = append([]string{}, schema.ModelledPermutations...)
 	out.ProducerMetrics = make([]Metric, len(schema.ProducerMetrics))
 	for i, metric := range schema.ProducerMetrics {
 		out.ProducerMetrics[i] = cloneMetric(metric)
@@ -1305,7 +1306,7 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 		findings = classifyAllowListAbsences(findings, synthCopy, reality)
 		comparisons = append(comparisons, corpusComparison{document: document, findings: findings})
 		for _, finding := range findings {
-			finding = dispositionAgainstPermutation(finding, document.Source.Permutation)
+			finding = dispositionAgainstPermutation(finding, synthCopy.ModelledPermutations, document.Source.Permutation)
 			out = append(out, ScopedFinding{
 				Area:      document.Area,
 				Source:    document.Source,
@@ -1504,8 +1505,9 @@ func sortedStringSet(set map[string]struct{}) []string {
 	return values
 }
 
-// dispositionAgainstPermutation demotes every finding from a permutation-tagged document to
-// coverage evidence.
+// dispositionAgainstPermutation keeps a finding's disposition when a permutation-tagged document
+// names a collector configuration this synth inventory declares it models. It demotes all other
+// permutation-tagged documents to coverage evidence.
 //
 // A contradiction means synthkit emits a shape reality does not have — drift worth failing a
 // gate for. That reading only holds against the deployment synthkit MODELS. A permutation-
@@ -1522,12 +1524,12 @@ func sortedStringSet(set map[string]struct{}) []string {
 // honest coverage information about that permutation, which is exactly what a user choosing a
 // deployment needs.
 //
-// FORWARD PATH: when synthkit gains a lane that claims to emit a specific permutation, this
-// rule must narrow — synth declares which permutation it models, and a document naming that
-// same permutation compares with contradictions live again. Until an emitter exists to make
-// that declaration, adding the field would be speculative surface.
-func dispositionAgainstPermutation(finding Finding, permutation string) Finding {
-	if permutation == "" {
+// synth now declares its modelled permutations in its inventory. That keeps contradictions live
+// for the Alloy k8s-monitoring (`alloy-default`) shape while preserving this SKT-0013 safeguard
+// for every other collector configuration. The measured otel-receivers pod-log difference remains
+// coverage evidence unless synth declares that permutation too.
+func dispositionAgainstPermutation(finding Finding, modelledPermutations []string, permutation string) Finding {
+	if permutation == "" || containsString(modelledPermutations, permutation) {
 		return finding
 	}
 	finding.Disposition = DispositionCoverageGap

@@ -91,11 +91,13 @@ instead of fusing into a shape no single deployment ever emitted.
 An ABSENT value means the default, single-permutation document, which is what
 every corpus file written before permutations existed is.
 
-**A permutation-tagged document never raises a contradiction.** synthkit models
-the default permutation, so a key or family it emits that a tagged document does
-not carry is a permutation difference, not drift. Reality-only findings stay:
-what a permutation produces and synthkit does not is honest coverage
-information. See `dispositionAgainstPermutation` in
+**A document naming a permutation declared by the synth inventory compares with
+contradictions live.** The inventory's optional `modelled_permutations` set
+declares the collector configurations synthkit models; the shipped export declares
+only `alloy-default`. Findings from other tagged permutations are demoted to
+coverage gaps because their shape differences do not establish drift in a modelled
+configuration. An absent or empty declaration retains that demotion for every
+tagged document. Untagged documents compare as before. See `dispositionAgainstPermutation` in
 [`internal/inventory/corpus.go`](../internal/inventory/corpus.go).
 
 ### `source.instrument_type_source` — optional

@@ -43,9 +43,10 @@ const (
 // entry in the document. A real capture records where and when it observed the estate; a
 // synth-side export records the selector labels its own routing layer stamps.
 type Schema struct {
-	SchemaVersion string      `json:"schema_version"`
-	Provenance    *Provenance `json:"provenance,omitempty"`
-	Metrics       []Metric    `json:"metrics"`
+	SchemaVersion        string      `json:"schema_version"`
+	ModelledPermutations []string    `json:"modelled_permutations,omitempty"`
+	Provenance           *Provenance `json:"provenance,omitempty"`
+	Metrics              []Metric    `json:"metrics"`
 	// ProducerMetrics retains direct per-producer observations before the flattened
 	// family union loses attribution. Legacy inventories may omit this evidence.
 	ProducerMetrics []Metric `json:"producer_metrics,omitempty"`
@@ -422,6 +423,7 @@ func (s *Schema) Normalize() {
 	if s.SchemaVersion == "" {
 		s.SchemaVersion = SchemaVersion
 	}
+	normalizeStrings(&s.ModelledPermutations)
 	if s.Metrics == nil {
 		s.Metrics = []Metric{}
 	}
