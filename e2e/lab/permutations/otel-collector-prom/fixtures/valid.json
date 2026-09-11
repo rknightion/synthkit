@@ -1,0 +1,26 @@
+{
+  "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+  "receipts": [
+    {"protocol": "prometheus_remote_write_v1", "count": 1},
+    {"protocol": "otlp_logs", "count": 1}
+  ],
+  "metrics": [
+    {
+      "labels": [
+        {"key": "cluster", "values": ["synthkit-k3s-lab"]},
+        {"key": "k8s_cluster_name", "values": ["synthkit-k3s-lab"]},
+        {"key": "instance", "values": ["node-1"]},
+        {"key": "source", "values": ["kubernetes"]}
+      ],
+      "producers": [
+        {"name": "promrw/integrations/kubernetes/cadvisor"},
+        {"name": "promrw/integrations/kubernetes/kube-state-metrics"},
+        {"name": "promrw/integrations/kubernetes/kubelet"},
+        {"name": "promrw/integrations/node_exporter"}
+      ]
+    }
+  ],
+  "logs": [
+    {"transport": "otlp_logs"}
+  ]
+}

@@ -3,6 +3,8 @@
 def receipt($protocol): ([.receipts[]? | select(.protocol == $protocol) | (.count // 0)] | add // 0);
 def labels: reduce (.labels[]? // empty) as $label ({}; .[$label.key] = ($label.values // []));
 def has_value($labels; $key; $value): (($labels[$key] // []) | index($value)) != null;
+def metric_label_key($key): any(.metrics[]?.labels[]?; .key == $key);
+def metric_producer($producer): any(.producers[]?; .name == $producer);
 def check($name; $ok; $detail): {name: $name, status: (if $ok then "PASS" else "FAIL" end), detail: (if $ok then "" else $detail end)};
 def service_monitor_recording_rule:
   .metrics[]?
@@ -17,12 +19,15 @@ def service_monitor_recording_rule:
     (receipt("prometheus_remote_write_v1") > 0);
     "no Prometheus Remote-Write v1 request was decoded"),
   check("ServiceMonitor default job is the Service name";
-    any(service_monitor_recording_rule; labels as $labels | has_value($labels; "job"; "lab-catalog"));
-    "the lab-catalog ServiceMonitor did not retain job=lab-catalog"),
+    any(service_monitor_recording_rule; metric_producer("promrw/lab-catalog"));
+    "the lab-catalog ServiceMonitor producer identity promrw/lab-catalog was not observed"),
   check("ServiceMonitor retains service label";
     any(service_monitor_recording_rule; labels as $labels | has_value($labels; "service"; "lab-catalog"));
     "the lab-catalog ServiceMonitor did not retain service=lab-catalog"),
   check("Prometheus external labels arrive on the ServiceMonitor series";
     any(service_monitor_recording_rule; labels as $labels | (($labels.prometheus // []) | length > 0) and (($labels.prometheus_replica // []) | length > 0));
-    "the lab-catalog ServiceMonitor series lacked prometheus and/or prometheus_replica")
+    "the lab-catalog ServiceMonitor series lacked prometheus and/or prometheus_replica"),
+  check("consumed metric job labels";
+    (metric_label_key("job") | not);
+    "a captured metric retained a job label after producer attribution")
 ]

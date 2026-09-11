@@ -1,0 +1,4 @@
+{"fixture":"control-no-producers.json","failed":["documented Prometheus scrape jobs"],"passed":["inventory schema version","prometheus_remote_write_v1 receipt","consumed metric job labels","otlp log or event receipt","decoded metric families"]}
+{"fixture":"control-empty-promrw-suffix.json","failed":["documented Prometheus scrape jobs"],"passed":["inventory schema version","prometheus_remote_write_v1 receipt","consumed metric job labels","otlp log or event receipt","decoded metric families"]}
+{"fixture":"control-retained-job.json","failed":["consumed metric job labels"],"passed":["inventory schema version","prometheus_remote_write_v1 receipt","documented Prometheus scrape jobs","otlp log or event receipt","decoded metric families"]}
+{"fixture":"valid.json","failed":[],"passed":["inventory schema version","prometheus_remote_write_v1 receipt","documented Prometheus scrape jobs","consumed metric job labels","otlp log or event receipt","decoded metric families"]}

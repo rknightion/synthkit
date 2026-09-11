@@ -1,0 +1,27 @@
+[
+  {
+    "name": "inventory schema version",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "prometheus_remote_write_v1 receipt",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "documented Prometheus scrape jobs",
+    "status": "FAIL",
+    "detail": "the documented cAdvisor, kubelet, kube-state-metrics, and node-exporter job labels were not all observed"
+  },
+  {
+    "name": "otlp log or event receipt",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "decoded metric families",
+    "status": "PASS",
+    "detail": ""
+  }
+]

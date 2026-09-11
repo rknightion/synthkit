@@ -1,0 +1,27 @@
+[
+  {
+    "name": "inventory schema version",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "prometheus_remote_write_v1 receipt",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "ServiceMonitor default job is the Service name",
+    "status": "FAIL",
+    "detail": "the lab-catalog ServiceMonitor did not retain job=lab-catalog"
+  },
+  {
+    "name": "ServiceMonitor retains service label",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "Prometheus external labels arrive on the ServiceMonitor series",
+    "status": "PASS",
+    "detail": ""
+  }
+]

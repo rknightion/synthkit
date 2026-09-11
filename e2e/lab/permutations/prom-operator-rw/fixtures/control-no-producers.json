@@ -1,0 +1,17 @@
+{
+  "schema_version": "synthkit.telemetry.inventory/v1alpha1",
+  "receipts": [
+    {"protocol": "prometheus_remote_write_v1", "count": 1}
+  ],
+  "metrics": [
+    {
+      "name": "count:up0",
+      "labels": [
+        {"key": "service", "values": ["lab-catalog"]},
+        {"key": "prometheus", "values": ["monitoring/operator-demo"]},
+        {"key": "prometheus_replica", "values": ["operator-demo-0"]}
+      ],
+      "producers": []
+    }
+  ]
+}
