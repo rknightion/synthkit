@@ -1,6 +1,6 @@
 {
   "version": "synthkit.telemetry.producer-coverage/v1alpha1",
-  "expected_count": 218,
+  "expected_count": 225,
   "claims": [
     {
       "signal": "azure_microsoft_servicebus_namespaces_servererrors_total_count",
@@ -1091,6 +1091,41 @@
       "signal": "system.io.wkb_s",
       "producer": "datadog-receiver-host",
       "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.wkb_s from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.wkb_s envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.swap.cached",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus records system.swap.cached from datadog-receiver. Its standalone-host-not-established limitation supplies no comparable datadog-receiver-host producer for system.swap.cached. The independently classified host envelope supports this disabled-swap zero emission, but cannot turn that separately attributed Kubernetes observation into host evidence. Retain this source-scoped pair until comparison uses independently attributed host evidence; do not relabel or rewrite the Kubernetes capture."
+    },
+    {
+      "signal": "system.swap.free",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus records system.swap.free from datadog-receiver. Its standalone-host-not-established limitation supplies no comparable datadog-receiver-host producer for system.swap.free. The independently classified host envelope supports this disabled-swap zero emission, but cannot turn that separately attributed Kubernetes observation into host evidence. Retain this source-scoped pair until comparison uses independently attributed host evidence; do not relabel or rewrite the Kubernetes capture."
+    },
+    {
+      "signal": "system.swap.pct_free",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus records system.swap.pct_free from datadog-receiver. Its standalone-host-not-established limitation supplies no comparable datadog-receiver-host producer for system.swap.pct_free. The independently classified host envelope supports this disabled-swap zero emission, but cannot turn that separately attributed Kubernetes observation into host evidence. Retain this source-scoped pair until comparison uses independently attributed host evidence; do not relabel or rewrite the Kubernetes capture."
+    },
+    {
+      "signal": "system.swap.swap_in",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus records system.swap.swap_in from datadog-receiver. Its standalone-host-not-established limitation supplies no comparable datadog-receiver-host producer for system.swap.swap_in. The independently classified host envelope supports this disabled-swap zero emission, but cannot turn that separately attributed Kubernetes observation into host evidence. Retain this source-scoped pair until comparison uses independently attributed host evidence; do not relabel or rewrite the Kubernetes capture."
+    },
+    {
+      "signal": "system.swap.swap_out",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus records system.swap.swap_out from datadog-receiver. Its standalone-host-not-established limitation supplies no comparable datadog-receiver-host producer for system.swap.swap_out. The independently classified host envelope supports this disabled-swap zero emission, but cannot turn that separately attributed Kubernetes observation into host evidence. Retain this source-scoped pair until comparison uses independently attributed host evidence; do not relabel or rewrite the Kubernetes capture."
+    },
+    {
+      "signal": "system.swap.total",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus records system.swap.total from datadog-receiver. Its standalone-host-not-established limitation supplies no comparable datadog-receiver-host producer for system.swap.total. The independently classified host envelope supports this disabled-swap zero emission, but cannot turn that separately attributed Kubernetes observation into host evidence. Retain this source-scoped pair until comparison uses independently attributed host evidence; do not relabel or rewrite the Kubernetes capture."
+    },
+    {
+      "signal": "system.swap.used",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus records system.swap.used from datadog-receiver. Its standalone-host-not-established limitation supplies no comparable datadog-receiver-host producer for system.swap.used. The independently classified host envelope supports this disabled-swap zero emission, but cannot turn that separately attributed Kubernetes observation into host evidence. Retain this source-scoped pair until comparison uses independently attributed host evidence; do not relabel or rewrite the Kubernetes capture."
     }
   ]
 }

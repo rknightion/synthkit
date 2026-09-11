@@ -639,7 +639,10 @@ integrate changing disk rates. The five families system.io.rrqm_s, system.io.wrq
 system.fs.file_handles.allocated_unused, system.fs.file_handles.in_use and
 system.fs.file_handles.used remain unimplemented because merged-operation counters
 and the file-nr unused breakdown have no admissible value source. Host CPU and memory
-remain blocked on selected capacity; the Kubernetes lane is unchanged. The historical
+remain blocked on selected capacity; the Kubernetes lane is unchanged. The seven
+`system.swap.*` verdict families emit zero-valued gauges for the explicitly permitted
+disabled-swap fixture, including a degenerate zero `pct_free` with zero total capacity.
+No paging rate or enabled-swap capacity is inferred. The historical
 classification remains immutable evidence, rather than a current implementation status.
 Agent conversion sources: pkg/collector/corechecks/system/disk/disk/disk_nix.go,
 pkg/collector/corechecks/system/disk/io/iostats_nix.go and

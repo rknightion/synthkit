@@ -161,6 +161,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	}}
 	if c.hostMode {
 		resources[0].Attrs["deployment.environment.name"] = c.deploymentEnvironment
+		resources = append(resources, c.memoryBreadthFixtureResources(now, w)...)
 		resources = append(resources, c.storageFixtureResources(now, w)...)
 	} else {
 		resources = append(resources, c.cpuFixtureResources(now, w)...)
