@@ -14,7 +14,7 @@ require (
 	filippo.io/age v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.20
-	github.com/grafana/nanogit v1.5.0
+	github.com/grafana/nanogit v1.6.0
 	github.com/grafana/pyroscope-go v1.4.2
 	github.com/moby/moby/api v1.56.0
 	github.com/testcontainers/testcontainers-go v0.44.0
