@@ -17,9 +17,6 @@ safe_signal_fidelity_blueprints := 'acme-ai-eval,acme-ai-platform,acme-ai-platfo
 signal_fidelity_blueprints := env('SIGNAL_FIDELITY_BLUEPRINTS', safe_signal_fidelity_blueprints)
 dump_blueprints := env('DUMP_BLUEPRINTS', '*')
 
-# renovate: datasource=npm depName=@nanonets/graft
-graft_version := "0.16.0"
-
 # show the task surface
 default:
     @just --list
@@ -494,14 +491,3 @@ forge *args:
 [group("check")]
 signals-conformance dump_file:
     go run ./internal/conformance -signals signals -dump {{ quote(dump_file) }}
-
-# Install and patch the graft CLI (re-run after a version bump)
-[group('dev')]
-graft-setup:
-    npm i -g @nanonets/graft@{{ graft_version }}
-    ~/.agents/bin/graft-postinstall
-
-# Build the local code graph
-[group('dev')]
-graft-build:
-    DO_NOT_TRACK=1 graft build .
