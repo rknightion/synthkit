@@ -4,6 +4,7 @@ package blueprint
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"strings"
 	"testing"
@@ -1147,8 +1148,58 @@ environments:
 	if cl.K8sMonitoring.PodLogsMethod != "opentelemetry" {
 		t.Fatalf("default method=%q", cl.K8sMonitoring.PodLogsMethod)
 	}
+	if cl.K8sMonitoring.PodLogsCollector != "" {
+		t.Fatalf("default pod-log collector=%q, want empty legacy selector", cl.K8sMonitoring.PodLogsCollector)
+	}
 	if cl.NodeGroups[0].OS != "windows" {
 		t.Fatal("node group OS not propagated")
+	}
+}
+
+func TestResolvePodLogsCollector(t *testing.T) {
+	const prefix = `
+name: t
+environments:
+  - name: prod
+    cloud: { provider: aws, account_id: "111122223333", region: us-east-1, vpc_id: vpc-0t01, nat_gateways: 0 }
+    cluster:
+      type: eks
+      name: c1
+      node_groups: [{name: linux, instance_type: m5.xlarge}]
+      k8s_monitoring:
+        enabled: true
+        features: {pod_logs: true}
+        pod_logs_collector: `
+	for _, tc := range []struct {
+		name      string
+		collector string
+		method    string
+		wantErr   string
+	}{
+		{name: "native explicit", collector: "otel_collector", method: "opentelemetry"},
+		{name: "native default", collector: "otel_collector"},
+		{name: "default profile loki", collector: "k8s_monitoring", method: "loki"},
+		{name: "disabled none", collector: "otel_collector", method: "none"},
+		{name: "disabled objects", collector: "otel_collector", method: "objects"},
+		{name: "invalid kubernetes api", collector: "otel_collector", method: "kubernetes_api", wantErr: "requires pod_logs_method opentelemetry"},
+		{name: "invalid loki", collector: "otel_collector", method: "loki", wantErr: "requires pod_logs_method opentelemetry"},
+		{name: "unknown collector", collector: "other_collector", wantErr: "must be k8s_monitoring or otel_collector"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			yaml := fmt.Sprintf("%s%q\n        pod_logs_method: %q", prefix, tc.collector, tc.method)
+			if tc.wantErr != "" {
+				err := loadErr(t, yaml)
+				if !strings.Contains(err.Error(), "pod_logs_collector") || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("error=%q, want pod_logs_collector and %q", err, tc.wantErr)
+				}
+				return
+			}
+			r := load(t, yaml)
+			cl := findCluster(t, r, "c1")
+			if got := cl.K8sMonitoring.PodLogsCollector; got != tc.collector {
+				t.Fatalf("pod-log collector=%q, want %q", got, tc.collector)
+			}
+		})
 	}
 }
 

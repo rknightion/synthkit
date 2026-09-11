@@ -1018,6 +1018,27 @@ exact lane behind `pod_logs_method` — and it was invisible for the whole prior
 because nothing could decode the transport. It is now the one new contradiction the fidelity gate
 reports, and it is tracked as SKT-0013.08.
 
+**Selectable native-OTLP collector profile.** The cluster setting
+`k8s_monitoring.pod_logs_collector` accepts empty or `k8s_monitoring` for the existing
+Alloy shape, and `otel_collector` for the independently captured resource shape in
+`reality-corpus/logs/k3d-lab-otel-receivers.json` (2026-08-27, Alloy v1.18.0 as
+`otelcol`). Other values fail load. The OTel profile requires an emitting
+`pod_logs_method: opentelemetry`; active `loki` and `kubernetes_api` combinations
+fail load. Disabled `none` and deferred `objects` methods retain an inert selector.
+
+The new profile retains the nine shared keys in the OTLP block below, omits `cluster`
+and `app_kubernetes_io_name`, and adds `container.image.name`, `container.image.tag`,
+`k8s.cluster.uid`, `k8s.container.restart_count`, `k8s.pod.start_time`, `k8s.pod.uid`,
+`k8s.replicaset.name`, `k8s.replicaset.uid` and `service.version`. This is an 18-key
+union and the full scheduled Deployment-owned entry set. Ownerless and non-Deployment
+records remain present with inapplicable owner keys omitted; unscheduled records omit
+the node key. No StatefulSet or DaemonSet keys are invented to expand the captured set.
+Identities join the existing native pod and ReplicaSet helpers. Image/tag/version and
+pod start time follow existing native fixture conventions; restart count uses the
+existing steady-state zero baseline and does not represent accumulated incident restarts.
+All added attributes remain OTLP resource metadata. Selecting this profile does not
+itself declare the whole `otel-receivers` permutation modelled.
+
 **Instrumentation scope.** EMPTY. A non-empty scope name would surface as a `scope_name`
 structured-metadata key at Loki, and the capture has none — so the synth does NOT apply the
 `"synthkit"` scope fallback the traces/metrics OTLP lanes use.

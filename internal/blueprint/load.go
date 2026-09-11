@@ -169,6 +169,17 @@ func validateDecl(d *Decl) error {
 			if len(e.Cluster.NodeGroups) == 0 {
 				return bad("cluster %q: at least one node_group is required", e.Cluster.Name)
 			}
+			switch e.Cluster.K8sMonitoring.PodLogsCollector {
+			case "", "k8s_monitoring", "otel_collector":
+			default:
+				return bad("cluster %q: k8s_monitoring.pod_logs_collector %q must be k8s_monitoring or otel_collector", e.Cluster.Name, e.Cluster.K8sMonitoring.PodLogsCollector)
+			}
+			if e.Cluster.K8sMonitoring.PodLogsCollector == "otel_collector" {
+				switch resolvePodLogsMethod(e.Cluster.K8sMonitoring) {
+				case "kubernetes_api", "loki":
+					return bad("cluster %q: k8s_monitoring.pod_logs_collector otel_collector requires pod_logs_method opentelemetry for an emitting native-OTLP profile", e.Cluster.Name)
+				}
+			}
 			for _, g := range e.Cluster.NodeGroups {
 				if g.Name == "" || g.InstanceType == "" {
 					return bad("cluster %q: node_groups entries need name + instance_type", e.Cluster.Name)

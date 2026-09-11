@@ -218,6 +218,12 @@ type K8sMonitoring struct {
 	// nothing (objects deferred). Absent pod_logs ⇒ "none". Both transports carry identical
 	// content; only the observable shape differs. See signals/k8s.md [slug: k8s-pod-logs].
 	PodLogsMethod string
+	// PodLogsCollector selects the native-OTLP pod-log resource-attribute profile. It lives
+	// beside the transport selector because pod-log shape is one cluster-level concern; a
+	// separate fixture would split the same collector behavior across two configuration surfaces.
+	// ""/"k8s_monitoring" retain the established Alloy profile; "otel_collector" selects
+	// the OTel-receiver profile.
+	PodLogsCollector string
 }
 
 // Cluster is one resolved Kubernetes cluster: nodes (= EC2 instances), the workloads

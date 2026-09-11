@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // podlogs.go — pod-log emission for k8scluster, over EITHER of the two real transports.
-// Gated on Features["pod_logs"] and PodLogsMethod.
+// Gated on Features["pod_logs"] and PodLogsMethod. PodLogsCollector selects the native-OTLP
+// resource-attribute profile without changing the transport.
 //
 // The chart splits pod logs into podLogsViaLoki and podLogsViaOpenTelemetry (k8s-monitoring 4.x),
 // and PodLogsMethod is the blueprint-declared, cluster-level selector between them — cluster-level
@@ -44,6 +45,9 @@ const (
 	podLogsLoki    = "loki"           // Loki-native, classic Alloy shape
 	podLogsNone    = "none"
 	podLogsObjects = "objects" // deferred
+
+	podLogsCollectorK8sMonitoring = "k8s_monitoring"
+	podLogsCollectorOTel          = "otel_collector"
 )
 
 // podLogsMethod normalises the declared selector. "" with the feature on means the chart default,
@@ -62,6 +66,15 @@ func podLogsMethod(cl *fixture.Cluster) string {
 // podLogsOTLPNative reports whether this cluster's declared pod-log transport is native OTLP.
 // Read by Signals() so the runner only wires the OTLPLogs lane for a cluster that declared it.
 func podLogsOTLPNative(cl *fixture.Cluster) bool { return podLogsMethod(cl) == podLogsOTel }
+
+// podLogsCollectorProfile resolves the resource-attribute profile. The empty selector is the
+// established k8s-monitoring shape, preserving every existing blueprint byte-for-byte.
+func podLogsCollectorProfile(cl *fixture.Cluster) string {
+	if cl.K8sMonitoring.PodLogsCollector == podLogsCollectorOTel {
+		return podLogsCollectorOTel
+	}
+	return podLogsCollectorK8sMonitoring
+}
 
 // emitPodLogs writes pod logs over the declared transport; writes nothing when gated off.
 func emitPodLogs(
@@ -109,6 +122,8 @@ type podLogEntry struct {
 	LogTag            string
 	Body              string
 	Time              time.Time
+	Workload          *fixture.Workload
+	Ordinal           int
 }
 
 // buildPodLogEntries enumerates one line per pod×container for the whole cluster. Pure; the
@@ -171,6 +186,8 @@ func buildPodLogEntries(now time.Time, cl *fixture.Cluster) []podLogEntry {
 					LogTag:            "F",
 					Body:              body,
 					Time:              now,
+					Workload:          fwl,
+					Ordinal:           ri,
 				})
 			}
 		}
@@ -185,6 +202,7 @@ func buildPodLogEntries(now time.Time, cl *fixture.Cluster) []podLogEntry {
 		base.Deployment = ""
 		base.Node = ""
 		base.ServiceInstanceID = fmt.Sprintf("%s.%s.%s", base.Namespace, base.Pod, base.Container)
+		base.Workload = nil
 		out = append(out, base)
 	}
 	return out
@@ -212,6 +230,9 @@ func buildPodLogResources(now time.Time, cluster string, cl *fixture.Cluster) []
 	if len(entries) == 0 {
 		return nil
 	}
+	if podLogsCollectorProfile(cl) == podLogsCollectorOTel {
+		return buildOTelCollectorPodLogResources(entries, cluster)
+	}
 	out := make([]otlp.LogResource, 0, len(entries))
 	for _, e := range entries {
 		attrs := map[string]any{
@@ -237,6 +258,62 @@ func buildPodLogResources(now time.Time, cluster string, cl *fixture.Cluster) []
 			attrs["k8s.node.name"] = e.Node
 		}
 
+		out = append(out, otlp.LogResource{
+			Attrs: attrs,
+			Records: []otlp.LogRecord{{
+				Time:         e.Time,
+				ObservedTime: e.Time,
+				Body:         e.Body,
+				Attrs: map[string]any{
+					"log.iostream": e.IOStream,
+					"logtag":       e.LogTag,
+				},
+			}},
+		})
+	}
+	return out
+}
+
+// buildOTelCollectorPodLogResources projects the separately captured OTel-receiver profile.
+// The corpus's 18 keys are the union and the full Deployment-owned entry set. Entries retain the
+// existing transport-independent content; ownerless and non-Deployment entries omit ownership
+// dimensions they do not have, rather than receiving invented identities.
+func buildOTelCollectorPodLogResources(entries []podLogEntry, cluster string) []otlp.LogResource {
+	out := make([]otlp.LogResource, 0, len(entries))
+	for _, e := range entries {
+		service := e.Deployment
+		if service == "" {
+			service = e.Container
+		}
+		// Reuse nativePodAttrs' image/tag/version/cluster-epoch semantics and the
+		// clusterPodResource steady-state zero restart baseline. Zero models no accumulated
+		// incident restarts. These high-cardinality fields remain OTLP resource attributes,
+		// never Mimir or Loki stream labels.
+		attrs := map[string]any{
+			"container.image.name":        imageRepo(service),
+			"container.image.tag":         "latest",
+			"k8s.cluster.name":            cluster,
+			"k8s.cluster.uid":             podUID(cluster, "", cluster),
+			"k8s.container.name":          e.Container,
+			"k8s.container.restart_count": int64(0),
+			"k8s.namespace.name":          e.Namespace,
+			"k8s.pod.name":                e.Pod,
+			"k8s.pod.start_time":          time.Unix(clusterCreatedUnix, 0).UTC().Format(time.RFC3339),
+			"k8s.pod.uid":                 resolvedPodUID(cluster, e.Namespace, e.Pod, e.Workload, e.Ordinal),
+			"service.instance.id":         e.ServiceInstanceID,
+			"service.name":                service,
+			"service.namespace":           e.Namespace,
+			"service.version":             "1.0.0",
+		}
+		if e.Node != "" {
+			attrs["k8s.node.name"] = e.Node
+		}
+		if e.Deployment != "" && (e.Workload == nil || wlController(*e.Workload) == "deployment") {
+			replicaSet := replicaSetName(e.Deployment)
+			attrs["k8s.deployment.name"] = e.Deployment
+			attrs["k8s.replicaset.name"] = replicaSet
+			attrs["k8s.replicaset.uid"] = podUID(cluster, e.Namespace, replicaSet)
+		}
 		out = append(out, otlp.LogResource{
 			Attrs: attrs,
 			Records: []otlp.LogRecord{{

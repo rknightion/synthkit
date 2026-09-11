@@ -264,6 +264,89 @@ func TestPodLogsDefaultMethodIsOTLPNative(t *testing.T) {
 	}
 }
 
+func TestPodLogsCollectorProfiles(t *testing.T) {
+	legacy := clusterWithPodLogs("opentelemetry", true)
+	_, legacyResources := tickBothLanes(t, legacy)
+	legacyBytes, err := json.Marshal(legacyResources)
+	if err != nil {
+		t.Fatalf("marshal legacy pod-log resources: %v", err)
+	}
+
+	namedLegacy := clusterWithPodLogs("opentelemetry", true)
+	namedLegacy.K8sMonitoring.PodLogsCollector = "k8s_monitoring"
+	_, namedLegacyResources := tickBothLanes(t, namedLegacy)
+	namedLegacyBytes, err := json.Marshal(namedLegacyResources)
+	if err != nil {
+		t.Fatalf("marshal named legacy pod-log resources: %v", err)
+	}
+	if !bytes.Equal(namedLegacyBytes, legacyBytes) {
+		t.Fatal("pod_logs_collector=k8s_monitoring changed the legacy pod-log output")
+	}
+
+	otelCollector := clusterWithPodLogs("opentelemetry", true)
+	otelCollector.Workloads = append(otelCollector.Workloads, fixture.Workload{
+		Name: "test-cache", Namespace: "test-cache", Controller: "statefulset", Replicas: 1,
+		PodNames: []string{"test-cache-0"}, NodeIdx: []int{0},
+	})
+	otelCollector.K8sMonitoring.PodLogsCollector = "otel_collector"
+	_, resources := tickBothLanes(t, otelCollector)
+	if len(resources) == 0 {
+		t.Fatal("otel_collector profile: no OTLP pod-log resources")
+	}
+	wantAttrs := []string{
+		"container.image.name", "container.image.tag", "k8s.cluster.name", "k8s.cluster.uid",
+		"k8s.container.name", "k8s.container.restart_count", "k8s.deployment.name",
+		"k8s.namespace.name", "k8s.node.name", "k8s.pod.name", "k8s.pod.start_time",
+		"k8s.pod.uid", "k8s.replicaset.name", "k8s.replicaset.uid", "service.instance.id",
+		"service.name", "service.namespace", "service.version",
+	}
+	var full, ownerless, stateful *otlp.LogResource
+	for i := range resources {
+		resource := &resources[i]
+		for _, forbidden := range []string{"cluster", "app_kubernetes_io_name"} {
+			if _, present := resource.Attrs[forbidden]; present {
+				t.Errorf("otel_collector resource %d unexpectedly has %q: %v", i, forbidden, resource.Attrs)
+			}
+		}
+		switch resource.Attrs["k8s.pod.name"] {
+		case "test-cache-0":
+			stateful = resource
+		default:
+			if _, owned := resource.Attrs["k8s.deployment.name"]; owned {
+				full = resource
+			} else {
+				ownerless = resource
+			}
+		}
+	}
+	if full == nil {
+		t.Fatal("otel_collector profile: no Deployment-owned resource")
+	}
+	if got := sortedKeys(full.Attrs); !equalStrings(got, wantAttrs) {
+		t.Errorf("otel_collector Deployment attrs=%v, want %v", got, wantAttrs)
+	}
+	if ownerless == nil || stateful == nil {
+		t.Fatalf("otel_collector profile lost records: ownerless=%v stateful=%v", ownerless != nil, stateful != nil)
+	}
+	for name, resource := range map[string]*otlp.LogResource{"ownerless": ownerless, "stateful": stateful} {
+		for _, omitted := range []string{"k8s.deployment.name", "k8s.replicaset.name", "k8s.replicaset.uid"} {
+			if _, present := resource.Attrs[omitted]; present {
+				t.Errorf("%s resource must omit %q: %v", name, omitted, resource.Attrs)
+			}
+		}
+	}
+	if _, present := ownerless.Attrs["k8s.node.name"]; present {
+		t.Errorf("ownerless resource must omit k8s.node.name: %v", ownerless.Attrs)
+	}
+
+	legacyWithStateful := *otelCollector
+	legacyWithStateful.K8sMonitoring.PodLogsCollector = "k8s_monitoring"
+	_, legacyWithStatefulResources := tickBothLanes(t, &legacyWithStateful)
+	if len(resources) != len(legacyWithStatefulResources) {
+		t.Fatalf("otel_collector profile lost records: got %d, legacy has %d", len(resources), len(legacyWithStatefulResources))
+	}
+}
+
 // TestPodLogsSignalsDeclareOTLPLane verifies the construct declares core.OTLPLogs only when the
 // cluster declared the native OTLP transport — the runner wires the lane from this.
 func TestPodLogsSignalsDeclareOTLPLane(t *testing.T) {

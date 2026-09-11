@@ -243,6 +243,11 @@ type K8sMonitoringDecl struct {
 	// nothing (objects deferred). Absent pod_logs ⇒ "none". Both transports carry identical
 	// content; only the observable shape differs. See signals/k8s.md [slug: k8s-pod-logs].
 	PodLogsMethod string `yaml:"pod_logs_method"` // ""|opentelemetry|kubernetes_api|loki|objects|none
+	// PodLogsCollector selects the cluster-level native-OTLP pod-log resource-attribute profile.
+	// It sits beside PodLogsMethod because transport and resource shape are one pod-log concern:
+	// a second struct would split it. ""/"k8s_monitoring" retain today's Alloy shape;
+	// "otel_collector" models the separately captured OTel-receiver shape.
+	PodLogsCollector string `yaml:"pod_logs_collector"` // ""|k8s_monitoring|otel_collector
 }
 
 // AddonRef references an add-on construct by registry kind, with optional config.

@@ -348,7 +348,8 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 						KubeControllerManager: e.Cluster.K8sMonitoring.ControlPlane.KubeControllerManager,
 						KubeletProbes:         e.Cluster.K8sMonitoring.ControlPlane.KubeletProbes,
 					},
-					PodLogsMethod: resolvePodLogsMethod(e.Cluster.K8sMonitoring),
+					PodLogsMethod:    resolvePodLogsMethod(e.Cluster.K8sMonitoring),
+					PodLogsCollector: e.Cluster.K8sMonitoring.PodLogsCollector,
 				},
 				Platform: resolvePlatform(e.Cluster.Platform),
 			}
