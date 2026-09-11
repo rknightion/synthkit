@@ -1,6 +1,6 @@
 {
   "version": "synthkit.telemetry.producer-coverage/v1alpha1",
-  "expected_count": 203,
+  "expected_count": 189,
   "claims": [
     {
       "signal": "azure_microsoft_servicebus_namespaces_servererrors_total_count",
@@ -11,16 +11,6 @@
       "signal": "azure_microsoft_servicebus_namespaces_usererrors_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
       "reason": "Still unsettled after the 2026-09-09 source review. Microsoft defines UserErrors as requests not processed because of user errors, including HTTP-400-class client errors and message-processing errors such as MessageLockLostException. The supported-metrics reference specifies Count, Total (Sum), PT1M, and EntityName plus OperationResult dimensions (https://learn.microsoft.com/en-us/azure/service-bus-messaging/monitor-service-bus-reference; https://learn.microsoft.com/en-us/azure/azure-monitor/reference/supported-metrics/microsoft-servicebus-namespaces-metrics). Grafana Cloud explicitly supports the exact mapped family and pulls Azure-available metrics through the Metrics Batch API (https://grafana.com/docs/grafana-cloud/monitor-infrastructure/monitor-cloud-provider/azure/supported-resource-types/; https://grafana.com/docs/grafana-cloud/monitor-infrastructure/monitor-cloud-provider/azure/collect-azure-serverless/). Neither vendor specifies whether an interval or namespace without a qualifying error returns a zero-valued series or omits it. Exact selector absence therefore proves neither unsupportedness nor forwarding failure. The malformed-header HTTP400 control did not yield the family; HTTP status alone does not prove that Azure counted it in this metric. Resume with independently observed per-series route/job evidence for the error family or vendor documentation of absent-condition output. No instrument type is inferred from the suffix."
-    },
-    {
-      "signal": "container_spec_memory_reservation_limit_bytes",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "go_gc_duration_seconds",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "go_gc_duration_seconds_count",
@@ -38,34 +28,9 @@
       "reason": "Fleet Management intentionally models this Alloy collector self-metric job; current family evidence belongs to other scrape targets. Require an independent capture of go_goroutines from producer promrw/integrations/alloy, retaining its observed route/job pairing and family shape."
     },
     {
-      "signal": "go_goroutines",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "go_memstats_alloc_bytes",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "go_memstats_heap_alloc_bytes",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
       "signal": "go_memstats_heap_inuse_bytes",
       "producer": "promrw/integrations/alloy",
       "reason": "Fleet Management intentionally models this Alloy collector self-metric job; current family evidence belongs to other scrape targets. Require an independent capture of go_memstats_heap_inuse_bytes from producer promrw/integrations/alloy, retaining its observed route/job pairing and family shape."
-    },
-    {
-      "signal": "go_memstats_heap_inuse_bytes",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "go_threads",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "grafana_kubernetes_monitoring_build_info",
@@ -181,16 +146,6 @@
       "signal": "leader_election_master_status",
       "producer": "promrw/gateway-helm",
       "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of leader_election_master_status from producer promrw/gateway-helm, retaining its observed route/job pairing and family shape."
-    },
-    {
-      "signal": "machine_memory_bytes",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "machine_scrape_error",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "node_boot_time_seconds",
@@ -389,11 +344,6 @@
     },
     {
       "signal": "process_cpu_seconds_total",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "process_cpu_seconds_total",
       "producer": "promrw/knowledge-layer-api/knowledge-layer-api",
       "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_cpu_seconds_total from producer promrw/knowledge-layer-api/knowledge-layer-api, retaining its observed route/job pairing and family shape."
     },
@@ -429,11 +379,6 @@
     },
     {
       "signal": "process_max_fds",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "process_max_fds",
       "producer": "promrw/langsmith-backend",
       "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_max_fds from producer promrw/langsmith-backend, retaining its observed route/job pairing and family shape."
     },
@@ -451,11 +396,6 @@
       "signal": "process_max_fds",
       "producer": "promrw/langsmith-playground",
       "reason": "The declared LangSmith service or exporter job is distinct from the captured standalone integration jobs. Require an independent capture of process_max_fds from producer promrw/langsmith-playground, retaining its observed route/job pairing and family shape."
-    },
-    {
-      "signal": "process_open_fds",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "process_open_fds",
@@ -501,11 +441,6 @@
       "signal": "process_resident_memory_bytes",
       "producer": "promrw/datagen/acme-datagen-extraction-api",
       "reason": "The owning app/web_service workload declares this namespace/service job; current corpus evidence does not record that application producer. Require an independent capture of process_resident_memory_bytes from producer promrw/datagen/acme-datagen-extraction-api, retaining its observed route/job pairing and family shape."
-    },
-    {
-      "signal": "process_resident_memory_bytes",
-      "producer": "promrw/karpenter",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/k8s-addons/karpenter-direct.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "process_resident_memory_bytes",
@@ -731,11 +666,6 @@
       "signal": "up",
       "producer": "promrw/integrations/alloy",
       "reason": "Fleet Management intentionally models this Alloy collector self-metric job; current family evidence belongs to other scrape targets. Require an independent capture of up from producer promrw/integrations/alloy, retaining its observed route/job pairing and family shape."
-    },
-    {
-      "signal": "up",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "up",

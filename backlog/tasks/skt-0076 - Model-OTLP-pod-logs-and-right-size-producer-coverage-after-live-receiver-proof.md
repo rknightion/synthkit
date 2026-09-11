@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-09-11 16:34'
-updated_date: '2026-09-11 17:16'
+updated_date: '2026-09-11 17:30'
 labels: []
 dependencies: []
 priority: medium
@@ -54,4 +54,8 @@ A1 root bounded-prerequisite decision: additive step7 scratch load fails duplica
 R3 scratch cumulative proposal d9a42e55da2c51053a102c845e0d7758c89bfc000e3a2c0fce639f48686885eb measured BEFORE promotion: observed189 expected203 claims203 stale46 untriaged32. All32 exact new pairs have producer otlp-native, not the promrw producer hypothesized in goal section2.5. Swap32 stale claims at unchanged203 gives observed189 claims203 stale14 untriaged0. All55 existing metric non-producer entries independently unchanged. Promotion accepted under A1; host document untouched. Right-size14 remaining stale LAST.
 
 R3 full just check exit0. Producer coverage ratchet: observed=189 expected=203 (report-only within bound; growth fails). Cumulative corpus hash d9a42e55da2c51053a102c845e0d7758c89bfc000e3a2c0fce639f48686885eb exactly matches L4 proposal. Corpus and claims are declarative data: validated, no unit-test or CodeRabbit rerun required.
+
+R3 CI34626745006 success at89da21b9a85ae87f8f7584b41409bc916d905592, all10 jobs. BEFORE R4 live remeasurement189/203/203 stale14 untriaged0. R4 removed exactly14 remaining stale claims; observed=expected_count=len(claims)=189, stale0 untriaged0. ZERO HEADROOM: the next new no_comparable_producer finding anywhere fails the gate; unmodelled permutation disposition does not shield counting. Future evidence work must settle existing gaps or obtain separately authorized policy decisions, never silently increase this bound.
+
+R4 ordered just gen-check, just spdx-check, full just check all exit0. Producer coverage ratchet: observed=189 expected=189 (report-only within bound; growth fails). No corpus or emission changes after right-sizing.
 <!-- SECTION:NOTES:END -->
