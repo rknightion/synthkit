@@ -8,7 +8,7 @@
     "collector": "open-telemetry/opentelemetry-collector",
     "collector_role": "audited",
     "collector_version": "0.171.0",
-    "captured_on": "2026-08-27",
+    "captured_on": "2026-09-11",
     "instrument_type_source": "Decoded from the OTLP wire form at the capture receiver: the metric data-shape field itself (Gauge, Sum with is_monotonic, Histogram, ExponentialHistogram), which OTLP carries explicitly rather than by naming convention. No type here is derived from a metric name, and none carries the unknown sentinel. A NON-MONOTONIC Sum is recorded as gauge: the inventory vocabulary is Prometheus-shaped and has no UpDownCounter, so this document cannot distinguish an OTLP Gauge from a non-monotonic Sum (cantfind SK-103)."
   },
   "authority": {
@@ -17,7 +17,7 @@
     ]
   },
   "capture_volume": {
-    "runs": 1,
+    "runs": 2,
     "observed_contract_counts": [
       55
     ]
@@ -27,6 +27,32 @@
     "metrics": [
       {
         "name": "container.cpu.time",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -145,6 +171,32 @@
       },
       {
         "name": "container.cpu.usage",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -263,6 +315,32 @@
       },
       {
         "name": "container.filesystem.available",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -381,6 +459,32 @@
       },
       {
         "name": "container.filesystem.capacity",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -499,6 +603,32 @@
       },
       {
         "name": "container.filesystem.usage",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -617,6 +747,26 @@
       },
       {
         "name": "container.memory.available",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -735,6 +885,32 @@
       },
       {
         "name": "container.memory.major_page_faults",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -853,6 +1029,32 @@
       },
       {
         "name": "container.memory.page_faults",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -971,6 +1173,32 @@
       },
       {
         "name": "container.memory.rss",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -1089,6 +1317,32 @@
       },
       {
         "name": "container.memory.usage",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -1207,6 +1461,32 @@
       },
       {
         "name": "container.memory.working_set",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -1325,6 +1605,14 @@
       },
       {
         "name": "k8s.container.cpu_limit",
+        "producers": [
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -1441,6 +1729,29 @@
       },
       {
         "name": "k8s.container.cpu_request",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -1557,6 +1868,26 @@
       },
       {
         "name": "k8s.container.memory_limit",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -1673,6 +2004,29 @@
       },
       {
         "name": "k8s.container.memory_request",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -1789,6 +2143,32 @@
       },
       {
         "name": "k8s.container.ready",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -1905,6 +2285,32 @@
       },
       {
         "name": "k8s.container.restarts",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -2021,6 +2427,32 @@
       },
       {
         "name": "k8s.container.status.reason",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -2885,6 +3317,32 @@
       },
       {
         "name": "k8s.pod.cpu.time",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -3003,6 +3461,32 @@
       },
       {
         "name": "k8s.pod.cpu.usage",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -3121,6 +3605,32 @@
       },
       {
         "name": "k8s.pod.filesystem.available",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -3239,6 +3749,32 @@
       },
       {
         "name": "k8s.pod.filesystem.capacity",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -3357,6 +3893,32 @@
       },
       {
         "name": "k8s.pod.filesystem.usage",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -3475,6 +4037,26 @@
       },
       {
         "name": "k8s.pod.memory.available",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -3593,6 +4175,32 @@
       },
       {
         "name": "k8s.pod.memory.major_page_faults",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -3711,6 +4319,32 @@
       },
       {
         "name": "k8s.pod.memory.page_faults",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -3829,6 +4463,32 @@
       },
       {
         "name": "k8s.pod.memory.rss",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -3947,6 +4607,32 @@
       },
       {
         "name": "k8s.pod.memory.usage",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -4065,6 +4751,32 @@
       },
       {
         "name": "k8s.pod.memory.working_set",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -4183,6 +4895,32 @@
       },
       {
         "name": "k8s.pod.network.errors",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -4314,6 +5052,32 @@
       },
       {
         "name": "k8s.pod.network.io",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],
@@ -4445,6 +5209,32 @@
       },
       {
         "name": "k8s.pod.phase",
+        "producers": [
+          {
+            "name": "otlp/coredns"
+          },
+          {
+            "name": "otlp/lab-catalog"
+          },
+          {
+            "name": "otlp/lab-checkout"
+          },
+          {
+            "name": "otlp/local-path-provisioner"
+          },
+          {
+            "name": "otlp/metrics-server"
+          },
+          {
+            "name": "otlp/synthkit-otel-daemonset"
+          },
+          {
+            "name": "otlp/synthkit-otel-deployment"
+          },
+          {
+            "name": "otlp/synthkit-skt000603-receiver"
+          }
+        ],
         "transports": [
           "otlp_metrics"
         ],

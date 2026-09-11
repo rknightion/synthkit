@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-09-11 16:34'
-updated_date: '2026-09-11 16:53'
+updated_date: '2026-09-11 17:16'
 labels: []
 dependencies: []
 priority: medium
@@ -46,4 +46,12 @@ Run independent L3/L4; root R1 modelling pair, R2 gate, R3 scratch measurement a
 Preflight fidelity is exit 0 at observed157 expected203 claims203 stale46 untriaged0. An auxiliary export using all blueprints was the wrong recipe scope and yielded 187/203 with 30 untriaged apiserver pairs; retained diagnostically, not used for policy. Correct export follows justfile signal_fidelity_blueprints and raw comparator enumeration agrees with 157/203. L3 historical eight-key envelope origin is undetermined: old raw artifacts are absent locally and current AddLog folds by source/transport. Same-pod key changes alone do not prove an aggregation artifact; pre-fold raw resource evidence is required.
 
 R1 paired declaration and expected_matches2 validate with exactly two underlying manifest contradictions and no untriaged gaps. R2 ordered gen-check, spdx-check and full just check exit0; ratchet observed157 expected203, claims203 stale46. Dump retains all metric, OTLP metric, log and profile inventories unchanged; one acme-datagen-analysis sampled classify_request span appears. No emission code changed. R1 CodeRabbit skipped as explicitly allowed for nonbranching one-line wiring plus JSON; documents and policy data validated instead of unit-tested. Exemption hash bf4fb9e4859f0c7be2e26d88644b3f61d4c789d39ae4c65b340891d4a2f96be9; only expected_matches changed.
+
+R1 pair committed at 27e0288c33a3a3936fd76ccd907676251f827c28; R2 exact-SHA CI34624586338 is still running. Root read L4 final result: captured, full300s, otlp_metrics8005, otlp_logs166, metrics74, attributed32/unattributed42. Proposal55 k8s families matches the existing area membership and captured candidate names/types/transports/producers/label keys, with privacy elision only. Source receiver SHA09b71d8fb290ae36409e443fbb51cb80dc58f7fb7925e18f3a272551171018a9 matches the integrated tree. No promotion yet.
+
+A1 root bounded-prerequisite decision: additive step7 scratch load fails duplicate area/source/substrate/permutation k8s|k3d_lab|k3s|otel-receivers before comparison. Existing README documents lab-matrix promote -merge, whose CanonicalMerge preserves established observations. Goal6 step7 clarified to use a cumulative proposal seeded from the existing document, then measure and promote its exact bytes at the same path. No retirement, raw-capture rewrite, identity change or comparator change. L4 re-dispatched only to generate the merged scratch proposal from the same capture. Confidence0.9; materiality medium because publication shape needed an explicit correction, despite using the existing authorized route. R2 CI34624586338 succeeded at27e0288c33a3a3936fd76ccd907676251f827c28, all10 jobs.
+
+R3 scratch cumulative proposal d9a42e55da2c51053a102c845e0d7758c89bfc000e3a2c0fce639f48686885eb measured BEFORE promotion: observed189 expected203 claims203 stale46 untriaged32. All32 exact new pairs have producer otlp-native, not the promrw producer hypothesized in goal section2.5. Swap32 stale claims at unchanged203 gives observed189 claims203 stale14 untriaged0. All55 existing metric non-producer entries independently unchanged. Promotion accepted under A1; host document untouched. Right-size14 remaining stale LAST.
+
+R3 full just check exit0. Producer coverage ratchet: observed=189 expected=203 (report-only within bound; growth fails). Cumulative corpus hash d9a42e55da2c51053a102c845e0d7758c89bfc000e3a2c0fce639f48686885eb exactly matches L4 proposal. Corpus and claims are declarative data: validated, no unit-test or CodeRabbit rerun required.
 <!-- SECTION:NOTES:END -->

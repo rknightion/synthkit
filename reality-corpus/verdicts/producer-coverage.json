@@ -3,174 +3,14 @@
   "expected_count": 203,
   "claims": [
     {
-      "signal": "azure_microsoft_dbforpostgresql_flexibleservers_storage_percent_average_percent",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-dbforpostgresql-flexibleservers",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_applicationgateways_applicationgatewaytotaltime_average_milliseconds",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_applicationgateways_currentconnections_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_applicationgateways_failedrequests_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_applicationgateways_responsestatus_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_applicationgateways_throughput_average_bytespersecond",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_applicationgateways_totalrequests_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-applicationgateways",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_loadbalancers_allocatedsnatports_average_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_loadbalancers_bytecount_total_bytes",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_loadbalancers_packetcount_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_loadbalancers_snatconnectioncount_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_loadbalancers_syncount_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_network_loadbalancers_usedsnatports_average_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-network-loadbalancers",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_servicebus_namespaces_activeconnections_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_servicebus_namespaces_activemessages_average_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_servicebus_namespaces_incomingmessages_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_servicebus_namespaces_incomingrequests_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_servicebus_namespaces_messages_average_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_servicebus_namespaces_outgoingmessages_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
       "signal": "azure_microsoft_servicebus_namespaces_servererrors_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
       "reason": "Still unsettled after the 2026-09-09 source review. Microsoft defines ServerErrors as requests not processed because of an error in the Service Bus service. The supported-metrics reference specifies Count, Total (Sum), PT1M, and EntityName plus OperationResult dimensions (https://learn.microsoft.com/en-us/azure/service-bus-messaging/monitor-service-bus-reference; https://learn.microsoft.com/en-us/azure/azure-monitor/reference/supported-metrics/microsoft-servicebus-namespaces-metrics). Grafana Cloud explicitly supports the exact mapped family and pulls Azure-available metrics through the Metrics Batch API (https://grafana.com/docs/grafana-cloud/monitor-infrastructure/monitor-cloud-provider/azure/supported-resource-types/; https://grafana.com/docs/grafana-cloud/monitor-infrastructure/monitor-cloud-provider/azure/collect-azure-serverless/). Neither vendor specifies whether an interval or namespace without a qualifying error returns a zero-valued series or omits it. Exact selector absence therefore proves neither unsupportedness nor forwarding failure. No server fault was induced. Resume with independently observed per-series route/job evidence for the error family or vendor documentation of absent-condition output. No instrument type is inferred from the suffix."
     },
     {
-      "signal": "azure_microsoft_servicebus_namespaces_size_average_bytes",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
-      "signal": "azure_microsoft_servicebus_namespaces_successfulrequests_total_count",
-      "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
-      "reason": "Resolved by independent completed-soak Azure managed-ingest capture in reality-corpus/cspazure/managed-paired.json. This exact signal and paired rksy_ingest/job producer were observed per series before privacy elision. Metadata is absent and instrument type remains unknown. Historical allowance retained under unchanged bound; see producer-resolution-2026-09-08.json."
-    },
-    {
       "signal": "azure_microsoft_servicebus_namespaces_usererrors_total_count",
       "producer": "azure-monitor-managed/cloud/azure/microsoft-servicebus-namespaces",
       "reason": "Still unsettled after the 2026-09-09 source review. Microsoft defines UserErrors as requests not processed because of user errors, including HTTP-400-class client errors and message-processing errors such as MessageLockLostException. The supported-metrics reference specifies Count, Total (Sum), PT1M, and EntityName plus OperationResult dimensions (https://learn.microsoft.com/en-us/azure/service-bus-messaging/monitor-service-bus-reference; https://learn.microsoft.com/en-us/azure/azure-monitor/reference/supported-metrics/microsoft-servicebus-namespaces-metrics). Grafana Cloud explicitly supports the exact mapped family and pulls Azure-available metrics through the Metrics Batch API (https://grafana.com/docs/grafana-cloud/monitor-infrastructure/monitor-cloud-provider/azure/supported-resource-types/; https://grafana.com/docs/grafana-cloud/monitor-infrastructure/monitor-cloud-provider/azure/collect-azure-serverless/). Neither vendor specifies whether an interval or namespace without a qualifying error returns a zero-valued series or omits it. Exact selector absence therefore proves neither unsupportedness nor forwarding failure. The malformed-header HTTP400 control did not yield the family; HTTP status alone does not prove that Azure counted it in this metric. Resume with independently observed per-series route/job evidence for the error family or vendor documentation of absent-condition output. No instrument type is inferred from the suffix."
-    },
-    {
-      "signal": "container_cpu_usage_seconds_total",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_fs_reads_total",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_fs_writes_total",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_last_seen",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_memory_usage_bytes",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_network_receive_bytes_total",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_network_receive_errors_total",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_network_receive_packets_dropped_total",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_network_transmit_bytes_total",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_network_transmit_errors_total",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
-    },
-    {
-      "signal": "container_network_transmit_packets_dropped_total",
-      "producer": "promrw/integrations/docker",
-      "reason": "Resolved by independent 2026-09-08 paired collector capture in reality-corpus/host/docker-standalone-cadvisor.json. The local Prometheus collector scraped the actual producer and forwarded RW2; per-series job evidence is retained before value elision. Full Kubernetes discovery enrichment is outside this local capture. This historical allowance remains in the unchanged bound of 203 as required by the campaign; it is no longer an observed no-comparable-producer finding."
     },
     {
       "signal": "container_spec_memory_reservation_limit_bytes",
@@ -1016,6 +856,166 @@
       "signal": "workqueue_work_duration_seconds",
       "producer": "promrw/aws-load-balancer-controller",
       "reason": "The declared add-on controller job is distinct from the captured Kubernetes component jobs. Require an independent capture of workqueue_work_duration_seconds from producer promrw/aws-load-balancer-controller, retaining its observed route/job pairing and family shape."
+    },
+    {
+      "signal": "container.cpu.time",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.cpu.usage",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.filesystem.available",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.filesystem.capacity",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.filesystem.usage",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.memory.available",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.memory.major_page_faults",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.memory.page_faults",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.memory.rss",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.memory.usage",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "container.memory.working_set",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.container.cpu_limit",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.container.cpu_request",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.container.memory_limit",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.container.memory_request",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.container.ready",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.container.restarts",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.container.status.reason",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.cpu.time",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.cpu.usage",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.filesystem.available",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.filesystem.capacity",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.filesystem.usage",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.memory.available",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.memory.major_page_faults",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.memory.page_faults",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.memory.rss",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.memory.usage",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.memory.working_set",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.network.errors",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.network.io",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "k8s.pod.phase",
+      "producer": "otlp-native",
+      "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
     }
   ]
 }
