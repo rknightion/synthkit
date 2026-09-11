@@ -3,11 +3,11 @@ id: SKT-0070
 title: >-
   Close standalone Docker machine identity gaps from the independent cAdvisor
   capture
-status: Parked
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-08 21:15'
-updated_date: '2026-09-10 23:11'
+updated_date: '2026-09-11 00:06'
 labels: []
 dependencies: []
 priority: medium
@@ -24,12 +24,12 @@ The standalone Docker cAdvisor capture promoted in reality-corpus/host/docker-st
 <!-- AC:BEGIN -->
 - [x] #1 Source the standalone cAdvisor machine descriptor and model boot_id and machine_id only where observed
 - [x] #2 Retain failing-before and passing-after proof with negative controls for container siblings and non-Docker paths
-- [ ] #3 Inventory and fidelity pass without rewriting evidence, weakening producer comparison, or adding exemptions
+- [x] #3 Inventory and fidelity pass without rewriting evidence, weakening producer comparison, or adding exemptions
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -44,6 +44,8 @@ Wave 2026-09-18: L2 recaptures the pinned alloy-default permutation locally with
 Wave 2026-09-19: L1 implements receiver RW1/RW2 transport/job attribution with consumed job and failing-first proof. L2 reapplies archived Docker machine-only identity with mutation controls. Root reviews and commits L1 before dispatching L3 local alloy-default recapture; promotes observed evidence, records retirement family/log delta, retires the authorized pair, then runs integrated gates and exact-SHA CI. Comparator, bound 203 and single exemption remain frozen.
 
 Root repair A1: the fixed receiver cannot satisfy the old alloy-default acceptance predicate because it requires the consumed job label. Preserve the first partial capture/result. Commission only the alloy-default predicate to check direct nonempty promrw producer identity and absence of compared job keys while preserving other checks. Review the newly commissioned file separately, commit, then repeat the full 300-second capture. Comparator, bounds, exemptions and captured data remain unchanged.
+
+Wave 2026-09-20: implement the commissioned modelled-permutation narrowing and sibling predicate repair, swap exactly two measured stale producer claims while preserving 203, verify full local gate and exact-head CI, then close and push before OTLP receiver work starts. Exemption unchanged; no cloud or retirement authority.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -96,6 +98,10 @@ PROVEN GREEN PATH, exit 0 in scratch: narrow the permutation demotion so a docum
 Report claims re-verified as accurate: head and origin/main 61f8eeec855a, ci run 34535843775 failure with signal-fidelity the only failing job, all 75 k8s and 25 k8s-addons metric families present in the 100-family promotion with none missing, both otlp_logs pod-log envelopes structurally absent from the replacement, frozen policy files byte-unchanged across be566eca..61f8eeec, focused host and receiver packages pass, no k3d cluster and no owned container remaining, and the sibling rkps-awsinfra doc-0001 edit preserved.
 
 A1 root-judgement re-grade: endorsed on substance, flagged on process. e2e/lab/permutations/alloy-default/acceptance.jq was created 2026-08-27 in e534c58, so it predates the wave and section 1.2's hard edge says a pre-wave seam is not amendable under the grant; the root graded the change on content and did not name the seam age. The change itself is net stricter, removing a check the commissioned deliverable made impossible and adding an observed-producer check plus a job-absence check, with three negative controls each failing only its intended check. The CodeRabbit major finding asking that job be retained was correctly rejected against the frozen consumed-job contract. Three reviews ran against a one-to-two budget, disclosed.
+
+Wave 2026-09-20 source verification: synth declares exactly alloy-default, and its tagged corpus document now yields exactly one contradiction, the manifest service_name finding covered by the unchanged capture-manifest-service-name exemption. The fidelity error advances from expected_matches=1 but matched 0 to the untriaged go_gc_duration_seconds_count Karpenter claim. Re-measured 157 unique observed producer pairs, two untriaged component pairs, and 48 stale claims. The existing base go_gc_duration_seconds claim is already resolved by karpenter-direct.json; that document carries the base summary but no component count/sum entries. New component reasons will preserve that distinction. L2 repairs the pre-wave OTLP predicate under the bounded-prerequisite clause because receiver attribution consumes job; all three negative controls fail only their intended check. No full gate or close is claimed yet.
+
+Close proof: full just check, just gen-check and just spdx-check passed at 0c9e4b2b6ee6fba3c418f880e047270ff72de30e. CI run 34544368707 completed success at that exact SHA; all ten jobs including ci-success succeeded. Fidelity has exactly one exempted manifest service_name contradiction, report size 7660 within 27212, and Producer coverage ratchet: observed=157 expected=203 (report-only within bound; growth fails). Claim length remains 203 and exemption is byte-unchanged. Dump shows only sample-time variation in the incident-only last-terminated-reason family and two trace tool subsets; all other metric key rows, OTLP metrics, both log inventories and profiles unchanged. No receiver OTLP work exists at this close. Conditional just gen DoD item is not applicable: no blueprint field, construct/workload config struct or skill changed; gen-check passed.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -108,4 +114,6 @@ Current acceptance is AC2 only. AC1 model integration and AC3 fidelity remain op
 Resume at the capture producer boundary: authorize and implement direct producer provenance in the standard e2e receiver/lab path, with no inference from family names and no capture rewriting; re-capture alloy-default at chart 4.5.0, verify every family and machine_memory_bytes attribution, then retire superseded documents and apply the archived Docker patch before unchanged fidelity. Existing comparator, exemptions and producer bound remain frozen. AC2 only; integrated Docker acceptance was not run against the known unattributed replacement.
 
 Current wave disposition supersedes older archive-only summaries: Docker implementation and direct RW1/RW2 attribution are integrated and pushed, fresh 107/107 attributed capture promoted as 100/100, and both authorized legacy documents retired after the full delta note. SKT-0070 is Parked with AC1 and AC2 checked, AC3 unchecked. Resume at the frozen manifest exemption cardinality boundary: authorize the handling of capture-manifest-service-name now matching zero contradictions after the fresh capture; keep authentic capture data intact, then rerun unchanged fidelity and exact-head CI. This wave does not authorize changing the exemption, its expected_matches, the comparator or the producer bound. The former machine identity contradiction is absent, but no complete integrated pass is claimed.
+
+Done at green exact-head CI run 34544368707 for 0c9e4b2b6ee6fba3c418f880e047270ff72de30e, before OTLP receiver work. AC1-3 complete. The older exemption-cardinality resume boundary was WRONG: blanket permutation demotion suppressed the real manifest contradiction, and a second untriaged Karpenter component blocker followed it. Synth now declares alloy-default; its comparison is live with the existing exemption unchanged. Exactly two measured stale claims were swapped for count/sum component claims, preserving 203. Full local gate and aggregate CI pass. This close is unconditional on the separately commissioned later OTLP capture or promotion.
 <!-- SECTION:FINAL_SUMMARY:END -->
