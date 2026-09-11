@@ -130,12 +130,16 @@ func TestRuntimeSpecsFor(t *testing.T) {
 
 // ---- Task 5 test ----
 
+// fullDayIncidentFor is the largest daily duration shape accepts. It covers every
+// second of the day while preserving shape's guard against a permanently-active 24h window.
+const fullDayIncidentFor = "23h59m59.999999999s"
+
 func TestLiveClosureRuntimeIncident(t *testing.T) {
 	r := newTestRunnerWithBlueprint(t, "starter", []string{"starter-api"})
 	r.ApplyControl(control.State{
 		VolumeMultiplier: 1,
 		RuntimeIncidents: []control.RuntimeIncident{
-			{ID: "rt-1", Blueprint: "starter", Mode: "latency_spike", Target: "starter-api", At: "00:00", For: "23h59m", Intensity: 0.6},
+			{ID: "rt-1", Blueprint: "starter", Mode: "latency_spike", Target: "starter-api", At: "00:00", For: fullDayIncidentFor, Intensity: 0.6},
 		},
 	})
 	bp := r.bps[0]
@@ -162,7 +166,8 @@ func TestRunnerImplementsIncidentSource(t *testing.T) {
 }
 
 func TestControlIncidentsDeclared(t *testing.T) {
-	r := newTestRunnerWithDeclaredIncident(t, "starter", "latency_spike@00:00/23h59m#0.7@starter-api", []string{"starter-api"})
+	spec := "latency_spike@00:00/" + fullDayIncidentFor + "#0.7@starter-api"
+	r := newTestRunnerWithDeclaredIncident(t, "starter", spec, []string{"starter-api"})
 	infos := r.ControlIncidents()
 	if len(infos) != 1 {
 		t.Fatalf("want 1 declared incident, got %d: %+v", len(infos), infos)
@@ -171,11 +176,24 @@ func TestControlIncidentsDeclared(t *testing.T) {
 	if got.Source != "declared" || got.Blueprint != "starter" || got.Mode != "latency_spike" || got.Target != "starter-api" {
 		t.Fatalf("declared incident fields wrong: %+v", got)
 	}
-	if got.ScheduleSpec != "latency_spike@00:00/23h59m#0.7@starter-api" {
+	if got.ScheduleSpec != spec {
 		t.Fatalf("schedule_spec = %q", got.ScheduleSpec)
 	}
 	if !got.ActiveNow {
 		t.Fatal("a daily window covering the whole day should be active_now")
+	}
+}
+
+func TestDailyIncidentCoversFinalMinute(t *testing.T) {
+	e := shape.New("UTC", []string{"latency_spike@00:00/" + fullDayIncidentFor})
+	for _, finalMinute := range []time.Time{
+		time.Date(2026, 9, 11, 23, 59, 0, 0, time.UTC),
+		time.Date(2026, 9, 11, 23, 59, 30, 0, time.UTC),
+		time.Date(2026, 9, 11, 23, 59, 59, 0, time.UTC),
+	} {
+		if !e.Active(finalMinute, "latency_spike", "starter-api") {
+			t.Fatalf("a whole-day daily incident should cover %s", finalMinute.Format("15:04:05"))
+		}
 	}
 }
 
@@ -236,7 +254,7 @@ func TestRuntimeIncidentActiveNowIsolation(t *testing.T) {
 		VolumeMultiplier: 1,
 		RuntimeIncidents: []control.RuntimeIncident{
 			{ID: "closed", Blueprint: "starter", Mode: "latency_spike", Target: "starter-api", At: "2020-01-01T02:00", For: "1h", Intensity: 0.5},
-			{ID: "open", Blueprint: "starter", Mode: "latency_spike", Target: "starter-api", At: "00:00", For: "23h59m", Intensity: 0.8},
+			{ID: "open", Blueprint: "starter", Mode: "latency_spike", Target: "starter-api", At: "00:00", For: fullDayIncidentFor, Intensity: 0.8},
 		},
 	})
 
@@ -264,7 +282,3 @@ func TestRuntimeIncidentActiveNowIsolation(t *testing.T) {
 		t.Errorf("open runtime incident should report active_now=true, got false")
 	}
 }
-
-// Prevent unused import warnings during incremental implementation.
-var _ = time.Now
-var _ = shape.New
