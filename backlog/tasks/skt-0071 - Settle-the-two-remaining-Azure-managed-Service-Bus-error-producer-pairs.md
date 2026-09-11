@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-08 22:07'
-updated_date: '2026-09-09 18:33'
+updated_date: '2026-09-11 17:41'
 labels:
   - corpus
   - needs-triage
@@ -46,6 +46,8 @@ Wave 2026-09-17: L4 reads current official Service Bus documentation and forward
 
 <!-- SECTION:NOTES:BEGIN -->
 Current Microsoft Service Bus monitoring and supported-metrics docs define ServerErrors and UserErrors; current Grafana supported-resource-types docs list their exact mapped names. Neither source specifies zero-valued versus omitted output when qualifying errors do not occur. Both pairs remain unsettled. Only pair reason text changed; no Azure lifecycle, fault, capture rewrite, label ignore, matching change or producer-bound reduction.
+
+Sibling wave2026-09-21 context only: final producer ratchet is observed=expected_count=len(claims)=189, stale0 untriaged0. Zero headroom means a new no_comparable_producer finding fails even for an unmodelled permutation. This does not settle either Service Bus error pair, change Azure acceptance, or authorize a capture/fault. Existing precise resume boundary and Parked status remain unchanged.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

@@ -1,11 +1,11 @@
 ---
 id: SKT-0076
 title: Model OTLP pod logs and right-size producer coverage after live receiver proof
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-11 16:34'
-updated_date: '2026-09-11 17:30'
+updated_date: '2026-09-11 17:41'
 labels: []
 dependencies: []
 priority: medium
@@ -21,17 +21,17 @@ The accepted OTLP pod-log capture needs live comparison, while stale producer al
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The OTLP pod-log declaration and sole exemption expected_matches=2 land together with other exemption fields unchanged
-- [ ] #2 One local receiver capture reports actual OTLP metric receipts, attribution, proposal hashes and teardown evidence; promotion follows measured constant-bound capacity
-- [ ] #3 Final observed count equals expected_count and claim length with no stale or untriaged pairs, with zero-headroom consequence recorded
-- [ ] #4 Integrated gates and exact-SHA CI pass and the narrower pod-log envelope finding is recorded with its evidence boundary
+- [x] #1 The OTLP pod-log declaration and sole exemption expected_matches=2 land together with other exemption fields unchanged
+- [x] #2 One local receiver capture reports actual OTLP metric receipts, attribution, proposal hashes and teardown evidence; promotion follows measured constant-bound capacity
+- [x] #3 Final observed count equals expected_count and claim length with no stale or untriaged pairs, with zero-headroom consequence recorded
+- [x] #4 Integrated gates and exact-SHA CI pass and the narrower pod-log envelope finding is recorded with its evidence boundary
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -58,4 +58,12 @@ R3 full just check exit0. Producer coverage ratchet: observed=189 expected=203 (
 R3 CI34626745006 success at89da21b9a85ae87f8f7584b41409bc916d905592, all10 jobs. BEFORE R4 live remeasurement189/203/203 stale14 untriaged0. R4 removed exactly14 remaining stale claims; observed=expected_count=len(claims)=189, stale0 untriaged0. ZERO HEADROOM: the next new no_comparable_producer finding anywhere fails the gate; unmodelled permutation disposition does not shield counting. Future evidence work must settle existing gaps or obtain separately authorized policy decisions, never silently increase this bound.
 
 R4 ordered just gen-check, just spdx-check, full just check all exit0. Producer coverage ratchet: observed=189 expected=189 (report-only within bound; growth fails). No corpus or emission changes after right-sizing.
+
+R5 CI34628037101 success atef9862af2f4d02549f2b5e87f0ecac05a29a4c69, all10 jobs. All three required gate SHAs green. Conditional gen not applicable; gen-check passed. L3 historical eight-key envelope remains undetermined, not claimed solved; evidence boundary recorded above.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Done: paired modelling/exemption commit27e0288c33a3a3936fd76ccd907676251f827c28; one local300s OTLP receiver capture live-proved8005 metric items and166 log items; cumulative55-family k8s promotion89da21b9a85ae87f8f7584b41409bc916d905592 preserved all prior observations. Measured32 new gaps fit46 stale slots at203; final right-sizeef9862af2f4d02549f2b5e87f0ecac05a29a4c69 leaves observed=expected_count=claims=189, stale0 untriaged0, ZERO HEADROOM. otel-receivers remains unmodelled. Historical narrow envelope origin remains unknown; no cloud operations or emitter work.
+<!-- SECTION:FINAL_SUMMARY:END -->
