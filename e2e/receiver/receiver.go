@@ -46,6 +46,10 @@ const (
 	// internal/runner/catalog.go's producerPromRW; TestReceiverPromRWProducerPrefixMatchesRunner
 	// pins this receiver-local copy to that composition-root constant without importing runner.
 	producerPromRW = "promrw"
+	// producerOTLP prefixes an identity directly observed on an OTLP ResourceMetrics envelope.
+	// It is deliberately distinct from producerPromRW: a resource service.name is neither a
+	// Prometheus job label nor evidence for a Remote-Write producer.
+	producerOTLP = "otlp"
 )
 
 // receiptRW1Metadata counts decoded prompb.MetricMetadata records. Remote-write v1 carries them
@@ -402,6 +406,19 @@ func promRWProducer(labels map[string]string) (inventory.Producer, map[string]st
 	return inventory.Producer{Name: producerPromRW + "/" + job}, metricLabels
 }
 
+// otlpMetricProducer derives direct producer evidence only from the ResourceMetrics resource.
+// service.name identifies the service that emitted the envelope; service.namespace is a grouping
+// dimension and service.instance.id is an ephemeral instance identity. A missing or empty value
+// records no producer rather than inventing a placeholder. Datapoint attributes do not participate:
+// they describe one measurement, not the producer of the resource envelope.
+func otlpMetricProducer(resourceAttrs map[string]string) inventory.Producer {
+	serviceName := resourceAttrs["service.name"]
+	if serviceName == "" {
+		return inventory.Producer{}
+	}
+	return inventory.Producer{Name: producerOTLP + "/" + serviceName}
+}
+
 // seriesInstrument reads the instrument type out of the series itself, never out of its name.
 // Two label names carry it: Prometheus reserves `le` for classic histogram bucket series and
 // `quantile` for summary quantile series, so a series carrying one is that instrument by the
@@ -727,6 +744,7 @@ func (r *Receiver) addOTLPMetrics(rm *metricspb.ResourceMetrics) int {
 	// protobuf while retaining every OTLP field, including scope/schema/unit metadata.
 	r.otlpMetrics = append(r.otlpMetrics, proto.Clone(rm).(*metricspb.ResourceMetrics))
 	resourceAttrs := attributeStrings(rm.GetResource().GetAttributes())
+	producer := otlpMetricProducer(resourceAttrs)
 	decoded := 0
 	for _, sm := range rm.GetScopeMetrics() {
 		for _, metric := range sm.GetMetrics() {
@@ -735,14 +753,20 @@ func (r *Receiver) addOTLPMetrics(rm *metricspb.ResourceMetrics) int {
 				continue
 			}
 			decoded++
+			addMetric := func(instrument string, labels map[string]string, histogram *inventory.Histogram) {
+				r.inv.AddMetric(name, inventory.TransportOTLPMetrics, instrument, labels, histogram)
+				if producer.Name != "" {
+					r.inv.AddMetricProducer(name, producer)
+				}
+			}
 			switch {
 			case metric.GetGauge() != nil:
 				points := metric.GetGauge().GetDataPoints()
 				if len(points) == 0 {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, inventory.InstrumentGauge, resourceAttrs, nil)
+					addMetric(inventory.InstrumentGauge, resourceAttrs, nil)
 				}
 				for _, point := range points {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, inventory.InstrumentGauge,
+					addMetric(inventory.InstrumentGauge,
 						mergeAttributeStrings(resourceAttrs, attributeStrings(point.GetAttributes())), nil)
 				}
 			case metric.GetSum() != nil:
@@ -752,45 +776,45 @@ func (r *Receiver) addOTLPMetrics(rm *metricspb.ResourceMetrics) int {
 				}
 				points := metric.GetSum().GetDataPoints()
 				if len(points) == 0 {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, instrument, resourceAttrs, nil)
+					addMetric(instrument, resourceAttrs, nil)
 				}
 				for _, point := range points {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, instrument,
+					addMetric(instrument,
 						mergeAttributeStrings(resourceAttrs, attributeStrings(point.GetAttributes())), nil)
 				}
 			case metric.GetHistogram() != nil:
 				points := metric.GetHistogram().GetDataPoints()
 				if len(points) == 0 {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, inventory.InstrumentHistogram, resourceAttrs,
+					addMetric(inventory.InstrumentHistogram, resourceAttrs,
 						&inventory.Histogram{Classic: true, BucketBounds: []float64{}, NativeSchemas: []int32{}})
 				}
 				for _, point := range points {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, inventory.InstrumentHistogram,
+					addMetric(inventory.InstrumentHistogram,
 						mergeAttributeStrings(resourceAttrs, attributeStrings(point.GetAttributes())),
 						&inventory.Histogram{Classic: true, BucketBounds: point.GetExplicitBounds(), NativeSchemas: []int32{}})
 				}
 			case metric.GetExponentialHistogram() != nil:
 				points := metric.GetExponentialHistogram().GetDataPoints()
 				if len(points) == 0 {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, inventory.InstrumentHistogram, resourceAttrs,
+					addMetric(inventory.InstrumentHistogram, resourceAttrs,
 						&inventory.Histogram{Native: true, BucketBounds: []float64{}, NativeSchemas: []int32{}})
 				}
 				for _, point := range points {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, inventory.InstrumentHistogram,
+					addMetric(inventory.InstrumentHistogram,
 						mergeAttributeStrings(resourceAttrs, attributeStrings(point.GetAttributes())),
 						&inventory.Histogram{Native: true, BucketBounds: []float64{}, NativeSchemas: []int32{point.GetScale()}})
 				}
 			case metric.GetSummary() != nil:
 				points := metric.GetSummary().GetDataPoints()
 				if len(points) == 0 {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, instrumentSummary, resourceAttrs, nil)
+					addMetric(instrumentSummary, resourceAttrs, nil)
 				}
 				for _, point := range points {
-					r.inv.AddMetric(name, inventory.TransportOTLPMetrics, instrumentSummary,
+					addMetric(instrumentSummary,
 						mergeAttributeStrings(resourceAttrs, attributeStrings(point.GetAttributes())), nil)
 				}
 			default:
-				r.inv.AddMetric(name, inventory.TransportOTLPMetrics, inventory.InstrumentUnknown, resourceAttrs, nil)
+				addMetric(inventory.InstrumentUnknown, resourceAttrs, nil)
 			}
 		}
 	}

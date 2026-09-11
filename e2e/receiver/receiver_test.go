@@ -128,8 +128,11 @@ func TestReceiverCapturesAllLanes(t *testing.T) {
 	}
 
 	// OTLP metrics
-	if findMetric(got, "http.server.request.count") == nil {
+	otlpMetric := findMetric(got, "http.server.request.count")
+	if otlpMetric == nil {
 		t.Errorf("OTLP metric not captured: %v", got.Metrics)
+	} else if want := []inventory.Producer{{Name: "otlp/checkout"}}; !reflect.DeepEqual(otlpMetric.Producers, want) {
+		t.Errorf("OTLP metric producers = %#v, want %#v", otlpMetric.Producers, want)
 	}
 }
 
@@ -213,6 +216,69 @@ func TestReceiverClassifiesOTLPSummaryAndPreservesNestedDimensionTypes(t *testin
 		}
 	}
 	t.Fatalf("labels=%v, want JSON-valued Dimensions with native nested types", metric.Labels)
+}
+
+func TestReceiverDerivesOTLPProducerFromResourceServiceName(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		attrs     []*commonpb.KeyValue
+		producers []inventory.Producer
+	}{
+		{
+			name:      "service name",
+			attrs:     []*commonpb.KeyValue{stringAttribute("service.name", "coredns")},
+			producers: []inventory.Producer{{Name: "otlp/coredns"}},
+		},
+		{name: "missing service name", producers: []inventory.Producer{}},
+		{name: "empty service name", attrs: []*commonpb.KeyValue{stringAttribute("service.name", "")}, producers: []inventory.Producer{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rec := New()
+			srv := httptest.NewServer(rec.Handler())
+			defer srv.Close()
+
+			postOTLPMetrics(t, srv.URL, &metricspb.ResourceMetrics{
+				Resource: &resourcepb.Resource{Attributes: test.attrs},
+				ScopeMetrics: []*metricspb.ScopeMetrics{{Metrics: []*metricspb.Metric{{
+					Name: "receiver.otlp.identity",
+					Data: &metricspb.Metric_Gauge{Gauge: &metricspb.Gauge{DataPoints: []*metricspb.NumberDataPoint{{}}}},
+				}}}},
+			})
+
+			metric := findMetric(rec.Snapshot(), "receiver.otlp.identity")
+			if metric == nil {
+				t.Fatal("OTLP metric missing")
+			}
+			if len(test.producers) == 0 {
+				if len(metric.Producers) != 0 {
+					t.Fatalf("Snapshot producers = %#v, want none", metric.Producers)
+				}
+			} else if !reflect.DeepEqual(metric.Producers, test.producers) {
+				t.Fatalf("Snapshot producers = %#v, want %#v", metric.Producers, test.producers)
+			}
+
+			response, err := srv.Client().Get(srv.URL + "/__inventory")
+			if err != nil {
+				t.Fatalf("GET /__inventory: %v", err)
+			}
+			defer response.Body.Close()
+			var exported inventory.Schema
+			if err := json.NewDecoder(response.Body).Decode(&exported); err != nil {
+				t.Fatalf("decode /__inventory: %v", err)
+			}
+			exportedMetric := findMetric(exported, "receiver.otlp.identity")
+			if exportedMetric == nil {
+				t.Fatal("exported OTLP metric missing")
+			}
+			if len(test.producers) == 0 {
+				if len(exportedMetric.Producers) != 0 {
+					t.Fatalf("exported producers = %#v, want none", exportedMetric.Producers)
+				}
+			} else if !reflect.DeepEqual(exportedMetric.Producers, test.producers) {
+				t.Fatalf("exported producers = %#v, want %#v", exportedMetric.Producers, test.producers)
+			}
+		})
+	}
 }
 
 func TestReceiverPreservesNativeOTLPMetricsEnvelope(t *testing.T) {
