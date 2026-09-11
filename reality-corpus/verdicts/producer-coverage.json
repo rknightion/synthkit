@@ -1,6 +1,6 @@
 {
   "version": "synthkit.telemetry.producer-coverage/v1alpha1",
-  "expected_count": 189,
+  "expected_count": 218,
   "claims": [
     {
       "signal": "azure_microsoft_servicebus_namespaces_servererrors_total_count",
@@ -946,6 +946,151 @@
       "signal": "k8s.pod.phase",
       "producer": "otlp-native",
       "reason": "Live local otel-receivers capture l4-20260911T163630Z attributed this family to otlp/<service.name> identities in reality-corpus/k8s/k3d-lab-otel-receivers.json. Those identities do not intersect synth otlp-native. Exact producer gap retained at unchanged bound by stale-claim swap; no metric type or capture evidence changed."
+    },
+    {
+      "signal": "system.disk.free",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.disk.free from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.disk.free envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.disk.in_use",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.disk.in_use from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.disk.in_use envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.disk.read_time",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.disk.read_time from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.disk.read_time envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.disk.read_time_pct",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.disk.read_time_pct from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.disk.read_time_pct envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.disk.total",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.disk.total from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.disk.total envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.disk.used",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.disk.used from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.disk.used envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.disk.utilized",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.disk.utilized from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.disk.utilized envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.disk.write_time",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.disk.write_time from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.disk.write_time envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.disk.write_time_pct",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.disk.write_time_pct from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.disk.write_time_pct envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.fs.file_handles.allocated",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.file_handles.allocated from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.file_handles.allocated envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.fs.file_handles.max",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.file_handles.max from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.file_handles.max envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.fs.inodes.free",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.inodes.free from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.inodes.free envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.fs.inodes.in_use",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.inodes.in_use from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.inodes.in_use envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.fs.inodes.total",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.inodes.total from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.inodes.total envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.fs.inodes.used",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.inodes.used from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.inodes.used envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.fs.inodes.utilized",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.inodes.utilized from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.inodes.utilized envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.avg_q_sz",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.avg_q_sz from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.avg_q_sz envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.avg_rq_sz",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.avg_rq_sz from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.avg_rq_sz envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.await",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.await from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.await envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.block_in",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.block_in from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.block_in envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.block_out",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.block_out from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.block_out envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.r_await",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.r_await from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.r_await envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.r_s",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.r_s from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.r_s envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.rkb_s",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.rkb_s from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.rkb_s envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.svctm",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.svctm from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.svctm envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.util",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.util from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.util envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.w_await",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.w_await from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.w_await envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.w_s",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.w_s from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.w_s envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.io.wkb_s",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.io.wkb_s from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.io.wkb_s envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
     }
   ]
 }

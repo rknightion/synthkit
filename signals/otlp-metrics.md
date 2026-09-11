@@ -629,8 +629,21 @@ contract remains unchanged.
 Source: Datadog Agent system checks under
 https://github.com/DataDog/datadog-agent/tree/main/pkg/collector/corechecks/system
 (read 2026-09-09). Native envelope types remain those in the immutable capture.
-Storage, kernel-memory accounting and swap candidates lack fixture state and
-remain observed but unimplemented, with per-family reasons in the classification.
+Standalone host mode additionally emits 29 storage families from the immutable host
+verdict. Their values reuse internal/nodeexp/linux.go coefficients and its 100 GiB
+absent-filesystem-size default, with the existing standalone Linux device names.
+This is a representative fixture, not selected host hardware. Disk capacity retains
+the Agent KiB convention; disk cumulative time converts seconds to milliseconds and
+uses elapsed time from the receiver start with a stable initial rate. It does not
+integrate changing disk rates. The five families system.io.rrqm_s, system.io.wrqm_s,
+system.fs.file_handles.allocated_unused, system.fs.file_handles.in_use and
+system.fs.file_handles.used remain unimplemented because merged-operation counters
+and the file-nr unused breakdown have no admissible value source. Host CPU and memory
+remain blocked on selected capacity; the Kubernetes lane is unchanged. The historical
+classification remains immutable evidence, rather than a current implementation status.
+Agent conversion sources: pkg/collector/corechecks/system/disk/disk/disk_nix.go,
+pkg/collector/corechecks/system/disk/io/iostats_nix.go and
+pkg/collector/corechecks/system/filehandles/file_handles.go (read 2026-09-11).
 
 ```yaml signals
 family: datadog_receiver_system

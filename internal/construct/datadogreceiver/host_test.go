@@ -12,6 +12,7 @@ import (
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/core/coretest"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"gopkg.in/yaml.v3"
 )
 
@@ -36,8 +37,15 @@ func TestHostSelectionMatchesIndependentEnvelope(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if len(capture.resources) != 2 {
-		t.Fatalf("host resources=%d, want two example-only ticks", len(capture.resources))
+	// Additional host system families must not change the independent example envelope.
+	var examples []otlp.MetricResource
+	for _, resource := range capture.resources {
+		if len(resource.Metrics) == 1 && resource.Metrics[0].Name == exampleMetricIncrement {
+			examples = append(examples, resource)
+		}
+	}
+	if len(examples) != 2 {
+		t.Fatalf("host example resources=%d, want two ticks", len(examples))
 	}
 	raw, err := os.ReadFile("../../../e2e/acceptance/datadog-host-native-envelope-2026-09-09.json")
 	if err != nil {
@@ -56,15 +64,15 @@ func TestHostSelectionMatchesIndependentEnvelope(t *testing.T) {
 	if len(wants) != 1 {
 		t.Fatalf("captured host example shapes=%d", len(wants))
 	}
-	for _, r := range capture.resources {
+	for _, r := range examples {
 		if err := matchesCapturedEnvelope(r, wants[0]); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if got := capture.resources[1].Metrics[0].Numbers[0].Value; got != 6 {
+	if got := examples[1].Metrics[0].Numbers[0].Value; got != 6 {
 		t.Fatalf("one-minute value=%v, want declared 6", got)
 	}
-	r := capture.resources[1]
+	r := examples[1]
 	r.Metrics[0].Numbers[0].Attrs = map[string]any{"deployment.environment.name": r.Attrs["deployment.environment.name"]}
 	delete(r.Attrs, "deployment.environment.name")
 	if err := matchesCapturedEnvelope(r, wants[0]); err == nil {
