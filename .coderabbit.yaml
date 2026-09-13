@@ -35,3 +35,10 @@ reviews:
       Treat every blueprint as deployable production-like input. Reject test-shaped rates or cardinality
       chosen merely to force one-tick emission; require a stated real-world basis for rates and counts.
       Test-only forcing belongs under e2e/fixtures.
+knowledge_base:
+  linked_repositories:
+  - repository: m7kni/m7kni-net-site
+    instructions: >-
+      Documentation hub. This repository dispatches documentation changes to the hub, which clones the
+      docs source and builds it. Check docs_path, config_file and the dispatch payload against this
+      repository's entry in the hub's docs-repos.json manifest.
