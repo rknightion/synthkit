@@ -117,3 +117,9 @@ Reference = "reference"
 Kubernetes = "kubernetes"
 AWS = "aws"
 "AI/LLM" = "ai"
+[backlog]
+enabled = true
+title = "Backlog"
+include_completed = true
+include_docs = true
+include_decisions = true
