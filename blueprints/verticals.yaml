@@ -1,0 +1,510 @@
+# verticals — ONE blueprint holding the whole demo vertical library.
+#
+# Three verticals live as three ENVIRONMENTS, because an environment is the unit that owns a cloud
+# account + cluster + databases + caches — exactly the boundary a vertical needs. Their names become
+# the `env` / `deployment_environment_name` label, so one dashboard variable switches vertical.
+#
+# NAMING IS LOAD-BEARING. Grafana's products navigate by IDENTITY, not by label: App O11y by
+# service.name/namespace, K8s O11y by cluster, DB O11y by instance, SM by check. Live-verified
+# 2026-08-19: of nine signal families only aws_rds_* and the app RED family carry a `blueprint`
+# label at all — spanmetrics (the App O11y backbone), kube_*, host, alloy, dbo11y and probe_* do
+# NOT. With every vertical in ONE blueprint the `blueprint` label is now USELESS as a vertical
+# selector (it is "verticals" for all three); the `fin-` / `shop-` / `mfg-` prefixes and the env
+# name are the only things that partition the estate. Prefix every identity string, always.
+#
+# Trade-offs accepted by folding three verticals into one file:
+#   - `integrations:` is a map keyed by KIND, so there is ONE cloudflare zone and ONE azure config
+#     for the whole estate rather than one per vertical.
+#   - `features:` likewise — one SM check list, one FM roster (checks are per-vertical by name).
+#   - `series_budget` is per blueprint, so it covers all three together.
+#   - Deleting one vertical means editing this file, not deleting a file (the usual synthkit
+#     "one deletable YAML" property applies to the library as a whole now, not per vertical).
+name: verticals
+label: verticals
+shape: business_hours_plateau
+timezone: Europe/Zurich
+series_budget: 90000
+metadata:
+  description: "Demo vertical library in one blueprint: Financial Services (fin-), eCommerce (shop-) and Manufacturing (mfg-), each with its own cloud account, EKS cluster, databases and request journeys."
+  owner: solutions-engineering
+  category: demo
+  tags: [vertical, finance, ecommerce, manufacturing, demo]
+
+environments:
+  # ── Financial Services ──────────────────────────────────────────────────────────────────
+  - name: financial
+    weight: 1.0
+    production: true
+    cloud:
+      provider: aws
+      account_id: "300000000101"
+      region: eu-central-2
+      vpc_id: vpc-0finprodeuc2
+      nat_gateways: 1
+      cloudwatch: { albs: 1, s3_buckets: 1, nlb: false, ebs: true, nat_gateway: true, eks: true, firehose: false, private_link: false }
+    cluster:
+      type: eks
+      name: fin-prod-euc2
+      platform: { os: al2023, kubernetes_version: "1.31" }
+      node_groups:
+        - { name: general, instance_type: m6i.2xlarge, desired: 3, provisioner: managed }
+      observability: { cloudwatch: true }
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+        alloy_version: "1.16.3"
+        opencost: true
+        kepler: true
+        features:
+          cluster_metrics: true
+          cluster_events: true
+          pod_logs: true
+          profiling: true
+          application_observability: true
+      addons: [core_dns, vpc_cni, ebs_csi, alloy_health]
+    databases:
+      - { engine: postgres, version: "16.4", name: fin-positions-pg, instance_class: db.r6g.xlarge, observability: { cloudwatch: true, dbo11y: true, digests: 30 } }
+      - { engine: mysql,    version: "8.0.39", name: fin-payments-ledger, instance_class: db.r6g.large, observability: { cloudwatch: true, dbo11y: true, digests: 25 } }
+    caches:
+      - { engine: redis, version: "7.1", name: fin-session-store, instance_class: cache.r6g.large }
+
+  # ── eCommerce ───────────────────────────────────────────────────────────────────────────
+  - name: commerce
+    weight: 1.0
+    production: true
+    cloud:
+      provider: aws
+      account_id: "300000000202"
+      region: eu-west-1
+      vpc_id: vpc-0shopprodeuw1
+      nat_gateways: 1
+      cloudwatch: { albs: 2, s3_buckets: 2, nlb: false, ebs: true, nat_gateway: true, eks: true, firehose: false, private_link: false }
+    cluster:
+      type: eks
+      name: shop-prod-euw1
+      platform: { os: al2023, kubernetes_version: "1.31" }
+      node_groups:
+        - { name: general, instance_type: m6i.2xlarge, desired: 3, provisioner: managed }
+      observability: { cloudwatch: true }
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+        alloy_version: "1.16.3"
+        opencost: true
+        kepler: true
+        features:
+          cluster_metrics: true
+          cluster_events: true
+          pod_logs: true
+          profiling: true
+          application_observability: true
+      addons: [core_dns, vpc_cni, ebs_csi, alloy_health]
+    databases:
+      - { engine: postgres, version: "16.4", name: shop-orders-pg, instance_class: db.r6g.xlarge, observability: { cloudwatch: true, dbo11y: true, digests: 30 } }
+      - { engine: mysql,    version: "8.0.39", name: shop-catalog-mysql, instance_class: db.r6g.large, observability: { cloudwatch: true, dbo11y: true, digests: 25 } }
+    caches:
+      - { engine: redis, version: "7.1", name: shop-cart-cache, instance_class: cache.r6g.large }
+
+  # ── Manufacturing ───────────────────────────────────────────────────────────────────────
+  - name: manufacturing
+    weight: 1.0
+    production: true
+    cloud:
+      provider: aws
+      account_id: "300000000303"
+      region: eu-central-1
+      vpc_id: vpc-0mfgprodeuc1
+      nat_gateways: 1
+      cloudwatch: { albs: 1, s3_buckets: 2, nlb: false, ebs: true, nat_gateway: true, eks: true, firehose: false, private_link: false }
+    cluster:
+      type: eks
+      name: mfg-prod-euc1
+      platform: { os: al2023, kubernetes_version: "1.31" }
+      node_groups:
+        - { name: general, instance_type: m6i.2xlarge, desired: 3, provisioner: managed }
+      observability: { cloudwatch: true }
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+        alloy_version: "1.16.3"
+        opencost: true
+        kepler: true
+        features:
+          cluster_metrics: true
+          cluster_events: true
+          pod_logs: true
+          profiling: true
+          application_observability: true
+      addons: [core_dns, vpc_cni, ebs_csi, alloy_health]
+    databases:
+      - { engine: postgres, version: "16.4", name: mfg-production-pg, instance_class: db.r6g.xlarge, observability: { cloudwatch: true, dbo11y: true, digests: 30 } }
+      - { engine: mysql,    version: "8.0.39", name: mfg-quality-mysql, instance_class: db.r6g.large, observability: { cloudwatch: true, dbo11y: true, digests: 25 } }
+    caches:
+      - { engine: redis, version: "7.1", name: mfg-telemetry-cache, instance_class: cache.r6g.large }
+
+# ── Workloads ─────────────────────────────────────────────────────────────────────────────
+# One request journey per vertical, all three built on the SAME four roles so a scenario written
+# once ports to the others by substituting names:
+#
+#   role        | financial                  | commerce             | manufacturing
+#   ------------|----------------------------|----------------------|----------------------
+#   frontend    | fin-ebanking-web           | shop-storefront-web  | mfg-operations-portal
+#   gateway     | fin-payments-orchestrator  | shop-checkout-api    | mfg-mes-gateway
+#   downstream  | fin-sanctions-screening    | shop-payment-gateway | mfg-quality-service
+#   datastore   | fin-payments-ledger        | shop-orders-pg       | mfg-production-pg
+#
+# `runs_on` binds each workload to its vertical's cluster (NOT for_each_env — a workload belongs
+# to exactly one vertical). RUM is tuned per workload: ~3600 req/min at peak x 0.0008 x ~3.5
+# beacons ~= 10 page loads/min, with a 3-minute browser session.
+workloads:
+  # ── Financial Services ──────────────────────────────────────────────────────────────────
+  - type: app
+    name: fin-digital-banking
+    runs_on: fin-prod-euc2
+    traffic: { shape: diurnal, off_peak_rps: 8, peak_rps: 60, request_latency_p95_ms: 420 }
+    rum: { sample_rate: 0.0008, session_duration: 3m }
+    services:
+      - name: fin-ebanking-web
+        type: frontend
+        runtime: node
+        namespace: fin-channels
+        replicas: 2
+        entry: true
+        team: Digital Channels
+        version: "9.4.2"
+        routes: [GET /api/portal/overview, POST /api/payments/initiate]
+        profiles: [rum_faro]
+        calls: [fin-identity-gateway, fin-payments-orchestrator, fin-account-aggregation]
+        pages:
+          - { path: /overview,   name: "Account Overview",     actions: ["view balances", "refresh positions", "download statement"] }
+          - { path: /payments,   name: "Payments & Transfers", actions: ["initiate transfer", "add beneficiary", "confirm with token"] }
+          - { path: /cards,      name: "Cards",                actions: ["view transactions", "freeze card", "raise dispute"] }
+          - { path: /statements, name: "Statements",           actions: ["search documents", "download pdf"] }
+      - name: fin-identity-gateway
+        type: web
+        runtime: jvm
+        namespace: fin-security
+        replicas: 2
+        team: Identity & Access
+        version: "5.2.0"
+        routes: [POST /auth/oidc/introspect]
+        profiles: [scraped_http_server, runtime_jvm]
+        calls: [fin-session-cache]
+      - name: fin-payments-orchestrator
+        type: web
+        runtime: go
+        namespace: fin-payments
+        replicas: 3
+        team: Payments
+        version: "4.8.1"
+        routes: [POST /payments/sepa, POST /payments/swift, POST /payments/instant]
+        profiles: [scraped_http_server, runtime_go]
+        hpa: true
+        calls: [fin-sanctions-screening, fin-payments-ledger-db]
+      - name: fin-sanctions-screening
+        type: web
+        runtime: python
+        namespace: fin-compliance
+        replicas: 2
+        team: Financial Crime
+        version: "3.6.0"
+        routes: [POST /screening/evaluate]
+        profiles: [scraped_http_server, runtime_python]
+      - name: fin-account-aggregation
+        type: web
+        runtime: jvm
+        namespace: fin-core
+        replicas: 2
+        team: Core Banking
+        version: "7.11.3"
+        routes: [GET /accounts/balances, GET /accounts/transactions]
+        profiles: [scraped_http_server, runtime_jvm]
+        calls: [fin-positions-db]
+      - { name: fin-positions-db,       type: db,    runtime: jvm, db_instance: fin-positions-pg }
+      - { name: fin-payments-ledger-db, type: db,    runtime: jvm, db_instance: fin-payments-ledger }
+      - { name: fin-session-cache,      type: cache, runtime: go }
+
+  # ── eCommerce ───────────────────────────────────────────────────────────────────────────
+  - type: app
+    name: shop-storefront
+    runs_on: shop-prod-euw1
+    traffic: { shape: diurnal, off_peak_rps: 10, peak_rps: 60, request_latency_p95_ms: 380 }
+    rum: { sample_rate: 0.0008, session_duration: 3m }
+    services:
+      - name: shop-storefront-web
+        type: frontend
+        runtime: node
+        namespace: shop-web
+        replicas: 3
+        entry: true
+        team: Storefront
+        version: "14.2.0"
+        routes: [GET /api/catalog/browse, POST /api/checkout/submit]
+        profiles: [rum_faro]
+        calls: [shop-catalog-service, shop-checkout-api, shop-inventory-service]
+        pages:
+          - { path: /,             name: "Home",            actions: ["search products", "open category", "view promotion"] }
+          - { path: /category,     name: "Category Browse", actions: ["filter results", "sort by price", "open product"] }
+          - { path: /product,      name: "Product Detail",  actions: ["add to cart", "view reviews", "check stock"] }
+          - { path: /cart,         name: "Cart",            actions: ["update quantity", "apply voucher", "start checkout"] }
+          - { path: /checkout,     name: "Checkout",        actions: ["enter address", "select payment", "place order"] }
+          - { path: /order-status, name: "Order Status",    actions: ["track delivery", "view invoice"] }
+      - name: shop-catalog-service
+        type: web
+        runtime: jvm
+        namespace: shop-catalog
+        replicas: 3
+        team: Catalog
+        version: "8.1.0"
+        routes: [GET /catalog/search, GET /catalog/product]
+        profiles: [scraped_http_server, runtime_jvm]
+        calls: [shop-catalog-db, shop-cart-cache-node]
+      - name: shop-checkout-api
+        type: web
+        runtime: go
+        namespace: shop-checkout
+        replicas: 3
+        team: Checkout
+        version: "6.4.2"
+        routes: [POST /checkout/submit, POST /checkout/validate]
+        profiles: [scraped_http_server, runtime_go]
+        hpa: true
+        calls: [shop-payment-gateway, shop-orders-db]
+      - name: shop-payment-gateway
+        type: web
+        runtime: python
+        namespace: shop-payments
+        replicas: 2
+        team: Payments
+        version: "3.9.1"
+        routes: [POST /payments/authorize, POST /payments/capture]
+        profiles: [scraped_http_server, runtime_python]
+      - name: shop-inventory-service
+        type: web
+        runtime: go
+        namespace: shop-inventory
+        replicas: 2
+        team: Supply Chain
+        version: "5.2.3"
+        routes: [GET /inventory/availability, POST /inventory/reserve]
+        profiles: [scraped_http_server, runtime_go]
+        calls: [shop-orders-db]
+      - { name: shop-orders-db,       type: db,    runtime: jvm, db_instance: shop-orders-pg }
+      - { name: shop-catalog-db,      type: db,    runtime: jvm, db_instance: shop-catalog-mysql }
+      - { name: shop-cart-cache-node, type: cache, runtime: go }
+
+  # ── Manufacturing ───────────────────────────────────────────────────────────────────────
+  - type: app
+    name: mfg-operations
+    runs_on: mfg-prod-euc1
+    traffic: { shape: diurnal, off_peak_rps: 12, peak_rps: 60, request_latency_p95_ms: 300 }
+    rum: { sample_rate: 0.0008, session_duration: 3m }
+    services:
+      - name: mfg-operations-portal
+        type: frontend
+        runtime: node
+        namespace: mfg-ui
+        replicas: 2
+        entry: true
+        team: Plant Operations
+        version: "7.3.1"
+        routes: [GET /api/lines/status, POST /api/workorders/release]
+        profiles: [rum_faro]
+        calls: [mfg-mes-gateway, mfg-plant-telemetry, mfg-scheduling-service]
+        pages:
+          - { path: /line-overview,  name: "Line Overview",     actions: ["view line status", "acknowledge alarm", "drill into station"] }
+          - { path: /work-orders,    name: "Work Orders",       actions: ["release order", "reschedule order", "split batch"] }
+          - { path: /quality,        name: "Quality Inspection", actions: ["record measurement", "flag defect", "approve batch"] }
+          - { path: /oee,            name: "OEE Dashboard",     actions: ["change shift", "compare lines", "export report"] }
+          - { path: /maintenance,    name: "Maintenance",       actions: ["raise work request", "view schedule"] }
+      - name: mfg-mes-gateway
+        type: web
+        runtime: jvm
+        namespace: mfg-mes
+        replicas: 3
+        team: MES Platform
+        version: "11.6.0"
+        routes: [POST /mes/workorder/release, GET /mes/workorder/status]
+        profiles: [scraped_http_server, runtime_jvm]
+        hpa: true
+        calls: [mfg-quality-service, mfg-production-db]
+      - name: mfg-quality-service
+        type: web
+        runtime: python
+        namespace: mfg-quality
+        replicas: 2
+        team: Quality
+        version: "4.0.2"
+        routes: [POST /quality/inspect, GET /quality/spec]
+        profiles: [scraped_http_server, runtime_python]
+        calls: [mfg-quality-db]
+      - name: mfg-plant-telemetry
+        type: web
+        runtime: go
+        namespace: mfg-telemetry
+        replicas: 3
+        team: Plant Systems
+        version: "2.8.4"
+        routes: [GET /telemetry/line, GET /telemetry/station]
+        profiles: [scraped_http_server, runtime_go]
+        calls: [mfg-telemetry-cache-node]
+      - name: mfg-scheduling-service
+        type: web
+        runtime: jvm
+        namespace: mfg-planning
+        replicas: 2
+        team: Production Planning
+        version: "6.1.0"
+        routes: [POST /scheduling/plan, GET /scheduling/capacity]
+        profiles: [scraped_http_server, runtime_jvm]
+        calls: [mfg-production-db]
+      - { name: mfg-production-db,        type: db,    runtime: jvm, db_instance: mfg-production-pg }
+      - { name: mfg-quality-db,           type: db,    runtime: jvm, db_instance: mfg-quality-mysql }
+      - { name: mfg-telemetry-cache-node, type: cache, runtime: go }
+
+# One traditional host per vertical.
+hosts:
+  - { name: fin-pay-gw-01,   os: linux,   ip: 10.42.10.11, cpus: 8, memory_gb: 32, os_version: "22.04", observability: { docker: true, logs: true } }
+  - { name: shop-edge-01,    os: linux,   ip: 10.43.10.11, cpus: 8, memory_gb: 32, os_version: "22.04" }
+  - { name: mfg-plant-hmi-01, os: windows, ip: 10.44.20.31, cpus: 8, memory_gb: 32, os_version: "Server 2022" }
+
+integrations:
+  # ONE per kind for the whole estate (see the trade-offs note at the top). The public edge is
+  # modelled on the commerce storefront, which is the most edge-heavy of the three.
+  cloudflare:
+    zone: shop-demo.example.com
+    account: demo-verticals
+    colocations: [FRA, LHR, AMS]
+    tunnels:
+      - { name: shop-storefront-edge }
+  csp_azure:
+    subscriptions: 1
+    company: verticals
+    credential: ps_azure_demo
+    ingestion_path: serverless
+    sub_signals: [compute, databases]
+
+features:
+  synthetic_monitoring:
+    enabled: true
+    checks:
+      - { name: fin-ebanking-login,  target: "https://banking.fin-demo.example.com/login",        frequency: 60000, probe: synthkit-private, region: EMEA, labels: { vertical: financial,     team: digital-channels, tier: web } }
+      - { name: fin-payments-api,    target: "https://api.fin-demo.example.com/payments/health",  frequency: 60000, probe: synthkit-private, region: EMEA, labels: { vertical: financial,     team: payments,         tier: api } }
+      - { name: shop-storefront,     target: "https://shop-demo.example.com/",                    frequency: 60000, probe: synthkit-private, region: EMEA, labels: { vertical: commerce,      team: storefront,       tier: web } }
+      - { name: shop-checkout-api,   target: "https://api.shop-demo.example.com/checkout/health", frequency: 60000, probe: synthkit-private, region: EMEA, labels: { vertical: commerce,      team: checkout,         tier: api } }
+      - { name: mfg-operations-portal, target: "https://ops.mfg-demo.example.com/line-overview",  frequency: 60000, probe: synthkit-private, region: EMEA, labels: { vertical: manufacturing, team: plant-operations, tier: web } }
+      - { name: mfg-mes-api,         target: "https://api.mfg-demo.example.com/mes/health",       frequency: 60000, probe: synthkit-private, region: EMEA, labels: { vertical: manufacturing, team: mes-platform,     tier: api } }
+
+  fleet_management:
+    enabled: true
+    collectors_per_os: { linux: 2, windows: 1 }
+
+# ── Demo scenarios ────────────────────────────────────────────────────────────────────────
+# THE SAME THREE STORIES IN EVERY VERTICAL — identical modes and intensities, only the service
+# names differ, so one narrative works whichever vertical is on screen. Each is a downstream
+# failure that surfaces to FRONTEND users, so the walk is always
+# Frontend O11y -> App O11y -> the failing tier.
+#
+# Nine scenarios rather than three cross-vertical ones on purpose: each is INDIVIDUALLY
+# switchable at /control/ui (id "verticals/<name>"), so a demo can break one vertical and leave
+# the other two clean. The schedule below still fires all three verticals together per story.
+scenarios:
+  # ── financial ──
+  - name: fin_downstream_latency_cascade
+    title: "Downstream latency cascade (financial)"
+    summary: "The downstream sanctions-screening service slows; fin-payments-orchestrator retries and its own latency climbs, and frontend users feel it as degraded Core Web Vitals on payment journeys."
+    effects:
+      - { mode: latency_storm, target: fin-sanctions-screening, intensity: 0.8 }
+      - { mode: cpu_hotspot, target: fin-sanctions-screening, intensity: 0.6 }
+      - { mode: retry_storm, target: fin-payments-orchestrator, intensity: 0.6 }
+      - { mode: latency_storm, target: fin-payments-orchestrator, intensity: 0.5 }
+      - { mode: web_vitals_degraded, target: fin-ebanking-web, intensity: 0.6 }
+  - name: fin_downstream_error_cascade
+    title: "Downstream error cascade (financial)"
+    summary: "The downstream sanctions-screening service returns errors; fin-payments-orchestrator retries then fails, and frontend users hit visible failures mid-journey on payment journeys."
+    effects:
+      - { mode: error_spike, target: fin-sanctions-screening, intensity: 0.8 }
+      - { mode: retry_storm, target: fin-payments-orchestrator, intensity: 0.7 }
+      - { mode: error_spike, target: fin-payments-orchestrator, intensity: 0.5 }
+      - { mode: web_vitals_degraded, target: fin-ebanking-web, intensity: 0.5 }
+  - name: fin_downstream_datastore_saturation
+    title: "Datastore saturation (financial)"
+    summary: "Connections saturate and queries crawl on fin-payments-ledger; fin-payments-orchestrator backs up behind it and frontend users see payment journeys stall."
+    effects:
+      - { mode: connection_saturation, target: fin-payments-ledger, intensity: 0.8 }
+      - { mode: slow_query_storm, target: fin-payments-ledger, intensity: 0.7 }
+      - { mode: lock_contention, target: fin-payments-ledger, intensity: 0.5 }
+      - { mode: latency_storm, target: fin-payments-orchestrator, intensity: 0.6 }
+      - { mode: web_vitals_degraded, target: fin-ebanking-web, intensity: 0.5 }
+
+  # ── commerce ──
+  - name: shop_downstream_latency_cascade
+    title: "Downstream latency cascade (commerce)"
+    summary: "The downstream payment gateway slows; shop-checkout-api retries and its own latency climbs, and frontend users feel it as degraded Core Web Vitals on checkout journeys."
+    effects:
+      - { mode: latency_storm, target: shop-payment-gateway, intensity: 0.8 }
+      - { mode: cpu_hotspot, target: shop-payment-gateway, intensity: 0.6 }
+      - { mode: retry_storm, target: shop-checkout-api, intensity: 0.6 }
+      - { mode: latency_storm, target: shop-checkout-api, intensity: 0.5 }
+      - { mode: web_vitals_degraded, target: shop-storefront-web, intensity: 0.6 }
+  - name: shop_downstream_error_cascade
+    title: "Downstream error cascade (commerce)"
+    summary: "The downstream payment gateway returns errors; shop-checkout-api retries then fails, and frontend users hit visible failures mid-journey on checkout journeys."
+    effects:
+      - { mode: error_spike, target: shop-payment-gateway, intensity: 0.8 }
+      - { mode: retry_storm, target: shop-checkout-api, intensity: 0.7 }
+      - { mode: error_spike, target: shop-checkout-api, intensity: 0.5 }
+      - { mode: web_vitals_degraded, target: shop-storefront-web, intensity: 0.5 }
+  - name: shop_downstream_datastore_saturation
+    title: "Datastore saturation (commerce)"
+    summary: "Connections saturate and queries crawl on shop-orders-pg; shop-checkout-api backs up behind it and frontend users see checkout journeys stall."
+    effects:
+      - { mode: connection_saturation, target: shop-orders-pg, intensity: 0.8 }
+      - { mode: slow_query_storm, target: shop-orders-pg, intensity: 0.7 }
+      - { mode: lock_contention, target: shop-orders-pg, intensity: 0.5 }
+      - { mode: latency_storm, target: shop-checkout-api, intensity: 0.6 }
+      - { mode: web_vitals_degraded, target: shop-storefront-web, intensity: 0.5 }
+
+  # ── manufacturing ──
+  - name: mfg_downstream_latency_cascade
+    title: "Downstream latency cascade (manufacturing)"
+    summary: "The downstream quality service slows; mfg-mes-gateway retries and its own latency climbs, and frontend users feel it as degraded Core Web Vitals on work-order releases."
+    effects:
+      - { mode: latency_storm, target: mfg-quality-service, intensity: 0.8 }
+      - { mode: cpu_hotspot, target: mfg-quality-service, intensity: 0.6 }
+      - { mode: retry_storm, target: mfg-mes-gateway, intensity: 0.6 }
+      - { mode: latency_storm, target: mfg-mes-gateway, intensity: 0.5 }
+      - { mode: web_vitals_degraded, target: mfg-operations-portal, intensity: 0.6 }
+  - name: mfg_downstream_error_cascade
+    title: "Downstream error cascade (manufacturing)"
+    summary: "The downstream quality service returns errors; mfg-mes-gateway retries then fails, and frontend users hit visible failures mid-journey on work-order releases."
+    effects:
+      - { mode: error_spike, target: mfg-quality-service, intensity: 0.8 }
+      - { mode: retry_storm, target: mfg-mes-gateway, intensity: 0.7 }
+      - { mode: error_spike, target: mfg-mes-gateway, intensity: 0.5 }
+      - { mode: web_vitals_degraded, target: mfg-operations-portal, intensity: 0.5 }
+  - name: mfg_downstream_datastore_saturation
+    title: "Datastore saturation (manufacturing)"
+    summary: "Connections saturate and queries crawl on mfg-production-pg; mfg-mes-gateway backs up behind it and frontend users see work-order releases stall."
+    effects:
+      - { mode: connection_saturation, target: mfg-production-pg, intensity: 0.8 }
+      - { mode: slow_query_storm, target: mfg-production-pg, intensity: 0.7 }
+      - { mode: lock_contention, target: mfg-production-pg, intensity: 0.5 }
+      - { mode: latency_storm, target: mfg-mes-gateway, intensity: 0.6 }
+      - { mode: web_vitals_degraded, target: mfg-operations-portal, intensity: 0.5 }
+
+# ── Schedule ──────────────────────────────────────────────────────────────────────────────
+# A BARE time-of-day is DAILY-RECURRING in the blueprint timezone (Europe/Zurich = CET/CEST) —
+# it fires every day at that local wall-clock time for `for`. A dated form would be one-shot.
+# Each story fires across all three verticals at once; scheduled windows and live activation are
+# UNIONED, so a manual toggle at /control/ui works during or outside a window.
+incidents:
+  - { scenario: fin_downstream_latency_cascade, at: "03:00", for: 1h }
+  - { scenario: shop_downstream_latency_cascade, at: "03:00", for: 1h }
+  - { scenario: mfg_downstream_latency_cascade, at: "03:00", for: 1h }
+  - { scenario: fin_downstream_error_cascade, at: "06:00", for: 1h }
+  - { scenario: shop_downstream_error_cascade, at: "06:00", for: 1h }
+  - { scenario: mfg_downstream_error_cascade, at: "06:00", for: 1h }
+  - { scenario: fin_downstream_datastore_saturation, at: "09:00", for: 1h }
+  - { scenario: shop_downstream_datastore_saturation, at: "09:00", for: 1h }
+  - { scenario: mfg_downstream_datastore_saturation, at: "09:00", for: 1h }

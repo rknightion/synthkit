@@ -251,3 +251,46 @@ func NewSpanID() string { return hexN(8) }
 // (e.g. the aiagent sigil workload) that own one trace per conversation-turn — minted here so
 // nothing outside the ledger package mints request-scoped ids (I9).
 func NewTraceID() string { return hexN(16) }
+
+// SessionIDFor returns the RUM session id for one (scope, bucket) pair. Unlike the other minters
+// it is DETERMINISTIC: every request landing in the same bucket gets the SAME id, which is what
+// makes a browser session span many page-views instead of being reborn on every request. A random
+// draw cannot express that, because the value has to be stable across the whole window.
+//
+// Callers derive bucket from wall-clock time (unix / session-duration), so the session rotates
+// once per window. Minted here, like NewSpanID/NewTraceID, so nothing outside the ledger package
+// mints request-scoped ids (I9).
+//
+// The output is v4-SHAPED (version + variant nibbles set) because the Faro collector requires a
+// UUID-form X-Faro-Session-Id; it is not random and must never be used where unpredictability
+// matters.
+func SessionIDFor(scope string, bucket int64) string {
+	// FNV-1a over scope+bucket seeds a splitmix64 stream that fills the 16 bytes.
+	const (
+		offset64 = 14695981039346656037
+		prime64  = 1099511628211
+	)
+	h := uint64(offset64)
+	for i := 0; i < len(scope); i++ {
+		h ^= uint64(scope[i])
+		h *= prime64
+	}
+	for shift := 0; shift < 64; shift += 8 {
+		h ^= uint64(byte(bucket >> shift))
+		h *= prime64
+	}
+	var b [16]byte
+	for i := 0; i < 16; i += 8 {
+		h += 0x9e3779b97f4a7c15
+		z := h
+		z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
+		z = (z ^ (z >> 27)) * 0x94d049bb133111eb
+		z ^= z >> 31
+		for j := 0; j < 8; j++ {
+			b[i+j] = byte(z >> (8 * j))
+		}
+	}
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}

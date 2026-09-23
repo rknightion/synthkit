@@ -15,33 +15,55 @@ import (
 // narrative sample at the ENTRY node and walks the declared graph to build ONE request's hop tree
 // (one trace across all reachable nodes). Volume + cadence-invariance mirror web_service's minter.
 type minter struct {
-	workloadName string   // the app INSTANCE name — the ledger dispatch key (byWorkload)
-	entry        string   // entry-node name
-	pathNodes    []string // every node reachable from the entry (incl entry) — the per-request incident scopes
-	env          string
-	cluster      string
-	weight       float64
-	nonProd      bool
-	rumEnabled   bool // true when the entry node carries rum_faro + binding.RUM is set
-	traffic      Traffic
-	models       []ModelChoice // valid (model,provider) routings; one drawn per request → r.Model/r.Provider
-	routes       []string      // entry-node request routes; one drawn per request → r.Route
-	graph        *graph
+	workloadName  string   // the app INSTANCE name — the ledger dispatch key (byWorkload)
+	entry         string   // entry-node name
+	pathNodes     []string // every node reachable from the entry (incl entry) — the per-request incident scopes
+	env           string
+	cluster       string
+	weight        float64
+	nonProd       bool
+	rumEnabled    bool          // true when the entry node carries rum_faro + binding.RUM is set
+	rumRate       float64       // fraction of requests that are browser-origin (Config.RUM.SampleRate)
+	rumSessionFor time.Duration // browser-session lifetime; 0 ⇒ fresh session per request
+	traffic       Traffic
+	models        []ModelChoice // valid (model,provider) routings; one drawn per request → r.Model/r.Provider
+	routes        []string      // entry-node request routes; one drawn per request → r.Route
+	graph         *graph
 }
 
-func newMinter(name, env, cluster string, weight float64, nonProd bool, traffic Traffic, models []ModelChoice, g *graph) *minter {
+// defaultBrowserFraction is the share of entry requests that originate in a browser session when
+// a blueprint declares no `rum.sample_rate`. It is the historic hard-coded constant, kept as the
+// default so existing blueprints are unchanged.
+const defaultBrowserFraction = 0.6
+
+func newMinter(name, env, cluster string, weight float64, nonProd bool, traffic Traffic, models []ModelChoice, rum RUMDecl, g *graph) *minter {
+	rate := defaultBrowserFraction
+	if rum.SampleRate != nil {
+		rate = *rum.SampleRate
+		rate = min(max(rate, 0), 1)
+	}
+	// A bad duration must not silently fall back to per-request sessions — the loader validates
+	// the blueprint, so anything reaching here already parsed.
+	var sessionFor time.Duration
+	if rum.SessionDuration != "" {
+		if d, err := time.ParseDuration(rum.SessionDuration); err == nil && d > 0 {
+			sessionFor = d
+		}
+	}
 	return &minter{
-		workloadName: name,
-		entry:        g.entry.decl.Name,
-		pathNodes:    reachableNodes(g),
-		env:          env,
-		cluster:      cluster,
-		weight:       weight,
-		nonProd:      nonProd,
-		traffic:      traffic,
-		models:       models,
-		routes:       g.entry.decl.Routes,
-		graph:        g,
+		workloadName:  name,
+		entry:         g.entry.decl.Name,
+		pathNodes:     reachableNodes(g),
+		env:           env,
+		cluster:       cluster,
+		weight:        weight,
+		nonProd:       nonProd,
+		rumRate:       rate,
+		rumSessionFor: sessionFor,
+		traffic:       traffic,
+		models:        models,
+		routes:        g.entry.decl.Routes,
+		graph:         g,
 	}
 }
 
@@ -158,10 +180,21 @@ func (m *minter) mintOne(now time.Time, eng *shape.Engine) *ledger.Request {
 		Model:       mc.Model,
 		Provider:    mc.Provider,
 		Start:       now,
-		// BrowserOrigin: ~60% of requests from a frontend entry originate in a RUM session
+		// BrowserOrigin: a configurable fraction of entry requests originate in a RUM session
 		// (only meaningful when RUM is configured — the beacon + browser span are only emitted
-		// when b.RUM != nil; mirrors webservice minter's BrowserOrigin logic).
-		BrowserOrigin: m.rumEnabled && eng.Float64() < 0.6,
+		// when b.RUM != nil; mirrors webservice minter's BrowserOrigin logic). The rate is
+		// Config.RUM.SampleRate, defaulting to defaultBrowserFraction.
+		BrowserOrigin: m.rumEnabled && eng.Float64() < m.rumRate,
+	}
+
+	// Sticky browser session: all browser requests inside the same window share ONE session id,
+	// so a session spans many page-views. Overwrites the ledger's per-request default (which is
+	// still what non-browser and unconfigured requests get) with another LEDGER-minted id — the
+	// workload never mints one itself (I9). Backend logs/spans carry the same value, so the
+	// RUM-session -> backend-log correlation keeps working.
+	if r.BrowserOrigin && m.rumSessionFor > 0 {
+		bucket := now.UnixNano() / int64(m.rumSessionFor)
+		r.SessionID = ledger.SessionIDFor(m.workloadName, bucket)
 	}
 
 	// Per-service incidents (§6.5): an error_spike / latency_storm on ANY node in the request path

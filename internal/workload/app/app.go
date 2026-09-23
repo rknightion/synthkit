@@ -66,6 +66,28 @@ type Config struct {
 	// not affect the -dump inventory (I32). Values are blueprint-declared (customer model lists stay
 	// out of the catalog).
 	Models []ModelChoice `yaml:"models"`
+
+	// RUM tunes the browser lane INDEPENDENTLY of backend traffic. Without it, RUM volume is
+	// welded to Traffic: a fixed ~60% of entry requests become browser sessions, so a realistic
+	// backend rps produces an absurd page-view rate (80 rps ⇒ ~10k page loads/min). A demo wants
+	// a legible browser estate sitting on top of a busy backend, which needs its own knob.
+	RUM RUMDecl `yaml:"rum"`
+}
+
+// RUMDecl tunes the Faro/browser lane. Both fields are optional and default to the historic
+// behaviour, so blueprints that omit `rum:` are byte-identical to before.
+type RUMDecl struct {
+	// SampleRate is the fraction of entry-node requests that originate in a browser session.
+	// nil ⇒ defaultBrowserFraction (0.6, the historic constant). 0 disables the browser lane
+	// entirely while leaving backend traffic untouched. Each sampled request emits one assist
+	// beacon PLUS 1..maxNavSteps page-view beacons, so page-loads/min ≈ rps*60*rate*~3.5.
+	SampleRate *float64 `yaml:"sample_rate"`
+	// SessionDuration is how long one synthetic browser session lasts before a new one starts.
+	// Empty/0 ⇒ the historic behaviour of a FRESH session per request (every page load its own
+	// session — which is why session counts equalled page-view counts). When set, all browser
+	// requests inside the same window share one ledger-minted session id, so a session spans
+	// many page-views the way a real one does.
+	SessionDuration string `yaml:"session_duration"`
 }
 
 // OTelObs is the per-workload native-OTLP metrics switch. Metrics gates emission;
@@ -283,7 +305,7 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err := g.resolveDBIdentities(w.env, b.Databases); err != nil {
 		return nil, err
 	}
-	w.m = newMinter(w.b.Name, w.env, w.cluster, w.weight, w.nonProd, cfg.Traffic, cfg.Models, g)
+	w.m = newMinter(w.b.Name, w.env, w.cluster, w.weight, w.nonProd, cfg.Traffic, cfg.Models, cfg.RUM, g)
 	// Wire BrowserOrigin minting: the minter sets r.BrowserOrigin only when RUM is active
 	// (entry has rum_faro + binding carries a Faro sink). Mirror webservice minter's cfg.RUM flag.
 	w.m.rumEnabled = w.rumEnabled()
