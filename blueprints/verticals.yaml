@@ -508,3 +508,13 @@ incidents:
   - { scenario: fin_downstream_datastore_saturation, at: "09:00", for: 1h }
   - { scenario: shop_downstream_datastore_saturation, at: "09:00", for: 1h }
   - { scenario: mfg_downstream_datastore_saturation, at: "09:00", for: 1h }
+  # A fourth window inside the AFTERNOON PEAK. The three above sit at 03:00/06:00/09:00, so under
+  # a business_hours_plateau shape two of them fire at off-peak volume and only 09:00 lands in a
+  # European working day — leaving no live incident to show on a mid-afternoon call. This one
+  # repeats the error story at full traffic; the nocturnal windows stay as history any demo can
+  # scroll back to. Prefer a manual toggle at /control/ui for a live demo even so: a scheduled
+  # window breaks all three verticals at once, while firing ONE scenario shows a degraded vertical
+  # beside two healthy ones.
+  - { scenario: fin_downstream_error_cascade, at: "14:00", for: 1h }
+  - { scenario: shop_downstream_error_cascade, at: "14:00", for: 1h }
+  - { scenario: mfg_downstream_error_cascade, at: "14:00", for: 1h }
