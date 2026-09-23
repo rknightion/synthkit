@@ -47,6 +47,7 @@ func TestBundledRuntimeNamesAreResolvedCanonicalIdentities(t *testing.T) {
 		"hosts-macos", "hosts-windows", "k8s-collector-prom", "k8s-control-plane", "k8s-cost-power", "k8s-full-stack",
 		"k8s-logs-events", "k8s-minimal", "k8s-otel-native", "k8s-prometheus-operator", "k8s-windows-mixed", "netobs-enterprise",
 		"netobs-global", "netobs-spoke", "otlp-native", "profiling-demo", "synthetic-checks",
+		"verticals",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("resolved runtime name count = %d, want %d; names=%v", len(got), len(want), got)

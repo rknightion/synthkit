@@ -61,6 +61,9 @@ environments:
           pod_logs: true
           profiling: true
           application_observability: true
+        # Upstream arch rule TestPodLogTransportsAreExplicitAndExclusive requires exactly one
+        # explicit transport whenever pod_logs is on — the implicit default is no longer allowed.
+        pod_logs_method: opentelemetry
       addons: [core_dns, vpc_cni, ebs_csi, alloy_health]
     databases:
       - { engine: postgres, version: "16.4", name: fin-positions-pg, instance_class: db.r6g.xlarge, observability: { cloudwatch: true, dbo11y: true, digests: 30 } }
@@ -98,6 +101,9 @@ environments:
           pod_logs: true
           profiling: true
           application_observability: true
+        # Upstream arch rule TestPodLogTransportsAreExplicitAndExclusive requires exactly one
+        # explicit transport whenever pod_logs is on — the implicit default is no longer allowed.
+        pod_logs_method: opentelemetry
       addons: [core_dns, vpc_cni, ebs_csi, alloy_health]
     databases:
       - { engine: postgres, version: "16.4", name: shop-orders-pg, instance_class: db.r6g.xlarge, observability: { cloudwatch: true, dbo11y: true, digests: 30 } }
@@ -135,6 +141,9 @@ environments:
           pod_logs: true
           profiling: true
           application_observability: true
+        # Upstream arch rule TestPodLogTransportsAreExplicitAndExclusive requires exactly one
+        # explicit transport whenever pod_logs is on — the implicit default is no longer allowed.
+        pod_logs_method: opentelemetry
       addons: [core_dns, vpc_cni, ebs_csi, alloy_health]
     databases:
       - { engine: postgres, version: "16.4", name: mfg-production-pg, instance_class: db.r6g.xlarge, observability: { cloudwatch: true, dbo11y: true, digests: 30 } }
