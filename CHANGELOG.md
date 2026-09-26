@@ -2,6 +2,76 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.6.0](https://github.com/rknightion/synthkit/compare/v1.5.1...v1.6.0) (2026-09-26)
+
+
+### Features
+
+* **corpus:** promote directly attributed Alloy lab capture ([a6a6a32](https://github.com/rknightion/synthkit/commit/a6a6a323eaf0ba261655b9b6210581064130c6fc))
+* **datadog:** emit grounded host storage subset with coverage claims ([296d83a](https://github.com/rknightion/synthkit/commit/296d83a91c267c9004ffa79e4cd41825a0b0d4e4))
+* **datadog:** retain disabled swap envelopes with exact coverage claims ([c6e9f9f](https://github.com/rknightion/synthkit/commit/c6e9f9ff9926f7171b76952395dd5aacb2909f71))
+* **k8s:** add a selectable captured OTel pod-log resource profile ([c500ec6](https://github.com/rknightion/synthkit/commit/c500ec61618b13d83218d9b1a4292225e46aeac1))
+
+
+### Bug Fixes
+
+* **ci:** prune synthkit-skcapture as well ([03f5090](https://github.com/rknightion/synthkit/commit/03f5090d0e1169af3850cca48f24b3618a81e452))
+* **corpus:** retain live OTLP receiver metric attribution ([89da21b](https://github.com/rknightion/synthkit/commit/89da21b9a85ae87f8f7584b41409bc916d905592))
+* **deps:** update module github.com/grafana/nanogit to v1.5.0 ([#144](https://github.com/rknightion/synthkit/issues/144)) ([1a730ad](https://github.com/rknightion/synthkit/commit/1a730ad2aa9d2650350d69f2ff6be75b16f7d9f0))
+* **deps:** update module github.com/grafana/nanogit to v1.6.0 ([#145](https://github.com/rknightion/synthkit/issues/145)) ([cd3ea10](https://github.com/rknightion/synthkit/commit/cd3ea10ff5d618312459fc54a21d35ee47468640))
+* **deps:** update module github.com/grafana/nanogit to v1.6.1 ([#150](https://github.com/rknightion/synthkit/issues/150)) ([1b0606e](https://github.com/rknightion/synthkit/commit/1b0606e2de83a2c58f575515f324dd5079c2c4a5))
+* **deps:** update module github.com/grafana/nanogit to v1.6.2 ([#151](https://github.com/rknightion/synthkit/issues/151)) ([c1451f0](https://github.com/rknightion/synthkit/commit/c1451f013fdc7c4e7dd6b34a7e83f0d9837a1c8f))
+* **deps:** update module github.com/grafana/nanogit to v1.7.0 ([#169](https://github.com/rknightion/synthkit/issues/169)) ([d2adb27](https://github.com/rknightion/synthkit/commit/d2adb27cf7de2ac25bf230c2ff89d184da757452))
+* **fidelity:** model the captured OTLP pod-log permutation ([27e0288](https://github.com/rknightion/synthkit/commit/27e0288c33a3a3936fd76ccd907676251f827c28))
+* **fidelity:** right-size producer coverage to the final observed count ([ef9862a](https://github.com/rknightion/synthkit/commit/ef9862af2f4d02549f2b5e87f0ecac05a29a4c69))
+* **fidelity:** swap stale claims for Karpenter summary components ([0c9e4b2](https://github.com/rknightion/synthkit/commit/0c9e4b2b6ee6fba3c418f880e047270ff72de30e))
+* **host:** model captured Docker machine identity placement ([19ec8a7](https://github.com/rknightion/synthkit/commit/19ec8a7de3f502fda1b81744f99db0a7eb3871b9))
+* **inventory:** compare modelled collector permutations live ([39807a0](https://github.com/rknightion/synthkit/commit/39807a0f07808778983b1969e3321f5b106e7ea5))
+* **lab:** accept producer identity after job consumption ([1ab4df0](https://github.com/rknightion/synthkit/commit/1ab4df086582ed7f4f2424be56aba8ebe13349d9))
+* **lab:** assert consumed scrape jobs through producer identity ([4aba3ab](https://github.com/rknightion/synthkit/commit/4aba3abcb80d6362e5b5ac9a9de8ea853f510faa))
+* **lab:** validate consumed producer identity for OTLP podlogs ([623414a](https://github.com/rknightion/synthkit/commit/623414afc3972e2f49fc6d3e791637890d39dc9e))
+* **receiver:** attribute OTLP metrics from resource service identity ([6ec6db6](https://github.com/rknightion/synthkit/commit/6ec6db6bc759b267318116982138a35d52752e9d))
+* **receiver:** attribute remote-write captures by observed job ([90a738b](https://github.com/rknightion/synthkit/commit/90a738b264cd9c5ee71022c2b6d26cfd757eda52))
+
+
+### Documentation
+
+* adopt canonical routing and bounded root rescue ([3fc234d](https://github.com/rknightion/synthkit/commit/3fc234d74b587a961fde1c4c0c85e22a7d7a9930))
+* align recovery contracts and compaction evidence ([a2d44c5](https://github.com/rknightion/synthkit/commit/a2d44c51d734cf106f608890e396fdea1b2e36fa))
+* **backlog:** close SKT-0070 on green fidelity and exact-head CI ([21f7c49](https://github.com/rknightion/synthkit/commit/21f7c49df44b57f34bb0482cbe4247c55fcc5032))
+* **backlog:** reconcile wave acceptance and zero-headroom handoff ([f2fe48a](https://github.com/rknightion/synthkit/commit/f2fe48a9654f1300b795fe0e918c8cd0191c8251))
+* **backlog:** record the permutation-demotion cause and the second fidelity blocker ([0462a4b](https://github.com/rknightion/synthkit/commit/0462a4b137f85e0942c28cc51fe1daee0fae71c3))
+* **corpus:** capture Alloy OTLP pod-log envelope at chart 4.5.0 ([2a749df](https://github.com/rknightion/synthkit/commit/2a749df219e1b7f58ad12007d0dc18d833b1ae3a))
+* park Docker close on frozen exemption cardinality ([61f8eee](https://github.com/rknightion/synthkit/commit/61f8eeec855a7e87d73281d4d549a3d50fde1113))
+* publish canonical agent documents ([e1ca64c](https://github.com/rknightion/synthkit/commit/e1ca64c458516bf9a25c227e9e221ba418326742))
+* publish canonical agent documents ([b68629c](https://github.com/rknightion/synthkit/commit/b68629c83023c9eb1ef6f1ea58785b85486d9efb))
+* publish canonical agent documents ([0425876](https://github.com/rknightion/synthkit/commit/0425876d22f23be02dbcdcf281a6981d12665aaf))
+* publish canonical agent documents ([5f1d421](https://github.com/rknightion/synthkit/commit/5f1d42117bbd13934ec3313d643505a71a65e985))
+* publish canonical agent documents ([d2b6d8d](https://github.com/rknightion/synthkit/commit/d2b6d8d2f16cc7139d116630489bc7474bb52cd3))
+* publish canonical agent documents ([8921638](https://github.com/rknightion/synthkit/commit/8921638b82db216135570c41b0c835e703ab7e31))
+* publish canonical agent documents ([cfa1ba7](https://github.com/rknightion/synthkit/commit/cfa1ba79a3a752bc70375f0da8bc0bdbe47b5b54))
+* publish canonical agent documents ([a8bc4b8](https://github.com/rknightion/synthkit/commit/a8bc4b8650193e36b077bdac1f15b2a2739441f1))
+* publish canonical agent documents ([5e06457](https://github.com/rknightion/synthkit/commit/5e06457c25d3d7675472752c3bb2702584664a86))
+* publish canonical agent documents ([4fc0091](https://github.com/rknightion/synthkit/commit/4fc0091f8b7c4271f70e9decff33cb84e966c9a3))
+* publish canonical agent documents ([6909a78](https://github.com/rknightion/synthkit/commit/6909a7842c54cb76db81910d55340e74c3499c60))
+* publish canonical agent documents ([b1b9a51](https://github.com/rknightion/synthkit/commit/b1b9a51e3fbf7512a67f16ae0e59b1f9f27f7cb7))
+* publish canonical agent documents ([b8fb6d8](https://github.com/rknightion/synthkit/commit/b8fb6d826561f88065b4c11e2b0309c749ce40ec))
+* publish canonical agent documents ([650d140](https://github.com/rknightion/synthkit/commit/650d140c70177ede56b1029ae9c81e5650406412))
+* publish canonical agent documents ([f7740d3](https://github.com/rknightion/synthkit/commit/f7740d31de56bfdc7f544f935ae3610b716bd2eb))
+* publish canonical agent documents ([ee35052](https://github.com/rknightion/synthkit/commit/ee350526b260182eef36ba6b53566ddc7890c781))
+* publish canonical agent documents ([3896b18](https://github.com/rknightion/synthkit/commit/3896b184a91442fe1a0d31c9e0e370514d451201))
+* publish public Backlog workspace ([798dcbc](https://github.com/rknightion/synthkit/commit/798dcbcffc9b68fe0a45f05a7c57eeaf60ed82f2))
+* reconcile host breadth evidence and parked acceptance ([4068d61](https://github.com/rknightion/synthkit/commit/4068d61f5ab804a4ad24a4a50e79de8acd4baf1b))
+* sync approved fan-out scheduling and route verification ([0dd13bc](https://github.com/rknightion/synthkit/commit/0dd13bcbea8f933049a2ae3c2c460bd6bf838234))
+* sync cost-aware fan-out routing and prompt guidance ([645e60a](https://github.com/rknightion/synthkit/commit/645e60a79a217a4c7eb2bc5fdbf681e95501b0d6))
+* sync fan-out async decision-only guidance ([c56147c](https://github.com/rknightion/synthkit/commit/c56147c1364d6f2aee7d0fdf2e6f54b8a4a8eef8))
+* sync fixed Astra low orchestration and rescue routing ([e182864](https://github.com/rknightion/synthkit/commit/e18286487f1cd05bbc75953f6364721b145c8600))
+* sync polling and integration contracts ([73ef78a](https://github.com/rknightion/synthkit/commit/73ef78af6d6aeb09008b5603cd56b6f6c0de201e))
+* sync root async question policy ([8aeb3a2](https://github.com/rknightion/synthkit/commit/8aeb3a2df287076f7eba783389420dbd7a60814f))
+* sync same-session fan-out recovery contract ([be566ec](https://github.com/rknightion/synthkit/commit/be566eca5dd2200489669d7375d7d21b25a7ea11))
+* sync wave orchestration and existing-root contracts ([544234a](https://github.com/rknightion/synthkit/commit/544234a31e6c861fed31921686ad38e42071294b))
+* sync wave reliability and worktree contracts ([e7efee2](https://github.com/rknightion/synthkit/commit/e7efee219c29d82b3400193ec518d54267a4984d))
+
 ## [1.5.1](https://github.com/rknightion/synthkit/compare/v1.5.0...v1.5.1) (2026-09-10)
 
 
