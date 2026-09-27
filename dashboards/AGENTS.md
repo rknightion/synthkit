@@ -18,6 +18,7 @@ self-serve dashboard behind `cmd/synthkit-control-dash`, powered by the Infinity
 the control plane's `/control/*` routes rather than promrw, and it exposes only the audience-safe
 knobs (volume and scenarios, per `control.CustomerSchema`). The operator UI at `/control/ui` keeps
 the full set.
+`-layout control-plane` generates a separate instructor console from the same command with scenario actions and signal-backed impact charts.
 
 ## What is source and what is output
 

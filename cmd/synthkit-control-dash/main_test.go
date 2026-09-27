@@ -7,8 +7,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/rknightion/synthkit/dashboard"
 )
 
 func TestGenerateWritesValidV2Dashboard(t *testing.T) {
@@ -67,6 +70,138 @@ func TestGenerateWritesValidV2Dashboard(t *testing.T) {
 		body := `{\"active_scenarios\":[\"` + sc.id() + `\"]}`
 		if !strings.Contains(s, body) {
 			t.Errorf("missing fixed-body activate button for scenario %q (body %q)", sc.id(), body)
+		}
+	}
+}
+
+func TestControlPlaneOmitsUnemittedHTTPLatency(t *testing.T) {
+	o := opts{writeBaseURL: "http://control.test", dsName: "control", dsUID: "control", actionMode: actionModeInfinity,
+		layout: layoutControlPlane, promUID: "prom", lokiUID: "loki", blueprints: "testdata"}
+	o.folder = "training"
+	d, err := buildControlPlaneDashboard(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := dashboard.Render(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), `http_server_request_duration_seconds_sum{blueprint=\"control-plane-fixture\",service=\"browser\"}`) ||
+		strings.Contains(string(b), `http_server_request_duration_seconds_sum{service=\"browser\"`) {
+		t.Fatal("unemitted HTTP server histogram queried for browser")
+	}
+	for _, want := range []string{`"from": "now-3h"`, `"grafana.app/folder"`, `/control/state`, `/control/readiness`,
+		`/control/scenarios/activate`, `/control/scenarios/deactivate`, `"collapse": true`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("dashboard missing %q", want)
+		}
+	}
+	var doc any
+	if err := json.Unmarshal(b, &doc); err != nil {
+		t.Fatal(err)
+	}
+	scenarios, err := loadScenarios(o.blueprints)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var actions []map[string]any
+	collectActions(doc, &actions)
+	for _, sc := range scenarios {
+		body := `{"scenario":"` + sc.id() + `"}`
+		for _, path := range []string{"/control/scenarios/activate", "/control/scenarios/deactivate"} {
+			found := false
+			for _, a := range actions {
+				i, ok := a["infinity"].(map[string]any)
+				if ok && strings.HasSuffix(i["url"].(string), path) && i["body"] == body {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("missing %s action for %s", path, sc.id())
+			}
+		}
+	}
+	var exprs []string
+	collectExprs(doc, &exprs)
+	if len(exprs) == 0 {
+		t.Fatal("no impact chart queries")
+	}
+
+}
+
+func TestShippedScenarioImpactQueriesUseDerivedFamilies(t *testing.T) {
+	scenarios, err := loadScenarios("../../blueprints")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scenarios) == 0 {
+		t.Fatal("no shipped scenarios")
+	}
+	surface, err := deriveImpact(scenarios)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metric := regexp.MustCompile(`rate\(([a-zA-Z_][a-zA-Z_0-9]*?)(?:_sum|_count)\{`)
+	logSource := regexp.MustCompile(`source="([^"]+)"`)
+	seen := map[string]bool{}
+	for _, sc := range scenarios {
+		m := surface.manifests[sc.Blueprint]
+		if m == nil {
+			t.Errorf("no derived manifest for %s", sc.Blueprint)
+			continue
+		}
+		for _, target := range sc.Targets {
+			key := sc.Blueprint + "\x00" + target
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			q := surface.queries[key]
+			if q.latency != "" {
+				matches := metric.FindAllStringSubmatch(q.latency, -1)
+				if len(matches) != 2 {
+					t.Errorf("%s: latency query must use one histogram's sum and count: %s", key, q.latency)
+				}
+				for _, match := range matches {
+					if _, ok := m.Metric(match[1]); !ok {
+						t.Errorf("%s: unemitted metric family %s", key, match[1])
+					}
+				}
+			}
+			if q.errors != "" {
+				match := logSource.FindStringSubmatch(q.errors)
+				if len(match) < 2 {
+					t.Errorf("%s: log query lacks source: %s", key, q.errors)
+					continue
+				}
+				found := false
+				for _, source := range m.LogSources {
+					if source.Source == match[1] {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("%s: unemitted log source %s", key, match[1])
+				}
+			}
+		}
+	}
+}
+
+func collectExprs(v any, out *[]string) {
+	switch x := v.(type) {
+	case map[string]any:
+		if e, ok := x["expr"].(string); ok {
+			*out = append(*out, e)
+		}
+		for _, child := range x {
+			collectExprs(child, out)
+		}
+	case []any:
+		for _, child := range x {
+			collectExprs(child, out)
 		}
 	}
 }
@@ -217,6 +352,11 @@ func TestActionModeValidation(t *testing.T) {
 		{"infinity URL fragment", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h/control#section"}, "-write-base-url must be an absolute HTTP(S) URL without credentials, query or fragment in infinity mode"},
 		{"infinity empty URL fragment", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h/control#"}, "-write-base-url must be an absolute HTTP(S) URL without credentials, query or fragment in infinity mode"},
 		{"unknown mode", opts{actionMode: "browser"}, "must be fetch or infinity"},
+		{"control-plane complete", opts{layout: layoutControlPlane, actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "http://h", promUID: "p", lokiUID: "l"}, ""},
+		{"control-plane needs infinity", opts{layout: layoutControlPlane, promUID: "p", lokiUID: "l"}, "requires -action-mode infinity"},
+		{"control-plane needs prom", opts{layout: layoutControlPlane, actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "http://h", lokiUID: "l"}, "requires -prom-uid and -loki-uid"},
+		{"control-plane needs loki", opts{layout: layoutControlPlane, actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "http://h", promUID: "p"}, "requires -prom-uid and -loki-uid"},
+		{"unknown layout", opts{layout: "grid"}, "-layout must be customer or control-plane"},
 	} {
 		err := tc.o.validate()
 		if (err == nil) != (tc.wantErr == "") || (err != nil && !strings.Contains(err.Error(), tc.wantErr)) {

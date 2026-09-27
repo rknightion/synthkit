@@ -25,6 +25,8 @@ const (
 	actionModeFetch             = "fetch"
 	actionModeInfinity          = "infinity"
 	writeBaseControlSuffixError = "-write-base-url must not end in /control; pass the base URL, synthkit-control-dash appends /control/... itself"
+	layoutCustomer              = "customer"
+	layoutControlPlane          = "control-plane"
 )
 
 type opts struct {
@@ -32,11 +34,27 @@ type opts struct {
 	dsName       string
 	dsUID        string
 	actionMode   string
+	layout       string
+	folder       string
+	promUID      string
+	lokiUID      string
 	outDir       string
 	blueprints   string
 }
 
 func (o opts) validate() error {
+	switch o.layout {
+	case "", layoutCustomer:
+	case layoutControlPlane:
+		if o.actionMode != actionModeInfinity {
+			return errors.New("-layout control-plane requires -action-mode infinity")
+		}
+		if o.promUID == "" || o.lokiUID == "" {
+			return errors.New("-layout control-plane requires -prom-uid and -loki-uid")
+		}
+	default:
+		return errors.New("-layout must be customer or control-plane")
+	}
 	switch o.actionMode {
 	case "", actionModeFetch:
 		if o.writeBaseURL == "" {
@@ -83,6 +101,10 @@ func main() {
 	flag.StringVar(&o.dsName, "ds-name", "", "Infinity datasource name (required)")
 	flag.StringVar(&o.actionMode, "action-mode", actionModeFetch, "fetch (browser POST) or infinity (server-side via the datasource; needs Grafana toggle vizActionsAuth)")
 	flag.StringVar(&o.dsUID, "ds-uid", "", "Infinity datasource UID (required with -action-mode infinity)")
+	flag.StringVar(&o.layout, "layout", layoutCustomer, "customer or control-plane instructor console")
+	flag.StringVar(&o.folder, "folder", "", "target Grafana folder UID (empty = General)")
+	flag.StringVar(&o.promUID, "prom-uid", "", "Prometheus datasource UID for control-plane impact charts")
+	flag.StringVar(&o.lokiUID, "loki-uid", "", "Loki datasource UID for control-plane impact charts")
 	flag.StringVar(&o.outDir, "out", "", "output directory (required)")
 	flag.StringVar(&o.blueprints, "blueprints", "./blueprints", "directory of *.yaml blueprints to enumerate scenarios from")
 	flag.Parse()
@@ -98,7 +120,11 @@ func generate(o opts) error {
 	if err := o.validate(); err != nil {
 		return err
 	}
-	d, err := buildControlDashboard(o)
+	build := buildControlDashboard
+	if o.layout == layoutControlPlane {
+		build = buildControlPlaneDashboard
+	}
+	d, err := build(o)
 	if err != nil {
 		return err
 	}

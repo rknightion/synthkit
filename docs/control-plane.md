@@ -130,6 +130,12 @@ visibility to operators. Grafana's Viewer restriction on dashboard actions does 
 datasource from direct queries. The upstream contributor reported a Grafana 13.3 click-test through
 PDC; synthkit's offline generation checks do not verify live action execution.
 
+For an instructor console, pass `-layout control-plane -action-mode infinity` with `-ds-uid`,
+`-prom-uid` and `-loki-uid`. The generated dashboard has status tiles, one Start/Stop card per
+scenario, emitted-family impact charts for eligible target services, collapsed fleet controls and
+a three-hour default range. `-folder` annotates its destination folder. Impact charts are omitted
+when the target node has no matching emitted metric or log family.
+
 ## Endpoint reference
 
 ### Read-only (GET; authenticated when `CONTROL_TOKEN` is set, except readiness)

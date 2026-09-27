@@ -45,8 +45,11 @@ func (o opts) action() actionFunc {
 // scenario is one enumerated incident, with the blueprint it came from. id = "<bpName>/<name>".
 type scenario struct {
 	Blueprint string
+	Path      string
 	Name      string
 	Title     string
+	Summary   string
+	Targets   []string // distinct effect targets, in declaration order
 }
 
 func (s scenario) id() string { return s.Blueprint + "/" + s.Name }
@@ -78,7 +81,15 @@ func loadScenarios(dir string) ([]scenario, error) {
 			if title == "" {
 				title = sc.Name
 			}
-			out = append(out, scenario{Blueprint: res.Name, Name: sc.Name, Title: title})
+			var targets []string
+			seen := map[string]bool{}
+			for _, e := range sc.Effects {
+				if e.Target != "" && !seen[e.Target] {
+					seen[e.Target] = true
+					targets = append(targets, e.Target)
+				}
+			}
+			out = append(out, scenario{Blueprint: res.Name, Path: filepath.Join(dir, e.Name()), Name: sc.Name, Title: title, Summary: sc.Summary, Targets: targets})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {

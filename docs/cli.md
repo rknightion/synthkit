@@ -205,6 +205,9 @@ go run ./cmd/synthkit-control-dash -ds-name <name> -out <dir> [flags]
 | `-blueprints <dir>` | no | Directory of `*.yaml` blueprints to enumerate scenarios from (default `./blueprints`). |
 | `-action-mode <mode>` | no | `fetch` (default): browser-direct POST buttons. `infinity`: Grafana sends each POST server-side through the Infinity datasource. Requires `-ds-uid`, `-write-base-url`, and Grafana's `vizActionsAuth` feature toggle. |
 | `-ds-uid <uid>` | with `infinity` | Infinity datasource UID used by server-side actions. |
+| `-layout <name>` | no | `customer` (default) or `control-plane` instructor console. The latter requires `-action-mode infinity`. |
+| `-prom-uid`, `-loki-uid` | with `control-plane` | Datasource UIDs for impact charts. |
+| `-folder <uid>` | no | Target Grafana folder UID. |
 
 Without `-write-base-url`, the buttons POST to relative `/control/...` paths on Grafana's own origin.
 They work only when a reverse proxy on that origin routes `/control/` to the synthkit control plane.

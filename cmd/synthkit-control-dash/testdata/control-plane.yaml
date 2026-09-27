@@ -1,0 +1,41 @@
+# Small offline scenario fixture. The browser node has no scraped HTTP server profile.
+name: control-plane-fixture
+label: control-plane-fixture
+shape: business_hours_plateau
+timezone: Europe/London
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: eu-west-1
+      vpc_id: vpc-0fixture
+    cluster:
+      type: eks
+      name: fixture-cluster
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 1 }
+
+workloads:
+  - type: app
+    name: fixture-app
+    runs_on: fixture-cluster
+    traffic: { shape: diurnal, off_peak_rps: 2, peak_rps: 5 }
+    services:
+      - name: browser
+        type: frontend
+        entry: true
+        calls: [backend]
+      - name: backend
+        type: web
+        profiles: [scraped_http_server]
+
+scenarios:
+  - name: browser-latency
+    title: Browser latency
+    summary: Browser and backend requests slow down.
+    effects:
+      - { mode: latency_storm, target: browser, intensity: 0.5 }
+      - { mode: latency_storm, target: backend, intensity: 0.5 }

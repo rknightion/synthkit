@@ -40,6 +40,17 @@ type RowSpec struct {
 	Cells           []Cell
 	Repeat          string // template-variable name to repeat this row by ("" = no repeat)
 	ConditionalData bool   // when true, attach a data-presence conditional rendering group
+	Collapsed       bool   // when true, the row starts collapsed
+}
+
+// CollapsedSection builds a RowSpec that starts collapsed (secondary or risky controls).
+func CollapsedSection(title string, cells ...Cell) RowSpec {
+	return RowSpec{Title: title, Cells: cells, Collapsed: true}
+}
+
+// WithRows lays the dashboard out as titled rows without a tab bar.
+func WithRows(d *Dashboard, rows ...RowSpec) {
+	d.Builder.RowsLayout(rowsFor(rows))
 }
 
 // Section builds a RowSpec.
@@ -107,6 +118,9 @@ func rowsFor(sections []RowSpec) *dashboardv2.RowsBuilder {
 	rows := dashboardv2.Rows()
 	for _, s := range sections {
 		row := dashboardv2.Row(s.Title).GridLayout(gridForCells(s.Cells))
+		if s.Collapsed {
+			row = row.Collapse(true)
+		}
 		if s.Repeat != "" {
 			// mode defaults to "variable" (RepeatModeVariable); Value is the bare var name.
 			row = row.Repeat(dashboardv2.NewRowRepeatOptionsBuilder().Value(s.Repeat))
