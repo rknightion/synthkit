@@ -1,0 +1,31 @@
+---
+id: SKT-0082
+title: Port server-side Infinity actions into synthkit-control-dash
+status: To Do
+assignee: []
+created_date: '2026-09-27 10:19'
+labels: []
+dependencies: []
+ordinal: 178000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+GitHub issue #172: a contributor runs workshops where the synthkit control plane is ClusterIP only, so browser fetch actions cannot reach it. Grafana infinity-type actions send the POST server-side through the Infinity datasource (optionally over PDC). The contributor click-verified them on Grafana 13.3 with the vizActionsAuth feature toggle; the current dashboard/panels.go comment says infinity actions never fire, which predates that evidence. Source to port: fork commit 4811a47ae8266d046ea7ae664739927cb9eb451c, rebased onto current main, credited with Co-authored-by.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 synthkit-control-dash accepts -action-mode fetch|infinity and -ds-uid; infinity mode without -ds-uid or -write-base-url fails validation with a clear error
+- [ ] #2 In infinity mode every button is a type infinity action carrying the datasource UID, POST method, absolute URL and JSON content-type header, and no fetch action remains
+- [ ] #3 Regenerating dashboards/examples/control/synthkit-customer-control.json with default flags produces no diff
+- [ ] #4 dashboard/panels.go and docs/control-plane.md state the vizActionsAuth requirement and that infinity mode lets anyone who can use the datasource and view the dashboard mutate the control plane
+<!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [ ] #3 just dump — inventory diffed against signals/
+<!-- DOD:END -->
