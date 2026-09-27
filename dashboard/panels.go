@@ -476,7 +476,7 @@ func InfinityTablePanel(title, refID, url, dsName, rootSelector string, cols ...
 }
 
 // infinityInlineTarget builds the one-row INLINE-DATA Infinity target the action board hangs its
-// fetch buttons on. The single `_` field's single cell becomes the Actions cell — the buttons
+// buttons on. The single `_` field's single cell becomes the Actions cell — the buttons
 // render there regardless of generator reachability (no network query).
 func infinityInlineTarget(dsName string) *dashboardv2.TargetBuilder {
 	return dashboardv2.NewTargetBuilder().
@@ -501,14 +501,37 @@ func FetchAction(title, url, jsonBody string) *dashboardv2.ActionBuilder {
 			Body(jsonBody))
 }
 
-// ActionBoardPanel builds the VERIFIED firing widget: a one-row INLINE-DATA table whose single
-// Actions cell holds N type:"fetch" actions with fixed JSON bodies. The shape (browser
-// click-verified on Grafana 13.1):
-//   - fieldConfig.defaults.actions = [the fetch actions]   (via table .Actions)
+// InfinityAction builds a type:"infinity" action: Grafana sends the POST server-side through the
+// Infinity datasource, so its stored credentials and Private Data Source Connect apply and the
+// browser never reaches the target. It fires only when the Grafana feature toggle
+// vizActionsAuth is enabled on the stack. An upstream contributor reported a Grafana 13.3
+// click-test through Private Data Source Connect; this repository has not independently verified
+// that UI behavior.
+func InfinityAction(title, dsUID, url, jsonBody string) *dashboardv2.ActionBuilder {
+	return dashboardv2.NewActionBuilder().
+		Title(title).
+		Type(dashboardv2.ActionTypeInfinity).
+		Confirmation("").
+		OneClick(false).
+		Infinity(dashboardv2.NewInfinityOptionsBuilder().
+			Method(dashboardv2.HttpRequestMethodPOST).
+			Url(url).
+			Body(jsonBody).
+			DatasourceUid(dsUID).
+			Headers([][]string{{"Content-Type", "application/json"}}))
+}
+
+// ActionBoardPanel builds the action-button widget: a one-row INLINE-DATA table whose single
+// Actions cell holds fixed-body actions. The table shape, with fetch actions, was browser
+// click-verified on Grafana 13.1:
+//   - fieldConfig.defaults.actions = [the actions]         (via table .Actions)
 //   - fieldConfig.defaults.custom.cellOptions.type:"actions" (via .CellOptions actions)
 //   - options.showHeader:false                              (the button labels ARE the UI)
 //
-// type:"infinity" actions and "auto"+oneClick cells DO NOT fire — never use them.
+// "auto"+oneClick cells DO NOT fire — never use them. type:"infinity" actions fire only with the
+// vizActionsAuth feature toggle (see InfinityAction); fetch actions need no toggle. An upstream
+// contributor reported a Grafana 13.3 click-test through Private Data Source Connect; this
+// repository has not independently verified that UI behavior.
 func ActionBoardPanel(title, dsName string, actions ...*dashboardv2.ActionBuilder) *dashboardv2.PanelBuilder {
 	builders := make([]cog.Builder[dashboardv2.Action], len(actions))
 	for i, a := range actions {

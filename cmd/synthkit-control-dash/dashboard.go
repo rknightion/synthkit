@@ -16,17 +16,30 @@ import (
 	"github.com/rknightion/synthkit/internal/runner"
 )
 
-// activationActions builds one discrete FIXED-body fetch button per scenario (no ${__data}
+// activationActions builds one discrete fixed-body POST button per scenario (no ${__data}
 // interpolation — that 400s), plus a trailing "Clear all incidents" button. Each scenario's id is
-// baked into its own JSON body literal so the button fires deterministically.
-func activationActions(scenarios []scenario, postURL string) []*dashboardv2.ActionBuilder {
+// baked into its own JSON body literal so the button targets that scenario deterministically.
+func activationActions(scenarios []scenario, act actionFunc) []*dashboardv2.ActionBuilder {
 	acts := make([]*dashboardv2.ActionBuilder, 0, len(scenarios)+1)
 	for _, s := range scenarios {
 		body := `{"active_scenarios":["` + s.id() + `"]}`
-		acts = append(acts, dashboard.FetchAction(s.Title, postURL, body))
+		acts = append(acts, act(s.Title, "/control/scenarios", body))
 	}
-	acts = append(acts, dashboard.FetchAction("Clear all incidents", postURL, `{"active_scenarios":[]}`))
+	acts = append(acts, act("Clear all incidents", "/control/scenarios", `{"active_scenarios":[]}`))
 	return acts
+}
+
+// actionFunc builds one fixed-body POST button for a control path.
+type actionFunc func(title, path, body string) *dashboardv2.ActionBuilder
+
+func (o opts) action() actionFunc {
+	return func(title, path, body string) *dashboardv2.ActionBuilder {
+		url := joinURL(o.writeBaseURL, path)
+		if o.actionMode == actionModeInfinity {
+			return dashboard.InfinityAction(title, o.dsUID, url, body)
+		}
+		return dashboard.FetchAction(title, url, body)
+	}
 }
 
 // scenario is one enumerated incident, with the blueprint it came from. id = "<bpName>/<name>".
@@ -80,14 +93,15 @@ func loadScenarios(dir string) ([]scenario, error) {
 // buildControlDashboard assembles the customer-control dashboard from the enumerated blueprints.
 // Panels:
 //  1. Header           — markdown intro / how to use it
-//  2. Load presets     — ACTION BOARD: fixed-body fetch buttons POST /control/load (Idle/Normal/Peak/Stress)
+//  2. Load presets     — ACTION BOARD: fixed-body buttons POST /control/load (Idle/Normal/Peak/Stress)
 //  3. Current state    — READ table: Infinity GET /control/state (live knobs, explicit columns)
 //  4. Incidents        — READ table: Infinity GET /control/schema?audience=customer, root "scenarios"
 //  5. Activate incident — ACTION BOARD: one discrete fixed-body button per enumerated scenario, plus Clear all
 //
 // Reads use RELATIVE paths (the Infinity datasource's Base URL prefixes them) so the dashboard is
-// host/scheme-agnostic. Protected reads use Infinity datasource Basic auth. Writes are ABSOLUTE
-// browser fetches (--write-base-url, HTTPS) with a separate native Basic challenge and no embedded creds.
+// host/scheme-agnostic. Protected reads use Infinity datasource Basic auth. In fetch mode, writes
+// use browser fetches and the browser's separate Basic challenge. In infinity mode, the datasource
+// sends writes server-side with its stored credentials. No credentials are embedded in the JSON.
 func buildControlDashboard(o opts) (dashboard.Dashboard, error) {
 	d, err := dashboard.NewDashboard("synthkit-customer-control", "synthkit — Customer Control")
 	if err != nil {
@@ -99,7 +113,11 @@ func buildControlDashboard(o opts) (dashboard.Dashboard, error) {
 		return dashboard.Dashboard{}, err
 	}
 
-	writeURL := func(p string) string { return joinURL(o.writeBaseURL, p) }
+	act := o.action()
+	credentialNote := "- If an action prompts for credentials, use the synthkit control login only over this dashboard's trusted HTTPS origin."
+	if o.actionMode == actionModeInfinity {
+		credentialNote = "- Actions run server-side through the Infinity datasource; restrict that datasource and this dashboard to operators."
+	}
 
 	// 1. Header — what this is + how to use it.
 	dashboard.AddPanel(&d, "header", dashboard.TextPanel("", strings.Join([]string{
@@ -109,15 +127,15 @@ func buildControlDashboard(o opts) (dashboard.Dashboard, error) {
 		"- **Activate incident** fires a curated failure scenario (replaces any active incident); " +
 			"**Clear all incidents** returns to steady state.",
 		"- **Current state** / **Incidents** show the live picture. Changes apply within a few seconds.",
-		"- If an action prompts for credentials, use the synthkit control login only over this dashboard's trusted HTTPS origin.",
+		credentialNote,
 	}, "\n")))
 
-	// 2. Load presets — VERIFIED action board (fixed-body fetch buttons → /control/load).
+	// 2. Load presets — VERIFIED action board (fixed-body buttons → /control/load).
 	dashboard.AddPanel(&d, "volume-presets", dashboard.ActionBoardPanel("Load presets", o.dsName,
-		dashboard.FetchAction("Idle (0.2×)", writeURL("/control/load"), `{"volume_multiplier":0.2}`),
-		dashboard.FetchAction("Normal (1×)", writeURL("/control/load"), `{"volume_multiplier":1}`),
-		dashboard.FetchAction("Peak (3×)", writeURL("/control/load"), `{"volume_multiplier":3}`),
-		dashboard.FetchAction("Stress (10×)", writeURL("/control/load"), `{"volume_multiplier":10}`),
+		act("Idle (0.2×)", "/control/load", `{"volume_multiplier":0.2}`),
+		act("Normal (1×)", "/control/load", `{"volume_multiplier":1}`),
+		act("Peak (3×)", "/control/load", `{"volume_multiplier":3}`),
+		act("Stress (10×)", "/control/load", `{"volume_multiplier":10}`),
 	))
 
 	// 3. Current effective state (READ; relative — datasource Base URL prefixes it; explicit columns).
@@ -142,7 +160,7 @@ func buildControlDashboard(o opts) (dashboard.Dashboard, error) {
 	// 5. Activate incident — VERIFIED action board: ONE discrete fixed-body button per enumerated
 	//    scenario (no ${__data} interpolation), plus a "Clear all incidents" button.
 	dashboard.AddPanel(&d, "scenario-activate", dashboard.ActionBoardPanel("Activate incident", o.dsName,
-		activationActions(scenarios, writeURL("/control/scenarios"))...,
+		activationActions(scenarios, act)...,
 	))
 
 	dashboard.WithGrid(&d, "header", "volume-presets", "current-state", "scenarios", "scenario-activate")

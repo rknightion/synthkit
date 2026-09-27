@@ -72,8 +72,9 @@ When `CONTROL_TOKEN` is set:
   `CONTROL_TOKEN`.
 - A browser hitting a guarded route for the first time triggers Chrome/Firefox's native credential dialog.
 - The Grafana Infinity datasource stores the password in `secureJsonData` and authenticates its
-  server-side reads. Browser-direct dashboard action buttons do not inherit datasource credentials;
-  they use the browser's separate Basic challenge and therefore require a trusted HTTPS endpoint.
+  server-side reads and `infinity` actions. Browser-direct (`fetch`) dashboard action buttons do not
+  inherit datasource credentials; they use the browser's separate Basic challenge and therefore
+  require a trusted HTTPS endpoint.
 
 For the mutation examples below, run this once in Bash or Zsh. When `CONTROL_TOKEN` is set it uses a
 mode-0600 temporary netrc file, keeping the token out of process arguments. When the token is unset,
@@ -105,6 +106,22 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
 ```
 
 ---
+
+## Customer control dashboard
+
+`synthkit-control-dash` generates the customer dashboard with `-action-mode fetch|infinity` and
+`-ds-uid`. `fetch` is the default and preserves browser-direct POST actions. `infinity` sends each
+POST server-side through the named Infinity datasource and requires both `-ds-uid` and
+`-write-base-url`. Grafana's `vizActionsAuth` feature toggle must be enabled for Infinity actions;
+see [Grafana's feature note](https://grafana.com/whats-new/2025-09-03-actions-authentication-with-the-infinity-data-source/).
+
+In Infinity mode the control-plane credential is stored in the Infinity datasource, and
+`-write-base-url` is the URL that datasource reaches. Grafana can reach a control plane that remains
+behind a `ClusterIP` Service through Private Data Source Connect (PDC). Anyone with datasource query
+access and permission to execute dashboard actions can change load and scenarios. Restrict both the
+datasource and dashboard to operators; Grafana's Viewer role cannot see or execute actions. The
+upstream contributor reported a Grafana 13.3 click-test through PDC; synthkit's offline generation
+checks do not verify live action execution.
 
 ## Endpoint reference
 

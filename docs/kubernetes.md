@@ -162,6 +162,20 @@ bind holds everywhere. Once exposure is acknowledged, `networkPolicy.ingressFrom
 reach port 8088; leaving it empty with a `ClusterIP` Service means any pod in the cluster, which is
 what a bare ClusterIP implies anyway.
 
+### Control from Grafana without cluster access
+
+An Infinity action can send the control request server-side through Grafana and Private Data Source
+Connect (PDC), so the control-plane Service can remain `ClusterIP`. Configure the Infinity datasource
+to reach the in-cluster service through PDC and allow only the PDC agent through
+`networkPolicy.ingressFrom`. Store the control-plane credential in the Infinity datasource and
+enable Grafana's `vizActionsAuth` feature toggle; without the toggle, the actions are unavailable.
+
+Generate the dashboard with `-action-mode infinity` and the datasource's name and UID. In this mode
+`-write-base-url` is the URL PDC can reach. Anyone allowed to query the datasource and execute
+dashboard actions can change load and scenarios, so restrict both the datasource and dashboard to
+operators. Grafana's Viewer role cannot see or execute these actions; see
+[Grafana's feature note](https://grafana.com/whats-new/2025-09-03-actions-authentication-with-the-infinity-data-source/).
+
 ---
 
 ## State that has to survive a restart

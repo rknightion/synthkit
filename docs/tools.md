@@ -227,11 +227,16 @@ go run ./cmd/synthkit-control-dash \
 |---|---|---|
 | `-ds-name <name>` | yes | Infinity datasource name in Grafana. |
 | `-out <dir>` | yes | Output directory for generated JSON. |
-| `-write-base-url <url>` | no | Absolute browser-reachable base URL for action-button POSTs. Override per deployment (default is the tailscale-serve endpoint pattern). |
+| `-write-base-url <url>` | required with `infinity` | Base URL for action-button POSTs. In `fetch` mode the browser must reach it; in `infinity` mode it must be an absolute URL the datasource can reach, for example through Private Data Source Connect. An empty value leaves relative paths in fetch mode. |
 | `-blueprints <dir>` | no | Directory of blueprint YAML files for enumerating scenarios (default `./blueprints`). |
+| `-action-mode <mode>` | no | `fetch` (default): browser-direct POST buttons. `infinity`: Grafana sends each POST server-side through the Infinity datasource. Requires `-ds-uid`, `-write-base-url`, and Grafana's `vizActionsAuth` feature toggle. |
+| `-ds-uid <uid>` | with `infinity` | Infinity datasource UID used by server-side actions. |
 
-When `CONTROL_TOKEN` is set, the Infinity datasource uses secure Basic auth for protected reads;
-browser-direct action POSTs use their own native Basic challenge. No token is embedded in the dashboard JSON.
+When `CONTROL_TOKEN` is set, the Infinity datasource stores the credential for server-side reads
+and `infinity` actions; `fetch` actions use the browser's separate Basic challenge. No token is
+embedded in the dashboard JSON. Anyone with datasource query access and permission to execute
+dashboard actions can change load and scenarios. Restrict the datasource and dashboard to operators;
+Grafana's Viewer role cannot see or execute actions. See [Grafana's feature note](https://grafana.com/whats-new/2025-09-03-actions-authentication-with-the-infinity-data-source/).
 
 ## LLM-assisted skills
 
