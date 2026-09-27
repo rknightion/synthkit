@@ -117,11 +117,12 @@ see [Grafana's feature note](https://grafana.com/whats-new/2025-09-03-actions-au
 
 In Infinity mode the control-plane credential is stored in the Infinity datasource, and
 `-write-base-url` is the URL that datasource reaches. Grafana can reach a control plane that remains
-behind a `ClusterIP` Service through Private Data Source Connect (PDC). Anyone with datasource query
-access and permission to execute dashboard actions can change load and scenarios. Restrict both the
-datasource and dashboard to operators; Grafana's Viewer role cannot see or execute actions. The
-upstream contributor reported a Grafana 13.3 click-test through PDC; synthkit's offline generation
-checks do not verify live action execution.
+behind a `ClusterIP` Service through Private Data Source Connect (PDC). Anyone who can query the
+Infinity datasource can issue authenticated control POSTs and change load or scenarios, even without
+viewing this dashboard or using its action buttons. Restrict datasource query access and dashboard
+visibility to operators. Grafana's Viewer restriction on dashboard actions does not protect the
+datasource from direct queries. The upstream contributor reported a Grafana 13.3 click-test through
+PDC; synthkit's offline generation checks do not verify live action execution.
 
 ## Endpoint reference
 

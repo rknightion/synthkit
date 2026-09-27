@@ -116,7 +116,7 @@ func buildControlDashboard(o opts) (dashboard.Dashboard, error) {
 	act := o.action()
 	credentialNote := "- If an action prompts for credentials, use the synthkit control login only over this dashboard's trusted HTTPS origin."
 	if o.actionMode == actionModeInfinity {
-		credentialNote = "- Actions run server-side through the Infinity datasource; restrict that datasource and this dashboard to operators."
+		credentialNote = "- Actions run through the Infinity datasource. Datasource query access permits authenticated control POSTs, so restrict datasource queries and dashboard access to operators."
 	}
 
 	// 1. Header — what this is + how to use it.

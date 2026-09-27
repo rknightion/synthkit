@@ -171,10 +171,11 @@ to reach the in-cluster service through PDC and allow only the PDC agent through
 enable Grafana's `vizActionsAuth` feature toggle; without the toggle, the actions are unavailable.
 
 Generate the dashboard with `-action-mode infinity` and the datasource's name and UID. In this mode
-`-write-base-url` is the URL PDC can reach. Anyone allowed to query the datasource and execute
-dashboard actions can change load and scenarios, so restrict both the datasource and dashboard to
-operators. Grafana's Viewer role cannot see or execute these actions; see
-[Grafana's feature note](https://grafana.com/whats-new/2025-09-03-actions-authentication-with-the-infinity-data-source/).
+`-write-base-url` is the URL PDC can reach. Anyone who can query the Infinity datasource can issue
+authenticated control POSTs and change load or scenarios, even without viewing the dashboard or
+using its action buttons. Restrict datasource query access and dashboard visibility to operators.
+Grafana's Viewer restriction on dashboard actions does not protect the datasource from direct queries;
+see [Grafana's feature note](https://grafana.com/whats-new/2025-09-03-actions-authentication-with-the-infinity-data-source/).
 
 ---
 

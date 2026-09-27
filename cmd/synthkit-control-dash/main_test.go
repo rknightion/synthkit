@@ -191,7 +191,12 @@ func TestActionModeValidation(t *testing.T) {
 		{"infinity complete", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "http://h"}, ""},
 		{"infinity without uid", opts{actionMode: actionModeInfinity, writeBaseURL: "http://h"}, "requires -ds-uid and -write-base-url"},
 		{"infinity without URL", opts{actionMode: actionModeInfinity, dsUID: "u"}, "requires -ds-uid and -write-base-url"},
-		{"infinity relative URL", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "/control"}, "must be an absolute URL"},
+		{"infinity relative URL", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "/control"}, "must be an absolute HTTP(S) URL without query or fragment"},
+		{"infinity unsupported URL scheme", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "ftp://h/control"}, "must be an absolute HTTP(S) URL without query or fragment"},
+		{"infinity URL query", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h/control?tenant=one"}, "must be an absolute HTTP(S) URL without query or fragment"},
+		{"infinity empty URL query", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h/control?"}, "must be an absolute HTTP(S) URL without query or fragment"},
+		{"infinity URL fragment", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h/control#section"}, "must be an absolute HTTP(S) URL without query or fragment"},
+		{"infinity empty URL fragment", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h/control#"}, "must be an absolute HTTP(S) URL without query or fragment"},
 		{"unknown mode", opts{actionMode: "browser"}, "must be fetch or infinity"},
 	} {
 		err := tc.o.validate()
