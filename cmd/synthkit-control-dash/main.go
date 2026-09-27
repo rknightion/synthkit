@@ -45,11 +45,11 @@ func (o opts) validate() error {
 		}
 		u, err := url.Parse(o.writeBaseURL)
 		if err != nil || u == nil {
-			return errors.New("-write-base-url must be an absolute HTTPS URL without credentials, query or fragment in infinity mode")
+			return errors.New("-write-base-url must be an absolute HTTP(S) URL without credentials, query or fragment in infinity mode")
 		}
-		unsupportedScheme := !strings.EqualFold(u.Scheme, "https")
+		unsupportedScheme := !strings.EqualFold(u.Scheme, "http") && !strings.EqualFold(u.Scheme, "https")
 		if unsupportedScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.Contains(o.writeBaseURL, "#") {
-			return errors.New("-write-base-url must be an absolute HTTPS URL without credentials, query or fragment in infinity mode")
+			return errors.New("-write-base-url must be an absolute HTTP(S) URL without credentials, query or fragment in infinity mode")
 		}
 		return nil
 	default:
@@ -61,7 +61,7 @@ func main() {
 	var o opts
 	// Reads are RELATIVE paths resolved against the Infinity datasource's Base URL (no read base
 	// here). In fetch mode, POSTs run in the browser; in infinity mode, the datasource sends them.
-	flag.StringVar(&o.writeBaseURL, "write-base-url", "", "action-button POST base URL (HTTPS without credentials, query or fragment for infinity; browser-reachable in fetch mode; datasource-reachable in infinity mode; empty uses relative paths)")
+	flag.StringVar(&o.writeBaseURL, "write-base-url", "", "action-button POST base URL (HTTP(S) without credentials, query or fragment for infinity; browser-reachable in fetch mode; datasource-reachable in infinity mode; empty uses relative paths)")
 	flag.StringVar(&o.dsName, "ds-name", "", "Infinity datasource name (required)")
 	flag.StringVar(&o.actionMode, "action-mode", actionModeFetch, "fetch (browser POST) or infinity (server-side via the datasource; needs Grafana toggle vizActionsAuth)")
 	flag.StringVar(&o.dsUID, "ds-uid", "", "Infinity datasource UID (required with -action-mode infinity)")

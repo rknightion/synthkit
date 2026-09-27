@@ -201,10 +201,14 @@ go run ./cmd/synthkit-control-dash -ds-name <name> -out <dir> [flags]
 |---|---|---|
 | `-ds-name <name>` | yes | Infinity datasource name. |
 | `-out <dir>` | yes | Output directory for generated JSON. |
-| `-write-base-url <url>` | required with `infinity` | Base URL for action-button POSTs. In `fetch` mode the browser must reach it; in `infinity` mode it must be an absolute HTTPS URL without embedded credentials, a query or a fragment and the Infinity datasource must reach it, for example through Private Data Source Connect. An empty fetch-mode value leaves relative paths. |
+| `-write-base-url <url>` | required with `infinity` | Base URL for action-button POSTs. In `fetch` mode the browser must reach it; in `infinity` mode it must be an absolute HTTP or HTTPS URL without embedded credentials, a query or a fragment and the Infinity datasource must reach it. An empty fetch-mode value leaves relative paths. |
 | `-blueprints <dir>` | no | Directory of `*.yaml` blueprints to enumerate scenarios from (default `./blueprints`). |
 | `-action-mode <mode>` | no | `fetch` (default): browser-direct POST buttons. `infinity`: Grafana sends each POST server-side through the Infinity datasource. Requires `-ds-uid`, `-write-base-url`, and Grafana's `vizActionsAuth` feature toggle. |
 | `-ds-uid <uid>` | with `infinity` | Infinity datasource UID used by server-side actions. |
+
+Plain HTTP is acceptable only for the hop from Grafana through Private Data Source Connect (PDC), or
+from inside the cluster, to a ClusterIP control-plane Service. Never expose the control plane over
+plain HTTP across the public internet; use HTTPS elsewhere.
 
 When `CONTROL_TOKEN` is set, the Infinity datasource stores the credential for server-side reads
 and `infinity` actions; `fetch` actions use the browser's separate Basic challenge. No token is

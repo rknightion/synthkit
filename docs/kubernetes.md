@@ -171,11 +171,14 @@ to reach the in-cluster service through PDC and allow only the PDC agent through
 enable Grafana's `vizActionsAuth` feature toggle; without the toggle, the actions are unavailable.
 
 Generate the dashboard with `-action-mode infinity` and the datasource's name and UID. In this mode
-`-write-base-url` is the HTTPS URL PDC can reach. Anyone who can query the Infinity datasource can issue
-authenticated control POSTs and change load or scenarios, even without viewing the dashboard or
-using its action buttons. Restrict datasource query access and dashboard visibility to operators.
-Grafana's Viewer restriction on dashboard actions does not protect the datasource from direct queries;
-see [Grafana's feature note](https://grafana.com/whats-new/2025-09-03-actions-authentication-with-the-infinity-data-source/).
+`-write-base-url` is an absolute HTTP or HTTPS URL without credentials, a query or a fragment. Plain
+HTTP is acceptable only for the hop from Grafana through PDC to this `ClusterIP` Service, or from
+inside the cluster. Never expose the control plane over plain HTTP across the public internet; use
+HTTPS elsewhere. Anyone who can query the Infinity datasource can issue authenticated control POSTs
+and change load or scenarios, even without viewing the dashboard or using its action buttons. Restrict
+datasource query access and dashboard visibility to operators. Grafana's Viewer restriction on
+dashboard actions does not protect the datasource from direct queries; see [Grafana's feature
+note](https://grafana.com/whats-new/2025-09-03-actions-authentication-with-the-infinity-data-source/).
 
 ---
 
