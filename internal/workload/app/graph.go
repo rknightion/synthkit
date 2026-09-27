@@ -117,9 +117,10 @@ type node struct {
 
 // graph is the validated service graph: nodes in declaration order + a name index + the entry node.
 type graph struct {
-	nodes  []*node
-	byName map[string]*node
-	entry  *node
+	nodes     []*node
+	byName    map[string]*node
+	entry     *node
+	reachable map[*node]bool
 }
 
 // entryHasRumFaro reports whether the entry node carries the rum_faro catalog profile. When
@@ -220,6 +221,14 @@ func buildGraph(services []ServiceNode) (*graph, error) {
 			return nil, fmt.Errorf("app: no entry node — set `entry: true` on the request entry service")
 		}
 	}
+	if g.entryHasRumFaro() && !g.entry.decl.tracesEnabled() {
+		return nil, fmt.Errorf("app: entry service %q: rum_faro requires signals.traces enabled", g.entry.decl.Name)
+	}
+	for _, n := range g.nodes {
+		if n.agenticFlow != nil && !n.decl.tracesEnabled() {
+			return nil, fmt.Errorf("app: service %q: agentic_flow requires signals.traces enabled", n.decl.Name)
+		}
+	}
 
 	// Edges: reference declared nodes, no self-call, leaves (db/cache) make no calls.
 	for _, n := range g.nodes {
@@ -240,6 +249,18 @@ func buildGraph(services []ServiceNode) (*graph, error) {
 			}
 		}
 	}
+	g.reachable = make(map[*node]bool, len(g.nodes))
+	var markReachable func(*node)
+	markReachable = func(n *node) {
+		if n == nil || g.reachable[n] {
+			return
+		}
+		g.reachable[n] = true
+		for _, calleeName := range n.decl.Calls {
+			markReachable(g.byName[calleeName])
+		}
+	}
+	markReachable(g.entry)
 	return g, nil
 }
 

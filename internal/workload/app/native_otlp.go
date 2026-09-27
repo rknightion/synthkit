@@ -42,6 +42,9 @@ func (w *Workload) tickOTLPMetrics(ctx context.Context, now time.Time, world *co
 
 	resources := make([]otlp.MetricResource, 0, len(w.graph.nodes))
 	for _, n := range w.graph.nodes {
+		if !n.decl.metricsEnabled() {
+			continue
+		}
 		st := w.otlpStates[n.decl.Name]
 		if st == nil {
 			continue

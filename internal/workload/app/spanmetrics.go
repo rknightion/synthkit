@@ -78,6 +78,7 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 	if calls <= 0 {
 		return
 	}
+	allTraceSwitchesOn := w.allTraceSwitchesOn()
 	latVal := func(service string) func() float64 {
 		// The APM metric families are derived from this workload's spans, so retain the
 		// per-service latency incident that the trace lane already models. A targeted
@@ -89,6 +90,9 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 	// names that node really emits. Their status split comes from the same ledger requests and
 	// trace-lane status helper that ProjectBatch uses.
 	for _, n := range w.graph.nodes {
+		if !n.decl.tracesEnabled() || (!allTraceSwitchesOn && !w.graph.reachable[n]) || (!allTraceSwitchesOn && n == w.graph.entry && n.kind.leaf) {
+			continue
+		}
 		if !n.kind.serverSpan && n != w.graph.entry {
 			continue // db/cache leaves have no SERVER span
 		}
@@ -112,17 +116,49 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 		}
 	}
 
-	// CLIENT + service-graph rows: one per edge (caller → callee).
+	if allTraceSwitchesOn {
+		// Preserve the established all-default self-emission path byte for byte.
+		for _, caller := range w.graph.nodes {
+			callerID := w.identity(caller)
+			for _, calleeName := range caller.decl.Calls {
+				callee := w.graph.byName[calleeName]
+				if callee == nil {
+					continue
+				}
+				calleeID := w.identity(callee)
+				cbase := callerID.spanMetricBase()
+				clientName := "call " + calleeName
+				okStatus, errStatus, okCalls, errCalls := w.callSpanSplit(now, world, calleeName, float64(calls))
+				w.observeSpanCallsRow(cbase, spanKindClient, clientName, okStatus, okCalls, callerID.sdkLang())
+				w.observeSpanCallsRow(cbase, spanKindClient, clientName, errStatus, errCalls, callerID.sdkLang())
+				w.observeSpanLatency(cbase, spanKindClient, clientName, okStatus, okCalls, latVal(calleeID.service))
+				w.observeSpanLatency(cbase, spanKindClient, clientName, errStatus, errCalls, latVal(calleeID.service))
+				connType := ""
+				if callee.kind.leaf {
+					connType = "database"
+				}
+				sg := sgLabels(callerID, calleeID, connType)
+				w.st.Add("traces_service_graph_request_total", sg, float64(calls))
+				w.st.Add("traces_service_graph_request_failed_total", sg, errCalls)
+				w.observeEdgeLatency("traces_service_graph_request_server_seconds", sg, float64(calls), latVal(calleeID.service))
+				w.observeEdgeLatency("traces_service_graph_request_client_seconds", sg, float64(calls), latVal(calleeID.service))
+			}
+		}
+		return
+	}
+
+	// CLIENT span rows belong to the caller and remain when the callee opts out.
 	for _, caller := range w.graph.nodes {
+		if !caller.decl.tracesEnabled() || !w.graph.reachable[caller] {
+			continue
+		}
 		callerID := w.identity(caller)
 		for _, calleeName := range caller.decl.Calls {
 			callee := w.graph.byName[calleeName]
-			if callee == nil {
+			if callee == nil || !w.graph.reachable[callee] {
 				continue
 			}
 			calleeID := w.identity(callee)
-			// CLIENT span row (the caller's view of the call). Its split uses matching ledger hops
-			// and callStatus, exactly as the trace projector does.
 			cbase := callerID.spanMetricBase()
 			clientName := "call " + calleeName
 			okStatus, errStatus, okCalls, errCalls := w.callSpanSplit(now, world, calleeName, float64(calls))
@@ -130,20 +166,123 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 			w.observeSpanCallsRow(cbase, spanKindClient, clientName, errStatus, errCalls, callerID.sdkLang())
 			w.observeSpanLatency(cbase, spanKindClient, clientName, okStatus, okCalls, latVal(calleeID.service))
 			w.observeSpanLatency(cbase, spanKindClient, clientName, errStatus, errCalls, latVal(calleeID.service))
-			// service-graph edge (incl the failed-edge counter that drives edge error-rate panels).
-			// A db/cache leaf edge carries connection_type=database (mirrors web_service
-			// tickServiceGraph); instrumented service + AI (HTTP/gRPC) edges keep "".
-			connType := ""
-			if callee.kind.leaf {
-				connType = "database"
-			}
-			sg := sgLabels(callerID, calleeID, connType)
-			w.st.Add("traces_service_graph_request_total", sg, float64(calls))
-			w.st.Add("traces_service_graph_request_failed_total", sg, errCalls)
-			w.observeEdgeLatency("traces_service_graph_request_server_seconds", sg, float64(calls), latVal(calleeID.service))
-			w.observeEdgeLatency("traces_service_graph_request_client_seconds", sg, float64(calls), latVal(calleeID.service))
 		}
 	}
+
+	for _, edge := range w.serviceGraphMetricEdges() {
+		serverID := w.identity(edge.server)
+		clientID := nodeIdentity{service: "user"}
+		if edge.client != nil {
+			clientID = w.identity(edge.client)
+		}
+		labels := sgLabels(clientID, serverID, edge.connectionType)
+		if edge.virtual {
+			labels["connection_type"] = "virtual_node"
+		}
+		_, _, _, failed := w.callSpanSplit(now, world, edge.server.decl.Name, float64(calls))
+		w.st.Add("traces_service_graph_request_total", labels, float64(calls))
+		if failed > 0 {
+			w.st.Add("traces_service_graph_request_failed_total", labels, failed)
+		}
+		w.observeEdgeLatencyPresence("traces_service_graph_request_server_seconds", labels, float64(calls), latVal(serverID.service), edge.serverSpan)
+		w.observeEdgeLatencyPresence("traces_service_graph_request_client_seconds", labels, float64(calls), latVal(serverID.service), edge.clientSpan)
+	}
+}
+
+type serviceGraphTraceContext struct {
+	hasSpan bool
+	client  *node
+}
+
+type serviceGraphMetricEdge struct {
+	client         *node
+	server         *node
+	connectionType string
+	clientSpan     bool
+	serverSpan     bool
+	virtual        bool
+}
+
+func (w *Workload) allTraceSwitchesOn() bool {
+	for _, n := range w.graph.nodes {
+		if !n.decl.tracesEnabled() {
+			return false
+		}
+	}
+	return true
+}
+
+func (w *Workload) serviceGraphMetricEdges() []serviceGraphMetricEdge {
+	type edgeKey struct {
+		client, server string
+		connectionType string
+		clientSpan     bool
+		serverSpan     bool
+		virtual        bool
+	}
+	seen := make(map[edgeKey]bool)
+	var edges []serviceGraphMetricEdge
+	add := func(edge serviceGraphMetricEdge) {
+		clientName := ""
+		if edge.client != nil {
+			clientName = edge.client.decl.Name
+		}
+		key := edgeKey{clientName, edge.server.decl.Name, edge.connectionType, edge.clientSpan, edge.serverSpan, edge.virtual}
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		edges = append(edges, edge)
+	}
+	var walk func(*node, serviceGraphTraceContext, map[*node]bool)
+	walk = func(caller *node, context serviceGraphTraceContext, path map[*node]bool) {
+		for _, calleeName := range caller.decl.Calls {
+			callee := w.graph.byName[calleeName]
+			if callee == nil || !w.graph.reachable[callee] {
+				continue
+			}
+			next := context
+			if caller.decl.tracesEnabled() {
+				next = serviceGraphTraceContext{hasSpan: true, client: caller}
+			}
+			if callee.kind.leaf {
+				if caller.decl.tracesEnabled() && callee.dbIdentity != nil {
+					add(serviceGraphMetricEdge{client: caller, server: callee, connectionType: "database", clientSpan: true})
+				}
+			} else if callee.decl.tracesEnabled() && callee.kind.serverSpan {
+				switch {
+				case next.client != nil:
+					add(serviceGraphMetricEdge{client: next.client, server: callee, clientSpan: true, serverSpan: true})
+				case !next.hasSpan:
+					add(serviceGraphMetricEdge{server: callee, connectionType: "virtual_node", serverSpan: true, virtual: true})
+				}
+			}
+			if callee.decl.tracesEnabled() && callee.kind.serverSpan {
+				next = serviceGraphTraceContext{hasSpan: true}
+			}
+			if !callee.kind.leaf && !path[callee] {
+				nextPath := make(map[*node]bool, len(path)+1)
+				for prior := range path {
+					nextPath[prior] = true
+				}
+				nextPath[callee] = true
+				walk(callee, next, nextPath)
+			}
+		}
+	}
+	entryContext := serviceGraphTraceContext{}
+	if w.graph.entry.decl.tracesEnabled() && !w.graph.entry.kind.leaf {
+		entryContext.hasSpan = true
+	}
+	walk(w.graph.entry, entryContext, map[*node]bool{w.graph.entry: true})
+	return edges
+}
+
+func (w *Workload) observeEdgeLatencyPresence(name string, labels map[string]string, n float64, latVal func() float64, present bool) {
+	if !present {
+		latVal = func() float64 { return 0 }
+	}
+	w.observeEdgeLatency(name, labels, n, latVal)
 }
 
 func (w *Workload) serverSpanSplit(now time.Time, world *core.World, n *node, volume float64) (okStatus, errStatus string, okCalls, errCalls float64) {
@@ -362,10 +501,14 @@ func (w *Workload) tickTargetInfo() {
 			continue
 		}
 		id := w.identity(n)
-		w.st.Set("target_info", id.targetInfoLabels(), 1)
-		labels := id.targetInfoLabels()
-		labels["telemetry_sdk_name"] = "opentelemetry"
-		w.st.Set("traces_target_info", labels, 1)
+		if n.decl.metricsEnabled() {
+			w.st.Set("target_info", id.targetInfoLabels(), 1)
+		}
+		if n.decl.tracesEnabled() {
+			labels := id.targetInfoLabels()
+			labels["telemetry_sdk_name"] = "opentelemetry"
+			w.st.Set("traces_target_info", labels, 1)
+		}
 	}
 }
 

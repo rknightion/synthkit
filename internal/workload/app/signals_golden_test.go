@@ -112,7 +112,16 @@ func TestAppDefaultWireParity(t *testing.T) {
 	got := make(map[string]appParityGolden, len(cases))
 	for _, tc := range cases {
 		t.Run(tc.key, func(t *testing.T) {
-			got[tc.key] = runAppParityCase(t, tc.cfg, now, tc.key)
+			base := runAppParityCase(t, paritySignalsConfig(t, tc.cfg, "omitted"), now, tc.key)
+			got[tc.key] = base
+			for _, variant := range []string{"empty", "explicit_true", "null"} {
+				t.Run(variant, func(t *testing.T) {
+					got := runAppParityCase(t, paritySignalsConfig(t, tc.cfg, variant), now, tc.key)
+					if got != base {
+						t.Fatalf("signals %s changed default wire output:\n got: %+v\nwant: %+v", variant, got, base)
+					}
+				})
+			}
 		})
 	}
 	if os.Getenv("APP_PARITY_PRINT") != "" {
@@ -130,6 +139,36 @@ func TestAppDefaultWireParity(t *testing.T) {
 type appParityCase struct {
 	key string
 	cfg *Config
+}
+
+func paritySignalsConfig(t *testing.T, cfg *Config, mode string) *Config {
+	t.Helper()
+	encoded, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var clone Config
+	dec := yaml.NewDecoder(bytes.NewReader(encoded))
+	dec.KnownFields(true)
+	if err := dec.Decode(&clone); err != nil {
+		t.Fatalf("clone app config: %v", err)
+	}
+	for i := range clone.Services {
+		switch mode {
+		case "omitted":
+			clone.Services[i].Signals = nil
+		case "null":
+			clone.Services[i].Signals = nil
+		case "empty":
+			clone.Services[i].Signals = &NodeSignals{}
+		case "explicit_true":
+			on := true
+			clone.Services[i].Signals = &NodeSignals{Traces: &on, Logs: &on, Metrics: &on}
+		default:
+			t.Fatalf("unknown parity signals mode %q", mode)
+		}
+	}
+	return &clone
 }
 
 func appParityDeclarations(t *testing.T) []appParityCase {

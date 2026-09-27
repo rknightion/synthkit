@@ -46,6 +46,8 @@ by `max_active_series`, which DROPS excess series with no marker label.
 `traces_service_graph_connection_info` and `traces_service_graph_request_messaging_system_seconds`
 are opt-in subprocessors and are absent by default.
 
+App node `signals.traces: false` removes that node's span-derived `traces_spanmetrics_calls_total`, `traces_spanmetrics_latency`, `traces_spanmetrics_size_total` and `traces_target_info` rows, including its outbound CLIENT spans. An instrumented caller's inbound CLIENT to that node remains; an instrumented callee's SERVER remains. Tempo service-graph request, failed and latency families require spans for the edge: a missing side removes the paired edge, while Tempo may record a virtual `user` client for a root SERVER or a virtual server only when the CLIENT carries a supported peer attribute. Passing context through an untraced intermediate can collapse A -> B -> C into an observed A -> C edge. `signals.metrics: false` suppresses that node's app DSL/profile metrics and `target_info`, but never suppresses metrics derived from spans it still emits. `signals.logs: false` suppresses that node's app Loki streams only.
+
 **Producer B — collector-side spanmetrics connector.** `otelcol.connector.spanmetrics`, wired by
 the k8s-monitoring chart's `applicationObservability.connectors.spanMetrics`. Families are
 `traces.span.metrics.calls` (monotonic Sum, no unit) and `traces.span.metrics.duration` (unit `s`),
