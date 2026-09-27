@@ -63,20 +63,28 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 			dur = time.Millisecond
 		}
 		entry := w.graph.entry
-		er := get(entry)
-		eName, eAttrs, eChildren := w.nodeSpan(entry, entry.kind.rootKind, r.SpanID, r.Route, r, nil, base, base.Add(dur), world)
-		er.Spans = append(er.Spans, otlp.Span{
-			Name:    eName,
-			TraceID: r.TraceID, SpanID: r.SpanID, ParentID: "",
-			Kind:  entry.kind.rootKind,
-			Start: base, End: base.Add(dur),
-			Status: spanStatus(r.Outcome),
-			Attrs:  eAttrs,
-		})
-		er.Spans = append(er.Spans, eChildren...)
-		// In-process agentic flow on the ENTRY node (parent = the entry span; full request window).
-		if entry.agenticFlow != nil {
-			er.Spans = append(er.Spans, emitAgentFlow(entry.agenticFlow, r, r.SpanID, base, base.Add(dur))...)
+		entryContext := ""
+		if entry.decl.tracesEnabled() && !entry.kind.leaf {
+			er := get(entry)
+			eName, eAttrs, eChildren := w.nodeSpan(entry, entry.kind.rootKind, r.SpanID, r.Route, r, nil, base, base.Add(dur), world)
+			er.Spans = append(er.Spans, otlp.Span{
+				Name:    eName,
+				TraceID: r.TraceID, SpanID: r.SpanID, ParentID: "",
+				Kind:  entry.kind.rootKind,
+				Start: base, End: base.Add(dur),
+				Status: spanStatus(r.Outcome),
+				Attrs:  eAttrs,
+			})
+			er.Spans = append(er.Spans, eChildren...)
+			entryContext = r.SpanID
+			// In-process agentic flow on the ENTRY node (parent = the entry span; full request window).
+			if entry.agenticFlow != nil {
+				er.Spans = append(er.Spans, emitAgentFlow(entry.agenticFlow, r, r.SpanID, base, base.Add(dur))...)
+			}
+		} else if !entry.decl.tracesEnabled() && !entry.kind.leaf {
+			// Hidden spans still evaluate their declared values so disabling this node does not shift
+			// the deterministic draws used by later nodes' projections.
+			w.nodeSpan(entry, entry.kind.rootKind, r.SpanID, r.Route, r, nil, base, base.Add(dur), world)
 		}
 
 		// Each hop NESTS within its caller's span window (children start shortly after the parent
@@ -84,6 +92,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 		// r.Calls is DFS pre-order, so a parent hop's start is always recorded before its children.
 		reqEnd := base.Add(dur)
 		startOf := map[string]time.Time{r.SpanID: base}
+		hopContexts := make([]string, len(r.Calls))
 		for i := range r.Calls {
 			call := r.Calls[i]
 			callee := w.graph.byName[call.Target]
@@ -92,11 +101,13 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 			}
 			caller := entry
 			callerSpanID := r.SpanID
+			callerContext := entryContext
 			if call.ParentHopIndex >= 0 && call.ParentHopIndex < len(r.Calls) {
 				p := r.Calls[call.ParentHopIndex]
 				if pn := w.graph.byName[p.Target]; pn != nil {
 					caller = pn
 					callerSpanID = p.PeerSpanID
+					callerContext = hopContexts[call.ParentHopIndex]
 				}
 			}
 			parentStart := startOf[callerSpanID]
@@ -121,40 +132,51 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 			// (db.system.name / db.namespace / server.address) decorates THIS span — the caller's
 			// CLIENT span IS the db leaf (it emits no SERVER span), faithful to real OTel/Beyla DB
 			// instrumentation. A node's own DSL SpanSpecs live on its STRUCTURAL span, not on each edge.
-			cAttrs := universalAttrs(r)
-			if callee.kind.leaf && callee.dbIdentity != nil {
-				for k, v := range callee.dbIdentity {
-					cAttrs[k] = v
+			calleeContext := callerContext
+			if caller.decl.tracesEnabled() {
+				cAttrs := universalAttrs(r)
+				if callee.kind.leaf && callee.dbIdentity != nil {
+					for k, v := range callee.dbIdentity {
+						cAttrs[k] = v
+					}
 				}
+				cr := get(caller)
+				cr.Spans = append(cr.Spans, otlp.Span{
+					Name:    "call " + call.Target,
+					TraceID: r.TraceID, SpanID: call.SpanID, ParentID: callerContext,
+					Kind:  otlp.KindClient,
+					Start: hopStart, End: end,
+					Status: callStatus(call),
+					Attrs:  cAttrs,
+				})
+				calleeContext = call.SpanID
 			}
-			cr := get(caller)
-			cr.Spans = append(cr.Spans, otlp.Span{
-				Name:    "call " + call.Target,
-				TraceID: r.TraceID, SpanID: call.SpanID, ParentID: callerSpanID,
-				Kind:  otlp.KindClient,
-				Start: hopStart, End: end,
-				Status: callStatus(call),
-				Attrs:  cAttrs,
-			})
 			// SERVER span in the CALLEE's resource (instrumented services only) — the callee's structural
 			// span, where its DSL SpanSpecs decorate it (matching kind) or spawn child spans (differing kind).
 			if callee.kind.serverSpan && call.PeerSpanID != "" {
-				sr := get(callee)
-				sName, sAttrs, sChildren := w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, end, world)
-				sr.Spans = append(sr.Spans, otlp.Span{
-					Name:    sName,
-					TraceID: r.TraceID, SpanID: call.PeerSpanID, ParentID: call.SpanID,
-					Kind:  otlp.KindServer,
-					Start: hopStart, End: end,
-					Status: callStatus(call),
-					Attrs:  sAttrs,
-				})
-				sr.Spans = append(sr.Spans, sChildren...)
-				// In-process agentic flow on this CALLEE node (parent = its SERVER span; hop window).
-				if callee.agenticFlow != nil {
-					sr.Spans = append(sr.Spans, emitAgentFlow(callee.agenticFlow, r, call.PeerSpanID, hopStart, end)...)
+				if callee.decl.tracesEnabled() {
+					sr := get(callee)
+					sName, sAttrs, sChildren := w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, end, world)
+					sr.Spans = append(sr.Spans, otlp.Span{
+						Name:    sName,
+						TraceID: r.TraceID, SpanID: call.PeerSpanID, ParentID: calleeContext,
+						Kind:  otlp.KindServer,
+						Start: hopStart, End: end,
+						Status: callStatus(call),
+						Attrs:  sAttrs,
+					})
+					sr.Spans = append(sr.Spans, sChildren...)
+					calleeContext = call.PeerSpanID
+					// In-process agentic flow on this CALLEE node (parent = its SERVER span; hop window).
+					if callee.agenticFlow != nil {
+						sr.Spans = append(sr.Spans, emitAgentFlow(callee.agenticFlow, r, call.PeerSpanID, hopStart, end)...)
+					}
+				} else {
+					// Keep the established draw sequence for later projections while suppressing this node's spans.
+					w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, end, world)
 				}
 			}
+			hopContexts[i] = calleeContext
 		}
 	}
 
@@ -163,6 +185,9 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 		if rr := res[n.decl.Name]; rr != nil {
 			resources = append(resources, *rr)
 		}
+	}
+	if len(resources) == 0 {
+		return nil
 	}
 	return world.Traces.Write(ctx, resources)
 }
@@ -308,14 +333,21 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 				continue
 			}
 			id := w.identity(n)
-			ctxEval := telemetryspec.EvalCtx{Ref: reqRefs(r, nil), Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64}
+			refs := reqRefs(r, nil)
+			if !n.decl.tracesEnabled() {
+				delete(refs, "span_id")
+			}
+			ctxEval := telemetryspec.EvalCtx{Ref: refs, Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64}
 			for _, spec := range n.logs {
-				k := key{n.decl.Name, spec.Source, level}
-				s := streams[k]
-				if s == nil {
-					s = &loki.Stream{Labels: w.streamLabels(id, spec, level)}
-					streams[k] = s
-					order = append(order, k)
+				var stream *loki.Stream
+				if n.decl.logsEnabled() {
+					k := key{n.decl.Name, spec.Source, level}
+					stream = streams[k]
+					if stream == nil {
+						stream = &loki.Stream{Labels: w.streamLabels(id, spec, level)}
+						streams[k] = stream
+						order = append(order, k)
+					}
 				}
 				body := map[string]any{}
 				meta := map[string]string{}
@@ -329,7 +361,9 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 					}
 					body[bk] = evalAttr(vm, ctxEval)
 				}
-				s.Lines = append(s.Lines, loki.Line{T: completedAt, Body: jsonBody(body), Meta: meta})
+				if stream != nil {
+					stream.Lines = append(stream.Lines, loki.Line{T: completedAt, Body: jsonBody(body), Meta: meta})
+				}
 			}
 		}
 	}

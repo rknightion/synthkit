@@ -203,6 +203,10 @@ The `app` workload declares a multi-service graph. See [workloads.md](workloads.
 | `services[].routes[]` | string | no | Request routes (e.g. `"GET /v1/items"`). |
 | `services[].replicas` | int | no | Pod count for this node (default 2). |
 | `services[].profiles[]` | string | no | Catalog profile-template names applied to this node. |
+| `services[].signals` | object | no | Per-node telemetry emission. Omitted block or keys leave all signals enabled. |
+| `services[].signals.traces` | bool | no | Emit this node's own spans; false still passes W3C trace context to downstream nodes and does not remove a traced caller's CLIENT span. Must be true for an entry with `rum_faro` or a node with `agentic_flow`. |
+| `services[].signals.logs` | bool | no | Emit this node's profile and inline app log streams. |
+| `services[].signals.metrics` | bool | no | Emit this node's profile and inline app metrics and `target_info`; false also removes this node's native OTLP inline metrics when `otel.metrics: true`, but not trace-derived APM or its pods' infrastructure metrics. |
 | `services[].calls[]` | string | no | Downstream node names (graph edges). |
 | `services[].db_instance` | string | no | Base database name to resolve per-env (e.g. `"orders-pg"` → `"orders-pg-<env>"`). |
 | `services[].external` | bool | no | Remote/managed service: appears as a trace hop but is NOT placed as a k8s pod. |

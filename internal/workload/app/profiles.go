@@ -131,7 +131,7 @@ func (w *Workload) tickProfiles(ctx context.Context, now time.Time, world *core.
 
 		// Collect per-node span IDs when span profiles are enabled.
 		var spanIDs []string
-		if cfg.SpanProfiles && len(reqs) > 0 {
+		if cfg.SpanProfiles && n.decl.tracesEnabled() && len(reqs) > 0 {
 			spanIDs = nodeSpanIDs(reqs, n.decl.Name, entryName, n.kind.serverSpan)
 		}
 
