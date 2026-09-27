@@ -1,9 +1,11 @@
 ---
 id: SKT-0082
 title: Port server-side Infinity actions into synthkit-control-dash
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - '@rob'
 created_date: '2026-09-27 10:19'
+updated_date: '2026-09-27 11:37'
 labels: []
 dependencies: []
 ordinal: 178000
@@ -29,3 +31,15 @@ GitHub issue #172: a contributor runs workshops where the synthkit control plane
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Loop42: port Infinity action mode with test-first proof, default JSON parity, offline gate and security review before root landing.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop42: implementation 1/4 consumed, review-repair 2/3, infrastructure retries 0, grants none. Candidate e87cba15b9a4eeb752cb443979f9280e14dd23d2 passed local gate and CodeRabbit, but mandatory S1 security review could not be dispatched because the collaboration tool failed repeatedly. No root landing, push or CI. Resume by dispatching S1 on that exact SHA and assessing the HTTPS-only URL against ClusterIP PDC before landing.
+<!-- SECTION:NOTES:END -->

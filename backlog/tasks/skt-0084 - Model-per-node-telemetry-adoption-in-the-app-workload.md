@@ -1,9 +1,11 @@
 ---
 id: SKT-0084
 title: Model per-node telemetry adoption in the app workload
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - '@rob'
 created_date: '2026-09-27 10:19'
+updated_date: '2026-09-27 11:37'
 labels: []
 dependencies: []
 ordinal: 180000
@@ -30,3 +32,15 @@ GitHub issue #172: real estates adopt telemetry unevenly; some services emit met
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Loop42: freeze per-node signals semantics in D1, then implement and review the public schema and emitted data contract before root landing.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop42: implementation 0/4 consumed (L3 test-baseline seam only), review-repair 0/3, infrastructure retries 0, grants none. D1 design accepted and frozen. Existing random log ValueModels make the literal fixed-seed log hash nondeterministic on unchanged base; root decision J1 is in codex/state and L3/root-decision.md, but collaboration messaging failed before acknowledgement. No implementation candidate or push. Resume L3 after delivering J1 and reconciling its worktree and agent state.
+<!-- SECTION:NOTES:END -->
