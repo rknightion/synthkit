@@ -1,11 +1,11 @@
 ---
 id: SKT-0082
 title: Port server-side Infinity actions into synthkit-control-dash
-status: Parked
+status: In Progress
 assignee:
   - '@rob'
 created_date: '2026-09-27 10:19'
-updated_date: '2026-09-27 11:37'
+updated_date: '2026-09-27 19:02'
 labels: []
 dependencies: []
 ordinal: 178000
@@ -42,4 +42,8 @@ Loop42: port Infinity action mode with test-first proof, default JSON parity, of
 
 <!-- SECTION:NOTES:BEGIN -->
 loop42: implementation 1/4 consumed, review-repair 2/3, infrastructure retries 0, grants none. Candidate e87cba15b9a4eeb752cb443979f9280e14dd23d2 passed local gate and CodeRabbit, but mandatory S1 security review could not be dispatched because the collaboration tool failed repeatedly. No root landing, push or CI. Resume by dispatching S1 on that exact SHA and assessing the HTTPS-only URL against ClusterIP PDC before landing.
+
+loop43: resumed; L1r owns HTTP URL repair, gate and CodeRabbit before security review.
+
+loop44: resumed
 <!-- SECTION:NOTES:END -->

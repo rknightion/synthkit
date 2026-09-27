@@ -1,11 +1,11 @@
 ---
 id: SKT-0084
 title: Model per-node telemetry adoption in the app workload
-status: Parked
+status: In Progress
 assignee:
   - '@rob'
 created_date: '2026-09-27 10:19'
-updated_date: '2026-09-27 11:37'
+updated_date: '2026-09-27 19:02'
 labels: []
 dependencies: []
 ordinal: 180000
@@ -43,4 +43,8 @@ Loop42: freeze per-node signals semantics in D1, then implement and review the p
 
 <!-- SECTION:NOTES:BEGIN -->
 loop42: implementation 0/4 consumed (L3 test-baseline seam only), review-repair 0/3, infrastructure retries 0, grants none. D1 design accepted and frozen. Existing random log ValueModels make the literal fixed-seed log hash nondeterministic on unchanged base; root decision J1 is in codex/state and L3/root-decision.md, but collaboration messaging failed before acknowledgement. No implementation candidate or push. Resume L3 after delivering J1 and reconciling its worktree and agent state.
+
+loop43: resumed; L3 owns stable draw order and per-node signals implementation, gate and CodeRabbit.
+
+loop44: resumed
 <!-- SECTION:NOTES:END -->
