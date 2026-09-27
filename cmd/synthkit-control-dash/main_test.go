@@ -47,9 +47,9 @@ func TestGenerateWritesValidV2Dashboard(t *testing.T) {
 		}
 	}
 	// Reads must be RELATIVE (resolved against the datasource Base URL), so no plain-http
-	// read URL should be baked in. Writes use the https write-base-url, so only https:// is allowed.
+	// read URL should be baked in. This fixture uses an HTTPS write-base-url.
 	if strings.Contains(s, "http://") {
-		t.Errorf("dashboard JSON contains a plain http:// URL — reads must be relative, writes https")
+		t.Errorf("dashboard JSON contains a plain http:// URL despite this HTTPS fixture")
 	}
 	// No unreliable interpolation, no dead infinity-action shape.
 	if strings.Contains(s, "${__data") {
@@ -74,7 +74,7 @@ func TestGenerateWritesValidV2Dashboard(t *testing.T) {
 func TestGenerateInfinityActionMode(t *testing.T) {
 	out := t.TempDir()
 	err := generate(opts{
-		writeBaseURL: "https://control.example.test:8443",
+		writeBaseURL: "https://control.example.test:8443/",
 		dsName:       "synthkit-control",
 		dsUID:        "synthkit-control-uid",
 		actionMode:   actionModeInfinity,
@@ -125,6 +125,9 @@ func TestGenerateInfinityActionMode(t *testing.T) {
 		if err != nil || parsed.Scheme == "" || parsed.Host != "control.example.test:8443" {
 			t.Errorf("action %d URL %q is not absolute with the configured host", i, actionURL)
 			continue
+		}
+		if strings.Contains(parsed.Path, "//control") {
+			t.Errorf("action %d URL %q contains //control after a trailing base slash", i, actionURL)
 		}
 		if parsed.Path != "/control/load" && parsed.Path != "/control/scenarios" {
 			t.Errorf("action %d path = %q, want /control/load or /control/scenarios", i, parsed.Path)
@@ -189,9 +192,19 @@ func TestActionModeValidation(t *testing.T) {
 		{"default fetch", opts{}, ""},
 		{"explicit fetch", opts{actionMode: actionModeFetch}, ""},
 		{"infinity complete", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h"}, ""},
-		{"infinity HTTP URL", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "http://h/control"}, ""},
-		{"infinity HTTPS URL", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h/control"}, ""},
-		{"infinity uppercase HTTP scheme", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "HTTP://h/control"}, ""},
+		{"infinity HTTP URL", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "http://h"}, ""},
+		{"infinity HTTPS URL", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h"}, ""},
+		{"infinity uppercase HTTP scheme", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "HTTP://h"}, ""},
+		{"fetch control path", opts{actionMode: actionModeFetch, writeBaseURL: "https://h.example/control"}, "-write-base-url must not end in /control; pass the base URL, synthkit-control-dash appends /control/... itself"},
+		{"fetch HTTP control path with slash", opts{actionMode: actionModeFetch, writeBaseURL: "http://h.example/control/"}, "-write-base-url must not end in /control; pass the base URL, synthkit-control-dash appends /control/... itself"},
+		{"infinity control path", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h.example/control"}, "-write-base-url must not end in /control; pass the base URL, synthkit-control-dash appends /control/... itself"},
+		{"infinity HTTP control path with slash", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "http://h.example/control/"}, "-write-base-url must not end in /control; pass the base URL, synthkit-control-dash appends /control/... itself"},
+		{"fetch base URL without path", opts{actionMode: actionModeFetch, writeBaseURL: "https://h.example"}, ""},
+		{"fetch base URL with slash", opts{actionMode: actionModeFetch, writeBaseURL: "https://h.example/"}, ""},
+		{"fetch base URL with application path", opts{actionMode: actionModeFetch, writeBaseURL: "https://h.example/synthkit"}, ""},
+		{"fetch relative URL", opts{actionMode: actionModeFetch, writeBaseURL: "synthkit"}, ""},
+		{"fetch malformed URL", opts{actionMode: actionModeFetch, writeBaseURL: "https://h.example/%zz"}, "-write-base-url must be a valid URL"},
+		{"infinity malformed URL", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://h.example/%zz"}, "-write-base-url must be an absolute HTTP(S) URL without credentials, query or fragment in infinity mode"},
 		{"infinity URL credentials", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://user:pass@h/control"}, "-write-base-url must be an absolute HTTP(S) URL without credentials, query or fragment in infinity mode"},
 		{"infinity URL username and password", opts{actionMode: actionModeInfinity, dsUID: "u", writeBaseURL: "https://user:pw@host"}, "-write-base-url must be an absolute HTTP(S) URL without credentials, query or fragment in infinity mode"},
 		{"infinity without uid", opts{actionMode: actionModeInfinity, writeBaseURL: "http://h"}, "requires -ds-uid and -write-base-url"},
@@ -236,6 +249,7 @@ func TestJoinURL(t *testing.T) {
 	}{
 		{"http://host:8088", "/control/state", "http://host:8088/control/state"},
 		{"http://host:8088/", "/control/state", "http://host:8088/control/state"},
+		{"http://host:8088//", "/control/state", "http://host:8088//control/state"},
 		{"http://host:8088", "/control/schema?audience=customer", "http://host:8088/control/schema?audience=customer"},
 		{"http://host:8088", "control/state", "http://host:8088/control/state"},
 		{"", "/control/state", "/control/state"},

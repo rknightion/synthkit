@@ -173,7 +173,7 @@ func joinURL(base, p string) string {
 	if base == "" {
 		return p
 	}
-	u := strings.TrimRight(base, "/")
+	u := strings.TrimSuffix(base, "/")
 	if len(p) > 0 && p[0] != '/' {
 		p = "/" + p
 	}

@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	actionModeFetch    = "fetch"
-	actionModeInfinity = "infinity"
+	actionModeFetch             = "fetch"
+	actionModeInfinity          = "infinity"
+	writeBaseControlSuffixError = "-write-base-url must not end in /control; pass the base URL, synthkit-control-dash appends /control/... itself"
 )
 
 type opts struct {
@@ -38,6 +39,16 @@ type opts struct {
 func (o opts) validate() error {
 	switch o.actionMode {
 	case "", actionModeFetch:
+		if o.writeBaseURL == "" {
+			return nil
+		}
+		u, err := url.Parse(o.writeBaseURL)
+		if err != nil || u == nil {
+			return errors.New("-write-base-url must be a valid URL")
+		}
+		if hasControlPathSuffix(u.Path) {
+			return errors.New(writeBaseControlSuffixError)
+		}
 		return nil
 	case actionModeInfinity:
 		if o.dsUID == "" || o.writeBaseURL == "" {
@@ -51,10 +62,17 @@ func (o opts) validate() error {
 		if unsupportedScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.Contains(o.writeBaseURL, "#") {
 			return errors.New("-write-base-url must be an absolute HTTP(S) URL without credentials, query or fragment in infinity mode")
 		}
+		if hasControlPathSuffix(u.Path) {
+			return errors.New(writeBaseControlSuffixError)
+		}
 		return nil
 	default:
 		return errors.New("-action-mode must be fetch or infinity")
 	}
+}
+
+func hasControlPathSuffix(path string) bool {
+	return strings.HasSuffix(strings.TrimSuffix(path, "/"), "/control")
 }
 
 func main() {

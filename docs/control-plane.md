@@ -117,9 +117,13 @@ see [Grafana's feature note](https://grafana.com/whats-new/2025-09-03-actions-au
 
 In Infinity mode the control-plane credential is stored in the Infinity datasource, and
 `-write-base-url` must be an absolute HTTP or HTTPS URL without credentials, a query or a fragment
-that the datasource reaches. Plain HTTP is acceptable only for the hop from Grafana through Private
-Data Source Connect (PDC), or from inside the cluster, to a `ClusterIP` control-plane Service. Never
-expose the control plane over plain HTTP across the public internet; use HTTPS elsewhere. Anyone who
+that the datasource reaches. It must not end in `/control`; generated actions append `/control/...`.
+Without `-write-base-url` in fetch mode, buttons POST to relative `/control/...` paths on Grafana's
+own origin and work only when a reverse proxy on that origin routes `/control/` to the synthkit
+control plane. Otherwise pass a browser-reachable `-write-base-url`. In `infinity` mode, plain HTTP
+is acceptable only for the hop from Grafana through Private Data Source Connect (PDC), or from inside
+the cluster, to a `ClusterIP` control-plane Service. Never expose the control plane over plain HTTP
+across the public internet; use HTTPS elsewhere. Anyone who
 can query the Infinity datasource can issue authenticated control POSTs and change load or scenarios, even without
 viewing this dashboard or using its action buttons. Restrict datasource query access and dashboard
 visibility to operators. Grafana's Viewer restriction on dashboard actions does not protect the
