@@ -112,7 +112,11 @@ func TestControlPlaneOmitsUnemittedHTTPLatency(t *testing.T) {
 			found := false
 			for _, a := range actions {
 				i, ok := a["infinity"].(map[string]any)
-				if ok && strings.HasSuffix(i["url"].(string), path) && i["body"] == body {
+				if !ok {
+					continue
+				}
+				url, ok := i["url"].(string)
+				if ok && strings.HasSuffix(url, path) && i["body"] == body {
 					found = true
 					break
 				}
