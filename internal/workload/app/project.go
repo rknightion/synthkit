@@ -192,8 +192,8 @@ func (w *Workload) nodeSpan(n *node, structuralKind otlp.SpanKind, structuralSpa
 	childStart := start.Add(time.Duration(float64(end.Sub(start)) * 0.1))
 	for _, sp := range n.spans {
 		spAttrs := make(map[string]any, len(sp.Attributes))
-		for k, vm := range sp.Attributes {
-			spAttrs[k] = evalAttr(vm, ctx)
+		for _, k := range sortedValueModelKeys(sp.Attributes) {
+			spAttrs[k] = evalAttr(sp.Attributes[k], ctx)
 		}
 		if sp.Kind == "" || spanKindOf(sp.Kind) == structuralKind {
 			if nm := interpolateName(sp.NameTemplate, spAttrs); nm != "" {
@@ -319,7 +319,8 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 				}
 				body := map[string]any{}
 				meta := map[string]string{}
-				for bk, vm := range spec.Body {
+				for _, bk := range sortedValueModelKeys(spec.Body) {
+					vm := spec.Body[bk]
 					if vm.IsHighCardRef() {
 						if _, sv := vm.Eval(ctxEval); sv != "" {
 							meta[bk] = sv
@@ -345,7 +346,8 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 // the stream-label KEY set is run-stable (enum collapses to a deterministic value in v1).
 func (w *Workload) streamLabels(id nodeIdentity, spec telemetryspec.LogSpec, level string) map[string]string {
 	labels := id.streamBaseLabels(spec.Source, level)
-	for k, vm := range spec.StreamLabels {
+	for _, k := range sortedValueModelKeys(spec.StreamLabels) {
+		vm := spec.StreamLabels[k]
 		if _, s := vm.Eval(telemetryspec.EvalCtx{}); s != "" {
 			labels[k] = s
 		}
