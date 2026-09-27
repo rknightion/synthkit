@@ -227,7 +227,7 @@ go run ./cmd/synthkit-control-dash \
 |---|---|---|
 | `-ds-name <name>` | yes | Infinity datasource name in Grafana. |
 | `-out <dir>` | yes | Output directory for generated JSON. |
-| `-write-base-url <url>` | required with `infinity` | Base URL for action-button POSTs. In `fetch` mode the browser must reach it; in `infinity` mode it must be an absolute HTTP(S) URL without a query or fragment that the datasource can reach, for example through Private Data Source Connect. An empty value leaves relative paths in fetch mode. |
+| `-write-base-url <url>` | required with `infinity` | Base URL for action-button POSTs. In `fetch` mode the browser must reach it; in `infinity` mode it must be an absolute HTTPS URL without embedded credentials, a query or a fragment that the datasource can reach, for example through Private Data Source Connect. An empty value leaves relative paths in fetch mode. |
 | `-blueprints <dir>` | no | Directory of blueprint YAML files for enumerating scenarios (default `./blueprints`). |
 | `-action-mode <mode>` | no | `fetch` (default): browser-direct POST buttons. `infinity`: Grafana sends each POST server-side through the Infinity datasource. Requires `-ds-uid`, `-write-base-url`, and Grafana's `vizActionsAuth` feature toggle. |
 | `-ds-uid <uid>` | with `infinity` | Infinity datasource UID used by server-side actions. |

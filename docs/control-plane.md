@@ -116,7 +116,7 @@ POST server-side through the named Infinity datasource and requires both `-ds-ui
 see [Grafana's feature note](https://grafana.com/whats-new/2025-09-03-actions-authentication-with-the-infinity-data-source/).
 
 In Infinity mode the control-plane credential is stored in the Infinity datasource, and
-`-write-base-url` is the URL that datasource reaches. Grafana can reach a control plane that remains
+`-write-base-url` must be an HTTPS URL that datasource reaches. Grafana can reach a control plane that remains
 behind a `ClusterIP` Service through Private Data Source Connect (PDC). Anyone who can query the
 Infinity datasource can issue authenticated control POSTs and change load or scenarios, even without
 viewing this dashboard or using its action buttons. Restrict datasource query access and dashboard
