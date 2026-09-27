@@ -1,9 +1,10 @@
 ---
 id: SKT-0083
 title: Add a control-plane instructor layout to synthkit-control-dash
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-27 10:19'
+updated_date: '2026-09-27 19:36'
 labels: []
 dependencies:
   - SKT-0082
@@ -30,3 +31,9 @@ GitHub issue #172: workshop instructors need one console that starts and stops e
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop44: Infinity dependency landed at 0ea3ff2 with ci run 36344319599 completed success; L2 admitted.
+<!-- SECTION:NOTES:END -->
