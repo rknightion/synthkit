@@ -1,9 +1,10 @@
 ---
 id: SKT-0081
 title: Prune change-detector unit tests
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-25 08:05'
+updated_date: '2026-09-28 15:12'
 labels:
   - testing
 dependencies: []
@@ -29,3 +30,15 @@ From the 2026-09-25 fleet test-signal audit (sampled read-only). Delete or conso
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Sweep owned UI/Python tests; document candidate decisions and mutation evidence; run focused gates and just check.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop45: admitted
+<!-- SECTION:NOTES:END -->
