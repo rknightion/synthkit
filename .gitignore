@@ -9,6 +9,8 @@ docs/scratch/
 # Host-local runtime state (seed from control-state.example.json)
 control-state.json
 control-state-data/
+/runtime/
+/.env.bak-*
 
 # Host-local blueprint staging dir (custom uploads + git-fetched sources + boot manifest);
 # default BLUEPRINT_DATA_DIR. Runtime state — never committed (in compose this lives on /data).

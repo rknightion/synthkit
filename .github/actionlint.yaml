@@ -1,0 +1,5 @@
+# actionlint 1.7.12's bundled runner labels predate GitHub's ubuntu-26.04 runner.
+# Register it locally so the pinned reusable can validate our workflows.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
