@@ -1,11 +1,11 @@
 ---
 id: SKT-0084
 title: Model per-node telemetry adoption in the app workload
-status: Parked
+status: Done
 assignee:
   - '@rob'
 created_date: '2026-09-27 10:19'
-updated_date: '2026-09-28 07:16'
+updated_date: '2026-09-28 12:38'
 labels: []
 dependencies: []
 ordinal: 180000
@@ -19,18 +19,18 @@ GitHub issue #172: real estates adopt telemetry unevenly; some services emit met
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An app services[] entry accepts a signals block with traces, logs and metrics switches; omitting it or any key leaves today's output unchanged (just dump inventory identical for every shipped blueprint)
-- [ ] #2 A node with traces off emits no spans and contributes no derived spanmetrics or service-graph series, and trace propagation through it follows the semantics frozen in the loop's design packet
-- [ ] #3 A node with logs off emits no log streams and a node with metrics off emits no app-level metrics; cluster and infrastructure series for its pods are unaffected
-- [ ] #4 Signals() declares traces, logs and metrics only when at least one node emits them, and blueprint load rejects contradictory declarations the design packet names
-- [ ] #5 BLUEPRINT-SCHEMA.md, fielddocs.json, signals/traces.md and signals/apm.md document the switch; no new metric, label or attribute name is introduced
+- [x] #1 An app services[] entry accepts a signals block with traces, logs and metrics switches; omitting it or any key leaves today's output unchanged (just dump inventory identical for every shipped blueprint)
+- [x] #2 A node with traces off emits no spans and contributes no derived spanmetrics or service-graph series, and trace propagation through it follows the semantics frozen in the loop's design packet
+- [x] #3 A node with logs off emits no log streams and a node with metrics off emits no app-level metrics; cluster and infrastructure series for its pods are unaffected
+- [x] #4 Signals() declares traces, logs and metrics only when at least one node emits them, and blueprint load rejects contradictory declarations the design packet names
+- [x] #5 BLUEPRINT-SCHEMA.md, fielddocs.json, signals/traces.md and signals/apm.md document the switch; no new metric, label or attribute name is introduced
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -49,4 +49,12 @@ loop43: resumed; L3 owns stable draw order and per-node signals implementation, 
 loop44: resumed
 
 loop44: implementation 1/4 consumed, review-repair 0/3, infrastructure retries 0, grants none. Candidate 088652c and Stage A e182fc2 passed focused tests, just check, gen-check, spdx-check, CodeRabbit complete zero findings, canonical golden parity and same-phase three-run stable inventory comparison. Independent R1 review could not be dispatched because repeated tool-selection errors invoked functions.wait with invalid cell IDs; no R1 finding exists. Candidate remains unpushed. Resume by dispatching R1 on 088652c with packet R1.md and root same-phase comparison evidence, then land only on clean verdict and exact-SHA ci.
+
+loop44: implementation attempts 2/4 (impl-1 lane, impl-2 root route exception), review-repair 1/3, infrastructure retry 1 for CodeRabbit connection; grants none. R1 recheck clean on 96e9792. First L3 landing d04418d failed ci 36410226958 on coverage-mode default wire golden and was reverted by d748973; covering ci 36414101230 passed on 26d48ee. Root repaired test canonicalization using full-series sorting and Stage A per-platform goldens, with explicit YAML null variant; Linux Go1.27.0 coverage parity, just check, gen-check, spdx-check, docs-check and final CodeRabbit completed clean on abd3a29. Final landing 2915187 passed ci 36421108931. Three final-main and three same-phase base dump inventories have 3907 stable lines and 0 missing/added; frozen loop42 baseline differs in four time-phase and span-list rows, recorded in codex/scratch/loop44/root/final-main-inventory-comparison.txt.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Per-node traces, logs and metrics switches landed with schema and signal docs. Golden parity tests pin default wire output against pre-feature Stage A on Darwin and Linux; R1 review, final just check, Linux coverage parity, same-phase dump comparison and exact-SHA ci 36421108931 passed on landing 2915187.
+<!-- SECTION:FINAL_SUMMARY:END -->
