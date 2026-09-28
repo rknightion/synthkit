@@ -1,11 +1,11 @@
 ---
 id: SKT-0084
 title: Model per-node telemetry adoption in the app workload
-status: In Progress
+status: Parked
 assignee:
   - '@rob'
 created_date: '2026-09-27 10:19'
-updated_date: '2026-09-27 19:02'
+updated_date: '2026-09-28 07:16'
 labels: []
 dependencies: []
 ordinal: 180000
@@ -47,4 +47,6 @@ loop42: implementation 0/4 consumed (L3 test-baseline seam only), review-repair 
 loop43: resumed; L3 owns stable draw order and per-node signals implementation, gate and CodeRabbit.
 
 loop44: resumed
+
+loop44: implementation 1/4 consumed, review-repair 0/3, infrastructure retries 0, grants none. Candidate 088652c and Stage A e182fc2 passed focused tests, just check, gen-check, spdx-check, CodeRabbit complete zero findings, canonical golden parity and same-phase three-run stable inventory comparison. Independent R1 review could not be dispatched because repeated tool-selection errors invoked functions.wait with invalid cell IDs; no R1 finding exists. Candidate remains unpushed. Resume by dispatching R1 on 088652c with packet R1.md and root same-phase comparison evidence, then land only on clean verdict and exact-SHA ci.
 <!-- SECTION:NOTES:END -->
