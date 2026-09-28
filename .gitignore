@@ -86,3 +86,6 @@ codex/
 
 # temporary deck-review working dir (not a deliverable)
 /slides/
+
+# loop-pi (pi-subagents writes .pi/subagents/)
+.pi/
