@@ -260,8 +260,9 @@ metrics:
 
 One series per directed service edge. Labels: `client`, `server`, `connection_type` ∈ {``(empty),
 `database`, `virtual_node`, `messaging_system`} (the full generator enum — grafana/tempo
-`modules/generator/processor/servicegraphs/store/edge.go`, read 2026-08-27; synthkit emits only
-`` and `database`);
+`modules/generator/processor/servicegraphs/store/edge.go`, read 2026-08-27; synthkit emits `` and
+`database` for ordinary edges, and `virtual_node` when a traced root SERVER has no emitted CLIENT
+parent; `messaging_system` remains vendor-only);
 `_deployment_environment_name`, `_k8s_cluster_name`, `_k8s_namespace_name`, `_service_namespace`,
 `_service_version`, **`_blueprint`**); `namespace` (client side), `service` (client name),
 `source="tempo"`, `cluster`+`k8s_cluster_name`, `job`=`{client_namespace}/{client_service}`. ⚠ **No
@@ -277,7 +278,7 @@ sink: promrw
 labels:
   client: <client-service>
   server: <server-service>
-  connection_type: '""|database|virtual_node|messaging_system'   # synthkit emits ""|database only
+  connection_type: '""|database|virtual_node|messaging_system'   # virtual_node marks a root SERVER with no emitted CLIENT parent
   client_blueprint: <blueprint>
   server_blueprint: <blueprint>
   client_cluster: <cluster-name>
@@ -324,7 +325,7 @@ sink: promrw
 labels:
   client: <client-service>
   server: <server-service>
-  connection_type: '""|database|virtual_node|messaging_system'   # synthkit emits ""|database only
+  connection_type: '""|database|virtual_node|messaging_system'   # virtual_node marks a root SERVER with no emitted CLIENT parent
   client_blueprint: <blueprint>
   server_blueprint: <blueprint>
   client_cluster: <cluster-name>
