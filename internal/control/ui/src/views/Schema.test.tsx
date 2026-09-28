@@ -276,29 +276,23 @@ test("filter shows 'No matching fields.' when nothing matches", async () => {
 
 // ── Sort tests ───────────────────────────────────────────────────────────────
 
-test("clicking the key column header toggles sort direction", async () => {
+test("clicking the key column header sorts rows in both directions", async () => {
   mockFetchOk(FAKE_SCHEMA);
 
   const { getByTestId, getAllByTestId, container } = renderSchema();
 
   await waitFor(() => expect(getByTestId("schema-filter")).toBeInTheDocument());
 
-  // There is one col-key header per section that has rows. Use the first one.
   const keyCol = getAllByTestId("col-key")[0];
+  const keys = () =>
+    Array.from(container.querySelector("tbody")!.querySelectorAll("code"))
+      .map((cell) => cell.textContent ?? "");
+  const ascending = ["envs[]", "envs[].name", "envs[].region", "name"];
+  const descending = ["name", "envs[].region", "envs[].name", "envs[]"];
 
-  // Default state: key ↑ (asc)
-  expect(keyCol.textContent).toContain("↑");
-
-  // First click: toggle to desc
+  expect(keys()).toEqual(ascending);
   fireEvent.click(keyCol);
-  // Re-query after reactivity update
-  await waitFor(() => {
-    expect(container.querySelector("[data-testid='col-key']")!.textContent).toContain("↓");
-  });
-
-  // Second click: back to asc
-  fireEvent.click(container.querySelector("[data-testid='col-key']")!);
-  await waitFor(() => {
-    expect(container.querySelector("[data-testid='col-key']")!.textContent).toContain("↑");
-  });
+  await waitFor(() => expect(keys()).toEqual(descending));
+  fireEvent.click(getAllByTestId("col-key")[0]);
+  await waitFor(() => expect(keys()).toEqual(ascending));
 });

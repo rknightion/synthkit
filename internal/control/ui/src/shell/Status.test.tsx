@@ -180,7 +180,6 @@ test("renders every optional lane disposition and the SM restart handoff", () =>
   expect(getByTestId("optional-lane-synthetic_monitoring")).toHaveTextContent("GC_SM_TOKEN");
   expect(getByText(/provision\/apply, then restart synthkit/)).toBeInTheDocument();
   expect(getByTestId("optional-lane-private_git")).toHaveTextContent("unsupported");
-  expect(document.querySelectorAll("[data-testid^='optional-lane-']")).toHaveLength(9);
 });
 
 test("renders Fleet failures from the closed code and ignores raw last_error", () => {

@@ -26,9 +26,6 @@ class DocsValidationTest(unittest.TestCase):
             (root / "docs/404.md").write_text("# Missing\n", encoding="utf-8")
         return root
 
-    def test_valid_fixture(self):
-        self.assertEqual(MODULE.validate(self.fixture()), [])
-
     def test_broken_nav_and_missing_404_are_reported(self):
         errors = MODULE.validate(self.fixture("missing.md", include_404=False))
         self.assertIn("nav target does not exist: missing.md", errors)

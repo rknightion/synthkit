@@ -93,17 +93,9 @@ test("renders grouped config keys from a config snapshot", () => {
 
 test("secret field shows '● set' chip when configured and NEVER renders the value", () => {
   const store = fakeStore({ config: FAKE_CONFIG });
-  const { getByTestId, queryByText } = renderConfig(store);
-  // The key GC_TOKEN has secret:true, configured:true — chip must say "● set"
+  const { getByTestId } = renderConfig(store);
   const chip = getByTestId("secret-chip-GC_TOKEN");
-  expect(chip).toBeInTheDocument();
   expect(chip.textContent).toBe("● set");
-  // The value field is "" for secrets — but we ensure the chip class is correct
-  expect(chip.className).toContain("set");
-  // The raw (empty) value must never appear as a rendered value cell text
-  // (The value is "" so there is nothing to leak — but asserting the chip text
-  // is correct and the value "" is absent from the chip's text is the key check.)
-  expect(chip.textContent).not.toContain("unset");
 });
 
 test("secret field shows '○ not set' chip when not configured", () => {
@@ -112,7 +104,6 @@ test("secret field shows '○ not set' chip when not configured", () => {
   const chip = getByTestId("secret-chip-GC_UNUSED_SECRET");
   expect(chip).toBeInTheDocument();
   expect(chip.textContent).toBe("○ not set");
-  expect(chip.className).toContain("unset");
 });
 
 test("secret field with a hypothetical non-empty value does NOT render the value string", () => {

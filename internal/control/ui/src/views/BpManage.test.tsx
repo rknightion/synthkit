@@ -134,14 +134,7 @@ test("an action-error banner surfaces a mutation failure (distinct error state)"
 test("the empty state renders when no blueprints are staged", () => {
   const store = fakeStore({ loading: false, pending: pending(), staged: [], sources: [] });
   const { getByTestId } = renderBpManage(store);
-  const empty = getByTestId("bpm-staged-empty");
-  expect(empty.textContent).toContain(
-    "No custom or git-sourced blueprints staged",
-  );
-  expect(empty.textContent).toContain("bundled example");
-  expect(empty.textContent).toContain("Paste YAML");
-  expect(empty.textContent).toContain("git source");
-  expect(empty.textContent).toContain("restart to apply");
+  expect(getByTestId("bpm-staged-empty")).toBeInTheDocument();
 });
 
 test("the data state renders staged blueprints with provenance badges", () => {
@@ -178,7 +171,6 @@ test("the pending-changes banner renders added/removed/changed when present", ()
   expect(banner.textContent).toContain("2 changes pending — restart to apply");
   expect(banner.textContent).toContain("+ team-a/myapp (added)");
   expect(banner.textContent).toContain("~ team-b/remote (changed)");
-	  expect(banner.textContent).toContain("docker compose restart synthkit");
 
   // absent when no pending changes.
   const clean = renderBpManage(

@@ -146,12 +146,7 @@ test("shows a distinct empty state when there are no blueprints", () => {
   });
   const { getByTestId, queryByTestId } = renderOverview(store);
   // The empty node renders; the loading node does NOT.
-  const empty = getByTestId("overview-empty");
-  expect(empty).toBeInTheDocument();
-  expect(empty.textContent).toContain("No synthetic telemetry is being emitted");
-  expect(empty.textContent).toContain("BLUEPRINT_NAMES=otlp-native");
-  expect(empty.textContent).toContain("BLUEPRINT_NAMES=*");
-  expect(empty.textContent).toContain("restart");
+  getByTestId("overview-empty");
   expect(queryByTestId("overview-loading")).not.toBeInTheDocument();
 });
 

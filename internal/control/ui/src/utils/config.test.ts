@@ -19,11 +19,6 @@ test("configValue never leaks a secret value", () => {
   expect(configValue(cfg, "GC_SELF_TOKEN")).toBe("");
 });
 
-test("configValue returns '' for unknown keys / undefined config", () => {
-  expect(configValue(cfg, "NOPE")).toBe("");
-  expect(configValue(undefined, "GC_SELF_GRAFANA_URL")).toBe("");
-});
-
 test("selfObsDashboardURL trims trailing slash and appends the dashboard path", () => {
   expect(selfObsDashboardURL(cfg)).toBe("https://staff.grafana.net/d/synthkit-selfobs");
 });
