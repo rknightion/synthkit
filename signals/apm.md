@@ -258,9 +258,9 @@ metrics:
 
 ## `traces_service_graph_request_total` / `_failed_total` — Counters [slug: apm-service-graph]
 
-One series per directed service edge. Labels: `client`, `server`, `connection_type` ∈ {``(empty),
+One series per directed service edge. Labels: `client`, `server`, `connection_type` ∈ {`""` (empty),
 `database`, `virtual_node`, `messaging_system`} (the full generator enum — grafana/tempo
-`modules/generator/processor/servicegraphs/store/edge.go`, read 2026-08-27; synthkit emits `` and
+`modules/generator/processor/servicegraphs/store/edge.go`, read 2026-08-27; synthkit emits `""` and
 `database` for ordinary edges, and `virtual_node` when a traced root SERVER has no emitted CLIENT
 parent; `messaging_system` remains vendor-only);
 `_deployment_environment_name`, `_k8s_cluster_name`, `_k8s_namespace_name`, `_service_namespace`,
