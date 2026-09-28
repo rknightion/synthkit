@@ -191,6 +191,42 @@ func paritySignalsConfig(t *testing.T, cfg *Config, mode string) *Config {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if mode == "null" {
+		var doc yaml.Node
+		if err := yaml.Unmarshal(encoded, &doc); err != nil {
+			t.Fatal(err)
+		}
+		foundServices := false
+		for i := 0; i+1 < len(doc.Content[0].Content); i += 2 {
+			if doc.Content[0].Content[i].Value != "services" {
+				continue
+			}
+			foundServices = true
+			for _, service := range doc.Content[0].Content[i+1].Content {
+				foundSignals := false
+				for j := 0; j+1 < len(service.Content); j += 2 {
+					if service.Content[j].Value == "signals" {
+						service.Content[j+1] = &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: "null"}
+						foundSignals = true
+						break
+					}
+				}
+				if !foundSignals {
+					service.Content = append(service.Content,
+						&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "signals"},
+						&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: "null"})
+				}
+			}
+			break
+		}
+		if !foundServices {
+			t.Fatal("parity config has no services")
+		}
+		encoded, err = yaml.Marshal(&doc)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	var clone Config
 	dec := yaml.NewDecoder(bytes.NewReader(encoded))
 	dec.KnownFields(true)
@@ -202,7 +238,9 @@ func paritySignalsConfig(t *testing.T, cfg *Config, mode string) *Config {
 		case "omitted":
 			clone.Services[i].Signals = nil
 		case "null":
-			clone.Services[i].Signals = nil
+			if clone.Services[i].Signals != nil {
+				t.Fatalf("signals: null decoded as non-nil for service %q", clone.Services[i].Name)
+			}
 		case "empty":
 			clone.Services[i].Signals = &NodeSignals{}
 		case "explicit_true":
