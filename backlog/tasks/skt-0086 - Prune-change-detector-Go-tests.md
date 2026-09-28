@@ -1,9 +1,10 @@
 ---
 id: SKT-0086
 title: Prune change-detector Go tests
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-28 16:32'
+updated_date: '2026-09-28 17:48'
 labels:
   - testing
 dependencies: []
@@ -30,3 +31,15 @@ Loop45 read-only sweep of Go tests identified candidates needing contract review
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Assess both tests against their stated contracts; retain ambiguous or sole default guards, prove any deletion with mutation, run focused tests and the appropriate check gate.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop46: admitted
+<!-- SECTION:NOTES:END -->
