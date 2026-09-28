@@ -14,7 +14,6 @@ import (
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/ledger"
-	appworkload "github.com/rknightion/synthkit/internal/workload/app"
 )
 
 // testWsCfg is the package-level config type for the "web_service" workload registered
@@ -352,49 +351,6 @@ func TestLoadMinimalBlueprint(t *testing.T) {
 	}
 	if len(r.Workloads) != 1 || r.Workloads[0].Kind != "web_service" || r.Workloads[0].Name != "mini-api" {
 		t.Fatalf("workloads: %+v", r.Workloads)
-	}
-}
-
-func TestLoadAppPerNodeSignalsStrictDecode(t *testing.T) {
-	reg := testRegistry(t)
-	reg.RegisterWorkload(appworkload.Registration())
-	resolved, err := Load([]byte(`
-name: app-signals
-environments:
-  - name: prod
-    cloud: { provider: aws, account_id: "111122223333", region: us-east-1, vpc_id: vpc-0signals01 }
-    cluster:
-      type: eks
-      name: app-signals-prod-use1
-      node_groups: [{ name: general, instance_type: m6i.xlarge }]
-workloads:
-  - type: app
-    name: app-signals-api
-    runs_on: app-signals-prod-use1
-    services:
-      - name: api
-        type: web
-        entry: true
-        signals: { traces: false, logs: true, metrics: true }
-      - name: worker
-        type: web
-        signals: null
-`), reg)
-	if err != nil {
-		t.Fatalf("Load app signals declaration: %v", err)
-	}
-	if len(resolved.Workloads) != 1 {
-		t.Fatalf("resolved workloads = %d, want 1", len(resolved.Workloads))
-	}
-	cfg, ok := resolved.Workloads[0].Config.(*appworkload.Config)
-	if !ok || len(cfg.Services) != 2 || cfg.Services[0].Signals == nil {
-		t.Fatalf("decoded app signals config = %#v", resolved.Workloads[0].Config)
-	}
-	if cfg.Services[0].Signals.Traces == nil || *cfg.Services[0].Signals.Traces || cfg.Services[0].Signals.Logs == nil || !*cfg.Services[0].Signals.Logs || cfg.Services[0].Signals.Metrics == nil || !*cfg.Services[0].Signals.Metrics {
-		t.Fatalf("decoded per-node switches = %+v", cfg.Services[0].Signals)
-	}
-	if cfg.Services[1].Signals != nil {
-		t.Fatalf("null signals block = %+v, want nil defaults", cfg.Services[1].Signals)
 	}
 }
 

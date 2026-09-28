@@ -149,16 +149,14 @@ type ServiceNode struct {
 	Team    string `yaml:"team"`
 	// Version overrides the default service.version (the released image-tag intent, §5). Empty ⇒ the
 	// serviceVersion default. Stamped on service.version (resource attr) + service_version (spanmetrics).
-	Version  string   `yaml:"version"`
-	Routes   []string `yaml:"routes"`   // request routes "{METHOD} {path}"; on the entry → drawn per request into r.Route (default "GET /"), on a callee → names its SERVER span (else the node name)
-	Replicas int      `yaml:"replicas"` // pods for the node cascade (default 2); per-node scaling §6.6
-	Profiles []string `yaml:"profiles"` // catalog profile-template names (resolved at load)
-	// Signals controls this service's own telemetry; omitted block/keys leave all three enabled.
-	Signals *NodeSignals               `yaml:"signals"`
-	Metrics []telemetryspec.MetricSpec `yaml:"metrics"` // inline custom metrics (the DSL escape hatch)
-	Logs    []telemetryspec.LogSpec    `yaml:"logs"`    // inline custom log streams
-	Spans   []telemetryspec.SpanSpec   `yaml:"spans"`   // inline custom spans (extra attrs on this node's span)
-	Calls   []string                   `yaml:"calls"`   // downstream node names (the graph edges / propagation)
+	Version  string                     `yaml:"version"`
+	Routes   []string                   `yaml:"routes"`   // request routes "{METHOD} {path}"; on the entry → drawn per request into r.Route (default "GET /"), on a callee → names its SERVER span (else the node name)
+	Replicas int                        `yaml:"replicas"` // pods for the node cascade (default 2); per-node scaling §6.6
+	Profiles []string                   `yaml:"profiles"` // catalog profile-template names (resolved at load)
+	Metrics  []telemetryspec.MetricSpec `yaml:"metrics"`  // inline custom metrics (the DSL escape hatch)
+	Logs     []telemetryspec.LogSpec    `yaml:"logs"`     // inline custom log streams
+	Spans    []telemetryspec.SpanSpec   `yaml:"spans"`    // inline custom spans (extra attrs on this node's span)
+	Calls    []string                   `yaml:"calls"`    // downstream node names (the graph edges / propagation)
 	// DBInstance (db/cache leaf nodes only) names the BASE blueprint database this node represents
 	// (e.g. "orders-pg"); the workload resolves it per-env against the binding's Databases to the
 	// concrete RDS instance "<db_instance>-<lower(env)>" (case-insensitive env suffix; exact name
@@ -187,21 +185,6 @@ type ServiceNode struct {
 	HasHPA       bool     `yaml:"hpa"`           // opt-in kube_horizontalpodautoscaler_* (Deployment/StatefulSet)
 	VolumeClaims []string `yaml:"volume_claims"` // PVC template names → kube_persistentvolumeclaim_*/kubelet_volume_stats_*/pv cost
 }
-
-// NodeSignals selects telemetry emitted by this service. Omitted block or key means enabled.
-type NodeSignals struct {
-	Traces  *bool `yaml:"traces"`  // This service's spans; nil = enabled.
-	Logs    *bool `yaml:"logs"`    // This service's log streams; nil = enabled.
-	Metrics *bool `yaml:"metrics"` // This service's app metrics; nil = enabled.
-}
-
-func (s *NodeSignals) tracesEnabled() bool  { return s == nil || s.Traces == nil || *s.Traces }
-func (s *NodeSignals) logsEnabled() bool    { return s == nil || s.Logs == nil || *s.Logs }
-func (s *NodeSignals) metricsEnabled() bool { return s == nil || s.Metrics == nil || *s.Metrics }
-
-func (s ServiceNode) tracesEnabled() bool  { return s.Signals.tracesEnabled() }
-func (s ServiceNode) logsEnabled() bool    { return s.Signals.logsEnabled() }
-func (s ServiceNode) metricsEnabled() bool { return s.Signals.metricsEnabled() }
 
 // Traffic is the shape-driven entry-invocation envelope (mirrors web_service.Traffic).
 type Traffic struct {
@@ -329,39 +312,12 @@ func (w *Workload) Kind() string { return kind }
 // Name implements core.Workload.
 func (w *Workload) Name() string { return w.b.Name }
 
-// Signals declares the classes this instance can emit. PyroscopeProfiles remains independent of
-// the app node's metrics, logs and traces switches; native OTLP metrics require both the workload
-// option and an enabled node with inline metric declarations.
+// Signals declares the classes this instance emits (Metrics + Traces + Logs; RUM is appended
+// when rumEnabled; PyroscopeProfiles is appended when at least one node declares pyroscope in
+// sdk mode — scraped mode is handled by Alloy, no push sink). Native OTLP metrics are declared
+// only by an explicit `otel.metrics: true` switch.
 func (w *Workload) Signals() []core.SignalClass {
-	hasMetrics, hasTraces, hasLogs, hasNativeMetrics := false, false, false, false
-	allTraceSwitchesOn := w.allTraceSwitchesOn()
-	for _, n := range w.graph.nodes {
-		if n.decl.metricsEnabled() {
-			hasMetrics = hasMetrics || len(n.metrics) > 0 || !n.decl.External
-			hasNativeMetrics = hasNativeMetrics || n.nativeMetricStart < len(n.metrics)
-		}
-		if !n.decl.External && w.nodeHasTraceTargetInfo(n, allTraceSwitchesOn) {
-			hasMetrics = true // traces_target_info remains a trace-derived resource row
-		}
-		if w.nodeCanEmitOwnSpans(n) {
-			hasTraces = true
-			hasMetrics = true // target_info or self-emitted span-derived rows
-		}
-		if n.decl.logsEnabled() && len(n.logs) > 0 {
-			hasLogs = true
-		}
-	}
-
-	var sigs []core.SignalClass
-	if hasMetrics {
-		sigs = append(sigs, core.Metrics)
-	}
-	if hasTraces {
-		sigs = append(sigs, core.Traces)
-	}
-	if hasLogs {
-		sigs = append(sigs, core.Logs)
-	}
+	sigs := []core.SignalClass{core.Metrics, core.Traces, core.Logs}
 	if w.rumEnabled() {
 		sigs = append(sigs, core.RUM)
 	}
@@ -371,21 +327,10 @@ func (w *Workload) Signals() []core.SignalClass {
 			break
 		}
 	}
-	if w.cfg.otelMetricsEnabled() && hasNativeMetrics {
+	if w.cfg.otelMetricsEnabled() {
 		sigs = append(sigs, core.OTLPMetrics)
 	}
 	return sigs
-}
-
-func (w *Workload) nodeCanEmitOwnSpans(n *node) bool {
-	if n == nil || !w.graph.reachable[n] || !n.decl.tracesEnabled() {
-		return false
-	}
-	return n == w.graph.entry && !n.kind.leaf || n.kind.serverSpan || len(n.decl.Calls) > 0
-}
-
-func (w *Workload) nodeHasTraceTargetInfo(n *node, allTraceSwitchesOn bool) bool {
-	return n != nil && n.decl.tracesEnabled() && (allTraceSwitchesOn || w.nodeCanEmitOwnSpans(n))
 }
 
 // rumEnabled reports whether the Faro/RUM beacon lane is active for this workload. True when:

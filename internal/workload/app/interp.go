@@ -224,7 +224,11 @@ func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity,
 // is run-stable (every series appears every tick). Capability matrix guarantees only
 // const/const_str/enum reach here.
 func labelCombos(labels map[string]telemetryspec.ValueModel) []map[string]string {
-	keys := sortedValueModelKeys(labels)
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	combos := []map[string]string{{}}
 	for _, k := range keys {
 		vm := labels[k]
@@ -255,15 +259,6 @@ func labelCombos(labels map[string]telemetryspec.ValueModel) []map[string]string
 		combos = next
 	}
 	return combos
-}
-
-func sortedValueModelKeys(values map[string]telemetryspec.ValueModel) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // evalAttr evaluates a value model to its natural Go type for a span attribute / log body field

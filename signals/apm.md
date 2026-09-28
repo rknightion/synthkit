@@ -46,8 +46,6 @@ by `max_active_series`, which DROPS excess series with no marker label.
 `traces_service_graph_connection_info` and `traces_service_graph_request_messaging_system_seconds`
 are opt-in subprocessors and are absent by default.
 
-App node `signals.traces: false` removes that node's span-derived `traces_spanmetrics_calls_total`, `traces_spanmetrics_latency`, `traces_spanmetrics_size_total` and `traces_target_info` rows, including its outbound CLIENT spans. An instrumented caller's inbound CLIENT to that node remains; an instrumented callee's SERVER remains. Tempo service-graph request, failed and latency families require spans for the edge: a missing side removes the paired edge, while Tempo may record a virtual `user` client for a root SERVER or a virtual server only when the CLIENT carries a supported peer attribute. Passing context through an untraced intermediate can collapse A -> B -> C into an observed A -> C edge. `signals.metrics: false` suppresses that node's app DSL/profile metrics and `target_info`, but never suppresses metrics derived from spans it still emits. `signals.logs: false` suppresses that node's app Loki streams only.
-
 **Producer B — collector-side spanmetrics connector.** `otelcol.connector.spanmetrics`, wired by
 the k8s-monitoring chart's `applicationObservability.connectors.spanMetrics`. Families are
 `traces.span.metrics.calls` (monotonic Sum, no unit) and `traces.span.metrics.duration` (unit `s`),
@@ -258,11 +256,10 @@ metrics:
 
 ## `traces_service_graph_request_total` / `_failed_total` — Counters [slug: apm-service-graph]
 
-One series per directed service edge. Labels: `client`, `server`, `connection_type` ∈ {`""` (empty),
+One series per directed service edge. Labels: `client`, `server`, `connection_type` ∈ {``(empty),
 `database`, `virtual_node`, `messaging_system`} (the full generator enum — grafana/tempo
-`modules/generator/processor/servicegraphs/store/edge.go`, read 2026-08-27; synthkit emits `""` and
-`database` for ordinary edges, and `virtual_node` when a traced root SERVER has no emitted CLIENT
-parent; `messaging_system` remains vendor-only);
+`modules/generator/processor/servicegraphs/store/edge.go`, read 2026-08-27; synthkit emits only
+`` and `database`);
 `_deployment_environment_name`, `_k8s_cluster_name`, `_k8s_namespace_name`, `_service_namespace`,
 `_service_version`, **`_blueprint`**); `namespace` (client side), `service` (client name),
 `source="tempo"`, `cluster`+`k8s_cluster_name`, `job`=`{client_namespace}/{client_service}`. ⚠ **No
@@ -278,7 +275,7 @@ sink: promrw
 labels:
   client: <client-service>
   server: <server-service>
-  connection_type: '""|database|virtual_node|messaging_system'   # virtual_node marks a root SERVER with no emitted CLIENT parent
+  connection_type: '""|database|virtual_node|messaging_system'   # synthkit emits ""|database only
   client_blueprint: <blueprint>
   server_blueprint: <blueprint>
   client_cluster: <cluster-name>
@@ -325,7 +322,7 @@ sink: promrw
 labels:
   client: <client-service>
   server: <server-service>
-  connection_type: '""|database|virtual_node|messaging_system'   # virtual_node marks a root SERVER with no emitted CLIENT parent
+  connection_type: '""|database|virtual_node|messaging_system'   # synthkit emits ""|database only
   client_blueprint: <blueprint>
   server_blueprint: <blueprint>
   client_cluster: <cluster-name>

@@ -17,21 +17,11 @@ import (
 // per node (the INC1 metric lane). spanmetrics/service-graph stay DERIVED unless the per-blueprint
 // EmitSpanMetrics opt-in is set (F4b).
 func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) error {
-	nativeEnabled := w.cfg.otelMetricsEnabled() && world.OTLPMetrics != nil
-	if world.Metrics == nil && !nativeEnabled {
-		w.tickProfiles(ctx, now, world)
+	if world.Metrics == nil && (!w.cfg.otelMetricsEnabled() || world.OTLPMetrics == nil) {
 		return nil
 	}
 	for _, n := range w.graph.nodes {
 		id := w.identity(n)
-		if !n.decl.metricsEnabled() {
-			// Consume this node's value draws in declaration order so disabling one producer does
-			// not shift the generated samples of enabled services later in the same tick.
-			for _, spec := range n.metrics {
-				w.observeMetricStates(nil, nil, id, spec, w.metricCtx(now, world, id, spec))
-			}
-			continue
-		}
 		for i, spec := range n.metrics {
 			metricCtx := w.metricCtx(now, world, id, spec)
 			var native *state.State

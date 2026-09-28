@@ -158,9 +158,6 @@ profiles are Prometheus-oriented and are not re-spelled into the OTLP envelope. 
 blueprint's SDK-instrument declaration itself, dated **2026-08-28**. The exercised reference in
 `blueprints/profiling-demo.yaml` declares:
 
-An app node with `signals.metrics: false` emits no native OTLP inline metrics, even when the workload
-sets `otel.metrics: true`; other nodes' native resources remain.
-
 | Family | OTLP instrument | Unit | Datapoint attributes |
 |---|---|---|---|
 | `app_queue_depth` | Gauge | `{item}` | — |

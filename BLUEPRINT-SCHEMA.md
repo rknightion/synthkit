@@ -732,10 +732,6 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].routes[]` | string |  | request routes "{METHOD} {path}"; on the entry → drawn per request into r.Route (default "GET /"), on a callee → names its SERVER span (else the node name) |
 | `services[].replicas` | int |  | pods for the node cascade (default 2); per-node scaling §6.6 |
 | `services[].profiles[]` | string |  | catalog profile-template names (resolved at load) |
-| `services[].signals` | object | yes | Signals controls this service's own telemetry; omitted block/keys leave all three enabled. |
-| `services[].signals.traces` | bool | yes | This service's spans; nil = enabled. |
-| `services[].signals.logs` | bool | yes | This service's log streams; nil = enabled. |
-| `services[].signals.metrics` | bool | yes | This service's app metrics; nil = enabled. |
 | `services[].metrics[]` | object |  | inline custom metrics (the DSL escape hatch) |
 | `services[].metrics[].name` | string |  |  |
 | `services[].metrics[].instrument` | string |  |  |

@@ -147,8 +147,6 @@ expected realism, NOT modelled as an error.
 
 Span timing uses `r.RenderStart()`; ledger windowing keys on `r.Start` (I11).
 
-An `app` `services[]` node can set `signals.traces: false`. It emits no root, SERVER, CLIENT, DSL child or agent-flow spans of its own. A traced caller's CLIENT span remains, and the untraced node passes W3C trace context through to a traced callee. The callee's SERVER span uses the same trace ID and the nearest emitted CLIENT as parent, so Tempo can show a direct caller-to-callee connection across the untraced node. An untraced entry with no upstream span leaves the first traced callee as the observed root. This switch does not stop the ledger from minting correlation IDs or remove trace IDs from enabled logs. An entry carrying `rum_faro` and a node declaring `agentic_flow` must keep traces enabled.
-
 ## App db/cache leaf → RDS instance link (db-CLIENT span) [slug: traces-app-db-instance]
 
 The `app` workload models its service graph as nodes; a `type: db`/`type: cache` node is a **leaf**
