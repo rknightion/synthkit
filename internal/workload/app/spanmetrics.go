@@ -496,6 +496,7 @@ func (id nodeIdentity) sdkLang() string {
 // tickTargetInfo emits the resource identity rows Tempo and the entity graph use to join every
 // app service to its placed pod. The labels deliberately mirror web_service's target-info contract.
 func (w *Workload) tickTargetInfo() {
+	allTraceSwitchesOn := w.allTraceSwitchesOn()
 	for _, n := range w.graph.nodes {
 		if n.decl.External {
 			continue
@@ -504,7 +505,9 @@ func (w *Workload) tickTargetInfo() {
 		if n.decl.metricsEnabled() {
 			w.st.Set("target_info", id.targetInfoLabels(), 1)
 		}
-		if n.decl.tracesEnabled() {
+		// Preserve the established all-default inventory. With per-node trace switches in use,
+		// only reachable nodes that project a span resource can produce traces_target_info.
+		if w.nodeHasTraceTargetInfo(n, allTraceSwitchesOn) {
 			labels := id.targetInfoLabels()
 			labels["telemetry_sdk_name"] = "opentelemetry"
 			w.st.Set("traces_target_info", labels, 1)
@@ -536,7 +539,8 @@ func (id nodeIdentity) targetInfoLabels() map[string]string {
 // sgLabels builds the service-graph edge labels (client/server identity prefixes + the shared
 // namespace/cluster/job/source), mirroring web_service sgLabels. connType is the edge's
 // connection_type (a real metrics-generator dimension): "" for instrumented-service/AI edges,
-// "database" for a db/cache leaf edge. An empty connection_type is a REAL dimension (not pruned).
+// "database" for a db/cache leaf edge, "virtual_node" for a root SERVER without an emitted CLIENT
+// parent. An empty connection_type is a REAL dimension (not pruned).
 func sgLabels(client, server nodeIdentity, connType string) map[string]string {
 	l := map[string]string{
 		"client":          client.service,

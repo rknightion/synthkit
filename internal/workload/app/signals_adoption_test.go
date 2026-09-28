@@ -187,6 +187,40 @@ func TestAppMetricsSwitchGatesAppAndNativeMetricsOnly(t *testing.T) {
 	}
 }
 
+func TestTracesTargetInfoRequiresAnExportedNodeSpanWhenSignalsDiffer(t *testing.T) {
+	w := buildApp(t, &Config{Services: []ServiceNode{
+		{Name: "entry", Type: "web", Entry: true, Calls: []string{"store", "callee"}, Signals: &NodeSignals{Traces: ptr(false)}},
+		{Name: "store", Type: "db"},
+		{Name: "callee", Type: "job"},
+		{Name: "disconnected", Type: "web"},
+	}})
+	metrics := &coretest.MetricCapture{}
+	world := coretest.World(metrics, nil, nil)
+	if err := w.Tick(context.Background(), time.Date(2026, 9, 27, 9, 30, 0, 0, time.UTC), world); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+
+	for _, service := range []string{"entry", "store", "disconnected"} {
+		if hasMetricForService(metrics, "traces_target_info", service) {
+			t.Errorf("service %q has traces_target_info without exporting a span", service)
+		}
+	}
+	if !hasMetricForService(metrics, "traces_target_info", "callee") {
+		t.Fatal("reachable traced callee lost traces_target_info")
+	}
+}
+
+func TestSignalsDoesNotDeclareMetricsForUnspannedTraceInfoNodes(t *testing.T) {
+	w := buildApp(t, &Config{Services: []ServiceNode{
+		{Name: "entry", Type: "web", Entry: true, Calls: []string{"store"}, Signals: &NodeSignals{Traces: ptr(false), Metrics: ptr(false)}},
+		{Name: "store", Type: "db", Signals: &NodeSignals{Metrics: ptr(false)}},
+		{Name: "disconnected", Type: "web", Signals: &NodeSignals{Metrics: ptr(false)}},
+	}})
+	if got := w.Signals(); slices.Contains(got, core.Metrics) {
+		t.Fatalf("Signals() = %v; no emitted app metrics or spans require a metric writer", got)
+	}
+}
+
 func TestAppDisabledMetricsDoNotShiftNeighborValues(t *testing.T) {
 	newConfig := func(disableB bool) *Config {
 		var signals *NodeSignals

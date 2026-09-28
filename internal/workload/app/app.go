@@ -334,12 +334,13 @@ func (w *Workload) Name() string { return w.b.Name }
 // option and an enabled node with inline metric declarations.
 func (w *Workload) Signals() []core.SignalClass {
 	hasMetrics, hasTraces, hasLogs, hasNativeMetrics := false, false, false, false
+	allTraceSwitchesOn := w.allTraceSwitchesOn()
 	for _, n := range w.graph.nodes {
 		if n.decl.metricsEnabled() {
 			hasMetrics = hasMetrics || len(n.metrics) > 0 || !n.decl.External
 			hasNativeMetrics = hasNativeMetrics || n.nativeMetricStart < len(n.metrics)
 		}
-		if n.decl.tracesEnabled() && !n.decl.External {
+		if !n.decl.External && w.nodeHasTraceTargetInfo(n, allTraceSwitchesOn) {
 			hasMetrics = true // traces_target_info remains a trace-derived resource row
 		}
 		if w.nodeCanEmitOwnSpans(n) {
@@ -381,6 +382,10 @@ func (w *Workload) nodeCanEmitOwnSpans(n *node) bool {
 		return false
 	}
 	return n == w.graph.entry && !n.kind.leaf || n.kind.serverSpan || len(n.decl.Calls) > 0
+}
+
+func (w *Workload) nodeHasTraceTargetInfo(n *node, allTraceSwitchesOn bool) bool {
+	return n != nil && n.decl.tracesEnabled() && (allTraceSwitchesOn || w.nodeCanEmitOwnSpans(n))
 }
 
 // rumEnabled reports whether the Faro/RUM beacon lane is active for this workload. True when:
