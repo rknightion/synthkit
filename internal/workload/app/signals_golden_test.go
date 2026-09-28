@@ -10,10 +10,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,113 +40,61 @@ type appParityCounts struct {
 }
 
 type appParityGolden struct {
-	Metrics string          `json:"metrics"`
-	Logs    string          `json:"logs"`
-	Traces  string          `json:"traces"`
-	Counts  appParityCounts `json:"counts"`
+	Traces string          `json:"traces"`
+	Counts appParityCounts `json:"counts"`
+}
+
+// Regenerate only deliberately: go test ./internal/workload/app -run '^TestAppDefaultWireParity$' -app-parity-update
+var appParityUpdate = flag.Bool("app-parity-update", false, "regenerate canonical app parity fixture")
+
+type appParityWire struct {
+	Metrics json.RawMessage `json:"metrics"`
+	Logs    json.RawMessage `json:"logs"`
 }
 
 var appParityGoldens = map[string]appParityGolden{
 	"3bfda9556c3d/workload-0": {
-		Metrics: "dbb067f3cc90aa1342abcb9b458339d729da259077a4c9ee9a6197d93358af4c",
-		Logs:    "bf687b40f07cdfbd4b86a6d8917a3180d26742e07095f0b1408d0af876584e5c",
-		Traces:  "772c075029860afb7898bf13960943ddbe4f7180e6b8cd438a45e535667b293c",
-		Counts:  appParityCounts{MetricSeries: 21703, LogStreams: 1, LogLines: 1, TraceBlocks: 1, Spans: 2},
+		Traces: "772c075029860afb7898bf13960943ddbe4f7180e6b8cd438a45e535667b293c",
+		Counts: appParityCounts{MetricSeries: 21703, LogStreams: 1, LogLines: 1, TraceBlocks: 1, Spans: 2},
 	},
 	"3d6e63e34731/workload-0": {
-		Metrics: "889ebbbfe5baf0d7e8edced41290ebf1842a15b7352ff3fedd36e98bea7e66f4",
-		Logs:    "23edf7feedcc16e5491aa14ae84283d99a6ddf90f496d0793ae12b98ca45a463",
-		Traces:  "d67e19ca399875b8bd39ef2cb474d0481dcab0860ffb7b16c50b78d773a509ae",
-		Counts:  appParityCounts{MetricSeries: 44557, LogStreams: 4, LogLines: 4, TraceBlocks: 6, Spans: 15},
+		Traces: "d67e19ca399875b8bd39ef2cb474d0481dcab0860ffb7b16c50b78d773a509ae",
+		Counts: appParityCounts{MetricSeries: 44557, LogStreams: 4, LogLines: 4, TraceBlocks: 6, Spans: 15},
 	},
 	"30c71ab79cac/workload-0": {
-		Metrics: "1f5f80a8b6ab3cd1e04e3c731c293a1ba201a12c4b64c8cd5ffe252c157431c0",
-		Logs:    "60ff66f38e69c028dcaae666bdd2208cde6c28cbe22353df726985e2bd524d82",
-		Traces:  "541911c92d2b510d65ba55504eb871a8f09fb077f1d85266ea6232a7fcaef387",
-		Counts:  appParityCounts{MetricSeries: 23018, LogStreams: 3, LogLines: 3, TraceBlocks: 4, Spans: 14},
+		Traces: "541911c92d2b510d65ba55504eb871a8f09fb077f1d85266ea6232a7fcaef387",
+		Counts: appParityCounts{MetricSeries: 23018, LogStreams: 3, LogLines: 3, TraceBlocks: 4, Spans: 14},
 	},
 	"30c71ab79cac/workload-1": {
-		Metrics: "663967d2bec196883f891639d2cfa67c44ac5c929f74943038508ae84d1fcff3",
-		Logs:    "4bce2a78c544d85585669fa4cbeb21363c03e2b983dbac3434720fc964b56217",
-		Traces:  "000d86ae8b5720d4089461c1ae78e4ef5e3489a8926bf65c6dbb737d60d588e9",
-		Counts:  appParityCounts{MetricSeries: 22203, LogStreams: 1, LogLines: 1, TraceBlocks: 2, Spans: 9},
+		Traces: "000d86ae8b5720d4089461c1ae78e4ef5e3489a8926bf65c6dbb737d60d588e9",
+		Counts: appParityCounts{MetricSeries: 22203, LogStreams: 1, LogLines: 1, TraceBlocks: 2, Spans: 9},
 	},
 	"30c71ab79cac/workload-2": {
-		Metrics: "e33902955af0c9bf5542762f42a9b6a6484542339dcb91b93b7ee7cb2e3fc2a4",
-		Logs:    "f9d1e8e94b914eb8e5a326d33be3ff1cf052072f69c04c3d8991469d8a6f4115",
-		Traces:  "a0bc3e9cd006a96af49a3eb780c950f40723b8c1aa056bbd0aab2f137e1023b5",
-		Counts:  appParityCounts{MetricSeries: 22119, LogStreams: 2, LogLines: 2, TraceBlocks: 1, Spans: 7},
+		Traces: "a0bc3e9cd006a96af49a3eb780c950f40723b8c1aa056bbd0aab2f137e1023b5",
+		Counts: appParityCounts{MetricSeries: 22119, LogStreams: 2, LogLines: 2, TraceBlocks: 1, Spans: 7},
 	},
 	"30c71ab79cac/workload-3": {
-		Metrics: "90185435f990e8ff5ceb84085d722b5035a41d9553746419a32551f6e39394d2",
-		Logs:    "6ebe2c718f476910c35047d54aa3c9a8a392194468bceaf81b41174fdcd1ca49",
-		Traces:  "82fcd96b37780fc4c107176415db4030a39f3abb151a9405635e76a66ecd0a84",
-		Counts:  appParityCounts{MetricSeries: 22119, LogStreams: 2, LogLines: 2, TraceBlocks: 1, Spans: 7},
+		Traces: "82fcd96b37780fc4c107176415db4030a39f3abb151a9405635e76a66ecd0a84",
+		Counts: appParityCounts{MetricSeries: 22119, LogStreams: 2, LogLines: 2, TraceBlocks: 1, Spans: 7},
 	},
 	"4292cbaa24fb/workload-2": {
-		Metrics: "2c5d014bbcd7071306ea32fab208227248bf42890f6a7fb2ec455af558ba8064",
-		Logs:    "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-		Traces:  "f43fc7d250b910aa0cb0ab0c04405afa62fe3bc7b973af5f5c39e80d553bf3dc",
-		Counts:  appParityCounts{MetricSeries: 192, LogStreams: 0, LogLines: 0, TraceBlocks: 3, Spans: 5},
+		Traces: "f43fc7d250b910aa0cb0ab0c04405afa62fe3bc7b973af5f5c39e80d553bf3dc",
+		Counts: appParityCounts{MetricSeries: 192, LogStreams: 0, LogLines: 0, TraceBlocks: 3, Spans: 5},
 	},
 	"span-metrics-fixture": {
-		Metrics: "e65b8ddca27425db76305ca1b1514652e12fca95556b820a79c25b15a27a3ff8",
-		Logs:    "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-		Traces:  "3cc2dd80149b25c1e634853d22f85b200e00fc3bfbf3bd6418c262289e92340c",
-		Counts:  appParityCounts{MetricSeries: 170, LogStreams: 0, LogLines: 0, TraceBlocks: 2, Spans: 4},
+		Traces: "3cc2dd80149b25c1e634853d22f85b200e00fc3bfbf3bd6418c262289e92340c",
+		Counts: appParityCounts{MetricSeries: 170, LogStreams: 0, LogLines: 0, TraceBlocks: 2, Spans: 4},
 	},
-}
-
-// Linux and Darwin base digests were recorded at Stage A e182fc2, before per-node signals.
-// Metric and log digests differ across these platforms, so each is pinned to
-// its own pre-feature values. Counts and trace digests are shared.
-var linuxAppParityDigests = map[string]struct{ metrics, logs string }{
-	"3bfda9556c3d/workload-0": {metrics: "e18558a6188a5e17f4e3002ad28d41292429edae59c34f558c5e042af21ab574", logs: "bf687b40f07cdfbd4b86a6d8917a3180d26742e07095f0b1408d0af876584e5c"},
-	"3d6e63e34731/workload-0": {metrics: "f163b61a69239e5ff2d0400d2293ce06108509aa87242c2ad6970305949b4267", logs: "b19e948d0fb3c819ac979a5f48f3ef7d1946fbe69f778b9be0df1ace7be693c7"},
-	"30c71ab79cac/workload-0": {metrics: "abee8d0de73c61ffcf577c41fcd2f72637752bf28d2aa381e171a47de4126b56", logs: "60ff66f38e69c028dcaae666bdd2208cde6c28cbe22353df726985e2bd524d82"},
-	"30c71ab79cac/workload-1": {metrics: "15913ddd0997c2990dd9e9c74af95807014da23992283e0ba3e858f8d41b66d9", logs: "4bce2a78c544d85585669fa4cbeb21363c03e2b983dbac3434720fc964b56217"},
-	"30c71ab79cac/workload-2": {metrics: "d3402054d46d98e9cea734dc8d0aaf4907c520bdb4545ea2c122b237923b8069", logs: "f9d1e8e94b914eb8e5a326d33be3ff1cf052072f69c04c3d8991469d8a6f4115"},
-	"30c71ab79cac/workload-3": {metrics: "496d01be782f09f8b0d5bb3a66fbb9c962875d4444e5de63e05c7d8ff549673d", logs: "6ebe2c718f476910c35047d54aa3c9a8a392194468bceaf81b41174fdcd1ca49"},
-	"4292cbaa24fb/workload-2": {metrics: "d9d8eeb9b2228ad730497a25b33cfb47db51f2a5b55510d0cc4fde784e6457fd", logs: "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"},
-	"span-metrics-fixture":    {metrics: "fbe23ae2a941666e9e940edf413db86f9c075f74a261187f16a6c734d38ca35b", logs: "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"},
-}
-
-func appParityGoldensForPlatform(t *testing.T) map[string]appParityGolden {
-	t.Helper()
-	goldens := make(map[string]appParityGolden, len(appParityGoldens))
-	for key, value := range appParityGoldens {
-		goldens[key] = value
-	}
-	switch runtime.GOOS + "/" + runtime.GOARCH {
-	case "darwin/arm64":
-		return goldens
-	case "linux/amd64":
-		if len(linuxAppParityDigests) != len(goldens) {
-			t.Fatalf("Linux parity goldens cover %d of %d cases", len(linuxAppParityDigests), len(goldens))
-		}
-		for key, digest := range linuxAppParityDigests {
-			value, ok := goldens[key]
-			if !ok {
-				t.Fatalf("Linux parity golden has unknown case %q", key)
-			}
-			value.Metrics, value.Logs = digest.metrics, digest.logs
-			goldens[key] = value
-		}
-		return goldens
-	default:
-		t.Fatalf("no Stage A parity goldens for %s/%s", runtime.GOOS, runtime.GOARCH)
-		return nil
-	}
 }
 
 // TestAppDefaultWireParity fixes one deterministic request at a fixed clock for each app
-// declaration discovered in the blueprint catalog. It hashes canonical JSON encodings of the
-// sink batches, so the assertion includes metric values, trace ancestry, log correlation fields
-// and item counts. Only the metric-series slice is sorted: repeated-run evidence shows that
+// declaration discovered in the blueprint catalog. It compares canonical metrics and logs
+// against a fixture, while traces and counts retain their exact Stage A pins. Variants must
+// match the base bytes exactly. Only the metric-series slice is sorted: evidence shows that
 // State.Collect's map iteration changes that order while preserving every series value.
 func TestAppDefaultWireParity(t *testing.T) {
 	now := time.Date(2026, 9, 27, 9, 30, 0, 0, time.UTC)
-	goldens := appParityGoldensForPlatform(t)
+	goldens := appParityGoldens
 	cases := appParityDeclarations(t)
 	cases = append(cases, appParityCase{key: "span-metrics-fixture", cfg: parityFixtureConfig()})
 	if len(goldens) != len(cases) && os.Getenv("APP_PARITY_PRINT") == "" {
@@ -156,12 +104,13 @@ func TestAppDefaultWireParity(t *testing.T) {
 	got := make(map[string]appParityGolden, len(cases))
 	for _, tc := range cases {
 		t.Run(tc.key, func(t *testing.T) {
-			base := runAppParityCase(t, paritySignalsConfig(t, tc.cfg, "omitted"), now, tc.key)
+			base, baseWire := runAppParityCase(t, paritySignalsConfig(t, tc.cfg, "omitted"), now, tc.key)
 			got[tc.key] = base
+			compareAppParityFixture(t, tc.key, baseWire)
 			for _, variant := range []string{"empty", "explicit_true", "null"} {
 				t.Run(variant, func(t *testing.T) {
-					got := runAppParityCase(t, paritySignalsConfig(t, tc.cfg, variant), now, tc.key)
-					if got != base {
+					got, wire := runAppParityCase(t, paritySignalsConfig(t, tc.cfg, variant), now, tc.key)
+					if got != base || !bytes.Equal(wire.Metrics, baseWire.Metrics) || !bytes.Equal(wire.Logs, baseWire.Logs) {
 						t.Fatalf("signals %s changed default wire output:\n got: %+v\nwant: %+v", variant, got, base)
 					}
 				})
@@ -331,7 +280,7 @@ func parityFixtureConfig() *Config {
 	}
 }
 
-func runAppParityCase(t *testing.T, cfg *Config, now time.Time, seed string) appParityGolden {
+func runAppParityCase(t *testing.T, cfg *Config, now time.Time, seed string) (appParityGolden, appParityWire) {
 	t.Helper()
 	previousReader := cryptorand.Reader
 	cryptorand.Reader = newParityRandomReader(seed)
@@ -380,10 +329,24 @@ func runAppParityCase(t *testing.T, cfg *Config, now time.Time, seed string) app
 		t.Logf("fixed request route=%q outcome=%q trace=%q logs=%s", r.Route, r.Outcome, r.TraceID, encoded)
 	}
 
+	sortedMetrics := sortedMetricBatch(t, metrics.batch)
+	wire := appParityWire{Metrics: parityJSON(t, sortedMetrics), Logs: parityJSON(t, logs.batch)}
+	// Diagnostic only: retain canonical sink batches for cross-platform investigation.
+	if dir := os.Getenv("APP_PARITY_DUMP_DIR"); dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		data := parityJSON(t, struct {
+			Metrics json.RawMessage `json:"metrics"`
+			Logs    json.RawMessage `json:"logs"`
+			Traces  []otlp.Resource `json:"traces"`
+		}{wire.Metrics, wire.Logs, traces.batch})
+		if err := os.WriteFile(filepath.Join(dir, strings.ReplaceAll(seed, "/", "__")+".json"), data, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
 	return appParityGolden{
-		Metrics: parityDigest(t, sortedMetricBatch(t, metrics.batch)),
-		Logs:    parityDigest(t, logs.batch),
-		Traces:  parityDigest(t, traces.batch),
+		Traces: parityDigest(t, traces.batch),
 		Counts: appParityCounts{
 			MetricSeries: metrics.series,
 			LogStreams:   logs.streams,
@@ -391,7 +354,7 @@ func runAppParityCase(t *testing.T, cfg *Config, now time.Time, seed string) app
 			TraceBlocks:  traces.blocks,
 			Spans:        traces.spans,
 		},
-	}
+	}, wire
 }
 
 func seedCorrelation(r *ledger.Request, seed string) {
@@ -407,12 +370,17 @@ func seedCorrelation(r *ledger.Request, seed string) {
 
 func parityDigest(t *testing.T, batch any) string {
 	t.Helper()
+	sum := sha256.Sum256(parityJSON(t, batch))
+	return hex.EncodeToString(sum[:])
+}
+
+func parityJSON(t *testing.T, batch any) []byte {
+	t.Helper()
 	encoded, err := json.Marshal(batch)
 	if err != nil {
 		t.Fatalf("encode sink batch: %v", err)
 	}
-	sum := sha256.Sum256(encoded)
-	return hex.EncodeToString(sum[:])
+	return encoded
 }
 
 func sortedMetricBatch(t *testing.T, batch []promrw.Series) []promrw.Series {
