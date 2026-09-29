@@ -321,7 +321,7 @@ it — applies to the digest you pin here just as it does to the Compose selecto
 - [Deployment](deployment.md) — the Compose deployment, queue-memory sizing, and image verification
 - [Credentials](credentials.md) — what each credential is and where to get it
 - [Control Plane](control-plane.md) — the operator UI and HTTP API
-- [Instructor control dashboard](tools.md#synthkit-control-dash--control-dashboard-generator) — optional `-layout control-plane` JSON generator; use an operator-only folder and datasource access.
+- [Instructor control dashboard](tools.md#synthkit-control-dash-control-dashboard-generator) — optional `-layout control-plane` JSON generator; use an operator-only folder and datasource access.
 - [Configuration](configuration.md) — every environment variable
 - [Kubernetes monitoring deployment permutations](k8s-monitoring-permutations.md) — choose the collector path your blueprint should represent
 - `charts/synthkit/README.md` — the full values reference and the resource measurement
