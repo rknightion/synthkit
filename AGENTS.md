@@ -141,3 +141,5 @@ imported or renumbered.
 - Backlog docs `doc-0001` (canonical agent-fan-out protocol) and `doc-0002` (Wave operating
   model) - read both before designing a multi-lane campaign here.
 - `dashboards/AGENTS.md` - read before touching anything under `dashboards/`.
+
+Slow tier: `just lab` (disposable k3d collector-egress fidelity capture) took about 35 minutes in CI; run it once on the final candidate when that capture surface changes, not in the inner loop.
