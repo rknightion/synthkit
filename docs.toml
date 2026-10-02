@@ -50,6 +50,30 @@ Home = "index.md"
 ]
 
 [[site.nav]]
+"AI Factory" = [
+    { Overview = "ai-factory.md" },
+    { "GPU Fixture" = "ai-factory/fixture.md" },
+    { Syslog = "ai-factory/syslog.md" },
+    { SNMP = "ai-factory/snmpexporter.md" },
+    { DCGM = "ai-factory/dcgm.md" },
+    { "Driver Logs" = "ai-factory/driver.md" },
+    { "GPU Operator" = "ai-factory/gpuoperator.md" },
+    { "Network Operator" = "ai-factory/networkoperator.md" },
+    { Redfish = "ai-factory/redfish.md" },
+    { "Spectrum-X" = "ai-factory/spectrumx.md" },
+    { NVLink = "ai-factory/nvlink.md" },
+    { BCM = "ai-factory/bcm.md" },
+    { "Mission Control" = "ai-factory/missioncontrol.md" },
+    { "Run:ai" = "ai-factory/runai.md" },
+    { VAST = "ai-factory/vast.md" },
+    { "Rack Facility" = "ai-factory/rackfacility.md" },
+    { "BMS Spike" = "ai-factory/bms-spike.md" },
+    { "Gateway Health" = "ai-factory/alloyhealth.md" },
+    { Slurm = "ai-factory/slurm.md" },
+    { "Inference Serving" = "ai-factory/inferenceserving.md" },
+]
+
+[[site.nav]]
 "Signal Catalogue" = [
     { "Reading the Catalogue" = "signals.md" },
     { "Signal Areas" = "signal-areas.md" },

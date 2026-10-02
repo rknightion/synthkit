@@ -137,6 +137,7 @@ func TestCatalogImportIsolation(t *testing.T) {
 		"github.com/rknightion/synthkit/internal/core",
 		"github.com/rknightion/synthkit/internal/beyla/",     // shared Beyla (eBPF) vocabulary mechanic (peer lib, like cw/genai); the web_service Beyla lane + beyla_agent build their series from it
 		"github.com/rknightion/synthkit/internal/pyroscope/", // shared Pyroscope profiling mechanic (peer lib, like cw/genai); constructs build pprof profiles + flamegraph vocab from it
+		"github.com/rknightion/synthkit/internal/syslog/",    // shared source-backed syslog rendering mechanic
 		"github.com/rknightion/synthkit/internal/cw/",        // shared CloudWatch emission mechanic (peer lib, like state); trailing slash + the exact-match branch covers the bare import without matching internal/cwXxx
 		"github.com/rknightion/synthkit/internal/genai/",     // shared gen_ai semconv vocabulary mechanic (peer lib, like cw); workload-AI lane builds gen_ai spans/metrics from it
 		"github.com/rknightion/synthkit/internal/sigil/",     // shared sigil AI-Observability vocabulary + content-corpus mechanic (peer lib, like genai/cw); the aiagent workload builds generations/spans/metrics from it

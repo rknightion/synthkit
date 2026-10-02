@@ -179,6 +179,22 @@ func Catalog() *core.Registry {
 	reg.RegisterConstruct(withMetricProducers(beylaagent.Registration(), producerPromRW, producerOTLPNative))
 	reg.RegisterConstruct(withMetricProducer(nettopo.Registration(), producerPromRW))
 
+	// AI Factory registrations are isolated in single-owner wiring files.
+	registerAIFSnmpExporter(reg)
+	registerAIFDcgm(reg)
+	registerAIFGpuOperator(reg)
+	registerAIFNetworkOperator(reg)
+	registerAIFRedfish(reg)
+	registerAIFSpectrumx(reg)
+	registerAIFNvlink(reg)
+	registerAIFBcm(reg)
+	registerAIFMissioncontrol(reg)
+	registerAIFRunai(reg)
+	registerAIFVast(reg)
+	registerAIFRackfacility(reg)
+	registerAIFSlurm(reg)
+	registerAIFInferenceserving(reg)
+
 	// Workloads.
 	reg.RegisterWorkload(withWorkloadMetricProducers(webservice.Registration(), producerPromRW, producerOTLPNative))
 	reg.RegisterWorkload(withWorkloadMetricProducers(app.Registration(), producerPromRW, producerOTLPNative))
