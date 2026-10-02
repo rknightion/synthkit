@@ -177,10 +177,12 @@ type bpRuntime struct {
 
 	// incidents are this blueprint's DECLARED schedule strings (res.Incidents), retained for
 	// GET /control/incidents. rtEng is a dedicated shape engine holding only the operator-created
-	// RUNTIME incidents; rebuilt by ApplyControl, consulted by the Live closure + ControlIncidents.
+	// RUNTIME incidents; rebuilt by ApplyControl for ControlIncidents diagnostics. The Live
+	// closure uses a separately compiled engine from one captured control revision.
 	// atomic.Pointer because the per-blueprint tick goroutine reads it while ApplyControl swaps it.
 	incidents []string
 	rtEng     atomic.Pointer[shape.Engine]
+	gpuTick   atomic.Pointer[gpuTickSnapshot] // immutable Live inputs for the current master cycle
 }
 
 type metricProducerSet struct {
@@ -362,64 +364,13 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 	// "" (un-scoped — matches the mode's sole axis via scopeMatch), or "<axis>:*" (expanded here
 	// against bp.targets). The scheduled incident windows are layered separately by the engine.
 	bp.eng.Live = func(mode string) []shape.LiveFailure {
-		st := r.ctl.Load()
-		if st == nil {
-			return nil
+		capture := bp.gpuTick.Load()
+		if capture == nil {
+			// Before the first tick, diagnostic callers retain live evaluation.
+			// Once prepared, no per-consumer control reload or wall clock occurs.
+			capture = r.captureGPUControl(bp, time.Now())
 		}
-		var out []shape.LiveFailure
-		expand := func(scope string, inten float64) {
-			if strings.HasSuffix(scope, ":*") {
-				axis := failuremode.Axis(strings.TrimSuffix(scope, ":*"))
-				for _, name := range bp.axisScopes(axis) {
-					out = append(out, shape.LiveFailure{Enabled: true, Intensity: inten, Scope: name})
-				}
-				return
-			}
-			out = append(out, shape.LiveFailure{Enabled: true, Intensity: inten, Scope: scope})
-		}
-		// 1. ad-hoc failure for this mode.
-		if f, ok := st.Failures[mode]; ok && f.Enabled {
-			expand(f.Scope, f.Intensity)
-		}
-		// 2. active scenarios defined in THIS blueprint.
-		for _, sc := range bp.scenarios {
-			if !slices.Contains(st.ActiveScenarios, bp.name+"/"+sc.Name) {
-				continue
-			}
-			for _, e := range sc.Effects {
-				if e.Mode != mode {
-					continue
-				}
-				inten := e.Intensity
-				if inten <= 0 {
-					inten = 1.0
-				}
-				expand(e.Target, inten) // "" → un-scoped match (single-axis mode)
-			}
-		}
-		// 3. runtime incidents (operator-created, this blueprint). Their windows live in rtEng;
-		// for each DISTINCT target among this blueprint's runtime incidents of this mode, ask rtEng
-		// whether the window is active now. rtEng.Eval scope-matches internally, so calling it with
-		// the incident's own target returns that window's (active,intensity); we then emit a
-		// LiveFailure on that scope for the outer Eval to union.
-		if rt := bp.rtEng.Load(); rt != nil {
-			// time.Now() is used here rather than the tick's now because the Live func(mode string)
-			// seam (frozen in the shape package) has no time parameter. In practice this agrees with
-			// tick-now to within milliseconds — this is an intentional limitation of the no-shape-edit
-			// design.
-			now := time.Now()
-			seen := map[string]bool{}
-			for _, ri := range st.RuntimeIncidents {
-				if ri.Blueprint != bp.name || ri.Mode != mode || seen[ri.Target] {
-					continue
-				}
-				seen[ri.Target] = true
-				if active, inten := rt.Eval(now, mode, ri.Target); active {
-					out = append(out, shape.LiveFailure{Enabled: true, Intensity: inten, Scope: ri.Target})
-				}
-			}
-		}
-		return out
+		return bp.gpuLiveFailures(capture, mode)
 	}
 
 	for _, ci := range res.Constructs {
@@ -838,6 +789,8 @@ func (r *Runner) MasterTick(ctx context.Context, now time.Time) error {
 // serially by MasterTick (RunOnce) and concurrently — one goroutine per blueprint — by Run. The
 // caller gates on enabled() before calling.
 func (r *Runner) masterTickOne(ctx context.Context, bp *bpRuntime, now time.Time) error {
+	// Prepare even when Mint returns no requests; all due consumers share it.
+	r.prepareGPUTick(bp, now)
 	// Pod lifecycle is a composition concern because the k8s substrate and workload resources
 	// share the resolved cluster placement. Advance it before mint/projection so traces and the
 	// construct's metrics/logs retire the same identity in this master cycle.
