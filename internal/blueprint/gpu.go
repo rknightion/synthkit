@@ -26,7 +26,10 @@ func validateGPUIntegerInput(data []byte) error {
 	if len(root.Content) == 0 {
 		return nil
 	}
-	doc := root.Content[0]
+	doc, err := gpuEffectiveYAML(root.Content[0], map[*yaml.Node]bool{})
+	if err != nil {
+		return err
+	}
 	var walk func(*yaml.Node, reflect.Type, string) error
 	walk = func(n *yaml.Node, t reflect.Type, path string) error {
 		for n.Kind == yaml.AliasNode && n.Alias != nil {
@@ -120,6 +123,86 @@ func validateGPUIntegerInput(data []byte) error {
 		}
 	}
 	return nil
+}
+
+// gpuEffectiveYAML expands aliases/merge mappings for raw validation only. The
+// original document still goes through KnownFields decoding, so strictness is
+// unchanged. Explicit keys win; earlier maps in a merge sequence win over later.
+func gpuEffectiveYAML(n *yaml.Node, active map[*yaml.Node]bool) (*yaml.Node, error) {
+	if active[n] {
+		return nil, fmt.Errorf("recursive YAML alias/merge")
+	}
+	active[n] = true
+	defer delete(active, n)
+	if n.Kind == yaml.AliasNode {
+		return gpuEffectiveYAML(n.Alias, active)
+	}
+	out := *n
+	out.Content = nil
+	if n.Kind != yaml.MappingNode {
+		for _, child := range n.Content {
+			value, err := gpuEffectiveYAML(child, active)
+			if err != nil {
+				return nil, err
+			}
+			out.Content = append(out.Content, value)
+		}
+		return &out, nil
+	}
+	keys := map[string]bool{}
+	var merges []*yaml.Node
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		key := n.Content[i]
+		value, err := gpuEffectiveYAML(n.Content[i+1], active)
+		if err != nil {
+			return nil, err
+		}
+		if key.Tag == "!!merge" {
+			if value.Kind == yaml.SequenceNode {
+				merges = append(merges, value.Content...)
+			} else {
+				merges = append(merges, value)
+			}
+			continue
+		}
+		out.Content = append(out.Content, key, value)
+		keys[key.Value] = true
+	}
+	for _, inherited := range merges {
+		if inherited.Kind != yaml.MappingNode {
+			return nil, fmt.Errorf("YAML merge requires mapping")
+		}
+		for i := 0; i+1 < len(inherited.Content); i += 2 {
+			key := inherited.Content[i]
+			if !keys[key.Value] {
+				out.Content = append(out.Content, key, inherited.Content[i+1])
+				keys[key.Value] = true
+			}
+		}
+	}
+	return &out, nil
+}
+
+// The registry instance owns one Host binding, even when its pool selection also
+// contains other collected hosts. Use canonical parent identities from fixture,
+// not a second shared-mode reachability implementation in the loader.
+func gpuInstanceOwnsTarget(ci ConstructInstance, key string) bool {
+	if ci.Kind != KindHost {
+		return true
+	}
+	if ci.Fixtures == nil || ci.Fixtures.Host == nil || ci.Fixtures.Host.GPU == nil {
+		return false
+	}
+	node := ci.Fixtures.Host.GPU
+	if node.Host != ci.Fixtures.Host {
+		return false
+	}
+	for _, gpu := range node.GPUs {
+		if key == gpu.Key || slices.Contains(ci.Fixtures.GPU.Topology.GPUParentTargets(gpu.Key), key) {
+			return true
+		}
+	}
+	return false
 }
 
 func validateBareMetal(c *ClusterDecl) error {
@@ -253,7 +336,7 @@ func validateResolvedEffect(r *Resolved, reg *core.Registry, e EffectDecl, axes 
 				continue
 			}
 			if shared {
-				if ci.Fixtures.GPU.CoversTarget(ci.Kind, e.Mode, key) {
+				if ci.Fixtures.GPU.CoversTarget(ci.Kind, e.Mode, key) && gpuInstanceOwnsTarget(ci, key) {
 					covered = true
 				}
 			} else if gpuLocalMembership(ci.Fixtures.GPU, key) {

@@ -9,6 +9,7 @@ import (
 	"github.com/rknightion/synthkit/internal/fixture"
 	"gopkg.in/yaml.v3"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -412,5 +413,129 @@ func TestGPULocalCollectionModeBlueprintBoundary(t *testing.T) {
 	}
 	if _, err := cr.Build(rr.Constructs[0].Config, rr.Constructs[0].Fixtures); err == nil {
 		t.Fatal("consumer builder did not validate sourced profile")
+	}
+}
+
+// Root rescue counterexamples independently derived from the frozen contract.
+func TestGPURescueFractionalMerge(t *testing.T) {
+	d := gpuMinimalDecl()
+	b, _ := yaml.Marshal(d)
+	merged := strings.Replace(string(b), "node_count: 1", "<<: {node_count: 1.5}", 1)
+	r, e := Load([]byte(merged), testRegistry(t))
+	if e == nil {
+		t.Fatalf("fractional merged node_count accepted and truncated: %d nodes", len(r.GPU.Nodes))
+	}
+}
+func TestGPURescueVASTStorageOnly(t *testing.T) {
+	data, e := os.ReadFile("../../e2e/fixtures/ai-factory-fixture.yaml")
+	if e != nil {
+		t.Fatal(e)
+	}
+	var d Decl
+	if e = yaml.Unmarshal(data, &d); e != nil {
+		t.Fatal(e)
+	}
+	reg := testRegistry(t)
+	reg.RegisterConstruct(core.ConstructReg{Kind: "vast", Group: core.GroupIntegration, Scope: core.ScopeSubstrate, NewConfig: func() any { return &struct{}{} }, Build: func(any, *fixture.Set) (core.Construct, error) { return nil, nil }, FailureModes: fixture.GPUFailureModes("vast")})
+	var node yaml.Node
+	yaml.Unmarshal([]byte("gpu_storage_clusters: [storage-a]"), &node)
+	d.Integrations = map[string]yaml.Node{"vast": *node.Content[0]}
+	d.Scenarios = []ScenarioDecl{{Name: "storage-slow", Effects: []EffectDecl{{Mode: "gpu_storage_latency", Target: "storage:storage-a", Intensity: 1}}}}
+	if _, e = gpuDeclLoad(t, d, reg); e != nil {
+		t.Fatalf("selected storage consumer cannot cover its own storage fault: %v", e)
+	}
+}
+func TestGPURescueHostSiblingCoverage(t *testing.T) {
+	d := gpuMinimalDecl()
+	p := &d.GPUCompute.Pools[0]
+	p.NodeCount = 2
+	p.Placements[0].NodeCount = 2
+	d.Hosts = []HostDecl{{Name: "node-a-0000", CPUs: 64, MemoryGB: 512}}
+	d.Scenarios = []ScenarioDecl{{Name: "uncollected-host", Effects: []EffectDecl{{Mode: "gpu_fallen_off_bus", Target: "gpu:node-a-0001/0", Intensity: 1}}}}
+	reg := core.NewRegistry()
+	reg.RegisterConstruct(core.ConstructReg{Kind: KindHost, Scope: core.ScopeSubstrate, NewConfig: func() any { return &testHostConfig{} }, Build: func(any, *fixture.Set) (core.Construct, error) { return nil, nil }, FailureModes: fixture.GPUFailureModes("host")})
+	if _, e := gpuDeclLoad(t, d, reg); e == nil {
+		t.Fatal("host collector falsely covers uncollected sibling GPU")
+	}
+	d.Scenarios[0].Effects[0].Target = "gpu:node-a-0000/0"
+	if _, e := gpuDeclLoad(t, d, reg); e != nil {
+		t.Fatalf("host failed to cover its own GPU: %v", e)
+	}
+}
+func TestGPURescueEKSOrder(t *testing.T) {
+	d := gpuMinimalDecl()
+	groups := []fixture.NodeGroupSpec{{Name: "general", InstanceType: "m6i.large", Desired: 10}}
+	nodes := fixture.DeriveNodes("seed", "eks-cl", groups, "us-east-1", 0)
+	before := append([]fixture.Node(nil), nodes...)
+	cl := &fixture.Cluster{Name: "eks-cl", Type: "eks", Seed: "seed", Region: "us-east-1", Nodes: nodes, NodeGroups: groups}
+	_, e := fixture.BuildGPUTopology("seed", *d.GPUCompute, map[string]*fixture.Cluster{cl.Name: cl}, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !reflect.DeepEqual(before, cl.Nodes) {
+		t.Fatalf("unrelated EKS node order changed; resolved first=%s live first=%s", cl.Nodes[0].Hostname, fixture.LiveNodes(cl, func(_ string, n int) int { return n })[0].Hostname)
+	}
+}
+
+func TestGPURescueMalformedPCI(t *testing.T) {
+	d := gpuMinimalDecl()
+	d.GPUCompute.Pools[0].GPUs = []fixture.GPUOverrideSpec{{Slot: 0, PCIBusID: "00000000:20:00.0garbage"}}
+	r, e := gpuDeclLoad(t, d, testRegistry(t))
+	if e == nil {
+		t.Fatalf("malformed PCI suffix accepted and silently normalized: %s", r.GPU.Nodes[0].GPUs[0].PCIBusID)
+	}
+}
+
+func TestGPURescueMergedInputPrecedence(t *testing.T) {
+	d := gpuMinimalDecl()
+	b, e := yaml.Marshal(d)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var prefix string
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.TrimSpace(line) == "node_count: 1" {
+			prefix = line[:len(line)-len(strings.TrimLeft(line, " "))]
+			break
+		}
+	}
+	source := strings.Replace(string(b), "node_count: 1", "<<: {node_count: 1.5}\n"+prefix+"node_count: 1", 1)
+	if _, e := Load([]byte(source), testRegistry(t)); e != nil {
+		t.Fatalf("explicit whole integer must override merged fraction: %v", e)
+	}
+	// Merge the entire gpu_compute subtree so raw discovery cannot skip it.
+	source = "<<:\n"
+	for _, line := range strings.Split(strings.TrimSuffix(string(b), "\n"), "\n") {
+		source += "  " + line + "\n"
+	}
+	source = strings.Replace(source, "node_count: 1", "node_count: 1.5", 1)
+	if _, e := Load([]byte(source), testRegistry(t)); e == nil {
+		t.Fatal("top-level merged GPU subtree bypassed integer validation")
+	}
+}
+func TestGPURescueHostInstanceScope(t *testing.T) {
+	d := gpuMinimalDecl()
+	p := &d.GPUCompute.Pools[0]
+	p.NodeCount = 2
+	p.Placements[0].NodeCount = 2
+	d.Hosts = []HostDecl{{Name: "node-a-0000", CPUs: 64, MemoryGB: 512}, {Name: "node-a-0001", CPUs: 64, MemoryGB: 512}}
+	reg := core.NewRegistry()
+	reg.RegisterConstruct(core.ConstructReg{Kind: KindHost, Scope: core.ScopeSubstrate, NewConfig: func() any { return &testHostConfig{} }, Build: func(any, *fixture.Set) (core.Construct, error) { return nil, nil }, FailureModes: fixture.GPUFailureModes("host")})
+	r, e := gpuDeclLoad(t, d, reg)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, ci := range r.Constructs {
+		if ci.Kind != KindHost {
+			continue
+		}
+		own := "gpu:" + ci.Fixtures.Host.Hostname + "/0"
+		other := "gpu:node-a-0001/0"
+		if ci.Fixtures.Host.Hostname == "node-a-0001" {
+			other = "gpu:node-a-0000/0"
+		}
+		if !gpuInstanceOwnsTarget(ci, own) || gpuInstanceOwnsTarget(ci, other) {
+			t.Fatal("invoking host did not retain its own canonical physical scope")
+		}
 	}
 }

@@ -358,11 +358,18 @@ func (s *GPUSelection) CoversTarget(kind, mode, key string) bool {
 		}
 		return false
 	}
+	if kind == "vast" && mode == "gpu_storage_latency" {
+		for _, storage := range s.Topology.StorageClusters {
+			if slices.Contains(s.StorageClusterNames, storage.Name) && key == storage.Key {
+				return true
+			}
+		}
+	}
 	for _, n := range s.Nodes() {
 		if (kind == "gpuoperator" || kind == "networkoperator" || kind == "k8s_cluster") && n.KubernetesCluster == "" {
 			continue
 		}
-		if kind == "host" && n.KubernetesCluster != "" {
+		if kind == "host" && (n.KubernetesCluster != "" || n.Host == nil) {
 			continue
 		}
 		for _, g := range n.GPUs {

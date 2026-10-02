@@ -489,6 +489,9 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 				}
 				pci, _ := GPUPCIBusID(0, 0x20+slot, 0, 0)
 				if g.PCIBusID != "" {
+					if !regexp.MustCompile(`^[0-9a-fA-F]{1,8}:[0-9a-fA-F]{1,2}:[0-9a-fA-F]{1,2}\.[0-7]$`).MatchString(g.PCIBusID) {
+						return nil, bad(path, "invalid PCI address")
+					}
 					var dom, bus, dev, fun int
 					if count, _ := fmt.Sscanf(g.PCIBusID, "%x:%x:%x.%d", &dom, &bus, &dev, &fun); count != 4 {
 						return nil, bad(path, "invalid PCI address")
@@ -925,6 +928,16 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 	// nodes are separate declarations and must not duplicate a GPU declaration.
 	for _, name := range gpuSortedMapKeys(clusters) {
 		cl := clusters[name]
+		bound := false
+		for _, n := range t.Nodes {
+			if n.KubernetesCluster == name {
+				bound = true
+				break
+			}
+		}
+		if !bound {
+			continue // Unrelated inventories retain their existing derivation and order.
+		}
 		if cl.Type == "baremetal" {
 			cl.StaticNodes = true
 		}
