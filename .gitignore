@@ -81,7 +81,7 @@ docs/assets/social-card.svg
 docs/fonts/
 
 codex/
-
+runtime/
 # Local UI screenshot scratch (Claude Design source material). Root-anchored: curated copies
 # under docs/assets/screenshots/ are tracked deliberately.
 /screenshots/
