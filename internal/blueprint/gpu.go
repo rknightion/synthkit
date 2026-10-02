@@ -125,62 +125,150 @@ func validateGPUIntegerInput(data []byte) error {
 	return nil
 }
 
-// gpuEffectiveYAML expands aliases/merge mappings for raw validation only. The
-// original document still goes through KnownFields decoding, so strictness is
-// unchanged. Explicit keys win; earlier maps in a merge sequence win over later.
-func gpuEffectiveYAML(n *yaml.Node, active map[*yaml.Node]bool) (*yaml.Node, error) {
-	if active[n] {
-		return nil, fmt.Errorf("recursive YAML alias/merge")
+// These private limits bound the extra raw-validation pass, including disabled
+// raw configs: 64K normalization steps and logically expanded nodes, 128 levels.
+// They are safety ceilings, not topology sizing/defaults. Count logical expansion
+// as well as actual work so downstream typed traversal cannot re-expand a DAG.
+const gpuYAMLMaxWork = 1 << 16
+const gpuYAMLMaxDepth = 128
+
+type gpuYAMLValue struct {
+	node        *yaml.Node
+	size, depth int
+}
+
+type gpuYAMLNormalizer struct {
+	active map[*yaml.Node]bool
+	memo   map[*yaml.Node]gpuYAMLValue
+	work   int
+}
+
+func (s *gpuYAMLNormalizer) step() error {
+	s.work++
+	if s.work > gpuYAMLMaxWork {
+		return fmt.Errorf("YAML resource budget: normalization work exceeds %d steps", gpuYAMLMaxWork)
 	}
-	active[n] = true
-	defer delete(active, n)
+	return nil
+}
+
+// gpuEffectiveYAML normalizes aliases/merges for raw validation only. Completed
+// subgraphs are immutable and shared, never copied once per alias. The original
+// document still goes through KnownFields decoding, so strictness is unchanged.
+// Explicit keys win; earlier maps in a merge sequence win over later.
+func gpuEffectiveYAML(n *yaml.Node, active map[*yaml.Node]bool) (*yaml.Node, error) {
+	s := gpuYAMLNormalizer{active: active, memo: map[*yaml.Node]gpuYAMLValue{}}
+	v, err := s.normalize(n, 0)
+	return v.node, err
+}
+
+func (s *gpuYAMLNormalizer) normalize(n *yaml.Node, depth int) (gpuYAMLValue, error) {
+	if err := s.step(); err != nil {
+		return gpuYAMLValue{}, err
+	}
+	if depth >= gpuYAMLMaxDepth {
+		return gpuYAMLValue{}, fmt.Errorf("YAML resource budget: depth exceeds %d levels", gpuYAMLMaxDepth)
+	}
+	if n == nil {
+		return gpuYAMLValue{}, fmt.Errorf("invalid YAML alias")
+	}
+	if s.active[n] {
+		return gpuYAMLValue{}, fmt.Errorf("recursive YAML alias/merge")
+	}
+	if v, ok := s.memo[n]; ok {
+		if depth+v.depth > gpuYAMLMaxDepth {
+			return gpuYAMLValue{}, fmt.Errorf("YAML resource budget: depth exceeds %d levels", gpuYAMLMaxDepth)
+		}
+		return v, nil
+	}
+	s.active[n] = true
+	defer delete(s.active, n)
 	if n.Kind == yaml.AliasNode {
-		return gpuEffectiveYAML(n.Alias, active)
+		v, err := s.normalize(n.Alias, depth+1)
+		if err == nil {
+			s.memo[n] = v
+		}
+		return v, err
 	}
 	out := *n
 	out.Content = nil
+	result := gpuYAMLValue{node: &out, size: 1, depth: 1}
+	appendValue := func(v gpuYAMLValue) error {
+		if result.size > gpuYAMLMaxWork-v.size {
+			return fmt.Errorf("YAML resource budget: logical expansion exceeds %d nodes", gpuYAMLMaxWork)
+		}
+		result.size += v.size
+		result.depth = max(result.depth, 1+v.depth)
+		if depth+result.depth > gpuYAMLMaxDepth {
+			return fmt.Errorf("YAML resource budget: depth exceeds %d levels", gpuYAMLMaxDepth)
+		}
+		out.Content = append(out.Content, v.node)
+		return nil
+	}
 	if n.Kind != yaml.MappingNode {
 		for _, child := range n.Content {
-			value, err := gpuEffectiveYAML(child, active)
+			v, err := s.normalize(child, depth+1)
 			if err != nil {
-				return nil, err
+				return gpuYAMLValue{}, err
 			}
-			out.Content = append(out.Content, value)
-		}
-		return &out, nil
-	}
-	keys := map[string]bool{}
-	var merges []*yaml.Node
-	for i := 0; i+1 < len(n.Content); i += 2 {
-		key := n.Content[i]
-		value, err := gpuEffectiveYAML(n.Content[i+1], active)
-		if err != nil {
-			return nil, err
-		}
-		if key.Tag == "!!merge" {
-			if value.Kind == yaml.SequenceNode {
-				merges = append(merges, value.Content...)
-			} else {
-				merges = append(merges, value)
-			}
-			continue
-		}
-		out.Content = append(out.Content, key, value)
-		keys[key.Value] = true
-	}
-	for _, inherited := range merges {
-		if inherited.Kind != yaml.MappingNode {
-			return nil, fmt.Errorf("YAML merge requires mapping")
-		}
-		for i := 0; i+1 < len(inherited.Content); i += 2 {
-			key := inherited.Content[i]
-			if !keys[key.Value] {
-				out.Content = append(out.Content, key, inherited.Content[i+1])
-				keys[key.Value] = true
+			if err := appendValue(v); err != nil {
+				return gpuYAMLValue{}, err
 			}
 		}
+	} else {
+		keys := map[string]bool{}
+		var merges []*yaml.Node
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			key := n.Content[i]
+			v, err := s.normalize(n.Content[i+1], depth+1)
+			if err != nil {
+				return gpuYAMLValue{}, err
+			}
+			if key.Tag == "!!merge" {
+				if v.node.Kind == yaml.SequenceNode {
+					merges = append(merges, v.node.Content...)
+				} else {
+					merges = append(merges, v.node)
+				}
+				continue
+			}
+			k, err := s.normalize(key, depth+1)
+			if err != nil {
+				return gpuYAMLValue{}, err
+			}
+			if err := appendValue(k); err != nil {
+				return gpuYAMLValue{}, err
+			}
+			if err := appendValue(v); err != nil {
+				return gpuYAMLValue{}, err
+			}
+			keys[key.Value] = true
+		}
+		for _, inherited := range merges {
+			if inherited.Kind != yaml.MappingNode {
+				return gpuYAMLValue{}, fmt.Errorf("YAML merge requires mapping")
+			}
+			for i := 0; i+1 < len(inherited.Content); i += 2 {
+				// Shadowed keys still cost work: repeated merge lists must not
+				// evade the budget just because their effective output is small.
+				if err := s.step(); err != nil {
+					return gpuYAMLValue{}, err
+				}
+				key := inherited.Content[i]
+				if !keys[key.Value] {
+					for _, child := range inherited.Content[i : i+2] {
+						if err := appendValue(s.memo[child]); err != nil {
+							return gpuYAMLValue{}, err
+						}
+					}
+					keys[key.Value] = true
+				}
+			}
+		}
 	}
-	return &out, nil
+	// Index both parsed and effective nodes: merges refer to effective children.
+	s.memo[n] = result
+	s.memo[&out] = result
+	return result, nil
 }
 
 // The registry instance owns one Host binding, even when its pool selection also

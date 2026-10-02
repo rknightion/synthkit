@@ -416,6 +416,67 @@ func TestGPULocalCollectionModeBlueprintBoundary(t *testing.T) {
 	}
 }
 
+// A compact acyclic alias DAG in a disabled raw integration must not trigger
+// exponential GPU raw-validation work. Exercise both public loader entrypoints;
+// the accepted smaller DAG also pins that aliases are not categorically banned.
+func TestGPURescueAliasResourceBounds(t *testing.T) {
+	b, err := yaml.Marshal(gpuMinimalDecl())
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := strings.Replace(string(b), "integrations: {}\n", "", 1)
+	loaders := []struct {
+		name string
+		load func([]byte) (*Resolved, error)
+	}{
+		{"Load", func(data []byte) (*Resolved, error) { return Load(data, testRegistry(t)) }},
+		{"LoadNamespaced", func(data []byte) (*Resolved, error) { return LoadNamespaced(data, "test", testRegistry(t)) }},
+	}
+	for _, loader := range loaders {
+		t.Run(loader.name, func(t *testing.T) {
+			for _, levels := range []int{8, 14} {
+				t.Run(fmt.Sprintf("fanout-%d", levels), func(t *testing.T) {
+					source := base + "\nintegrations:\n  disabled:\n    enabled: false\n    a0: &a0 [0]\n"
+					for i := 1; i <= levels; i++ {
+						source += fmt.Sprintf("    a%d: &a%d [*a%d, *a%d]\n", i, i, i-1, i-1)
+					}
+					r, err := loader.load([]byte(source))
+					if levels == 8 {
+						if err != nil || r.GPU == nil || len(r.GPU.Nodes) != 1 {
+							t.Fatalf("small alias DAG rejected: %v", err)
+						}
+					} else if err == nil || !strings.Contains(err.Error(), "YAML resource budget: logical expansion") {
+						t.Fatalf("compact %d-byte/%d-level alias DAG not resource-bounded: %v", len(source), levels, err)
+					}
+				})
+			}
+			t.Run("depth", func(t *testing.T) {
+				deep := base + "\nintegrations:\n  disabled:\n    enabled: false\n    value: " + strings.Repeat("[", 140) + "0" + strings.Repeat("]", 140) + "\n"
+				if _, err := loader.load([]byte(deep)); err == nil || !strings.Contains(err.Error(), "YAML resource budget: depth") {
+					t.Fatalf("deep disabled raw config not depth-bounded: %v", err)
+				}
+			})
+			t.Run("merge-work", func(t *testing.T) {
+				// Effective output is small, but each repeated merge still scans
+				// shadowed keys. Memoization alone does not bound that work.
+				source := base + "\nintegrations:\n  disabled:\n    enabled: false\n    defaults: &defaults {key: 0}\n    merges: &merges [" + strings.Repeat("*defaults, ", 260) + "]\n"
+				for i := 0; i < 250; i++ {
+					source += fmt.Sprintf("    m%d: {<<: *merges}\n", i)
+				}
+				if _, err := loader.load([]byte(source)); err == nil || !strings.Contains(err.Error(), "YAML resource budget: normalization work") {
+					t.Fatalf("repeated shadowed merges not work-bounded: %v", err)
+				}
+			})
+			t.Run("cycle", func(t *testing.T) {
+				cycle := base + "\nintegrations:\n  disabled: &self {enabled: false, value: *self}\n"
+				if _, err := loader.load([]byte(cycle)); err == nil || !strings.Contains(err.Error(), "recursive YAML") {
+					t.Fatalf("recursive raw config not rejected: %v", err)
+				}
+			})
+		})
+	}
+}
+
 // Root rescue counterexamples independently derived from the frozen contract.
 func TestGPURescueFractionalMerge(t *testing.T) {
 	d := gpuMinimalDecl()
@@ -502,6 +563,26 @@ func TestGPURescueMergedInputPrecedence(t *testing.T) {
 	source := strings.Replace(string(b), "node_count: 1", "<<: {node_count: 1.5}\n"+prefix+"node_count: 1", 1)
 	if _, e := Load([]byte(source), testRegistry(t)); e != nil {
 		t.Fatalf("explicit whole integer must override merged fraction: %v", e)
+	}
+	for _, tc := range []struct {
+		name, replacement, rejection string
+	}{
+		{"earlier-map-wins", "<<: [{node_count: 1}, {node_count: 1.5}]", ""},
+		{"earlier-fraction-wins", "<<: [{node_count: 1.5}, {node_count: 1}]", "whole integer"},
+		{"alias-fraction", "<<: &defaults {node_count: &fraction 1.5}\n" + prefix + "node_count: *fraction", "whole integer"},
+		{"explicit-null", "<<: {node_count: 1.5}\n" + prefix + "node_count: null", "invalid pool"},
+		{"merged-nested-unknown", "<<: {node_count: 1, invented_field: true}", "field invented_field"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, err := Load([]byte(strings.Replace(string(b), "node_count: 1", tc.replacement, 1)), testRegistry(t))
+			if tc.rejection == "" {
+				if err != nil || r.GPU == nil || len(r.GPU.Nodes) != 1 {
+					t.Fatalf("valid effective merge rejected: %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tc.rejection) {
+				t.Fatalf("wrong merge/null/strictness rejection: %v", err)
+			}
+		})
 	}
 	// Merge the entire gpu_compute subtree so raw discovery cannot skip it.
 	source = "<<:\n"
