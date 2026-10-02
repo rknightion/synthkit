@@ -827,18 +827,23 @@ func (r *Runner) masterTickOne(ctx context.Context, bp *bpRuntime, now time.Time
 // reset, one master tick, one metric Tick for every instance.
 func (r *Runner) RunOnce(ctx context.Context, now time.Time) error {
 	var errs []error
-	// MasterTick (called below) starts the delivery-queue senders; Flush — not Drain — runs at
-	// the end so the queue stays reusable across repeated RunOnce calls.
+	// Freeze cycle eligibility before projection can receive a control update.
+	// A newly enabled blueprint must not enter only the metric stage with an
+	// old (or absent) master snapshot. Its next cycle will prepare normally.
+	r.startQueues()
+	var eligible []*bpRuntime
 	for _, bp := range r.bps {
 		bp.resetBudgetWindow(now)
-	}
-	if err := r.MasterTick(ctx, now); err != nil {
-		errs = append(errs, err)
-	}
-	for _, bp := range r.bps {
-		if !r.enabled(bp.name) {
-			continue
+		if r.enabled(bp.name) {
+			eligible = append(eligible, bp)
 		}
+	}
+	for _, bp := range eligible {
+		if err := r.masterTickOne(ctx, bp, now); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, bp := range eligible {
 		for _, bc := range bp.constructs {
 			if !r.constructEnabled(bp.name, bc.kind, bc.name) {
 				continue
