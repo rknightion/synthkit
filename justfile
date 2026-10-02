@@ -303,7 +303,7 @@ signal-fidelity:
     set -euo pipefail
     tmp=$(mktemp)
     trap 'rm -f "$tmp"' EXIT
-    SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES={{ quote(signal_fidelity_blueprints) }} go run ./cmd/synthkit -once -inventory-json >"$tmp"
+    SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES={{ quote(signal_fidelity_blueprints) }} go run ./cmd/synthkit -env /dev/null -once -inventory-json >"$tmp"
     go run ./cmd/signal-fidelity -synth "$tmp" -corpus reality-corpus
 
 # lint the chart and assert the credential and exposure render permutations (needs helm)
@@ -377,7 +377,7 @@ run:
 # print the full catalog series/label inventory for offline diff against signals/
 [group('dev')]
 dump:
-    SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES={{ quote(dump_blueprints) }} go run ./cmd/synthkit -once -dump
+    SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES={{ quote(dump_blueprints) }} go run ./cmd/synthkit -env /dev/null -once -dump
 
 # start the local Compose stack from the selected published image and wait for readiness
 [group('dev')]
