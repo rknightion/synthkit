@@ -41,7 +41,7 @@ func TestBundledRuntimeNamesAreResolvedCanonicalIdentities(t *testing.T) {
 		t.Fatalf("resolved canonical runtime names contain duplicates: %v", duplicates)
 	}
 	want := []string{
-		"acme-ai-eval", "acme-ai-platform", "acme-ai-platform-eval", "aws-cloud-services",
+		"acme-ai-eval", "acme-ai-platform", "acme-ai-platform-eval", "ai-factory", "aws-cloud-services",
 		"aws-cloudwatch-infra", "aws-otlp-native", "csp-azure", "csp-azure-otlp-native", "csp-gcp-otlp-native", "datadog-receiver-host", "datadog-receiver-kubernetes", "dbo11y-mysql", "fleet-management",
 		"grafana-ai-o11y", "high-dpm-churn", "hostfleet", "hosts-bare", "hosts-linux-docker",
 		"hosts-macos", "hosts-windows", "k8s-collector-prom", "k8s-control-plane", "k8s-cost-power", "k8s-full-stack",
