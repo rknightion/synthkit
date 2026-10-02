@@ -53,6 +53,27 @@ type appParityWire struct {
 }
 
 var appParityGoldens = map[string]appParityGolden{
+	// AI Factory adds five declarations; existing Stage A pins remain unchanged.
+	"168ecc243b35/workload-0": {
+		Traces: "dd616c23daa7d9875f5ca8bdb372b3b75f2b87cced9638d792e16fefe01c940f",
+		Counts: appParityCounts{MetricSeries: 2, LogStreams: 0, LogLines: 0, TraceBlocks: 1, Spans: 6},
+	},
+	"168ecc243b35/workload-1": {
+		Traces: "f3c71aedeff4f2e05b384166797c6a2c8616ca7848f4ec767219b2334d09e676",
+		Counts: appParityCounts{MetricSeries: 2, LogStreams: 0, LogLines: 0, TraceBlocks: 1, Spans: 8},
+	},
+	"168ecc243b35/workload-2": {
+		Traces: "86554b8528c4e6d25ae666d3c8def0cab17d24c854d45829abace836f3e3ad10",
+		Counts: appParityCounts{MetricSeries: 2, LogStreams: 0, LogLines: 0, TraceBlocks: 1, Spans: 10},
+	},
+	"168ecc243b35/workload-3": {
+		Traces: "4593de7d16eeaa2006bedf15279709111bb898d02c10d9cd3fec582fbb0a70cb",
+		Counts: appParityCounts{MetricSeries: 2, LogStreams: 0, LogLines: 0, TraceBlocks: 1, Spans: 6},
+	},
+	"168ecc243b35/workload-4": {
+		Traces: "630647b6f06f01029ba77c8f3ffb78ca484e129a82188cb619ce230444f3d0d2",
+		Counts: appParityCounts{MetricSeries: 2, LogStreams: 0, LogLines: 0, TraceBlocks: 1, Spans: 6},
+	},
 	"3bfda9556c3d/workload-0": {
 		Traces: "772c075029860afb7898bf13960943ddbe4f7180e6b8cd438a45e535667b293c",
 		Counts: appParityCounts{MetricSeries: 21703, LogStreams: 1, LogLines: 1, TraceBlocks: 1, Spans: 2},
