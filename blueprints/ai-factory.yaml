@@ -30,12 +30,32 @@ environments:
         enabled: true
         alloy: true
         features: {cluster_metrics: true}
+  - name: compute
+    weight: 1
+    production: true
+    cluster:
+      type: baremetal
+      name: compute-user
+      # One shared fixed inventory for the two PCIe servers and one NVL72 rack.
+      # Platform versions below are explicit operator reference settings, not
+      # GPU catalogue facts. CPU/GPU/RAM/arch are per-node declarations below.
+      platform:
+        os_image: Ubuntu 24.04 LTS
+        os_id: ubuntu
+        container_runtime: containerd://2.1.7
+        kubernetes_version: "1.35"
+        kubelet_version: v1.35.2
+        kernel_version: "6.8.0"
+      k8s_monitoring: {enabled: false}
+# GPU substrate is declared but not collected until source-gated consumers and
+# capacity/log adapters land. No disabled consumer is an incident coverage claim.
+
 # Singleton controllers and policy probabilities below are explicit pilot planning
 # assumptions, not vendor-measured fleet rates. Test-only forcing is in e2e/fixtures.
 workloads:
   - type: app
     name: automation-node-provisioning
-    for_each_env: true
+    envs: [pilot]
     # Illustrative estate assumption: one node reprovisioning run per site per week, not net fleet growth.
     # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
     traffic: {off_peak_rps: 1.653439153439154e-06, peak_rps: 1.653439153439154e-06}
@@ -59,7 +79,7 @@ workloads:
           http: {method: GET, url: "https://provisioner.example/v1/nodes/ready", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
   - type: app
     name: automation-firmware-rollout
-    for_each_env: true
+    envs: [pilot]
     # Illustrative estate assumption: one firmware rollout wave per site per quarter (90 days).
     # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
     traffic: {off_peak_rps: 1.2860082304526749e-07, peak_rps: 1.2860082304526749e-07}
@@ -88,7 +108,7 @@ workloads:
           http: {method: GET, url: "https://firmware.example/v1/version", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
   - type: app
     name: automation-drain-return
-    for_each_env: true
+    envs: [pilot]
     # Illustrative estate assumption: one maintenance run per site per week for the pilot estate.
     # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
     traffic: {off_peak_rps: 1.653439153439154e-06, peak_rps: 1.653439153439154e-06}
@@ -122,7 +142,7 @@ workloads:
           http: {method: GET, url: "https://maintenance.example/v1/ready", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
   - type: app
     name: automation-storage-provisioning
-    for_each_env: true
+    envs: [pilot]
     # Illustrative estate assumption: approximately four storage allocation requests per site per day.
     # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
     traffic: {off_peak_rps: 4.629629629629629e-05, peak_rps: 4.629629629629629e-05}
@@ -146,7 +166,7 @@ workloads:
           http: {method: GET, url: "https://storage.example/v1/available", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
   - type: app
     name: automation-portal-request
-    for_each_env: true
+    envs: [pilot]
     # Illustrative estate assumption: approximately twelve infrastructure portal requests per site per day.
     # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
     traffic: {off_peak_rps: 0.0001388888888888889, peak_rps: 0.0001388888888888889}
@@ -168,3 +188,290 @@ workloads:
           # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
           # One-second API acknowledgement budget; not the physical operation duration.
           http: {method: GET, url: "https://portal.example/v1/requests/ready", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+
+gpu_compute:
+  racks:
+    - name: pcie-a
+      site: site-a
+      shape: pcie
+      cooling: air
+      height_u: 42
+      physics:
+        # Operator allowance for fans, losses and unmodelled auxiliaries;
+        # excludes separately declared device watts.
+        fixed_overhead_w: 200
+        liquid_heat_fraction: 0
+
+    - name: nvl-a
+      site: site-a
+      shape: nvl72
+      cooling: liquid
+      physics:
+        # Operator estimate for NVSwitch trays/power losses/auxiliaries.
+        # Not an NVIDIA rack rating and not a tuned cardinality multiplier.
+        fixed_overhead_w: 4000
+        # CPUs/GPUs are liquid cooled; networking/storage retain air cooling.
+        # 0.9 is an explicit approximation, not a vendor measured fraction.
+        liquid_heat_fraction: 0.9
+        supply_temp_c: 25
+        flow_lpm: 180
+        # Illustrative water-like fluid properties; operators must replace
+        # these when modelling another coolant.
+        fluid_density_kg_per_l: 1
+        fluid_specific_heat_j_per_kg_c: 4180
+      nvlink:
+        domain: domain-a
+        correlated: false
+        # No custom partitions: resolver creates the owning all-GPU default.
+        # No vendor IDs or GPU-to-switch peer map are invented.
+
+  pools:
+    - name: pcie-pool
+      shape: pcie
+      gpu_model: h100_pcie_80gb
+      # A small two-server estate, each with four PCIe GPUs.
+      node_count: 2
+      gpus_per_node: 4
+      hostname_prefix: pcie-node
+      kubernetes_cluster: compute-user
+      scalable_unit: unit-a
+      node_ips: {cidr: 10.10.0.0/24, start_offset: 10}
+      placements:
+        - {rack: "rack:site-a/pcie-a", node_start: 0,
+           node_count: 2, slot_start: 1, node_height_u: 4}
+      hardware:
+        # Operator-declared dual-socket server example.
+        cpus: 64
+        memory_gib: 512
+        arch: x86_64
+      operating:
+        # Synthetic idle/linear-load model: tens of idle GPU watts,
+        # hundreds of non-GPU server watts, moderate CPU/NIC load.
+        idle_power_fraction: 0.12
+        ambient_temp_c: 25
+        full_power_rise_c: 40
+        cooling_fault_rise_c: 15
+        cooling_perf_loss: 0.3
+        congestion_perf_loss: 0.6
+        storage_perf_loss: 0.5
+        node_base_power_w: 250
+        node_dynamic_per_core_w: 2
+        node_dynamic_per_nic_w: 10
+        # Zero steady-state errors. One error/second only during an
+        # explicitly activated diagnostic error window.
+        nvlink_errors_per_second: 1
+      bmc:
+        management_ips: {cidr: 10.20.0.0/24, start_offset: 10}
+      nics:
+        - name: eth0
+          fabric: frontend-a
+          switch: frontend-leaf-a
+          speed_gbps: 100
+          ips: {cidr: 10.30.0.0/24, start_offset: 10}
+        - {name: eth1, fabric: backend-a, rail: 0, speed_gbps: 400}
+      storage: {cluster: storage-a, nic: eth0, role: compute-client}
+
+    - name: nvl-pool
+      shape: nvl72
+      gpu_model: gb200_186gb
+      # NVIDIA DGX GB guide: one complete rack, 18 trays × four GPUs.
+      node_count: 18
+      gpus_per_node: 4
+      hostname_prefix: nvl-node
+      kubernetes_cluster: compute-user
+      scalable_unit: unit-a
+      node_ips: {cidr: 10.10.1.0/24, start_offset: 10}
+      placements:
+        - {rack: "rack:site-a/nvl-a", node_start: 0,
+           node_count: 18, slot_start: 0}
+      hardware:
+        # Blackwell datasheet: 2,592 CPU cores / 18 compute trays.
+        cpus: 144
+        # Operator-declared RAM configuration, not a GPU-derived value.
+        memory_gib: 960
+        arch: arm64
+      operating:
+        # Same declared normalized model; larger sourced GPU power limit
+        # naturally produces greater node/rack power.
+        idle_power_fraction: 0.12
+        ambient_temp_c: 25
+        full_power_rise_c: 40
+        cooling_fault_rise_c: 15
+        cooling_perf_loss: 0.3
+        congestion_perf_loss: 0.6
+        storage_perf_loss: 0.5
+        node_base_power_w: 250
+        node_dynamic_per_core_w: 2
+        node_dynamic_per_nic_w: 10
+        nvlink_errors_per_second: 1
+      bmc:
+        management_ips: {cidr: 10.20.1.0/24, start_offset: 10}
+      nics:
+        # Interface names are operator assignments. Four backend NICs
+        # follow the documented DGX GB200 ConnectX-7 count.
+        - name: eth0
+          fabric: frontend-a
+          switch: frontend-leaf-a
+          speed_gbps: 400
+          ips: {cidr: 10.30.1.0/24, start_offset: 10}
+        - {name: eth1, fabric: backend-a, rail: 0, speed_gbps: 400}
+        - {name: eth2, fabric: backend-a, rail: 1, speed_gbps: 400}
+        - {name: eth3, fabric: backend-a, rail: 2, speed_gbps: 400}
+        - {name: eth4, fabric: backend-a, rail: 3, speed_gbps: 400}
+      storage: {cluster: storage-a, nic: eth0, role: compute-client}
+
+  fabrics:
+    - name: frontend-a
+      site: site-a
+      role: frontend
+      devices:
+        - name: frontend-leaf-a
+          kind: leaf
+          management_ip: 10.20.2.1
+          # Explicit switch interface names. This example needs 21
+          # node/storage access ports; these are declared port values.
+          ports:
+            - {name: swp1, speed_gbps: 400}
+            - {name: swp2, speed_gbps: 400}
+            - {name: swp3, speed_gbps: 400}
+            - {name: swp4, speed_gbps: 400}
+            - {name: swp5, speed_gbps: 400}
+            - {name: swp6, speed_gbps: 400}
+            - {name: swp7, speed_gbps: 400}
+            - {name: swp8, speed_gbps: 400}
+            - {name: swp9, speed_gbps: 400}
+            - {name: swp10, speed_gbps: 400}
+            - {name: swp11, speed_gbps: 400}
+            - {name: swp12, speed_gbps: 400}
+            - {name: swp13, speed_gbps: 400}
+            - {name: swp14, speed_gbps: 400}
+            - {name: swp15, speed_gbps: 400}
+            - {name: swp16, speed_gbps: 400}
+            - {name: swp17, speed_gbps: 400}
+            - {name: swp18, speed_gbps: 400}
+            - {name: swp19, speed_gbps: 400}
+            - {name: swp20, speed_gbps: 400}
+            - {name: swp21, speed_gbps: 400}
+
+    - name: backend-a
+      site: site-a
+      role: backend
+      devices:
+        # Each rail leaf needs 18 NVL72 ports; rail 0 additionally has
+        # two PCIe nodes. YAML anchors share port declarations, not devices.
+        - name: backend-leaf-0
+          kind: leaf
+          rail: 0
+          scalable_unit: unit-a
+          ports: &backend_ports
+            - {name: swp1, speed_gbps: 400}
+            - {name: swp2, speed_gbps: 400}
+            - {name: swp3, speed_gbps: 400}
+            - {name: swp4, speed_gbps: 400}
+            - {name: swp5, speed_gbps: 400}
+            - {name: swp6, speed_gbps: 400}
+            - {name: swp7, speed_gbps: 400}
+            - {name: swp8, speed_gbps: 400}
+            - {name: swp9, speed_gbps: 400}
+            - {name: swp10, speed_gbps: 400}
+            - {name: swp11, speed_gbps: 400}
+            - {name: swp12, speed_gbps: 400}
+            - {name: swp13, speed_gbps: 400}
+            - {name: swp14, speed_gbps: 400}
+            - {name: swp15, speed_gbps: 400}
+            - {name: swp16, speed_gbps: 400}
+            - {name: swp17, speed_gbps: 400}
+            - {name: swp18, speed_gbps: 400}
+            - {name: swp19, speed_gbps: 400}
+            - {name: swp20, speed_gbps: 400}
+            - {name: swp21, speed_gbps: 400}
+        - {name: backend-leaf-1, kind: leaf, rail: 1,
+           scalable_unit: unit-a, ports: *backend_ports}
+        - {name: backend-leaf-2, kind: leaf, rail: 2,
+           scalable_unit: unit-a, ports: *backend_ports}
+        - {name: backend-leaf-3, kind: leaf, rail: 3,
+           scalable_unit: unit-a, ports: *backend_ports}
+        - name: backend-spine-a
+          kind: spine
+          ports:
+            - {name: swp1, speed_gbps: 400}
+            - {name: swp2, speed_gbps: 400}
+            - {name: swp3, speed_gbps: 400}
+            - {name: swp4, speed_gbps: 400}
+      links:
+        - {a_device: backend-leaf-0, a_port: swp21,
+           b_device: backend-spine-a, b_port: swp1}
+        - {a_device: backend-leaf-1, a_port: swp21,
+           b_device: backend-spine-a, b_port: swp2}
+        - {a_device: backend-leaf-2, a_port: swp21,
+           b_device: backend-spine-a, b_port: swp3}
+        - {a_device: backend-leaf-3, a_port: swp21,
+           b_device: backend-spine-a, b_port: swp4}
+
+  storage_clusters:
+    - name: storage-a
+      site: site-a
+      fabric: frontend-a
+      devices:
+        - name: storage-endpoint-a
+          kind: storage_endpoint
+          management_ip: 10.20.2.10
+          nics:
+            - {name: eth0, ip: 10.30.2.10, fabric: frontend-a,
+               switch: frontend-leaf-a, port: swp21, speed_gbps: 400}
+
+  schedulers:
+    - name: scheduler-a
+      kind: runai
+      pools: [pcie-pool, nvl-pool]
+      projects:
+        # Eight-GPU training and one-GPU serving examples leave spare capacity.
+        - {name: research, department: compute, gpu_quota: 8}
+        - {name: serving, department: compute, gpu_quota: 4}
+      workloads:
+        - name: training-a
+          project: research
+          role: training
+          priority: 10
+          # Hours-long job template, not artificially frequent job creation.
+          cycle: 6h
+          pending_for: 2m
+          running_min: 2h
+          running_max: 4h
+          namespace: research
+          container: trainer
+          demand:
+            utilization_base: 0.7
+            utilization_amplitude: 0.1
+            period: 1h
+            memory_reserved_fraction: 0.6
+            memory_dynamic_fraction: 0.1
+            requests_per_second_at_full_utilization: 0
+          workers:
+            - {name: worker-a, pool: nvl-pool, node_ordinal: 0,
+               gpu_slots: [0, 1, 2, 3]}
+            - {name: worker-b, pool: nvl-pool, node_ordinal: 1,
+               gpu_slots: [0, 1, 2, 3]}
+
+        - name: serving-a
+          project: serving
+          role: inference
+          priority: 20
+          cycle: 24h
+          pending_for: 1m
+          running_min: 23h
+          running_max: 23h
+          namespace: serving
+          container: server
+          demand:
+            # Operator synthetic serving capacity: at this normalized load,
+            # single-digit requests/second, not a vendor benchmark.
+            utilization_base: 0.4
+            utilization_amplitude: 0.1
+            period: 1h
+            memory_reserved_fraction: 0.5
+            memory_dynamic_fraction: 0.2
+            requests_per_second_at_full_utilization: 10
+          workers:
+            - {name: replica-a, pool: pcie-pool, node_ordinal: 0,
+               gpu_slots: [0]}
