@@ -364,7 +364,9 @@ func ValidateSet(set []*Resolved) error {
 			return err
 		}
 		for _, ci := range r.Constructs {
-			if ci.Fixtures.Cluster != nil {
+			// Generated EKS nodes have cluster-scoped identity and may reuse
+			// private addresses; only fixed physical inventories claim globally.
+			if ci.Fixtures.Cluster != nil && ci.Fixtures.Cluster.StaticNodes {
 				for _, n := range ci.Fixtures.Cluster.Nodes {
 					if err := claimOnce("hostname", n.Hostname); err != nil {
 						return err
@@ -376,7 +378,9 @@ func ValidateSet(set []*Resolved) error {
 					}
 				}
 			}
-			if ci.Fixtures.Host != nil {
+			// GPU-associated hosts share physical identity. Traditional hosts
+			// keep their existing KindHost hostname claim below, not a global IP.
+			if ci.Fixtures.Host != nil && ci.Fixtures.Host.GPU != nil {
 				if err := claimOnce("hostname", ci.Fixtures.Host.Hostname); err != nil {
 					return err
 				}

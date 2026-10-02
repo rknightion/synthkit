@@ -477,6 +477,132 @@ func TestGPURescueAliasResourceBounds(t *testing.T) {
 	}
 }
 
+// Generated EKS node addresses are cluster-local, not global physical claims.
+// Traditional hosts retain their existing hostname identity, not a new global IP
+// identity. These public-boundary regressions preserve pre-GPU admission behavior.
+func TestGPUReviewRepair1GeneratedIdentityScopes(t *testing.T) {
+	t.Run("independent-generated-clusters", func(t *testing.T) {
+		reg := testRegistry(t)
+		seen := map[string]*Resolved{}
+		for i := 0; i < 2048; i++ {
+			name := fmt.Sprintf("generated-%d", i)
+			region := "us-east-1"
+			if i%2 != 0 {
+				region = "us-west-2"
+			}
+			r, err := Load([]byte(fmt.Sprintf(`name: %s
+environments:
+   - name: prod
+     cloud: {provider: aws, account_id: "000000000000", region: %s, vpc_id: vpc-test}
+     cluster:
+       type: eks
+       name: cluster-%s
+       node_groups: [{name: general, instance_type: m6i.large, desired: 1}]
+`, name, region, name)), reg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := findCluster(t, r, "cluster-"+name)
+			if c.StaticNodes || r.GPU != nil || len(c.Nodes) != 1 {
+				t.Fatal("reproduction must use independently generated non-GPU nodes")
+			}
+			n := c.Nodes[0]
+			if previous := seen[n.PrivateIP]; previous != nil {
+				old := findCluster(t, previous, "cluster-"+previous.Name)
+				if old.Nodes[0].Hostname == n.Hostname {
+					continue // Different regional hostnames isolate the IP claim.
+				}
+				if old.Name == c.Name || old.Nodes[0].InstanceID == n.InstanceID {
+					t.Fatal("reproduction does not have distinct cluster/instance identities")
+				}
+				t.Logf("independent clusters %s/%s share private IP %s", old.Name, c.Name, n.PrivateIP)
+				if err := ValidateSet([]*Resolved{previous, r}); err != nil {
+					t.Fatalf("cluster-local generated address rejected globally: %v", err)
+				}
+				return
+			}
+			seen[n.PrivateIP] = r
+		}
+		t.Fatal("bounded reproduction did not find coincident generated addresses")
+	})
+	t.Run("traditional-hosts", func(t *testing.T) {
+		a := load(t, "name: host-a\nhosts: [{name: machine-a, ip: 10.42.0.10, cpus: 4, memory_gb: 8}]\n")
+		b := load(t, "name: host-b\nhosts: [{name: machine-b, ip: 10.42.0.10, cpus: 4, memory_gb: 8}]\n")
+		if err := ValidateSet([]*Resolved{a, b}); err != nil {
+			t.Fatalf("distinct traditional hosts rejected for shared private IP: %v", err)
+		}
+		duplicate := load(t, "name: host-c\nhosts: [{name: machine-a, ip: 10.42.0.11, cpus: 4, memory_gb: 8}]\n")
+		if err := ValidateSet([]*Resolved{a, duplicate}); err == nil || !strings.Contains(err.Error(), `host "machine-a"`) {
+			t.Fatalf("existing KindHost hostname identity was weakened: %v", err)
+		}
+	})
+}
+
+func TestGPUReviewRepair1PhysicalClaims(t *testing.T) {
+	static := func(name, hostname, ip string) *Resolved {
+		return load(t, fmt.Sprintf(`name: %s
+environments:
+   - name: prod
+     cluster:
+       type: baremetal
+       name: cluster-%s
+       platform:
+         os_image: Ubuntu 24.04 LTS
+         os_id: ubuntu
+         container_runtime: containerd://2.1.7
+         kubernetes_version: "1.35"
+         kubelet_version: v1.35.2
+         kernel_version: "6.8.0"
+       nodes: [{hostname: %s, ip: %s, cpus: 4, memory_gib: 8, arch: x86_64}]
+`, name, name, hostname, ip))
+	}
+	gpu := func(name, prefix, rack string, collectHost bool) *Resolved {
+		d := gpuMinimalDecl()
+		d.Name = name
+		d.GPUCompute.Schedulers = nil // Physical claims cannot depend on scheduler/collector emission.
+		d.GPUCompute.Racks[0].Name = rack
+		d.GPUCompute.Pools[0].HostnamePrefix = prefix
+		d.GPUCompute.Pools[0].Placements[0].RackKey = "rack:site-a/" + rack
+		d.GPUCompute.Pools[0].NodeIPs = &fixture.GPUAddressBlockSpec{CIDR: "10.42.0.0/24", StartOffset: 10}
+		if collectHost {
+			d.Hosts = []HostDecl{{Name: prefix + "-0000", IP: "10.42.0.10", CPUs: 64, MemoryGB: 512}}
+		}
+		r, err := gpuDeclLoad(t, d, testRegistry(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if collectHost && r.GPU.Nodes[0].Host == nil {
+			t.Fatal("declared host not bound to canonical GPU node")
+		}
+		return r
+	}
+	for _, identity := range []string{"hostname", "IP"} {
+		t.Run(identity, func(t *testing.T) {
+			hostname := "node-a-0000"
+			if identity == "IP" {
+				hostname = "other-node"
+			}
+			physical := static("static-a", "node-a-0000", "10.42.0.10")
+			other := static("static-b", hostname, "10.42.0.10")
+			if err := ValidateSet([]*Resolved{physical, other}); err == nil || !strings.Contains(err.Error(), "collision: "+identity) {
+				t.Fatalf("static physical-node claim lost: %v", err)
+			}
+			canonical := gpu("gpu-a", "node-a", "rack-a", true)
+			if err := ValidateSet([]*Resolved{canonical, other}); err == nil || !strings.Contains(err.Error(), "collision: "+identity) {
+				t.Fatalf("canonical GPU/associated-host versus static-node claim lost: %v", err)
+			}
+			prefix := "node-a"
+			if identity == "IP" {
+				prefix = "node-b"
+			}
+			uncollected := gpu("gpu-b", prefix, "rack-b", false)
+			if err := ValidateSet([]*Resolved{canonical, uncollected}); err == nil || !strings.Contains(err.Error(), "collision: "+identity) {
+				t.Fatalf("actual GPU claim without collector lost: %v", err)
+			}
+		})
+	}
+}
+
 // Root rescue counterexamples independently derived from the frozen contract.
 func TestGPURescueFractionalMerge(t *testing.T) {
 	d := gpuMinimalDecl()
