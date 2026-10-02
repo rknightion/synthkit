@@ -1,9 +1,11 @@
 ---
 id: SKT-0087
 title: Support the AI Factory use case end to end
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop47-root'
 created_date: '2026-10-02 14:15'
+updated_date: '2026-10-02 15:33'
 labels:
   - ai-factory
 dependencies: []
@@ -31,3 +33,9 @@ An AI Factory is an on-premises GPU estate built from NVIDIA reference component
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop47: admitted
+<!-- SECTION:NOTES:END -->
