@@ -1,0 +1,170 @@
+# AI Factory reference estate, assembled incrementally as source-gated lanes land.
+# This initial CPU controller substrate has no GPU exporter/support claim.
+name: ai-factory
+label: ai-factory
+shape: business_hours_plateau
+timezone: UTC
+metadata:
+  description: "AI Factory platform automation with source-gated infrastructure additions."
+  owner: platform-observability
+  category: reference
+  tags: [ai-factory, platform-automation]
+environments:
+  - name: pilot
+    weight: 1
+    production: true
+    cloud:
+      provider: aws
+      account_id: "470000000001"
+      region: eu-west-1
+      vpc_id: vpc-aifactory-pilot
+      cloudwatch: {albs: 0, s3_buckets: 0, firehose: false, nlb: false, ebs: false, nat_gateway: false, eks: false, private_link: false}
+    cluster:
+      type: eks
+      name: ai-factory-pilot
+      # Three CPU nodes model a small quorum-capable controller/service substrate.
+      # Each m6i.large has two vCPUs and 8 GiB RAM; GPU pools are added separately.
+      node_groups: [{name: controllers, instance_type: m6i.large, desired: 3}]
+      observability: {cloudwatch: false}
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+        features: {cluster_metrics: true}
+# Singleton controllers and policy probabilities below are explicit pilot planning
+# assumptions, not vendor-measured fleet rates. Test-only forcing is in e2e/fixtures.
+workloads:
+  - type: app
+    name: automation-node-provisioning
+    for_each_env: true
+    # Illustrative estate assumption: one node reprovisioning run per site per week, not net fleet growth.
+    # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
+    traffic: {off_peak_rps: 1.653439153439154e-06, peak_rps: 1.653439153439154e-06}
+    services:
+      - {name: automation-node-provisioning-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Node provisioning"
+      steps:
+        - name: maintenance
+          # Illustrative policy: 1% rejected approvals, not a measured vendor rate.
+          approval: {duration_ms: 60000, rejection_probability: 0.01}
+        - name: provision-node
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: POST, url: "https://provisioner.example/v1/nodes", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+        - name: verify-node
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: GET, url: "https://provisioner.example/v1/nodes/ready", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+  - type: app
+    name: automation-firmware-rollout
+    for_each_env: true
+    # Illustrative estate assumption: one firmware rollout wave per site per quarter (90 days).
+    # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
+    traffic: {off_peak_rps: 1.2860082304526749e-07, peak_rps: 1.2860082304526749e-07}
+    services:
+      - {name: automation-firmware-rollout-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Firmware rollout"
+      steps:
+        - name: maintenance
+          # Illustrative policy: 1% rejected approvals, not a measured vendor rate.
+          approval: {duration_ms: 60000, rejection_probability: 0.01}
+        - name: stage-rollout
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: POST, url: "https://firmware.example/v1/rollouts/stage", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+        - name: apply-rollout
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: POST, url: "https://firmware.example/v1/rollouts/apply", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+        - name: verify-version
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: GET, url: "https://firmware.example/v1/version", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+  - type: app
+    name: automation-drain-return
+    for_each_env: true
+    # Illustrative estate assumption: one maintenance run per site per week for the pilot estate.
+    # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
+    traffic: {off_peak_rps: 1.653439153439154e-06, peak_rps: 1.653439153439154e-06}
+    services:
+      - {name: automation-drain-return-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Drain and return to service"
+      steps:
+        - name: maintenance
+          # Illustrative policy: 1% rejected approvals, not a measured vendor rate.
+          approval: {duration_ms: 60000, rejection_probability: 0.01}
+        - name: drain
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: POST, url: "https://maintenance.example/v1/drain", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+        - name: maintain
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: POST, url: "https://maintenance.example/v1/maintain", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+        - name: return-to-service
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: POST, url: "https://maintenance.example/v1/return", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+        - name: verify-readiness
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: GET, url: "https://maintenance.example/v1/ready", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+  - type: app
+    name: automation-storage-provisioning
+    for_each_env: true
+    # Illustrative estate assumption: approximately four storage allocation requests per site per day.
+    # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
+    traffic: {off_peak_rps: 4.629629629629629e-05, peak_rps: 4.629629629629629e-05}
+    services:
+      - {name: automation-storage-provisioning-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Storage provisioning"
+      steps:
+        - name: maintenance
+          # Illustrative policy: 1% rejected approvals, not a measured vendor rate.
+          approval: {duration_ms: 60000, rejection_probability: 0.01}
+        - name: provision-storage
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: POST, url: "https://storage.example/v1/allocations", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+        - name: verify-availability
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: GET, url: "https://storage.example/v1/available", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+  - type: app
+    name: automation-portal-request
+    for_each_env: true
+    # Illustrative estate assumption: approximately twelve infrastructure portal requests per site per day.
+    # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
+    traffic: {off_peak_rps: 0.0001388888888888889, peak_rps: 0.0001388888888888889}
+    services:
+      - {name: automation-portal-request-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Self-service portal request"
+      steps:
+        - name: maintenance
+          # Illustrative policy: 1% rejected approvals, not a measured vendor rate.
+          approval: {duration_ms: 60000, rejection_probability: 0.01}
+        - name: fulfil-request
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: POST, url: "https://portal.example/v1/requests/fulfil", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}
+        - name: verify-fulfilment
+          # Initial call plus at most two immediate transient-error resends.
+          # Illustrative policy: 1% initial failure, 95% retry success; not captured vendor rates.
+          # One-second API acknowledgement budget; not the physical operation duration.
+          http: {method: GET, url: "https://portal.example/v1/requests/ready", duration_ms: 1000, max_attempts: 3, failure_probability: 0.01, retry_success_probability: 0.95}

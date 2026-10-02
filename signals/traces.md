@@ -1,5 +1,61 @@
 # Traces (→ OTLP gateway → Tempo)
 
+## App platform automation [slug: traces-app-automation]
+
+The optional app automation declaration emits a bounded simulated sequence per ledger
+request, not a real orchestrator. Workflow/task names are span names; controller
+identity is the existing service resource. Approval decisions use `approval approved
+<step>` or `approval rejected <step>`, not invented approval attributes.
+
+Provenance: OpenTelemetry semantic-conventions v1.44.0:
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/http/http-spans.md
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/registry/attributes/service.md
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/registry/attributes/error.md
+OpenTelemetry specification v1.61.0:
+https://github.com/open-telemetry/opentelemetry-specification/blob/v1.61.0/specification/trace/api.md
+
+Each HTTP send is a CLIENT span. The first omits `http.request.resend_count`; resends
+carry ordinal 1, 2, etc. Resends follow failed attempts only. Recovery leaves task
+and workflow UNSET while the failed attempt stays ERROR. An approval decision is
+UNSET even when rejected; rejection stops later tasks and makes the workflow ERROR
+with `error.type="_OTHER"`. This is the recipe's terminal convention, not a standard
+approval field. Resource `service.namespace=platform-automation` distinguishes
+controllers from `service.namespace=user-workloads`; routing checks the resource,
+not a similarly named span attribute.
+
+```yaml signals
+app_automation:
+  v: ok
+  emitter: app workload
+  resource_classifier:
+    name: service.namespace
+    type: string
+    platform_value: platform-automation
+    workload_value: user-workloads
+  spans:
+    workflow: {kind: SPAN_KIND_INTERNAL, name: "<declared workflow>"}
+    task: {kind: SPAN_KIND_INTERNAL, name: "<declared task>"}
+    approval:
+      kind: SPAN_KIND_INTERNAL
+      names: ["approval approved <step>", "approval rejected <step>"]
+      status: STATUS_CODE_UNSET
+    http_attempt: {kind: SPAN_KIND_CLIENT, name: "<known HTTP method>"}
+  http_attempt_attributes:
+    - {name: http.request.method, type: string}
+    - {name: http.response.status_code, type: int}
+    - {name: http.request.resend_count, type: int, present: resends-only}
+    - {name: server.address, type: string}
+    - {name: server.port, type: int}
+    - {name: url.full, type: string, note: static operational URL without credentials/query/fragment}
+    - {name: error.type, type: string, present: failed-operations-only}
+  status:
+    success: STATUS_CODE_UNSET
+    failed_http_attempt: STATUS_CODE_ERROR
+    exhausted_task: STATUS_CODE_ERROR
+    rejected_workflow: STATUS_CODE_ERROR
+  forbidden: [payloads, secrets, command_output, arbitrary_attributes]
+```
+
 The `web_service` workload emits ONE connected trace per request modelling the real browser→backend→DB
 path. Hand-encoded multi-Resource `ResourceSpans` (I2); Tempo assembles by `trace_id`+`parent_span_id`
 across exports. See [`00-canon.md`](00-canon.md) for scoping `[slug: request-correlation]`, envelope keys

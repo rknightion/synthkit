@@ -1,5 +1,36 @@
 # APM span-metrics / service-graph (→ Mimir) — ScopeBlueprint
 
+## App automation spanmetric observations [slug: apm-app-automation]
+
+Optional app automation reuses apm-calls, apm-latency and apm-size families and
+labels. It observes the same execution plan as traces: one observation per workflow,
+executed task, approval and HTTP attempt, with matching name, kind, status and
+latency. Unexecuted tasks and unused retries produce no observations. Actual active
+ledger requests replace independent RPS rounding; an observation watermark prevents
+recounting on repeated/accelerated ticks. Empty windows invent no calls.
+
+No family or label is added. Request IDs, URLs, target addresses, retry ordinals and
+approval metadata are never metric labels. No service-graph edge is fabricated for
+an uninstrumented API target. EmitSpanMetrics default-off, cumulative state,
+captured histogram bounds, dual native/classic emission and synthetic size calculation
+remain unchanged. Telemetry provenance is traces-app-automation in traces.md;
+metric producer provenance remains apm-producers here.
+
+```yaml signals
+app_automation_spanmetrics:
+  v: ok
+  scope: blueprint
+  source: tempo
+  producer: existing app opt-in spanmetric path
+  families:
+    - traces_spanmetrics_calls_total
+    - traces_spanmetrics_size_total
+    - traces_spanmetrics_latency
+  observations: emitted-execution-plan-spans
+  new_labels: []
+  service_graph: absent-without-instrumented-remote-server
+```
+
 Tempo's metrics-generator derives these from the trace stream; synthkit fabricates them as
 pre-mangled Mimir series. All families are blueprint-scoped (carry the `blueprint` label);
 service-graph edges instead carry `client_blueprint` and `server_blueprint` (one per edge-side —
