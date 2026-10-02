@@ -74,6 +74,10 @@ const (
 //   - latency is observed once per counted call (bounded by spanMetricObsCap) for every
 //     status_code that calls_total carries, so the two families share one label set.
 func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
+	if w.cfg.Automation != nil {
+		w.tickAutomationSpanMetrics(now, world)
+		return
+	}
 	calls := w.spanMetricVolume(now, world)
 	if calls <= 0 {
 		return

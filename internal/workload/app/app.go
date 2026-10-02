@@ -48,6 +48,8 @@ func versionOr(v string) string {
 // Config is the YAML config for the app workload: a service graph + an entry traffic envelope.
 // Unknown fields are rejected by strict yaml.v3 decoding at blueprint load.
 type Config struct {
+	// Automation optionally emits a bounded sequential approval/task/HTTP-attempt recipe.
+	Automation *AutomationFlow `yaml:"automation"`
 	// Services are the graph's nodes (typed services + their call edges).
 	Services []ServiceNode `yaml:"services"`
 	// Traffic shapes the entry node's invocation volume (the correlated narrative sample).
@@ -269,6 +271,8 @@ type Workload struct {
 	// state or label identity. One state per service node keeps resources independent.
 	otlpStates    map[string]*state.State
 	otlpColdStart time.Time
+	// automationMetricThrough bounds ledger-derived observations to unobserved request windows.
+	automationMetricThrough time.Time
 }
 
 // build constructs a Workload: decode-time defaults, resolve + validate the graph, freeze identity.
@@ -282,6 +286,9 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	}
 	if cfg.Traffic.OffPeakRPS < 0 {
 		cfg.Traffic.OffPeakRPS = 0
+	}
+	if err := validateAutomation(cfg); err != nil {
+		return nil, err
 	}
 	g, err := buildGraph(cfg.Services)
 	if err != nil {
@@ -301,6 +308,7 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 		return nil, err
 	}
 	w.m = newMinter(w.b.Name, w.env, w.cluster, w.weight, w.nonProd, cfg.Traffic, cfg.Models, g)
+	w.m.automation = cfg.Automation
 	// Wire BrowserOrigin minting: the minter sets r.BrowserOrigin only when RUM is active
 	// (entry has rum_faro + binding carries a Faro sink). Mirror webservice minter's cfg.RUM flag.
 	w.m.rumEnabled = w.rumEnabled()

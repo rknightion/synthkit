@@ -46,6 +46,9 @@ func (w *Workload) ProjectBatch(ctx context.Context, now time.Time, world *core.
 // services). All spans share r.TraceID; parenting is by pre-minted span id (order-independent).
 // One otlp.Resource per node (its identity), emitted in node-declaration order (deterministic).
 func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch []*ledger.Request) error {
+	if w.cfg.Automation != nil {
+		return w.projectAutomationTraces(ctx, world, batch)
+	}
 	res := map[string]*otlp.Resource{}
 	get := func(n *node) *otlp.Resource {
 		r := res[n.decl.Name]

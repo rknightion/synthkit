@@ -1,0 +1,158 @@
+# TEST FIXTURE ONLY, NEVER DEPLOY. Rates/probability endpoints force bounded execution cases.
+# CPU substrate only; no live integrations, sources, payloads, secrets or command output.
+name: ai-factory-automation
+label: ai-factory-automation
+shape: business_hours_plateau
+timezone: UTC
+environments:
+  - name: test
+    weight: 1
+    production: true
+    cloud: {provider: aws, account_id: "111122223347", region: us-east-1, vpc_id: vpc-automation-fixture}
+    cluster:
+      type: eks
+      name: automation-fixture-cpu
+      # One CPU node is sufficient for this isolated telemetry fixture, not estate sizing.
+      node_groups: [{name: cpu, instance_type: m6i.xlarge, desired: 1}]
+workloads:
+  - type: app
+    name: automation-node-provisioning
+    runs_on: automation-fixture-cpu
+    # Test-only rate: one invocation/second to exercise emission in the first tick.
+    traffic: {off_peak_rps: 1, peak_rps: 1}
+    services:
+      - {name: automation-node-provisioning-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Node provisioning"
+      steps:
+        - name: maintenance
+          approval: {duration_ms: 1000, rejection_probability: 0}
+        - name: provision-node
+          http: {method: POST, url: "https://provisioner.example/v1/nodes", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+        - name: verify-node
+          http: {method: GET, url: "https://provisioner.example/v1/nodes/ready", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+  - type: app
+    name: automation-firmware-rollout
+    runs_on: automation-fixture-cpu
+    # Test-only rate: one invocation/second to exercise emission in the first tick.
+    traffic: {off_peak_rps: 1, peak_rps: 1}
+    services:
+      - {name: automation-firmware-rollout-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Firmware rollout"
+      steps:
+        - name: maintenance
+          approval: {duration_ms: 1000, rejection_probability: 0}
+        - name: stage-rollout
+          http: {method: POST, url: "https://firmware.example/v1/rollouts/stage", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+        - name: apply-rollout
+          http: {method: POST, url: "https://firmware.example/v1/rollouts/apply", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+        - name: verify-version
+          http: {method: GET, url: "https://firmware.example/v1/version", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+  - type: app
+    name: automation-drain-return
+    runs_on: automation-fixture-cpu
+    # Test-only rate: one invocation/second to exercise emission in the first tick.
+    traffic: {off_peak_rps: 1, peak_rps: 1}
+    services:
+      - {name: automation-drain-return-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Drain and return to service"
+      steps:
+        - name: maintenance
+          approval: {duration_ms: 1000, rejection_probability: 0}
+        - name: drain
+          http: {method: POST, url: "https://maintenance.example/v1/drain", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+        - name: maintain
+          http: {method: POST, url: "https://maintenance.example/v1/maintain", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+        - name: return-to-service
+          http: {method: POST, url: "https://maintenance.example/v1/return", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+        - name: verify-readiness
+          http: {method: GET, url: "https://maintenance.example/v1/ready", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+  - type: app
+    name: automation-storage-provisioning
+    runs_on: automation-fixture-cpu
+    # Test-only rate: one invocation/second to exercise emission in the first tick.
+    traffic: {off_peak_rps: 1, peak_rps: 1}
+    services:
+      - {name: automation-storage-provisioning-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Storage provisioning"
+      steps:
+        - name: maintenance
+          approval: {duration_ms: 1000, rejection_probability: 0}
+        - name: provision-storage
+          http: {method: POST, url: "https://storage.example/v1/allocations", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+        - name: verify-availability
+          http: {method: GET, url: "https://storage.example/v1/available", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+  - type: app
+    name: automation-portal-request
+    runs_on: automation-fixture-cpu
+    # Test-only rate: one invocation/second to exercise emission in the first tick.
+    traffic: {off_peak_rps: 1, peak_rps: 1}
+    services:
+      - {name: automation-portal-request-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Self-service portal request"
+      steps:
+        - name: maintenance
+          approval: {duration_ms: 1000, rejection_probability: 0}
+        - name: fulfil-request
+          http: {method: POST, url: "https://portal.example/v1/requests/fulfil", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+        - name: verify-fulfilment
+          http: {method: GET, url: "https://portal.example/v1/requests/ready", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+  - type: app
+    name: automation-node-provisioning-retry
+    runs_on: automation-fixture-cpu
+    # Test-only rate: one invocation/second to exercise emission in the first tick.
+    traffic: {off_peak_rps: 1, peak_rps: 1}
+    services:
+      - {name: automation-node-provisioning-retry-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Node provisioning retry"
+      steps:
+        - name: maintenance
+          approval: {duration_ms: 1000, rejection_probability: 0}
+        - name: provision-node
+          http: {method: POST, url: "https://provisioner.example/v1/nodes", duration_ms: 100, max_attempts: 3, failure_probability: 1, retry_success_probability: 1}
+        - name: verify-node
+          http: {method: GET, url: "https://provisioner.example/v1/nodes/ready", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+  - type: app
+    name: automation-node-provisioning-exhausted
+    runs_on: automation-fixture-cpu
+    # Test-only rate: one invocation/second to exercise emission in the first tick.
+    traffic: {off_peak_rps: 1, peak_rps: 1}
+    services:
+      - {name: automation-node-provisioning-exhausted-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Node provisioning exhausted"
+      steps:
+        - name: maintenance
+          approval: {duration_ms: 1000, rejection_probability: 0}
+        - name: provision-node
+          http: {method: POST, url: "https://provisioner.example/v1/nodes", duration_ms: 100, max_attempts: 3, failure_probability: 1, retry_success_probability: 0}
+        - name: verify-node
+          http: {method: GET, url: "https://provisioner.example/v1/nodes/ready", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 0}
+  - type: app
+    name: automation-node-provisioning-rejected
+    runs_on: automation-fixture-cpu
+    # Test-only rate: one invocation/second to exercise emission in the first tick.
+    traffic: {off_peak_rps: 1, peak_rps: 1}
+    services:
+      - {name: automation-node-provisioning-rejected-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
+    automation:
+      name: "Node provisioning rejected"
+      steps:
+        - name: maintenance
+          approval: {duration_ms: 1000, rejection_probability: 1}
+        - name: provision-node
+          http: {method: POST, url: "https://provisioner.example/v1/nodes", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+        - name: verify-node
+          http: {method: GET, url: "https://provisioner.example/v1/nodes/ready", duration_ms: 100, max_attempts: 3, failure_probability: 0, retry_success_probability: 1}
+  - type: app
+    name: user-workload-contrast
+    runs_on: automation-fixture-cpu
+    # Test-only rate: emit a contrasting user trace group within one tick.
+    traffic: {off_peak_rps: 1, peak_rps: 1}
+    services:
+      - {name: user-application, type: web, entry: true, namespace: user-workloads, runtime: go, replicas: 1}

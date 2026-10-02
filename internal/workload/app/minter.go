@@ -27,6 +27,7 @@ type minter struct {
 	models       []ModelChoice // valid (model,provider) routings; one drawn per request → r.Model/r.Provider
 	routes       []string      // entry-node request routes; one drawn per request → r.Route
 	graph        *graph
+	automation   *AutomationFlow // optional coherent app-local sequence; no graph calls
 }
 
 func newMinter(name, env, cluster string, weight float64, nonProd bool, traffic Traffic, models []ModelChoice, g *graph) *minter {
@@ -162,6 +163,21 @@ func (m *minter) mintOne(now time.Time, eng *shape.Engine) *ledger.Request {
 		// (only meaningful when RUM is configured — the beacon + browser span are only emitted
 		// when b.RUM != nil; mirrors webservice minter's BrowserOrigin logic).
 		BrowserOrigin: m.rumEnabled && eng.Float64() < 0.6,
+	}
+
+	if m.automation != nil {
+		p := planAutomation(m.automation, r)
+		r.Duration = p.duration
+		r.StatusCode = 200
+		if p.errorType != "" {
+			r.Outcome = ledger.OutcomeServerError
+			r.StatusCode = 503
+			r.ErrorKind = p.errorType
+			if p.errorType == "_OTHER" {
+				r.StatusCode = 500
+			}
+		}
+		return r
 	}
 
 	// Per-service incidents (§6.5): an error_spike / latency_storm on ANY node in the request path

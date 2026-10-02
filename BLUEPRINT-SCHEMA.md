@@ -719,6 +719,20 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 
 | key | type | optional | description |
 |---|---|---|---|
+| `automation` | object | yes | Automation optionally emits a bounded sequential approval/task/HTTP-attempt recipe. |
+| `automation.name` | string |  |  |
+| `automation.steps[]` | object |  |  |
+| `automation.steps[].name` | string |  |  |
+| `automation.steps[].approval` | object | yes |  |
+| `automation.steps[].approval.duration_ms` | int |  |  |
+| `automation.steps[].approval.rejection_probability` | float |  |  |
+| `automation.steps[].http` | object | yes |  |
+| `automation.steps[].http.method` | string |  |  |
+| `automation.steps[].http.url` | string |  |  |
+| `automation.steps[].http.duration_ms` | int |  |  |
+| `automation.steps[].http.max_attempts` | int |  |  |
+| `automation.steps[].http.failure_probability` | float |  |  |
+| `automation.steps[].http.retry_success_probability` | float |  |  |
 | `services[]` | object |  | Services are the graph's nodes (typed services + their call edges). |
 | `services[].name` | string |  | unique graph identity (service / service_name label) |
 | `services[].type` | string |  | span semantics + profile fit (registry + default fallback) |

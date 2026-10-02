@@ -42,6 +42,7 @@ Home = "index.md"
     { "Blueprint Reference" = "blueprint-reference.md" },
     { Infrastructure = "infrastructure.md" },
     { Workloads = "workloads.md" },
+    { "Platform Automation Traces" = "ai-factory/automation.md" },
     { "Emission Switches" = "emission-switches.md" },
     { "Incidents & Scenarios" = "incidents.md" },
     { "Example Blueprints" = "blueprint-examples.md" },
