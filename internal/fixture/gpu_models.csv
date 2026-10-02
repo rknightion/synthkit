@@ -1,0 +1,9 @@
+# Strict catalogue. Decimal advertised GB is not driver usable framebuffer.
+# Product/memory/TDP: NVIDIA datasheets pinned below. MIG: MIG User Guide Release 615.
+# h100 NVLink: CUDA 12.8.0 Hopper tuning guide §1.4.3; SXM qualification only.
+# Empty NVLink/thermal columns are PENDING, not zero or inferred limits.
+key,product,memory_gb,max_power_w,nvlink_count,mig_supported,mig_max_instances,slowdown_c,shutdown_c,max_operating_c
+h100_sxm_80gb,H100 SXM,80,700,18,true,7,,,
+h100_pcie_80gb,H100 PCIe,80,350,,true,7,,,
+h200_sxm_141gb,H200 SXM,141,700,,true,7,,,
+gb200_186gb,GB200 GPU,186,1200,,true,7,,,

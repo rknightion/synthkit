@@ -126,6 +126,9 @@ func firstFreeIP(assigned map[string]bool) string {
 // total, so the k8s construct (metrics) and the fleet controller (registration) agree byte-for-byte.
 // The env weight (from c.Env) sets the minimum node floor: production ≥ 6, staging ≥ 4, dev ≥ 3.
 func LiveNodes(c *Cluster, count func(target string, declared int) int) []Node {
+	if c.StaticNodes {
+		return c.Nodes
+	}
 	total := 0
 	for _, wl := range c.Workloads {
 		n := count(wl.Name, wl.Replicas)

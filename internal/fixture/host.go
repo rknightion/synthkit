@@ -5,6 +5,7 @@ package fixture
 // Host is one declared traditional (non-k8s) machine. Identity is Hostname
 // (the `instance` label); substrate-scoped, collision-checked at load.
 type Host struct {
+	GPU       *GPUNode
 	Hostname  string  // identity → `instance` label
 	OS        string  // "linux" | "windows" | "darwin"
 	PrivateIP string  // optional; "" when absent

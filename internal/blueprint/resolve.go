@@ -178,20 +178,22 @@ type ResolvedEnvMeta struct {
 }
 
 type Resolved struct {
-	Name         string
-	Label        string
-	Metadata     Metadata          // blueprint-level human-facing annotation (UI only)
-	Environments []ResolvedEnvMeta // per-env metadata for the UI (decl order)
-	Shape        string
-	Timezone     string
-	Regions      []RegionDecl // follow-the-sun multi-tz composite; mutually exclusive with Timezone
-	SeriesBudget int
-	HighDPM      *ResolvedHighDPM
-	Constructs   []ConstructInstance
-	Workloads    []WorkloadInstance
-	Incidents    []string // shape-engine schedule entries: kind@at/for[#intensity][@target]
-	Targets      []Target
-	Scenarios    []ResolvedScenario
+	gpuDeviceClaims []gpuIdentityClaim // canonical rack-device identity claims, including unselected racks
+	GPU             *fixture.GPUTopology
+	Name            string
+	Label           string
+	Metadata        Metadata          // blueprint-level human-facing annotation (UI only)
+	Environments    []ResolvedEnvMeta // per-env metadata for the UI (decl order)
+	Shape           string
+	Timezone        string
+	Regions         []RegionDecl // follow-the-sun multi-tz composite; mutually exclusive with Timezone
+	SeriesBudget    int
+	HighDPM         *ResolvedHighDPM
+	Constructs      []ConstructInstance
+	Workloads       []WorkloadInstance
+	Incidents       []string // shape-engine schedule entries: kind@at/for[#intensity][@target]
+	Targets         []Target
+	Scenarios       []ResolvedScenario
 	// Warnings are non-fatal resolve-time notes (e.g. a database/cache declaration that produced
 	// zero emitting constructs) surfaced to operators via the control-plane diagnostics panel.
 	Warnings []string
@@ -295,6 +297,17 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	dbs := map[string]*fixture.DB{}
 	dbsByEnv := map[string][]*fixture.DB{} // env name → its declared db fixtures (decl order)
 	caches := map[string]*fixture.Cache{}
+	hosts := map[string]*fixture.Host{}
+	for _, hd := range d.Hosts {
+		h, err := toFixtureHost(hd)
+		if err != nil {
+			return nil, fmt.Errorf("blueprint %q: host %q: %w", d.Name, hd.Name, err)
+		}
+		if hosts[h.Hostname] != nil {
+			return nil, fmt.Errorf("blueprint %q: duplicate host name %q", d.Name, h.Hostname)
+		}
+		hosts[h.Hostname] = h
+	}
 
 	// Pass 1 — env-level fixtures (cloud, db, cache) + cluster shells (nodes resolved
 	// in pass 2, after workload placements are known).
@@ -532,11 +545,26 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	}
 
 	for _, ec := range envs {
+		if ec.decl.Cluster != nil {
+			buildNodes(seed, clusters[ec.decl.Cluster.Name], ec.decl.Cluster, ec.cloud)
+		}
+	}
+	if d.GPUCompute != nil {
+		var err error
+		r.GPU, err = fixture.BuildGPUTopology(seed, *d.GPUCompute, clusters, hosts)
+		if err != nil {
+			return nil, fmt.Errorf("blueprint %q: %w", d.Name, err)
+		}
+		r.gpuDeviceClaims = captureRackDeviceClaims(seed, r.GPU, d.GPUCompute.Racks)
+	}
+	for _, ec := range envs {
 		if ec.decl.Cluster == nil {
 			continue
 		}
 		cl := clusters[ec.decl.Cluster.Name]
-		buildNodes(seed, cl, ec.decl.Cluster, ec.cloud)
+		if len(cl.Nodes) == 0 {
+			return nil, fmt.Errorf("blueprint %q: baremetal cluster %q requires explicit nodes or GPU pool", d.Name, cl.Name)
+		}
 		// Pod→node placement once nodes exist. DaemonSet workloads run one pod per node (names keyed
 		// by node hostname, NodeIdx = [0..n-1]); all other controllers round-robin over Replicas.
 		for wi := range cl.Workloads {
@@ -563,6 +591,9 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		// over the nodes so node placement is deterministic (was previously left to nodeAssignment).
 		for wi := range cl.SubstrateWorkloads {
 			pl := &cl.SubstrateWorkloads[wi]
+			if pl.GPUWorkerKey != "" {
+				continue
+			}
 			pl.NodeIdx = pl.NodeIdx[:0]
 			if pl.Controller == "daemonset" {
 				pl.PodNames = fixture.WorkloadPodNames(seed+":"+cl.Name, *pl, cl.Nodes)
@@ -587,11 +618,12 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			cl := clusters[e.Cluster.Name]
 			set := baseSet()
 			set.Cluster = cl
+			set.GPU = clusterGPUSelection(r.GPU, cl.Name)
 			set.Seed = seed + ":" + cl.Name
 			// k8s substrate always emits; the per-node EC2 CloudWatch lane is gated by the
 			// cluster's emission switch (the cloud-provider view of the nodes — §3.2).
 			kinds := []string{KindK8sCluster}
-			if e.Cluster.Observability.enabled() {
+			if e.Cluster.Type != "baremetal" && e.Cluster.Observability.enabled() {
 				kinds = append(kinds, KindEC2)
 			}
 			// Continuous profiling (the Alloy feature-profiling analog). Instantiate the construct
@@ -787,15 +819,15 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	// hostname uniqueness enforced here, cross-blueprint collisions in ValidateSet (load.go).
 	seenHost := map[string]bool{}
 	for _, hd := range d.Hosts {
-		h, err := toFixtureHost(hd)
-		if err != nil {
-			return nil, fmt.Errorf("blueprint %q: host %q: %w", d.Name, hd.Name, err)
-		}
+		h := hosts[hd.Name]
 		if seenHost[h.Hostname] {
 			return nil, fmt.Errorf("blueprint %q: duplicate host name %q", d.Name, h.Hostname)
 		}
 		seenHost[h.Hostname] = true
 		set := &fixture.Set{Seed: seed + ":host:" + h.Hostname, Host: h}
+		if h.GPU != nil {
+			set.GPU, _ = fixture.SelectGPUTopology(r.GPU, []string{h.GPU.Pool}, nil, nil, nil)
+		}
 		ci, err := emptyConfigInstance(reg, KindHost, h.Hostname, set, d.Name)
 		if err != nil {
 			return nil, err
@@ -921,6 +953,11 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	//
 	// Target inventory + ambiguity check (a name reused across two axes is rejected).
 	r.Targets = buildTargets(d)
+	if r.GPU != nil {
+		for _, target := range r.GPU.Targets {
+			r.Targets = append(r.Targets, Target{Name: target.Key, Axis: target.Axis})
+		}
+	}
 	axes, err := targetIndex(r.Targets)
 	if err != nil {
 		return nil, fmt.Errorf("blueprint %q: %w", d.Name, err)
@@ -940,7 +977,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		}
 		scNames[sc.Name] = true
 		for _, e := range sc.Effects {
-			if err := validateEffect(e, axes, vocab, multi); err != nil {
+			if err := validateResolvedEffect(r, reg, e, axes, vocab, multi); err != nil {
 				return nil, fmt.Errorf("blueprint %q scenario %q: %w", d.Name, sc.Name, err)
 			}
 		}
@@ -979,7 +1016,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			continue
 		}
 		// single-mode incident: validate against the inventory + vocabulary, then compile.
-		if err := validateEffect(EffectDecl{Mode: inc.Kind, Target: inc.Target, Intensity: inc.Intensity}, axes, vocab, multi); err != nil {
+		if err := validateResolvedEffect(r, reg, EffectDecl{Mode: inc.Kind, Target: inc.Target, Intensity: inc.Intensity}, axes, vocab, multi); err != nil {
 			return nil, fmt.Errorf("blueprint %q incident %q: %w", d.Name, inc.Kind, err)
 		}
 		// An incident is either absolute/daily (At) or interval-recurring (Every) — never both.
@@ -1049,6 +1086,14 @@ func zeroConstructWarnings(r *Resolved, d *Decl) []string {
 // cl.Seed is the BARE blueprint seed (not a scoped Set.Seed): live derivation must reproduce these
 // resolved identities byte-for-byte, so the construct must read the same seed buildNodes/PodName use.
 func buildNodes(seed string, cl *fixture.Cluster, decl *ClusterDecl, cloud *fixture.Cloud) {
+	if decl.Type == "baremetal" {
+		cl.Seed = seed
+		cl.StaticNodes = true
+		for _, n := range decl.Nodes {
+			cl.Nodes = append(cl.Nodes, fixture.Node{Hostname: n.Hostname, PrivateIP: n.IP, UID: fixture.NodeUID(seed, "baremetal", cl.Name, n.Hostname), OS: "linux", Capacity: &fixture.InstanceSpec{VCPU: n.CPUs, MemBytes: n.MemoryGiB * 1073741824, Arch: n.Arch, Known: true}})
+		}
+		return
+	}
 	pods := 0
 	for _, w := range cl.Workloads {
 		pods += w.Replicas
@@ -1085,6 +1130,9 @@ func buildNodes(seed string, cl *fixture.Cluster, decl *ClusterDecl, cloud *fixt
 // current-realistic defaults. The OS shorthand maps to the real os_image + container_runtime
 // + node_os_info id strings; the kubernetes version drives the kubelet/build-info version.
 func resolvePlatform(d *PlatformDecl) fixture.Platform {
+	if d != nil && d.OSImage != "" {
+		return fixture.Platform{OSImage: d.OSImage, OSID: d.OSID, ContainerRuntime: d.ContainerRuntime, KubeletVersion: d.KubeletVersion, KubernetesVersion: d.KubernetesVersion, KernelVersion: d.KernelVersion}
+	}
 	os, kver, kernel := "al2023", "1.31", "6.1.141"
 	if d != nil {
 		if d.OS != "" {
@@ -1252,6 +1300,13 @@ func resolveSection(r *Resolved, d *Decl, reg *core.Registry, seed string, secti
 			return fmt.Errorf("blueprint %q: %q cannot be declared in the %q section (its group is %q) — features = Grafana Cloud products, integrations = external sources",
 				d.Name, key, noun+"s", groupLabel(creg.Group))
 		}
+		selection, rest, err := splitGPUSelectors(r.GPU, key, rest)
+		if err != nil {
+			return fmt.Errorf("blueprint %q: integration %q: %w", d.Name, key, err)
+		}
+		if selection != nil && (forEach || len(envSubset) > 0) {
+			return fmt.Errorf("blueprint %q: GPU-consuming integration prohibits physical fan-out", d.Name)
+		}
 		// mk emits one construct instance; env/cloud are nil for the aggregate (non-fanned) case.
 		mk := func(env *fixture.Env, cloud *fixture.Cloud, scopeSeed, name string) error {
 			cfg := creg.NewConfig()
@@ -1260,7 +1315,7 @@ func resolveSection(r *Resolved, d *Decl, reg *core.Registry, seed string, secti
 			}
 			r.Constructs = append(r.Constructs, ConstructInstance{
 				Kind: key, Name: name, Config: cfg,
-				Fixtures: &fixture.Set{Seed: scopeSeed, Env: env, Cloud: cloud},
+				Fixtures: &fixture.Set{Seed: scopeSeed, Env: env, Cloud: cloud, GPU: selection},
 			})
 			return nil
 		}

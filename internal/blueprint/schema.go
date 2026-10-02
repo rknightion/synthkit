@@ -10,6 +10,7 @@ package blueprint
 import (
 	"fmt"
 
+	"github.com/rknightion/synthkit/internal/fixture"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,21 +42,22 @@ func (m Metadata) IsZero() bool {
 
 // Decl is the raw YAML blueprint document (strict-decoded; unknown fields fail loud).
 type Decl struct {
-	Name         string               `yaml:"name"`
-	Label        string               `yaml:"label"`         // sink-stamped selector; defaults to Name
-	Metadata     Metadata             `yaml:"metadata"`      // optional human-facing annotation (UI only)
-	Shape        string               `yaml:"shape"`         // default shape profile
-	Timezone     string               `yaml:"timezone"`      // business-hours anchor (default Europe/Zurich)
-	Regions      []RegionDecl         `yaml:"regions"`       // follow-the-sun multi-tz composite (mutually exclusive with timezone)
-	SeriesBudget int                  `yaml:"series_budget"` // fixed one-minute per-blueprint data-point allowance; <=0 is unlimited
-	HighDPM      *HighDPMDecl         `yaml:"high_dpm"`      // explicit opt-in to a per-blueprint metric cadence below the default floor
-	Environments []EnvDecl            `yaml:"environments"`
-	Workloads    []WorkloadDecl       `yaml:"workloads"`
-	Features     map[string]yaml.Node `yaml:"features"`     // Grafana Cloud products (sm, fleet); `enabled` reserved (default true)
-	Integrations map[string]yaml.Node `yaml:"integrations"` // external sources GC ingests (cloudflare, csp_*); same decode + `enabled` key
-	Incidents    []IncidentDecl       `yaml:"incidents"`
-	Scenarios    []ScenarioDecl       `yaml:"scenarios"`
-	Hosts        []HostDecl           `yaml:"hosts"` // traditional non-k8s machines (node/windows/macos exporter + optional docker)
+	GPUCompute   *fixture.GPUTopologySpec `yaml:"gpu_compute"`
+	Name         string                   `yaml:"name"`
+	Label        string                   `yaml:"label"`         // sink-stamped selector; defaults to Name
+	Metadata     Metadata                 `yaml:"metadata"`      // optional human-facing annotation (UI only)
+	Shape        string                   `yaml:"shape"`         // default shape profile
+	Timezone     string                   `yaml:"timezone"`      // business-hours anchor (default Europe/Zurich)
+	Regions      []RegionDecl             `yaml:"regions"`       // follow-the-sun multi-tz composite (mutually exclusive with timezone)
+	SeriesBudget int                      `yaml:"series_budget"` // fixed one-minute per-blueprint data-point allowance; <=0 is unlimited
+	HighDPM      *HighDPMDecl             `yaml:"high_dpm"`      // explicit opt-in to a per-blueprint metric cadence below the default floor
+	Environments []EnvDecl                `yaml:"environments"`
+	Workloads    []WorkloadDecl           `yaml:"workloads"`
+	Features     map[string]yaml.Node     `yaml:"features"`     // Grafana Cloud products (sm, fleet); `enabled` reserved (default true)
+	Integrations map[string]yaml.Node     `yaml:"integrations"` // external sources GC ingests (cloudflare, csp_*); same decode + `enabled` key
+	Incidents    []IncidentDecl           `yaml:"incidents"`
+	Scenarios    []ScenarioDecl           `yaml:"scenarios"`
+	Hosts        []HostDecl               `yaml:"hosts"` // traditional non-k8s machines (node/windows/macos exporter + optional docker)
 }
 
 // HighDPMDecl is the explicit cost-bearing override for one blueprint's metric-bearing
@@ -146,11 +148,12 @@ type CloudDecl struct {
 // substrate). `observability: { cloudwatch: false }` keeps the k8s substrate but drops the
 // EC2 CloudWatch lane. Omitting it ⇒ EC2 CloudWatch emitted (default true).
 type ClusterDecl struct {
-	Type          string            `yaml:"type"` // "eks" (v1)
-	Name          string            `yaml:"name"`
-	NodeGroups    []NodeGroupDecl   `yaml:"node_groups"`
-	K8sMonitoring K8sMonitoringDecl `yaml:"k8s_monitoring"`
-	OTel          yaml.Node         `yaml:"otel"` // k8s_cluster receiver-native emission switches; decoded via registry
+	Nodes         []BareMetalNodeDecl `yaml:"nodes"`
+	Type          string              `yaml:"type"` // "eks" (v1)
+	Name          string              `yaml:"name"`
+	NodeGroups    []NodeGroupDecl     `yaml:"node_groups"`
+	K8sMonitoring K8sMonitoringDecl   `yaml:"k8s_monitoring"`
+	OTel          yaml.Node           `yaml:"otel"` // k8s_cluster receiver-native emission switches; decoded via registry
 	// OTelCollectorProm selects the exclusive captured Collector Prometheus envelope.
 	OTelCollectorProm bool `yaml:"otel_collector_prom"`
 	// PrometheusOperatorRemoteWrite selects the observed Prometheus Operator
@@ -167,10 +170,22 @@ type ClusterDecl struct {
 	Platform             *PlatformDecl     `yaml:"platform"` // node OS/runtime/k8s version (defaults applied when omitted)
 }
 
-// PlatformDecl declares the cluster's node OS / kubernetes version. All fields optional; the
-// resolver applies current-realistic defaults. OS shorthand ∈ {al2, al2023, bottlerocket}
-// expands to the real os_image + container_runtime strings (see resolvePlatform).
+// BareMetalNodeDecl declares a fixed node's address and explicit hardware capacity.
+type BareMetalNodeDecl struct {
+	Hostname  string  `yaml:"hostname"`
+	IP        string  `yaml:"ip"`
+	CPUs      int     `yaml:"cpus"`
+	MemoryGiB float64 `yaml:"memory_gib"`
+	Arch      string  `yaml:"arch"`
+}
+
+// PlatformDecl declares node OS/runtime/version identity. Bare-metal clusters
+// require exact fields; EKS retains its OS shorthand and historical defaults.
 type PlatformDecl struct {
+	OSImage           string `yaml:"os_image"`
+	OSID              string `yaml:"os_id"`
+	ContainerRuntime  string `yaml:"container_runtime"`
+	KubeletVersion    string `yaml:"kubelet_version"`
 	OS                string `yaml:"os"`                 // "al2" | "al2023" | "bottlerocket" (default al2023)
 	KubernetesVersion string `yaml:"kubernetes_version"` // e.g. "1.31" (default)
 	KernelVersion     string `yaml:"kernel_version"`     // optional override of the node kernel string

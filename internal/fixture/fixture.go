@@ -49,6 +49,7 @@ func (c *Cloud) CloudWatchExportMode() string {
 // AND as the node's instance identity in the k8s substrate; Hostname is the k8s node
 // name (node-exporter/cAdvisor instance).
 type Node struct {
+	Capacity     *InstanceSpec
 	InstanceID   string // "i-0123456789abcdef0" (deterministic)
 	Hostname     string // "ip-10-0-1-23.<region>.compute.internal"
 	PrivateIP    string // "10.0.1.23"
@@ -63,10 +64,12 @@ type Node struct {
 // shared by the k8s substrate (kube_pod_*, cAdvisor) and the workload's own
 // target_info/resource attributes, so service→pod joins resolve.
 type Workload struct {
-	Name      string // workload instance name (service.name)
-	Namespace string // k8s namespace
-	Replicas  int
-	PodNames  []string // deterministic, len == Replicas
+	GPUWorkerKey string
+	GPUPhase     string
+	Name         string // workload instance name (service.name)
+	Namespace    string // k8s namespace
+	Replicas     int
+	PodNames     []string // deterministic, len == Replicas
 	// PodUIDs optionally carries the current lifecycle UID parallel to PodNames. It is populated
 	// only by declarable churn; nil preserves the established name-derived UID path byte-for-byte.
 	PodUIDs []string
@@ -231,6 +234,8 @@ type K8sMonitoring struct {
 // `k8s_cluster_name` label value — the substrate disambiguator (ARCHITECTURE I21) —
 // and must be unique across enabled blueprints (validated at load).
 type Cluster struct {
+	StaticNodes   bool
+	GPU           *GPUTopology
 	Name          string
 	Type          string // "eks"
 	Env           *Env
@@ -342,6 +347,7 @@ type CallTarget struct {
 // derive (hash it via seed.go helpers — never invent identity ad hoc, and never parse
 // Seed's contents).
 type Set struct {
+	GPU     *GPUSelection
 	Seed    string
 	Env     *Env
 	Cloud   *Cloud

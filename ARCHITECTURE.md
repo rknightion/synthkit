@@ -151,6 +151,26 @@ K8sMonitoring}`, `Node{InstanceID, Hostname, PrivateIP, InstanceType}` (THE EC2â
 helpers seeded from `"<blueprint>:<path>"` strings â€” same blueprint, same identities, every run.
 This package is frozen like an interface; changes are a wiring event.
 
+`gpu_compute` adds canonical physical GPU pools, racks/trays, NIC attachments,
+storage clients and scheduler worker plans to this vocabulary. Bare-metal nodes
+carry declared `Node.Capacity`; bound `GPUNode.Node` points to the final cluster
+node element. Static inventories do not scale with workload replicas. Physical
+identity derives from seed and named declaration/ordinal, never collector choice.
+
+`GPUAllocationPlan` and `GPUOperatingPoints` are the shared pure ownership and
+configurable synthetic-physics seams. Snapshots carry private topology origin;
+matching keys or deserialization cannot establish provenance. Released allocations
+lose pod/memory attribution but powered GPUs retain idle watts. Consumers must not
+choose independent utilization or GPU/node/rack power formulas. Shared fault
+coverage is mode-specific graph reachability; enabled consumer-local collection
+failures use exact selected-entity membership and never change shared physics.
+
+The fixture emits no telemetry and claims no vendor envelope. Missing usable
+framebuffer, thermal limits and physical NVLink/vendor mapping remain nullable or
+fail-closed capability gates. Runtime tick capture and consumer log/KSM/network
+adapters retain separate ownership and acceptance. See [GPU fixture](docs/ai-factory/fixture.md)
+for join keys, allocation semantics and release barriers.
+
 ### Registry
 
 Explicit instance built in the composition root's catalog wiring file (single owner). **No global

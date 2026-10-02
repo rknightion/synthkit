@@ -23,6 +23,9 @@ func Load(data []byte, reg *core.Registry, runtimeLimits ...RuntimeLimits) (*Res
 	if err := dec.Decode(&d); err != nil {
 		return nil, fmt.Errorf("blueprint: %w", err)
 	}
+	if err := validateGPUIntegerInput(data); err != nil {
+		return nil, fmt.Errorf("blueprint %q: %w", d.Name, err)
+	}
 	return loadDecl(&d, data, reg, effectiveRuntimeLimits(runtimeLimits))
 }
 
@@ -42,6 +45,9 @@ func LoadNamespaced(data []byte, nsPrefix string, reg *core.Registry, runtimeLim
 		if d.Label != "" {
 			d.Label = nsPrefix + "/" + d.Label
 		}
+	}
+	if err := validateGPUIntegerInput(data); err != nil {
+		return nil, fmt.Errorf("blueprint %q: %w", d.Name, err)
 	}
 	return loadDecl(&d, data, reg, effectiveRuntimeLimits(runtimeLimits))
 }
@@ -118,7 +124,7 @@ func validateDecl(d *Decl) error {
 			return bad("high_dpm.metric_interval %q must be a positive duration", d.HighDPM.MetricInterval)
 		}
 	}
-	if len(d.Environments) == 0 && len(d.Hosts) == 0 {
+	if len(d.Environments) == 0 && len(d.Hosts) == 0 && d.GPUCompute == nil {
 		return bad("at least one environment or host is required")
 	}
 	envNames := map[string]bool{}
@@ -134,7 +140,7 @@ func validateDecl(d *Decl) error {
 			return bad("duplicate environment %q", e.Name)
 		}
 		envNames[e.Name] = true
-		needsCloud := e.Cluster != nil || len(e.Databases) > 0 || len(e.Caches) > 0
+		needsCloud := (e.Cluster != nil && e.Cluster.Type != "baremetal") || len(e.Databases) > 0 || len(e.Caches) > 0
 		if needsCloud && e.Cloud == nil {
 			return bad("environment %q declares cluster/databases/caches but no `cloud` block", e.Name)
 		}
@@ -156,8 +162,8 @@ func validateDecl(d *Decl) error {
 			}
 		}
 		if e.Cluster != nil {
-			if e.Cluster.Type != "eks" {
-				return bad("environment %q: cluster.type %q unsupported (v1 supports: eks)", e.Name, e.Cluster.Type)
+			if e.Cluster.Type != "eks" && e.Cluster.Type != "baremetal" {
+				return bad("environment %q: cluster.type %q unsupported (supports: eks|baremetal)", e.Name, e.Cluster.Type)
 			}
 			if e.Cluster.Name == "" {
 				return bad("environment %q: cluster.name is required", e.Name)
@@ -166,8 +172,17 @@ func validateDecl(d *Decl) error {
 				return bad("duplicate cluster %q", e.Cluster.Name)
 			}
 			clusterNames[e.Cluster.Name] = true
-			if len(e.Cluster.NodeGroups) == 0 {
+			if e.Cluster.Type == "baremetal" {
+				if err := validateBareMetal(e.Cluster); err != nil {
+					return bad("cluster %q: %v", e.Cluster.Name, err)
+				}
+			} else if len(e.Cluster.NodeGroups) == 0 {
 				return bad("cluster %q: at least one node_group is required", e.Cluster.Name)
+			} else if len(e.Cluster.Nodes) > 0 {
+				return bad("cluster nodes requires baremetal")
+			}
+			if p := e.Cluster.Platform; p != nil && p.OS != "" && (p.OSImage != "" || p.OSID != "" || p.ContainerRuntime != "" || p.KubeletVersion != "") {
+				return bad("exact platform fields cannot be mixed with AWS OS shorthand")
 			}
 			switch e.Cluster.K8sMonitoring.PodLogsCollector {
 			case "", "k8s_monitoring", "otel_collector":
@@ -345,7 +360,32 @@ func ValidateSet(set []*Resolved) error {
 		if err := claimOnce("label", r.Label); err != nil {
 			return err
 		}
+		if err := claimGPUIdentities(r, claimOnce); err != nil {
+			return err
+		}
 		for _, ci := range r.Constructs {
+			if ci.Fixtures.Cluster != nil {
+				for _, n := range ci.Fixtures.Cluster.Nodes {
+					if err := claimOnce("hostname", n.Hostname); err != nil {
+						return err
+					}
+					if n.PrivateIP != "" {
+						if err := claimOnce("IP", n.PrivateIP); err != nil {
+							return err
+						}
+					}
+				}
+			}
+			if ci.Fixtures.Host != nil {
+				if err := claimOnce("hostname", ci.Fixtures.Host.Hostname); err != nil {
+					return err
+				}
+				if ci.Fixtures.Host.PrivateIP != "" {
+					if err := claimOnce("IP", ci.Fixtures.Host.PrivateIP); err != nil {
+						return err
+					}
+				}
+			}
 			switch ci.Kind {
 			case KindK8sCluster:
 				if err := claimOnce("cluster", ci.Fixtures.Cluster.Name); err != nil {

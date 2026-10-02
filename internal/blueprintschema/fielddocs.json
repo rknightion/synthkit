@@ -84,6 +84,7 @@
   "github.com/rknightion/synthkit/internal/blueprint.Resolved.Regions": "follow-the-sun multi-tz composite; mutually exclusive with Timezone",
   "github.com/rknightion/synthkit/internal/blueprint.Resolved.Source": "Source is the verbatim YAML the blueprint was loaded from (operator UI display).",
   "github.com/rknightion/synthkit/internal/blueprint.Resolved.Warnings": "Warnings are non-fatal resolve-time notes (e.g. a database/cache declaration that produced zero emitting constructs) surfaced to operators via the control-plane diagnostics panel.",
+  "github.com/rknightion/synthkit/internal/blueprint.Resolved.gpuDeviceClaims": "canonical rack-device identity claims, including unselected racks",
   "github.com/rknightion/synthkit/internal/blueprint.ScaleBounds.Dimension": "\"replicas\" | \"read_replicas\"",
   "github.com/rknightion/synthkit/internal/blueprint.ScenarioDecl.Summary": "one-line \"what it causes\"",
   "github.com/rknightion/synthkit/internal/blueprint.ScenarioDecl.Title": "human display; defaults to Name",

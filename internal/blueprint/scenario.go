@@ -88,6 +88,10 @@ var knownAxes = map[failuremode.Axis]bool{
 	failuremode.AxisWorkload: true, failuremode.AxisCluster: true,
 	failuremode.AxisDatabase: true, failuremode.AxisCache: true, failuremode.AxisCloud: true,
 	failuremode.AxisService: true, failuremode.AxisNetwork: true,
+	fixture.AxisGPU: true, fixture.AxisGPUNode: true, fixture.AxisGPURack: true, fixture.AxisGPUTray: true,
+	fixture.AxisNVLinkDomain: true, fixture.AxisNVLinkPartition: true, fixture.AxisNVLinkSwitch: true, fixture.AxisNVLinkPort: true,
+	fixture.AxisGPUFabric: true, fixture.AxisGPUSwitch: true, fixture.AxisGPUPort: true, fixture.AxisGPUDevice: true,
+	fixture.AxisGPUStorage: true, fixture.AxisGPUScheduler: true, fixture.AxisGPUProject: true, fixture.AxisGPUWorkload: true,
 }
 
 // serviceNodePeek is the wiring facts buildTargets extracts from one declared service-graph node

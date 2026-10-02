@@ -1,0 +1,68 @@
+# Standalone generic topology proves gpu_compute itself emits no telemetry.
+# One four-GPU PCIe server models a small workstation/server estate; four GPUs
+# are within the sourced H100 PCIe server shape, not a cardinality multiplier.
+name: ai-factory-topology
+shape: business_hours_plateau
+timezone: UTC
+gpu_compute:
+  racks:
+    - name: rack-a
+      site: site-a
+      shape: pcie
+      cooling: air
+      physics:
+        # Operator allowance for rack fans/losses; no measured vendor transfer curve.
+        fixed_overhead_w: 100
+        liquid_heat_fraction: 0
+  pools:
+    - name: pool-a
+      shape: pcie
+      gpu_model: h100_pcie_80gb
+      node_count: 1
+      gpus_per_node: 4
+      hostname_prefix: compute-node
+      placements:
+        - {rack: "rack:site-a/rack-a", node_start: 0, node_count: 1, slot_start: 1, node_height_u: 4}
+      hardware:
+        # Operator-declared dual-socket server RAM/CPU configuration.
+        cpus: 64
+        memory_gib: 512
+        arch: x86_64
+      operating:
+        # Explicit synthetic assumptions: idle GPU watts and ordinary server
+        # overhead; no vendor temperature/throttle envelope is claimed.
+        idle_power_fraction: 0.12
+        ambient_temp_c: 25
+        full_power_rise_c: 40
+        cooling_fault_rise_c: 15
+        cooling_perf_loss: 0.3
+        congestion_perf_loss: 0.6
+        storage_perf_loss: 0.5
+        node_base_power_w: 250
+        node_dynamic_per_core_w: 2
+        node_dynamic_per_nic_w: 10
+        nvlink_errors_per_second: 0
+  schedulers:
+    - name: scheduler-a
+      kind: slurm
+      pools: [pool-a]
+      projects:
+        - {name: research, partition: compute, gpu_quota: 4}
+      workloads:
+        - name: training-a
+          project: research
+          role: training
+          # One hours-long job template, not accelerated creation for emission.
+          cycle: 6h
+          pending_for: 1m
+          running_min: 1h
+          running_max: 2h
+          demand:
+            utilization_base: 0.5
+            utilization_amplitude: 0
+            memory_reserved_fraction: 0.5
+            memory_dynamic_fraction: 0
+            requests_per_second_at_full_utilization: 0
+          workers:
+            - {name: worker-a, pool: pool-a, node_ordinal: 0, gpu_slots: [0]}
+integrations: {}

@@ -12,6 +12,351 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 
 | key | type | optional | description |
 |---|---|---|---|
+| `gpu_compute` | object | yes |  |
+| `gpu_compute.racks[]` | object |  |  |
+| `gpu_compute.racks[].name` | string |  |  |
+| `gpu_compute.racks[].site` | string |  |  |
+| `gpu_compute.racks[].shape` | string |  |  |
+| `gpu_compute.racks[].cooling` | string |  |  |
+| `gpu_compute.racks[].height_u` | int |  |  |
+| `gpu_compute.racks[].physics` | object |  |  |
+| `gpu_compute.racks[].physics.fixed_overhead_w` | float |  |  |
+| `gpu_compute.racks[].physics.liquid_heat_fraction` | float |  |  |
+| `gpu_compute.racks[].physics.supply_temp_c` | float |  |  |
+| `gpu_compute.racks[].physics.flow_lpm` | float |  |  |
+| `gpu_compute.racks[].physics.fluid_density_kg_per_l` | float |  |  |
+| `gpu_compute.racks[].physics.fluid_specific_heat_j_per_kg_c` | float |  |  |
+| `gpu_compute.racks[].facility_devices[]` | object |  |  |
+| `gpu_compute.racks[].facility_devices[].name` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].kind` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].vendor` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].model` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].os_version` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].serial` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].management_ip` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].rail` | int | yes |  |
+| `gpu_compute.racks[].facility_devices[].scalable_unit` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].static_power_w` | float | yes |  |
+| `gpu_compute.racks[].facility_devices[].ports[]` | object |  |  |
+| `gpu_compute.racks[].facility_devices[].ports[].name` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].ports[].speed_gbps` | float |  |  |
+| `gpu_compute.racks[].facility_devices[].nics[]` | object |  |  |
+| `gpu_compute.racks[].facility_devices[].nics[].name` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].nics[].ip` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].nics[].fabric` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].nics[].switch` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].nics[].port` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].nics[].speed_gbps` | float |  |  |
+| `gpu_compute.racks[].facility_devices[].collection` | object | yes |  |
+| `gpu_compute.racks[].facility_devices[].collection.protocol` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].collection.module` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].collection.port` | int |  |  |
+| `gpu_compute.racks[].facility_devices[].collection.modbus_unit` | int | yes |  |
+| `gpu_compute.racks[].facility_devices[].collection.source` | object |  |  |
+| `gpu_compute.racks[].facility_devices[].collection.source.url` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].collection.source.revision` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].collection.source.sha256` | string |  |  |
+| `gpu_compute.racks[].facility_devices[].collection.source.section` | string |  |  |
+| `gpu_compute.racks[].nvlink` | object | yes |  |
+| `gpu_compute.racks[].nvlink.domain` | string |  |  |
+| `gpu_compute.racks[].nvlink.correlated` | bool |  |  |
+| `gpu_compute.racks[].nvlink.links_per_gpu` | int | yes |  |
+| `gpu_compute.racks[].nvlink.link_count_source` | object | yes |  |
+| `gpu_compute.racks[].nvlink.link_count_source.url` | string |  |  |
+| `gpu_compute.racks[].nvlink.link_count_source.revision` | string |  |  |
+| `gpu_compute.racks[].nvlink.link_count_source.sha256` | string |  |  |
+| `gpu_compute.racks[].nvlink.link_count_source.section` | string |  |  |
+| `gpu_compute.racks[].nvlink.partitions[]` | object |  |  |
+| `gpu_compute.racks[].nvlink.partitions[].name` | string |  |  |
+| `gpu_compute.racks[].nvlink.partitions[].gpus[]` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[]` | object |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].ordinal` | int |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].id` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc` | object | yes |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.name` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.kind` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.vendor` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.model` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.os_version` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.serial` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.management_ip` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.rail` | int | yes |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.scalable_unit` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.static_power_w` | float | yes |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.ports[]` | object |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.ports[].name` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.ports[].speed_gbps` | float |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.nics[]` | object |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.nics[].name` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.nics[].ip` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.nics[].fabric` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.nics[].switch` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.nics[].port` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.nics[].speed_gbps` | float |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection` | object | yes |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection.protocol` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection.module` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection.port` | int |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection.modbus_unit` | int | yes |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection.source` | object |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection.source.url` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection.source.revision` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection.source.sha256` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].bmc.collection.source.section` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].switches[]` | object |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].switches[].ordinal` | int |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].switches[].name` | string |  |  |
+| `gpu_compute.racks[].nvlink.switch_trays[].switches[].serial` | string |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[]` | object |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[].tray` | int |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[].switch` | int |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[].port` | int |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[].vendor_id` | string |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[].source` | object |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[].source.url` | string |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[].source.revision` | string |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[].source.sha256` | string |  |  |
+| `gpu_compute.racks[].nvlink.port_mappings[].source.section` | string |  |  |
+| `gpu_compute.racks[].nvlink.links[]` | object |  |  |
+| `gpu_compute.racks[].nvlink.links[].gpu` | string |  |  |
+| `gpu_compute.racks[].nvlink.links[].gpu_link_index` | int |  |  |
+| `gpu_compute.racks[].nvlink.links[].tray` | int |  |  |
+| `gpu_compute.racks[].nvlink.links[].switch` | int |  |  |
+| `gpu_compute.racks[].nvlink.links[].port` | int |  |  |
+| `gpu_compute.racks[].nvlink.links[].source` | object |  |  |
+| `gpu_compute.racks[].nvlink.links[].source.url` | string |  |  |
+| `gpu_compute.racks[].nvlink.links[].source.revision` | string |  |  |
+| `gpu_compute.racks[].nvlink.links[].source.sha256` | string |  |  |
+| `gpu_compute.racks[].nvlink.links[].source.section` | string |  |  |
+| `gpu_compute.racks[].nvlink.entity_mappings[]` | object |  |  |
+| `gpu_compute.racks[].nvlink.entity_mappings[].kind` | string |  |  |
+| `gpu_compute.racks[].nvlink.entity_mappings[].key` | string |  |  |
+| `gpu_compute.racks[].nvlink.entity_mappings[].vendor_id` | string |  |  |
+| `gpu_compute.racks[].nvlink.entity_mappings[].source` | object |  |  |
+| `gpu_compute.racks[].nvlink.entity_mappings[].source.url` | string |  |  |
+| `gpu_compute.racks[].nvlink.entity_mappings[].source.revision` | string |  |  |
+| `gpu_compute.racks[].nvlink.entity_mappings[].source.sha256` | string |  |  |
+| `gpu_compute.racks[].nvlink.entity_mappings[].source.section` | string |  |  |
+| `gpu_compute.pools[]` | object |  |  |
+| `gpu_compute.pools[].name` | string |  |  |
+| `gpu_compute.pools[].shape` | string |  |  |
+| `gpu_compute.pools[].gpu_model` | string |  |  |
+| `gpu_compute.pools[].node_count` | int |  |  |
+| `gpu_compute.pools[].gpus_per_node` | int |  |  |
+| `gpu_compute.pools[].hostname_prefix` | string |  |  |
+| `gpu_compute.pools[].kubernetes_cluster` | string |  |  |
+| `gpu_compute.pools[].scalable_unit` | string |  |  |
+| `gpu_compute.pools[].node_ips` | object | yes |  |
+| `gpu_compute.pools[].node_ips.cidr` | string |  |  |
+| `gpu_compute.pools[].node_ips.start_offset` | int |  |  |
+| `gpu_compute.pools[].hardware` | object |  |  |
+| `gpu_compute.pools[].hardware.cpus` | int |  |  |
+| `gpu_compute.pools[].hardware.memory_gib` | float |  |  |
+| `gpu_compute.pools[].hardware.arch` | string |  |  |
+| `gpu_compute.pools[].operating` | object |  |  |
+| `gpu_compute.pools[].operating.power_limit_w` | float | yes |  |
+| `gpu_compute.pools[].operating.idle_power_fraction` | float |  |  |
+| `gpu_compute.pools[].operating.ambient_temp_c` | float |  |  |
+| `gpu_compute.pools[].operating.full_power_rise_c` | float |  |  |
+| `gpu_compute.pools[].operating.cooling_fault_rise_c` | float |  |  |
+| `gpu_compute.pools[].operating.cooling_perf_loss` | float |  |  |
+| `gpu_compute.pools[].operating.congestion_perf_loss` | float |  |  |
+| `gpu_compute.pools[].operating.storage_perf_loss` | float |  |  |
+| `gpu_compute.pools[].operating.node_base_power_w` | float |  |  |
+| `gpu_compute.pools[].operating.node_dynamic_per_core_w` | float |  |  |
+| `gpu_compute.pools[].operating.node_dynamic_per_nic_w` | float |  |  |
+| `gpu_compute.pools[].operating.nvlink_errors_per_second` | float |  |  |
+| `gpu_compute.pools[].bmc` | object |  |  |
+| `gpu_compute.pools[].bmc.hostname_suffix` | string |  |  |
+| `gpu_compute.pools[].bmc.management_ips` | object | yes |  |
+| `gpu_compute.pools[].bmc.management_ips.cidr` | string |  |  |
+| `gpu_compute.pools[].bmc.management_ips.start_offset` | int |  |  |
+| `gpu_compute.pools[].bmc.ports[]` | object |  |  |
+| `gpu_compute.pools[].bmc.ports[].name` | string |  |  |
+| `gpu_compute.pools[].bmc.ports[].speed_gbps` | float |  |  |
+| `gpu_compute.pools[].placements[]` | object |  |  |
+| `gpu_compute.pools[].placements[].rack` | string |  |  |
+| `gpu_compute.pools[].placements[].node_start` | int |  |  |
+| `gpu_compute.pools[].placements[].node_count` | int |  |  |
+| `gpu_compute.pools[].placements[].slot_start` | int |  |  |
+| `gpu_compute.pools[].placements[].node_height_u` | int |  |  |
+| `gpu_compute.pools[].nics[]` | object |  |  |
+| `gpu_compute.pools[].nics[].name` | string |  |  |
+| `gpu_compute.pools[].nics[].fabric` | string |  |  |
+| `gpu_compute.pools[].nics[].rail` | int | yes |  |
+| `gpu_compute.pools[].nics[].switch` | string |  |  |
+| `gpu_compute.pools[].nics[].speed_gbps` | float |  |  |
+| `gpu_compute.pools[].nics[].ips` | object | yes |  |
+| `gpu_compute.pools[].nics[].ips.cidr` | string |  |  |
+| `gpu_compute.pools[].nics[].ips.start_offset` | int |  |  |
+| `gpu_compute.pools[].storage` | object | yes |  |
+| `gpu_compute.pools[].storage.cluster` | string |  |  |
+| `gpu_compute.pools[].storage.nic` | string |  |  |
+| `gpu_compute.pools[].storage.role` | string |  |  |
+| `gpu_compute.pools[].nodes[]` | object |  |  |
+| `gpu_compute.pools[].nodes[].ordinal` | int |  |  |
+| `gpu_compute.pools[].nodes[].hostname` | string |  |  |
+| `gpu_compute.pools[].nodes[].ip` | string |  |  |
+| `gpu_compute.pools[].nodes[].serial` | string |  |  |
+| `gpu_compute.pools[].nodes[].tray_id` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc` | object | yes |  |
+| `gpu_compute.pools[].nodes[].bmc.name` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.kind` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.vendor` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.model` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.os_version` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.serial` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.management_ip` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.rail` | int | yes |  |
+| `gpu_compute.pools[].nodes[].bmc.scalable_unit` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.static_power_w` | float | yes |  |
+| `gpu_compute.pools[].nodes[].bmc.ports[]` | object |  |  |
+| `gpu_compute.pools[].nodes[].bmc.ports[].name` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.ports[].speed_gbps` | float |  |  |
+| `gpu_compute.pools[].nodes[].bmc.nics[]` | object |  |  |
+| `gpu_compute.pools[].nodes[].bmc.nics[].name` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.nics[].ip` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.nics[].fabric` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.nics[].switch` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.nics[].port` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.nics[].speed_gbps` | float |  |  |
+| `gpu_compute.pools[].nodes[].bmc.collection` | object | yes |  |
+| `gpu_compute.pools[].nodes[].bmc.collection.protocol` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.collection.module` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.collection.port` | int |  |  |
+| `gpu_compute.pools[].nodes[].bmc.collection.modbus_unit` | int | yes |  |
+| `gpu_compute.pools[].nodes[].bmc.collection.source` | object |  |  |
+| `gpu_compute.pools[].nodes[].bmc.collection.source.url` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.collection.source.revision` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.collection.source.sha256` | string |  |  |
+| `gpu_compute.pools[].nodes[].bmc.collection.source.section` | string |  |  |
+| `gpu_compute.pools[].nodes[].nic_addresses[]` | object |  |  |
+| `gpu_compute.pools[].nodes[].nic_addresses[].nic` | string |  |  |
+| `gpu_compute.pools[].nodes[].nic_addresses[].ip` | string |  |  |
+| `gpu_compute.pools[].nodes[].attachments[]` | object |  |  |
+| `gpu_compute.pools[].nodes[].attachments[].nic` | string |  |  |
+| `gpu_compute.pools[].nodes[].attachments[].switch` | string |  |  |
+| `gpu_compute.pools[].nodes[].attachments[].port` | string |  |  |
+| `gpu_compute.pools[].gpus[]` | object |  |  |
+| `gpu_compute.pools[].gpus[].node_ordinal` | int |  |  |
+| `gpu_compute.pools[].gpus[].slot` | int |  |  |
+| `gpu_compute.pools[].gpus[].uuid` | string |  |  |
+| `gpu_compute.pools[].gpus[].board_serial` | string |  |  |
+| `gpu_compute.pools[].gpus[].pci_bus_id` | string |  |  |
+| `gpu_compute.pools[].gpus[].usable_memory` | object | yes |  |
+| `gpu_compute.pools[].gpus[].usable_memory.bytes` | uint |  |  |
+| `gpu_compute.pools[].gpus[].usable_memory.source` | object |  |  |
+| `gpu_compute.pools[].gpus[].usable_memory.source.url` | string |  |  |
+| `gpu_compute.pools[].gpus[].usable_memory.source.revision` | string |  |  |
+| `gpu_compute.pools[].gpus[].usable_memory.source.sha256` | string |  |  |
+| `gpu_compute.pools[].gpus[].usable_memory.source.section` | string |  |  |
+| `gpu_compute.fabrics[]` | object |  |  |
+| `gpu_compute.fabrics[].name` | string |  |  |
+| `gpu_compute.fabrics[].site` | string |  |  |
+| `gpu_compute.fabrics[].role` | string |  |  |
+| `gpu_compute.fabrics[].devices[]` | object |  |  |
+| `gpu_compute.fabrics[].devices[].name` | string |  |  |
+| `gpu_compute.fabrics[].devices[].kind` | string |  |  |
+| `gpu_compute.fabrics[].devices[].vendor` | string |  |  |
+| `gpu_compute.fabrics[].devices[].model` | string |  |  |
+| `gpu_compute.fabrics[].devices[].os_version` | string |  |  |
+| `gpu_compute.fabrics[].devices[].serial` | string |  |  |
+| `gpu_compute.fabrics[].devices[].management_ip` | string |  |  |
+| `gpu_compute.fabrics[].devices[].rail` | int | yes |  |
+| `gpu_compute.fabrics[].devices[].scalable_unit` | string |  |  |
+| `gpu_compute.fabrics[].devices[].static_power_w` | float | yes |  |
+| `gpu_compute.fabrics[].devices[].ports[]` | object |  |  |
+| `gpu_compute.fabrics[].devices[].ports[].name` | string |  |  |
+| `gpu_compute.fabrics[].devices[].ports[].speed_gbps` | float |  |  |
+| `gpu_compute.fabrics[].devices[].nics[]` | object |  |  |
+| `gpu_compute.fabrics[].devices[].nics[].name` | string |  |  |
+| `gpu_compute.fabrics[].devices[].nics[].ip` | string |  |  |
+| `gpu_compute.fabrics[].devices[].nics[].fabric` | string |  |  |
+| `gpu_compute.fabrics[].devices[].nics[].switch` | string |  |  |
+| `gpu_compute.fabrics[].devices[].nics[].port` | string |  |  |
+| `gpu_compute.fabrics[].devices[].nics[].speed_gbps` | float |  |  |
+| `gpu_compute.fabrics[].devices[].collection` | object | yes |  |
+| `gpu_compute.fabrics[].devices[].collection.protocol` | string |  |  |
+| `gpu_compute.fabrics[].devices[].collection.module` | string |  |  |
+| `gpu_compute.fabrics[].devices[].collection.port` | int |  |  |
+| `gpu_compute.fabrics[].devices[].collection.modbus_unit` | int | yes |  |
+| `gpu_compute.fabrics[].devices[].collection.source` | object |  |  |
+| `gpu_compute.fabrics[].devices[].collection.source.url` | string |  |  |
+| `gpu_compute.fabrics[].devices[].collection.source.revision` | string |  |  |
+| `gpu_compute.fabrics[].devices[].collection.source.sha256` | string |  |  |
+| `gpu_compute.fabrics[].devices[].collection.source.section` | string |  |  |
+| `gpu_compute.fabrics[].links[]` | object |  |  |
+| `gpu_compute.fabrics[].links[].a_device` | string |  |  |
+| `gpu_compute.fabrics[].links[].a_port` | string |  |  |
+| `gpu_compute.fabrics[].links[].b_device` | string |  |  |
+| `gpu_compute.fabrics[].links[].b_port` | string |  |  |
+| `gpu_compute.storage_clusters[]` | object |  |  |
+| `gpu_compute.storage_clusters[].name` | string |  |  |
+| `gpu_compute.storage_clusters[].site` | string |  |  |
+| `gpu_compute.storage_clusters[].fabric` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[]` | object |  |  |
+| `gpu_compute.storage_clusters[].devices[].name` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].kind` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].vendor` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].model` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].os_version` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].serial` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].management_ip` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].rail` | int | yes |  |
+| `gpu_compute.storage_clusters[].devices[].scalable_unit` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].static_power_w` | float | yes |  |
+| `gpu_compute.storage_clusters[].devices[].ports[]` | object |  |  |
+| `gpu_compute.storage_clusters[].devices[].ports[].name` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].ports[].speed_gbps` | float |  |  |
+| `gpu_compute.storage_clusters[].devices[].nics[]` | object |  |  |
+| `gpu_compute.storage_clusters[].devices[].nics[].name` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].nics[].ip` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].nics[].fabric` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].nics[].switch` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].nics[].port` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].nics[].speed_gbps` | float |  |  |
+| `gpu_compute.storage_clusters[].devices[].collection` | object | yes |  |
+| `gpu_compute.storage_clusters[].devices[].collection.protocol` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].collection.module` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].collection.port` | int |  |  |
+| `gpu_compute.storage_clusters[].devices[].collection.modbus_unit` | int | yes |  |
+| `gpu_compute.storage_clusters[].devices[].collection.source` | object |  |  |
+| `gpu_compute.storage_clusters[].devices[].collection.source.url` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].collection.source.revision` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].collection.source.sha256` | string |  |  |
+| `gpu_compute.storage_clusters[].devices[].collection.source.section` | string |  |  |
+| `gpu_compute.schedulers[]` | object |  |  |
+| `gpu_compute.schedulers[].name` | string |  |  |
+| `gpu_compute.schedulers[].kind` | string |  |  |
+| `gpu_compute.schedulers[].pools[]` | string |  |  |
+| `gpu_compute.schedulers[].projects[]` | object |  |  |
+| `gpu_compute.schedulers[].projects[].name` | string |  |  |
+| `gpu_compute.schedulers[].projects[].department` | string |  |  |
+| `gpu_compute.schedulers[].projects[].partition` | string |  |  |
+| `gpu_compute.schedulers[].projects[].gpu_quota` | int |  |  |
+| `gpu_compute.schedulers[].workloads[]` | object |  |  |
+| `gpu_compute.schedulers[].workloads[].name` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].project` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].role` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].priority` | int |  |  |
+| `gpu_compute.schedulers[].workloads[].cycle` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].pending_for` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].running_min` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].running_max` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].namespace` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].container` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].demand` | object |  |  |
+| `gpu_compute.schedulers[].workloads[].demand.utilization_base` | float |  |  |
+| `gpu_compute.schedulers[].workloads[].demand.utilization_amplitude` | float |  |  |
+| `gpu_compute.schedulers[].workloads[].demand.period` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].demand.memory_reserved_fraction` | float |  |  |
+| `gpu_compute.schedulers[].workloads[].demand.memory_dynamic_fraction` | float |  |  |
+| `gpu_compute.schedulers[].workloads[].demand.requests_per_second_at_full_utilization` | float |  |  |
+| `gpu_compute.schedulers[].workloads[].workers[]` | object |  |  |
+| `gpu_compute.schedulers[].workloads[].workers[].name` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].workers[].pool` | string |  |  |
+| `gpu_compute.schedulers[].workloads[].workers[].node_ordinal` | int |  |  |
+| `gpu_compute.schedulers[].workloads[].workers[].gpu_slots[]` | int |  |  |
 | `name` | string |  |  |
 | `label` | string |  | sink-stamped selector; defaults to Name |
 | `metadata` | object |  | optional human-facing annotation (UI only) |
@@ -53,6 +398,12 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cloud.bedrock` | raw yaml (see per-kind config sections) |  | AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted |
 | `environments[].cloud.agentcore` | raw yaml (see per-kind config sections) |  | AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted |
 | `environments[].cluster` | object | yes |  |
+| `environments[].cluster.nodes[]` | object |  |  |
+| `environments[].cluster.nodes[].hostname` | string |  |  |
+| `environments[].cluster.nodes[].ip` | string |  |  |
+| `environments[].cluster.nodes[].cpus` | int |  |  |
+| `environments[].cluster.nodes[].memory_gib` | float |  |  |
+| `environments[].cluster.nodes[].arch` | string |  |  |
 | `environments[].cluster.type` | string |  | "eks" (v1) |
 | `environments[].cluster.name` | string |  |  |
 | `environments[].cluster.node_groups[]` | object |  |  |
@@ -91,6 +442,10 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cluster.addons[].name` | string |  | add-on construct kind (registry key). Also accepts the bare-scalar form `- core_dns`. |
 | `environments[].cluster.addons[].<kind config…>` | raw yaml |  | every remaining key is the add-on construct's own config — see the matching `… config` section. |
 | `environments[].cluster.platform` | object | yes | node OS/runtime/k8s version (defaults applied when omitted) |
+| `environments[].cluster.platform.os_image` | string |  |  |
+| `environments[].cluster.platform.os_id` | string |  |  |
+| `environments[].cluster.platform.container_runtime` | string |  |  |
+| `environments[].cluster.platform.kubelet_version` | string |  |  |
 | `environments[].cluster.platform.os` | string |  | "al2" \| "al2023" \| "bottlerocket" (default al2023) |
 | `environments[].cluster.platform.kubernetes_version` | string |  | e.g. "1.31" (default) |
 | `environments[].cluster.platform.kernel_version` | string |  | optional override of the node kernel string |
