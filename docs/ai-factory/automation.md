@@ -22,9 +22,9 @@ second traffic and probability endpoints are **test-only**, never production set
 - type: app
   name: automation-node-provisioning
   for_each_env: true
-  # Illustrative estate assumption: four provisioning runs per site per day.
-  # Flat sparse arrivals approximate an operational schedule, not a periodic scheduler.
-  traffic: {off_peak_rps: 0.0000462962962962963, peak_rps: 0.0000462962962962963}
+  # Pilot planning assumption: one node reprovisioning run per site per week,
+  # not net fleet growth. Sparse arrivals approximate a schedule, not a scheduler.
+  traffic: {off_peak_rps: 1.653439153439154e-06, peak_rps: 1.653439153439154e-06}
   services:
     # Illustrative singleton controller; not a separately deployed service per task.
     - {name: provisioning-controller, type: job, entry: true, namespace: platform-automation, runtime: go, replicas: 1}
@@ -135,14 +135,15 @@ operations also require appropriate deployment-side metrics-generator ingestion 
 
 ## Production volume assumptions
 
-These are illustrative estate assumptions admitted for this blueprint, not measured universal rates.
+These are the illustrative planning assumptions in the current three-node CPU pilot
+in `blueprints/ai-factory.yaml`, not measured universal rates or a fleet of hundreds.
 Use both traffic endpoints equal to the flat approximation; a sparse tick with no trace is normal.
 
 | Workflow | Planning basis per site | Flat runs/second |
 |---|---|---:|
-| Node provisioning | Four runs/day | `4/86400` |
-| Firmware rollout | One wave/week | `1/604800` |
-| Drain/return | Six runs/day for several hundred nodes | `6/86400` |
+| Node reprovisioning | One run/week, not net fleet growth | `1/604800` |
+| Firmware rollout | One wave/quarter (90 days) | `1/7776000` |
+| Drain/return | One maintenance run/week for the pilot | `1/604800` |
 | Storage provisioning | Four allocation requests/day | `4/86400` |
 | Self-service portal | Twelve infrastructure requests/day | `12/86400` |
 
