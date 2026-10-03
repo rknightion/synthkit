@@ -11,7 +11,7 @@ Three tiers, mandatory:
 
 - **Constructs** (`internal/construct/<kind>/`) and **workloads** (`internal/workload/<kind>/`) are
   isolated. They may import core/fixture/shape/state/ledger/sink-types and the shared mechanic
-  libraries (`internal/cw`, `internal/genai`) only: never each other, the blueprint package, or a
+  libraries (`internal/cw`, `internal/genai`, `internal/syslog`) only: never each other, the blueprint package, or a
   blueprint name. `internal/archtest.TestCatalogImportIsolation` enforces this.
 - **Blueprints** (`blueprints/*.yaml`) own blueprint-specific configuration and explicit wiring,
   including workload-to-cluster binding and shared identity. One declaration may fan into several
@@ -64,6 +64,15 @@ that declaration, not new top-level kinds.
 
 AI/LLM vocabulary in the catalog is generic and technology-native. Customer-specific identifiers
 (accounts, environments, workspaces, use cases) never enter the catalog and stay blueprint-only.
+
+## Syslog mechanic
+
+`internal/syslog` renders decoded synthetic RFC5424/RFC3164 facts; it is not a raw parser or network
+listener. Owning consumers select the receiver shape. The existing `alloy_health` addon exposes
+optional receiver health only, with zero-default intake and no device-log emission. OTel default
+`on_error: send` forwards malformed records; accepted/refused/failed counters measure downstream
+handoff, not parse failures. Only the Loki receiver has the sourced parsing-error counter. Public
+loader/runner tests belong outside construct directories, whose isolation scanner includes tests.
 
 ## GPU fixture and consumer admission
 

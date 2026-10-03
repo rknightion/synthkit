@@ -30,6 +30,14 @@ environments:
         enabled: true
         alloy: true
         features: {cluster_metrics: true}
+      addons:
+        - name: alloy_health
+          syslog:
+            receiver: otel
+            receiver_id: syslog
+          # Operator assumption: a quiet management appliance estate produces one
+          # routine state/audit record per minute across both HA collector pods.
+          syslog_records_per_min: 1
   - name: compute
     weight: 1
     production: true
