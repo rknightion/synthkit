@@ -81,6 +81,14 @@ are `gpu_pools`, `gpu_fabrics`, `gpu_storage_clusters` and `gpu_schedulers`. Gen
 IPs are cluster-local; global hostname/IP collision claims apply to fixed physical inventories and
 GPU-associated hosts. Traditional host hostname claims remain unchanged.
 
+`hgx` is an additive eight-GPU H100 SXM shape with four node-local NVSwitches and eighteen links
+per GPU. Its endpoint projection is pinned to Fabric Manager 595.91.07-1ubuntu1. Fixture slots and
+physical module IDs are separate namespaces; an omitted module ID is a synthetic slot binding.
+H100 SXM thermal limits are scoped to the captured driver 595.91.07 profile. Usable framebuffer
+still requires an explicit per-GPU sourced declaration; switch inventory does not admit exporter
+entity mappings or telemetry. The full fixed-input legacy compatibility test runs in the existing
+plain integration tier, while HGX validation, identity and fault checks remain race-covered.
+
 `cluster.emit: false` retains declared topology and workload bindings while suppressing cluster-derived
 Kubernetes, EC2, profiling, addon and Fleet Management instances. Omitted/true preserves existing
 emission; disabled declarations still reject unknown registry kinds and nested config fields.
@@ -88,8 +96,8 @@ emission; disabled declarations still reject unknown registry kinds and nested c
 compute emission disabled until its capacity/platform/NIC and other collection adapters are verified.
 
 Generic topology, allocation and operator-assumption physics do not establish vendor telemetry facts.
-The sourced catalogue intentionally leaves thermal limits, usable framebuffer and unsupported physical
-NVLink metadata nullable. Consumer profiles fail closed on required missing capabilities. Advertised
+The sourced catalogue leaves unsupported product/driver thermal limits, usable framebuffer defaults
+and unsourced physical NVLink metadata nullable. Consumer profiles fail closed on required missing capabilities. Advertised
 GB is not driver usable/reserved memory; synthetic cooling deltas are not hardware throttle thresholds.
 See `cantfind.md` hardware/profile barriers and the pinned consumer contract before enabling collection.
 

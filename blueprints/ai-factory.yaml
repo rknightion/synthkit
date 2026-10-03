@@ -47,7 +47,7 @@ environments:
       # Explicitly retain canonical inventory without unadapted K8s collection.
       # k8s_monitoring.enabled controls monitoring features, not base emission.
       emit: false
-      # One shared fixed inventory for the two PCIe servers and one NVL72 rack.
+      # One fixed inventory: two PCIe servers, one NVL72 rack and one HGX server.
       # Platform versions below are explicit operator reference settings, not
       # GPU catalogue facts. CPU/GPU/RAM/arch are per-node declarations below.
       platform:
@@ -236,6 +236,17 @@ gpu_compute:
         # No custom partitions: resolver creates the owning all-GPU default.
         # No vendor IDs or GPU-to-switch peer map are invented.
 
+    - name: hgx-a
+      site: site-a
+      shape: hgx
+      cooling: air
+      # Ordinary operator-supplied rack, not an HGX baseboard fact.
+      height_u: 42
+      physics:
+        # Illustrative rack auxiliaries, not a vendor power rating.
+        fixed_overhead_w: 200
+        liquid_heat_fraction: 0
+
   pools:
     - name: pcie-pool
       shape: pcie
@@ -330,6 +341,63 @@ gpu_compute:
         - {name: eth3, fabric: backend-a, rail: 2, speed_gbps: 400}
         - {name: eth4, fabric: backend-a, rail: 3, speed_gbps: 400}
       storage: {cluster: storage-a, nic: eth0, role: compute-client}
+
+    - name: hgx-pool
+      shape: hgx
+      gpu_model: h100_sxm_80gb
+      # One complete eight-GPU HGX H100 server, not forced emission volume.
+      node_count: 1
+      gpus_per_node: 8
+      hostname_prefix: hgx-node
+      kubernetes_cluster: compute-user
+      scalable_unit: unit-a
+      # A distinct operator-assigned subnet, separate from the other pools.
+      node_ips: {cidr: 10.13.0.0/24, start_offset: 10}
+      placements:
+        # Illustrative chassis height; actual server RU is operator input.
+        - {rack: "rack:site-a/hgx-a", node_start: 0, node_count: 1,
+           slot_start: 1, node_height_u: 8}
+      # Illustrative dual-socket host capacity, not captured host hardware.
+      hardware: {cpus: 128, memory_gib: 1024, arch: x86_64}
+      operating:
+        # Synthetic transfer assumptions; worst core 70 C is below 87 C.
+        idle_power_fraction: 0.12
+        ambient_temp_c: 25
+        full_power_rise_c: 35
+        cooling_fault_rise_c: 10
+        cooling_perf_loss: 0.3
+        congestion_perf_loss: 0.6
+        storage_perf_loss: 0.5
+        node_base_power_w: 500
+        node_dynamic_per_core_w: 2
+        node_dynamic_per_nic_w: 10
+        # No healthy baseline errors; diagnostic forcing stays in e2e fixtures.
+        nvlink_errors_per_second: 0
+      bmc:
+        management_ips: {cidr: 10.23.0.0/24, start_offset: 10}
+      nodes:
+        - ordinal: 0
+          nvlink: {profile: dgxh100_hgxh100-595.91.07,
+                   domain: baseboard, correlated: true}
+      gpus:
+        # Accepted captured usable bytes; minor-to-module binding is synthetic.
+        - node_ordinal: 0
+          slot: 0
+          hgx_module_id: 0
+          usable_memory: &hgx_memory
+            bytes: 85019590656
+            source:
+              url: capture://loop48-prep/gpucap/p5.48xlarge-h100x8/cap/nvsmi-q.txt
+              revision: H100 SXM; driver 595.91.07; capture 2026-10-03
+              sha256: 403b1ef416c0de549677eef77ba1c9175d5fcf3eb88270ebb98b88092315bd4d
+              section: "Framebuffer lines 112-115; accepted idle usable pool"
+        - {node_ordinal: 0, slot: 1, hgx_module_id: 1, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 2, hgx_module_id: 2, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 3, hgx_module_id: 3, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 4, hgx_module_id: 4, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 5, hgx_module_id: 5, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 6, hgx_module_id: 6, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 7, hgx_module_id: 7, usable_memory: *hgx_memory}
 
   fabrics:
     - name: frontend-a
