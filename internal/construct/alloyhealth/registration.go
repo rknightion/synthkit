@@ -8,10 +8,11 @@ import "github.com/rknightion/synthkit/internal/core"
 // (single-owner wiring shim — added by the wiring pass).
 func Registration() core.ConstructReg {
 	return core.ConstructReg{
-		Kind:      "alloy_health",
-		Doc:       "Alloy pipeline meta-health (otelcol_*) + content-strip sentinel",
-		Scope:     core.ScopeSubstrate,
-		NewConfig: NewConfig,
-		Build:     Build,
+		Kind:         "alloy_health",
+		Doc:          "Alloy pipeline meta-health (otelcol_*) + content-strip sentinel",
+		Scope:        core.ScopeSubstrate,
+		NewConfig:    NewConfig,
+		Build:        Build,
+		FailureModes: gatewayModes(),
 	}
 }

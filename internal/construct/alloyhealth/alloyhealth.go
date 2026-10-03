@@ -84,6 +84,7 @@ var otelExporters = []string{"otlphttp", "prometheusremotewrite"}
 type Config struct {
 	Syslog              *syslog.Config `yaml:"syslog"`                 // Optional receiver shape; no logs are emitted by this addon.
 	SyslogRecordsPerMin float64        `yaml:"syslog_records_per_min"` // Operator-declared aggregate healthy intake; default zero.
+	Gateway             *GatewayConfig `yaml:"gateway"`                // Optional declared process pool; replaces legacy HA reporters when present.
 }
 
 // NewConfig returns an empty *Config for the YAML decoder.
@@ -96,6 +97,7 @@ type Construct struct {
 	st                  *state.State
 	syslogReceivers     []*syslog.Receiver
 	syslogRecordsPerMin float64
+	gateway             *gatewayPool
 }
 
 // Build validates fx.Cluster (required) and returns a ready Construct.
@@ -111,7 +113,7 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		return nil, fmt.Errorf("alloyhealth: syslog_records_per_min requires syslog")
 	}
 	var receivers []*syslog.Receiver
-	if conf.Syslog != nil {
+	if conf.Syslog != nil && conf.Gateway == nil {
 		for range alloyPods {
 			recv, err := syslog.New(*conf.Syslog)
 			if err != nil {
@@ -122,6 +124,11 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	}
 	if fx == nil || fx.Cluster == nil {
 		return nil, fmt.Errorf("alloyhealth: fixture.Cluster is required (nil)")
+	}
+
+	gateway, err := newGateway(conf.Gateway, conf.Syslog)
+	if err != nil {
+		return nil, err
 	}
 
 	ver := fx.Cluster.K8sMonitoring.AlloyVersion
@@ -135,6 +142,7 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		st:                  state.NewState(),
 		syslogReceivers:     receivers,
 		syslogRecordsPerMin: conf.SyslogRecordsPerMin,
+		gateway:             gateway,
 	}, nil
 }
 
@@ -144,6 +152,9 @@ func (c *Construct) Interval() time.Duration     { return 60 * time.Second }
 
 // Tick renders one 60s Alloy meta-health snapshot.
 func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
+	if c.gateway != nil {
+		return w.Metrics.Write(ctx, c.gateway.build(now, w.Shape.BusinessFactor(now), c.cluster, w.Shape, c.syslogRecordsPerMin))
+	}
 	batch := c.build(now, w.Shape.BusinessFactor(now))
 	return w.Metrics.Write(ctx, batch)
 }

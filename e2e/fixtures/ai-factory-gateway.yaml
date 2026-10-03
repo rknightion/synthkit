@@ -1,0 +1,47 @@
+# Local gateway fixture, not a shipped blueprint or a hardware inventory.
+name: ai-factory-gateway
+shape: business_hours_plateau
+timezone: UTC
+series_budget: 20000 # Allow one small cluster's base inventory; never truncates gateway output.
+environments:
+  - name: prod
+    cluster:
+      type: baremetal
+      name: gateway-fixture-cluster
+      platform:
+        os_image: Ubuntu 24.04 LTS
+        os_id: ubuntu
+        container_runtime: containerd://2.1.7
+        kubernetes_version: "1.35"
+        kubelet_version: v1.35.2
+        kernel_version: "6.8.0"
+      nodes:
+        # One small operator-defined host for cluster topology, not a GPU host.
+        - {hostname: gateway-fixture-node, ip: 10.90.0.10, cpus: 4, memory_gib: 16, arch: x86_64}
+      k8s_monitoring: {enabled: false}
+      addons:
+        - name: alloy_health
+          syslog: {receiver: loki}
+          # Small site's tens of syslog records/minute; aggregate operator estimate.
+          syslog_records_per_min: 30
+          gateway:
+            pool: gateway-fixture-pool
+            site: site-a
+            pool_size: 2 # Minimal HA pair, not a vendor mandatory sizing rule.
+            source_victim: 0 # First declared process owns the collection-gap profile.
+            members:
+              # Virtual scrape addresses explicitly assigned, unrelated to GPU captures.
+              - {instance: "10.90.1.10:12345", job: integrations/alloy, roles: [otlp_receive, central_scrape, syslog, cloud_forward]}
+              - {instance: "10.90.1.11:12345", job: integrations/alloy, roles: [otlp_receive, central_scrape, syslog, cloud_forward]}
+            queue_capacity: 1000 # Collector default requests/batches; synthetic retained state, not an actual disk WAL.
+            drain_requests_per_min: 30 # Operator allowance > healthy small-site intake, permits backlog recovery.
+            scrape_targets: 4 # Four central targets, split over HA pair (operator small-estate assumption).
+            # Inputs per OTLP receiver and per central target; fixed-size batches.
+            # 2 trace batches/min × 100 spans is a small service, not load raised to force emission.
+            # Metrics: 1 batch/min × 100 points per receiver/target; logs: 1 × 20 plus site syslog.
+            inputs:
+              - {signal: traces, requests_per_min: 2, items_per_request: 100}
+              - {signal: metrics, requests_per_min: 1, items_per_request: 100}
+              - {signal: logs, requests_per_min: 1, items_per_request: 20}
+# Same-process remote-config collection cadence is 60s. Fault variants are staged
+# separately by the evidence command, never by raising healthy rates.

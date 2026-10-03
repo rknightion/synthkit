@@ -1,5 +1,121 @@
 # Fleet Management + Alloy meta-health + content sentinel — ScopeSubstrate
 
+## Optional gateway pool [slug: fm-gateway]
+
+The `alloy_health.gateway` profile replaces the legacy two HA reporters, not the
+standalone Fleet Management collector mirror. Omission preserves the legacy 46
+series plus the optional six syslog health series. Each declared live process has
+9 common series: target `up` (1), controller healthy count (1), peer states (3),
+alive peers (1), and same-process remote configuration data (3). A central scrape
+role adds 2; OTLP receive adds 3 counters per configured signal; cloud forwarding
+adds 5 series per signal (2 queue gauges and 3 counters); syslog adds 3 using
+[slug: fm-syslog-health]. Thus the three-signal, all-role fixture has
+`9 + 2 + 9 + 15 + 3 = 38` per process, 76 per two-member pool. These are a selected
+synthetic subset, not a full Alloy endpoint. A source gap removes exactly 3 from
+one process; instance loss leaves only its independently observed target `up=0`.
+
+### Pinned provenance
+
+All names, instrument types and units below come from **Alloy v1.20.1**, its pinned
+**Collector v0.161.0** (receiverhelper v1.67.0), and **ckit bbed30d6364e**:
+
+- [Exporter instruments](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.161.0/exporter/exporterhelper/internal/metadata/generated_telemetry.go#L121-L237):
+  monotonic item counters with brace units `{span}`, `{datapoint}`, `{record}`;
+  queue gauges have `{batch}` units. [Queue attributes](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.161.0/exporter/exporterhelper/internal/queue/obs_queue.go#L44-L80)
+  are `exporter` and `data_type` (`traces|metrics|logs`); item counters carry
+  `exporter`, as in [sender](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.161.0/exporter/exporterhelper/internal/obs_report_sender.go#L73-L105).
+- [Receiver metadata](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.161.0/receiver/receiverhelper/metadata.yaml#L8-L104)
+  defines accepted/refused/failed counters for all three signals; [attributes](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.161.0/receiver/receiverhelper/obsreport.go#L57-L72)
+  are configured `receiver` and `transport`. OTLP uses configured gRPC transport;
+  the syslog adapter's absent transport is omitted. Healthy intake has zero refused
+  and failed, not fabricated parser errors.
+- Final names: Alloy [receiver](https://github.com/grafana/alloy/blob/v1.20.1/internal/component/otelcol/receiver/receiver.go#L140-L143)
+  and [exporter](https://github.com/grafana/alloy/blob/v1.20.1/internal/component/otelcol/exporter/exporter.go#L172-L175)
+  use SDK Prometheus v0.68.0 with `WithRegisterer` and `WithoutTargetInfo` only.
+  [SDK default](https://github.com/open-telemetry/opentelemetry-go/blob/exporters/prometheus/v0.68.0/exporters/prometheus/config.go#L34-L35)
+  selects `UnderscoreEscapingWithSuffixes`. Alloy's pinned **otlptranslator v1.0.0**
+  [metric namer](https://github.com/prometheus/otlptranslator/blob/v1.0.0/metric_namer.go#L235-L244)
+  adds `_total` to monotonic counters; [unit namer](https://github.com/prometheus/otlptranslator/blob/v1.0.0/unit_namer.go#L100-L110)
+  excludes brace-enclosed units from suffixes. [Label normalization](https://github.com/prometheus/otlptranslator/blob/v1.0.0/label_namer.go)
+  uses underscores. No detailed error attributes are emitted.
+- [ckit metrics](https://github.com/grafana/ckit/blob/bbed30d6364e/metrics.go#L58-L64)
+  register peer gauge with `cluster_name,state`; [alive peers](https://github.com/grafana/ckit/blob/bbed30d6364e/metrics.go#L138-L146)
+  includes the local process. [Peer enum](https://github.com/grafana/ckit/blob/bbed30d6364e/peer/state.go#L9-L40)
+  is `viewer|participant|terminating`.
+- [Remote config registration](https://github.com/grafana/alloy/blob/v1.20.1/internal/service/remotecfg/metrics.go#L41-L64)
+  defines the three unlabelled instruments. [Load behavior](https://github.com/grafana/alloy/blob/v1.20.1/internal/service/remotecfg/config_manager.go#L317-L357)
+  sets unsuccessful load state. Scrape identity attaches separately. No hash family
+  or unregistered last-received hash is emitted.
+- [Controller registration](https://github.com/grafana/alloy/blob/v1.20.1/internal/runtime/internal/controller/metrics.go#L112-L121)
+  defines `controller_path,controller_id,health_type`; empty path is omitted.
+  [Health enum](https://github.com/grafana/alloy/blob/v1.20.1/internal/component/component_health.go#L68-L81)
+  explicitly returns lowercase `healthy`. The positive count is a simplified graph
+  with one healthy component per declared role, not a discovered topology.
+- [Scrape registrations](https://github.com/grafana/alloy/blob/v1.20.1/internal/component/prometheus/scrape/scrape.go#L352-L368)
+  define target count and moved-target counter. Component-scoped `component_id`
+  comes from [Alloy registerer](https://github.com/grafana/alloy/blob/v1.20.1/internal/runtime/internal/controller/node_builtin_component.go).
+  [Target identity and up](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/reference/components/prometheus/prometheus.scrape.md#L263-L285)
+  establish configured `job,instance` and 0/1 target health. `cluster` is the existing
+  substrate identity, not a newly claimed vendor instrument dimension.
+
+Pool/site/member roles and volumes are bounded operator config, not vendor-default
+role/site labels. `site` is documentation-only. Component IDs identify configured
+instances, never per-request values. The model selects queue `sizer=requests`,
+capacity in batches, and fixed items/request. [Collector queue contract](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.161.0/exporter/exporterhelper/README.md#L19-L37)
+uses default capacity 1000; [storage](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.161.0/exporter/exporterhelper/README.md#L78-L91)
+is opt-in. Synthkit retains queue state for the emitter lifetime across modeled
+losses, not disk WAL, actual crash durability, retry expiry or arbitrary-size batches.
+
+```yaml signals
+family: fm_gateway
+scope: substrate
+sink: promrw
+labels:
+  cluster: <declared-cluster>
+  job: <bounded-configured-job>
+  instance: <declared-host:port>
+metrics:
+  - {root: up, type: gauge, unit: bool, v: ok, note: "target reachability, not source freshness"}
+  - {root: alloy_component_controller_running_components, type: gauge, unit: count, v: ok, note: "+controller_id,health_type; healthy count"}
+  - {root: cluster_node_peers, type: gauge, unit: count, v: ok, note: "+cluster_name,state; three peer states"}
+  - {root: cluster_node_gossip_alive_peers, type: gauge, unit: count, v: ok, note: "+cluster_name; includes local member"}
+  - {root: remotecfg_last_load_successful, type: gauge, unit: bool, v: ok}
+  - {root: remotecfg_load_attempts_total, type: counter, unit: count, v: ok}
+  - {root: remotecfg_load_failures_total, type: counter, unit: count, v: ok}
+  - {root: prometheus_scrape_targets_gauge, type: gauge, unit: count, v: ok, note: "+component_id; central_scrape only"}
+  - {root: prometheus_scrape_targets_moved_total, type: counter, unit: count, v: ok, note: "+component_id; outgoing moves, not initial placement"}
+  - {root: otelcol_receiver_accepted_spans_total, type: counter, unit: count, v: ok, note: "+receiver,transport; OTLP traces"}
+  - {root: otelcol_receiver_refused_spans_total, type: counter, unit: count, v: ok, note: "+receiver,transport"}
+  - {root: otelcol_receiver_failed_spans_total, type: counter, unit: count, v: ok, note: "+receiver,transport"}
+  - {root: otelcol_receiver_accepted_metric_points_total, type: counter, unit: count, v: ok, note: "+receiver,transport; OTLP metrics"}
+  - {root: otelcol_receiver_refused_metric_points_total, type: counter, unit: count, v: ok, note: "+receiver,transport"}
+  - {root: otelcol_receiver_failed_metric_points_total, type: counter, unit: count, v: ok, note: "+receiver,transport"}
+  - {root: otelcol_receiver_accepted_log_records_total, type: counter, unit: count, v: ok, note: "+receiver,transport; OTLP logs; syslog separate receiver"}
+  - {root: otelcol_receiver_refused_log_records_total, type: counter, unit: count, v: ok, note: "+receiver,transport"}
+  - {root: otelcol_receiver_failed_log_records_total, type: counter, unit: count, v: ok, note: "+receiver,transport"}
+  - {root: otelcol_exporter_queue_size, type: gauge, unit: count, v: ok, note: "+exporter,data_type; batches"}
+  - {root: otelcol_exporter_queue_capacity, type: gauge, unit: count, v: ok, note: "+exporter,data_type; batches"}
+  - {root: otelcol_exporter_sent_spans_total, type: counter, unit: count, v: ok, note: "+exporter; items successfully delivered"}
+  - {root: otelcol_exporter_send_failed_spans_total, type: counter, unit: count, v: ok, note: "+exporter; failed attempts, not lost items"}
+  - {root: otelcol_exporter_enqueue_failed_spans_total, type: counter, unit: count, v: ok, note: "+exporter; rejected items"}
+  - {root: otelcol_exporter_sent_metric_points_total, type: counter, unit: count, v: ok, note: "+exporter"}
+  - {root: otelcol_exporter_send_failed_metric_points_total, type: counter, unit: count, v: ok, note: "+exporter"}
+  - {root: otelcol_exporter_enqueue_failed_metric_points_total, type: counter, unit: count, v: ok, note: "+exporter"}
+  - {root: otelcol_exporter_sent_log_records_total, type: counter, unit: count, v: ok, note: "+exporter"}
+  - {root: otelcol_exporter_send_failed_log_records_total, type: counter, unit: count, v: ok, note: "+exporter"}
+  - {root: otelcol_exporter_enqueue_failed_log_records_total, type: counter, unit: count, v: ok, note: "+exporter"}
+```
+
+No gateway logs, attributes, invented gap/expiry metric, guessed build revision or
+Go version are added. Syslog counters retain the pinned mechanic contract below.
+Generic failed sends do not uniquely diagnose expired credentials. Source absence
+is deliberately injected into collection/publication of the same-process
+`alloy_remotecfg` profile, **before** `World.Metrics.Write`, while polling state
+continues. It is not a vendor claim that healthy services naturally erase metrics.
+The expected cadence is 60 seconds. See the gateway page for absence queries and
+failure limits.
+
+
 Substrate-scoped families: no `blueprint` label. Disambiguated by `cluster` + `collector_id`
 (FM / fake collectors) or `cluster` + `instance` (in-cluster Alloy pods). Global rules and
 scoping invariants: see [`00-canon.md`](00-canon.md) `[slug: content-strip]`.

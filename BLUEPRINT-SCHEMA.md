@@ -561,6 +561,22 @@ Alloy pipeline meta-health (otelcol_*) + content-strip sentinel
 | `syslog.add_attributes` | bool |  |  |
 | `syslog.preserve_connection_ip` | bool |  |  |
 | `syslog_records_per_min` | float |  | Operator-declared aggregate healthy intake; default zero. |
+| `gateway` | object | yes | Optional declared process pool; replaces legacy HA reporters when present. |
+| `gateway.pool` | string |  | Bounded cluster_name for this Alloy pool. |
+| `gateway.site` | string |  | Documentation-only operator site, never a vendor label. |
+| `gateway.pool_size` | int |  | Must equal the declared member inventory (2..16). |
+| `gateway.members[]` | object |  | Declared virtual processes, not inferred GPU hosts. |
+| `gateway.members[].instance` | string |  | Explicit scrape host:port (unique in this pool). |
+| `gateway.members[].job` | string |  | Bounded operator scrape job. |
+| `gateway.members[].roles[]` | string |  | otlp_receive, central_scrape, syslog, cloud_forward. |
+| `gateway.queue_capacity` | int |  | Requests/batches per member and signal; modeled persistence, not disk bytes. |
+| `gateway.drain_requests_per_min` | float |  | Successful send service capacity per signal and member. |
+| `gateway.inputs[]` | object |  | Explicit incoming batches and constant items per batch. |
+| `gateway.inputs[].signal` | string |  | traces, metrics or logs. |
+| `gateway.inputs[].requests_per_min` | float |  | Incoming batches per enabled input role, shaped by business factor. |
+| `gateway.inputs[].items_per_request` | int |  | Spans, points or records per fixed-size modeled request. |
+| `gateway.scrape_targets` | int |  | Pool-wide bounded targets divided over live scrape-role members. |
+| `gateway.source_victim` | int |  | Zero-based local member for loss, reload and same-process source gap. |
 
 ## aoss config
 
@@ -1267,21 +1283,27 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `agentcore_throttle` | axis: cloud |  | AgentCore request throttles + system_errors spike (region-scoped capacity constraint) |
 | `bedrock_throttle` | axis: cloud |  | Bedrock invocation throttling climbs |
 | `connection_saturation` | axis: database |  | active connections climb toward max |
-| `cpu_hotspot` | axis: service |  | elevated CPU concentrated in a hot frame on the targeted service node |
-| `cpu_hotspot` | axis: workload |  | elevated CPU concentrated in a hot frame (visible in process_cpu flamegraph) |
 | `cpu_hotspot` | axis: cluster |  | elevated CPU concentrated in a hot frame on the cluster's profiled pods |
+| `cpu_hotspot` | axis: workload |  | elevated CPU concentrated in a hot frame (visible in process_cpu flamegraph) |
+| `cpu_hotspot` | axis: service |  | elevated CPU concentrated in a hot frame on the targeted service node |
 | `error_burst` | axis: workload |  | elevated 5xx error rate |
 | `error_spike` | axis: service |  | elevated 5xx error rate on the targeted service node |
 | `eval_quality_degraded` | axis: cloud |  | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb |
 | `eval_quality_regression` | axis: workload |  | online-eval quality regresses on the targeted ai_agent fleet — agento11y_eval_score_values_total{passed=false} rate rises |
 | `fallback_storm` | axis: service |  | elevated gateway fallback rate on the targeted service node |
-| `goroutine_leak` | axis: service |  | goroutine accumulation on the targeted service node |
+| `gateway_cloud_credential_expired` | axis: cluster |  | Cloud send attempts fail (generic authentication failure, no expiry-specific series) |
+| `gateway_config_reload_failure` | axis: cluster |  | Configured member remote configuration load fails |
+| `gateway_instance_loss` | axis: cluster |  | Configured member unavailable; live scrape members redistribute targets |
+| `gateway_queue_overflow` | axis: cluster |  | Unavailable egress fills bounded queues; excess requests rejected |
+| `gateway_source_gap` | axis: cluster |  | Omit configured member's same-process remotecfg data, retain healthy component observations |
+| `gateway_wan_outage` | axis: cluster |  | Send attempts fail; retained request queues grow and later drain |
 | `goroutine_leak` | axis: workload |  | goroutine accumulation — raises goroutines/goroutine profile sample values |
+| `goroutine_leak` | axis: service |  | goroutine accumulation on the targeted service node |
 | `latency_spike` | axis: workload |  | elevated request latency (up to 4× at full intensity) |
 | `latency_storm` | axis: service |  | elevated request latency on the targeted service node |
-| `lock_contention` | axis: service |  | elevated mutex/block contention on the targeted service node |
-| `lock_contention` | axis: workload |  | elevated mutex/block contention — raises mutex and block profile sample values |
 | `lock_contention` | axis: database |  | lock waits climb |
+| `lock_contention` | axis: workload |  | elevated mutex/block contention — raises mutex and block profile sample values |
+| `lock_contention` | axis: service |  | elevated mutex/block contention on the targeted service node |
 | `memory_leak` | axis: workload |  | growing heap — raises memory inuse/alloc profile sample values |
 | `memory_leak` | axis: service |  | growing heap on the targeted service node — raises memory inuse/alloc profile values |
 | `nettopo_auth_failures` | axis: network |  | SNMP credential trials fail (credential_trials_total error rate rises) |
