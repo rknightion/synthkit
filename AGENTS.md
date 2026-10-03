@@ -101,6 +101,12 @@ and unsourced physical NVLink metadata nullable. Consumer profiles fail closed o
 GB is not driver usable/reserved memory; synthetic cooling deltas are not hardware throttle thresholds.
 See `cantfind.md` hardware/profile barriers and the pinned consumer contract before enabling collection.
 
+The current `GPUOperatingPoints` snapshot does not establish requested/achieved clocks or an active
+thermal/power limiter. Boundary temperature, equality to a power budget and `CoolingDerate` alone do
+not license vendor clock-event flags or violation-duration increments. A causal constraint model
+belongs in the shared pure seam with reviewed ownership; a consumer-local hardware toggle is not a
+collection failure.
+
 ## File ownership
 
 Single-owner wiring files, serialised rather than worked around: `internal/runner/`, `go.mod`,
