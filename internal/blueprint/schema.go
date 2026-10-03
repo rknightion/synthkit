@@ -148,6 +148,10 @@ type CloudDecl struct {
 // substrate). `observability: { cloudwatch: false }` keeps the k8s substrate but drops the
 // EC2 CloudWatch lane. Omitting it ⇒ EC2 CloudWatch emitted (default true).
 type ClusterDecl struct {
+	// Emit gates all cluster-derived constructs (Kubernetes, EC2, profiling,
+	// addons and Fleet Management), not the declaration or workload bindings.
+	// Omitted defaults to true. False retains topology without collecting it.
+	Emit          *bool               `yaml:"emit,omitempty"`
 	Nodes         []BareMetalNodeDecl `yaml:"nodes"`
 	Type          string              `yaml:"type"` // "eks" (v1)
 	Name          string              `yaml:"name"`

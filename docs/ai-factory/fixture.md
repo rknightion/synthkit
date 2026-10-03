@@ -95,6 +95,15 @@ Local collection outages never enter shared fault capture, allocation or physics
 
 ## Source and adapter release barriers
 
+A declared cluster can retain its fixture and workload bindings without collecting
+it: set `cluster.emit: false`. Omitted or explicit `true` preserves the historical
+cluster-derived Kubernetes, EC2, profiling, addon and Fleet Management constructs.
+This does not disable other environment resources, workloads or independently
+selected integrations. `k8s_monitoring.enabled: false` is not a substrate emission
+gate: base Kubernetes families still emit unless `cluster.emit` is false. The
+reference compute cluster stays emission-disabled until its capacity/platform/NIC
+and other collection adapters pass their own gates.
+
 Advertised memory is decimal capacity metadata, not driver usable framebuffer.
 Unknown usable memory and temperature thresholds remain absent. Capability checks
 fail closed rather than guessing vendor limits. H100 PCIe/H200 SXM/GB200 per-GPU

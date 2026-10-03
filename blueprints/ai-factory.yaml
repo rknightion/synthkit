@@ -36,6 +36,9 @@ environments:
     cluster:
       type: baremetal
       name: compute-user
+      # Explicitly retain canonical inventory without unadapted K8s collection.
+      # k8s_monitoring.enabled controls monitoring features, not base emission.
+      emit: false
       # One shared fixed inventory for the two PCIe servers and one NVL72 rack.
       # Platform versions below are explicit operator reference settings, not
       # GPU catalogue facts. CPU/GPU/RAM/arch are per-node declarations below.

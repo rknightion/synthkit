@@ -608,13 +608,14 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		}
 	}
 
-	// Pass 3 — emit construct instances.
+	// Pass 3 — emit construct instances. A cluster's explicit emission gate
+	// affects only its derived constructs; earlier topology/workload binding stays.
 	for _, ec := range envs {
 		e := ec.decl
 		baseSet := func() *fixture.Set {
 			return &fixture.Set{Seed: seed + ":" + e.Name, Env: ec.env, Cloud: ec.cloud}
 		}
-		if e.Cluster != nil {
+		if e.Cluster != nil && (e.Cluster.Emit == nil || *e.Cluster.Emit) {
 			cl := clusters[e.Cluster.Name]
 			set := baseSet()
 			set.Cluster = cl

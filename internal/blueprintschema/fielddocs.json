@@ -15,6 +15,7 @@
   "github.com/rknightion/synthkit/internal/blueprint.CloudDecl.Provider": "\"aws\" (v1)",
   "github.com/rknightion/synthkit/internal/blueprint.CloudWatchToggle.CloudWatch": "emit the CloudWatch lane (default true)",
   "github.com/rknightion/synthkit/internal/blueprint.ClusterDecl.DefaultAllowLists": "DefaultAllowLists selects the version-pinned k8s-monitoring chart family projection; decoded through the k8s_cluster registry config.",
+  "github.com/rknightion/synthkit/internal/blueprint.ClusterDecl.Emit": "Emit gates all cluster-derived constructs (Kubernetes, EC2, profiling, addons and Fleet Management), not the declaration or workload bindings. Omitted defaults to true. False retains topology without collecting it.",
   "github.com/rknightion/synthkit/internal/blueprint.ClusterDecl.OTel": "k8s_cluster receiver-native emission switches; decoded via registry",
   "github.com/rknightion/synthkit/internal/blueprint.ClusterDecl.OTelCollectorProm": "OTelCollectorProm selects the exclusive captured Collector Prometheus envelope.",
   "github.com/rknightion/synthkit/internal/blueprint.ClusterDecl.Observability": "gates the per-node ec2 CloudWatch lane",

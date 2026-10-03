@@ -398,6 +398,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cloud.bedrock` | raw yaml (see per-kind config sections) |  | AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted |
 | `environments[].cloud.agentcore` | raw yaml (see per-kind config sections) |  | AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted |
 | `environments[].cluster` | object | yes |  |
+| `environments[].cluster.emit` | bool | yes | Emit gates all cluster-derived constructs (Kubernetes, EC2, profiling, addons and Fleet Management), not the declaration or workload bindings. Omitted defaults to true. False retains topology without collecting it. |
 | `environments[].cluster.nodes[]` | object |  |  |
 | `environments[].cluster.nodes[].hostname` | string |  |  |
 | `environments[].cluster.nodes[].ip` | string |  |  |
