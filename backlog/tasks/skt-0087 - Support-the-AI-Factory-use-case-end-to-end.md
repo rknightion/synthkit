@@ -1,11 +1,11 @@
 ---
 id: SKT-0087
 title: Support the AI Factory use case end to end
-status: In Progress
+status: Parked
 assignee:
   - '@loop47-root'
 created_date: '2026-10-02 14:15'
-updated_date: '2026-10-02 15:33'
+updated_date: '2026-10-03 03:05'
 labels:
   - ai-factory
 dependencies: []
@@ -38,4 +38,6 @@ An AI Factory is an on-premises GPU estate built from NVIDIA reference component
 
 <!-- SECTION:NOTES:BEGIN -->
 loop47: admitted
+
+loop47 ending at exhausted source/acceptance envelope: shared fixture and CPU automation finalized Done, other implemented consumer candidates absent because vendor contracts or named dependencies block required ACs. No end-to-end completion or GPU/live acceptance. Root corrected shipped compute collection assumption: cluster.emitfalse preserves20nodes/80GPUs but suppresses10249unadaptedcomputeK8sseries; publicCLI total2379=pilot2369+apps10, no vendorGPUseries. Independent validation-bypass defect repaired with3publicred/green regressions; integratedjustcheck andCodeRabbit0findings passed exact001de3485e6e3815f7e7dada053dd01819141016, landingci37090183079SUCCESS. Resume with approved syslogAC3 contract/criterion, sourced DCGM hardware/health profile and I21all-inGPU sizing/partial-reference acceptance authority. I20/I22remainnameddependencyblocked; R15heldonfacilitysource. Questions batched in ignored loop report; no invented telemetry/rates or ungranted cloud writes.
 <!-- SECTION:NOTES:END -->
