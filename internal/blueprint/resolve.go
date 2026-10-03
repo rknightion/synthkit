@@ -615,14 +615,17 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		baseSet := func() *fixture.Set {
 			return &fixture.Set{Seed: seed + ":" + e.Name, Env: ec.env, Cloud: ec.cloud}
 		}
-		if e.Cluster != nil && (e.Cluster.Emit == nil || *e.Cluster.Emit) {
+		if e.Cluster != nil {
+			// Validate declared registry kinds/configs even when their emission
+			// is disabled; only admission to the runtime BoM is conditional.
+			emit := e.Cluster.Emit == nil || *e.Cluster.Emit
 			cl := clusters[e.Cluster.Name]
 			set := baseSet()
 			set.Cluster = cl
 			set.GPU = clusterGPUSelection(r.GPU, cl.Name)
 			set.Seed = seed + ":" + cl.Name
-			// k8s substrate always emits; the per-node EC2 CloudWatch lane is gated by the
-			// cluster's emission switch (the cloud-provider view of the nodes — §3.2).
+			// K8s is a default cluster lane. The separate observability switch
+			// selects the per-node EC2 cloud-provider lane (§3.2).
 			kinds := []string{KindK8sCluster}
 			if e.Cluster.Type != "baremetal" && e.Cluster.Observability.enabled() {
 				kinds = append(kinds, KindEC2)
@@ -671,7 +674,9 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 						return nil, err
 					}
 				}
-				r.Constructs = append(r.Constructs, *ci)
+				if emit {
+					r.Constructs = append(r.Constructs, *ci)
+				}
 			}
 			for _, a := range e.Cluster.Addons {
 				creg, ok := reg.Construct(a.Name)
@@ -683,9 +688,11 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				if err := strictDecode(&a.Config, cfg, fmt.Sprintf("blueprint %q: addon %q config", d.Name, a.Name)); err != nil {
 					return nil, err
 				}
-				r.Constructs = append(r.Constructs, ConstructInstance{
-					Kind: a.Name, Name: cl.Name + "/" + a.Name, Config: cfg, Fixtures: set,
-				})
+				if emit {
+					r.Constructs = append(r.Constructs, ConstructInstance{
+						Kind: a.Name, Name: cl.Name + "/" + a.Name, Config: cfg, Fixtures: set,
+					})
+				}
 			}
 			// Fleet Management mirror: emit a fleet_management construct instance from the
 			// cluster path when k8s_monitoring.fleet_management is true. The instance carries
@@ -700,7 +707,9 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				if err != nil {
 					return nil, err
 				}
-				r.Constructs = append(r.Constructs, *ci)
+				if emit {
+					r.Constructs = append(r.Constructs, *ci)
+				}
 			}
 		}
 		if ec.cloud != nil {
