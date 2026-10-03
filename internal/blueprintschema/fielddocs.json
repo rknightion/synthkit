@@ -110,6 +110,8 @@
   "github.com/rknightion/synthkit/internal/blueprint.serviceNodePeek.volumeClaims": "volumeClaims are the PVC template names this node mounts; maps onto fixture.Workload.VolumeClaims.",
   "github.com/rknightion/synthkit/internal/construct/agentcore.Config.Agents": "Agents is the list of agent logical names rendered for resource-usage dims. Default: [\"planner\",\"retriever\"] — generic, no customer/blueprint strings.",
   "github.com/rknightion/synthkit/internal/construct/agentcore.Config.SubSignals": "SubSignals selects which families to emit. Valid: runtime, resource_usage, usage_logs, gateway (deferred Spec 3). Empty ⇒ runtime + resource_usage + app_logs (always) emit; usage_logs is opt-in.",
+  "github.com/rknightion/synthkit/internal/construct/alloyhealth.Config.Syslog": "Optional receiver shape; no logs are emitted by this addon.",
+  "github.com/rknightion/synthkit/internal/construct/alloyhealth.Config.SyslogRecordsPerMin": "Operator-declared aggregate healthy intake; default zero.",
   "github.com/rknightion/synthkit/internal/construct/alloyhealth.Construct.alloyVersion": "\"v\"-prefixed Alloy version from fixture or default",
   "github.com/rknightion/synthkit/internal/construct/alloyhealth.Construct.cluster": "\"cluster\" / \"k8s_cluster_name\" label value",
   "github.com/rknightion/synthkit/internal/construct/aoss.Config.Collections": "Collections is the list of OpenSearch Serverless collection names to emit. If empty, one synthetic collection derived from fx.Seed is used.",

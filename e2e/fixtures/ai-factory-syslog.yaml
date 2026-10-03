@@ -1,0 +1,26 @@
+name: ai-factory-syslog
+shape: business_hours_plateau
+timezone: UTC
+environments:
+  - name: prod
+    cluster:
+      type: baremetal
+      name: syslog-receiver-cluster
+      platform:
+        os_image: Ubuntu 24.04 LTS
+        os_id: ubuntu
+        container_runtime: containerd://2.1.7
+        kubernetes_version: "1.35"
+        kubelet_version: v1.35.2
+        kernel_version: "6.8.0"
+      # One small management-plane listener cluster, not a GPU device inventory.
+      nodes:
+        - {hostname: receiver-node, ip: 10.40.0.10, cpus: 4, memory_gib: 8, arch: x86_64}
+      k8s_monitoring: {enabled: false, alloy: true, alloy_version: "1.20.1"}
+      addons:
+        - name: alloy_health
+          syslog:
+            receiver: loki
+          # Operator assumption: a quiet appliance estate produces one routine
+          # state/audit message per minute in aggregate, split over two HA pods.
+          syslog_records_per_min: 1

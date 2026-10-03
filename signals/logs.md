@@ -635,3 +635,89 @@ the last thing to start in the lab, and the cluster is settled by then. So the e
 
 This is an UNOBSERVED shape, not an absent one: do not record the event contract from
 documentation. Tracked as cantfind SK-102.
+
+---
+
+## Shared received syslog renderer [slug: logs-syslog]
+
+`internal/syslog` renders **decoded synthetic protocol facts**, not arbitrary traffic.
+It is neither a network listener nor a raw RFC parser. The owning consumer selects
+`receiver: loki|otel` in its blueprint configuration. The existing `alloy_health`
+addon exposes the selection for health only; device log consumers remain separate.
+
+Pinned provenance (names and semantics, not a claim of live capture):
+
+- Alloy **v1.20.1** [Loki component documentation](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/reference/components/loki/loki.source.syslog.md#L61-L79):
+  internal `__syslog_connection_ip_address`, hostname, app name, proc ID, msg ID,
+  severity/facility and optional structured-data labels are removed before forwarding.
+  [Configured labels and forwarding switches](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/reference/components/loki/loki.source.syslog.md#L121-L139)
+  establish the label map and default message-text body. `site`, `device`,
+  `source_type`, `severity`, `service` are **operator-defined bounded assignments**
+  using that map (task contract), not automatic vendor field names or mappings.
+- Alloy v1.20.1 [RFC examples and empty behavior](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/reference/components/loki/loki.source.syslog.md#L165-L176):
+  both RFC3164 and RFC5424 are supported. Loki defaults to message text; opt-in
+  `use_rfc5424_message` preserves the entire RFC5424 body including sender headers,
+  PID, message ID and structured data. The synthetic API takes nil-value headers
+  as absent strings and omits them, never emitting empty dimensions or `NA`.
+- Contrib **v0.161.0** [syslog parser](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.161.0/pkg/stanza/operator/parser/syslog/parser.go#L228-L269)
+  supplies `hostname`, `appname`, `proc_id`, `msg_id`, `message`, `priority`,
+  `facility`, `facility_text`, plus RFC5424 `version` and nested `structured_data`.
+  [Postprocessing](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.161.0/pkg/stanza/operator/parser/syslog/parser.go#L426-L445)
+  promotes timestamp and severity out of attributes. [Converter](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.161.0/pkg/stanza/adapter/converter.go#L57-L74)
+  preserves the original input body, timestamps, severity number/text and attributes;
+  it assigns no syslog resource attributes. Facility and severity enums come from
+  the same pinned parser, not arbitrary log-level substitutions.
+- Optional OTel `add_attributes` defaults false; source connection `net.peer.ip`
+  comes from [Contrib v0.161.0 TCP input](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.161.0/pkg/stanza/operator/input/tcp/input.go#L294-L308).
+  Only a supplied synthetic peer IP is modeled; no ports or hostnames are inferred.
+  It stays a RECORD attribute, never a resource/stream label. Loki's optional
+  `preserve_connection_ip` is an explicit operator mapping of the sourced internal
+  `__syslog_connection_ip_address` key into **structured metadata**, not Alloy's
+  default output or an implicit relabel rule. Default output removes that key.
+- Alloy v1.20.1 [OTel on_error](https://github.com/grafana/alloy/blob/v1.20.1/docs/sources/reference/components/otelcol/otelcol.receiver.syslog.md#L54-L75)
+  defaults to `send`: decoder failures preserve the original unparsed body and
+  observed time and still hand off downstream. `drop` discards; quiet variants
+  suppress the decoder error, never a writer failure. No parse counter is invented.
+  Loki drops decoder failures and increments its parsing-error counter. Raw empty
+  Loki messages and RFC3164 empty MSG are dropped; RFC5424 empty MSG increments
+  the empty counter and forwards only with `rfc5424_allow_empty_msg`.
+
+```yaml signals
+source: syslog_loki
+scope: substrate
+sink: loki
+stream_labels:
+  site: <operator-bounded-site>
+  device: <operator-bounded-device>
+  source_type: <operator-bounded-source-type>
+  severity: <operator-bounded-severity>
+  service: <operator-bounded-service>
+structured_metadata:
+  - __syslog_connection_ip_address # explicit opt-in operator mapping only
+body_format: "message text by default; full RFC5424 when use_rfc5424_message"
+note: "No sender-controlled header, PID, message ID, structured data or source IP is indexed. Absent assignments omitted."
+```
+
+```yaml signals
+source: syslog_otel
+scope: substrate
+sink: otlp_logs
+record_attrs:
+  - hostname
+  - appname
+  - proc_id
+  - msg_id
+  - message
+  - priority
+  - facility
+  - facility_text
+  - version # RFC5424 only
+  - structured_data # RFC5424 nested maps; never labels
+  - net.peer.ip # add_attributes opt-in; source connection, not header
+body_format: "original RFC line, or original unparsed line under send"
+note: "Timestamp/observed timestamp and severity promoted to log-record fields; no default resource attributes."
+```
+
+Health instruments, scrape labels and per-cluster arithmetic:
+[`fm.md`](fm.md) [slug: fm-syslog-health]. No TCP listener/request instruments
+are modeled: this is a decoded renderer with the default receiver-helper gate off.

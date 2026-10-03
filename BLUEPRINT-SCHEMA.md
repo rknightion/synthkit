@@ -524,7 +524,22 @@ aws_bedrock_agentcore_* CloudWatch metrics for Bedrock AgentCore (invocation-cla
 
 Alloy pipeline meta-health (otelcol_*) + content-strip sentinel
 
-_(no configurable fields)_
+| key | type | optional | description |
+|---|---|---|---|
+| `syslog` | object | yes | Optional receiver shape; no logs are emitted by this addon. |
+| `syslog.receiver` | string |  |  |
+| `syslog.receiver_id` | string |  |  |
+| `syslog.on_error` | string |  |  |
+| `syslog.use_rfc5424_message` | bool |  |  |
+| `syslog.rfc5424_allow_empty_msg` | bool |  |  |
+| `syslog.site` | string |  |  |
+| `syslog.device` | string |  |  |
+| `syslog.source_type` | string |  |  |
+| `syslog.severity` | string |  |  |
+| `syslog.service` | string |  |  |
+| `syslog.add_attributes` | bool |  |  |
+| `syslog.preserve_connection_ip` | bool |  |  |
+| `syslog_records_per_min` | float |  | Operator-declared aggregate healthy intake; default zero. |
 
 ## aoss config
 

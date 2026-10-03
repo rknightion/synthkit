@@ -6,7 +6,7 @@
 // Scope:    ScopeSubstrate  — no blueprint label ever (I21/§5)
 // Signals:  [Metrics]
 // Interval: 60s
-// Config:   empty struct (all wiring comes from fx.Cluster)
+// Config:   optional syslog receiver health; cluster identity from fx.Cluster
 //
 // This is a cluster ADDON — it must be wired via the blueprint addons list on the
 // cluster that has k8s_monitoring.alloy=true. The construct receives the cluster's
@@ -34,12 +34,14 @@ package alloyhealth
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 	"github.com/rknightion/synthkit/internal/state"
+	"github.com/rknightion/synthkit/internal/syslog"
 )
 
 // Kind is the registry key for this construct.
@@ -77,23 +79,46 @@ var otelReceivers = []string{"otlp", "prometheus"}
 // otelExporters are the otelcol exporter component names.
 var otelExporters = []string{"otlphttp", "prometheusremotewrite"}
 
-// Config is the construct config struct (empty — all wiring comes from fx.Cluster).
-type Config struct{}
+// Config adds opt-in syslog receiver health to the cluster's existing Alloy pods.
+// Omission preserves existing output; this is not a device log emitter.
+type Config struct {
+	Syslog              *syslog.Config `yaml:"syslog"`                 // Optional receiver shape; no logs are emitted by this addon.
+	SyslogRecordsPerMin float64        `yaml:"syslog_records_per_min"` // Operator-declared aggregate healthy intake; default zero.
+}
 
 // NewConfig returns an empty *Config for the YAML decoder.
 func NewConfig() any { return &Config{} }
 
 // Construct is the alloy_health instance for one cluster.
 type Construct struct {
-	cluster      string // "cluster" / "k8s_cluster_name" label value
-	alloyVersion string // "v"-prefixed Alloy version from fixture or default
-	st           *state.State
+	cluster             string // "cluster" / "k8s_cluster_name" label value
+	alloyVersion        string // "v"-prefixed Alloy version from fixture or default
+	st                  *state.State
+	syslogReceivers     []*syslog.Receiver
+	syslogRecordsPerMin float64
 }
 
 // Build validates fx.Cluster (required) and returns a ready Construct.
 func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
-	if _, ok := cfg.(*Config); !ok {
-		return nil, fmt.Errorf("alloyhealth: Build called with %T, want *Config", cfg)
+	conf, ok := cfg.(*Config)
+	if !ok || conf == nil {
+		return nil, fmt.Errorf("alloyhealth: Build called with %T, want non-nil *Config", cfg)
+	}
+	if math.IsNaN(conf.SyslogRecordsPerMin) || math.IsInf(conf.SyslogRecordsPerMin, 0) || conf.SyslogRecordsPerMin < 0 {
+		return nil, fmt.Errorf("alloyhealth: syslog_records_per_min must be finite and nonnegative")
+	}
+	if conf.Syslog == nil && conf.SyslogRecordsPerMin != 0 {
+		return nil, fmt.Errorf("alloyhealth: syslog_records_per_min requires syslog")
+	}
+	var receivers []*syslog.Receiver
+	if conf.Syslog != nil {
+		for range alloyPods {
+			recv, err := syslog.New(*conf.Syslog)
+			if err != nil {
+				return nil, err
+			}
+			receivers = append(receivers, recv)
+		}
 	}
 	if fx == nil || fx.Cluster == nil {
 		return nil, fmt.Errorf("alloyhealth: fixture.Cluster is required (nil)")
@@ -105,9 +130,11 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	}
 
 	return &Construct{
-		cluster:      fx.Cluster.Name,
-		alloyVersion: ver,
-		st:           state.NewState(),
+		cluster:             fx.Cluster.Name,
+		alloyVersion:        ver,
+		st:                  state.NewState(),
+		syslogReceivers:     receivers,
+		syslogRecordsPerMin: conf.SyslogRecordsPerMin,
 	}, nil
 }
 
@@ -270,7 +297,14 @@ func (c *Construct) build(now time.Time, factor float64) []promrw.Series {
 		c.st.Set("synthkit_content_leak_test", leakLabels, 0.0)
 	}
 
-	return c.st.Collect(now)
+	out := c.st.Collect(now)
+	for i, recv := range c.syslogReceivers {
+		// Aggregate operator assumption, evenly split over existing HA scrape targets.
+		// No floors or minimum-forcing: zero intake remains zero.
+		recv.Healthy(c.syslogRecordsPerMin * factor / float64(len(alloyPods)))
+		out = append(out, recv.Health(now, baseFor(alloyPods[i]))...)
+	}
+	return out
 }
 
 // copyLabels returns a shallow copy of a label map with extra capacity for extension.

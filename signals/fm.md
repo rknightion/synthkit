@@ -210,3 +210,71 @@ metrics:
 > `<prefix>_content_leak_test`. These are named `synthkit_content_*` in this repo. The original
 > gen_ai/LLM-specific `pipeline` and `field_class` values (`gen_ai_body`, `langsmith_io`,
 > `bedrock_body`, etc.) are NOT carried into synthkit — v1 uses only workload-derived values.
+
+---
+
+## Opt-in syslog receiver health [slug: fm-syslog-health]
+
+The existing `alloy_health` cluster addon selects `syslog.receiver: loki|otel`.
+Omission adds **zero** series and does not alter the existing health set. Enabled
+profiles add **6 series per cluster = 2 existing HA scrape identities × 3 counters**.
+Counters remain cumulative across ticks, including zero-valued error counters.
+`syslog_records_per_min` is an operator's aggregate healthy-intake assumption,
+default **0**, split evenly over the two HA targets and business-hours shaped.
+No minimum-forcing, fabricated parse errors or invented receiver instrumentation.
+
+Pinned sources:
+
+- Alloy **v1.20.1** [metrics.go](https://github.com/grafana/alloy/blob/v1.20.1/internal/component/loki/source/syslog/internal/syslogtarget/metrics.go#L21-L39)
+  defines `loki_source_syslog_entries_total`, `loki_source_syslog_parsing_errors_total`,
+  `loki_source_syslog_empty_messages_total`, **without instrument labels**. The five
+  existing addon scrape labels below are attached separately, not per-device labels.
+- Collector core **v0.161.0**, receiverhelper module **v1.67.0** (Alloy v1.20.1 pin),
+  [metadata](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.161.0/receiver/receiverhelper/metadata.yaml#L8-L80)
+  defines accepted/refused/failed log-record monotonic instruments. Prometheus
+  exposition uses the final `_total` spellings below. [ObsReport](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.161.0/receiver/receiverhelper/obsreport.go#L179-L196)
+  uses actual downstream errors: default gate off sends **all errors to refused**,
+  failed remains zero. Accepted is successful handoff, not successful parsing.
+  The feature-gated request metric and alternate failed classification are not modeled.
+- Contrib **v0.161.0** [adapter factory](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.161.0/pkg/stanza/adapter/factory.go#L53-L58)
+  supplies bounded receiver ID and leaves transport empty. synthkit **omits** this
+  absent dimension per canon rather than emitting `transport=""`.
+  [Adapter receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.161.0/pkg/stanza/adapter/receiver.go#L64-L76)
+  reports the downstream consumer result. There is **no OTel syslog parse counter**;
+  default `on_error=send` forwards malformed unparsed records, counted accepted
+  if the writer succeeds. See [logs.md](logs.md) [slug: logs-syslog].
+- Scrape identity `cluster`, `k8s_cluster_name`, `namespace`, `job`, `instance`
+  is the existing addon contract [slug: fm-alloy-health], not new receiver attributes.
+
+```yaml signals
+family: fm_syslog_loki
+scope: substrate
+sink: promrw
+labels:
+  cluster: <cluster>
+  k8s_cluster_name: <cluster>
+  namespace: infra
+  job: integrations/alloy
+  instance: <existing-HA-target>
+metrics:
+  - {root: loki_source_syslog_entries_total, type: counter, unit: count, v: ok, note: "successful sends; unlabelled instrument"}
+  - {root: loki_source_syslog_parsing_errors_total, type: counter, unit: count, v: ok, note: "decoder failures dropped; unlabelled instrument"}
+  - {root: loki_source_syslog_empty_messages_total, type: counter, unit: count, v: ok, note: "empty input/MSG; unlabelled instrument"}
+```
+
+```yaml signals
+family: fm_syslog_otel
+scope: substrate
+sink: promrw
+labels:
+  cluster: <cluster>
+  k8s_cluster_name: <cluster>
+  namespace: infra
+  job: integrations/alloy
+  instance: <existing-HA-target>
+  receiver: <configured-component-ID>
+metrics:
+  - {root: otelcol_receiver_accepted_log_records_total, type: counter, unit: count, v: ok, note: "successful downstream handoff, including default-send malformed records"}
+  - {root: otelcol_receiver_refused_log_records_total, type: counter, unit: count, v: ok, note: "downstream errors; default receiver-helper gate off"}
+  - {root: otelcol_receiver_failed_log_records_total, type: counter, unit: count, v: ok, note: "zero with default gate off; NOT parse failures"}
+```
