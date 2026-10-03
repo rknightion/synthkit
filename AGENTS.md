@@ -72,6 +72,12 @@ are `gpu_pools`, `gpu_fabrics`, `gpu_storage_clusters` and `gpu_schedulers`. Gen
 IPs are cluster-local; global hostname/IP collision claims apply to fixed physical inventories and
 GPU-associated hosts. Traditional host hostname claims remain unchanged.
 
+`cluster.emit: false` retains declared topology and workload bindings while suppressing cluster-derived
+Kubernetes, EC2, profiling, addon and Fleet Management instances. Omitted/true preserves existing
+emission; disabled declarations still reject unknown registry kinds and nested config fields.
+`k8s_monitoring.enabled: false` alone does not stop base Kubernetes telemetry. Keep unadapted GPU
+compute emission disabled until its capacity/platform/NIC and other collection adapters are verified.
+
 Generic topology, allocation and operator-assumption physics do not establish vendor telemetry facts.
 The sourced catalogue intentionally leaves thermal limits, usable framebuffer and unsupported physical
 NVLink metadata nullable. Consumer profiles fail closed on required missing capabilities. Advertised
