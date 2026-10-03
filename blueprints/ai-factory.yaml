@@ -38,6 +38,36 @@ environments:
           # Operator assumption: a quiet management appliance estate produces one
           # routine state/audit record per minute across both HA collector pods.
           syslog_records_per_min: 1
+          gateway:
+            pool: pilot-gateway
+            site: pilot
+            # One declared HA pair for the three-node management substrate;
+            # an operator reference choice, not a vendor sizing requirement.
+            pool_size: 2
+            source_victim: 0
+            members:
+              # Explicit virtual scrape identities, not discovered physical hosts.
+              - {instance: "alloy-gateway-0.ai-factory-pilot.svc:12345", job: integrations/alloy, roles: [otlp_receive, central_scrape, syslog, cloud_forward]}
+              - {instance: "alloy-gateway-1.ai-factory-pilot.svc:12345", job: integrations/alloy, roles: [otlp_receive, central_scrape, syslog, cloud_forward]}
+            # Collector's default request/batch capacity; retained synthetic state,
+            # not a claim of an implemented disk WAL.
+            queue_capacity: 1000
+            # Operator service budget: one batch every two seconds per member,
+            # comfortably above this small estate's steady incoming batch rate.
+            drain_requests_per_min: 30
+            # Three node collection endpoints plus management-pipeline self-health;
+            # a bounded pilot estimate, not an inferred device inventory.
+            scrape_targets: 4
+            inputs:
+              # Weekly/quarterly automation below is sparse, not steady trace load.
+              # Do not manufacture a continuous trace stream to satisfy readiness.
+              - {signal: traces, requests_per_min: 0, items_per_request: 100}
+              # Operator estimate: minute-cadence batches of 100 points per target
+              # or receiver, plausible for this small controller/collector estate.
+              - {signal: metrics, requests_per_min: 1, items_per_request: 100}
+              # No separate app-log ingress assumption; retain the existing single
+              # management-appliance syslog record/minute declared above.
+              - {signal: logs, requests_per_min: 0, items_per_request: 20}
   - name: compute
     weight: 1
     production: true

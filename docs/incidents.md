@@ -155,6 +155,26 @@ An `incidents:` block schedules when a scenario or single-mode effect fires:
 | `nettopo_auth_failures` | SNMP credential trials fail (credential_trials_total error rate rises). |
 | `nettopo_spoke_down` | A federation spoke goes offline (`network_topology_federation_spoke_up` drops to 0, hub/spoke session metrics degrade). |
 
+## Optional gateway pool failures
+
+The `alloy_health` addon registers six cluster-scoped modes:
+`gateway_instance_loss`, `gateway_wan_outage`, `gateway_queue_overflow`,
+`gateway_config_reload_failure`, `gateway_cloud_credential_expired` and
+`gateway_source_gap`. Activate them against the declared cluster name. Member-specific
+loss, reload and source-gap modes use `gateway.source_victim`; send faults affect
+pool egress.
+
+Queues retain modeled requests for the emitter lifetime, not an actual disk WAL.
+Within capacity, outage input drains after recovery without loss; overflow increments
+enqueue-rejected item counters, not just failed attempts. Generic failed sends do not
+uniquely diagnose credential expiry. Source gap removes the selected member's three
+same-process `remotecfg` data families before the public writer, while target `up`,
+independent healthy controller observations and the other member remain present.
+
+See [gateway configuration and limits](ai-factory/alloyhealth.md) and
+[`signals/fm.md`, `fm-gateway`](../signals/fm.md) for cadence, scope, absence queries
+and the source catalogue. Local absence proof does not establish backend alert timing.
+
 ## Definition vs activation
 
 The `scenarios:` and `incidents:` blocks are the **definition** layer: they describe what modes exist in this blueprint and when they are scheduled to fire. The runner validates these at load time against the actual construct vocabulary and target inventory.
