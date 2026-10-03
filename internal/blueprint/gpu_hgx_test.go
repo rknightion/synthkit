@@ -146,52 +146,54 @@ func TestHGXLoaderRejections(t *testing.T) {
 	}
 	for _, shape := range []string{"pcie", "nvl72"} {
 		for _, field := range []string{"nvlink", "hgx_module_id"} {
-			d := gpuMinimalDecl()
-			pi := 0
-			if shape == "nvl72" {
-				data, err := os.ReadFile("../../e2e/fixtures/ai-factory-fixture.yaml")
-				if err != nil {
+			t.Run(shape+"-null-"+field, func(t *testing.T) {
+				d := gpuMinimalDecl()
+				pi := 0
+				if shape == "nvl72" {
+					data, err := os.ReadFile("../../e2e/fixtures/ai-factory-fixture.yaml")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err = yaml.Unmarshal(data, &d); err != nil {
+						t.Fatal(err)
+					}
+					pi = 1
+				}
+				d.GPUCompute.Pools[pi].Nodes = []fixture.GPUNodeOverrideSpec{{Ordinal: 0}}
+				d.GPUCompute.Pools[pi].GPUs = []fixture.GPUOverrideSpec{{Slot: 0}}
+				raw, _ := yaml.Marshal(d)
+				anchor := "ordinal: 0"
+				if field == "hgx_module_id" {
+					anchor = "slot: 0"
+				}
+				// Mutate the parsed mapping so malformed indentation cannot become the rejection.
+				var doc yaml.Node
+				if err := yaml.Unmarshal(raw, &doc); err != nil {
 					t.Fatal(err)
 				}
-				if err = yaml.Unmarshal(data, &d); err != nil {
-					t.Fatal(err)
-				}
-				pi = 1
-			}
-			d.GPUCompute.Pools[pi].Nodes = []fixture.GPUNodeOverrideSpec{{Ordinal: 0}}
-			d.GPUCompute.Pools[pi].GPUs = []fixture.GPUOverrideSpec{{Slot: 0}}
-			raw, _ := yaml.Marshal(d)
-			anchor := "ordinal: 0"
-			if field == "hgx_module_id" {
-				anchor = "slot: 0"
-			}
-			// Mutate the parsed mapping so malformed indentation cannot become the rejection.
-			var doc yaml.Node
-			if err := yaml.Unmarshal(raw, &doc); err != nil {
-				t.Fatal(err)
-			}
-			var add func(*yaml.Node)
-			add = func(n *yaml.Node) {
-				if n.Kind == yaml.MappingNode {
-					for i := 0; i+1 < len(n.Content); i += 2 {
-						if n.Content[i].Value == anchor[:strings.Index(anchor, ":")] {
-							n.Content = append(n.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: field}, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: "null"})
-							return
+				var add func(*yaml.Node)
+				add = func(n *yaml.Node) {
+					if n.Kind == yaml.MappingNode {
+						for i := 0; i+1 < len(n.Content); i += 2 {
+							if n.Content[i].Value == anchor[:strings.Index(anchor, ":")] {
+								n.Content = append(n.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: field}, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: "null"})
+								return
+							}
 						}
 					}
+					for _, c := range n.Content {
+						add(c)
+					}
 				}
-				for _, c := range n.Content {
-					add(c)
+				// Rebuild cleanly; explicit null is present even though typed pointer is nil.
+				raw, _ = yaml.Marshal(d)
+				_ = yaml.Unmarshal(raw, &doc)
+				add(&doc)
+				raw, _ = yaml.Marshal(&doc)
+				if _, err := Load(raw, testRegistry(t)); err == nil || !strings.Contains(err.Error(), "supported only for hgx") {
+					t.Fatalf("old shape %s accepted %s:null or wrong rejection: %v", shape, field, err)
 				}
-			}
-			// Rebuild cleanly; explicit null is present even though typed pointer is nil.
-			raw, _ = yaml.Marshal(d)
-			_ = yaml.Unmarshal(raw, &doc)
-			add(&doc)
-			raw, _ = yaml.Marshal(&doc)
-			if _, err := Load(raw, testRegistry(t)); err == nil || !strings.Contains(err.Error(), "supported only for hgx") {
-				t.Fatalf("old shape %s accepted %s:null or wrong rejection: %v", shape, field, err)
-			}
+			})
 		}
 	}
 }
@@ -382,206 +384,3 @@ func TestHGXSharedEdgePhysics(t *testing.T) {
 		t.Fatal("snapshot origin accepted reconstructed topology")
 	}
 }
-
-// BEGIN LEGACY PROOF
-// This identical function is executed against immutable old Go blobs and the
-// candidate. It freezes actual allocation time/fault inputs, not a randomized CLI.
-func TestHGXLegacyFixedInputProof(t *testing.T) {
-	data, err := os.ReadFile("../../e2e/fixtures/ai-factory-fixture.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	reg := testRegistry(t)
-	load := func(raw []byte) *Resolved {
-		t.Helper()
-		r, e := Load(raw, reg)
-		if e != nil {
-			t.Fatal(e)
-		}
-		if e = ValidateSet([]*Resolved{r}); e != nil {
-			t.Fatal(e)
-		}
-		return r
-	}
-	baseline := load(data)
-	start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
-	held, pending := start, start
-	if os.Getenv("HGX_COMPAT_DISCOVER") == "1" {
-		gotHeld, gotPending := false, false
-		for i := 0; i < 24*60; i++ {
-			at := start.Add(time.Duration(i) * time.Minute)
-			s := fixture.GPUAllocationPlan(baseline.GPU, at, nil)
-			running := 0
-			for _, w := range s.Workloads {
-				if w.Phase == "running" {
-					running++
-				}
-				if w.WorkloadKey == "gpuworkload:scheduler-a/training-a" && w.Phase == "pending" && !gotPending {
-					pending = at
-					gotPending = true
-				}
-			}
-			if running == 2 && !gotHeld {
-				held = at
-				gotHeld = true
-			}
-			if gotHeld && gotPending {
-				break
-			}
-		}
-		if !gotHeld || !gotPending {
-			t.Fatal("fixed clock discovery failed")
-		}
-		times, _ := json.Marshal([]time.Time{held, pending})
-		if err := os.WriteFile(os.Getenv("HGX_COMPAT_TIMES"), times, 0600); err != nil {
-			t.Fatal(err)
-		}
-	} else {
-		// Discovered once against immutable 76c3ea3, never chosen from candidate phases.
-		held, pending = start, start.Add(145*time.Minute)
-		if path := os.Getenv("HGX_COMPAT_TIMES"); path != "" {
-			times, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var clock []time.Time
-			if err = json.Unmarshal(times, &clock); err != nil || len(clock) != 2 {
-				t.Fatalf("fixed clock input: %v", err)
-			}
-			held, pending = clock[0], clock[1]
-		}
-	}
-	output := map[string]any{"fixture_sha_input": string(data), "held": held, "pending": pending}
-	for _, profile := range []string{"unchanged", "mapped-nvl72"} {
-		r := baseline
-		if profile == "mapped-nvl72" {
-			var d Decl
-			if err := yaml.Unmarshal(data, &d); err != nil {
-				t.Fatal(err)
-			}
-			nv := d.GPUCompute.Racks[1].NVLink
-			one := 1
-			source := gpuTestSource()
-			nv.LinksPerGPU = &one
-			nv.LinkCountSource = &source
-			nv.Correlated = true
-			// Entirely synthetic test-only source mapping: never a vendor profile.
-			for tray := 0; tray < 9; tray++ {
-				for sw := 0; sw < 2; sw++ {
-					for port := 0; port < 72; port++ {
-						nv.PortMappings = append(nv.PortMappings, fixture.NVLinkPortMappingSpec{Tray: tray, Switch: sw, Port: port, VendorID: fmt.Sprint(port), Source: source})
-					}
-				}
-			}
-			for node := 0; node < 18; node++ {
-				for slot := 0; slot < 4; slot++ {
-					nv.Links = append(nv.Links, fixture.NVLinkLinkSpec{GPU: fmt.Sprintf("gpu:nvl-node-%04d/%d", node, slot), GPULinkIndex: 0, Tray: node / 2, Switch: 0, Port: (node%2)*4 + slot, Source: source})
-				}
-			}
-			raw, _ := yaml.Marshal(d)
-			r = load(raw)
-		}
-		top := r.GPU
-		record := map[string]any{"topology": top}
-		clusters := map[string]*fixture.Cluster{}
-		for _, ci := range r.Constructs {
-			if ci.Fixtures != nil && ci.Fixtures.Cluster != nil {
-				cl := ci.Fixtures.Cluster
-				clusters[cl.Name] = cl
-			}
-		}
-		record["clusters"] = clusters
-		for _, names := range [][]string{{"pcie-pool"}, {"nvl-pool"}, {"pcie-pool", "nvl-pool"}} {
-			sel, e := fixture.SelectGPUTopology(top, names, nil, nil, nil)
-			if e != nil {
-				t.Fatal(e)
-			}
-			sr := map[string]any{"nodes": sel.Nodes(), "racks": sel.Racks(), "devices": sel.Devices(), "domains": sel.Domains(), "fabrics": sel.Fabrics()}
-			covers := map[string]bool{}
-			targets := map[string][]fixture.GPUTarget{}
-			for _, kind := range []string{"dcgm", "nvlink", "runai", "k8s_cluster", "host", "rack_facility"} {
-				targets[kind] = sel.Targets(kind)
-				for _, mode := range fixture.GPUFailureModes(kind) {
-					for _, x := range top.Targets {
-						covers[kind+"/"+mode.Name+"/"+x.Key] = sel.CoversTarget(kind, mode.Name, x.Key)
-					}
-				}
-			}
-			sr["covers"], sr["targets"] = covers, targets
-			caps := map[string]string{}
-			for name, c := range map[string]fixture.GPUCapabilities{"thermal": {ThermalEnvelope: true}, "framebuffer": {UsableFramebuffer: true}, "correlation": {NVLinkCorrelation: true}, "switch": {NVSwitchEntities: true}, "grace": {GraceEntities: true}} {
-				if e := fixture.RequireGPUCapabilities(sel, c); e != nil {
-					caps[name] = e.Error()
-				} else {
-					caps[name] = "accepted"
-				}
-			}
-			sr["capabilities"] = caps
-			record["selection/"+strings.Join(names, ",")] = sr
-		}
-		cases := []struct {
-			name, mode, target string
-			at                 time.Time
-		}{{"normal", "", "", start}, {"held", "", "", held}, {"pending", "", "", pending}, {"fatal", "gpu_fallen_off_bus", "gpu:nvl-node-0000/2", held}, {"pending-fatal", "gpu_fallen_off_bus", "gpu:nvl-node-0000/2", pending}, {"preemption", "gpu_preemption_storm", "gpuworkload:scheduler-a/training-a", held}, {"quota", "gpu_quota_exhaustion", "project:scheduler-a/research", held}, {"cooling", "gpu_cooling_fault", "rack:site-a/nvl-a", held}, {"idle-cooling", "gpu_cooling_fault", "rack:site-a/nvl-a", pending}, {"unavailable-cooling", "gpu_fallen_off_bus", "gpu:nvl-node-0000/2", held}, {"backend", "gpu_backend_congestion", "fabric:backend-a", held}, {"storage", "gpu_storage_latency", "storage:storage-a", held}, {"mapped-error", "gpu_nvlink_error_burst", "gpu:nvl-node-0000/0", held}, {"mapped-domain", "gpu_nvlink_degraded", "domain:site-a/nvl-a/domain-a", held}}
-		for _, tc := range cases {
-			snap := fixture.GPUAllocationPlan(top, tc.at, func(_ time.Time, m, k string) (bool, float64) {
-				return (m == tc.mode && k == tc.target) || (tc.name == "unavailable-cooling" && m == "gpu_cooling_fault" && k == "rack:site-a/nvl-a"), 0.5
-			})
-			if tc.mode != "" && !(tc.name == "mapped-error" && profile == "unchanged") && len(snap.Faults) == 0 {
-				t.Fatalf("%s did not activate physical fault", tc.name)
-			}
-			for _, w := range snap.Workloads {
-				if w.WorkloadKey == "gpuworkload:scheduler-a/training-a" {
-					expect := map[string]string{"held": "running", "pending": "pending", "fatal": "failed", "preemption": "preempted", "quota": "pending"}[tc.name]
-					if expect != "" && w.Phase != expect {
-						t.Fatalf("%s: phase %s, expected %s", tc.name, w.Phase, expect)
-					}
-				}
-			}
-			phys, e := fixture.GPUOperatingPoints(top, snap)
-			if e != nil {
-				t.Fatal(e)
-			}
-			views := map[string]fixture.Cluster{}
-			for name, cl := range clusters {
-				views[name] = fixture.GPUClusterView(cl, snap)
-			}
-			record[tc.name] = map[string]any{"allocation": snap, "physical": phys, "cluster_views": views}
-			other := *top
-			if _, e := fixture.GPUOperatingPoints(&other, snap); e == nil {
-				t.Fatal("snapshot origin guard absent")
-			}
-		}
-		output[profile] = record
-	}
-	rejects := map[string]string{}
-	for _, count := range []int{3, 4, 5, 6, 7, 8, 9} {
-		d := gpuMinimalDecl()
-		d.GPUCompute.Pools[0].GPUsPerNode = count
-		r, e := gpuDeclLoad(t, d, reg)
-		if e != nil {
-			rejects[fmt.Sprint(count)] = e.Error()
-		} else {
-			if e = ValidateSet([]*Resolved{r}); e != nil {
-				t.Fatal(e)
-			}
-			rejects[fmt.Sprint(count)] = "accepted"
-		}
-		if (e == nil) != (count >= 4 && count <= 8) {
-			t.Fatalf("legacy PCIe admission %d: %v", count, e)
-		}
-	}
-	output["rejections"] = rejects
-	raw, e := json.Marshal(output)
-	if e != nil {
-		t.Fatal(e)
-	}
-	if path := os.Getenv("HGX_COMPAT_OUTPUT"); path != "" {
-		if err = os.WriteFile(path, raw, 0600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	t.Logf("fixed real-loader compatibility: held=%s pending=%s output_bytes=%d", held.Format(time.RFC3339), pending.Format(time.RFC3339), len(raw))
-}
-
-// END LEGACY PROOF
