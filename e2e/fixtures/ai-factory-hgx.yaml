@@ -1,0 +1,175 @@
+name: hgx-fixture
+shape: business_hours_plateau
+timezone: UTC
+
+environments:
+  - name: production
+    cluster:
+      type: baremetal
+      name: compute-cluster
+      platform:
+        os_image: Ubuntu 24.04 LTS
+        os_id: ubuntu
+        container_runtime: containerd://2.1.7
+        kubernetes_version: "1.35"
+        kubelet_version: v1.35.2
+        kernel_version: "6.8.0"
+      k8s_monitoring:
+        enabled: true
+        alloy: true
+
+gpu_compute:
+  racks:
+    - name: hgx-a
+      site: site-a
+      shape: hgx
+      cooling: air
+      # Ordinary rack example; not inferred from the baseboard.
+      height_u: 42
+      physics:
+        # Operator allowance for shared auxiliaries, not a vendor rack rating.
+        fixed_overhead_w: 200
+        liquid_heat_fraction: 0
+
+  pools:
+    - name: hgx-pool-a
+      shape: hgx
+      gpu_model: h100_sxm_80gb
+      # One complete eight-GPU HGX H100 baseboard.
+      node_count: 1
+      gpus_per_node: 8
+      hostname_prefix: hgx-node
+      kubernetes_cluster: compute-cluster
+      scalable_unit: unit-a
+      node_ips: {cidr: 10.50.0.0/24, start_offset: 10}
+      placements:
+        # Illustrative chassis height; operators supply actual server RU.
+        - {rack: "rack:site-a/hgx-a", node_start: 0,
+           node_count: 1, slot_start: 1, node_height_u: 8}
+      hardware:
+        # Operator-declared dual-socket server, not captured host capacity.
+        cpus: 128
+        memory_gib: 1024
+        arch: x86_64
+      operating:
+        # Synthetic transfer model, not a measured NVIDIA curve.
+        # Worst declared core temperature is 25+35+10 = 70 C,
+        # below the accepted profile's 87/89/95 C limits.
+        idle_power_fraction: 0.12
+        ambient_temp_c: 25
+        full_power_rise_c: 35
+        cooling_fault_rise_c: 10
+        cooling_perf_loss: 0.3
+        congestion_perf_loss: 0.6
+        storage_perf_loss: 0.5
+        node_base_power_w: 500
+        node_dynamic_per_core_w: 2
+        node_dynamic_per_nic_w: 10
+        # No baseline errors. One event/second/affected edge is an explicit
+        # diagnostic-window assumption, not captured steady-state behavior.
+        nvlink_errors_per_second: 1
+      bmc:
+        management_ips: {cidr: 10.51.0.0/24, start_offset: 10}
+      nodes:
+        - ordinal: 0
+          nvlink:
+            profile: dgxh100_hgxh100-595.91.07
+            domain: baseboard
+            correlated: true
+            # Default owning partition; no exporter entity IDs inferred.
+      gpus:
+        # Explicit synthetic minor-to-module binding, not captured PCI order.
+        # Usable bytes are the accepted idle profile, not advertised GB.
+        - node_ordinal: 0
+          slot: 0
+          hgx_module_id: 0
+          usable_memory: &hgx_memory
+            bytes: 85019590656
+            source:
+              url: capture://loop48-prep/gpucap/p5.48xlarge-h100x8/cap/nvsmi-q.txt
+              revision: H100 SXM; driver 595.91.07; capture 2026-10-03
+              sha256: 403b1ef416c0de549677eef77ba1c9175d5fcf3eb88270ebb98b88092315bd4d
+              section: "Framebuffer lines 112-115; accepted idle usable pool"
+        - {node_ordinal: 0, slot: 1, hgx_module_id: 1, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 2, hgx_module_id: 2, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 3, hgx_module_id: 3, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 4, hgx_module_id: 4, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 5, hgx_module_id: 5, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 6, hgx_module_id: 6, usable_memory: *hgx_memory}
+        - {node_ordinal: 0, slot: 7, hgx_module_id: 7, usable_memory: *hgx_memory}
+      nics:
+        # Operator NIC assignments; not a claim about captured adapters.
+        - name: eth0
+          fabric: frontend-a
+          switch: frontend-leaf-a
+          speed_gbps: 100
+          ips: {cidr: 10.52.0.0/24, start_offset: 10}
+        - {name: eth1, fabric: backend-a, rail: 0, speed_gbps: 400}
+      storage: {cluster: storage-a, nic: eth0, role: compute-client}
+
+  fabrics:
+    - name: frontend-a
+      site: site-a
+      role: frontend
+      devices:
+        - name: frontend-leaf-a
+          kind: leaf
+          # Two endpoint attachments: one compute client and one storage.
+          ports:
+            - {name: node-port, speed_gbps: 100}
+            - {name: storage-port, speed_gbps: 100}
+    - name: backend-a
+      site: site-a
+      role: backend
+      devices:
+        - name: backend-leaf-a
+          kind: leaf
+          rail: 0
+          scalable_unit: unit-a
+          # One backend compute attachment in this one-server fixture.
+          ports:
+            - {name: node-port, speed_gbps: 400}
+
+  storage_clusters:
+    - name: storage-a
+      site: site-a
+      fabric: frontend-a
+      devices:
+        - name: storage-endpoint-a
+          kind: storage_endpoint
+          nics:
+            - {name: eth0, ip: 10.52.1.10, fabric: frontend-a,
+               switch: frontend-leaf-a, port: storage-port, speed_gbps: 100}
+
+  schedulers:
+    - name: scheduler-a
+      kind: runai
+      pools: [hgx-pool-a]
+      projects:
+        # One whole-node training allocation, not fractional/MIG ownership.
+        - {name: research, gpu_quota: 8}
+      workloads:
+        - name: training-a
+          project: research
+          role: training
+          priority: 10
+          # Hours-long training template, not accelerated to force emission.
+          cycle: 6h
+          pending_for: 2m
+          running_min: 2h
+          running_max: 4h
+          namespace: research
+          container: trainer
+          demand:
+            # Operator synthetic training demand; not a vendor benchmark.
+            utilization_base: 0.7
+            utilization_amplitude: 0.1
+            period: 1h
+            memory_reserved_fraction: 0.6
+            memory_dynamic_fraction: 0.1
+            requests_per_second_at_full_utilization: 0
+          workers:
+            - {name: worker-a, pool: hgx-pool-a, node_ordinal: 0,
+               gpu_slots: [0, 1, 2, 3, 4, 5, 6, 7]}
+
+integrations: {}

@@ -111,8 +111,16 @@ func TestGPUIdentityAndTopologyBoundary(t *testing.T) {
 	}
 	for _, key := range keys {
 		m, ok := fixture.LookupGPUModel(key)
-		if !ok || m.MaxPowerW == nil || m.AdvertisedMemoryGB <= 0 || m.SlowdownTempC != nil || m.ShutdownTempC != nil || m.MaxOperatingTempC != nil {
+		if !ok || m.MaxPowerW == nil || m.AdvertisedMemoryGB <= 0 {
 			t.Fatal("strict sourced nullable catalogue mismatch")
+		}
+		// Intentional accepted SXM/595.91.07 envelope; all other products remain unknown.
+		if key == "h100_sxm_80gb" {
+			if m.SlowdownTempC == nil || m.ShutdownTempC == nil || m.MaxOperatingTempC == nil || *m.SlowdownTempC != 89 || *m.ShutdownTempC != 95 || *m.MaxOperatingTempC != 87 {
+				t.Fatal("accepted SXM thermal envelope absent")
+			}
+		} else if m.SlowdownTempC != nil || m.ShutdownTempC != nil || m.MaxOperatingTempC != nil {
+			t.Fatal("other product inherited thermal envelope")
 		}
 	}
 	if _, ok := fixture.LookupGPUModel("unknown"); ok {

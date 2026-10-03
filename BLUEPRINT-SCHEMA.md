@@ -237,6 +237,26 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `gpu_compute.pools[].nodes[].attachments[].nic` | string |  |  |
 | `gpu_compute.pools[].nodes[].attachments[].switch` | string |  |  |
 | `gpu_compute.pools[].nodes[].attachments[].port` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink` | object | yes |  |
+| `gpu_compute.pools[].nodes[].nvlink.profile` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.domain` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.correlated` | bool |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.partitions[]` | object |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.partitions[].name` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.partitions[].gpus[]` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.switches[]` | object |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.switches[].ordinal` | int |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.switches[].name` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.switches[].serial` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.entity_mappings[]` | object |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.entity_mappings[].kind` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.entity_mappings[].key` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.entity_mappings[].vendor_id` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.entity_mappings[].source` | object |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.entity_mappings[].source.url` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.entity_mappings[].source.revision` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.entity_mappings[].source.sha256` | string |  |  |
+| `gpu_compute.pools[].nodes[].nvlink.entity_mappings[].source.section` | string |  |  |
 | `gpu_compute.pools[].gpus[]` | object |  |  |
 | `gpu_compute.pools[].gpus[].node_ordinal` | int |  |  |
 | `gpu_compute.pools[].gpus[].slot` | int |  |  |
@@ -250,6 +270,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `gpu_compute.pools[].gpus[].usable_memory.source.revision` | string |  |  |
 | `gpu_compute.pools[].gpus[].usable_memory.source.sha256` | string |  |  |
 | `gpu_compute.pools[].gpus[].usable_memory.source.section` | string |  |  |
+| `gpu_compute.pools[].gpus[].hgx_module_id` | int | yes |  |
 | `gpu_compute.fabrics[]` | object |  |  |
 | `gpu_compute.fabrics[].name` | string |  |  |
 | `gpu_compute.fabrics[].site` | string |  |  |

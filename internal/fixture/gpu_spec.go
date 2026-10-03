@@ -106,6 +106,7 @@ type GPUNodeOverrideSpec struct {
 	BMC          *GPUDeviceSpec         `yaml:"bmc"`
 	NICAddresses []GPUNICAddressSpec    `yaml:"nic_addresses"`
 	Attachments  []GPUNICAttachmentSpec `yaml:"attachments"`
+	NVLink       *HGXNVLinkSpec         `yaml:"nvlink,omitempty" json:",omitempty"`
 }
 
 type GPUNICAddressSpec struct {
@@ -126,6 +127,7 @@ type GPUOverrideSpec struct {
 	BoardSerial  string               `yaml:"board_serial"`
 	PCIBusID     string               `yaml:"pci_bus_id"`
 	UsableMemory *GPUUsableMemorySpec `yaml:"usable_memory"`
+	HGXModuleID  *int                 `yaml:"hgx_module_id,omitempty" json:",omitempty"`
 }
 
 type GPUUsableMemorySpec struct {
@@ -206,6 +208,16 @@ type GPUStorageClusterSpec struct {
 	Site    string          `yaml:"site"`
 	Fabric  string          `yaml:"fabric"`
 	Devices []GPUDeviceSpec `yaml:"devices"`
+}
+
+// HGXNVLinkSpec declares node-local logical membership around the pinned physical map.
+type HGXNVLinkSpec struct {
+	Profile        string                 `yaml:"profile"`
+	Domain         string                 `yaml:"domain"`
+	Correlated     bool                   `yaml:"correlated"`
+	Partitions     []NVLinkPartitionSpec  `yaml:"partitions"`
+	Switches       []NVSwitchSpec         `yaml:"switches"`
+	EntityMappings []GPUEntityMappingSpec `yaml:"entity_mappings"`
 }
 
 type NVLinkSpec struct {

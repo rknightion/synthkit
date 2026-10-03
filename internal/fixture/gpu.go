@@ -29,6 +29,7 @@ type GPU struct {
 	BoardSerial, PCIBusID            string
 	NodeKey, DomainKey, PartitionKey string
 	UsableMemory                     *GPUUsableMemorySpec
+	HGXModuleID                      *int `json:",omitempty" yaml:"hgx_module_id,omitempty"`
 }
 
 type GPUCPU struct {
@@ -67,6 +68,7 @@ type GPUDevice struct {
 	Ports                                          []GPUDevicePortSpec
 	NICs                                           []GPUNIC
 	Collection                                     *GPUCollectionSpec
+	NodeKey                                        string `json:",omitempty" yaml:"node_key,omitempty"`
 }
 
 type GPUPool struct {
@@ -144,6 +146,7 @@ type NVLinkDomain struct {
 	EntityMappings      []GPUEntityMapping
 	LinksPerGPU         *int
 	LinkCountSource     *GPUFieldSource
+	NodeKey             string `json:",omitempty" yaml:"node_key,omitempty"`
 }
 
 type GPUTarget struct {
@@ -356,8 +359,12 @@ func (s *GPUSelection) Fabrics() []GPUFabric {
 	for _, r := range s.Racks() {
 		rackKeys[r.Key] = true
 	}
+	nodeKeys := map[string]bool{}
+	for _, n := range s.Nodes() {
+		nodeKeys[n.Key] = true
+	}
 	for _, d := range s.Topology.devices {
-		if rackKeys[d.RackKey] {
+		if (d.NodeKey != "" && nodeKeys[d.NodeKey]) || (d.NodeKey == "" && rackKeys[d.RackKey]) {
 			for _, nic := range d.NICs {
 				keys[nic.FabricKey] = true
 			}
@@ -455,8 +462,12 @@ func (s *GPUSelection) Devices() []GPUDevice {
 	for _, r := range s.Racks() {
 		racks[r.Key] = true
 	}
+	nodeKeys := map[string]bool{}
+	for _, n := range s.Nodes() {
+		nodeKeys[n.Key] = true
+	}
 	for _, d := range s.Topology.devices {
-		if racks[d.RackKey] {
+		if (d.NodeKey != "" && nodeKeys[d.NodeKey]) || (d.NodeKey == "" && racks[d.RackKey]) {
 			add(d)
 		}
 	}
@@ -514,6 +525,28 @@ func RequireGPUCapabilities(s *GPUSelection, c GPUCapabilities) error {
 			}
 			if c.GraceEntities && len(n.GraceCPUs) == 0 {
 				return fmt.Errorf("Grace entities absent")
+			}
+		}
+	}
+	// Close mixed-selection admission only for the additive HGX shape.
+	hgx := false
+	for _, n := range s.Nodes() {
+		for _, g := range n.GPUs {
+			hgx = hgx || g.HGXModuleID != nil
+		}
+	}
+	if hgx && c.NVLinkCorrelation {
+		for _, n := range s.Nodes() {
+			for _, g := range n.GPUs {
+				covered := false
+				for _, d := range s.Domains() {
+					if d.Key == g.DomainKey && slices.Contains(d.GPUKeys, g.Key) && gpuValidateCorrelation(d) == nil {
+						covered = true
+					}
+				}
+				if !covered {
+					return fmt.Errorf("selected GPU has no sourced NVLink domain %s", g.Key)
+				}
 			}
 		}
 	}

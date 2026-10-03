@@ -45,7 +45,7 @@ func parseGPUModels() map[string]GPUModelSpec {
 		}
 		number := func(v string) float64 {
 			x, e := strconv.ParseFloat(v, 64)
-			if e != nil || x <= 0 {
+			if e != nil || !gpuFinite(x) || x <= 0 {
 				panic(fmt.Sprintf("invalid GPU catalogue number %q", v))
 			}
 			return x
@@ -69,9 +69,21 @@ func parseGPUModels() map[string]GPUModelSpec {
 		if err != nil || m.MIGMaxInstances < 1 {
 			panic("invalid MIG count")
 		}
-		// Thermal limits are intentionally absent until a sourced envelope exists.
 		if f[7] != "" || f[8] != "" || f[9] != "" {
-			panic("unsourced thermal catalogue column")
+			if m.Key != "h100_sxm_80gb" || f[7] == "" || f[8] == "" || f[9] == "" {
+				panic("unsourced/partial thermal catalogue column")
+			}
+			slow, shutdown, operating := number(f[7]), number(f[8]), number(f[9])
+			if operating > slow || slow > shutdown {
+				panic("invalid thermal catalogue order")
+			}
+			if slow != 89 || shutdown != 95 || operating != 87 {
+				panic("unsupported thermal catalogue envelope")
+			}
+			m.SlowdownTempC, m.ShutdownTempC, m.MaxOperatingTempC = &slow, &shutdown, &operating
+			for field, section := range map[string]string{"SlowdownTempC": "GPU slowdown 89 C", "ShutdownTempC": "GPU shutdown 95 C", "MaxOperatingTempC": "GPU core 32 C + T.Limit margin 55 C = 87 C; current nvidia-smi semantics, not branch-pinned"} {
+				m.Sources[field] = GPUFieldSource{URL: "capture://loop48-prep/gpucap/p5.48xlarge-h100x8/cap/nvsmi-q.txt", Revision: "H100 SXM; driver 595.91.07; capture 2026-10-03 ONLY", SHA256: "403b1ef416c0de549677eef77ba1c9175d5fcf3eb88270ebb98b88092315bd4d", Section: "lines 187-191; " + section}
+			}
 		}
 		var source GPUFieldSource
 		for prefix, s := range gpuDatasheets {
@@ -120,6 +132,12 @@ func LookupGPUModel(key string) (GPUModelSpec, bool) {
 	if m.NVLinkCount != nil {
 		v := *m.NVLinkCount
 		m.NVLinkCount = &v
+	}
+	for _, ptr := range []**float64{&m.SlowdownTempC, &m.ShutdownTempC, &m.MaxOperatingTempC} {
+		if *ptr != nil {
+			v := **ptr
+			*ptr = &v
+		}
 	}
 	return m, true
 }

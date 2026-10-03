@@ -165,11 +165,23 @@ choose independent utilization or GPU/node/rack power formulas. Shared fault
 coverage is mode-specific graph reachability; enabled consumer-local collection
 failures use exact selected-entity membership and never change shared physics.
 
-The fixture emits no telemetry and claims no vendor envelope. Missing usable
-framebuffer, thermal limits and physical NVLink/vendor mapping remain nullable or
-fail-closed capability gates. Runtime tick capture and consumer log/KSM/network
-adapters retain separate ownership and acceptance. See [GPU fixture](docs/ai-factory/fixture.md)
-for join keys, allocation semantics and release barriers.
+The fixture emits no telemetry. The additive `hgx` shape is exactly eight H100
+SXM GPUs in an ordinary operator-declared server, with four node-local switches
+and the 144 access edges of Fabric Manager `595.91.07-1ubuntu1`'s
+`dgxh100_hgxh100_topology` member. Fixture slots/minors bind synthetically to module
+IDs by default; `hgx_module_id` permits a permutation without changing physical
+wiring or allocation slots. Domains/partitions and switch selection are node-local;
+logical partitions do not claim activated firmware partitions. No Grace or tray
+inventory and no exporter entity IDs are inferred.
+
+Only the accepted H100 SXM / driver `595.91.07` core-temperature envelope is known
+(87/89/95 C maximum-operating/slowdown/shutdown). Per-GPU usable framebuffer still
+requires an explicit sourced declaration, never advertised GB. Other products'
+thermal facts, HBM ceilings and unsupported mappings remain nullable/fail-closed.
+Synthetic operating equations and category-free shared faults are not vendor
+transfer curves. Consumer profile admission, NVSwitch exposition, runtime tick
+capture and log/KSM/network adapters retain separate ownership and acceptance.
+See [GPU fixture](docs/ai-factory/fixture.md) for joins and remaining barriers.
 
 ### Registry
 

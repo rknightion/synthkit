@@ -105,6 +105,23 @@ func validateGPUIntegerInput(data []byte) error {
 	for i := 0; i+1 < len(doc.Content); i += 2 {
 		switch doc.Content[i].Value {
 		case "gpu_compute":
+			if pools := child(doc.Content[i+1], "pools"); pools != nil {
+				for pi, pool := range pools.Content {
+					shape := child(pool, "shape")
+					if shape != nil && shape.Value == "hgx" {
+						continue
+					}
+					for _, group := range []struct{ list, field string }{{"nodes", "nvlink"}, {"gpus", "hgx_module_id"}} {
+						if entries := child(pool, group.list); entries != nil {
+							for _, entry := range entries.Content {
+								if child(entry, group.field) != nil {
+									return fmt.Errorf("gpu_compute.pools[%d]: field %s is supported only for hgx shape", pi, group.field)
+								}
+							}
+						}
+					}
+				}
+			}
 			if err := walk(doc.Content[i+1], reflect.TypeOf(fixture.GPUTopologySpec{}), "gpu_compute"); err != nil {
 				return err
 			}

@@ -110,17 +110,17 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 	rackSpecs := map[string]GPURackSpec{}
 	for _, r := range racks {
 		path := "racks." + r.Name
-		if !gpuName(r.Name) || !gpuName(r.Site) || (r.Shape != "pcie" && r.Shape != "nvl72") || (r.Cooling != "air" && r.Cooling != "liquid") {
+		if !gpuName(r.Name) || !gpuName(r.Site) || (r.Shape != "pcie" && r.Shape != "nvl72" && r.Shape != "hgx") || (r.Cooling != "air" && r.Cooling != "liquid") {
 			return nil, bad(path, "invalid name or unsupported shape/cooling")
 		}
 		key := "rack:" + r.Site + "/" + r.Name
 		if err := claim("rack", key, path); err != nil {
 			return nil, err
 		}
-		if r.Shape == "pcie" && r.HeightU == 0 {
+		if (r.Shape == "pcie" || r.Shape == "hgx") && r.HeightU == 0 {
 			r.HeightU = 42
 		}
-		if r.Shape == "pcie" && r.HeightU <= 0 {
+		if (r.Shape == "pcie" || r.Shape == "hgx") && r.HeightU <= 0 {
 			return nil, bad(path, "invalid rack height")
 		}
 		p := r.Physics
@@ -317,11 +317,14 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 		if err := claim("pool", p.Name, path); err != nil {
 			return nil, err
 		}
-		if (p.Shape == "pcie" && p.GPUModel != "h100_pcie_80gb") || (p.Shape == "nvl72" && p.GPUModel != "gb200_186gb") || (p.Shape != "pcie" && p.Shape != "nvl72") {
+		if (p.Shape == "pcie" && p.GPUModel != "h100_pcie_80gb") || (p.Shape == "nvl72" && p.GPUModel != "gb200_186gb") || (p.Shape == "hgx" && p.GPUModel != "h100_sxm_80gb") || (p.Shape != "pcie" && p.Shape != "nvl72" && p.Shape != "hgx") {
 			return nil, bad(path, fmt.Sprintf("gpu_model %q incompatible with shape %q", p.GPUModel, p.Shape))
 		}
 		if p.Shape == "pcie" && (p.GPUsPerNode < 4 || p.GPUsPerNode > 8) {
 			return nil, bad(path, "pcie gpus_per_node must be in [4,8]")
+		}
+		if p.Shape == "hgx" && p.GPUsPerNode != 8 {
+			return nil, bad(path, "hgx gpus_per_node must be 8")
 		}
 		if p.Shape == "nvl72" && p.GPUsPerNode != 4 {
 			return nil, bad(path, "NVL72 requires four GPUs per tray")
@@ -342,7 +345,7 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 			if !ok || t.Racks[ri].Shape != p.Shape || pl.NodeStart < 0 || pl.NodeCount <= 0 || pl.NodeStart+pl.NodeCount > p.NodeCount || pl.SlotStart < 0 {
 				return nil, bad(path, "invalid placement/rack/range")
 			}
-			if p.Shape == "pcie" && (pl.NodeHeightU <= 0 || pl.SlotStart < 1) {
+			if (p.Shape == "pcie" || p.Shape == "hgx") && (pl.NodeHeightU <= 0 || pl.SlotStart < 1) {
 				return nil, bad(path, "PCIe node_height_u and slot_start must be positive")
 			}
 			if p.Shape == "nvl72" && pl.NodeHeightU != 0 {
@@ -354,11 +357,11 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 				}
 				coverage[ord] = pl
 				slot := pl.SlotStart + ord - pl.NodeStart
-				if p.Shape == "pcie" {
+				if p.Shape == "pcie" || p.Shape == "hgx" {
 					slot = pl.SlotStart + (ord-pl.NodeStart)*pl.NodeHeightU
 				}
 				width := 1
-				if p.Shape == "pcie" {
+				if p.Shape == "pcie" || p.Shape == "hgx" {
 					width = pl.NodeHeightU
 					if slot+width-1 > rackSpecs[pl.RackKey].HeightU {
 						return nil, bad(path, "rack slot out of range")
@@ -383,6 +386,9 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 			if _, dup := overrides[o.Ordinal]; dup {
 				return nil, bad(path, "duplicate override ordinal")
 			}
+			if p.Shape != "hgx" && o.NVLink != nil {
+				return nil, bad(path, "field nvlink is supported only for hgx shape")
+			}
 			overrides[o.Ordinal] = o
 		}
 		gs := map[string]GPUOverrideSpec{}
@@ -393,6 +399,9 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 			}
 			if _, dup := gs[k]; dup {
 				return nil, bad(path, "duplicate GPU override")
+			}
+			if p.Shape != "hgx" && g.HGXModuleID != nil {
+				return nil, bad(path, "field hgx_module_id is supported only for hgx shape")
 			}
 			gs[k] = g
 		}
@@ -428,7 +437,7 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 				return nil, err
 			}
 			slot := pl.SlotStart + ord - pl.NodeStart
-			if p.Shape == "pcie" {
+			if p.Shape == "pcie" || p.Shape == "hgx" {
 				slot = pl.SlotStart + (ord-pl.NodeStart)*pl.NodeHeightU
 			}
 			rack := &t.Racks[rackIndex[pl.RackKey]]
@@ -521,10 +530,14 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 					}
 					boards[board] = boardSerial
 				}
+				if p.Shape == "hgx" && g.HGXModuleID == nil {
+					id := slot
+					g.HGXModuleID = &id
+				}
 				if g.UsableMemory != nil && (g.UsableMemory.Bytes == 0 || !gpuSourceValid(g.UsableMemory.Source)) {
 					return nil, bad(path, "usable memory requires sourced positive bytes")
 				}
-				n.GPUs = append(n.GPUs, GPU{Key: fmt.Sprintf("gpu:%s/%d", hostname, slot), UUID: uuid, Model: p.GPUModel, Minor: slot, Slot: slot, BoardSerial: boardSerial, PCIBusID: pci, NodeKey: n.Key, UsableMemory: g.UsableMemory})
+				n.GPUs = append(n.GPUs, GPU{Key: fmt.Sprintf("gpu:%s/%d", hostname, slot), UUID: uuid, Model: p.GPUModel, Minor: slot, Slot: slot, BoardSerial: boardSerial, PCIBusID: pci, NodeKey: n.Key, UsableMemory: g.UsableMemory, HGXModuleID: g.HGXModuleID})
 			}
 			names := map[string]bool{}
 			addresses := map[string]string{}
@@ -622,6 +635,27 @@ func BuildGPUTopology(seed string, spec GPUTopologySpec, clusters map[string]*Cl
 		}
 		poolIndex[p.Name] = p
 		t.Pools = append(t.Pools, rp)
+	}
+	// HGX domains follow canonical GPUs, before target construction and pointer binding.
+	for _, n := range t.Nodes {
+		p := poolIndex[n.Pool]
+		if p.Shape == "hgx" {
+			var nv *HGXNVLinkSpec
+			var nodeKeys []string
+			for _, pool := range t.Pools {
+				if pool.Name == n.Pool {
+					nodeKeys = pool.NodeKeys
+				}
+			}
+			for _, o := range p.Nodes {
+				if o.Ordinal == slices.Index(nodeKeys, n.Key) {
+					nv = o.NVLink
+				}
+			}
+			if err := gpuBuildHGX(t, n, p, nv, makeDevice); err != nil {
+				return nil, bad("hgx", err.Error())
+			}
+		}
 	}
 	// Reserve explicit attachments first; auto requests use declared port-list order.
 	assignAttachments := func() error {

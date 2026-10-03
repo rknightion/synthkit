@@ -146,12 +146,21 @@ func gpuBuildTargets(t *GPUTopology) error {
 		if d.Kind == "nvswitch" {
 			axis = AxisNVLinkSwitch
 		}
-		if err := add(d.Key, d.Kind, axis, d.TrayKey, d.RackKey); err != nil {
+		parents := []string{d.TrayKey, d.RackKey}
+		if d.NodeKey != "" {
+			parents = append(parents, d.NodeKey)
+			for _, domain := range t.Domains {
+				if domain.NodeKey == d.NodeKey && slices.Contains(domain.SwitchKeys, d.Key) {
+					parents = append(parents, domain.Key)
+				}
+			}
+		}
+		if err := add(d.Key, d.Kind, axis, parents...); err != nil {
 			return err
 		}
 	}
 	for _, d := range t.Domains {
-		if err := add(d.Key, "domain", AxisNVLinkDomain, d.RackKey); err != nil {
+		if err := add(d.Key, "domain", AxisNVLinkDomain, d.RackKey, d.NodeKey); err != nil {
 			return err
 		}
 		for _, p := range d.Partitions {
