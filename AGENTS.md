@@ -65,6 +65,19 @@ that declaration, not new top-level kinds.
 AI/LLM vocabulary in the catalog is generic and technology-native. Customer-specific identifiers
 (accounts, environments, workspaces, use cases) never enter the catalog and stay blueprint-only.
 
+## GPU fixture and consumer admission
+
+`gpu_compute` declares the canonical generic topology in `internal/fixture/gpu*`; integration selectors
+are `gpu_pools`, `gpu_fabrics`, `gpu_storage_clusters` and `gpu_schedulers`. Generated EKS node private
+IPs are cluster-local; global hostname/IP collision claims apply to fixed physical inventories and
+GPU-associated hosts. Traditional host hostname claims remain unchanged.
+
+Generic topology, allocation and operator-assumption physics do not establish vendor telemetry facts.
+The sourced catalogue intentionally leaves thermal limits, usable framebuffer and unsupported physical
+NVLink metadata nullable. Consumer profiles fail closed on required missing capabilities. Advertised
+GB is not driver usable/reserved memory; synthetic cooling deltas are not hardware throttle thresholds.
+See `cantfind.md` hardware/profile barriers and the pinned consumer contract before enabling collection.
+
 ## File ownership
 
 Single-owner wiring files, serialised rather than worked around: `internal/runner/`, `go.mod`,
