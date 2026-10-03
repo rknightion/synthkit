@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-package alloyhealth_test
+package syslog_test
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 // Catches a config that is selectable only in direct Build tests, mislabelled
 // Loki instruments, invented OTel parser counters, and non-cumulative intake.
 func TestSyslogPublicLoaderHealth(t *testing.T) {
-	data, err := os.ReadFile("../../../e2e/fixtures/ai-factory-syslog.yaml")
+	data, err := os.ReadFile("../../e2e/fixtures/ai-factory-syslog.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
