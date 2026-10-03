@@ -180,8 +180,8 @@ imported or renumbered.
   seam.
 - `SIGNALS.md` and `signals/<area>.md` - read before adding or renaming any metric, label or field.
 - `BLUEPRINT-SCHEMA.md` - generated; read for the current blueprint field surface, never hand-edit.
-- Backlog docs `doc-0001` (canonical agent-fan-out protocol) and `doc-0002` (Wave operating
-  model) - read both before designing a multi-lane campaign here.
+- `~/repos/agent-docs/sources/loop/contract.md` (the loop contract) and backlog doc `doc-0002`
+  (Wave operating model) - read both before designing a multi-lane campaign here.
 - `dashboards/AGENTS.md` - read before touching anything under `dashboards/`.
 
 Slow tier: `just lab` (disposable k3d collector-egress fidelity capture) took about 35 minutes in CI; run it once on the final candidate when that capture surface changes, not in the inner loop.
