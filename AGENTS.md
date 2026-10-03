@@ -185,3 +185,4 @@ imported or renumbered.
 - `dashboards/AGENTS.md` - read before touching anything under `dashboards/`.
 
 Slow tier: `just lab` (disposable k3d collector-egress fidelity capture) took about 35 minutes in CI; run it once on the final candidate when that capture surface changes, not in the inner loop.
+`just race` is also slow tier (about 10 minutes in CI): keep focused package checks in the inner loop and run the full race tier once on the final candidate.
