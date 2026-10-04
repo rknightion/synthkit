@@ -115,8 +115,7 @@ Single-owner wiring files, serialised rather than worked around: `internal/runne
 `.env.example`, and `internal/archtest/arch_test.go`. Live captures are read-only findings; Docker and
 live stacks are exclusive resources.
 
-The working tree is habitually dirty with unrelated in-flight work. Stage explicit paths only; never
-`git add -A` or `git add .`, and preserve unrelated dirty-tree changes.
+The working tree is habitually dirty with unrelated in-flight work.
 
 ## Secrets and environment surface
 
@@ -160,15 +159,7 @@ and never pass `--yes` or `JUST_YES=1`. Run `just` with stdin from `/dev/null`.
 
 ## Tracker
 
-`backlog/` is the durable queue; new work uses `SKT-NNNN`. Run `backlog instructions overview` first,
-then `task-execution` before planning or changing task work, `task-creation` before creating tasks,
-and `task-finalization` before acceptance checks, summaries or a terminal status change. Do not use
-the Backlog MCP surface here.
-
-Finalize acceptance checks and terminal status in one CLI call; never let two agents edit one task.
-`backlog task edit` takes `--append-notes`/`--append-plan`; the bare `--notes`/`--plan` silently
-replaces the whole section. Backlog content carries no real identifiers or credentials. Park blocked
-work with a concrete resume boundary and leave untouched work To Do. Do not recreate retired external
+New work uses `SKT-NNNN`. Do not use the Backlog MCP surface here. Do not recreate retired external
 issue history in another tracker.
 
 `cantfind.md` is not the tracker: its `SK-N` IDs are stable, separate from `SKT-NNNN`, and must not be
