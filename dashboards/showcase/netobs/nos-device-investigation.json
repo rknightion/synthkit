@@ -1,0 +1,1808 @@
+{
+  "apiVersion": "dashboard.grafana.app/v1beta1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "nos-device-investigation",
+    "annotations": {
+      "grafana.app/folder": "netobs-showcase"
+    }
+  },
+  "spec": {
+    "title": "Network Observability - Device Investigation",
+    "description": "Troubleshoot one device anywhere on the global network: identity and state, reachability history, adjacencies and ego network, change and conflict events, and the health of the discovery exporter that polls it.",
+    "uid": "nos-device-investigation",
+    "tags": [
+      "netobs-showcase",
+      "device",
+      "troubleshooting"
+    ],
+    "editable": true,
+    "graphTooltip": 1,
+    "schemaVersion": 41,
+    "refresh": "1m",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timezone": "browser",
+    "links": [
+      {
+        "type": "dashboards",
+        "tags": [
+          "netobs-showcase"
+        ],
+        "asDropdown": true,
+        "title": "Network Observability",
+        "includeVars": false,
+        "keepTime": true,
+        "targetBlank": false,
+        "icon": "external link",
+        "tooltip": "",
+        "url": ""
+      },
+      {
+        "type": "link",
+        "title": "Topology Explorer for this exporter",
+        "url": "/d/nos-topology-explorer/",
+        "includeVars": false,
+        "keepTime": true,
+        "targetBlank": false,
+        "icon": "dashboard",
+        "tooltip": "",
+        "tags": [],
+        "asDropdown": false
+      },
+      {
+        "type": "link",
+        "title": "Change and discovery health",
+        "url": "/d/nos-change-and-discovery/",
+        "includeVars": false,
+        "keepTime": true,
+        "targetBlank": false,
+        "icon": "dashboard",
+        "tooltip": "",
+        "tags": [],
+        "asDropdown": false
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "type": "query",
+          "name": "exporter",
+          "label": "Exporter",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 1,
+            "query": "label_values(network_topology_graph_devices_total, instance)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "label_values(network_topology_graph_devices_total, instance)",
+          "refresh": 2,
+          "sort": 1,
+          "multi": false,
+          "includeAll": false,
+          "hide": 0,
+          "options": [],
+          "current": {
+            "text": "netobs-glb-hub:9100",
+            "value": "netobs-glb-hub:9100"
+          }
+        },
+        {
+          "type": "query",
+          "name": "device",
+          "label": "Device",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "description": "Devices in the current poll plus any seen in the last hour, so an unreachable device can still be selected.",
+          "query": {
+            "qryType": 3,
+            "query": "query_result(max by (device_id) (last_over_time(network_topology_device_info{instance=\"$exporter\"}[1h])))",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "query_result(max by (device_id) (last_over_time(network_topology_device_info{instance=\"$exporter\"}[1h])))",
+          "regex": "/device_id=\"([^\"]+)\"/",
+          "refresh": 2,
+          "sort": 7,
+          "multi": false,
+          "includeAll": false,
+          "hide": 0,
+          "options": [],
+          "current": {
+            "text": "spine-01",
+            "value": "spine-01"
+          }
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "type": "marcusolsson-dynamictext-panel",
+        "title": "",
+        "description": "Identity from network_topology_device_info (last hour, so an unreachable device still shows), state from presence of the device in the current poll and network_topology_device_uptime_seconds (under one hour = recently rebooted), last reboot = sample time minus sysUpTime, adjacencies from network_topology_edge_info, exporter health from network_topology_graph_stale and network_topology_module_last_status.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max by (device_id, vendor, os_version, site) (last_over_time(network_topology_device_info{instance=\"$exporter\",device_id=\"$device\"}[1h]))",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "(2 * (count(max_over_time(network_topology_device_uptime_seconds{instance=\"$exporter\",device_id=\"$device\"}[2m]) < 3600) > 0)) or count(max_over_time(network_topology_device_info{instance=\"$exporter\",device_id=\"$device\"}[2m])) or (0 * count(last_over_time(network_topology_device_info{instance=\"$exporter\",device_id=\"$device\"}[1h])))",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "max(max_over_time(network_topology_device_uptime_seconds{instance=\"$exporter\",device_id=\"$device\"}[2m]))",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "D",
+            "expr": "max(last_over_time((timestamp(network_topology_device_uptime_seconds{instance=\"$exporter\",device_id=\"$device\"}) - network_topology_device_uptime_seconds{instance=\"$exporter\",device_id=\"$device\"})[1h:1m]))",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "E",
+            "expr": "max(last_over_time(timestamp(network_topology_device_info{instance=\"$exporter\",device_id=\"$device\"})[1h:1m]))",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "F",
+            "expr": "count(max by (neighbour, local_port, remote_port, discovery_proto, link_kind, direction, side) (label_replace(label_replace(label_replace(label_replace(max_over_time(network_topology_edge_info{instance=\"$exporter\",src_device=\"$device\"}[2m]), \"neighbour\", \"$1\", \"dst_device\", \"(.*)\"), \"local_port\", \"$1\", \"src_port\", \"(.*)\"), \"remote_port\", \"$1\", \"dst_port\", \"(.*)\"), \"side\", \"outbound\", \"\", \"\") or label_replace(label_replace(label_replace(label_replace(max_over_time(network_topology_edge_info{instance=\"$exporter\",dst_device=\"$device\"}[2m]), \"neighbour\", \"$1\", \"src_device\", \"(.*)\"), \"local_port\", \"$1\", \"dst_port\", \"(.*)\"), \"remote_port\", \"$1\", \"src_port\", \"(.*)\"), \"side\", \"inbound\", \"\", \"\"))) or vector(0)",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "G",
+            "expr": "count(max by (neighbour, local_port, remote_port, discovery_proto, link_kind, direction, side) (label_replace(label_replace(label_replace(label_replace(last_over_time(network_topology_edge_info{instance=\"$exporter\",src_device=\"$device\"}[1h]), \"neighbour\", \"$1\", \"dst_device\", \"(.*)\"), \"local_port\", \"$1\", \"src_port\", \"(.*)\"), \"remote_port\", \"$1\", \"dst_port\", \"(.*)\"), \"side\", \"outbound\", \"\", \"\") or label_replace(label_replace(label_replace(label_replace(last_over_time(network_topology_edge_info{instance=\"$exporter\",dst_device=\"$device\"}[1h]), \"neighbour\", \"$1\", \"src_device\", \"(.*)\"), \"local_port\", \"$1\", \"dst_port\", \"(.*)\"), \"remote_port\", \"$1\", \"src_port\", \"(.*)\"), \"side\", \"inbound\", \"\", \"\")) unless max by (neighbour, local_port, remote_port, discovery_proto, link_kind, direction, side) (label_replace(label_replace(label_replace(label_replace(max_over_time(network_topology_edge_info{instance=\"$exporter\",src_device=\"$device\"}[2m]), \"neighbour\", \"$1\", \"dst_device\", \"(.*)\"), \"local_port\", \"$1\", \"src_port\", \"(.*)\"), \"remote_port\", \"$1\", \"dst_port\", \"(.*)\"), \"side\", \"outbound\", \"\", \"\") or label_replace(label_replace(label_replace(label_replace(max_over_time(network_topology_edge_info{instance=\"$exporter\",dst_device=\"$device\"}[2m]), \"neighbour\", \"$1\", \"src_device\", \"(.*)\"), \"local_port\", \"$1\", \"dst_port\", \"(.*)\"), \"remote_port\", \"$1\", \"src_port\", \"(.*)\"), \"side\", \"inbound\", \"\", \"\"))) or vector(0)",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "H",
+            "expr": "max(network_topology_graph_stale{instance=\"$exporter\"})",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "I",
+            "expr": "count(network_topology_module_last_status{instance=\"$exporter\"} > 0) or vector(0)",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "options": {
+          "renderMode": "data",
+          "content": "{{deviceCard}}",
+          "defaultContent": "<p>The selected device has not been reported by $exporter in the last hour.</p>",
+          "helpers": "// In \"All data\" mode context.data.data is one array of row objects per returned frame. Frames that\n// return nothing are omitted, so look each value up by its \"Value #<refId>\" column, not by index.\nconst raw = context.data && Array.isArray(context.data.data) ? context.data.data : context.data;\nconst frames = Array.isArray(raw) ? raw : [];\nconst theme = context.grafana.theme;\nconst rowFor = (ref) => {\n  for (const f of frames) {\n    const rowsArr = Array.isArray(f) ? f : [f];\n    const r = rowsArr.find((x) => x && Object.prototype.hasOwnProperty.call(x, 'Value #' + ref));\n    if (r) { return r; }\n  }\n  return null;\n};\nconst val = (ref) => {\n  const r = rowFor(ref);\n  if (!r) { return null; }\n  const v = Number(r['Value #' + ref]);\n  return Number.isNaN(v) ? null : v;\n};\nconst lab = (ref, name) => { const r = rowFor(ref); return r && r[name] !== undefined ? String(r[name]) : ''; };\nconst esc = (s) => String(s ?? '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\nconst dur = (s) => {\n  if (s === null) { return '-'; }\n  const d = Math.floor(s / 86400); const h = Math.floor((s % 86400) / 3600); const m = Math.floor((s % 3600) / 60);\n  return d > 0 ? d + 'd ' + h + 'h' : (h > 0 ? h + 'h ' + m + 'm' : m + 'm');\n};\nconst ts = (s) => {\n  if (s === null) { return '-'; }\n  const d = new Date(s * 1000);\n  const pad = (n) => String(n).padStart(2, '0');\n  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\n  return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());\n};\nconst ago = (s) => {\n  if (s === null) { return ''; }\n  // Relative to the end of the dashboard time range, so a past window reads correctly.\n  const tr = context.grafana.timeRange;\n  const end = tr && tr.to && tr.to.valueOf ? tr.to.valueOf() / 1000 : Date.now() / 1000;\n  const secs = Math.max(0, end - s);\n  return dur(secs) + ' ago';\n};\nconst TIER = { 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core', 'ext-peer': 'External peer', spine: 'Spine',\n  leaf: 'Leaf', host: 'Host' };\nconst VC = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\n\ncontext.handlebars.registerHelper('dbg', () => JSON.stringify({d: context.data, k: Object.keys(context)}).slice(0, 3000));\ncontext.handlebars.registerHelper('deviceCard', () => {\n  const device = context.grafana.replaceVariables('$device');\n  const exporter = context.grafana.replaceVariables('$exporter');\n  const m = /^(edge-fw|wan-core|ext-peer|spine|leaf|host)/.exec(device);\n  const tier = m ? TIER[m[1]] : 'Other';\n  const vendor = lab('A', 'vendor');\n  const os = lab('A', 'os_version');\n  const site = lab('A', 'site');\n  const state = val('B');\n  const uptime = val('C');\n  const boot = val('D');\n  const lastSeen = val('E');\n  const adjN = val('F');\n  const adjLost = val('G');\n  const stale = val('H');\n  const mods = val('I');\n  let st = { t: 'NO DATA', c: theme.colors.text.secondary, s: 'not reported in the last hour' };\n  if (state === 1) { st = { t: 'UP', c: '#56A64B', s: 'responding to SNMP polls' }; }\n  if (state === 2) { st = { t: 'RECENTLY REBOOTED', c: '#FF9830', s: 'sysUpTime under one hour' }; }\n  if (state === 0) { st = { t: 'UNREACHABLE', c: '#E02F44', s: 'last seen ' + ago(lastSeen) }; }\n  const poll = stale === 1 || (mods !== null && mods > 0)\n    ? { t: stale === 1 ? 'Graph stale' : 'Modules degraded', c: '#FF9830' }\n    : { t: 'Polling healthy', c: '#56A64B' };\n  const kpi = (l, v, s, color) => '<div class=\"ni-kpi\"><span class=\"l\">' + esc(l) + '</span><span class=\"v\"'\n    + (color ? ' style=\"color:' + color + '\"' : '') + '>' + esc(v) + '</span><span class=\"s\">' + esc(s) + '</span></div>';\n  const html = '<div class=\"ni-wrap\">'\n    + '<div class=\"ni-id\" style=\"border-left-color:' + st.c + '\">'\n    + '<span class=\"ni-tier\">' + esc(tier) + '</span>'\n    + '<span class=\"ni-name\">' + esc(device) + '</span>'\n    + '<span class=\"ni-sub\"><span class=\"ni-dot\" style=\"background:' + (VC[vendor] || '#9FA7B3') + '\"></span>'\n    + esc(vendor || 'unknown') + ' ' + esc(os) + ' &middot; site ' + esc(site || '-') + '</span>'\n    + '<span class=\"ni-sub\">polled by ' + esc(exporter) + '</span></div>'\n    + '<div class=\"ni-kpi ni-state\" style=\"background:' + st.c + '22;border-color:' + st.c + '\"><span class=\"l\">Current state</span>'\n    + '<span class=\"v\" style=\"color:' + st.c + '\">' + esc(st.t) + '</span><span class=\"s\">' + esc(st.s) + '</span></div>'\n    + kpi('Uptime', state === 0 ? '-' : dur(uptime), state === 0 ? 'no sysUpTime while unreachable' : 'SNMP sysUpTime')\n    + kpi('Last reboot', ts(boot), boot === null ? '' : ago(boot))\n    + kpi('Adjacencies', adjN === null ? '-' : String(adjN), (adjLost || 0) > 0 ? adjLost + ' lost in the last hour' : 'none lost in the last hour',\n      (adjLost || 0) > 0 ? '#E02F44' : null)\n    + kpi('Exporter', poll.t, 'discovery health of ' + exporter, poll.c)\n    + '</div>';\n  return new context.handlebars.SafeString(html);\n});",
+          "styles": ".ni-wrap{display:flex;gap:10px;align-items:stretch;height:100%;font-family:Inter,sans-serif;}\n.ni-id{flex:2;display:flex;flex-direction:column;justify-content:center;padding:4px 16px;border-left:6px solid #56A64B;}\n.ni-tier{font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.7;}\n.ni-name{font-size:30px;font-weight:600;line-height:1.15;}\n.ni-sub{font-size:13px;opacity:.8;line-height:1.5;display:flex;align-items:center;gap:6px;}\n.ni-dot{display:inline-block;width:10px;height:10px;border-radius:50%;}\n.ni-kpi{flex:1;display:flex;flex-direction:column;justify-content:center;padding:6px 14px;border-radius:6px;background:rgba(128,128,128,.12);border:1px solid transparent;min-width:0;}\n.ni-state{flex:1.4;}\n.ni-kpi .l{font-size:12px;text-transform:uppercase;letter-spacing:.06em;opacity:.7;}\n.ni-kpi .v{font-size:24px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}\n.ni-kpi .s{font-size:12px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+          "wrap": true,
+          "status": "",
+          "editors": [
+            "default",
+            "styles",
+            "helpers"
+          ],
+          "externalStyles": [],
+          "afterRender": "",
+          "contentPartials": [],
+          "editor": {
+            "language": "html",
+            "format": "auto"
+          }
+        },
+        "transparent": true,
+        "id": 1,
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 24,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "row",
+        "title": "Reachability and uptime",
+        "collapsed": false,
+        "panels": [],
+        "id": 2,
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 24,
+          "h": 1
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "status-history",
+        "title": "Reachability - $device",
+        "description": "Reachable when the device appears in the exporter's current poll (network_topology_device_info); Unreachable when the exporter is reporting but the device is missing. Gaps mean the exporter itself was not reporting. The second row shows whether the exporter's discovery graph was fresh (network_topology_graph_stale = 0) at the same time.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "(count(max_over_time(network_topology_device_info{instance=\"$exporter\",device_id=\"$device\"}[2m])) or (0 * count(network_topology_graph_devices_total{instance=\"$exporter\"})))",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "Device"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "1 - max(network_topology_graph_stale{instance=\"$exporter\"})",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "Discovery graph"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "1": {
+                    "text": "Reachable",
+                    "color": "green",
+                    "index": 0
+                  },
+                  "0": {
+                    "text": "Unreachable",
+                    "color": "red",
+                    "index": 1
+                  }
+                }
+              }
+            ],
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            },
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 0
+            },
+            "min": 0,
+            "max": 1
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Discovery graph"
+              },
+              "properties": [
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "1": {
+                          "text": "Fresh",
+                          "color": "green",
+                          "index": 0
+                        },
+                        "0": {
+                          "text": "Stale",
+                          "color": "#FF9830",
+                          "index": 1
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showValue": "never",
+          "rowHeight": 0.85,
+          "colWidth": 0.95,
+          "legend": {
+            "showLegend": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "interval": "1m",
+        "id": 3,
+        "gridPos": {
+          "x": 0,
+          "y": 5,
+          "w": 12,
+          "h": 7
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "timeseries",
+        "title": "Uptime (SNMP sysUpTime)",
+        "description": "network_topology_device_uptime_seconds for the device. A drop back towards zero is a reboot or an SNMP agent restart; a gap is a period when the device did not answer polls.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max(network_topology_device_uptime_seconds{instance=\"$exporter\",device_id=\"$device\"}) / 86400",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "sysUpTime"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "suffix: days",
+            "decimals": 2,
+            "color": {
+              "mode": "fixed",
+              "fixedColor": "#5794F2"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 12,
+              "gradientMode": "opacity",
+              "showPoints": "never",
+              "spanNulls": false,
+              "lineInterpolation": "linear"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "showLegend": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "id": 4,
+        "gridPos": {
+          "x": 12,
+          "y": 5,
+          "w": 12,
+          "h": 7
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "row",
+        "title": "Neighbours and ego network",
+        "collapsed": false,
+        "panels": [],
+        "id": 5,
+        "gridPos": {
+          "x": 0,
+          "y": 13,
+          "w": 24,
+          "h": 1
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "volkovlabs-echarts-panel",
+        "title": "Ego network - $device and two hops out",
+        "description": "The selected device at the centre, its direct neighbours on the inner ring and their neighbours on the outer ring, from network_topology_edge_info (links reported in the last hour) and network_topology_device_info. Fill = vendor, shape = tier, red outline = device seen in the last hour but missing from the current poll, red dotted line = link no longer reported. Click any node to re-centre this dashboard on it.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "(max by (instance, device_id, vendor, os_version, site) (max_over_time(network_topology_device_info{instance=\"$exporter\"}[2m])) or (0 * max by (instance, device_id, vendor, os_version, site) (last_over_time(network_topology_device_info{instance=\"$exporter\"}[1h]))))",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "(max by (src_device, src_port, dst_device, dst_port, discovery_proto, link_kind, direction) (max_over_time(network_topology_edge_info{instance=\"$exporter\"}[2m])) or (0 * max by (src_device, src_port, dst_device, dst_port, discovery_proto, link_kind, direction) (last_over_time(network_topology_edge_info{instance=\"$exporter\"}[1h]))))",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "const series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst textColor = theme.colors.text.primary;\nconst mutedColor = theme.colors.text.secondary;\nconst centre = context.grafana.replaceVariables('$device');\n\nfunction rows(refId) {\n  const f = series.find((s) => s.refId === refId);\n  if (!f || !f.fields.length) { return []; }\n  const n = f.fields[0].values.length;\n  const out = [];\n  for (let i = 0; i < n; i++) {\n    const r = {};\n    f.fields.forEach((fl) => { r[fl.name] = fl.values.get ? fl.values.get(i) : fl.values[i]; });\n    out.push(r);\n  }\n  return out;\n}\nconst valOf = (r) => { const k = Object.keys(r).find((x) => x.startsWith('Value')); return k ? Number(r[k]) : 1; };\nconst esc = (s) => String(s ?? '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\nconst natural = (a, b) => a.localeCompare(b, undefined, { numeric: true });\nconst tierOf = (id) => { const m = /^(edge-fw|wan-core|ext-peer|spine|leaf|host)/.exec(id); return m ? m[1] : 'other'; };\nconst TIER_NAME = { 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core', 'ext-peer': 'External peer',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_SYMBOL = { 'edge-fw': 'triangle', 'wan-core': 'diamond', 'ext-peer': 'pin', spine: 'roundRect',\n  leaf: 'rect', host: 'circle', other: 'circle' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst DOWN = '#E02F44';\n\nconst dev = new Map();\nrows('A').forEach((r) => { if (r.device_id) { dev.set(r.device_id, { vendor: r.vendor || 'unknown', os: r.os_version || '',\n  site: r.site || '', up: valOf(r) >= 1 }); } });\nconst adjMap = new Map();\nconst edges = [];\nrows('B').forEach((r) => {\n  if (!r.src_device || !r.dst_device) { return; }\n  const e = { s: r.src_device, t: r.dst_device, sp: r.src_port, dp: r.dst_port, proto: r.discovery_proto,\n    kind: r.link_kind, dir: r.direction, up: valOf(r) >= 1 };\n  edges.push(e);\n  [[e.s, e.t], [e.t, e.s]].forEach(([a, b]) => { if (!adjMap.has(a)) { adjMap.set(a, new Set()); } adjMap.get(a).add(b); });\n});\n\nif (!adjMap.has(centre) && !dev.has(centre)) {\n  return { title: { text: 'No adjacencies reported for ' + centre + ' in the last hour', left: 'center', top: 'middle',\n    textStyle: { color: mutedColor, fontSize: 14 } } };\n}\n\n// Breadth-first search to two hops. Each hop-2 node is drawn behind one hop-1 parent: nodes with a\n// single possible parent are placed first, the rest go to the least loaded parent so groups stay even.\nconst hop = new Map([[centre, 0]]);\nconst hop1 = Array.from(adjMap.get(centre) || []).sort(natural);\nhop1.forEach((n) => { hop.set(n, 1); });\nconst cands = new Map();\nhop1.forEach((n) => {\n  Array.from(adjMap.get(n) || []).forEach((m) => {\n    if (hop.has(m) && hop.get(m) < 2) { return; }\n    hop.set(m, 2);\n    if (!cands.has(m)) { cands.set(m, []); }\n    cands.get(m).push(n);\n  });\n});\nconst load = new Map(hop1.map((n) => [n, 0]));\nconst parent = new Map();\nArray.from(cands.keys()).sort((a, b) => cands.get(a).length - cands.get(b).length || natural(a, b)).forEach((m) => {\n  const best = cands.get(m).slice().sort((a, b) => load.get(a) - load.get(b) || natural(a, b))[0];\n  parent.set(m, best); load.set(best, load.get(best) + 1);\n});\n\n// Concentric layout: hop 1 on an inner ring, hop 2 fanned out behind its parent.\nconst R1 = 230; const R2 = 430;\nconst pos = new Map([[centre, { x: 0, y: 0 }]]);\nconst angle = new Map();\nconst tierRank = { 'edge-fw': 0, 'wan-core': 1, 'ext-peer': 2, spine: 3, leaf: 4, host: 5, other: 6 };\nconst ring1 = hop1.slice().sort((a, b) => tierRank[tierOf(a)] - tierRank[tierOf(b)] || natural(a, b));\nconst totalKids = Math.max(1, Array.from(load.values()).reduce((x, y) => x + y, 0));\n// Each hop-1 node gets an angular share proportional to (1 + its children).\nconst weight = (n) => 1 + load.get(n) * Math.max(1, ring1.length / totalKids);\nconst wsum = ring1.reduce((acc, n) => acc + weight(n), 0) || 1;\nlet cursor = -Math.PI / 2;\nconst sector = new Map();\nring1.forEach((n) => {\n  const span = (2 * Math.PI * weight(n)) / wsum;\n  const a = ring1.length === 1 ? -Math.PI / 2 : cursor + span / 2;\n  angle.set(n, a); sector.set(n, Math.min(span, (200 * Math.PI) / 180));\n  pos.set(n, { x: R1 * Math.cos(a), y: R1 * Math.sin(a) });\n  cursor += span;\n});\nconst kids = new Map(ring1.map((n) => [n, []]));\nArray.from(parent.keys()).sort((a, b) => tierRank[tierOf(a)] - tierRank[tierOf(b)] || natural(a, b))\n  .forEach((m) => kids.get(parent.get(m)).push(m));\nring1.forEach((n) => {\n  const k = kids.get(n); const sp = sector.get(n) * 0.9;\n  k.forEach((m, j) => {\n    const a = angle.get(n) + (k.length === 1 ? 0 : (j / (k.length - 1) - 0.5) * sp);\n    pos.set(m, { x: R2 * Math.cos(a), y: R2 * Math.sin(a) });\n  });\n});\nconst ring2 = Array.from(parent.keys());\n\nconst crowded2 = ring2.length > 36;\nconst crowded1 = ring1.length > 30;\nconst nodes = Array.from(hop.keys()).map((id) => {\n  const meta = dev.get(id) || { vendor: 'unknown', os: '', site: '', up: false, unknown: true };\n  const h = hop.get(id);\n  const p = pos.get(id);\n  const t = tierOf(id);\n  const down = !meta.unknown && !meta.up;\n  const size = h === 0 ? 46 : (h === 1 ? 20 : 11);\n  const a = Math.atan2(p.y, p.x);\n  return {\n    id, name: id, x: p.x, y: p.y, symbol: TIER_SYMBOL[t], symbolSize: size,\n    itemStyle: { color: meta.unknown ? '#9FA7B3' : (VENDOR_COLOR[meta.vendor] || '#9FA7B3'),\n      borderColor: down ? DOWN : (h === 0 ? textColor : theme.colors.background.primary),\n      borderWidth: down ? 4 : (h === 0 ? 3 : 1), opacity: down ? 0.55 : 1 },\n    label: { show: h === 0 || (h === 1 && !crowded1) || (h === 2 && !crowded2), color: down ? DOWN : textColor,\n      fontSize: h === 0 ? 15 : (h === 1 ? 11 : 10), fontWeight: h === 0 ? 'bold' : 'normal',\n      position: h === 0 ? 'bottom' : (Math.cos(a) >= 0 ? 'right' : 'left'), distance: 4 },\n    meta: { id, hop: h, tier: t, down, unknown: !!meta.unknown, ...meta },\n  };\n});\n// Invisible corner anchors keep the selected device in the middle of the panel whatever the shape.\n[[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy], i) => {\n  nodes.push({ id: '__anchor' + i, name: '', x: sx * (R2 + 20), y: sy * (R2 + 20), symbolSize: 0,\n    itemStyle: { opacity: 0 }, label: { show: false }, tooltip: { show: false }, emphasis: { disabled: true }, meta: null });\n});\nconst links0 = edges.filter((e) => hop.has(e.s) && hop.has(e.t)).length;\nconst links = edges.filter((e) => hop.has(e.s) && hop.has(e.t) && !(hop.get(e.s) === 2 && hop.get(e.t) === 2))\n  .map((e) => {\n    const first = e.s === centre || e.t === centre;\n    // Tree edges (to the hop-1 node a hop-2 node is drawn behind) stay visible; mesh cross-links fade.\n    const tree = first || parent.get(e.s) === e.t || parent.get(e.t) === e.s;\n    return { source: e.s, target: e.t, e,\n      lineStyle: { color: e.up ? (first ? theme.colors.primary.main : mutedColor) : DOWN,\n        width: first ? 2.4 : (tree ? 1 : 0.6), type: e.up ? (e.proto === 'bgp' || e.proto === 'mpls_te' ? 'dashed' : 'solid') : 'dotted',\n        opacity: first ? 0.9 : (tree ? 0.5 : (links0 > 60 ? 0.07 : 0.25)), curveness: 0 } };\n  });\n\n// Key: vendor fill, unreachable outline, lost link.\nconst key = [];\nlet kx = 0;\nObject.keys(VENDOR_COLOR).filter((v) => nodes.some((n) => n.meta && n.meta.vendor === v)).forEach((v) => {\n  key.push({ type: 'circle', shape: { cx: kx + 6, cy: 6, r: 6 }, style: { fill: VENDOR_COLOR[v] } });\n  key.push({ type: 'text', x: kx + 16, y: 0, style: { text: v, fill: textColor, fontSize: 12 } });\n  kx += 16 + v.length * 7 + 16;\n});\nkey.push({ type: 'circle', shape: { cx: kx + 6, cy: 6, r: 5 }, style: { fill: 'transparent', stroke: DOWN, lineWidth: 3 } });\nkey.push({ type: 'text', x: kx + 16, y: 0, style: { text: 'unreachable', fill: textColor, fontSize: 12 } });\nkx += 16 + 11 * 7 + 16;\nkey.push({ type: 'line', shape: { x1: kx, y1: 6, x2: kx + 24, y2: 6 }, style: { stroke: DOWN, lineWidth: 2, lineDash: [2, 3] } });\nkey.push({ type: 'text', x: kx + 30, y: 0, style: { text: 'link lost', fill: textColor, fontSize: 12 } });\n\nconst nDown = nodes.filter((n) => n.meta && n.meta.down).length;\nconst summary = ring1.length + ' direct neighbours, ' + ring2.length + ' at two hops'\n  + (nDown ? ', ' + nDown + ' unreachable' : '') + '  -  click a node to investigate it';\n\ncontext.panel.chart.off('click');\ncontext.panel.chart.on('click', (pr) => {\n  if (pr.dataType === 'node' && pr.data && pr.data.id && pr.data.id !== centre && pr.data.meta && !pr.data.meta.unknown) {\n    context.grafana.locationService.partial({ 'var-device': pr.data.id }, false);\n  }\n});\n\nreturn {\n  backgroundColor: 'transparent',\n  title: { text: summary, left: 8, top: 4, textStyle: { color: mutedColor, fontSize: 12, fontWeight: 'normal' } },\n  graphic: [{ type: 'group', right: 12, top: 6, children: key }],\n  tooltip: {\n    trigger: 'item', confine: true,\n    formatter: (pr) => {\n      if (pr.dataType === 'edge') {\n        const e = pr.data.e;\n        const port = (x) => (x && x !== 'null' ? ' : ' + esc(x) : '');\n        return '<b>' + esc(e.s) + port(e.sp) + '</b> &rarr; <b>' + esc(e.t) + port(e.dp) + '</b><br/>protocol: '\n          + esc(e.proto) + '<br/>link kind: ' + esc(e.kind) + '<br/>direction: ' + esc(e.dir)\n          + '<br/>state: ' + (e.up ? 'up' : '<span style=\"color:' + DOWN + '\">lost</span>');\n      }\n      const m = pr.data.meta;\n      if (!m) { return ''; }\n      return '<b>' + esc(m.id) + '</b> (' + (m.hop === 0 ? 'selected' : m.hop + ' hop' + (m.hop > 1 ? 's' : '')) + ')<br/>tier: '\n        + esc(TIER_NAME[m.tier]) + (m.unknown ? '<br/>not in this exporter\\'s inventory' : '<br/>vendor: ' + esc(m.vendor)\n        + '<br/>OS: ' + esc(m.os) + '<br/>site: ' + esc(m.site)) + '<br/>state: '\n        + (m.unknown ? 'unknown' : (m.down ? '<span style=\"color:' + DOWN + '\">unreachable</span>' : 'reachable'));\n    },\n  },\n  animation: false,\n  series: [{\n    type: 'graph', layout: 'none', roam: true, draggable: false, nodeScaleRatio: 0,\n    top: 40, bottom: 20, left: 90, right: 90,\n    data: nodes, links, edgeSymbol: ['none', 'none'],\n    labelLayout: { hideOverlap: true },\n    emphasis: { focus: 'adjacency', label: { show: true }, lineStyle: { width: 3, opacity: 1 } },\n    blur: { itemStyle: { opacity: 0.15 }, lineStyle: { opacity: 0.05 } },\n  }],\n};"
+        },
+        "id": 6,
+        "gridPos": {
+          "x": 0,
+          "y": 14,
+          "w": 13,
+          "h": 21
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "table",
+        "title": "Adjacencies",
+        "description": "Every link in network_topology_edge_info where the device is the source (outbound) or the destination (inbound) during the last hour, seen from the device's side. Lost = reported earlier in the hour but missing from the current poll. Click a neighbour to investigate it.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "(max by (neighbour, local_port, remote_port, discovery_proto, link_kind, direction, side) (label_replace(label_replace(label_replace(label_replace(max_over_time(network_topology_edge_info{instance=\"$exporter\",src_device=\"$device\"}[2m]), \"neighbour\", \"$1\", \"dst_device\", \"(.*)\"), \"local_port\", \"$1\", \"src_port\", \"(.*)\"), \"remote_port\", \"$1\", \"dst_port\", \"(.*)\"), \"side\", \"outbound\", \"\", \"\") or label_replace(label_replace(label_replace(label_replace(max_over_time(network_topology_edge_info{instance=\"$exporter\",dst_device=\"$device\"}[2m]), \"neighbour\", \"$1\", \"src_device\", \"(.*)\"), \"local_port\", \"$1\", \"dst_port\", \"(.*)\"), \"remote_port\", \"$1\", \"src_port\", \"(.*)\"), \"side\", \"inbound\", \"\", \"\")) or (0 * max by (neighbour, local_port, remote_port, discovery_proto, link_kind, direction, side) (label_replace(label_replace(label_replace(label_replace(last_over_time(network_topology_edge_info{instance=\"$exporter\",src_device=\"$device\"}[1h]), \"neighbour\", \"$1\", \"dst_device\", \"(.*)\"), \"local_port\", \"$1\", \"src_port\", \"(.*)\"), \"remote_port\", \"$1\", \"dst_port\", \"(.*)\"), \"side\", \"outbound\", \"\", \"\") or label_replace(label_replace(label_replace(label_replace(last_over_time(network_topology_edge_info{instance=\"$exporter\",dst_device=\"$device\"}[1h]), \"neighbour\", \"$1\", \"src_device\", \"(.*)\"), \"local_port\", \"$1\", \"dst_port\", \"(.*)\"), \"remote_port\", \"$1\", \"src_port\", \"(.*)\"), \"side\", \"inbound\", \"\", \"\"))))",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "indexByName": {
+                "Value": 0,
+                "local_port": 1,
+                "neighbour": 2,
+                "remote_port": 3,
+                "discovery_proto": 4,
+                "link_kind": 5,
+                "direction": 6,
+                "side": 7
+              },
+              "renameByName": {
+                "Value": "State",
+                "local_port": "Local port",
+                "neighbour": "Neighbour",
+                "remote_port": "Remote port",
+                "discovery_proto": "Protocol",
+                "link_kind": "Link kind",
+                "direction": "Direction",
+                "side": "Seen as"
+              }
+            }
+          },
+          {
+            "id": "sortBy",
+            "options": {
+              "sort": [
+                {
+                  "field": "Neighbour",
+                  "desc": false
+                }
+              ]
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "filterable": false
+            },
+            "noValue": "-"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "State"
+              },
+              "properties": [
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "1": {
+                          "text": "Up",
+                          "color": "green",
+                          "index": 0
+                        },
+                        "0": {
+                          "text": "Lost",
+                          "color": "red",
+                          "index": 1
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "custom.width",
+                  "value": 70
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Neighbour"
+              },
+              "properties": [
+                {
+                  "id": "links",
+                  "value": [
+                    {
+                      "title": "Investigate ${__value.raw}",
+                      "url": "/d/nos-device-investigation/?var-exporter=${exporter}&var-device=${__value.raw}&${__url_time_range}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Protocol"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 80
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Link kind"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 80
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Seen as"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 80
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "footer": {
+            "show": false
+          }
+        },
+        "id": 7,
+        "gridPos": {
+          "x": 13,
+          "y": 14,
+          "w": 11,
+          "h": 11
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "status-history",
+        "title": "Link presence per adjacency",
+        "description": "One row per adjacency (local port -> neighbour : remote port, protocol). Up while network_topology_edge_info reports the link, Lost when the exporter is polling but the link is missing (tracked for an hour after it was last seen). Gaps mean the exporter was not reporting.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "(max by (neighbour, local_port, remote_port, discovery_proto, link_kind, direction, side) (label_replace(label_replace(label_replace(label_replace(max_over_time(network_topology_edge_info{instance=\"$exporter\",src_device=\"$device\"}[2m]), \"neighbour\", \"$1\", \"dst_device\", \"(.*)\"), \"local_port\", \"$1\", \"src_port\", \"(.*)\"), \"remote_port\", \"$1\", \"dst_port\", \"(.*)\"), \"side\", \"outbound\", \"\", \"\") or label_replace(label_replace(label_replace(label_replace(max_over_time(network_topology_edge_info{instance=\"$exporter\",dst_device=\"$device\"}[2m]), \"neighbour\", \"$1\", \"src_device\", \"(.*)\"), \"local_port\", \"$1\", \"dst_port\", \"(.*)\"), \"remote_port\", \"$1\", \"src_port\", \"(.*)\"), \"side\", \"inbound\", \"\", \"\")) or (0 * max by (neighbour, local_port, remote_port, discovery_proto, link_kind, direction, side) (label_replace(label_replace(label_replace(label_replace(last_over_time(network_topology_edge_info{instance=\"$exporter\",src_device=\"$device\"}[1h]), \"neighbour\", \"$1\", \"dst_device\", \"(.*)\"), \"local_port\", \"$1\", \"src_port\", \"(.*)\"), \"remote_port\", \"$1\", \"dst_port\", \"(.*)\"), \"side\", \"outbound\", \"\", \"\") or label_replace(label_replace(label_replace(label_replace(last_over_time(network_topology_edge_info{instance=\"$exporter\",dst_device=\"$device\"}[1h]), \"neighbour\", \"$1\", \"src_device\", \"(.*)\"), \"local_port\", \"$1\", \"dst_port\", \"(.*)\"), \"remote_port\", \"$1\", \"src_port\", \"(.*)\"), \"side\", \"inbound\", \"\", \"\")))) and on() (count(network_topology_graph_devices_total{instance=\"$exporter\"}) > 0)",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "{{neighbour}} - {{local_port}} ({{discovery_proto}})"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "1": {
+                    "text": "Up",
+                    "color": "green",
+                    "index": 0
+                  },
+                  "0": {
+                    "text": "Lost",
+                    "color": "red",
+                    "index": 1
+                  }
+                }
+              }
+            ],
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            },
+            "custom": {
+              "fillOpacity": 80,
+              "lineWidth": 0
+            },
+            "min": 0,
+            "max": 1
+          },
+          "overrides": []
+        },
+        "options": {
+          "showValue": "never",
+          "rowHeight": 0.8,
+          "colWidth": 0.95,
+          "legend": {
+            "showLegend": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "interval": "1m",
+        "id": 8,
+        "gridPos": {
+          "x": 13,
+          "y": 25,
+          "w": 11,
+          "h": 10
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "row",
+        "title": "Change and conflict events involving $device",
+        "collapsed": false,
+        "panels": [],
+        "id": 9,
+        "gridPos": {
+          "x": 0,
+          "y": 35,
+          "w": 24,
+          "h": 1
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "timeseries",
+        "title": "Events over time",
+        "description": "Topology change (added / removed / changed) and conflict events from the exporter log stream where the device is src_device or dst_device (structured metadata), counted per interval.",
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "refId": "A",
+            "expr": "sum by (change_kind, conflict_type) (count_over_time({source=\"network-topology-exporter\", instance=\"$exporter\"} | src_device=\"$device\" or dst_device=\"$device\" [$__auto]))",
+            "editorMode": "code",
+            "queryType": "range",
+            "legendFormat": "{{change_kind}}{{conflict_type}}"
+          }
+        ],
+        "interval": "2m",
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "color": {
+              "mode": "palette-classic"
+            },
+            "noValue": "No change or conflict events involve this device in the selected range",
+            "min": 0,
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 80,
+              "lineWidth": 1,
+              "stacking": {
+                "mode": "normal",
+                "group": "A"
+              },
+              "showPoints": "never"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "added"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#73BF69"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "removed"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "changed"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "neighbour_disagreement"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  }
+                },
+                {
+                  "id": "displayName",
+                  "value": "conflict: neighbour disagreement"
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "showLegend": true,
+            "displayMode": "list",
+            "placement": "bottom",
+            "calcs": [
+              "sum"
+            ]
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "id": 10,
+        "gridPos": {
+          "x": 0,
+          "y": 36,
+          "w": 9,
+          "h": 10
+        }
+      },
+      {
+        "type": "logs",
+        "title": "Change and conflict log - $device",
+        "description": "Raw topology_change and topology_conflict lines from {source=\"network-topology-exporter\"} for the selected exporter, filtered on the src_device / dst_device structured metadata.",
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "refId": "A",
+            "expr": "{source=\"network-topology-exporter\", instance=\"$exporter\"} | src_device=\"$device\" or dst_device=\"$device\"",
+            "editorMode": "code",
+            "queryType": "range"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending",
+          "enableInfiniteScrolling": false
+        },
+        "id": 11,
+        "gridPos": {
+          "x": 9,
+          "y": 36,
+          "w": 15,
+          "h": 10
+        }
+      },
+      {
+        "type": "row",
+        "title": "Polling context - is it the device or the poller? ($exporter)",
+        "collapsed": false,
+        "panels": [],
+        "id": 12,
+        "gridPos": {
+          "x": 0,
+          "y": 46,
+          "w": 24,
+          "h": 1
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "state-timeline",
+        "title": "Discovery module status",
+        "description": "network_topology_module_last_status per discovery module of the exporter that polls this device: 0 OK, 1 Degraded, 2 Hard-failed. A failing module explains missing links better than a device fault does.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max by (module) (network_topology_module_last_status{instance=\"$exporter\"})",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "{{module}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "OK",
+                    "color": "green",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "Degraded",
+                    "color": "#FF9830",
+                    "index": 1
+                  },
+                  "2": {
+                    "text": "Hard-failed",
+                    "color": "red",
+                    "index": 2
+                  }
+                }
+              }
+            ],
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "#FF9830",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 2
+                }
+              ]
+            },
+            "custom": {
+              "fillOpacity": 80,
+              "lineWidth": 0
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "showValue": "never",
+          "rowHeight": 0.8,
+          "mergeValues": true,
+          "alignValue": "left",
+          "legend": {
+            "showLegend": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "interval": "1m",
+        "id": 13,
+        "gridPos": {
+          "x": 0,
+          "y": 47,
+          "w": 8,
+          "h": 9
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "timeseries",
+        "title": "Discovery cycle duration p95",
+        "description": "95th percentile of network_topology_discovery_cycle_duration_seconds (whole cycle) and the slowest module from network_topology_discovery_module_duration_seconds, over 10 minute windows.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(network_topology_discovery_cycle_duration_seconds_bucket{instance=\"$exporter\"}[10m])))",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "Full cycle p95"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "max(histogram_quantile(0.95, sum by (le, module) (rate(network_topology_discovery_module_duration_seconds_bucket{instance=\"$exporter\"}[10m]))))",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "Slowest module p95"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "decimals": 1,
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "gradientMode": "opacity",
+              "showPoints": "never",
+              "spanNulls": false
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Full cycle p95"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Slowest module p95"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#B877D9"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "showLegend": true,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "id": 14,
+        "gridPos": {
+          "x": 8,
+          "y": 47,
+          "w": 8,
+          "h": 9
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "timeseries",
+        "title": "SNMP walk and credential outcomes",
+        "description": "Per-minute rate of network_topology_snmp_walks_total by status and network_topology_credential_trials_total by status for the exporter. Rising timeouts or failed credential trials point at the poller or the access path, not the device graph.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "sum by (status) (rate(network_topology_snmp_walks_total{instance=\"$exporter\"}[$__rate_interval])) * 60",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "walk {{status}}"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "sum by (status) (rate(network_topology_credential_trials_total{instance=\"$exporter\"}[$__rate_interval])) * 60",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "credential {{status}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 1,
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 0,
+              "showPoints": "never",
+              "scaleDistribution": {
+                "type": "log",
+                "log": 10
+              },
+              "axisLabel": "per minute"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "walk ok"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#73BF69"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "walk timeout"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "credential ok"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "credential failed"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "showLegend": true,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "id": 15,
+        "gridPos": {
+          "x": 16,
+          "y": 47,
+          "w": 8,
+          "h": 9
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "table",
+        "title": "Federation boundary observations involving $device",
+        "description": "network_topology_boundary_observation_info rows on the federation hub where the device is the reporting_device or one of the peers: links that cross out of this exporter's discovery scope. Only the hub reports these.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max by (reporting_device, src_port, peer_a, peer_b, proto) (network_topology_boundary_observation_info{instance=\"$exporter\",reporting_device=\"$device\"} or network_topology_boundary_observation_info{instance=\"$exporter\",peer_a=\"$device\"} or network_topology_boundary_observation_info{instance=\"$exporter\",peer_b=\"$device\"})",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "Value": true
+              },
+              "indexByName": {
+                "reporting_device": 0,
+                "src_port": 1,
+                "peer_a": 2,
+                "peer_b": 3,
+                "proto": 4
+              },
+              "renameByName": {
+                "reporting_device": "Reporting device",
+                "src_port": "Port",
+                "peer_a": "Peer A",
+                "peer_b": "Peer B",
+                "proto": "Protocol"
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              }
+            },
+            "noValue": "No boundary observations involve this device"
+          },
+          "overrides": []
+        },
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "footer": {
+            "show": false
+          }
+        },
+        "id": 16,
+        "gridPos": {
+          "x": 0,
+          "y": 56,
+          "w": 10,
+          "h": 6
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "stat",
+        "title": "Exporter at a glance",
+        "description": "For the exporter polling this device: devices and links in its current graph (network_topology_graph_devices_total, network_topology_graph_edges_total), devices seen in the last hour but missing now, and discovery modules not OK (network_topology_module_last_status > 0).",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max(network_topology_graph_devices_total{instance=\"$exporter\"})",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "Devices"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "max(network_topology_graph_edges_total{instance=\"$exporter\"})",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "Links"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "count(max by (device_id) (last_over_time(network_topology_device_info{instance=\"$exporter\"}[1h])) unless on (device_id) max_over_time(network_topology_device_info{instance=\"$exporter\"}[2m])) or vector(0)",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "Unreachable now"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "D",
+            "expr": "count(network_topology_module_last_status{instance=\"$exporter\"} > 0) or vector(0)",
+            "editorMode": "code",
+            "format": "time_series",
+            "instant": false,
+            "range": true,
+            "legendFormat": "Modules not OK"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "color": {
+              "mode": "fixed",
+              "fixedColor": "#5794F2"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Links"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#8F3BB8"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byRegexp",
+                "options": "Unreachable now|Modules not OK"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "red",
+                        "value": 1
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value_and_name",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "orientation": "horizontal",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "id": 17,
+        "gridPos": {
+          "x": 10,
+          "y": 56,
+          "w": 14,
+          "h": 6
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "row",
+        "title": "Find a device (all exporters)",
+        "collapsed": false,
+        "panels": [],
+        "id": 18,
+        "gridPos": {
+          "x": 0,
+          "y": 62,
+          "w": 24,
+          "h": 1
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "table",
+        "title": "Device finder",
+        "description": "Every device reported by any discovery exporter in the last hour, with its current state (Reachable = in the current poll, Unreachable = seen in the last hour but missing now). Filter a column header to search; click a device to investigate it.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "label_replace((max by (instance, device_id, vendor, os_version, site) (max_over_time(network_topology_device_info[2m])) or (0 * max by (instance, device_id, vendor, os_version, site) (last_over_time(network_topology_device_info[1h])))), \"tier\", \"$1\", \"device_id\", \"^(edge-fw|wan-core|ext-peer|spine|leaf|host).*\")",
+            "editorMode": "code",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "indexByName": {
+                "device_id": 0,
+                "Value": 1,
+                "tier": 2,
+                "vendor": 3,
+                "os_version": 4,
+                "site": 5,
+                "instance": 6
+              },
+              "renameByName": {
+                "device_id": "Device",
+                "Value": "State",
+                "tier": "Tier",
+                "vendor": "Vendor",
+                "os_version": "OS version",
+                "site": "Site",
+                "instance": "Exporter"
+              }
+            }
+          },
+          {
+            "id": "sortBy",
+            "options": {
+              "sort": [
+                {
+                  "field": "State",
+                  "desc": false
+                }
+              ]
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "filterable": true
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Device"
+              },
+              "properties": [
+                {
+                  "id": "links",
+                  "value": [
+                    {
+                      "title": "Investigate ${__value.raw}",
+                      "url": "/d/nos-device-investigation/?var-exporter=${__data.fields.Exporter}&var-device=${__value.raw}&${__url_time_range}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "State"
+              },
+              "properties": [
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "1": {
+                          "text": "Reachable",
+                          "color": "green",
+                          "index": 0
+                        },
+                        "0": {
+                          "text": "Unreachable",
+                          "color": "red",
+                          "index": 1
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "custom.width",
+                  "value": 120
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Vendor"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-text"
+                  }
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "arista": {
+                          "color": "#5794F2",
+                          "index": 0
+                        },
+                        "cisco": {
+                          "color": "#73BF69",
+                          "index": 1
+                        },
+                        "juniper": {
+                          "color": "#FF9830",
+                          "index": 2
+                        },
+                        "nokia": {
+                          "color": "#B877D9",
+                          "index": 3
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "footer": {
+            "show": true,
+            "reducer": [
+              "count"
+            ],
+            "fields": [
+              "Device"
+            ]
+          }
+        },
+        "id": 19,
+        "gridPos": {
+          "x": 0,
+          "y": 63,
+          "w": 24,
+          "h": 12
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      }
+    ]
+  }
+}

@@ -266,10 +266,10 @@ panels.append(clock("London", "Europe/London", 19, 5, "LONDON"))
 
 # flow panel
 flow_targets = [
-    prom(f'max by (device_id) (network_topology_device_uptime_seconds{{instance="{DC1}"}})'
+    prom(f'max by (device_id) (last_over_time(network_topology_device_uptime_seconds{{instance="{DC1}"}}[2m]))'
          f' or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{{instance="{DC1}"}}[1h])) * 0 - 1)',
          "{{device_id}}", "A"),
-    prom(f'max by (device_id) (network_topology_device_uptime_seconds{{instance="{DC1}",device_id!~"host-.*"}}) / 86400'
+    prom(f'max by (device_id) (last_over_time(network_topology_device_uptime_seconds{{instance="{DC1}",device_id!~"host-.*"}}[2m])) / 86400'
          f' or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{{instance="{DC1}",device_id!~"host-.*"}}[1h])) * 0 - 1)',
          "d-{{device_id}}", "B"),
     prom(f'max by (src_device, dst_device) (network_topology_edge_info{{instance="{DC1}"}})'
@@ -295,7 +295,7 @@ panels.append({
 })
 
 # polystat honeycomb
-SHORT_UPTIME_DAYS = ('(max by (device_id) (network_topology_device_uptime_seconds{instance="$exporter"}) / 86400'
+SHORT_UPTIME_DAYS = ('(max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance="$exporter"}[2m])) / 86400'
                      ' or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance="$exporter"}[1h])) * 0 - 1))')
 for pat, rpl in [("(.*)", "$1"), ("host-leaf(\\\\d+)-(\\\\d+)", "h$1-$2"), ("leaf-(\\\\d+)", "lf$1"),
                  ("spine-(\\\\d+)", "sp$1"), ("edge-fw-(\\\\d+)", "fw$1"), ("wan-core-(\\\\d+)", "wc$1")]:

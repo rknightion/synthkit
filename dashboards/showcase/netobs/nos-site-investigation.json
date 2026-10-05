@@ -1,0 +1,2037 @@
+{
+  "apiVersion": "dashboard.grafana.app/v1beta1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "nos-site-investigation",
+    "annotations": {
+      "grafana.app/folder": "netobs-showcase"
+    }
+  },
+  "spec": {
+    "title": "Network Observability - WAN Site Investigation",
+    "description": "Investigate one site of the global WAN - discovery inventory, federation liveness, local topology, changes and probe experience - and compare it with every other site.",
+    "uid": "nos-site-investigation",
+    "tags": [
+      "netobs-showcase",
+      "wan",
+      "site",
+      "investigation"
+    ],
+    "editable": true,
+    "graphTooltip": 1,
+    "refresh": "1m",
+    "schemaVersion": 41,
+    "timezone": "utc",
+    "time": {
+      "from": "now-3h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": [
+        "30s",
+        "1m",
+        "5m",
+        "15m"
+      ]
+    },
+    "links": [
+      {
+        "type": "dashboards",
+        "tags": [
+          "netobs-showcase"
+        ],
+        "asDropdown": true,
+        "title": "Network Operations",
+        "includeVars": false,
+        "keepTime": true,
+        "targetBlank": false,
+        "icon": "external link"
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "site",
+          "label": "Site",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 3,
+            "query": "query_result(max by (site) (last_over_time(network_topology_device_info[$__range])) or max by (site) (label_replace(last_over_time(network_topology_federation_spoke_up[$__range]), \"site\", \"$1\", \"spoke_id\", \"(.*)\")))",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "query_result(max by (site) (last_over_time(network_topology_device_info[$__range])) or max by (site) (label_replace(last_over_time(network_topology_federation_spoke_up[$__range]), \"site\", \"$1\", \"spoke_id\", \"(.*)\")))",
+          "regex": "/site=\"([^\"]+)\"/",
+          "refresh": 2,
+          "sort": 1,
+          "multi": false,
+          "includeAll": false,
+          "current": {
+            "text": "hq-dc1",
+            "value": "hq-dc1"
+          },
+          "options": [],
+          "description": "Discovery site (device_info site) or federation spoke (spoke_id)."
+        },
+        {
+          "name": "dsite",
+          "type": "query",
+          "hide": 2,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 3,
+            "query": "query_result(label_replace(label_replace(label_replace(vector(1), \"s\", \"$site\", \"\", \"\"), \"v\", \"$site\", \"\", \"\"), \"v\", \"emea-edge1\", \"s\", \"dc-emea\"))",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "query_result(label_replace(label_replace(label_replace(vector(1), \"s\", \"$site\", \"\", \"\"), \"v\", \"$site\", \"\", \"\"), \"v\", \"emea-edge1\", \"s\", \"dc-emea\"))",
+          "regex": "/v=\"([^\"]*)\"/",
+          "refresh": 2,
+          "sort": 0,
+          "multi": false,
+          "includeAll": false,
+          "current": {},
+          "options": []
+        },
+        {
+          "name": "fspoke",
+          "type": "query",
+          "hide": 2,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 3,
+            "query": "query_result(label_replace(label_replace(label_replace(vector(1), \"s\", \"$site\", \"\", \"\"), \"v\", \"$site\", \"\", \"\"), \"v\", \"dc-emea\", \"s\", \"emea-edge1\"))",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "query_result(label_replace(label_replace(label_replace(vector(1), \"s\", \"$site\", \"\", \"\"), \"v\", \"$site\", \"\", \"\"), \"v\", \"dc-emea\", \"s\", \"emea-edge1\"))",
+          "regex": "/v=\"([^\"]*)\"/",
+          "refresh": 2,
+          "sort": 0,
+          "multi": false,
+          "includeAll": false,
+          "current": {},
+          "options": []
+        },
+        {
+          "name": "sexp",
+          "type": "query",
+          "hide": 2,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 3,
+            "query": "query_result(label_replace(label_replace(label_replace(label_replace(vector(1), \"s\", \"$site\", \"\", \"\"), \"v\", \"none\", \"\", \"\"), \"v\", \"netobs-spoke-emea:9100\", \"s\", \"dc-emea\"), \"v\", \"netobs-spoke-emea:9100\", \"s\", \"emea-edge1\"))",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "query_result(label_replace(label_replace(label_replace(label_replace(vector(1), \"s\", \"$site\", \"\", \"\"), \"v\", \"none\", \"\", \"\"), \"v\", \"netobs-spoke-emea:9100\", \"s\", \"dc-emea\"), \"v\", \"netobs-spoke-emea:9100\", \"s\", \"emea-edge1\"))",
+          "regex": "/v=\"([^\"]*)\"/",
+          "refresh": 2,
+          "sort": 0,
+          "multi": false,
+          "includeAll": false,
+          "current": {},
+          "options": []
+        },
+        {
+          "name": "region",
+          "type": "query",
+          "hide": 2,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 3,
+            "query": "query_result(label_replace(label_replace(label_replace(label_replace(label_replace(vector(1), \"s\", \"$site\", \"\", \"\"), \"r\", \"EMEA|US|APAC\", \"\", \"\"), \"r\", \"EMEA\", \"s\", \"emea-.*|dc-emea|dc-edge-.*\"), \"r\", \"US\", \"s\", \"hq-dc1|amer-.*|dc-amer\"), \"r\", \"APAC\", \"s\", \"apac-.*|dc-apac\"))",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "query_result(label_replace(label_replace(label_replace(label_replace(label_replace(vector(1), \"s\", \"$site\", \"\", \"\"), \"r\", \"EMEA|US|APAC\", \"\", \"\"), \"r\", \"EMEA\", \"s\", \"emea-.*|dc-emea|dc-edge-.*\"), \"r\", \"US\", \"s\", \"hq-dc1|amer-.*|dc-amer\"), \"r\", \"APAC\", \"s\", \"apac-.*|dc-apac\"))",
+          "regex": "/r=\"([^\"]*)\"/",
+          "refresh": 2,
+          "sort": 0,
+          "multi": false,
+          "includeAll": false,
+          "current": {},
+          "options": []
+        },
+        {
+          "name": "dexp",
+          "type": "query",
+          "hide": 2,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 1,
+            "query": "label_values(network_topology_device_info{site=\"$dsite\"}, instance)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "label_values(network_topology_device_info{site=\"$dsite\"}, instance)",
+          "refresh": 2,
+          "sort": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": null,
+          "current": {
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "options": []
+        },
+        {
+          "name": "devs",
+          "type": "query",
+          "hide": 2,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 1,
+            "query": "label_values(network_topology_device_info{site=\"$dsite\"}, device_id)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "label_values(network_topology_device_info{site=\"$dsite\"}, device_id)",
+          "refresh": 2,
+          "sort": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": null,
+          "current": {
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "options": []
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Spoke down",
+          "enable": true,
+          "iconColor": "#F2495C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "expr": "max(network_topology_federation_spoke_up{spoke_id=\"$fspoke\"}) == 0",
+          "step": "1m",
+          "titleFormat": "Spoke $fspoke down",
+          "textFormat": "Hub marks the spoke down (network_topology_federation_spoke_up = 0)",
+          "useValueForTime": false
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "marcusolsson-dynamictext-panel",
+        "title": "Site summary - $site",
+        "description": "State of the selected site now. Devices reporting: network_topology_device_info now vs seen in the last hour; links: network_topology_edge_info adjacencies with at least one end at the site; vendors and OS versions from device_info labels; exporter: the discovery exporter (instance) reporting the site's devices. Federation (spokes only): network_topology_federation_spoke_up, push age from network_topology_federation_spoke_last_push_timestamp_seconds, spoke-side network_topology_federation_spoke_push_failures_total where the pushing exporter reports to this stack, and hub-wide network_topology_graph_updates_rejected_total (that counter has no spoke label). Probe success: probe_success averaged over the range for the probe region mapped to this site.",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 15,
+          "h": 14
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "SITE",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "vector(1)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(network_topology_device_info{site=\"$dsite\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "C",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(((network_topology_edge_info) and on (instance, src_device) max by (instance, src_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"src_device\", \"$1\", \"device_id\", \"(.*)\"))) or ((network_topology_edge_info) and on (instance, dst_device) max by (instance, dst_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"dst_device\", \"$1\", \"device_id\", \"(.*)\"))))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "D",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count by (vendor) (last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "E",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count by (vendor, os_version) (last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "F",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count by (instance) (last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "G",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max(network_topology_federation_spoke_up{spoke_id=\"$fspoke\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "H",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "time() - max(network_topology_federation_spoke_last_push_timestamp_seconds{spoke_id=\"$fspoke\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "I",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum_over_time((max(network_topology_federation_spoke_up{spoke_id=\"$fspoke\"}) == bool 0)[$__range:1m])",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "J",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum(increase(network_topology_federation_spoke_push_failures_total{instance=\"$sexp\"}[$__range]))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "K",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max(network_topology_graph_stale{instance=~\"$dexp\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "L",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum(increase(network_topology_graph_updates_rejected_total{instance=\"netobs-glb-hub:9100\"}[$__range])) and on () max(network_topology_federation_spoke_up{spoke_id=\"$fspoke\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "M",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (instance, device_id) (last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])) unless on (instance, device_id) network_topology_device_info{site=\"$dsite\"}",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "N",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(network_topology_module_last_status{instance=~\"$dexp\"} > 0) or (max(network_topology_graph_stale{instance=~\"$dexp\"}) * 0)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "O",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "100 * avg(avg_over_time(probe_success[$__range]) * on (instance, job, probe) group_left (region) max by (instance, job, probe, region) (sm_check_info{region=~\"$region\"}))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "options": {
+          "renderMode": "data",
+          "content": "{{siteCard}}",
+          "defaultContent": "<p>No discovery or federation data for this site in the selected range.</p>",
+          "styles": "\n.card{height:100%;box-sizing:border-box;border-radius:8px;padding:12px 16px;border:1px solid rgba(128,128,128,.35);border-left:8px solid #73BF69;background:rgba(115,191,105,.06)}\n.card.warn{border-left-color:#FF9830;background:rgba(255,152,48,.07)}\n.card.bad{border-left-color:#F2495C;background:rgba(242,73,92,.08)}\n.card.idle{border-left-color:#8e8e8e}\n.hdr{display:flex;justify-content:space-between;align-items:flex-start}\n.name{font-size:26px;font-weight:700;letter-spacing:.3px;line-height:1.1}\n.cov{font-size:13px;opacity:.75;margin-top:2px}\n.pill{font-size:14px;font-weight:700;padding:4px 12px;border-radius:14px;background:#73BF69;color:#0b0c0e;white-space:nowrap}\n.card.warn .pill{background:#FF9830}.card.bad .pill{background:#F2495C;color:#fff}.card.idle .pill{background:#8e8e8e}\n.why{font-size:13px;margin:6px 0 10px 0;opacity:.85}\n.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px;margin-bottom:10px}\n.kpi{display:flex;flex-direction:column;border-radius:6px;padding:6px 10px;background:rgba(128,128,128,.10)}\n.kpi b{font-size:24px;line-height:1.15;font-weight:700}.kpi b small{font-size:15px;opacity:.65;font-weight:600}\n.kpi i{font-size:11px;font-style:normal;opacity:.72;text-transform:uppercase;letter-spacing:.4px}\n.kpi.warn b{color:#FF9830}.kpi.bad b{color:#F2495C}.kpi.good b{color:#56A64B}\n.lists>div{margin:3px 0;font-size:13px;line-height:1.9}\n.lbl{display:inline-block;width:132px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;opacity:.7}\n.chip{display:inline-block;padding:0 8px;margin:0 4px 2px 0;border-radius:10px;border:1px solid rgba(128,128,128,.45);font-size:12px;line-height:20px}\n.chip em{font-style:normal;font-weight:700;margin-left:3px}\n.chip.red{border-color:#F2495C;color:#F2495C;font-weight:600}.chip.fed{border-style:dashed}\n.muted{opacity:.6;font-size:12px}\n",
+          "helpers": "\nconst S = context.panelData.series || [];\nconst frames = (ref) => S.filter((f) => f.refId === ref);\nconst rows = (ref) => {\n  const out = [];\n  frames(ref).forEach((f) => {\n    const n = f.length || (f.fields[0] ? f.fields[0].values.length : 0);\n    const num = f.fields.find((x) => x.type === 'number');\n    for (let i = 0; i < n; i++) {\n      const r = Object.assign({}, num && num.labels ? num.labels : {});\n      f.fields.forEach((x) => { if (x.type === 'string') r[x.name] = x.values[i]; });\n      r.__v = num ? num.values[i] : null;\n      out.push(r);\n    }\n  });\n  return out;\n};\nconst one = (ref) => { const r = rows(ref); return r.length && r[0].__v !== null && r[0].__v !== undefined ? Number(r[0].__v) : null; };\nconst esc = (s) => String(s).replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst rv = (v) => context.grafana.replaceVariables(v);\nconst site = rv('$site'), dsite = rv('$dsite'), fspoke = rv('$fspoke'), region = rv('$region');\nconst now = one('A'), seen = one('B'), links = one('C');\nconst vendors = rows('D').sort((a, b) => b.__v - a.__v);\nconst oses = rows('E').sort((a, b) => b.__v - a.__v);\nconst exps = rows('F').map((r) => r.instance);\nconst up = one('G'), age = one('H'), downMin = one('I'), pushFail = one('J'), stale = one('K');\nconst rej = one('L'), unreach = rows('M').map((r) => r.device_id).sort();\nconst modsBad = one('N'), probe = one('O');\nconst hasDev = seen !== null && seen > 0;\nconst hasFed = up !== null;\nconst fmtAge = (s) => s === null ? '-' : (s < 120 ? Math.round(s) + ' s' : (s / 60).toFixed(1) + ' min');\nlet state = 'HEALTHY', cls = 'ok', why = [];\nif (!hasDev && !hasFed) { state = 'NO DATA'; cls = 'idle'; why.push('no discovery inventory or federation series for this site'); }\nif (hasDev && now !== null && now < seen) { state = 'DEGRADED'; cls = 'warn'; why.push((seen - now) + ' of ' + seen + ' devices unreachable'); }\nif (hasDev && now === null) { state = 'DOWN'; cls = 'bad'; why.push('no device is reporting'); }\nif (hasFed && up === 0) { state = 'SPOKE DOWN'; cls = 'bad'; why.push('hub marks spoke ' + fspoke + ' down'); }\nif (stale === 1) { why.push('discovery graph stale'); if (cls === 'ok') { state = 'STALE'; cls = 'warn'; } }\nif (cls === 'ok') why.push(hasDev ? 'all devices seen in the last hour are reporting' : 'spoke pushing within its liveness window');\nconst cov = hasDev && hasFed ? 'Discovery inventory + federation spoke ' + esc(fspoke)\n  : hasDev ? 'Discovery inventory only (not a federation spoke)'\n  : hasFed ? 'Federation signals only - no device inventory reaches this stack' : 'Unknown site';\nconst kpi = (v, l, c) => '<div class=\"kpi ' + (c || '') + '\"><b>' + v + '</b><i>' + l + '</i></div>';\nconst chips = (arr, f) => arr.length ? arr.map((r) => '<span class=\"chip\">' + f(r) + '</span>').join('') : '<span class=\"muted\">none</span>';\nlet h = '<div class=\"card ' + cls + '\">';\nh += '<div class=\"hdr\"><div><div class=\"name\">' + esc(site) + '</div><div class=\"cov\">' + cov + '</div></div>';\nh += '<div class=\"pill\">' + state + '</div></div>';\nh += '<div class=\"why\">' + esc(why.join(' - ')) + '</div>';\nh += '<div class=\"grid\">';\nh += kpi(hasDev ? (now === null ? 0 : now) + '<small>/' + seen + '</small>' : '-', 'devices reporting / seen 1h', hasDev && now !== seen ? 'warn' : '');\nh += kpi(hasDev ? (links === null ? 0 : links) : '-', 'links touching site');\nh += kpi(hasDev ? vendors.length : '-', 'vendors');\nh += kpi(hasDev ? oses.length : '-', 'OS versions');\nh += kpi(hasFed ? (up === 1 ? 'UP' : 'DOWN') : '-', 'spoke liveness', hasFed ? (up === 1 ? 'good' : 'bad') : '');\nh += kpi(hasFed ? fmtAge(age) : '-', 'last push age', hasFed && age !== null && age >= 300 ? 'bad' : (hasFed && age !== null && age >= 120 ? 'warn' : ''));\nh += kpi(hasFed ? Math.round(downMin || 0) + ' min' : '-', 'spoke down in range', hasFed && downMin > 0 ? 'warn' : '');\nh += kpi(probe === null ? '-' : probe.toFixed(1) + '%', 'probe success (' + esc(region.split('|').join('/')) + ')', probe !== null && probe < 99 ? 'warn' : '');\nh += '</div><div class=\"lists\">';\nh += '<div><span class=\"lbl\">Exporters</span>' + (exps.length ? exps.map((e) => '<span class=\"chip\">' + esc(e) + ' (discovery)</span>').join('') : '') +\n     (hasFed ? '<span class=\"chip fed\">hub ' + esc('netobs-glb-hub:9100') + ' (federation)</span>' : '') + '</div>';\nh += '<div><span class=\"lbl\">Vendors</span>' + chips(vendors, (r) => esc(r.vendor) + ' <em>' + r.__v + '</em>') + '</div>';\nh += '<div><span class=\"lbl\">OS versions</span>' + chips(oses, (r) => esc(r.vendor) + ' ' + esc(r.os_version) + ' <em>' + r.__v + '</em>') + '</div>';\nh += '<div><span class=\"lbl\">Unreachable now</span>' + (unreach.length ? unreach.map((d) => '<span class=\"chip red\">' + esc(d) + '</span>').join('') : '<span class=\"muted\">' + (hasDev ? 'none' : 'n/a') + '</span>') + '</div>';\nh += '<div><span class=\"lbl\">Federation</span>' + (hasFed\n  ? '<span class=\"chip\">spoke-side push failures in range <em>' + (pushFail === null ? 'n/a (no spoke-side exporter on this stack)' : Math.round(pushFail)) + '</em></span>'\n    + '<span class=\"chip\">hub rejected updates in range, all spokes <em>' + Math.round(rej || 0) + '</em></span>'\n  : '<span class=\"muted\">not a federation spoke</span>') + '</div>';\nh += '<div><span class=\"lbl\">Discovery</span>' + (hasDev\n  ? '<span class=\"chip ' + (stale === 1 ? 'red' : '') + '\">graph ' + (stale === 1 ? 'STALE' : 'fresh') + '</span><span class=\"chip ' + (modsBad > 0 ? 'red' : '') + '\">modules not OK <em>' + (modsBad || 0) + '</em></span>'\n  : '<span class=\"muted\">n/a</span>') + '</div>';\nh += '</div></div>';\ncontext.handlebars.registerHelper('siteCard', () => new context.handlebars.SafeString(h));\n",
+          "afterRender": "",
+          "externalStyles": [],
+          "contentPartials": [],
+          "wrap": false,
+          "editors": [
+            "default",
+            "styles",
+            "helpers"
+          ],
+          "editor": {
+            "language": "html",
+            "format": "auto"
+          },
+          "status": ""
+        }
+      },
+      {
+        "id": 2,
+        "type": "text",
+        "title": "Site model and mappings",
+        "description": "How discovery sites, federation spokes and probe regions are tied together on this dashboard.",
+        "gridPos": {
+          "x": 15,
+          "y": 0,
+          "w": 9,
+          "h": 14
+        },
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "options": {
+          "mode": "markdown",
+          "content": "A site is a discovery site (`site` on `network_topology_device_info`) or a federation spoke (`spoke_id` on the hub's `network_topology_federation_spoke_*`). The picker lists both.\n\n| Site | Devices from | Federation | Probes |\n|---|---|---|---|\n| hq-dc1 | netobs-ent-dc1 | none | US |\n| global | netobs-glb-hub (Clos core) | the hub | all |\n| emea-dc1 / amer-dc1 | netobs-glb-hub (WAN core) | none | EMEA / US |\n| emea-edge1 = dc-emea | netobs-spoke-emea | pushes as dc-emea | EMEA |\n| dc-amer, dc-apac | none | hub view only | US, APAC |\n| dc-edge-1, dc-edge-2 | none | hub view only | EMEA |\n\n**dc-emea is the only spoke with devices**: the emea-edge1 exporter pushes under that identity, so both names show the same 9 devices plus dc-emea liveness. **dc-amer, dc-apac, dc-edge-1 and dc-edge-2 are federation-only**: their exporters do not report here, so device, link and change panels stay empty and only hub liveness and push age exist. amer-dc1 is not assumed to be dc-amer.\n\nProbe region follows site location (hq-dc1 Chicago, dc-edge-1 Dublin, dc-edge-2 Amsterdam); the global core is compared against all regions. Push age is judged against a 300 s staleness budget.\n",
+          "code": {
+            "language": "plaintext",
+            "showLineNumbers": false,
+            "showMiniMap": false
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "row",
+        "title": "Reachability over time",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 14,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 4,
+        "type": "timeseries",
+        "title": "Devices present vs seen in the last hour",
+        "description": "Per minute: devices of the site reporting network_topology_device_info, devices seen in the trailing hour (last_over_time 1h), and the gap between them as unreachable bars. A device that stops answering SNMP drops out of device_info while it stays in the hourly view. Federation-only spokes have no device inventory and show nothing here.",
+        "gridPos": {
+          "x": 0,
+          "y": 15,
+          "w": 9,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(network_topology_device_info{site=\"$dsite\"})",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "Reporting now",
+            "interval": "1m"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]))",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "Seen in last hour",
+            "interval": "1m"
+          },
+          {
+            "refId": "C",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])) - (count(network_topology_device_info{site=\"$dsite\"}) or count(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])) * 0)",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "Unreachable",
+            "interval": "1m"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "min": 0,
+            "noValue": "No device inventory for this site",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 0,
+              "showPoints": "never",
+              "spanNulls": false,
+              "axisSoftMin": 0
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Reporting now"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#56A64B"
+                  }
+                },
+                {
+                  "id": "custom.fillOpacity",
+                  "value": 12
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Seen in last hour"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#8AB8FF"
+                  }
+                },
+                {
+                  "id": "custom.lineStyle",
+                  "value": {
+                    "fill": "dash",
+                    "dash": [
+                      8,
+                      6
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Unreachable"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  }
+                },
+                {
+                  "id": "custom.drawStyle",
+                  "value": "bars"
+                },
+                {
+                  "id": "custom.fillOpacity",
+                  "value": 80
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "showLegend": true,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": "state-timeline",
+        "title": "Site liveness timeline",
+        "description": "Green when healthy, red when not. Devices all reporting: every device seen in the last hour is in network_topology_device_info. Spoke: network_topology_federation_spoke_up on the hub for the site's spoke identity. Discovery graph fresh: network_topology_graph_stale = 0 on the exporter covering the site. Rows appear only where the site has that signal.",
+        "gridPos": {
+          "x": 9,
+          "y": 15,
+          "w": 8,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "(count(network_topology_device_info{site=\"$dsite\"}) or count(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])) * 0) / count(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])) == bool 1",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "Devices all reporting",
+            "interval": "1m"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max(network_topology_federation_spoke_up{spoke_id=\"$fspoke\"})",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "Spoke $fspoke (hub view)",
+            "interval": "1m"
+          },
+          {
+            "refId": "C",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max(network_topology_graph_stale{instance=~\"$dexp\"}) == bool 0",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "Discovery graph fresh",
+            "interval": "1m"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "#F2495C",
+                  "value": null
+                },
+                {
+                  "color": "#56A64B",
+                  "value": 1
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "DOWN",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "OK",
+                    "index": 1
+                  }
+                }
+              }
+            ],
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 0
+            },
+            "noValue": "No liveness signals"
+          },
+          "overrides": []
+        },
+        "options": {
+          "showValue": "never",
+          "mergeValues": true,
+          "alignValue": "center",
+          "rowHeight": 0.8,
+          "legend": {
+            "showLegend": false,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "type": "timeseries",
+        "title": "Federation push age vs staleness budget",
+        "description": "Seconds since the hub last accepted a push from the site's spoke (network_topology_federation_spoke_last_push_timestamp_seconds) and, where the pushing exporter reports to this stack, the spoke's own last successful push (network_topology_federation_spoke_push_last_success_unix). The red line and band mark the 300 s staleness budget. Empty for sites that are not federation spokes.",
+        "gridPos": {
+          "x": 17,
+          "y": 15,
+          "w": 7,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "time() - max(network_topology_federation_spoke_last_push_timestamp_seconds{spoke_id=\"$fspoke\"})",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "Hub: last push from $fspoke",
+            "interval": "1m"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "time() - max(network_topology_federation_spoke_push_last_success_unix{instance=\"$sexp\"})",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "Spoke side: last successful push",
+            "interval": "1m"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "min": 0,
+            "decimals": 0,
+            "noValue": "Not a federation spoke",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "transparent",
+                  "value": null
+                },
+                {
+                  "color": "#F2495C",
+                  "value": 300
+                }
+              ]
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "never",
+              "thresholdsStyle": {
+                "mode": "line+area"
+              },
+              "axisSoftMin": 0,
+              "axisSoftMax": 360
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byFrameRefID",
+                "options": "A"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byFrameRefID",
+                "options": "B"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#B877D9"
+                  }
+                },
+                {
+                  "id": "custom.lineStyle",
+                  "value": {
+                    "fill": "dash",
+                    "dash": [
+                      6,
+                      4
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "showLegend": true,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "type": "row",
+        "title": "Devices and topology at the site",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 23,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 8,
+        "type": "table",
+        "title": "Devices at the site",
+        "description": "One row per device seen at the site in the last hour (network_topology_device_info). Tier comes from the device naming convention (edge-fw, wan-core, spine, leaf, host). Uptime is the last reported network_topology_device_uptime_seconds; state is Reachable while device_info is present and Unreachable when it was seen in the last hour but has stopped reporting. Click a device to open its investigation view.",
+        "gridPos": {
+          "x": 0,
+          "y": 24,
+          "w": 10,
+          "h": 13
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (instance, device_id, tier, vendor, os_version) (last_over_time(network_topology_device_uptime_seconds[1h]) * on (instance, device_id) group_left (tier, vendor, os_version) label_replace(max by (instance, device_id, vendor, os_version) (last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])), \"tier\", \"$1\", \"device_id\", \"(edge-fw|wan-core|spine|leaf|host|ext-peer).*\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (instance, device_id, tier, vendor, os_version) ((label_replace(max by (instance, device_id, vendor, os_version) (last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])), \"tier\", \"$1\", \"device_id\", \"(edge-fw|wan-core|spine|leaf|host|ext-peer).*\") * 0) + on (instance, device_id) group_left () (max by (instance, device_id) (network_topology_device_info{site=\"$dsite\"}) or max by (instance, device_id) (last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])) * 0))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "noValue": "No device inventory - federation-only site",
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "filterable": true
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "device_id"
+              },
+              "properties": [
+                {
+                  "id": "displayName",
+                  "value": "Device"
+                },
+                {
+                  "id": "custom.width",
+                  "value": 145
+                },
+                {
+                  "id": "links",
+                  "value": [
+                    {
+                      "title": "Investigate ${__data.fields.device_id}",
+                      "url": "/d/nos-device-investigation?var-exporter=${__data.fields.instance}&var-device=${__data.fields.device_id}&${__url_time_range}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "instance"
+              },
+              "properties": [
+                {
+                  "id": "displayName",
+                  "value": "Exporter"
+                },
+                {
+                  "id": "custom.hidden",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "tier"
+              },
+              "properties": [
+                {
+                  "id": "displayName",
+                  "value": "Tier"
+                },
+                {
+                  "id": "custom.width",
+                  "value": 80
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "vendor"
+              },
+              "properties": [
+                {
+                  "id": "displayName",
+                  "value": "Vendor"
+                },
+                {
+                  "id": "custom.width",
+                  "value": 80
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "os_version"
+              },
+              "properties": [
+                {
+                  "id": "displayName",
+                  "value": "OS"
+                },
+                {
+                  "id": "custom.width",
+                  "value": 85
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Uptime"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "s"
+                },
+                {
+                  "id": "decimals",
+                  "value": 1
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-text"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "#FF9830",
+                        "value": null
+                      },
+                      {
+                        "color": "#FADE2A",
+                        "value": 3600
+                      },
+                      {
+                        "color": "text",
+                        "value": 86400
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "State"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 112
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "0": {
+                          "text": "Unreachable",
+                          "color": "#F2495C",
+                          "index": 0
+                        },
+                        "1": {
+                          "text": "Reachable",
+                          "color": "#56A64B",
+                          "index": 1
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "footer": {
+            "show": false,
+            "reducer": [
+              "sum"
+            ],
+            "fields": ""
+          },
+          "sortBy": [
+            {
+              "displayName": "State",
+              "desc": false
+            }
+          ]
+        },
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "indexByName": {
+                "device_id": 0,
+                "tier": 1,
+                "vendor": 2,
+                "os_version": 3,
+                "Value #A": 4,
+                "Value #B": 5,
+                "instance": 6
+              },
+              "renameByName": {
+                "Value #A": "Uptime",
+                "Value #B": "State"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Site topology and links leaving the site",
+        "description": "Devices at the site laid out by tier (edge and WAN core, spine, leaf, host) with every discovered adjacency touching them (network_topology_edge_info). The top row holds what is outside the site: neighbours at another site (blue, links leaving the site) and external peers the hub sees at the domain boundary (purple, network_topology_boundary_observation_info). Green: reporting; red: seen in the last hour but no longer reporting. Grey links are present, red links were lost within the last hour, dashed purple links are boundary observations. For a federation-only spoke the diagram shows the spoke's push path to the hub, coloured by network_topology_federation_spoke_up. Scroll to zoom, drag to pan, hover for details.",
+        "gridPos": {
+          "x": 10,
+          "y": 24,
+          "w": 14,
+          "h": 13
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "label_join(label_join(label_join(label_join(label_join(label_join(label_join(label_replace((max by (instance, device_id, vendor, os_version, site) (network_topology_device_info{site=\"$dsite\"})) or (max by (instance, device_id, vendor, os_version, site) (last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])) * 0) or (max by (instance, device_id, vendor, os_version, site) ((max by (instance, device_id) (label_replace(max by (instance, dst_device) (((last_over_time(network_topology_edge_info[1h])) and on (instance, src_device) max by (instance, src_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"src_device\", \"$1\", \"device_id\", \"(.*)\"))) or ((last_over_time(network_topology_edge_info[1h])) and on (instance, dst_device) max by (instance, dst_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"dst_device\", \"$1\", \"device_id\", \"(.*)\")))) unless on (instance, dst_device) max by (instance, dst_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"dst_device\", \"$1\", \"device_id\", \"(.*)\")), \"device_id\", \"$1\", \"dst_device\", \"(.*)\")) or max by (instance, device_id) (label_replace(max by (instance, src_device) (((last_over_time(network_topology_edge_info[1h])) and on (instance, src_device) max by (instance, src_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"src_device\", \"$1\", \"device_id\", \"(.*)\"))) or ((last_over_time(network_topology_edge_info[1h])) and on (instance, dst_device) max by (instance, dst_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"dst_device\", \"$1\", \"device_id\", \"(.*)\")))) unless on (instance, src_device) max by (instance, src_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"src_device\", \"$1\", \"device_id\", \"(.*)\")), \"device_id\", \"$1\", \"src_device\", \"(.*)\"))) * on (instance, device_id) group_left (vendor, os_version, site) max by (instance, device_id, vendor, os_version, site) (last_over_time(network_topology_device_info[1h]))) * 0 + 2) or (label_replace(label_replace((max by (instance, device_id) (label_replace(max by (instance, peer_a) (network_topology_boundary_observation_info and on (instance, reporting_device) max by (instance, reporting_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"reporting_device\", \"$1\", \"device_id\", \"(.*)\"))), \"device_id\", \"$1\", \"peer_a\", \"(.*)\")) * 0 + 3), \"vendor\", \"external peer\", \"\", \"\"), \"site\", \"outside the estate\", \"\", \"\")) or (((label_replace(label_replace(label_replace(max by (instance, spoke_id) (network_topology_federation_spoke_up{spoke_id=\"$fspoke\"}), \"device_id\", \"$1\", \"spoke_id\", \"(.*)\"), \"vendor\", \"federation spoke\", \"\", \"\"), \"site\", \"$fspoke\", \"\", \"\")) or (label_replace(label_replace(label_replace(max by (instance) (network_topology_federation_spoke_up{spoke_id=\"$fspoke\"}) * 0 + 2, \"device_id\", \"global-hub\", \"\", \"\"), \"vendor\", \"federation hub\", \"\", \"\"), \"site\", \"global\", \"\", \"\"))) unless on () (count(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])) > 0)), \"tier\", \"$1\", \"device_id\", \"(edge-fw|wan-core|spine|leaf|host|ext-peer).*\"), \"id\", \"\", \"device_id\"), \"title\", \"\", \"device_id\"), \"subtitle\", \"\", \"vendor\"), \"mainstat\", \"\", \"tier\"), \"detail__site\", \"\", \"site\"), \"detail__os_version\", \"\", \"os_version\"), \"detail__exporter\", \"\", \"instance\")",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "(label_join(label_join(label_join(label_join(max by (instance, src_device, src_port, dst_device, discovery_proto) ((((network_topology_edge_info) and on (instance, src_device) max by (instance, src_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"src_device\", \"$1\", \"device_id\", \"(.*)\"))) or ((network_topology_edge_info) and on (instance, dst_device) max by (instance, dst_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"dst_device\", \"$1\", \"device_id\", \"(.*)\")))) or (((((last_over_time(network_topology_edge_info[1h])) and on (instance, src_device) max by (instance, src_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"src_device\", \"$1\", \"device_id\", \"(.*)\"))) or ((last_over_time(network_topology_edge_info[1h])) and on (instance, dst_device) max by (instance, dst_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"dst_device\", \"$1\", \"device_id\", \"(.*)\")))) unless on (instance, src_device, src_port, dst_device, discovery_proto) network_topology_edge_info) * 0)), \"id\", \"/\", \"src_device\", \"src_port\", \"dst_device\", \"discovery_proto\"), \"source\", \"\", \"src_device\"), \"target\", \"\", \"dst_device\"), \"mainstat\", \"\", \"discovery_proto\")) or (label_join(label_join(label_join(label_join(max by (instance, reporting_device, src_port, peer_a, proto) (network_topology_boundary_observation_info and on (instance, reporting_device) max by (instance, reporting_device) (label_replace(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h]), \"reporting_device\", \"$1\", \"device_id\", \"(.*)\"))) * 0 + 3, \"id\", \"/\", \"reporting_device\", \"src_port\", \"peer_a\"), \"source\", \"\", \"reporting_device\"), \"target\", \"\", \"peer_a\"), \"mainstat\", \"\", \"proto\")) or ((label_replace(label_replace(label_replace(label_replace(max by (spoke_id) (network_topology_federation_spoke_up{spoke_id=\"$fspoke\"}), \"id\", \"push-$1\", \"spoke_id\", \"(.*)\"), \"source\", \"$1\", \"spoke_id\", \"(.*)\"), \"target\", \"global-hub\", \"\", \"\"), \"mainstat\", \"federation push\", \"\", \"\")) unless on () (count(last_over_time(network_topology_device_info{site=\"$dsite\"}[1h])) > 0))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "const series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst text = theme.colors.text.primary, muted = theme.colors.text.secondary;\nconst rows = (ref) => {\n  const out = [];\n  series.filter((f) => f.refId === ref).forEach((f) => {\n    const n = f.fields.length ? f.fields[0].values.length : 0;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((x) => { r[x.name] = x.values[i]; });\n      const num = f.fields.find((x) => x.type === 'number');\n      r.__v = num ? Number(num.values[i]) : null;\n      out.push(r);\n    }\n  });\n  return out;\n};\nconst C = { ok: '#56A64B', down: '#F2495C', nbr: '#5794F2', peer: '#B877D9' };\nconst CATS = [\n  { name: 'Reporting', itemStyle: { color: C.ok } },\n  { name: 'Unreachable (seen in last hour)', itemStyle: { color: C.down } },\n  { name: 'Neighbour at another site', itemStyle: { color: C.nbr } },\n  { name: 'External peer (hub boundary)', itemStyle: { color: C.peer } },\n];\nconst SYM = { 'edge-fw': 'triangle', 'wan-core': 'diamond', spine: 'roundRect', leaf: 'rect', host: 'circle', federation: 'roundRect', hub: 'diamond', 'ext-peer': 'circle' };\nconst SIZE = { 'edge-fw': 30, 'wan-core': 30, spine: 26, leaf: 20, host: 11, federation: 30, hub: 34, 'ext-peer': 16 };\nconst nrows = rows('A');\nconst erows = rows('B');\nconst nodes = {};\nnrows.forEach((r) => {\n  const v = r.__v;\n  let cat = v >= 3 ? 3 : v >= 2 ? 2 : v >= 1 ? 0 : 1;\n  const fed = r.subtitle === 'federation spoke' || r.subtitle === 'federation hub';\n  if (fed && r.subtitle === 'federation hub') cat = 2;\n  const outside = cat >= 2;\n  const tier = r.subtitle === 'federation hub' ? 'hub' : (r.tier || (cat === 3 ? 'ext-peer' : (fed ? 'federation' : 'other')));\n  nodes[r.id] = { id: r.id, name: r.id, tier, cat, outside, vendor: r.subtitle || '', os: r.detail__os_version || '', site: r.detail__site || '' };\n});\nconst layerOf = (n) => n.outside ? 0 : ({ 'edge-fw': 1, 'wan-core': 1, federation: 1, spine: 2, leaf: 3, host: 4 }[n.tier] ?? 4);\nconst layers = {};\nObject.values(nodes).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true })).forEach((n) => {\n  const l = layerOf(n); (layers[l] = layers[l] || []).push(n);\n});\nconst W = 1000; let y = 0; const placed = [];\nconst hostCount = (layers[4] || []).length;\nObject.keys(layers).map(Number).sort((a, b) => a - b).forEach((l) => {\n  const arr = layers[l];\n  const per = l === 4 ? Math.max(12, Math.ceil(arr.length / Math.ceil(arr.length / 48))) : 40;\n  for (let i = 0; i < arr.length; i += per) {\n    const chunk = arr.slice(i, i + per);\n    chunk.forEach((n, j) => { n.x = (j + 0.5) * W / chunk.length; n.y = y; n.dense = chunk.length > 12; placed.push(n); });\n    y += l === 4 ? 70 : 140;\n  }\n});\nconst showHostLabels = hostCount <= 48;\nconst maxY = Math.max(140, y - (hostCount ? 70 : 140));\nconst ch = context.panel.chart;\nconst PW = Math.max(300, ((ch && ch.getWidth) ? ch.getWidth() : 1100) - 120), PH = Math.max(150, ((ch && ch.getHeight) ? ch.getHeight() : 380) - 110);\nplaced.forEach((n) => { n.x = n.x / W * PW; n.y = n.y / maxY * PH; });\nconst data = placed.map((n) => ({\n  id: n.id, name: n.id, x: n.x, y: n.y, category: n.cat,\n  symbol: SYM[n.tier] || (n.cat === 3 ? 'pin' : 'circle'),\n  symbolSize: SIZE[n.tier] || (n.cat === 3 ? 22 : 24),\n  value: n.vendor,\n  label: { show: n.tier !== 'host' || showHostLabels, position: n.tier === 'host' || n.dense ? 'bottom' : 'right', color: n.tier === 'host' ? muted : text,\n    fontSize: n.tier === 'host' || n.dense ? 10 : 12,\n    formatter: n.tier === 'host' ? n.id.replace(/^host-leaf\\d+-/, '') : (n.tier === 'hub' ? 'global hub (federation)' : n.tier === 'federation' ? n.id + ' (spoke)' : n.dense ? n.id.replace(/^(ext-peer|leaf|spine)-/, (m, p) => ({ 'ext-peer': 'peer ', leaf: 'L', spine: 'S' }[p])) : n.id) },\n  tooltip: { formatter: '<b>' + n.id + '</b><br/>' + [n.tier, n.vendor, n.os, n.site].filter(Boolean).join(' - ') + '<br/>' + CATS[n.cat].name },\n}));\ndata.push({ id: '__a0', name: '', x: 0, y: 0, symbolSize: 0, label: { show: false }, tooltip: { show: false }, silent: true });\ndata.push({ id: '__a1', name: '', x: PW, y: PH, symbolSize: 0, label: { show: false }, tooltip: { show: false }, silent: true });\nconst links = [];\nerows.forEach((r) => {\n  if (!nodes[r.source] || !nodes[r.target]) return;\n  const v = r.__v;\n  const fed = r.mainstat === 'federation push';\n  const col = fed ? (v >= 1 ? C.ok : C.down) : v >= 3 ? C.peer : v >= 1 ? muted : C.down;\n  links.push({ source: r.source, target: r.target,\n    lineStyle: { color: col, width: v >= 1 && v < 3 && !fed ? 1.2 : 2.2, opacity: v >= 1 && v < 3 && !fed ? 0.55 : 0.95, type: v >= 3 || fed ? 'dashed' : 'solid', curveness: 0.05 },\n    tooltip: { formatter: r.source + ' - ' + r.target + '<br/>' + (r.mainstat || '') + (v === 0 ? ' - LOST in the last hour' : '') } });\n});\nif (data.length <= 2) {\n  return { title: { text: 'No discovery inventory or federation path for this site', left: 'center', top: 'middle', textStyle: { color: muted, fontSize: 15, fontWeight: 'normal' } } };\n}\nreturn {\n  backgroundColor: 'transparent',\n  tooltip: { trigger: 'item', confine: true },\n  legend: [{ data: CATS.map((c) => c.name), top: 0, left: 'center', textStyle: { color: text }, icon: 'circle' }],\n  animation: false,\n  series: [{\n    type: 'graph', layout: 'none', roam: true, nodeScaleRatio: 0, top: 70, bottom: 40, left: 40, right: 80,\n    categories: CATS, data, links, edgeSymbol: ['none', 'none'],\n    emphasis: { focus: 'adjacency', lineStyle: { width: 3 } },\n    lineStyle: { opacity: 0.6 },\n  }],\n};"
+        }
+      },
+      {
+        "id": 10,
+        "type": "row",
+        "title": "Changes, conflicts and rejected updates",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 37,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 11,
+        "type": "timeseries",
+        "title": "Topology changes and conflicts touching the site",
+        "description": "Topology change log lines (event=topology_change, by change_kind) and neighbour conflict lines (event=topology_conflict) from the discovery exporter covering the site, filtered to lines where src_device or dst_device is one of the site's devices. Counts per 2 minutes.",
+        "gridPos": {
+          "x": 0,
+          "y": 38,
+          "w": 9,
+          "h": 8
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "sum by (change_kind) (count_over_time({change_kind=~\".+\", source=\"network-topology-exporter\", instance=~\"$dexp\"} | src_device=~\"$devs\" or dst_device=~\"$devs\" [$__interval]))",
+            "editorMode": "code",
+            "queryType": "range",
+            "legendFormat": "{{change_kind}}",
+            "interval": "2m"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "sum by (conflict_type) (count_over_time({conflict_type=~\".+\", source=\"network-topology-exporter\", instance=~\"$dexp\"} | src_device=~\"$devs\" or dst_device=~\"$devs\" [$__interval]))",
+            "editorMode": "code",
+            "queryType": "range",
+            "legendFormat": "conflict: {{conflict_type}}",
+            "interval": "2m"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "min": 0,
+            "noValue": "No change events for this site",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 70,
+              "lineWidth": 1,
+              "stacking": {
+                "mode": "normal",
+                "group": "A"
+              },
+              "showPoints": "never"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "added"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#56A64B"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "removed"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "changed"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#FADE2A"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byRegexp",
+                "options": "conflict.*"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "showLegend": true,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        }
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "title": "Exporter change counters and hub rejections",
+        "description": "network_topology_change_total on the discovery exporter covering the site (exporter-wide: the counter has no device label, so on the hub it also covers the rest of the global core). For federation spokes, network_topology_graph_updates_rejected_total on the hub by reason; that counter is hub-wide with no spoke label, so it shows rejections from all spokes. Increase per 2 minutes.",
+        "gridPos": {
+          "x": 9,
+          "y": 38,
+          "w": 7,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (change_kind) (increase(network_topology_change_total{instance=~\"$dexp\"}[2m]))",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "exporter {{change_kind}}",
+            "interval": "2m"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (reason) (increase(network_topology_graph_updates_rejected_total{instance=\"netobs-glb-hub:9100\"}[2m]) > 0) and on () max(network_topology_federation_spoke_up{spoke_id=\"$fspoke\"})",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "hub rejected: {{reason}}",
+            "interval": "2m"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "min": 0,
+            "noValue": "No counters for this site",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisSoftMax": 4,
+              "drawStyle": "line",
+              "lineInterpolation": "stepAfter",
+              "fillOpacity": 18,
+              "lineWidth": 2,
+              "showPoints": "never"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byFrameRefID",
+                "options": "B"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  }
+                },
+                {
+                  "id": "custom.drawStyle",
+                  "value": "bars"
+                },
+                {
+                  "id": "custom.fillOpacity",
+                  "value": 80
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "showLegend": true,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        }
+      },
+      {
+        "id": 13,
+        "type": "logs",
+        "title": "Change and conflict log for the site",
+        "description": "Raw discovery events from {source=\"network-topology-exporter\"} on the site's exporter where src_device or dst_device is a site device.",
+        "gridPos": {
+          "x": 16,
+          "y": 38,
+          "w": 8,
+          "h": 8
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "{source=\"network-topology-exporter\", instance=~\"$dexp\"} | src_device=~\"$devs\" or dst_device=~\"$devs\" | logfmt | line_format \"{{.event}}  {{if .change_kind}}{{.change_kind}} {{.proto}}  {{.src_device}} {{.src_port}} -> {{.dst_device}} {{.dst_port}}{{else}}{{.conflict_type}}  {{.src_device}} {{.src_port}}  sources={{.sources}}{{end}}\"",
+            "editorMode": "code",
+            "queryType": "range"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending",
+          "enableInfiniteScrolling": false
+        }
+      },
+      {
+        "id": 14,
+        "type": "row",
+        "title": "External experience - probes in the region serving $site",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 46,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 15,
+        "type": "stat",
+        "title": "Probe success in range",
+        "description": "Share of successful runs per check over the selected range: probe_success averaged over time, joined to sm_check_info for the probe region mapped to the site.",
+        "gridPos": {
+          "x": 0,
+          "y": 47,
+          "w": 6,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "label_replace(100 * avg by (job, probe, region) (avg_over_time(probe_success[$__range]) * on (instance, job, probe) group_left (region) max by (instance, job, probe, region) (sm_check_info{region=~\"$region\"})), \"probe\", \"$1\", \"probe\", \"synthkit-(.*)\")",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "legendFormat": "{{job}} ({{region}})"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "min": 0,
+            "max": 100,
+            "noValue": "No probe in this region",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "#F2495C",
+                  "value": null
+                },
+                {
+                  "color": "#FF9830",
+                  "value": 95
+                },
+                {
+                  "color": "#56A64B",
+                  "value": 99
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value_and_name",
+          "justifyMode": "center",
+          "orientation": "horizontal",
+          "wideLayout": true
+        }
+      },
+      {
+        "id": 16,
+        "type": "timeseries",
+        "title": "Probe latency by check",
+        "description": "probe_duration_seconds per check run from the region's probe, plus the p95 across those checks from the probe_all_duration_seconds histogram (5m rate).",
+        "gridPos": {
+          "x": 6,
+          "y": 47,
+          "w": 11,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (job, region) (probe_duration_seconds * on (instance, job, probe) group_left (region) max by (instance, job, probe, region) (sm_check_info{region=~\"$region\"}))",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "{{job}} ({{region}} probe)",
+            "interval": "1m"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "label_replace(histogram_quantile(0.95, sum by (le, region) (rate(probe_all_duration_seconds_bucket[5m]) * on (instance, job, probe) group_left (region) max by (instance, job, probe, region) (sm_check_info{region=~\"$region\"}))), \"probe\", \"$1\", \"probe\", \"synthkit-(.*)\")",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "p95 all checks ({{region}})",
+            "interval": "1m"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "min": 0,
+            "noValue": "No probe in this region",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 6,
+              "showPoints": "never"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byFrameRefID",
+                "options": "B"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  }
+                },
+                {
+                  "id": "custom.lineStyle",
+                  "value": {
+                    "fill": "dash",
+                    "dash": [
+                      8,
+                      5
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.fillOpacity",
+                  "value": 0
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "showLegend": true,
+            "displayMode": "table",
+            "placement": "right",
+            "calcs": [
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        }
+      },
+      {
+        "id": 17,
+        "type": "status-history",
+        "title": "Probe result per check",
+        "description": "probe_success per check run from the region's probe, worst result in each 2 minute bucket: green pass, red fail.",
+        "gridPos": {
+          "x": 17,
+          "y": 47,
+          "w": 7,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "label_replace(min by (job) (probe_success * on (instance, job, probe) group_left (region) max by (instance, job, probe, region) (sm_check_info{region=~\"$region\"})), \"probe\", \"$1\", \"probe\", \"synthkit-(.*)\")",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "{{job}}",
+            "interval": "2m"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "#F2495C",
+                  "value": null
+                },
+                {
+                  "color": "#56A64B",
+                  "value": 1
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "FAIL",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "OK",
+                    "index": 1
+                  }
+                }
+              }
+            ],
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 1
+            },
+            "noValue": "No probe in this region"
+          },
+          "overrides": []
+        },
+        "options": {
+          "showValue": "never",
+          "rowHeight": 0.85,
+          "colWidth": 0.9,
+          "legend": {
+            "showLegend": false,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        }
+      },
+      {
+        "id": 18,
+        "type": "row",
+        "title": "All sites compared",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 55,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 19,
+        "type": "marcusolsson-dynamictext-panel",
+        "title": "Site comparison - every site of the global network",
+        "description": "One row per site (discovery sites and federation spokes). Devices: network_topology_device_info now / seen in the last hour. Links: edge_info adjacencies with an end at the site. Device availability: per-minute share of the site's devices reporting, averaged over the range; unreachable minutes: minutes in range with at least one device missing. Spoke liveness and down minutes: network_topology_federation_spoke_up on the hub. Changes and conflicts: Loki topology_change / topology_conflict lines in range, attributed to the site of src_device and dst_device. Probe success: probe_success for the site's probe region (global core: mean of all regions). Click a site name to investigate it; the selected site is highlighted.",
+        "gridPos": {
+          "x": 0,
+          "y": 56,
+          "w": 24,
+          "h": 12
+        },
+        "datasource": {
+          "type": "datasource",
+          "uid": "-- Mixed --"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count by (site) (last_over_time(network_topology_device_info[1h]))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count by (site) (network_topology_device_info)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "C",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count by (site) (max by (site, instance, src_device, src_port, dst_device, discovery_proto) ((network_topology_edge_info * on (instance, src_device) group_left (site) max by (instance, src_device, site) (label_replace(last_over_time(network_topology_device_info[1h]), \"src_device\", \"$1\", \"device_id\", \"(.*)\"))) or (network_topology_edge_info * on (instance, dst_device) group_left (site) max by (instance, dst_device, site) (label_replace(last_over_time(network_topology_device_info[1h]), \"dst_device\", \"$1\", \"device_id\", \"(.*)\")))))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "D",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "100 * avg_over_time(((count by (site) (network_topology_device_info) or count by (site) (last_over_time(network_topology_device_info[1h])) * 0) / count by (site) (last_over_time(network_topology_device_info[1h])))[$__range:1m])",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "E",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum_over_time(((count by (site) (last_over_time(network_topology_device_info[1h])) - (count by (site) (network_topology_device_info) or count by (site) (last_over_time(network_topology_device_info[1h])) * 0)) > bool 0)[$__range:1m])",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "F",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "100 * max by (spoke_id) (avg_over_time(network_topology_federation_spoke_up[$__range]))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "G",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum_over_time((max by (spoke_id) (network_topology_federation_spoke_up) == bool 0)[$__range:1m])",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "H",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (instance, device_id, site) (last_over_time(network_topology_device_info[$__range]))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "I",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "100 * avg by (region) (avg_over_time(probe_success[$__range]) * on (instance, job, probe) group_left (region) max by (instance, job, probe, region) (sm_check_info))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "J",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (spoke_id) (network_topology_federation_spoke_up)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "K",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "sum by (instance, src_device, dst_device) (count_over_time({source=\"network-topology-exporter\", change_kind=~\".+\"} [$__range]))",
+            "editorMode": "code",
+            "queryType": "instant"
+          },
+          {
+            "refId": "L",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "sum by (instance, src_device, dst_device) (count_over_time({source=\"network-topology-exporter\", conflict_type=~\".+\"} [$__range]))",
+            "editorMode": "code",
+            "queryType": "instant"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "options": {
+          "renderMode": "data",
+          "content": "{{cmpTable}}",
+          "defaultContent": "<p>No site data in the selected range.</p>",
+          "styles": "\n.cmp{width:100%;border-collapse:collapse;font-size:13px}\n.cmp th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;opacity:.8;text-align:left;padding:6px 8px;border-bottom:2px solid rgba(128,128,128,.45);vertical-align:bottom}\n.cmp th small{text-transform:none;font-weight:400;opacity:.8}\n.cmp td{padding:5px 8px;border-bottom:1px solid rgba(128,128,128,.2);font-variant-numeric:tabular-nums}\n.cmp tr.sel td{background:rgba(87,148,242,.14)}\n.cmp tr.sel td:first-child{box-shadow:inset 4px 0 0 #5794F2}\n.cmp a{font-weight:700;color:#5794F2;text-decoration:none}\n.cmp a:hover{text-decoration:underline}\n.cmp .cov{opacity:.85}.cmp .cov.fo{font-style:italic;opacity:.7}\n.cmp .na{opacity:.45}\n.cmp td.good{color:#56A64B;font-weight:600}.cmp td.warn{color:#FF9830;font-weight:600}.cmp td.bad{color:#F2495C;font-weight:700}\n.pill{display:inline-block;font-size:11px;font-weight:700;padding:1px 9px;border-radius:10px;white-space:nowrap}\n.pill.good{background:rgba(86,166,75,.2);color:#56A64B}.pill.warn{background:rgba(255,152,48,.2);color:#FF9830}.pill.bad{background:#F2495C;color:#fff}\n",
+          "helpers": "\nconst S = context.panelData.series || [];\nconst rows = (ref) => {\n  const out = [];\n  S.filter((f) => f.refId === ref).forEach((f) => {\n    const num = f.fields.find((x) => x.type === 'number');\n    const n = num ? num.values.length : 0;\n    for (let i = 0; i < n; i++) {\n      const r = Object.assign({}, num.labels || {});\n      f.fields.forEach((x) => { if (x.type === 'string') r[x.name] = x.values[i]; });\n      r.__v = Number(num.values[i]);\n      out.push(r);\n    }\n  });\n  return out;\n};\nconst byKey = (ref, key) => { const m = {}; rows(ref).forEach((r) => { m[r[key]] = r.__v; }); return m; };\nconst SPOKE_TO_DEV = {\"dc-emea\": \"emea-edge1\"}, DEV_TO_SPOKE = {\"emea-edge1\": \"dc-emea\"}, RULES = [[\"EMEA\", \"emea-.*|dc-emea|dc-edge-.*\"], [\"US\", \"hq-dc1|amer-.*|dc-amer\"], [\"APAC\", \"apac-.*|dc-apac\"]];\nconst regionOf = (s) => { for (const [r, p] of RULES) { if (new RegExp('^(' + p + ')$').test(s)) return r; } return 'ALL'; };\nconst devSeen = byKey('A', 'site'), devNow = byKey('B', 'site'), links = byKey('C', 'site'), avail = byKey('D', 'site');\nconst unr = byKey('E', 'site'), spLive = byKey('F', 'spoke_id'), spDown = byKey('G', 'spoke_id'), spUp = byKey('J', 'spoke_id');\nconst probeR = byKey('I', 'region');\nconst devSite = {}; rows('H').forEach((r) => { devSite[r.instance + '|' + r.device_id] = r.site; });\nconst chg = {};\n['K', 'L'].forEach((ref) => rows(ref).forEach((r) => {\n  const a = devSite[r.instance + '|' + r.src_device], b = devSite[r.instance + '|' + r.dst_device];\n  const k = ref === 'K' ? 'c' : 'x';\n  [a, b].filter((s, i, arr) => s && arr.indexOf(s) === i).forEach((s) => { chg[s] = chg[s] || { c: 0, x: 0 }; chg[s][k] += r.__v; });\n}));\nconst sites = Array.from(new Set(Object.keys(devSeen).concat(Object.keys(spLive)))).sort();\nconst cur = context.grafana.replaceVariables('$site');\nconst tr = context.grafana.replaceVariables('${__url_time_range}');\nconst fmt = (v, d, suf) => (v === undefined || v === null || isNaN(v)) ? '<span class=\"na\">-</span>' : v.toFixed(d) + (suf || '');\nconst cls = (v, warn, bad, low) => (v === undefined || isNaN(v)) ? '' : (low ? (v < bad ? 'bad' : v < warn ? 'warn' : 'good') : (v >= bad ? 'bad' : v >= warn ? 'warn' : ''));\nlet h = '<table class=\"cmp\"><thead><tr><th>Site</th><th>Coverage</th><th>State now</th><th>Devices<br><small>now / seen 1h</small></th><th>Links</th>'\n  + '<th>Device availability</th><th>Unreachable<br><small>device-site minutes</small></th><th>Spoke liveness</th><th>Spoke down<br><small>minutes</small></th>'\n  + '<th>Changes</th><th>Conflicts</th><th>Probe region</th><th>Probe success</th></tr></thead><tbody>';\nsites.forEach((s) => {\n  const ds = SPOKE_TO_DEV[s] || s, sp = DEV_TO_SPOKE[s] || s;\n  const seen = devSeen[ds], now = devNow[ds] || 0, hasDev = seen !== undefined, hasFed = spLive[sp] !== undefined;\n  const reg = regionOf(s);\n  const pr = reg === 'ALL' ? (Object.values(probeR).length ? Object.values(probeR).reduce((a, b) => a + b, 0) / Object.values(probeR).length : undefined) : probeR[reg];\n  let st = 'OK', sc = 'good';\n  if (hasDev && now < seen) { st = (seen - now) + ' unreachable'; sc = 'warn'; }\n  if (hasDev && now === 0) { st = 'DOWN'; sc = 'bad'; }\n  if (hasFed && spUp[sp] === 0) { st = 'SPOKE DOWN'; sc = 'bad'; }\n  const cov = hasDev && hasFed ? 'discovery + spoke ' + sp : hasDev ? 'discovery' : 'federation only';\n  const c = chg[ds] || {};\n  h += '<tr class=\"' + (s === cur ? 'sel' : '') + '\"><td><a href=\"/d/nos-site-investigation?var-site=' + encodeURIComponent(s) + '&' + tr + '\">' + s + '</a></td>'\n    + '<td class=\"cov ' + (hasDev ? '' : 'fo') + '\">' + cov + '</td>'\n    + '<td><span class=\"pill ' + sc + '\">' + st + '</span></td>'\n    + '<td>' + (hasDev ? now + ' / ' + seen : '<span class=\"na\">-</span>') + '</td>'\n    + '<td>' + (hasDev ? fmt(links[ds] || 0, 0) : '<span class=\"na\">-</span>') + '</td>'\n    + '<td class=\"' + cls(avail[ds], 99.5, 98, true) + '\">' + fmt(avail[ds], 2, '%') + '</td>'\n    + '<td class=\"' + cls(unr[ds], 1, 10) + '\">' + (hasDev ? fmt(unr[ds] || 0, 0) : '<span class=\"na\">-</span>') + '</td>'\n    + '<td class=\"' + cls(spLive[sp], 99, 95, true) + '\">' + fmt(spLive[sp], 1, '%') + '</td>'\n    + '<td class=\"' + cls(spDown[sp], 1, 10) + '\">' + (hasFed ? fmt(spDown[sp] || 0, 0) : '<span class=\"na\">-</span>') + '</td>'\n    + '<td>' + (hasDev ? fmt(c.c || 0, 0) : '<span class=\"na\">-</span>') + '</td>'\n    + '<td class=\"' + cls(c.x, 1, 20) + '\">' + (hasDev ? fmt(c.x || 0, 0) : '<span class=\"na\">-</span>') + '</td>'\n    + '<td>' + (reg === 'ALL' ? 'all' : reg) + '</td>'\n    + '<td class=\"' + cls(pr, 99, 95, true) + '\">' + fmt(pr, 2, '%') + '</td></tr>';\n});\nh += '</tbody></table>';\ncontext.handlebars.registerHelper('cmpTable', () => new context.handlebars.SafeString(h));\n",
+          "afterRender": "",
+          "externalStyles": [],
+          "contentPartials": [],
+          "wrap": false,
+          "editors": [
+            "default",
+            "styles",
+            "helpers"
+          ],
+          "editor": {
+            "language": "html",
+            "format": "auto"
+          },
+          "status": ""
+        }
+      }
+    ]
+  }
+}

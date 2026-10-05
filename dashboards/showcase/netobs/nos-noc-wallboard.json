@@ -592,7 +592,7 @@
               "uid": "grafanacloud-prom"
             },
             "refId": "A",
-            "expr": "max by (device_id) (network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\"}) or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\"}[1h])) * 0 - 1)",
+            "expr": "max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\"}[2m])) or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\"}[1h])) * 0 - 1)",
             "legendFormat": "{{device_id}}",
             "range": true,
             "instant": false,
@@ -604,7 +604,7 @@
               "uid": "grafanacloud-prom"
             },
             "refId": "B",
-            "expr": "max by (device_id) (network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\",device_id!~\"host-.*\"}) / 86400 or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\",device_id!~\"host-.*\"}[1h])) * 0 - 1)",
+            "expr": "max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\",device_id!~\"host-.*\"}[2m])) / 86400 or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\",device_id!~\"host-.*\"}[1h])) * 0 - 1)",
             "legendFormat": "d-{{device_id}}",
             "range": true,
             "instant": false,
@@ -663,7 +663,7 @@
               "uid": "grafanacloud-prom"
             },
             "refId": "A",
-            "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((max by (device_id) (network_topology_device_uptime_seconds{instance=\"$exporter\"}) / 86400 or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"$exporter\"}[1h])) * 0 - 1)), \"short\", \"$1\", \"device_id\", \"(.*)\"), \"short\", \"h$1-$2\", \"device_id\", \"host-leaf(\\\\d+)-(\\\\d+)\"), \"short\", \"lf$1\", \"device_id\", \"leaf-(\\\\d+)\"), \"short\", \"sp$1\", \"device_id\", \"spine-(\\\\d+)\"), \"short\", \"fw$1\", \"device_id\", \"edge-fw-(\\\\d+)\"), \"short\", \"wc$1\", \"device_id\", \"wan-core-(\\\\d+)\")",
+            "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"$exporter\"}[2m])) / 86400 or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"$exporter\"}[1h])) * 0 - 1)), \"short\", \"$1\", \"device_id\", \"(.*)\"), \"short\", \"h$1-$2\", \"device_id\", \"host-leaf(\\\\d+)-(\\\\d+)\"), \"short\", \"lf$1\", \"device_id\", \"leaf-(\\\\d+)\"), \"short\", \"sp$1\", \"device_id\", \"spine-(\\\\d+)\"), \"short\", \"fw$1\", \"device_id\", \"edge-fw-(\\\\d+)\"), \"short\", \"wc$1\", \"device_id\", \"wan-core-(\\\\d+)\")",
             "legendFormat": "{{short}}",
             "range": true,
             "instant": false,

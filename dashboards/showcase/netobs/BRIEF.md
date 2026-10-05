@@ -134,8 +134,12 @@ and for logs `gcx --context <target-stack> logs query -d grafanacloud-logs '<log
   device_info/device_uptime_seconds for a few minutes: ent-dc1 every 53m for 4m, hub every 41m
   for 3m, spoke every 71m for 5m), `nettopo_walker_degraded`, `nettopo_discovery_slow`
   (graph_stale=1), `nettopo_auth_failures`, and the hub's hourly `nettopo_spoke_down`. Detect an
-  unreachable device as "seen in the last hour but absent now":
-  `max by (instance, device_id) (last_over_time(network_topology_device_info[1h])) unless on (instance, device_id) network_topology_device_info`.
+  unreachable device as "seen in the last hour but no sample in the last 2m":
+  `max by (instance, device_id) (last_over_time(network_topology_device_info[1h])) unless on (instance, device_id) max_over_time(network_topology_device_info[2m])`,
+  gated on the exporter itself still reporting (`last_over_time(network_topology_graph_devices_total[2m])`).
+  A bare selector does NOT work: samples arrive about every 65s with no staleness markers, so the
+  default 5m lookback hides a 3 to 5 minute outage entirely. Edges keep reporting while a device
+  is unreachable, so "links lost" stays 0 during these faults (an emitter gap, not a query bug).
 - Synthetic probes are live: `probe_success`, `probe_duration_seconds`, `probe_all_duration_seconds_bucket`,
   `sm_check_info` (check identity is the `job` label; `check_name` is always `http`; region
   EMEA/US/APAC). Probe names carry a `synthkit-` prefix: strip it for display with label_replace.

@@ -1,0 +1,2621 @@
+{
+  "apiVersion": "dashboard.grafana.app/v1beta1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "nos-noc-triage",
+    "annotations": {
+      "grafana.app/folder": "netobs-showcase"
+    }
+  },
+  "spec": {
+    "title": "Network Observability - NOC Triage",
+    "description": "Shift triage for the global network: what is broken right now, where, since when, and which drilldown to open next, across every discovery exporter, federated spoke and external probe.",
+    "uid": "nos-noc-triage",
+    "tags": [
+      "netobs-showcase",
+      "noc",
+      "triage"
+    ],
+    "editable": true,
+    "graphTooltip": 1,
+    "refresh": "1m",
+    "schemaVersion": 41,
+    "timezone": "utc",
+    "time": {
+      "from": "now-3h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": [
+        "30s",
+        "1m",
+        "5m"
+      ]
+    },
+    "links": [
+      {
+        "type": "dashboards",
+        "tags": [
+          "netobs-showcase"
+        ],
+        "asDropdown": true,
+        "title": "Network Operations",
+        "includeVars": false,
+        "keepTime": true,
+        "targetBlank": false,
+        "icon": "external link"
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "exporter",
+          "label": "Discovery exporter",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 1,
+            "query": "label_values(network_topology_graph_devices_total, instance)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "label_values(network_topology_graph_devices_total, instance)",
+          "current": {
+            "selected": true,
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "refresh": 2,
+          "sort": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "options": []
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        },
+        {
+          "name": "Devices unreachable",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "enable": true,
+          "hide": false,
+          "iconColor": "red",
+          "expr": "count by (instance) ((max by (instance, device_id, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])) unless on (instance, device_id) last_over_time(network_topology_device_info{instance=~\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m]))",
+          "step": "60s",
+          "titleFormat": "Devices unreachable",
+          "textFormat": "{{instance}}",
+          "tagKeys": "instance",
+          "useValueForTime": false,
+          "filter": {
+            "exclude": false,
+            "ids": [
+              13
+            ]
+          },
+          "target": {
+            "refId": "Anno",
+            "expr": "count by (instance) ((max by (instance, device_id, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])) unless on (instance, device_id) last_over_time(network_topology_device_info{instance=~\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m]))",
+            "interval": "60s",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            }
+          }
+        },
+        {
+          "name": "Spokes down",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "enable": true,
+          "hide": false,
+          "iconColor": "purple",
+          "expr": "count by (instance) (last_over_time(network_topology_federation_spoke_up{instance=~\"$exporter\"}[2m]) == 0)",
+          "step": "60s",
+          "titleFormat": "Federated spokes down",
+          "textFormat": "{{instance}}",
+          "tagKeys": "instance",
+          "useValueForTime": false,
+          "filter": {
+            "exclude": false,
+            "ids": [
+              13
+            ]
+          },
+          "target": {
+            "refId": "Anno",
+            "expr": "count by (instance) (last_over_time(network_topology_federation_spoke_up{instance=~\"$exporter\"}[2m]) == 0)",
+            "interval": "60s",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            }
+          }
+        },
+        {
+          "name": "Graph stale",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "enable": true,
+          "hide": false,
+          "iconColor": "orange",
+          "expr": "max by (instance) (last_over_time(network_topology_graph_stale{instance=~\"$exporter\"}[2m]) == 1)",
+          "step": "60s",
+          "titleFormat": "Topology graph stale",
+          "textFormat": "{{instance}}",
+          "tagKeys": "instance",
+          "useValueForTime": false,
+          "filter": {
+            "exclude": false,
+            "ids": [
+              13
+            ]
+          },
+          "target": {
+            "refId": "Anno",
+            "expr": "max by (instance) (last_over_time(network_topology_graph_stale{instance=~\"$exporter\"}[2m]) == 1)",
+            "interval": "60s",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            }
+          }
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Unreachable",
+        "description": "Devices polled in the last hour that no longer report network_topology_device_info, on exporters that are themselves still reporting.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count((max by (instance, device_id, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])) unless on (instance, device_id) last_over_time(network_topology_device_info{instance=~\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) or vector(0)",
+            "legendFormat": "Unreachable",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "orientation": "auto",
+          "text": {
+            "valueSize": 40
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "min": 0,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Stale graphs",
+        "description": "Exporters whose network_topology_graph_stale is 1: the last discovery cycle did not complete, so the graph is being served from the previous cycle.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 3,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count(last_over_time(network_topology_graph_stale{instance=~\"$exporter\"}[2m]) == 1) or vector(0)",
+            "legendFormat": "Stale graphs",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "orientation": "auto",
+          "text": {
+            "valueSize": 40
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "min": 0,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Modules not OK",
+        "description": "Discovery modules (lldp, cdp, bgp, ospf, fdb, isis, mpls_te) with network_topology_module_last_status 1 (degraded) or 2 (hard-failed). The issues table splits the two.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count(last_over_time(network_topology_module_last_status{instance=~\"$exporter\"}[2m]) > 0) or vector(0)",
+            "legendFormat": "Modules not OK",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "orientation": "auto",
+          "text": {
+            "valueSize": 40
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "min": 0,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Spokes down",
+        "description": "Federated spokes the global hub marks network_topology_federation_spoke_up = 0.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 9,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count(last_over_time(network_topology_federation_spoke_up{instance=~\"$exporter\"}[2m]) == 0) or vector(0)",
+            "legendFormat": "Spokes down",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "orientation": "auto",
+          "text": {
+            "valueSize": 40
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "min": 0,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 5,
+        "type": "stat",
+        "title": "Auth fails 15m",
+        "description": "Failed SNMP credential trials in the last 15 minutes, from network_topology_credential_trials_total{status=\"failed\"}.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "round(sum(sum by (instance) (((network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} - network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} offset 15m) > 0) or (network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} unless network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} offset 15m)))) or vector(0)",
+            "legendFormat": "Auth fails 15m",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "orientation": "auto",
+          "text": {
+            "valueSize": 40
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "min": 0,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 6,
+        "type": "stat",
+        "title": "Links lost 1h",
+        "description": "Adjacencies (network_topology_edge_info) discovered in the last hour that are absent from the current graph.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 15,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count((max by (instance, src_device, src_port, dst_device, dst_port, discovery_proto) (last_over_time(network_topology_edge_info{instance=~\"$exporter\"}[1h])) unless on (instance, src_device, src_port, dst_device, dst_port, discovery_proto) last_over_time(network_topology_edge_info{instance=~\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) or vector(0)",
+            "legendFormat": "Links lost 1h",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "orientation": "auto",
+          "text": {
+            "valueSize": 40
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "min": 0,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 7,
+        "type": "stat",
+        "title": "Probes failing",
+        "description": "External probe checks whose latest probe_success is 0.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count(last_over_time(probe_success[6m]) == 0) or vector(0)",
+            "legendFormat": "Probes failing",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "orientation": "auto",
+          "text": {
+            "valueSize": 40
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "min": 0,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 8,
+        "type": "stat",
+        "title": "Over budget 15m",
+        "description": "Discovery cycles skipped in the last 15 minutes because the previous cycle overran its budget (network_topology_cycle_budget_skips_total).",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 21,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "round(sum(increase(network_topology_cycle_budget_skips_total{instance=~\"$exporter\"}[15m]))) or vector(0)",
+            "legendFormat": "Over budget 15m",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "orientation": "auto",
+          "text": {
+            "valueSize": 40
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "min": 0,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 9,
+        "type": "table",
+        "title": "Active issues",
+        "description": "Every open condition across all discovery exporters, federated spokes and external probes, critical first. Since is the last healthy sample (last seen for a device or link, last push for a spoke, first failure in the window for counters). Click the object to open its drilldown: devices and links open Device Investigation, spokes open Site Investigation, exporter-level conditions open Change Intelligence and Discovery Health, probe checks open Interface and Path Performance.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 16,
+          "h": 12
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_join(label_replace(label_replace(label_replace(label_replace((max by (instance, device_id, site) (max_over_time(timestamp(network_topology_device_info{instance=~\"$exporter\"})[1h:1m])) unless on (instance, device_id) last_over_time(network_topology_device_info{instance=~\"$exporter\"}[2m]) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) * 1000, \"severity\", \"CRITICAL\", \"instance\", \".*\"), \"condition\", \"Device unreachable\", \"instance\", \".*\"), \"object\", \"$1\", \"device_id\", \"(.*)\"), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"k\", \"|\", \"instance\", \"device_id\"), \"drill\", \"/d/nos-device-investigation?var-exporter=$1&var-device=$2\", \"k\", \"(.*)[|](.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_replace(label_replace(label_replace(label_replace(((max by (instance) (max_over_time(timestamp(network_topology_graph_devices_total{instance=~\"$exporter\"})[3h:1m])) unless on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) * 1000) * on (instance) group_left (site) (max by (instance, site) (topk by (instance) (1, count by (instance, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])))) * 0 + 1), \"severity\", \"CRITICAL\", \"instance\", \".*\"), \"condition\", \"Exporter not reporting\", \"instance\", \".*\"), \"object\", \"discovery exporter\", \"instance\", \".*\"), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"drill\", \"/d/nos-change-and-discovery?var-exporter=$1\", \"instance\", \"(.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(max by (instance, spoke_id) (network_topology_federation_spoke_last_push_timestamp_seconds{instance=~\"$exporter\"}) * 1000 and on (instance, spoke_id) (last_over_time(network_topology_federation_spoke_up{instance=~\"$exporter\"}[2m]) == 0), \"severity\", \"CRITICAL\", \"instance\", \".*\"), \"condition\", \"Spoke down\", \"instance\", \".*\"), \"object\", \"$1\", \"spoke_id\", \"(.*)\"), \"site\", \"$1\", \"spoke_id\", \"(.*)\"), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"drill\", \"/d/nos-site-investigation?var-site=$1\", \"spoke_id\", \"(.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "D",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_replace(label_replace(label_replace(label_replace((((max by (instance, module) (max_over_time(timestamp(network_topology_module_last_status{instance=~\"$exporter\"} == 0)[3h:1m])) and on (instance, module) (last_over_time(network_topology_module_last_status{instance=~\"$exporter\"}[2m]) == 2)) or on (instance, module) (max by (instance, module) ((last_over_time(network_topology_module_last_status{instance=~\"$exporter\"}[2m]) == 2)) * 0 + time() - 10800)) * 1000) * on (instance) group_left (site) (max by (instance, site) (topk by (instance) (1, count by (instance, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])))) * 0 + 1), \"severity\", \"CRITICAL\", \"instance\", \".*\"), \"condition\", \"Discovery module hard-failed\", \"instance\", \".*\"), \"object\", \"$1 module\", \"module\", \"(.*)\"), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"drill\", \"/d/nos-change-and-discovery?var-exporter=$1\", \"instance\", \"(.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "E",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_replace(label_replace(label_replace(label_replace((((max by (instance, module) (max_over_time(timestamp(network_topology_module_last_status{instance=~\"$exporter\"} == 0)[3h:1m])) and on (instance, module) (last_over_time(network_topology_module_last_status{instance=~\"$exporter\"}[2m]) == 1)) or on (instance, module) (max by (instance, module) ((last_over_time(network_topology_module_last_status{instance=~\"$exporter\"}[2m]) == 1)) * 0 + time() - 10800)) * 1000) * on (instance) group_left (site) (max by (instance, site) (topk by (instance) (1, count by (instance, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])))) * 0 + 1), \"severity\", \"WARNING\", \"instance\", \".*\"), \"condition\", \"Discovery module degraded\", \"instance\", \".*\"), \"object\", \"$1 module\", \"module\", \"(.*)\"), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"drill\", \"/d/nos-change-and-discovery?var-exporter=$1\", \"instance\", \"(.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "F",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_replace(label_replace(label_replace(label_replace((((max by (instance) (max_over_time(timestamp(network_topology_graph_stale{instance=~\"$exporter\"} == 0)[3h:1m])) and on (instance) (last_over_time(network_topology_graph_stale{instance=~\"$exporter\"}[2m]) == 1)) or on (instance) (max by (instance) ((last_over_time(network_topology_graph_stale{instance=~\"$exporter\"}[2m]) == 1)) * 0 + time() - 10800)) * 1000) * on (instance) group_left (site) (max by (instance, site) (topk by (instance) (1, count by (instance, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])))) * 0 + 1), \"severity\", \"WARNING\", \"instance\", \".*\"), \"condition\", \"Topology graph stale\", \"instance\", \".*\"), \"object\", \"topology graph\", \"instance\", \".*\"), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"drill\", \"/d/nos-change-and-discovery?var-exporter=$1\", \"instance\", \"(.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "G",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_replace(label_replace(label_replace(label_replace((min by (instance) (min_over_time(timestamp(network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"})[15m:1m])) * 1000 and on (instance) (sum by (instance) (((network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} - network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} offset 15m) > 0) or (network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} unless network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} offset 15m)) > 0)) * on (instance) group_left (site) (max by (instance, site) (topk by (instance) (1, count by (instance, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])))) * 0 + 1), \"severity\", \"WARNING\", \"instance\", \".*\"), \"condition\", \"SNMP credential failures\", \"instance\", \".*\"), \"object\", \"SNMP credentials\", \"instance\", \".*\"), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"drill\", \"/d/nos-change-and-discovery?var-exporter=$1\", \"instance\", \"(.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "H",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_replace(label_replace(label_replace(label_replace((min by (instance) (min_over_time(timestamp(sum by (instance) (increase(network_topology_cycle_budget_skips_total{instance=~\"$exporter\"}[2m])) > 0)[15m:1m])) * 1000) * on (instance) group_left (site) (max by (instance, site) (topk by (instance) (1, count by (instance, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])))) * 0 + 1), \"severity\", \"WARNING\", \"instance\", \".*\"), \"condition\", \"Discovery cycle over budget\", \"instance\", \".*\"), \"object\", \"discovery cycle\", \"instance\", \".*\"), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"drill\", \"/d/nos-change-and-discovery?var-exporter=$1\", \"instance\", \"(.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "I",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_replace(label_replace(label_replace(label_replace((min by (instance, reason) (min_over_time(timestamp(sum by (instance, reason) (increase(network_topology_graph_updates_rejected_total{instance=~\"$exporter\"}[2m])) > 0.5)[15m:1m])) * 1000) * on (instance) group_left (site) (max by (instance, site) (topk by (instance) (1, count by (instance, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])))) * 0 + 1), \"severity\", \"WARNING\", \"instance\", \".*\"), \"condition\", \"Federation updates rejected\", \"instance\", \".*\"), \"object\", \"rejected: $1\", \"reason\", \"(.*)\"), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"drill\", \"/d/nos-change-and-discovery?var-exporter=$1\", \"instance\", \"(.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "J",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_join(label_replace((label_replace(label_replace(label_join((max by (instance, src_device, src_port, dst_device, dst_port, discovery_proto) (max_over_time(timestamp(network_topology_edge_info{instance=~\"$exporter\"})[1h:1m])) unless on (instance, src_device, src_port, dst_device, dst_port, discovery_proto) last_over_time(network_topology_edge_info{instance=~\"$exporter\"}[2m]) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) * 1000, \"object\", \" -> \", \"src_device\", \"dst_device\"), \"severity\", \"WARNING\", \"instance\", \".*\"), \"condition\", \"Link lost\", \"instance\", \".*\")) * on (instance) group_left (site) (max by (instance, site) (topk by (instance) (1, count by (instance, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])))) * 0 + 1), \"exporter\", \"$1\", \"instance\", \"(.*):[0-9]+\"), \"k\", \"|\", \"instance\", \"src_device\"), \"drill\", \"/d/nos-device-investigation?var-exporter=$1&var-device=$2\", \"k\", \"(.*)[|](.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "K",
+            "expr": "max by (severity, condition, exporter, instance, site, object, drill) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(((max by (job, probe) (max_over_time(timestamp(probe_success == 1)[3h:1m])) and on (job, probe) (last_over_time(probe_success[6m]) == 0) or on (job, probe) (max by (job, probe) (last_over_time(probe_success[6m]) == 0) * 0 + time() - 10800)) * 1000) * on (job, probe) group_left (region) (max by (job, probe, region) (sm_check_info) * 0 + 1), \"severity\", \"CRITICAL\", \"instance\", \".*\"), \"condition\", \"Probe check failing\", \"instance\", \".*\"), \"object\", \"$1\", \"job\", \"(.*)\"), \"exporter\", \"probe $1\", \"probe\", \"synthkit-(.*)\"), \"site\", \"$1\", \"region\", \"(.*)\"), \"drill\", \"/d/nos-interface-performance?var-check=$1\", \"job\", \"(.*)\"))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          },
+          {
+            "id": "calculateField",
+            "options": {
+              "mode": "reduceRow",
+              "alias": "Since",
+              "replaceFields": false,
+              "reduce": {
+                "reducer": "max",
+                "include": [
+                  "Value #A",
+                  "Value #B",
+                  "Value #C",
+                  "Value #D",
+                  "Value #E",
+                  "Value #F",
+                  "Value #G",
+                  "Value #H",
+                  "Value #I",
+                  "Value #J",
+                  "Value #K"
+                ]
+              }
+            }
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "instance": true,
+                "Value #A": true,
+                "Value #B": true,
+                "Value #C": true,
+                "Value #D": true,
+                "Value #E": true,
+                "Value #F": true,
+                "Value #G": true,
+                "Value #H": true,
+                "Value #I": true,
+                "Value #J": true,
+                "Value #K": true
+              },
+              "indexByName": {
+                "severity": 0,
+                "condition": 1,
+                "exporter": 2,
+                "site": 3,
+                "object": 4,
+                "Since": 5,
+                "drill": 6
+              },
+              "renameByName": {
+                "severity": "Severity",
+                "condition": "Condition",
+                "exporter": "Exporter / probe",
+                "site": "Site / region",
+                "object": "Object"
+              }
+            }
+          },
+          {
+            "id": "sortBy",
+            "options": {
+              "fields": {},
+              "sort": [
+                {
+                  "field": "Severity",
+                  "desc": false
+                }
+              ]
+            }
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "footer": {
+            "show": false,
+            "reducer": [
+              "count"
+            ],
+            "countRows": true
+          },
+          "sortBy": []
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "left",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "filterable": true
+            },
+            "noValue": "No active issues"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Severity"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 110
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "CRITICAL": {
+                          "color": "red",
+                          "index": 0
+                        },
+                        "WARNING": {
+                          "color": "orange",
+                          "index": 1
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Condition"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 250
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Exporter / probe"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 190
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Site / region"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 130
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Object"
+              },
+              "properties": [
+                {
+                  "id": "links",
+                  "value": [
+                    {
+                      "title": "Open drilldown for ${__data.fields.object}",
+                      "url": "${__data.fields.drill}&${__url_time_range}"
+                    }
+                  ]
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "auto"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Since"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "dateTimeFromNow"
+                },
+                {
+                  "id": "custom.width",
+                  "value": 150
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "drill"
+              },
+              "properties": [
+                {
+                  "id": "custom.hidden",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 10,
+        "type": "text",
+        "title": "Shift triage guide",
+        "gridPos": {
+          "x": 16,
+          "y": 4,
+          "w": 8,
+          "h": 12
+        },
+        "options": {
+          "mode": "markdown",
+          "content": "### How to triage\n\n1. **Read the strip left to right.** Red is a service-affecting condition (device, spoke or probe path down). Amber means discovery or polling is impaired and the graph may be out of date. The sparkline shows the last three hours: a green tile with a spike is a fault that has cleared.\n2. **Work the Active issues table top down.** Critical rows sort first. *Since* is when the object was last healthy. Click the object to open the right drilldown with the time range carried over.\n3. **Check whether it is one fault or many.** Several unreachable devices behind one exporter, or every spoke dropping at once, usually means the poller or the federation path, not the devices. Look at *Exporter not reporting* and *Spokes down* before opening device tickets.\n4. **Use Condition history for duration and flapping.** A condition that clears and returns on a regular cycle is a recurring fault: raise a problem record, not another incident.\n5. **Confirm with the event feed.** Topology change lines show adjacencies being added or removed, and conflict lines show LLDP and CDP disagreeing about a neighbour. Disagreement on a host port is usually a mis-patched server, not a switch fault.",
+          "code": {
+            "language": "markdown",
+            "showLineNumbers": false,
+            "showMiniMap": false
+          }
+        }
+      },
+      {
+        "id": 11,
+        "type": "table",
+        "title": "Exporter health matrix",
+        "description": "One row per discovery exporter, one column per condition, as of now. Reporting: the exporter pushed network_topology_graph_devices_total in the last 2 minutes. Spokes down and Rejected (federation updates rejected) only apply to the global federation hub and are blank elsewhere. Click an exporter for its discovery health board.",
+        "datasource": {
+          "type": "datasource",
+          "uid": "-- Mixed --"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 16,
+          "w": 24,
+          "h": 6
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max by (instance) (last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m]) * 0 + 1) or on (instance) (max by (instance) (last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[3h])) * 0)",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "max by (instance) (last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m]))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "count by (instance) ((max by (instance, device_id, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])) unless on (instance, device_id) last_over_time(network_topology_device_info{instance=~\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) or on (instance) (max by (instance) (last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) * 0)",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "D",
+            "expr": "max by (instance) (last_over_time(network_topology_graph_stale{instance=~\"$exporter\"}[2m]))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "E",
+            "expr": "max by (instance) (last_over_time(network_topology_module_last_status{instance=~\"$exporter\"}[2m]))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "F",
+            "expr": "count by (instance) (last_over_time(network_topology_federation_spoke_up{instance=~\"$exporter\"}[2m]) == 0) or on (instance) (max by (instance) (last_over_time(network_topology_federation_spoke_up{instance=~\"$exporter\"}[2m])) * 0)",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "G",
+            "expr": "round(sum by (instance) (((network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} - network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} offset 15m) > 0) or (network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} unless network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} offset 15m))) or on (instance) (max by (instance) (last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) * 0)",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "H",
+            "expr": "count by (instance) ((max by (instance, src_device, src_port, dst_device, dst_port, discovery_proto) (last_over_time(network_topology_edge_info{instance=~\"$exporter\"}[1h])) unless on (instance, src_device, src_port, dst_device, dst_port, discovery_proto) last_over_time(network_topology_edge_info{instance=~\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) or on (instance) (max by (instance) (last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m])) * 0)",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "I",
+            "expr": "round(sum by (instance) (increase(network_topology_cycle_budget_skips_total{instance=~\"$exporter\"}[15m])))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "J",
+            "expr": "round(sum by (instance) (increase(network_topology_graph_updates_rejected_total{instance=~\"$exporter\"}[15m])))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "refId": "K",
+            "expr": "sum by (instance) (count_over_time({source=\"network-topology-exporter\", conflict_type=~\".+\", instance=~\"$exporter\"}[1h]))",
+            "queryType": "instant",
+            "instant": true,
+            "range": false,
+            "editorMode": "code",
+            "legendFormat": ""
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "Z",
+            "expr": "max by (instance, site) (topk by (instance) (1, count by (instance, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h]))))",
+            "legendFormat": "",
+            "range": false,
+            "instant": true,
+            "format": "table",
+            "editorMode": "code"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "labelsToFields",
+            "options": {
+              "mode": "columns"
+            }
+          },
+          {
+            "id": "joinByField",
+            "options": {
+              "byField": "instance",
+              "mode": "outer"
+            }
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time 1": true,
+                "Time 2": true,
+                "Time 3": true,
+                "Time 4": true,
+                "Time 5": true,
+                "Time 6": true,
+                "Time 7": true,
+                "Time 8": true,
+                "Time 9": true,
+                "Time 10": true,
+                "Time 11": true,
+                "Time 12": true,
+                "Time 13": true,
+                "Time 14": true,
+                "Time 15": true,
+                "Time": true,
+                "Value #Z": true
+              },
+              "indexByName": {
+                "instance": 0,
+                "site": 1,
+                "Value #A": 2,
+                "Value #B": 3,
+                "Value #C": 4,
+                "Value #D": 5,
+                "Value #E": 6,
+                "Value #F": 7,
+                "Value #G": 8,
+                "Value #H": 9,
+                "Value #I": 10,
+                "Value #J": 11,
+                "Value #K": 12
+              },
+              "renameByName": {
+                "Value #A": "Reporting",
+                "Value #B": "Devices",
+                "Value #C": "Unreachable",
+                "Value #D": "Graph stale",
+                "Value #E": "Worst module",
+                "Value #F": "Spokes down",
+                "Value #G": "Auth fails 15m",
+                "Value #H": "Links lost 1h",
+                "Value #I": "Overruns 15m",
+                "Value #J": "Rejected 15m",
+                "Value #K": "Conflicts 1h",
+                "instance": "Exporter",
+                "site": "Site"
+              }
+            }
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "cellHeight": "md",
+          "footer": {
+            "show": false,
+            "reducer": [
+              "sum"
+            ]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "center",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "width": 128
+            },
+            "noValue": "-"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Reporting"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "red",
+                        "value": null
+                      },
+                      {
+                        "color": "green",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "0": {
+                          "text": "SILENT"
+                        },
+                        "1": {
+                          "text": "YES"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Devices"
+              },
+              "properties": [
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Unreachable"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "red",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Graph stale"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "0": {
+                          "text": "fresh"
+                        },
+                        "1": {
+                          "text": "STALE"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Worst module"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 1
+                      },
+                      {
+                        "color": "red",
+                        "value": 2
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "0": {
+                          "text": "OK"
+                        },
+                        "1": {
+                          "text": "DEGRADED"
+                        },
+                        "2": {
+                          "text": "HARD-FAILED"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Spokes down"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "red",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Auth fails 15m"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Links lost 1h"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Overruns 15m"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Rejected 15m"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Conflicts 1h"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.align",
+                  "value": "center"
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Exporter"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 200
+                },
+                {
+                  "id": "links",
+                  "value": [
+                    {
+                      "title": "Discovery health for ${__value.raw}",
+                      "url": "/d/nos-change-and-discovery?var-exporter=${__value.raw}&${__url_time_range}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Site"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 100
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 12,
+        "type": "state-timeline",
+        "title": "Condition history - $exporter",
+        "description": "Each condition for this exporter over the selected range: green OK, amber impaired, red service-affecting. Gaps mean the condition does not apply to this exporter. Use it to judge duration and spot conditions that clear and return on a cycle.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "repeat": "exporter",
+        "repeatDirection": "h",
+        "maxPerRow": 3,
+        "gridPos": {
+          "x": 0,
+          "y": 22,
+          "w": 8,
+          "h": 10
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "(max by (instance) (last_over_time(network_topology_graph_devices_total{instance=\"$exporter\"}[2m])) * 0) or on (instance) (max by (instance) (last_over_time(network_topology_graph_devices_total{instance=\"$exporter\"}[3h])) * 0 + 2)",
+            "legendFormat": "Exporter reporting",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "((count by (instance) ((max by (instance, device_id, site) (last_over_time(network_topology_device_info{instance=\"$exporter\"}[1h])) unless on (instance, device_id) last_over_time(network_topology_device_info{instance=\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=\"$exporter\"}[2m])) > 0) * 0 + 2) or on (instance) (max by (instance) (last_over_time(network_topology_graph_devices_total{instance=\"$exporter\"}[2m])) * 0)",
+            "legendFormat": "Devices unreachable",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "max by (instance) (last_over_time(network_topology_module_last_status{instance=\"$exporter\"}[2m]))",
+            "legendFormat": "Discovery modules",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "D",
+            "expr": "max by (instance) (last_over_time(network_topology_graph_stale{instance=\"$exporter\"}[2m]))",
+            "legendFormat": "Topology graph",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "E",
+            "expr": "((sum by (instance) (((network_topology_credential_trials_total{status=\"failed\",instance=\"$exporter\"} - network_topology_credential_trials_total{status=\"failed\",instance=\"$exporter\"} offset 5m) > 0) or (network_topology_credential_trials_total{status=\"failed\",instance=\"$exporter\"} unless network_topology_credential_trials_total{status=\"failed\",instance=\"$exporter\"} offset 5m)) > 0) * 0 + 1) or on (instance) (max by (instance) (last_over_time(network_topology_graph_devices_total{instance=\"$exporter\"}[2m])) * 0)",
+            "legendFormat": "SNMP credentials",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "F",
+            "expr": "((sum by (instance) (increase(network_topology_cycle_budget_skips_total{instance=\"$exporter\"}[5m])) > 0) * 0 + 1) or on (instance) (max by (instance) (last_over_time(network_topology_graph_devices_total{instance=\"$exporter\"}[2m])) * 0)",
+            "legendFormat": "Discovery cycle budget",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "G",
+            "expr": "((count by (instance) ((max by (instance, src_device, src_port, dst_device, dst_port, discovery_proto) (last_over_time(network_topology_edge_info{instance=\"$exporter\"}[1h])) unless on (instance, src_device, src_port, dst_device, dst_port, discovery_proto) last_over_time(network_topology_edge_info{instance=\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=\"$exporter\"}[2m])) > 0) * 0 + 1) or on (instance) (max by (instance) (last_over_time(network_topology_graph_devices_total{instance=\"$exporter\"}[2m])) * 0)",
+            "legendFormat": "Links",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "H",
+            "expr": "((count by (instance) (last_over_time(network_topology_federation_spoke_up{instance=\"$exporter\"}[2m]) == 0) > 0) * 0 + 2) or on (instance) (max by (instance) (last_over_time(network_topology_federation_spoke_up{instance=\"$exporter\"}[2m])) * 0)",
+            "legendFormat": "Federated spokes",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "I",
+            "expr": "((sum by (instance) (increase(network_topology_federation_spoke_push_failures_total{instance=\"$exporter\"}[5m])) > 0) * 0 + 1) or on (instance) (sum by (instance) (increase(network_topology_federation_spoke_push_failures_total{instance=\"$exporter\"}[5m])) * 0)",
+            "legendFormat": "Federation push",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "J",
+            "expr": "((sum by (instance) (increase(network_topology_graph_updates_rejected_total{instance=\"$exporter\"}[5m])) > 0.5) * 0 + 1) or on (instance) (sum by (instance) (increase(network_topology_graph_updates_rejected_total{instance=\"$exporter\"}[5m])) * 0)",
+            "legendFormat": "Federation updates",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "showValue": "never",
+          "mergeValues": true,
+          "alignValue": "center",
+          "rowHeight": 0.82,
+          "legend": {
+            "showLegend": false,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 2
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "OK",
+                    "color": "green",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "WARN",
+                    "color": "orange",
+                    "index": 1
+                  },
+                  "2": {
+                    "text": "CRIT",
+                    "color": "red",
+                    "index": 2
+                  }
+                }
+              }
+            ],
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 0
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 13,
+        "type": "timeseries",
+        "title": "Open issues over time",
+        "description": "Number of objects in each condition per minute across the selected exporters and all probe checks. Annotation markers show unreachable-device, spoke-down and stale-graph windows.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 32,
+          "w": 14,
+          "h": 9
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count((max by (instance, device_id, site) (last_over_time(network_topology_device_info{instance=~\"$exporter\"}[1h])) unless on (instance, device_id) last_over_time(network_topology_device_info{instance=~\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m]))",
+            "legendFormat": "Devices unreachable",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "count(last_over_time(network_topology_federation_spoke_up{instance=~\"$exporter\"}[2m]) == 0)",
+            "legendFormat": "Spokes down",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "count(last_over_time(probe_success[6m]) == 0)",
+            "legendFormat": "Probe checks failing",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "D",
+            "expr": "count(last_over_time(network_topology_module_last_status{instance=~\"$exporter\"}[2m]) > 0)",
+            "legendFormat": "Modules not OK",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "E",
+            "expr": "count(last_over_time(network_topology_graph_stale{instance=~\"$exporter\"}[2m]) == 1)",
+            "legendFormat": "Stale graphs",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "F",
+            "expr": "count(sum by (instance) (((network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} - network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} offset 5m) > 0) or (network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} unless network_topology_credential_trials_total{status=\"failed\",instance=~\"$exporter\"} offset 5m)) > 0)",
+            "legendFormat": "Exporters with credential failures",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "G",
+            "expr": "count(sum by (instance) (increase(network_topology_cycle_budget_skips_total{instance=~\"$exporter\"}[5m])) > 0)",
+            "legendFormat": "Exporters over cycle budget",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "H",
+            "expr": "count((max by (instance, src_device, src_port, dst_device, dst_port, discovery_proto) (last_over_time(network_topology_edge_info{instance=~\"$exporter\"}[1h])) unless on (instance, src_device, src_port, dst_device, dst_port, discovery_proto) last_over_time(network_topology_edge_info{instance=~\"$exporter\"}[2m])) and on (instance) last_over_time(network_topology_graph_devices_total{instance=~\"$exporter\"}[2m]))",
+            "legendFormat": "Links lost",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "1m"
+          }
+        ],
+        "options": {
+          "legend": {
+            "showLegend": true,
+            "displayMode": "table",
+            "placement": "right",
+            "calcs": [
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "min": 0,
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 80,
+              "lineWidth": 0,
+              "stacking": {
+                "mode": "normal",
+                "group": "A"
+              },
+              "barAlignment": 0,
+              "showPoints": "never",
+              "axisSoftMax": 4
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Devices unreachable"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "red"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Spokes down"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "dark-red"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Probe checks failing"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "purple"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Modules not OK"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "orange"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Stale graphs"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "yellow"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Exporters with credential failures"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "blue"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Exporters over cycle budget"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "light-blue"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Links lost"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "dark-orange"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 14,
+        "type": "status-history",
+        "title": "External probe checks",
+        "description": "probe_success per check and probe location over the range: green pass, red fail. Check identity is the check job; the probe location is shown in brackets.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 14,
+          "y": 32,
+          "w": 10,
+          "h": 9
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "label_replace(min by (job, probe) (probe_success), \"loc\", \"$1\", \"probe\", \"synthkit-(.*)\")",
+            "legendFormat": "{{job}} ({{loc}})",
+            "range": true,
+            "instant": false,
+            "format": "time_series",
+            "editorMode": "code",
+            "interval": "2m"
+          }
+        ],
+        "maxDataPoints": 90,
+        "options": {
+          "showValue": "never",
+          "rowHeight": 0.85,
+          "colWidth": 0.95,
+          "legend": {
+            "showLegend": false,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "FAIL",
+                    "color": "red",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "PASS",
+                    "color": "green",
+                    "index": 1
+                  }
+                }
+              }
+            ],
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 0
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 15,
+        "type": "logs",
+        "title": "Recent topology events",
+        "description": "Newest first from {source=\"network-topology-exporter\"}: event=topology_change (adjacency added or removed) and event=topology_conflict (discovery protocols disagree about a neighbour).",
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 41,
+          "w": 24,
+          "h": 11
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "refId": "A",
+            "queryType": "range",
+            "editorMode": "code",
+            "expr": "{source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | line_format \"{{.instance}}  {{if .change_kind}}LINK {{.change_kind}} {{.proto}}  {{.src_device}} {{.src_port}} -> {{.dst_device}} {{.dst_port}} ({{.direction}}){{else}}CONFLICT {{.conflict_type}}  {{.src_device}} {{.src_port}}  sources={{.sources}}{{end}}\""
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending",
+          "enableInfiniteScrolling": false
+        }
+      }
+    ]
+  }
+}
