@@ -1,0 +1,1493 @@
+{
+  "apiVersion": "dashboard.grafana.app/v1beta1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "nos-topology-explorer",
+    "annotations": {
+      "grafana.app/folder": "netobs-showcase"
+    }
+  },
+  "spec": {
+    "title": "Network Observability - Topology Explorer",
+    "description": "Interactive analysis of the discovered network graph: topology, link flow, adjacency, estate composition and device inventory.",
+    "uid": "nos-topology-explorer",
+    "tags": [
+      "netobs-showcase",
+      "topology"
+    ],
+    "editable": true,
+    "graphTooltip": 1,
+    "schemaVersion": 41,
+    "refresh": "1m",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timezone": "browser",
+    "links": [
+      {
+        "type": "dashboards",
+        "tags": [
+          "netobs-showcase"
+        ],
+        "asDropdown": true,
+        "title": "Network Observability",
+        "includeVars": false,
+        "keepTime": true,
+        "targetBlank": false,
+        "icon": "external link",
+        "tooltip": "",
+        "url": ""
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "type": "query",
+          "name": "exporter",
+          "label": "Exporter",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 1,
+            "query": "label_values(network_topology_device_info, instance)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "label_values(network_topology_device_info, instance)",
+          "refresh": 2,
+          "sort": 1,
+          "multi": false,
+          "includeAll": false,
+          "current": {
+            "text": "netobs-glb-hub:9100",
+            "value": "netobs-glb-hub:9100"
+          },
+          "options": [],
+          "hide": 0
+        },
+        {
+          "type": "query",
+          "name": "vendor",
+          "label": "Vendor",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 1,
+            "query": "label_values(network_topology_device_info{instance=\"$exporter\"}, vendor)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "label_values(network_topology_device_info{instance=\"$exporter\"}, vendor)",
+          "refresh": 2,
+          "sort": 1,
+          "multi": true,
+          "includeAll": true,
+          "current": {
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "options": [],
+          "hide": 0,
+          "allValue": ".*"
+        },
+        {
+          "type": "query",
+          "name": "proto",
+          "label": "Discovery protocol",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 1,
+            "query": "label_values(network_topology_edge_info{instance=\"$exporter\"}, discovery_proto)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "label_values(network_topology_edge_info{instance=\"$exporter\"}, discovery_proto)",
+          "refresh": 2,
+          "sort": 1,
+          "multi": true,
+          "includeAll": true,
+          "current": {
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "options": [],
+          "hide": 0,
+          "allValue": ".*"
+        },
+        {
+          "type": "custom",
+          "name": "layout",
+          "label": "Graph layout",
+          "query": "layered,force",
+          "current": {
+            "text": "layered",
+            "value": "layered"
+          },
+          "multi": false,
+          "includeAll": false,
+          "hide": 0,
+          "options": [
+            {
+              "text": "layered",
+              "value": "layered",
+              "selected": true
+            },
+            {
+              "text": "force",
+              "value": "force",
+              "selected": false
+            }
+          ]
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "type": "text",
+        "title": "",
+        "options": {
+          "mode": "markdown",
+          "content": "### Topology Explorer\nThe discovered L2/L3 graph of the selected discovery exporter, as reconciled from LLDP, CDP, FDB, BGP, OSPF, IS-IS and MPLS-TE walks. Filter by **vendor** (both link ends must match) and **discovery protocol**, and switch the graph between a **layered** tier view and a **force** layout. Tier is derived from the device name prefix (edge-fw, wan-core, spine, leaf, host).\n\nSource: `network_topology_device_info`, `network_topology_edge_info`, `network_topology_device_uptime_seconds`."
+        },
+        "transparent": true,
+        "id": 1,
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 9,
+          "h": 6
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "stat",
+        "title": "Devices",
+        "description": "Discovered devices matching the vendor filter.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"})",
+            "format": "time_series",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "color": {
+              "mode": "fixed",
+              "fixedColor": "#1F60C4"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "colorMode": "background_solid",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "id": 2,
+        "gridPos": {
+          "x": 9,
+          "y": 0,
+          "w": 3,
+          "h": 6
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "stat",
+        "title": "Links",
+        "description": "Reconciled edges matching the vendor and protocol filters.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")))",
+            "format": "time_series",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "color": {
+              "mode": "fixed",
+              "fixedColor": "#8F3BB8"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "colorMode": "background_solid",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "id": 3,
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 3,
+          "h": 6
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "stat",
+        "title": "Links per device",
+        "description": "Mean degree: each edge counts at both ends.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "2 * count((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\"))) / count(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"})",
+            "format": "time_series",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 2,
+            "color": {
+              "mode": "fixed",
+              "fixedColor": "#37872D"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "colorMode": "background_solid",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "id": 4,
+        "gridPos": {
+          "x": 15,
+          "y": 0,
+          "w": 3,
+          "h": 6
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "stat",
+        "title": "Discovery protocols",
+        "description": "",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count(count by (discovery_proto) ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\"))))",
+            "format": "time_series",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "color": {
+              "mode": "fixed",
+              "fixedColor": "#C4162A"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "colorMode": "background_solid",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "id": 5,
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 3,
+          "h": 6
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "stat",
+        "title": "Vendors",
+        "description": "",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count(count by (vendor) (network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}))",
+            "format": "time_series",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "color": {
+              "mode": "fixed",
+              "fixedColor": "#E0752D"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "colorMode": "background_solid",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "id": 6,
+        "gridPos": {
+          "x": 21,
+          "y": 0,
+          "w": 3,
+          "h": 6
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "volkovlabs-echarts-panel",
+        "title": "Discovered topology - $exporter",
+        "description": "All discovered devices and reconciled links. Node colour = vendor, shape = tier, size = link count (degree). Line style = discovery protocol. Hover a node to isolate its neighbours; scroll to zoom, drag to pan. Driven by network_topology_device_info (nodes) and network_topology_edge_info (links).",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}",
+            "format": "table",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "(network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\"))",
+            "format": "table",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "const series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst textColor = theme.colors.text.primary;\nconst mutedColor = theme.colors.text.secondary;\nconst layoutMode = context.grafana.replaceVariables('$layout') === 'force' ? 'force' : 'layered';\n\nfunction rows(refId) {\n  const f = series.find((s) => s.refId === refId);\n  if (!f || !f.fields.length) { return []; }\n  const n = f.fields[0].values.length;\n  const out = [];\n  for (let i = 0; i < n; i++) {\n    const r = {};\n    f.fields.forEach((fl) => { r[fl.name] = fl.values.get ? fl.values.get(i) : fl.values[i]; });\n    out.push(r);\n  }\n  return out;\n}\n\nconst TIER_ORDER = ['edge-fw', 'wan-core', 'ext-peer', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core', 'ext-peer': 'External peer',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_SYMBOL = { 'edge-fw': 'triangle', 'wan-core': 'diamond', 'ext-peer': 'pin', spine: 'roundRect',\n  leaf: 'rect', host: 'circle', other: 'circle' };\nconst LAYER = { 'edge-fw': 0, 'wan-core': 0, 'ext-peer': 0, spine: 1, leaf: 2, host: 3, other: 3 };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_STYLE = {\n  lldp: { color: '#8AB8FF', type: 'solid', width: 1.2, curveness: 0 },\n  cdp: { color: '#96D98D', type: 'solid', width: 1.2, curveness: 0 },\n  fdb: { color: '#8E8E8E', type: 'dotted', width: 1, curveness: 0 },\n  bgp: { color: '#FF9830', type: 'dashed', width: 2.5, curveness: 0.25 },\n  ospf: { color: '#FADE2A', type: 'dashed', width: 2, curveness: 0.15 },\n  isis: { color: '#F2CC0C', type: 'dashed', width: 2, curveness: 0.15 },\n  mpls_te: { color: '#F2495C', type: 'solid', width: 3.5, curveness: 0.12 },\n  configured: { color: '#CCCCDC', type: 'dashed', width: 1.5, curveness: 0 },\n};\nconst tierOf = (id) => { const m = /^(edge-fw|wan-core|ext-peer|spine|leaf|host)/.exec(id); return m ? m[1] : 'other'; };\nconst esc = (s) => String(s ?? '').replace(/[&<>\"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\nconst natural = (a, b) => a.localeCompare(b, undefined, { numeric: true });\n\nconst nodeMap = new Map();\nrows('A').forEach((r) => {\n  if (!r.device_id || nodeMap.has(r.device_id)) { return; }\n  nodeMap.set(r.device_id, { id: r.device_id, vendor: r.vendor || 'unknown', os: r.os_version || '',\n    site: r.site || '', tier: tierOf(r.device_id), degree: 0, nbrs: [] });\n});\nconst links = [];\nconst protosSeen = new Set();\nrows('B').forEach((r) => {\n  const s = nodeMap.get(r.src_device);\n  const t = nodeMap.get(r.dst_device);\n  if (!s || !t) { return; }\n  s.degree++; t.degree++; s.nbrs.push(t.id); t.nbrs.push(s.id);\n  const st = PROTO_STYLE[r.discovery_proto] || PROTO_STYLE.configured;\n  protosSeen.add(r.discovery_proto);\n  links.push({ source: s.id, target: t.id, proto: r.discovery_proto, kind: r.link_kind,\n    direction: r.direction, srcPort: r.src_port, dstPort: r.dst_port,\n    lineStyle: { color: st.color, type: st.type, width: st.width, curveness: st.curveness, opacity: 0.55 } });\n});\n\nif (nodeMap.size === 0) {\n  return { title: { text: 'No devices match the current filters', left: 'center', top: 'middle',\n    textStyle: { color: mutedColor, fontSize: 14 } } };\n}\n\n// Layered placement: one horizontal band per tier group; hosts sit under their upstream switch.\nconst W = 1600; const H = 800;\nconst nodes = Array.from(nodeMap.values());\nconst layersPresent = Array.from(new Set(nodes.map((n) => LAYER[n.tier]))).sort();\nconst yOf = (layer) => {\n  const i = layersPresent.indexOf(layer);\n  return layersPresent.length === 1 ? H / 2 : (i / (layersPresent.length - 1)) * H;\n};\nconst pos = new Map();\nlayersPresent.filter((l) => l < 3).forEach((l) => {\n  const members = nodes.filter((n) => LAYER[n.tier] === l)\n    .sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier) || natural(a.id, b.id));\n  members.forEach((n, i) => pos.set(n.id, { x: ((i + 0.5) / members.length) * W, y: yOf(l) }));\n});\nconst bottom = nodes.filter((n) => LAYER[n.tier] === 3).map((n) => {\n  const xs = n.nbrs.map((id) => pos.get(id)).filter(Boolean).map((p) => p.x);\n  return { n, x0: xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : W / 2 };\n}).sort((a, b) => a.x0 - b.x0 || natural(a.n.id, b.n.id));\nbottom.forEach((b, i) => pos.set(b.n.id, { x: ((i + 0.5) / bottom.length) * W, y: yOf(3) }));\n\nconst tiersPresent = TIER_ORDER.filter((t) => nodes.some((n) => n.tier === t));\nconst categories = tiersPresent.map((t) => ({ name: TIER_NAME[t], symbol: TIER_SYMBOL[t],\n  itemStyle: { color: '#9FA7B3' } }));\nconst big = nodes.length > 60;\nconst data = nodes.map((n) => {\n  const p = pos.get(n.id);\n  const showLabel = n.tier !== 'host' || !big;\n  return {\n    id: n.id, name: n.id, x: p.x, y: p.y, value: n.degree,\n    category: tiersPresent.indexOf(n.tier),\n    symbol: TIER_SYMBOL[n.tier],\n    symbolSize: Math.round(7 + Math.sqrt(n.degree) * (n.tier === 'host' ? 2 : 4.2)),\n    itemStyle: { color: VENDOR_COLOR[n.vendor] || '#9FA7B3', borderColor: theme.colors.background.primary, borderWidth: 1 },\n    label: { show: showLabel, fontSize: n.tier === 'spine' || LAYER[n.tier] === 0 ? 12 : 10,\n      fontWeight: n.tier === 'spine' || LAYER[n.tier] === 0 ? 'bold' : 'normal',\n      position: LAYER[n.tier] === 2 ? 'bottom' : 'top', color: textColor, distance: 4 },\n    meta: n,\n  };\n});\n\n// Static key for vendor colours and protocol line styles (the legend toggles tiers).\nconst key = [];\nlet kx = 0;\nObject.keys(VENDOR_COLOR).filter((v) => nodes.some((n) => n.vendor === v)).forEach((v) => {\n  key.push({ type: 'circle', shape: { cx: kx + 6, cy: 6, r: 6 }, style: { fill: VENDOR_COLOR[v] } });\n  key.push({ type: 'text', x: kx + 16, y: 0, style: { text: v, fill: textColor, fontSize: 12 } });\n  kx += 16 + v.length * 7 + 18;\n});\nkx += 14;\nObject.keys(PROTO_STYLE).filter((p) => protosSeen.has(p)).forEach((p) => {\n  const st = PROTO_STYLE[p];\n  key.push({ type: 'line', shape: { x1: kx, y1: 6, x2: kx + 26, y2: 6 },\n    style: { stroke: st.color, lineWidth: Math.max(st.width, 1.5), lineDash: st.type === 'solid' ? null : (st.type === 'dotted' ? [2, 3] : [6, 4]) } });\n  key.push({ type: 'text', x: kx + 32, y: 0, style: { text: p, fill: textColor, fontSize: 12 } });\n  kx += 32 + p.length * 7 + 18;\n});\n\nreturn {\n  backgroundColor: 'transparent',\n  tooltip: {\n    trigger: 'item', confine: true,\n    formatter: (pr) => {\n      if (pr.dataType === 'edge') {\n        const d = pr.data;\n        const port = (x) => (x && x !== 'null' ? ' : ' + esc(x) : '');\n        return '<b>' + esc(d.source) + port(d.srcPort) + '</b> &rarr; <b>' + esc(d.target) + port(d.dstPort) + '</b><br/>'\n          + 'protocol: ' + esc(d.proto) + '<br/>link kind: ' + esc(d.kind) + '<br/>direction: ' + esc(d.direction);\n      }\n      const m = pr.data.meta;\n      return '<b>' + esc(m.id) + '</b><br/>tier: ' + esc(TIER_NAME[m.tier]) + '<br/>vendor: ' + esc(m.vendor)\n        + '<br/>OS: ' + esc(m.os) + '<br/>site: ' + esc(m.site) + '<br/>links: ' + esc(m.degree);\n    },\n  },\n  legend: [{ data: categories.map((c) => c.name), top: 4, left: 8, itemWidth: 14, itemHeight: 14,\n    textStyle: { color: textColor, fontSize: 12 } }],\n  graphic: [{ type: 'group', right: 12, top: 6, children: key }],\n  animation: false,\n  series: [{\n    type: 'graph',\n    layout: layoutMode === 'force' ? 'force' : 'none',\n    force: { repulsion: big ? 700 : 420, edgeLength: big ? [40, 120] : [70, 160], gravity: 0.05, friction: 0.2, layoutAnimation: false },\n    nodeScaleRatio: 0,\n    zoom: layoutMode === 'force' && big ? 0.5 : 1,\n    top: 90, bottom: 30, left: 40, right: 40,\n    roam: true, draggable: true,\n    categories,\n    data,\n    links,\n    edgeSymbol: ['none', 'none'],\n    labelLayout: { hideOverlap: true },\n    emphasis: { focus: 'adjacency', label: { show: true }, lineStyle: { width: 4, opacity: 1 } },\n    blur: { itemStyle: { opacity: 0.15 }, lineStyle: { opacity: 0.05 } },\n  }],\n};"
+        },
+        "id": 7,
+        "gridPos": {
+          "x": 0,
+          "y": 6,
+          "w": 24,
+          "h": 22
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "netsage-sankey-panel",
+        "title": "Link flow: source tier -> discovery protocol -> destination tier",
+        "description": "Link counts from network_topology_edge_info grouped by the tier of each end (from the device name prefix) and the protocol that discovered the link. Ribbon width = number of links.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count by (src_tier, discovery_proto, dst_tier) (label_replace(label_replace((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")), \"src_tier\", \"$1\", \"src_device\", \"^(edge-fw|wan-core|ext-peer|spine|leaf|host).*\"), \"dst_tier\", \"$1\", \"dst_device\", \"^(edge-fw|wan-core|ext-peer|spine|leaf|host).*\"))",
+            "format": "table",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "indexByName": {
+                "src_tier": 0,
+                "discovery_proto": 1,
+                "dst_tier": 2,
+                "Value": 3
+              },
+              "renameByName": {
+                "src_tier": "Source tier",
+                "discovery_proto": "Protocol",
+                "dst_tier": "Destination tier",
+                "Value": "Links"
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "monochrome": false,
+          "nodeColor": "#9FA7B3",
+          "nodeWidth": 22,
+          "nodePadding": 26,
+          "labelSize": 13,
+          "iteration": 15,
+          "valueField": "Links"
+        },
+        "id": 8,
+        "gridPos": {
+          "x": 0,
+          "y": 28,
+          "w": 14,
+          "h": 13
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "marcusolsson-treemap-panel",
+        "title": "Estate composition: site / vendor / OS version (all exporters)",
+        "description": "Every discovered device across all three exporters, nested by site, then vendor, then OS version. Tile area = device count. Driven by count(network_topology_device_info).",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count by (path) (label_join(network_topology_device_info{vendor=~\"$vendor\"}, \"path\", \"/\", \"site\", \"vendor\", \"os_version\"))",
+            "format": "table",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "renameByName": {
+                "Value": "Devices"
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "color": {
+              "mode": "continuous-BlPu"
+            },
+            "custom": {
+              "separator": "/"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "tiling": "treemapSquarify"
+        },
+        "id": 9,
+        "gridPos": {
+          "x": 14,
+          "y": 28,
+          "w": 10,
+          "h": 13
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "esnet-matrix-panel",
+        "title": "Fabric adjacency matrix - cell colour = discovery protocol (blue lldp, orange bgp, red mpls_te)",
+        "description": "Rows = link source device, columns = link destination device, grouped by tier. Cell colour = the protocol that discovered the link. Driven by network_topology_edge_info with src_device not a host.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max by (src_device, dst_device, src_tier, dst_tier) (label_replace(label_replace((((network_topology_edge_info{instance=\"$exporter\",discovery_proto=\"lldp\",discovery_proto=~\"$proto\",src_device!~\"host-.*\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")) * 1) or ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=\"cdp\",discovery_proto=~\"$proto\",src_device!~\"host-.*\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")) * 2) or ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=\"fdb\",discovery_proto=~\"$proto\",src_device!~\"host-.*\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")) * 3) or ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=\"ospf\",discovery_proto=~\"$proto\",src_device!~\"host-.*\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")) * 4) or ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=\"isis\",discovery_proto=~\"$proto\",src_device!~\"host-.*\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")) * 5) or ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=\"bgp\",discovery_proto=~\"$proto\",src_device!~\"host-.*\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")) * 6) or ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=\"mpls_te\",discovery_proto=~\"$proto\",src_device!~\"host-.*\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")) * 7) or ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=\"configured\",discovery_proto=~\"$proto\",src_device!~\"host-.*\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")) * 8)), \"src_tier\", \"$1\", \"src_device\", \"^(edge-fw|wan-core|ext-peer|spine|leaf|host).*\"), \"dst_tier\", \"$1\", \"dst_device\", \"^(edge-fw|wan-core|ext-peer|spine|leaf|host).*\"))",
+            "format": "table",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "#9FA7B3",
+                  "value": null
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "1": {
+                    "text": "lldp",
+                    "color": "#8AB8FF",
+                    "index": 0
+                  },
+                  "2": {
+                    "text": "cdp",
+                    "color": "#96D98D",
+                    "index": 1
+                  },
+                  "3": {
+                    "text": "fdb",
+                    "color": "#8E8E8E",
+                    "index": 2
+                  },
+                  "4": {
+                    "text": "ospf",
+                    "color": "#FADE2A",
+                    "index": 3
+                  },
+                  "5": {
+                    "text": "isis",
+                    "color": "#F2CC0C",
+                    "index": 4
+                  },
+                  "6": {
+                    "text": "bgp",
+                    "color": "#FF9830",
+                    "index": 5
+                  },
+                  "7": {
+                    "text": "mpls_te",
+                    "color": "#F2495C",
+                    "index": 6
+                  },
+                  "8": {
+                    "text": "configured",
+                    "color": "#CCCCDC",
+                    "index": 7
+                  }
+                }
+              }
+            ]
+          },
+          "overrides": []
+        },
+        "options": {
+          "sourceField": "src_device",
+          "targetField": "dst_device",
+          "valueField": "Value",
+          "enableRowGrouping": true,
+          "rowCategoryField": "src_tier",
+          "rowCategoryHeaderWidth": 110,
+          "rowCategoryGap": 6,
+          "enableColGrouping": false,
+          "colCategoryField": "dst_tier",
+          "colCategoryHeaderHeight": 30,
+          "colCategoryGap": 6,
+          "showLegend": false,
+          "legendType": "categorical",
+          "sortType": "natural-asc",
+          "sourceText": "From",
+          "targetText": "To",
+          "valueText": "Protocol",
+          "cellSize": 30,
+          "cellPadding": 10,
+          "txtLength": 14,
+          "txtSize": 11,
+          "nullColor": "#2A2D35",
+          "defaultColor": "#22252B",
+          "inputList": false,
+          "addUrl": false
+        },
+        "id": 10,
+        "gridPos": {
+          "x": 0,
+          "y": 41,
+          "w": 16,
+          "h": 11
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "esnet-matrix-panel",
+        "title": "Tier-to-tier link counts",
+        "description": "Number of links from each source tier (rows) to each destination tier (columns). Driven by count by (src_tier, dst_tier) over network_topology_edge_info.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count by (src_tier, dst_tier) (label_replace(label_replace((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")), \"src_tier\", \"$1\", \"src_device\", \"^(edge-fw|wan-core|ext-peer|spine|leaf|host).*\"), \"dst_tier\", \"$1\", \"dst_device\", \"^(edge-fw|wan-core|ext-peer|spine|leaf|host).*\"))",
+            "format": "table",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "color": {
+              "mode": "continuous-GrYlRd"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "sourceField": "src_tier",
+          "targetField": "dst_tier",
+          "valueField": "Value",
+          "showLegend": true,
+          "legendType": "range",
+          "sortType": "natural-asc",
+          "sourceText": "From tier",
+          "targetText": "To tier",
+          "valueText": "Links",
+          "cellSize": 50,
+          "cellPadding": 6,
+          "txtLength": 12,
+          "txtSize": 13,
+          "nullColor": "#2A2D35",
+          "defaultColor": "#22252B",
+          "inputList": false,
+          "addUrl": false,
+          "enableRowGrouping": false,
+          "enableColGrouping": false
+        },
+        "id": 11,
+        "gridPos": {
+          "x": 16,
+          "y": 41,
+          "w": 8,
+          "h": 11
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "piechart",
+        "title": "Links by discovery protocol",
+        "description": "count by (discovery_proto) of network_topology_edge_info.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count by (discovery_proto) ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")))",
+            "format": "time_series",
+            "instant": true,
+            "range": false,
+            "editorMode": "code",
+            "legendFormat": "{{discovery_proto}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "color": {
+              "mode": "palette-classic"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "lldp"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#8AB8FF"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "cdp"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#96D98D"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "fdb"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#8E8E8E"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ospf"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#FADE2A"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "isis"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2CC0C"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "bgp"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "mpls_te"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "configured"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#CCCCDC"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "pieType": "donut",
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "showLegend": true,
+            "values": [
+              "value",
+              "percent"
+            ]
+          },
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "id": 12,
+        "gridPos": {
+          "x": 0,
+          "y": 52,
+          "w": 7,
+          "h": 9
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "piechart",
+        "title": "Links by link kind",
+        "description": "count by (link_kind) of network_topology_edge_info.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count by (link_kind) ((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")))",
+            "format": "time_series",
+            "instant": true,
+            "range": false,
+            "editorMode": "code",
+            "legendFormat": "{{link_kind}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "color": {
+              "mode": "palette-classic"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ethernet"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ip"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "mpls-te"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "pieType": "pie",
+          "displayLabels": [
+            "name"
+          ],
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "showLegend": true,
+            "values": [
+              "value",
+              "percent"
+            ]
+          },
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "id": 13,
+        "gridPos": {
+          "x": 7,
+          "y": 52,
+          "w": 7,
+          "h": 9
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "barchart",
+        "title": "Links by vendor pair (source -> destination)",
+        "description": "network_topology_edge_info joined to network_topology_device_info on each end to get the source and destination vendor.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count by (pair) (label_join(((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")) * on(instance, src_device) group_left(src_vendor) label_replace(label_replace(network_topology_device_info{instance=\"$exporter\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\"), \"src_vendor\", \"$1\", \"vendor\", \"(.*)\")) * on(instance, dst_device) group_left(dst_vendor) label_replace(label_replace(network_topology_device_info{instance=\"$exporter\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\"), \"dst_vendor\", \"$1\", \"vendor\", \"(.*)\"), \"pair\", \" -> \", \"src_vendor\", \"dst_vendor\"))",
+            "format": "table",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "renameByName": {
+                "Value": "Links",
+                "pair": "Vendor pair"
+              }
+            }
+          },
+          {
+            "id": "sortBy",
+            "options": {
+              "sort": [
+                {
+                  "field": "Links",
+                  "desc": true
+                }
+              ]
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "color": {
+              "mode": "continuous-BlPu"
+            },
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 0,
+              "gradientMode": "scheme"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "orientation": "horizontal",
+          "xField": "Vendor pair",
+          "showValue": "always",
+          "barWidth": 0.8,
+          "groupWidth": 0.7,
+          "legend": {
+            "showLegend": false,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          },
+          "xTickLabelRotation": 0,
+          "stacking": "none",
+          "colorByField": "Links"
+        },
+        "id": 14,
+        "gridPos": {
+          "x": 14,
+          "y": 52,
+          "w": 10,
+          "h": 9
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      },
+      {
+        "type": "table",
+        "title": "Device inventory - $exporter",
+        "description": "One row per discovered device: identity from network_topology_device_info, uptime from network_topology_device_uptime_seconds (SNMP sysUpTime) and link count from network_topology_edge_info.",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max by (instance, device_id, tier, vendor, os_version, site) (network_topology_device_uptime_seconds{instance=\"$exporter\"} * on(instance, device_id) group_left(vendor, os_version, site, tier) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"tier\", \"$1\", \"device_id\", \"^(edge-fw|wan-core|ext-peer|spine|leaf|host).*\"))",
+            "format": "table",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "max by (instance, device_id, tier, vendor, os_version, site) (count by (instance, device_id) (label_replace(label_replace((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")), \"device_id\", \"$1\", \"src_device\", \"(.*)\"), \"end\", \"src\", \"\", \"\") or label_replace(label_replace((network_topology_edge_info{instance=\"$exporter\",discovery_proto=~\"$proto\"} and on(instance, src_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"src_device\", \"$1\", \"device_id\", \"(.*)\") and on(instance, dst_device) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"dst_device\", \"$1\", \"device_id\", \"(.*)\")), \"device_id\", \"$1\", \"dst_device\", \"(.*)\"), \"end\", \"dst\", \"\", \"\")) * on(instance, device_id) group_left(vendor, os_version, site, tier) label_replace(network_topology_device_info{instance=\"$exporter\",vendor=~\"$vendor\"}, \"tier\", \"$1\", \"device_id\", \"^(edge-fw|wan-core|ext-peer|spine|leaf|host).*\"))",
+            "format": "table",
+            "instant": true,
+            "range": false,
+            "editorMode": "code"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "instance": true
+              },
+              "indexByName": {
+                "device_id": 0,
+                "tier": 1,
+                "vendor": 2,
+                "os_version": 3,
+                "site": 4,
+                "Value #B": 5,
+                "Value #A": 6
+              },
+              "renameByName": {
+                "device_id": "Device",
+                "tier": "Tier",
+                "vendor": "Vendor",
+                "os_version": "OS version",
+                "site": "Site",
+                "Value #A": "Uptime",
+                "Value #B": "Links"
+              }
+            }
+          },
+          {
+            "id": "sortBy",
+            "options": {
+              "sort": [
+                {
+                  "field": "Links",
+                  "desc": true
+                }
+              ]
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "filterable": true
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Uptime"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "s"
+                },
+                {
+                  "id": "decimals",
+                  "value": 1
+                },
+                {
+                  "id": "min",
+                  "value": 0
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "gauge",
+                    "mode": "basic",
+                    "valueDisplayMode": "text"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "red",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 86400
+                      },
+                      {
+                        "color": "green",
+                        "value": 604800
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "custom.width",
+                  "value": 520
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Links"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-text"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "continuous-BlPu"
+                  }
+                },
+                {
+                  "id": "custom.width",
+                  "value": 90
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Vendor"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-text"
+                  }
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "arista": {
+                          "color": "#5794F2",
+                          "index": 0
+                        },
+                        "cisco": {
+                          "color": "#73BF69",
+                          "index": 1
+                        },
+                        "juniper": {
+                          "color": "#FF9830",
+                          "index": 2
+                        },
+                        "nokia": {
+                          "color": "#B877D9",
+                          "index": 3
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "footer": {
+            "show": true,
+            "reducer": [
+              "count"
+            ],
+            "fields": [
+              "Device"
+            ]
+          },
+          "sortBy": [
+            {
+              "displayName": "Links",
+              "desc": true
+            }
+          ]
+        },
+        "id": 15,
+        "gridPos": {
+          "x": 0,
+          "y": 61,
+          "w": 24,
+          "h": 14
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        }
+      }
+    ]
+  }
+}

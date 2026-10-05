@@ -1,0 +1,1 @@
+{"apiVersion":"folder.grafana.app/v1","kind":"Folder","metadata":{"name":"netobs-showcase"},"spec":{"title":"Global Network Operations","description":"Production network operations dashboards: topology, WAN, interface performance, change and discovery health"}}

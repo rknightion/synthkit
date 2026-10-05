@@ -1,0 +1,910 @@
+{
+  "apiVersion": "dashboard.grafana.app/v1beta1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "nos-noc-wallboard",
+    "annotations": {
+      "grafana.app/folder": "netobs-showcase"
+    }
+  },
+  "spec": {
+    "title": "Network Observability - NOC Wallboard",
+    "description": "Big-screen NOC view of the global network's HQ-DC1 data centre: live fabric adjacency, device uptime, discovery health and topology events.",
+    "uid": "nos-noc-wallboard",
+    "tags": [
+      "netobs-showcase",
+      "noc",
+      "wallboard"
+    ],
+    "editable": true,
+    "graphTooltip": 1,
+    "refresh": "30s",
+    "schemaVersion": 41,
+    "style": "dark",
+    "timezone": "utc",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": [
+        "30s",
+        "1m",
+        "5m"
+      ]
+    },
+    "links": [
+      {
+        "type": "dashboards",
+        "tags": [
+          "netobs-showcase"
+        ],
+        "asDropdown": true,
+        "title": "Network Operations",
+        "includeVars": false,
+        "keepTime": true,
+        "targetBlank": false,
+        "icon": "external link"
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "exporter",
+          "label": "Discovery exporter",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 1,
+            "query": "label_values(network_topology_graph_devices_total, instance)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "label_values(network_topology_graph_devices_total, instance)",
+          "current": {
+            "text": "netobs-ent-dc1:9100",
+            "value": "netobs-ent-dc1:9100"
+          },
+          "refresh": 1,
+          "sort": 1,
+          "multi": false,
+          "includeAll": false,
+          "options": []
+        }
+      ]
+    },
+    "annotations": {
+      "list": []
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Devices",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max(network_topology_graph_devices_total{instance=\"$exporter\"})",
+            "legendFormat": "__auto",
+            "range": false,
+            "instant": true,
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "noValue": "0",
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "#1f60c4",
+                  "value": null
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Links",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 3,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max(network_topology_graph_edges_total{instance=\"$exporter\"})",
+            "legendFormat": "__auto",
+            "range": false,
+            "instant": true,
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "noValue": "0",
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "#1f60c4",
+                  "value": null
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Graph",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max(network_topology_graph_stale{instance=\"$exporter\"})",
+            "legendFormat": "__auto",
+            "range": false,
+            "instant": true,
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "noValue": "0",
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "FRESH",
+                    "color": "green",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "STALE",
+                    "color": "red",
+                    "index": 1
+                  }
+                }
+              }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Changes 1h",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 9,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "sum(increase(network_topology_change_total{instance=\"$exporter\"}[1h])) or vector(0)",
+            "legendFormat": "__auto",
+            "range": false,
+            "instant": true,
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "noValue": "0",
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 10
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 5,
+        "type": "stat",
+        "title": "Disc errors",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 3,
+          "h": 4
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "(sum(increase(network_topology_snmp_walks_total{instance=\"$exporter\",status!=\"ok\"}[1h])) or vector(0)) + (count(network_topology_module_last_status{instance=\"$exporter\"} > 0) or vector(0))",
+            "legendFormat": "__auto",
+            "range": false,
+            "instant": true,
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "noValue": "0",
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 5
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 6,
+        "type": "grafana-clock-panel",
+        "title": "",
+        "transparent": false,
+        "gridPos": {
+          "x": 15,
+          "y": 0,
+          "w": 4,
+          "h": 4
+        },
+        "options": {
+          "mode": "time",
+          "clockType": "custom",
+          "timezone": "Etc/UTC",
+          "refresh": "sec",
+          "fontMono": true,
+          "bgColor": "",
+          "style": "text",
+          "timeSettings": {
+            "customFormat": "HH:mm",
+            "fontSize": "40px",
+            "fontWeight": "bold"
+          },
+          "dateSettings": {
+            "showDate": true,
+            "dateFormat": "ddd DD MMM",
+            "locale": "en-gb",
+            "fontSize": "15px",
+            "fontWeight": "normal"
+          },
+          "timezoneSettings": {
+            "showTimezone": false,
+            "zoneFormat": "abbv",
+            "fontSize": "14px",
+            "fontWeight": "normal"
+          },
+          "descriptionSettings": {
+            "source": "input",
+            "descriptionText": "UTC",
+            "queryField": "",
+            "noValueText": "",
+            "fontSize": "18px",
+            "fontWeight": "bold"
+          },
+          "countdownSettings": {
+            "source": "input",
+            "endCountdownTime": "",
+            "queryCalculation": "lastNotNull",
+            "queryField": "",
+            "endText": "",
+            "noValueText": "",
+            "invalidValueText": ""
+          },
+          "countupSettings": {
+            "source": "input",
+            "beginCountupTime": "",
+            "queryCalculation": "lastNotNull",
+            "queryField": "",
+            "beginText": "",
+            "noValueText": "",
+            "invalidValueText": ""
+          }
+        }
+      },
+      {
+        "id": 7,
+        "type": "grafana-clock-panel",
+        "title": "",
+        "transparent": false,
+        "gridPos": {
+          "x": 19,
+          "y": 0,
+          "w": 5,
+          "h": 4
+        },
+        "options": {
+          "mode": "time",
+          "clockType": "custom",
+          "timezone": "Europe/London",
+          "refresh": "sec",
+          "fontMono": true,
+          "bgColor": "",
+          "style": "text",
+          "timeSettings": {
+            "customFormat": "HH:mm",
+            "fontSize": "40px",
+            "fontWeight": "bold"
+          },
+          "dateSettings": {
+            "showDate": true,
+            "dateFormat": "ddd DD MMM",
+            "locale": "en-gb",
+            "fontSize": "15px",
+            "fontWeight": "normal"
+          },
+          "timezoneSettings": {
+            "showTimezone": false,
+            "zoneFormat": "abbv",
+            "fontSize": "14px",
+            "fontWeight": "normal"
+          },
+          "descriptionSettings": {
+            "source": "input",
+            "descriptionText": "LONDON",
+            "queryField": "",
+            "noValueText": "",
+            "fontSize": "18px",
+            "fontWeight": "bold"
+          },
+          "countdownSettings": {
+            "source": "input",
+            "endCountdownTime": "",
+            "queryCalculation": "lastNotNull",
+            "queryField": "",
+            "endText": "",
+            "noValueText": "",
+            "invalidValueText": ""
+          },
+          "countupSettings": {
+            "source": "input",
+            "beginCountupTime": "",
+            "queryCalculation": "lastNotNull",
+            "queryField": "",
+            "beginText": "",
+            "noValueText": "",
+            "invalidValueText": ""
+          }
+        }
+      },
+      {
+        "id": 8,
+        "type": "andrewbmchugh-flow-panel",
+        "title": "HQ-DC1 fabric - live adjacency and device uptime",
+        "description": "Hand-drawn fabric for the HQ-DC1 discovery exporter (netobs-ent-dc1:9100; this diagram is fixed to that site). Tiles and host chips are coloured by network_topology_device_uptime_seconds: red UNREACHABLE when a device polled in the last hour stops reporting, orange under 1h (recent reboot), yellow under 24h, green otherwise, grey when never seen. Each line is one discovered adjacency from network_topology_edge_info: green while the series is present, red when it was seen in the last hour but has disappeared, grey when never seen.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 15,
+          "h": 15
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max by (device_id) (network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\"}) or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\"}[1h])) * 0 - 1)",
+            "legendFormat": "{{device_id}}",
+            "range": true,
+            "instant": false,
+            "format": "time_series"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "max by (device_id) (network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\",device_id!~\"host-.*\"}) / 86400 or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"netobs-ent-dc1:9100\",device_id!~\"host-.*\"}[1h])) * 0 - 1)",
+            "legendFormat": "d-{{device_id}}",
+            "range": true,
+            "instant": false,
+            "format": "time_series"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "max by (src_device, dst_device) (network_topology_edge_info{instance=\"netobs-ent-dc1:9100\"}) or (max by (src_device, dst_device) (last_over_time(network_topology_edge_info{instance=\"netobs-ent-dc1:9100\"}[1h])) * 0)",
+            "legendFormat": "L-{{src_device}}-{{dst_device}}",
+            "range": true,
+            "instant": false,
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1600\" height=\"620\" viewBox=\"0 0 1600 620\" font-family=\"Inter, Helvetica, Arial, sans-serif\"><rect x=\"4\" y=\"4\" width=\"1592\" height=\"108\" rx=\"10\" fill=\"#8e8e8e\" fill-opacity=\"0.07\" stroke=\"#8e8e8e\" stroke-opacity=\"0.35\" stroke-width=\"1\"/><text x=\"26\" y=\"58.0\" font-size=\"13\" font-weight=\"700\" letter-spacing=\"2\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\" transform=\"rotate(-90 26 58.0)\">EDGE</text><rect x=\"4\" y=\"120\" width=\"1592\" height=\"108\" rx=\"10\" fill=\"#8e8e8e\" fill-opacity=\"0.07\" stroke=\"#8e8e8e\" stroke-opacity=\"0.35\" stroke-width=\"1\"/><text x=\"26\" y=\"174.0\" font-size=\"13\" font-weight=\"700\" letter-spacing=\"2\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\" transform=\"rotate(-90 26 174.0)\">SPINE</text><rect x=\"4\" y=\"236\" width=\"1592\" height=\"116\" rx=\"10\" fill=\"#8e8e8e\" fill-opacity=\"0.07\" stroke=\"#8e8e8e\" stroke-opacity=\"0.35\" stroke-width=\"1\"/><text x=\"26\" y=\"294.0\" font-size=\"13\" font-weight=\"700\" letter-spacing=\"2\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\" transform=\"rotate(-90 26 294.0)\">LEAF</text><rect x=\"4\" y=\"360\" width=\"1592\" height=\"220\" rx=\"10\" fill=\"#8e8e8e\" fill-opacity=\"0.07\" stroke=\"#8e8e8e\" stroke-opacity=\"0.35\" stroke-width=\"1\"/><text x=\"26\" y=\"470.0\" font-size=\"13\" font-weight=\"700\" letter-spacing=\"2\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\" transform=\"rotate(-90 26 470.0)\">SERVERS</text><g id=\"L-edge-fw-01-spine-01\"><title>edge-fw-01 - spine-01 (bgp)</title><line x1=\"800.0\" y1=\"95.0\" x2=\"500.0\" y2=\"137.0\" stroke=\"#8e8e8e\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-dasharray=\"10 6\"/></g><g id=\"L-edge-fw-01-spine-02\"><title>edge-fw-01 - spine-02 (bgp)</title><line x1=\"800.0\" y1=\"95.0\" x2=\"1100.0\" y2=\"137.0\" stroke=\"#8e8e8e\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-dasharray=\"10 6\"/></g><g id=\"L-spine-01-leaf-01\"><title>spine-01 - leaf-01 (lldp)</title><line x1=\"500.0\" y1=\"211.0\" x2=\"176.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-02-leaf-01\"><title>spine-02 - leaf-01 (lldp)</title><line x1=\"1100.0\" y1=\"211.0\" x2=\"176.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-01-leaf-02\"><title>spine-01 - leaf-02 (lldp)</title><line x1=\"500.0\" y1=\"211.0\" x2=\"432.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-02-leaf-02\"><title>spine-02 - leaf-02 (lldp)</title><line x1=\"1100.0\" y1=\"211.0\" x2=\"432.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-01-leaf-03\"><title>spine-01 - leaf-03 (lldp)</title><line x1=\"500.0\" y1=\"211.0\" x2=\"688.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-02-leaf-03\"><title>spine-02 - leaf-03 (lldp)</title><line x1=\"1100.0\" y1=\"211.0\" x2=\"688.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-01-leaf-04\"><title>spine-01 - leaf-04 (lldp)</title><line x1=\"500.0\" y1=\"211.0\" x2=\"944.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-02-leaf-04\"><title>spine-02 - leaf-04 (lldp)</title><line x1=\"1100.0\" y1=\"211.0\" x2=\"944.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-01-leaf-05\"><title>spine-01 - leaf-05 (lldp)</title><line x1=\"500.0\" y1=\"211.0\" x2=\"1200.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-02-leaf-05\"><title>spine-02 - leaf-05 (lldp)</title><line x1=\"1100.0\" y1=\"211.0\" x2=\"1200.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-01-leaf-06\"><title>spine-01 - leaf-06 (lldp)</title><line x1=\"500.0\" y1=\"211.0\" x2=\"1456.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-spine-02-leaf-06\"><title>spine-02 - leaf-06 (lldp)</title><line x1=\"1100.0\" y1=\"211.0\" x2=\"1456.0\" y2=\"257.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf01-01-leaf-01\"><title>host-leaf01-01 - leaf-01 (lldp)</title><line x1=\"89.0\" y1=\"331.0\" x2=\"89.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf01-02-leaf-01\"><title>host-leaf01-02 - leaf-01 (lldp)</title><line x1=\"147.0\" y1=\"331.0\" x2=\"147.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf01-03-leaf-01\"><title>host-leaf01-03 - leaf-01 (lldp)</title><line x1=\"205.0\" y1=\"331.0\" x2=\"205.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf01-04-leaf-01\"><title>host-leaf01-04 - leaf-01 (lldp)</title><line x1=\"263.0\" y1=\"331.0\" x2=\"263.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf02-01-leaf-02\"><title>host-leaf02-01 - leaf-02 (lldp)</title><line x1=\"345.0\" y1=\"331.0\" x2=\"345.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf02-02-leaf-02\"><title>host-leaf02-02 - leaf-02 (lldp)</title><line x1=\"403.0\" y1=\"331.0\" x2=\"403.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf02-03-leaf-02\"><title>host-leaf02-03 - leaf-02 (lldp)</title><line x1=\"461.0\" y1=\"331.0\" x2=\"461.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf02-04-leaf-02\"><title>host-leaf02-04 - leaf-02 (lldp)</title><line x1=\"519.0\" y1=\"331.0\" x2=\"519.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf03-01-leaf-03\"><title>host-leaf03-01 - leaf-03 (lldp)</title><line x1=\"601.0\" y1=\"331.0\" x2=\"601.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf03-02-leaf-03\"><title>host-leaf03-02 - leaf-03 (lldp)</title><line x1=\"659.0\" y1=\"331.0\" x2=\"659.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf03-03-leaf-03\"><title>host-leaf03-03 - leaf-03 (lldp)</title><line x1=\"717.0\" y1=\"331.0\" x2=\"717.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf03-04-leaf-03\"><title>host-leaf03-04 - leaf-03 (lldp)</title><line x1=\"775.0\" y1=\"331.0\" x2=\"775.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf04-01-leaf-04\"><title>host-leaf04-01 - leaf-04 (lldp)</title><line x1=\"857.0\" y1=\"331.0\" x2=\"857.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf04-02-leaf-04\"><title>host-leaf04-02 - leaf-04 (lldp)</title><line x1=\"915.0\" y1=\"331.0\" x2=\"915.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf04-03-leaf-04\"><title>host-leaf04-03 - leaf-04 (lldp)</title><line x1=\"973.0\" y1=\"331.0\" x2=\"973.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf04-04-leaf-04\"><title>host-leaf04-04 - leaf-04 (lldp)</title><line x1=\"1031.0\" y1=\"331.0\" x2=\"1031.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf05-01-leaf-05\"><title>host-leaf05-01 - leaf-05 (lldp)</title><line x1=\"1113.0\" y1=\"331.0\" x2=\"1113.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf05-02-leaf-05\"><title>host-leaf05-02 - leaf-05 (lldp)</title><line x1=\"1171.0\" y1=\"331.0\" x2=\"1171.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf05-03-leaf-05\"><title>host-leaf05-03 - leaf-05 (lldp)</title><line x1=\"1229.0\" y1=\"331.0\" x2=\"1229.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf05-04-leaf-05\"><title>host-leaf05-04 - leaf-05 (lldp)</title><line x1=\"1287.0\" y1=\"331.0\" x2=\"1287.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf06-01-leaf-06\"><title>host-leaf06-01 - leaf-06 (lldp)</title><line x1=\"1369.0\" y1=\"331.0\" x2=\"1369.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf06-02-leaf-06\"><title>host-leaf06-02 - leaf-06 (lldp)</title><line x1=\"1427.0\" y1=\"331.0\" x2=\"1427.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf06-03-leaf-06\"><title>host-leaf06-03 - leaf-06 (lldp)</title><line x1=\"1485.0\" y1=\"331.0\" x2=\"1485.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><g id=\"L-host-leaf06-04-leaf-06\"><title>host-leaf06-04 - leaf-06 (lldp)</title><line x1=\"1543.0\" y1=\"331.0\" x2=\"1543.0\" y2=\"476.0\" stroke=\"#8e8e8e\" stroke-width=\"3\" stroke-linecap=\"round\"/></g><rect x=\"624.0\" y=\"105.0\" width=\"52\" height=\"22\" rx=\"11\" fill=\"#8e8e8e\" fill-opacity=\"0.22\" stroke=\"#8e8e8e\" stroke-opacity=\"0.6\"/><text x=\"650.0\" y=\"120.0\" font-size=\"12\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"middle\">BGP</text><rect x=\"924.0\" y=\"105.0\" width=\"52\" height=\"22\" rx=\"11\" fill=\"#8e8e8e\" fill-opacity=\"0.22\" stroke=\"#8e8e8e\" stroke-opacity=\"0.6\"/><text x=\"950.0\" y=\"120.0\" font-size=\"12\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"middle\">BGP</text><g id=\"edge-fw-01\"><title>edge-fw-01</title><rect x=\"620.0\" y=\"21.0\" width=\"360\" height=\"74\" rx=\"8\" fill=\"#8e8e8e\" fill-opacity=\"0.12\" stroke=\"#8e8e8e\" stroke-width=\"3\"/><rect x=\"626.0\" y=\"27.0\" width=\"10\" height=\"62\" rx=\"4\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"646.0\" y=\"52.0\" font-size=\"22\" font-weight=\"700\" fill=\"currentColor\">edge-fw-01</text><text x=\"646.0\" y=\"78.0\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\">Cisco IOS-XE 17.12.1 - edge firewall</text><g id=\"up-edge-fw-01\"><text x=\"968.0\" y=\"51.0\" font-size=\"18\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"end\">--</text></g><g id=\"spine-01\"><title>spine-01</title><rect x=\"360.0\" y=\"137.0\" width=\"280\" height=\"74\" rx=\"8\" fill=\"#8e8e8e\" fill-opacity=\"0.12\" stroke=\"#8e8e8e\" stroke-width=\"3\"/><rect x=\"366.0\" y=\"143.0\" width=\"10\" height=\"62\" rx=\"4\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"386.0\" y=\"168.0\" font-size=\"22\" font-weight=\"700\" fill=\"currentColor\">spine-01</text><text x=\"386.0\" y=\"194.0\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\">Arista EOS 4.36.0F</text><g id=\"up-spine-01\"><text x=\"628.0\" y=\"167.0\" font-size=\"18\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"end\">--</text></g><g id=\"spine-02\"><title>spine-02</title><rect x=\"960.0\" y=\"137.0\" width=\"280\" height=\"74\" rx=\"8\" fill=\"#8e8e8e\" fill-opacity=\"0.12\" stroke=\"#8e8e8e\" stroke-width=\"3\"/><rect x=\"966.0\" y=\"143.0\" width=\"10\" height=\"62\" rx=\"4\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"986.0\" y=\"168.0\" font-size=\"22\" font-weight=\"700\" fill=\"currentColor\">spine-02</text><text x=\"986.0\" y=\"194.0\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\">Cisco IOS-XE 17.12.1</text><g id=\"up-spine-02\"><text x=\"1228.0\" y=\"167.0\" font-size=\"18\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"end\">--</text></g><g id=\"leaf-01\"><title>leaf-01</title><rect x=\"58.0\" y=\"257.0\" width=\"236\" height=\"74\" rx=\"8\" fill=\"#8e8e8e\" fill-opacity=\"0.12\" stroke=\"#8e8e8e\" stroke-width=\"3\"/><rect x=\"64.0\" y=\"263.0\" width=\"10\" height=\"62\" rx=\"4\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"84.0\" y=\"288.0\" font-size=\"22\" font-weight=\"700\" fill=\"currentColor\">leaf-01</text><text x=\"84.0\" y=\"314.0\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\">Arista EOS 4.36.0F</text><g id=\"up-leaf-01\"><text x=\"282.0\" y=\"287.0\" font-size=\"18\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"end\">--</text></g><g id=\"leaf-02\"><title>leaf-02</title><rect x=\"314.0\" y=\"257.0\" width=\"236\" height=\"74\" rx=\"8\" fill=\"#8e8e8e\" fill-opacity=\"0.12\" stroke=\"#8e8e8e\" stroke-width=\"3\"/><rect x=\"320.0\" y=\"263.0\" width=\"10\" height=\"62\" rx=\"4\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"340.0\" y=\"288.0\" font-size=\"22\" font-weight=\"700\" fill=\"currentColor\">leaf-02</text><text x=\"340.0\" y=\"314.0\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\">Cisco IOS-XE 17.12.1</text><g id=\"up-leaf-02\"><text x=\"538.0\" y=\"287.0\" font-size=\"18\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"end\">--</text></g><g id=\"leaf-03\"><title>leaf-03</title><rect x=\"570.0\" y=\"257.0\" width=\"236\" height=\"74\" rx=\"8\" fill=\"#8e8e8e\" fill-opacity=\"0.12\" stroke=\"#8e8e8e\" stroke-width=\"3\"/><rect x=\"576.0\" y=\"263.0\" width=\"10\" height=\"62\" rx=\"4\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"596.0\" y=\"288.0\" font-size=\"22\" font-weight=\"700\" fill=\"currentColor\">leaf-03</text><text x=\"596.0\" y=\"314.0\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\">Arista EOS 4.36.0F</text><g id=\"up-leaf-03\"><text x=\"794.0\" y=\"287.0\" font-size=\"18\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"end\">--</text></g><g id=\"leaf-04\"><title>leaf-04</title><rect x=\"826.0\" y=\"257.0\" width=\"236\" height=\"74\" rx=\"8\" fill=\"#8e8e8e\" fill-opacity=\"0.12\" stroke=\"#8e8e8e\" stroke-width=\"3\"/><rect x=\"832.0\" y=\"263.0\" width=\"10\" height=\"62\" rx=\"4\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"852.0\" y=\"288.0\" font-size=\"22\" font-weight=\"700\" fill=\"currentColor\">leaf-04</text><text x=\"852.0\" y=\"314.0\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\">Cisco IOS-XE 17.12.1</text><g id=\"up-leaf-04\"><text x=\"1050.0\" y=\"287.0\" font-size=\"18\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"end\">--</text></g><g id=\"leaf-05\"><title>leaf-05</title><rect x=\"1082.0\" y=\"257.0\" width=\"236\" height=\"74\" rx=\"8\" fill=\"#8e8e8e\" fill-opacity=\"0.12\" stroke=\"#8e8e8e\" stroke-width=\"3\"/><rect x=\"1088.0\" y=\"263.0\" width=\"10\" height=\"62\" rx=\"4\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1108.0\" y=\"288.0\" font-size=\"22\" font-weight=\"700\" fill=\"currentColor\">leaf-05</text><text x=\"1108.0\" y=\"314.0\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\">Arista EOS 4.36.0F</text><g id=\"up-leaf-05\"><text x=\"1306.0\" y=\"287.0\" font-size=\"18\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"end\">--</text></g><g id=\"leaf-06\"><title>leaf-06</title><rect x=\"1338.0\" y=\"257.0\" width=\"236\" height=\"74\" rx=\"8\" fill=\"#8e8e8e\" fill-opacity=\"0.12\" stroke=\"#8e8e8e\" stroke-width=\"3\"/><rect x=\"1344.0\" y=\"263.0\" width=\"10\" height=\"62\" rx=\"4\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1364.0\" y=\"288.0\" font-size=\"22\" font-weight=\"700\" fill=\"currentColor\">leaf-06</text><text x=\"1364.0\" y=\"314.0\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\">Cisco IOS-XE 17.12.1</text><g id=\"up-leaf-06\"><text x=\"1562.0\" y=\"287.0\" font-size=\"18\" font-weight=\"700\" fill=\"currentColor\" text-anchor=\"end\">--</text></g><g id=\"host-leaf01-01\"><title>host-leaf01-01</title><rect x=\"65.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"89.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">01</text><g id=\"host-leaf01-02\"><title>host-leaf01-02</title><rect x=\"123.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"147.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">02</text><g id=\"host-leaf01-03\"><title>host-leaf01-03</title><rect x=\"181.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"205.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">03</text><g id=\"host-leaf01-04\"><title>host-leaf01-04</title><rect x=\"239.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"263.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">04</text><text x=\"176.0\" y=\"552\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\">host-leaf01-01..04</text><g id=\"host-leaf02-01\"><title>host-leaf02-01</title><rect x=\"321.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"345.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">01</text><g id=\"host-leaf02-02\"><title>host-leaf02-02</title><rect x=\"379.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"403.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">02</text><g id=\"host-leaf02-03\"><title>host-leaf02-03</title><rect x=\"437.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"461.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">03</text><g id=\"host-leaf02-04\"><title>host-leaf02-04</title><rect x=\"495.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"519.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">04</text><text x=\"432.0\" y=\"552\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\">host-leaf02-01..04</text><g id=\"host-leaf03-01\"><title>host-leaf03-01</title><rect x=\"577.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"601.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">01</text><g id=\"host-leaf03-02\"><title>host-leaf03-02</title><rect x=\"635.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"659.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">02</text><g id=\"host-leaf03-03\"><title>host-leaf03-03</title><rect x=\"693.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"717.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">03</text><g id=\"host-leaf03-04\"><title>host-leaf03-04</title><rect x=\"751.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"775.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">04</text><text x=\"688.0\" y=\"552\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\">host-leaf03-01..04</text><g id=\"host-leaf04-01\"><title>host-leaf04-01</title><rect x=\"833.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"857.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">01</text><g id=\"host-leaf04-02\"><title>host-leaf04-02</title><rect x=\"891.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"915.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">02</text><g id=\"host-leaf04-03\"><title>host-leaf04-03</title><rect x=\"949.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"973.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">03</text><g id=\"host-leaf04-04\"><title>host-leaf04-04</title><rect x=\"1007.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1031.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">04</text><text x=\"944.0\" y=\"552\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\">host-leaf04-01..04</text><g id=\"host-leaf05-01\"><title>host-leaf05-01</title><rect x=\"1089.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1113.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">01</text><g id=\"host-leaf05-02\"><title>host-leaf05-02</title><rect x=\"1147.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1171.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">02</text><g id=\"host-leaf05-03\"><title>host-leaf05-03</title><rect x=\"1205.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1229.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">03</text><g id=\"host-leaf05-04\"><title>host-leaf05-04</title><rect x=\"1263.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1287.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">04</text><text x=\"1200.0\" y=\"552\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\">host-leaf05-01..04</text><g id=\"host-leaf06-01\"><title>host-leaf06-01</title><rect x=\"1345.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1369.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">01</text><g id=\"host-leaf06-02\"><title>host-leaf06-02</title><rect x=\"1403.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1427.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">02</text><g id=\"host-leaf06-03\"><title>host-leaf06-03</title><rect x=\"1461.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1485.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">03</text><g id=\"host-leaf06-04\"><title>host-leaf06-04</title><rect x=\"1519.0\" y=\"476.0\" width=\"48\" height=\"48\" rx=\"7\" fill=\"#8e8e8e\" stroke=\"none\"/></g><text x=\"1543.0\" y=\"506.0\" font-size=\"17\" font-weight=\"700\" fill=\"#101114\" text-anchor=\"middle\">04</text><text x=\"1456.0\" y=\"552\" font-size=\"14\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"middle\">host-leaf06-01..04</text><rect x=\"48\" y=\"590\" width=\"18\" height=\"18\" rx=\"4\" fill=\"#56a64b\"/><text x=\"74\" y=\"604\" font-size=\"15\" fill=\"currentColor\" fill-opacity=\"0.68\">up 24h+</text><rect x=\"168\" y=\"590\" width=\"18\" height=\"18\" rx=\"4\" fill=\"#fade2a\"/><text x=\"194\" y=\"604\" font-size=\"15\" fill=\"currentColor\" fill-opacity=\"0.68\">rebooted &lt; 24h</text><rect x=\"344\" y=\"590\" width=\"18\" height=\"18\" rx=\"4\" fill=\"#ff9830\"/><text x=\"370\" y=\"604\" font-size=\"15\" fill=\"currentColor\" fill-opacity=\"0.68\">rebooted &lt; 1h</text><rect x=\"512\" y=\"590\" width=\"18\" height=\"18\" rx=\"4\" fill=\"#e02f44\"/><text x=\"538\" y=\"604\" font-size=\"15\" fill=\"currentColor\" fill-opacity=\"0.68\">unreachable / link lost</text><rect x=\"760\" y=\"590\" width=\"18\" height=\"18\" rx=\"4\" fill=\"#8e8e8e\"/><text x=\"786\" y=\"604\" font-size=\"15\" fill=\"currentColor\" fill-opacity=\"0.68\">no data</text><text x=\"1576\" y=\"604\" font-size=\"15\" fill=\"currentColor\" fill-opacity=\"0.68\" text-anchor=\"end\">Tiles: device uptime. Lines: discovered adjacency (edge_info). Dashed: BGP session.</text></svg>",
+          "panelConfig": "---\ndatapoint: \"lastNotNull\"\ncellIdPreamble: \"\"\ncells:\n  edge-fw-01:\n    dataRef: \"edge-fw-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColorElementFilter:\n      - {name: 'rect', position: '2'}\n  up-edge-fw-01:\n    dataRef: \"d-edge-fw-01\"\n    label:\n      separator: \"replace\"\n      units: \"none\"\n      unitsPostfix: \"d up\"\n      valueMappings:\n        - {valueMax: -0.5, text: \"UNREACHABLE\"}\n      decimalPoints: 1\n    labelColor:\n      dataRef: \"edge-fw-01\"\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  spine-01:\n    dataRef: \"spine-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColorElementFilter:\n      - {name: 'rect', position: '2'}\n  up-spine-01:\n    dataRef: \"d-spine-01\"\n    label:\n      separator: \"replace\"\n      units: \"none\"\n      unitsPostfix: \"d up\"\n      valueMappings:\n        - {valueMax: -0.5, text: \"UNREACHABLE\"}\n      decimalPoints: 1\n    labelColor:\n      dataRef: \"spine-01\"\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  spine-02:\n    dataRef: \"spine-02\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColorElementFilter:\n      - {name: 'rect', position: '2'}\n  up-spine-02:\n    dataRef: \"d-spine-02\"\n    label:\n      separator: \"replace\"\n      units: \"none\"\n      unitsPostfix: \"d up\"\n      valueMappings:\n        - {valueMax: -0.5, text: \"UNREACHABLE\"}\n      decimalPoints: 1\n    labelColor:\n      dataRef: \"spine-02\"\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  leaf-01:\n    dataRef: \"leaf-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColorElementFilter:\n      - {name: 'rect', position: '2'}\n  up-leaf-01:\n    dataRef: \"d-leaf-01\"\n    label:\n      separator: \"replace\"\n      units: \"none\"\n      unitsPostfix: \"d up\"\n      valueMappings:\n        - {valueMax: -0.5, text: \"UNREACHABLE\"}\n      decimalPoints: 1\n    labelColor:\n      dataRef: \"leaf-01\"\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  leaf-02:\n    dataRef: \"leaf-02\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColorElementFilter:\n      - {name: 'rect', position: '2'}\n  up-leaf-02:\n    dataRef: \"d-leaf-02\"\n    label:\n      separator: \"replace\"\n      units: \"none\"\n      unitsPostfix: \"d up\"\n      valueMappings:\n        - {valueMax: -0.5, text: \"UNREACHABLE\"}\n      decimalPoints: 1\n    labelColor:\n      dataRef: \"leaf-02\"\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  leaf-03:\n    dataRef: \"leaf-03\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColorElementFilter:\n      - {name: 'rect', position: '2'}\n  up-leaf-03:\n    dataRef: \"d-leaf-03\"\n    label:\n      separator: \"replace\"\n      units: \"none\"\n      unitsPostfix: \"d up\"\n      valueMappings:\n        - {valueMax: -0.5, text: \"UNREACHABLE\"}\n      decimalPoints: 1\n    labelColor:\n      dataRef: \"leaf-03\"\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  leaf-04:\n    dataRef: \"leaf-04\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColorElementFilter:\n      - {name: 'rect', position: '2'}\n  up-leaf-04:\n    dataRef: \"d-leaf-04\"\n    label:\n      separator: \"replace\"\n      units: \"none\"\n      unitsPostfix: \"d up\"\n      valueMappings:\n        - {valueMax: -0.5, text: \"UNREACHABLE\"}\n      decimalPoints: 1\n    labelColor:\n      dataRef: \"leaf-04\"\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  leaf-05:\n    dataRef: \"leaf-05\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColorElementFilter:\n      - {name: 'rect', position: '2'}\n  up-leaf-05:\n    dataRef: \"d-leaf-05\"\n    label:\n      separator: \"replace\"\n      units: \"none\"\n      unitsPostfix: \"d up\"\n      valueMappings:\n        - {valueMax: -0.5, text: \"UNREACHABLE\"}\n      decimalPoints: 1\n    labelColor:\n      dataRef: \"leaf-05\"\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  leaf-06:\n    dataRef: \"leaf-06\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n    fillColorElementFilter:\n      - {name: 'rect', position: '2'}\n  up-leaf-06:\n    dataRef: \"d-leaf-06\"\n    label:\n      separator: \"replace\"\n      units: \"none\"\n      unitsPostfix: \"d up\"\n      valueMappings:\n        - {valueMax: -0.5, text: \"UNREACHABLE\"}\n      decimalPoints: 1\n    labelColor:\n      dataRef: \"leaf-06\"\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf01-01:\n    dataRef: \"host-leaf01-01\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf01-02:\n    dataRef: \"host-leaf01-02\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf01-03:\n    dataRef: \"host-leaf01-03\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf01-04:\n    dataRef: \"host-leaf01-04\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf02-01:\n    dataRef: \"host-leaf02-01\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf02-02:\n    dataRef: \"host-leaf02-02\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf02-03:\n    dataRef: \"host-leaf02-03\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf02-04:\n    dataRef: \"host-leaf02-04\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf03-01:\n    dataRef: \"host-leaf03-01\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf03-02:\n    dataRef: \"host-leaf03-02\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf03-03:\n    dataRef: \"host-leaf03-03\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf03-04:\n    dataRef: \"host-leaf03-04\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf04-01:\n    dataRef: \"host-leaf04-01\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf04-02:\n    dataRef: \"host-leaf04-02\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf04-03:\n    dataRef: \"host-leaf04-03\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf04-04:\n    dataRef: \"host-leaf04-04\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf05-01:\n    dataRef: \"host-leaf05-01\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf05-02:\n    dataRef: \"host-leaf05-02\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf05-03:\n    dataRef: \"host-leaf05-03\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf05-04:\n    dataRef: \"host-leaf05-04\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf06-01:\n    dataRef: \"host-leaf06-01\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf06-02:\n    dataRef: \"host-leaf06-02\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf06-03:\n    dataRef: \"host-leaf06-03\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  host-leaf06-04:\n    dataRef: \"host-leaf06-04\"\n    fillColor:\n      thresholds:\n        - {color: \"red\", level: -1}\n        - {color: \"orange\", level: 0}\n        - {color: \"yellow\", level: 3600}\n        - {color: \"green\", level: 86400}\n  L-edge-fw-01-spine-01:\n    dataRef: \"L-edge-fw-01-spine-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-edge-fw-01-spine-02:\n    dataRef: \"L-edge-fw-01-spine-02\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-01-leaf-01:\n    dataRef: \"L-spine-01-leaf-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-02-leaf-01:\n    dataRef: \"L-spine-02-leaf-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-01-leaf-02:\n    dataRef: \"L-spine-01-leaf-02\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-02-leaf-02:\n    dataRef: \"L-spine-02-leaf-02\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-01-leaf-03:\n    dataRef: \"L-spine-01-leaf-03\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-02-leaf-03:\n    dataRef: \"L-spine-02-leaf-03\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-01-leaf-04:\n    dataRef: \"L-spine-01-leaf-04\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-02-leaf-04:\n    dataRef: \"L-spine-02-leaf-04\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-01-leaf-05:\n    dataRef: \"L-spine-01-leaf-05\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-02-leaf-05:\n    dataRef: \"L-spine-02-leaf-05\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-01-leaf-06:\n    dataRef: \"L-spine-01-leaf-06\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-spine-02-leaf-06:\n    dataRef: \"L-spine-02-leaf-06\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf01-01-leaf-01:\n    dataRef: \"L-host-leaf01-01-leaf-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf01-02-leaf-01:\n    dataRef: \"L-host-leaf01-02-leaf-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf01-03-leaf-01:\n    dataRef: \"L-host-leaf01-03-leaf-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf01-04-leaf-01:\n    dataRef: \"L-host-leaf01-04-leaf-01\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf02-01-leaf-02:\n    dataRef: \"L-host-leaf02-01-leaf-02\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf02-02-leaf-02:\n    dataRef: \"L-host-leaf02-02-leaf-02\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf02-03-leaf-02:\n    dataRef: \"L-host-leaf02-03-leaf-02\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf02-04-leaf-02:\n    dataRef: \"L-host-leaf02-04-leaf-02\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf03-01-leaf-03:\n    dataRef: \"L-host-leaf03-01-leaf-03\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf03-02-leaf-03:\n    dataRef: \"L-host-leaf03-02-leaf-03\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf03-03-leaf-03:\n    dataRef: \"L-host-leaf03-03-leaf-03\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf03-04-leaf-03:\n    dataRef: \"L-host-leaf03-04-leaf-03\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf04-01-leaf-04:\n    dataRef: \"L-host-leaf04-01-leaf-04\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf04-02-leaf-04:\n    dataRef: \"L-host-leaf04-02-leaf-04\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf04-03-leaf-04:\n    dataRef: \"L-host-leaf04-03-leaf-04\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf04-04-leaf-04:\n    dataRef: \"L-host-leaf04-04-leaf-04\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf05-01-leaf-05:\n    dataRef: \"L-host-leaf05-01-leaf-05\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf05-02-leaf-05:\n    dataRef: \"L-host-leaf05-02-leaf-05\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf05-03-leaf-05:\n    dataRef: \"L-host-leaf05-03-leaf-05\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf05-04-leaf-05:\n    dataRef: \"L-host-leaf05-04-leaf-05\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf06-01-leaf-06:\n    dataRef: \"L-host-leaf06-01-leaf-06\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf06-02-leaf-06:\n    dataRef: \"L-host-leaf06-02-leaf-06\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf06-03-leaf-06:\n    dataRef: \"L-host-leaf06-03-leaf-06\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n  L-host-leaf06-04-leaf-06:\n    dataRef: \"L-host-leaf06-04-leaf-06\"\n    strokeColor:\n      thresholds:\n        - {color: \"red\", level: 0}\n        - {color: \"green\", level: 1}\n",
+          "siteConfig": "",
+          "panZoomEnabled": false,
+          "animationsEnabled": false,
+          "animationControlEnabled": false,
+          "highlighterEnabled": false,
+          "highlighterSelection": "",
+          "timeSliderEnabled": false,
+          "timeSliderMode": "local",
+          "testDataEnabled": false
+        },
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        }
+      },
+      {
+        "id": 9,
+        "type": "grafana-polystat-panel",
+        "title": "Device uptime honeycomb",
+        "description": "One cell per device reporting network_topology_device_uptime_seconds for the selected exporter, value in days, sorted lowest uptime first so recent reboots sit top-left. Red DOWN: unreachable (polled in the last hour, no longer reporting). Orange: rebooted in the last hour. Yellow: rebooted in the last 24h. Green: up 24h or more. Short names: fwNN edge-fw-NN, spNN spine-NN, lfNN leaf-NN, wcNN wan-core-NN, hNN-MM host-leafNN-MM; hover a cell for the value.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 15,
+          "y": 4,
+          "w": 9,
+          "h": 15
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((max by (device_id) (network_topology_device_uptime_seconds{instance=\"$exporter\"}) / 86400 or (max by (device_id) (last_over_time(network_topology_device_uptime_seconds{instance=\"$exporter\"}[1h])) * 0 - 1)), \"short\", \"$1\", \"device_id\", \"(.*)\"), \"short\", \"h$1-$2\", \"device_id\", \"host-leaf(\\\\d+)-(\\\\d+)\"), \"short\", \"lf$1\", \"device_id\", \"leaf-(\\\\d+)\"), \"short\", \"sp$1\", \"device_id\", \"spine-(\\\\d+)\"), \"short\", \"fw$1\", \"device_id\", \"edge-fw-(\\\\d+)\"), \"short\", \"wc$1\", \"device_id\", \"wan-core-(\\\\d+)\")",
+            "legendFormat": "{{short}}",
+            "range": true,
+            "instant": false,
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "autoSizeColumns": true,
+          "autoSizeRows": true,
+          "autoSizePolygons": true,
+          "layoutNumColumns": 6,
+          "layoutNumRows": 6,
+          "layoutDisplayLimit": 200,
+          "globalPolygonSize": 25,
+          "globalPolygonBorderSize": 2,
+          "globalAutoScaleFonts": false,
+          "globalLabelFontSize": 13,
+          "globalValueFontSize": 15,
+          "globalCompositeValueFontSize": 12,
+          "globalTextFontAutoColorEnabled": true,
+          "globalTextFontColor": "#000000",
+          "globalTextFontFamily": "Inter",
+          "ellipseEnabled": false,
+          "ellipseCharacters": 10,
+          "sortByDirection": 3,
+          "sortByField": "value",
+          "globalTooltipsEnabled": true,
+          "globalTooltipsShowTimestampEnabled": false,
+          "globalTooltipsShowValueEnabled": true,
+          "globalShowTooltipColumnHeadersEnabled": true,
+          "tooltipDisplayMode": "all",
+          "tooltipDisplayTextTriggeredEmpty": "OK",
+          "tooltipPrimarySortDirection": 2,
+          "tooltipPrimarySortByField": "thresholdLevel",
+          "tooltipSecondarySortDirection": 2,
+          "tooltipSecondarySortByField": "value",
+          "globalDisplayMode": "all",
+          "globalDisplayTextTriggeredEmpty": "OK",
+          "globalShowValueEnabled": true,
+          "globalShowTimestampEnabled": false,
+          "globalShape": "hexagon_pointed_top",
+          "globalGradientsEnabled": true,
+          "globalFillColor": "rgba(10, 85, 161, 1)",
+          "globalPolygonBorderColor": "rgba(0, 0, 0, 0)",
+          "globalUnitFormat": "suffix:d",
+          "globalOperator": "lastNotNull",
+          "globalDecimals": 0,
+          "globalThresholdsConfig": [
+            {
+              "color": "#E02F44",
+              "state": 2,
+              "value": -1
+            },
+            {
+              "color": "#FF9830",
+              "state": 1,
+              "value": 0
+            },
+            {
+              "color": "#FADE2A",
+              "state": 1,
+              "value": 0.0417
+            },
+            {
+              "color": "#56A64B",
+              "state": 0,
+              "value": 1
+            }
+          ],
+          "globalClickthrough": "",
+          "globalClickthroughSanitizedEnabled": true,
+          "globalClickthroughNewTabEnabled": true,
+          "globalClickthroughCustomTargetEnabled": false,
+          "globalClickthroughCustomTarget": "",
+          "globalRegexPattern": "",
+          "overrideConfig": {
+            "overrides": []
+          },
+          "compositeGlobalAliasingEnabled": false,
+          "compositeConfig": {
+            "composites": [],
+            "enabled": true,
+            "animationSpeed": "1500"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "suffix:d",
+            "decimals": 0,
+            "mappings": [
+              {
+                "type": "range",
+                "options": {
+                  "from": -2,
+                  "to": -0.5,
+                  "result": {
+                    "text": "DOWN",
+                    "color": "#E02F44",
+                    "index": 0
+                  }
+                }
+              }
+            ]
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 10,
+        "type": "logs",
+        "title": "Topology changes and neighbour conflicts",
+        "description": "Live discovery events from {source=\"network-topology-exporter\"}: event=topology_change (adjacency added/removed) and event=topology_conflict (LLDP and CDP disagree about a neighbour).",
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 19,
+          "w": 15,
+          "h": 7
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "refId": "A",
+            "queryType": "range",
+            "expr": "{source=\"network-topology-exporter\", instance=\"$exporter\"} | logfmt | line_format \"{{.event}}  {{if .change_kind}}{{.change_kind}} {{.proto}}  {{.src_device}} {{.src_port}} -> {{.dst_device}} {{.dst_port}}{{else}}{{.conflict_type}}  {{.src_device}} {{.src_port}}  sources={{.sources}}{{end}}\""
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": false,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending",
+          "enableInfiniteScrolling": false
+        }
+      },
+      {
+        "id": 11,
+        "type": "state-timeline",
+        "title": "Discovery module health",
+        "description": "network_topology_module_last_status per discovery module: 0 OK, 1 degraded, 2 hard-failed.",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "gridPos": {
+          "x": 15,
+          "y": 19,
+          "w": 9,
+          "h": 7
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max by (module) (network_topology_module_last_status{instance=\"$exporter\"})",
+            "legendFormat": "{{module}}",
+            "range": true,
+            "instant": false,
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "showValue": "never",
+          "mergeValues": true,
+          "alignValue": "center",
+          "rowHeight": 0.8,
+          "legend": {
+            "showLegend": false,
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 2
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "OK",
+                    "color": "green",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "Degraded",
+                    "color": "orange",
+                    "index": 1
+                  },
+                  "2": {
+                    "text": "Hard-failed",
+                    "color": "red",
+                    "index": 2
+                  }
+                }
+              }
+            ],
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 0
+            }
+          },
+          "overrides": []
+        }
+      }
+    ]
+  }
+}

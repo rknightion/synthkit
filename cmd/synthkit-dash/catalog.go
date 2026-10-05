@@ -7,6 +7,7 @@ import (
 	acmeaieval "github.com/rknightion/synthkit/dashboards/examples/acme_ai_eval"
 	acmeaiplatform "github.com/rknightion/synthkit/dashboards/examples/acme_ai_platform"
 	acmeaiplatformeval "github.com/rknightion/synthkit/dashboards/examples/acme_ai_platform_eval"
+	"github.com/rknightion/synthkit/dashboards/examples/netobs"
 )
 
 // templateCatalog maps a blueprint name → its dashboard templates. Single-owner wiring
@@ -17,6 +18,7 @@ func templateCatalog() map[string][]dashboard.Template {
 		"acme-ai-platform":      acmeaiplatform.Templates(),
 		"acme-ai-platform-eval": acmeaiplatformeval.Templates(),
 		"acme-ai-eval":          acmeaieval.Templates(),
+		"netobs-global":         netobs.Templates(),
 	}
 }
 

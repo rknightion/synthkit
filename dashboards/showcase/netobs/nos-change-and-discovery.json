@@ -1,0 +1,2580 @@
+{
+  "apiVersion": "dashboard.grafana.app/v1beta1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "nos-change-and-discovery",
+    "annotations": {
+      "grafana.app/folder": "netobs-showcase"
+    }
+  },
+  "spec": {
+    "uid": "nos-change-and-discovery",
+    "title": "Network Observability - Change Intelligence and Discovery Health",
+    "tags": [
+      "netobs-showcase",
+      "network",
+      "change",
+      "discovery"
+    ],
+    "description": "What changed in the global network, and whether the monitoring that tells us is healthy: topology changes and conflicts, software and reboot drift, and discovery module, walker and credential health across every exporter.",
+    "editable": true,
+    "graphTooltip": 1,
+    "schemaVersion": 39,
+    "version": 1,
+    "timezone": "utc",
+    "refresh": "1m",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "links": [
+      {
+        "type": "dashboards",
+        "title": "Network Observability",
+        "tags": [
+          "netobs-showcase"
+        ],
+        "asDropdown": true,
+        "includeVars": false,
+        "keepTime": true,
+        "icon": "external link",
+        "tooltip": "",
+        "url": "",
+        "targetBlank": false
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "exporter",
+          "label": "Exporter",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "definition": "label_values(network_topology_device_info, instance)",
+          "query": {
+            "query": "label_values(network_topology_device_info, instance)",
+            "refId": "exporter"
+          },
+          "refresh": 2,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "current": {
+            "selected": true,
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "sort": 1,
+          "hide": 0
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        },
+        {
+          "name": "Links lost",
+          "datasource": {
+            "type": "loki",
+            "uid": "grafanacloud-logs"
+          },
+          "enable": true,
+          "iconColor": "red",
+          "expr": "{source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_change\" | change_kind=\"removed\"",
+          "titleFormat": "{{change_kind}} {{proto}}",
+          "textFormat": "{{src_device}}:{{src_port}} -> {{dst_device}}",
+          "tagKeys": "",
+          "target": {
+            "refId": "Anno",
+            "expr": "{source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_change\" | change_kind=\"removed\"",
+            "queryType": "range"
+          }
+        },
+        {
+          "name": "Neighbour conflicts",
+          "datasource": {
+            "type": "loki",
+            "uid": "grafanacloud-logs"
+          },
+          "enable": false,
+          "iconColor": "orange",
+          "expr": "{source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_conflict\"",
+          "titleFormat": "{{conflict_type}}",
+          "textFormat": "{{src_device}}:{{src_port}} sources={{sources}}",
+          "tagKeys": "",
+          "target": {
+            "refId": "Anno",
+            "expr": "{source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_conflict\"",
+            "queryType": "range"
+          }
+        },
+        {
+          "name": "Links discovered",
+          "datasource": {
+            "type": "loki",
+            "uid": "grafanacloud-logs"
+          },
+          "enable": true,
+          "iconColor": "green",
+          "expr": "{source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_change\" | change_kind=\"added\"",
+          "titleFormat": "{{change_kind}} {{proto}}",
+          "textFormat": "{{src_device}}:{{src_port}} -> {{dst_device}}",
+          "tagKeys": "",
+          "target": {
+            "refId": "Anno",
+            "expr": "{source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_change\" | change_kind=\"added\"",
+            "queryType": "range"
+          }
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "row",
+        "title": "Estate at a glance",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 2,
+        "type": "marcusolsson-dynamictext-panel",
+        "title": "Exporter summary",
+        "gridPos": {
+          "x": 0,
+          "y": 1,
+          "w": 24,
+          "h": 7
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (exporter)(label_replace(sum by (instance)(network_topology_graph_devices_total{instance=~\"$exporter\"}), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (exporter)(label_replace(sum by (instance)(network_topology_graph_edges_total{instance=~\"$exporter\"}), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "C",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (exporter)(label_replace(max by (instance)(network_topology_graph_stale{instance=~\"$exporter\"}), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "D",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "round(max by (exporter)(label_replace(histogram_quantile(0.95, sum by (le, instance)(rate(network_topology_discovery_cycle_duration_seconds_bucket{instance=~\"$exporter\"}[10m]))), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\")), 0.1)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "E",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (exporter)(label_replace(sum by (instance)(increase(network_topology_change_total{instance=~\"$exporter\"}[$__range])), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "F",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (exporter)(label_replace(sum by (instance)(network_topology_change_total{instance=~\"$exporter\"}), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "G",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (exporter)(label_replace(count by (instance)(count by (instance, vendor)(network_topology_device_info{instance=~\"$exporter\"})), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "H",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (exporter)(label_replace(sum by (instance)(network_topology_module_last_status{instance=~\"$exporter\"} > bool 0), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "options": {
+          "renderMode": "allRows",
+          "content": "<div class=\"cards\">\n{{#each data}}\n<div class=\"card {{#if stale}}bad{{else}}ok{{/if}}\">\n  <div class=\"hdr\"><span class=\"name\">{{exporter}}</span><span class=\"pill\">{{#if stale}}GRAPH STALE{{else}}GRAPH FRESH{{/if}}</span></div>\n  <div class=\"grid\">\n    <div class=\"kpi\"><b>{{devices}}</b><i>devices</i></div>\n    <div class=\"kpi\"><b>{{links}}</b><i>links</i></div>\n    <div class=\"kpi\"><b>{{vendors}}</b><i>vendors</i></div>\n    <div class=\"kpi {{#if faults}}warn{{/if}}\"><b>{{faults}}</b><i>modules not OK</i></div>\n    <div class=\"kpi\"><b>{{chg_range}}</b><i>changes in range</i></div>\n    <div class=\"kpi\"><b>{{chg_total}}</b><i>changes since start</i></div>\n    <div class=\"kpi\"><b>{{cycle_p95}}s</b><i>cycle p95</i></div>\n  </div>\n</div>\n{{/each}}\n</div>",
+          "defaultContent": "<p>No exporter data in the selected range.</p>",
+          "styles": "\n.cards{display:flex;gap:14px;flex-wrap:wrap;height:100%;align-items:stretch}\n.card{flex:1 1 300px;border-radius:8px;padding:12px 16px;border:1px solid rgba(128,128,128,.35);border-left:6px solid #73BF69;background:rgba(115,191,105,.07);box-sizing:border-box}\n.card.bad{border-left-color:#F2495C;background:rgba(242,73,92,.10)}\n.hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}\n.name{font-size:18px;font-weight:600;letter-spacing:.3px}\n.pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:rgba(115,191,105,.25);color:#73BF69}\n.card.bad .pill{background:rgba(242,73,92,.25);color:#F2495C}\n.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 6px}\n.kpi{display:flex;flex-direction:column}\n.kpi b{font-size:22px;line-height:1.1;font-weight:600}\n.kpi i{font-size:11px;font-style:normal;opacity:.7;text-transform:uppercase;letter-spacing:.4px}\n.kpi.warn b{color:#FF9830}\n",
+          "helpers": "",
+          "afterRender": "",
+          "externalStyles": [],
+          "contentPartials": [],
+          "wrap": true,
+          "editors": [
+            "default",
+            "styles"
+          ],
+          "editor": {
+            "language": "html",
+            "format": "auto"
+          }
+        },
+        "description": "One card per selected discovery exporter. Devices and links come from the live topology graph, changes from network_topology_change_total, cycle p95 from the discovery cycle duration histogram, and modules not OK from network_topology_module_last_status.",
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "renameByName": {
+                "Value #A": "devices",
+                "Value #B": "links",
+                "Value #C": "stale",
+                "Value #D": "cycle_p95",
+                "Value #E": "chg_range",
+                "Value #F": "chg_total",
+                "Value #G": "vendors",
+                "Value #H": "faults"
+              }
+            }
+          },
+          {
+            "id": "sortBy",
+            "options": {
+              "fields": {},
+              "sort": [
+                {
+                  "field": "exporter"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "type": "row",
+        "title": "Topology change intelligence",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 8,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Links discovered",
+        "gridPos": {
+          "x": 0,
+          "y": 9,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "sum(count_over_time({source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_change\" | change_kind=\"added\" [$__range])) or vector(0)",
+            "editorMode": "code",
+            "queryType": "instant"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "noValue": "0",
+            "unit": "short",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "blue",
+                  "value": null
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Topology change log lines with change_kind=added over the selected range (Loki, network-topology-exporter stream)."
+      },
+      {
+        "id": 5,
+        "type": "stat",
+        "title": "Links lost",
+        "gridPos": {
+          "x": 4,
+          "y": 9,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "sum(count_over_time({source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_change\" | change_kind=\"removed\" [$__range])) or vector(0)",
+            "editorMode": "code",
+            "queryType": "instant"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "noValue": "0",
+            "unit": "short",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Topology change log lines with change_kind=removed over the selected range. Removed edges are logged at warn level."
+      },
+      {
+        "id": 6,
+        "type": "stat",
+        "title": "Neighbour conflicts",
+        "gridPos": {
+          "x": 8,
+          "y": 9,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "sum(count_over_time({source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_conflict\" [$__range])) or vector(0)",
+            "editorMode": "code",
+            "queryType": "instant"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "noValue": "0",
+            "unit": "short",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Conflict log lines (conflict_type=neighbour_disagreement) where two discovery protocols disagree about the same adjacency."
+      },
+      {
+        "id": 8,
+        "type": "stat",
+        "title": "Spokes up",
+        "gridPos": {
+          "x": 12,
+          "y": 9,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum(network_topology_federation_spoke_up) or vector(0)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            },
+            "noValue": "0"
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Federation spokes currently pushing to the global hub (network_topology_federation_spoke_up == 1)."
+      },
+      {
+        "id": 9,
+        "type": "stat",
+        "title": "Spokes down",
+        "gridPos": {
+          "x": 16,
+          "y": 9,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(network_topology_federation_spoke_up == 0) or vector(0)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            },
+            "noValue": "0"
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Federation spokes that have missed their liveness window."
+      },
+      {
+        "id": 10,
+        "type": "stat",
+        "title": "Hub updates rejected",
+        "gridPos": {
+          "x": 20,
+          "y": 9,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum(increase(network_topology_graph_updates_rejected_total{instance=~\"$exporter\"}[$__range])) or vector(0)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            },
+            "noValue": "0",
+            "decimals": 0
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Spoke graph pushes refused by the hub (size budget, invalid labels, structural or stale generation) over the selected range."
+      },
+      {
+        "id": 11,
+        "type": "timeseries",
+        "title": "Topology changes by kind and protocol (metrics)",
+        "gridPos": {
+          "x": 0,
+          "y": 13,
+          "w": 8,
+          "h": 9
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (change_kind, discovery_proto)(increase(network_topology_change_total{instance=~\"$exporter\"}[$__rate_interval]))",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "{{change_kind}} / {{discovery_proto}}",
+            "interval": "1m"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short",
+            "decimals": 0,
+            "min": 0,
+            "max": null,
+            "custom": {
+              "drawStyle": "bars",
+              "axisSoftMax": 4,
+              "fillOpacity": 85,
+              "lineWidth": 1,
+              "stacking": {
+                "mode": "normal",
+                "group": "A"
+              },
+              "barAlignment": 0,
+              "showPoints": "never",
+              "axisLabel": "events",
+              "gradientMode": "none",
+              "spanNulls": false
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byRegexp",
+                "options": "^added.*"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "shades",
+                    "fixedColor": "green"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byRegexp",
+                "options": "^removed.*"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "shades",
+                    "fixedColor": "red"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "calcs": [
+              "sum"
+            ],
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "description": "increase() of network_topology_change_total per interval, stacked by change_kind and discovery_proto across the selected exporters. Counter resets on exporter restart are handled by increase()."
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "title": "Change events logged by kind and protocol",
+        "gridPos": {
+          "x": 8,
+          "y": 13,
+          "w": 8,
+          "h": 9
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "sum by (change_kind, proto)(count_over_time({source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=\"topology_change\" [1m]))",
+            "editorMode": "code",
+            "queryType": "range",
+            "legendFormat": "{{change_kind}} / {{proto}}",
+            "interval": "1m"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short",
+            "decimals": 0,
+            "min": 0,
+            "max": null,
+            "custom": {
+              "drawStyle": "bars",
+              "axisSoftMax": 4,
+              "fillOpacity": 85,
+              "lineWidth": 1,
+              "stacking": {
+                "mode": "normal",
+                "group": "A"
+              },
+              "barAlignment": 0,
+              "showPoints": "never",
+              "axisLabel": "events",
+              "gradientMode": "none",
+              "spanNulls": false
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byRegexp",
+                "options": "^added.*"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "shades",
+                    "fixedColor": "green"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byRegexp",
+                "options": "^removed.*"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "shades",
+                    "fixedColor": "red"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "calcs": [
+              "sum"
+            ],
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "description": "Topology change log lines from the network-topology-exporter stream, counted per interval from the logfmt body fields change_kind and proto (the stream labels only carry the dominant kind for each batch)."
+      },
+      {
+        "id": 13,
+        "type": "barchart",
+        "title": "Cumulative changes since exporter start",
+        "gridPos": {
+          "x": 16,
+          "y": 13,
+          "w": 8,
+          "h": 9
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (discovery_proto, change_kind)(network_topology_change_total{instance=~\"$exporter\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 1,
+              "gradientMode": "none",
+              "axisLabel": "changes"
+            },
+            "unit": "short",
+            "decimals": 0
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "added"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "green"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "removed"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "red"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "orientation": "horizontal",
+          "stacking": "normal",
+          "xTickLabelRotation": 0,
+          "showValue": "auto",
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          },
+          "barWidth": 0.8,
+          "groupWidth": 0.7
+        },
+        "description": "Raw network_topology_change_total grouped by protocol and kind: includes the initial discovery of every adjacency when each exporter started.",
+        "transformations": [
+          {
+            "id": "groupingToMatrix",
+            "options": {
+              "rowField": "discovery_proto",
+              "columnField": "change_kind",
+              "valueField": "Value"
+            }
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "type": "logs",
+        "title": "Change and conflict events",
+        "gridPos": {
+          "x": 0,
+          "y": 22,
+          "w": 24,
+          "h": 10
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "expr": "{source=\"network-topology-exporter\", instance=~\"$exporter\"} | logfmt | event=~\"topology_change|topology_conflict\"",
+            "editorMode": "code",
+            "queryType": "range"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending",
+          "enableInfiniteScrolling": false
+        },
+        "description": "Raw topology_change and topology_conflict events (logfmt) from the exporters. Expand a line to see structured fields: src_device, src_port, dst_device, dst_port, direction, change_kind and proto."
+      },
+      {
+        "id": 15,
+        "type": "row",
+        "title": "Configuration and software drift",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 32,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 16,
+        "type": "table",
+        "title": "Software versions per vendor",
+        "gridPos": {
+          "x": 0,
+          "y": 33,
+          "w": 9,
+          "h": 10
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count by (vendor, os_version)(network_topology_device_info{instance=~\"$exporter\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          },
+          {
+            "refId": "B",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "100 * count by (vendor, os_version)(network_topology_device_info{instance=~\"$exporter\"}) / on (vendor) group_left() sum by (vendor)(count by (vendor, os_version)(network_topology_device_info{instance=~\"$exporter\"}))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              }
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Share of vendor"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "decimals",
+                  "value": 0
+                },
+                {
+                  "id": "min",
+                  "value": 0
+                },
+                {
+                  "id": "max",
+                  "value": 100
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "gauge",
+                    "mode": "basic",
+                    "valueDisplayMode": "text"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "#FF9830",
+                        "value": null
+                      },
+                      {
+                        "color": "green",
+                        "value": 50
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Devices"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 90
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-text"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "text"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "sortBy": [
+            {
+              "displayName": "Vendor",
+              "desc": false
+            }
+          ]
+        },
+        "description": "Devices per vendor and OS version across the selected exporters. Share is the fraction of that vendor's devices on the version; orange marks a minority version (under 50% of the vendor) that deserves a drift review.",
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "renameByName": {
+                "vendor": "Vendor",
+                "os_version": "OS version",
+                "Value #A": "Devices",
+                "Value #B": "Share of vendor"
+              },
+              "indexByName": {
+                "vendor": 0,
+                "os_version": 1,
+                "Value #A": 2,
+                "Value #B": 3
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 17,
+        "type": "barchart",
+        "title": "Devices per vendor by OS version",
+        "gridPos": {
+          "x": 9,
+          "y": 33,
+          "w": 7,
+          "h": 10
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count by (vendor, os_version)(network_topology_device_info{instance=~\"$exporter\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 1,
+              "gradientMode": "none",
+              "axisLabel": "devices"
+            },
+            "unit": "short",
+            "decimals": 0
+          },
+          "overrides": []
+        },
+        "options": {
+          "orientation": "vertical",
+          "stacking": "normal",
+          "showValue": "auto",
+          "xTickLabelRotation": 0,
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          },
+          "barWidth": 0.8,
+          "groupWidth": 0.7
+        },
+        "description": "Stacked device counts: one bar per vendor, one segment per OS version in use. More than one segment in a bar means that vendor is running mixed software.",
+        "transformations": [
+          {
+            "id": "groupingToMatrix",
+            "options": {
+              "rowField": "vendor",
+              "columnField": "os_version",
+              "valueField": "Value"
+            }
+          }
+        ]
+      },
+      {
+        "id": 18,
+        "type": "table",
+        "title": "Shortest uptime - recent reboots",
+        "gridPos": {
+          "x": 16,
+          "y": 33,
+          "w": 8,
+          "h": 10
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (exporter, device_id, vendor, os_version)(label_replace(bottomk(10, network_topology_device_uptime_seconds{instance=~\"$exporter\"}) * on (instance, device_id) group_left (vendor, os_version) network_topology_device_info{instance=~\"$exporter\"}, \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              }
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Uptime"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "dtdurations"
+                },
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "gradient"
+                  }
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "red",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 86400
+                      },
+                      {
+                        "color": "green",
+                        "value": 604800
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "thresholds"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "sortBy": [
+            {
+              "displayName": "Uptime",
+              "desc": false
+            }
+          ]
+        },
+        "description": "The ten devices with the lowest sysUpTime (network_topology_device_uptime_seconds joined to device_info). Red means rebooted within 24 hours, orange within 7 days.",
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "os_version": true
+              },
+              "renameByName": {
+                "exporter": "Exporter",
+                "device_id": "Device",
+                "vendor": "Vendor",
+                "Value": "Uptime"
+              },
+              "indexByName": {
+                "device_id": 0,
+                "vendor": 1,
+                "exporter": 2,
+                "Value": 3
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 19,
+        "type": "stat",
+        "title": "Devices rebooted in last 24h",
+        "gridPos": {
+          "x": 0,
+          "y": 43,
+          "w": 6,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(network_topology_device_uptime_seconds{instance=~\"$exporter\"} < 86400) or vector(0)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "noValue": "0",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Devices whose sysUpTime is under 24 hours."
+      },
+      {
+        "id": 20,
+        "type": "stat",
+        "title": "Vendors on mixed software",
+        "gridPos": {
+          "x": 6,
+          "y": 43,
+          "w": 6,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(count by (vendor)(count by (vendor, os_version)(network_topology_device_info{instance=~\"$exporter\"})) > 1) or vector(0)",
+            "editorMode": "code",
+            "range": false,
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "noValue": "0",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Vendors running more than one OS version across the selected exporters."
+      },
+      {
+        "id": 21,
+        "type": "stat",
+        "title": "Median device uptime",
+        "gridPos": {
+          "x": 12,
+          "y": 43,
+          "w": 6,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "quantile(0.5, network_topology_device_uptime_seconds{instance=~\"$exporter\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "dtdurations",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "value",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Median sysUpTime across the selected exporters."
+      },
+      {
+        "id": 22,
+        "type": "stat",
+        "title": "Fleet size under review",
+        "gridPos": {
+          "x": 18,
+          "y": 43,
+          "w": 6,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "count(network_topology_device_info{instance=~\"$exporter\"})",
+            "editorMode": "code",
+            "range": false,
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "blue",
+                  "value": null
+                }
+              ]
+            },
+            "color": {
+              "mode": "thresholds"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "value",
+          "graphMode": "none",
+          "textMode": "value",
+          "justifyMode": "center"
+        },
+        "description": "Devices counted in the drift and uptime panels above."
+      },
+      {
+        "id": 23,
+        "type": "row",
+        "title": "Discovery pipeline health",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 47,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 24,
+        "type": "status-history",
+        "title": "Discovery module status",
+        "gridPos": {
+          "x": 0,
+          "y": 48,
+          "w": 10,
+          "h": 11
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (exporter, module)(label_replace(max by (instance, module)(network_topology_module_last_status{instance=~\"$exporter\"}), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "{{exporter}} / {{module}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "OK",
+                    "color": "green",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "Degraded",
+                    "color": "#FF9830",
+                    "index": 1
+                  },
+                  "2": {
+                    "text": "Hard-failed",
+                    "color": "red",
+                    "index": 2
+                  }
+                }
+              }
+            ],
+            "color": {
+              "mode": "fixed",
+              "fixedColor": "green"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "#FF9830",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 2
+                }
+              ]
+            },
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 1
+            },
+            "min": 0,
+            "max": 2
+          },
+          "overrides": []
+        },
+        "options": {
+          "showValue": "never",
+          "rowHeight": 0.9,
+          "colWidth": 0.9,
+          "legend": {
+            "showLegend": true,
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "description": "network_topology_module_last_status per exporter and discovery module: 0 OK, 1 Degraded, 2 Hard-failed."
+      },
+      {
+        "id": 25,
+        "type": "grafana-polystat-panel",
+        "title": "Module health map",
+        "gridPos": {
+          "x": 10,
+          "y": 48,
+          "w": 7,
+          "h": 11
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (exporter, module)(label_replace(max by (instance, module)(network_topology_module_last_status{instance=~\"$exporter\"}), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "{{exporter}} / {{module}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "OK",
+                    "color": "green",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "Degraded",
+                    "color": "#FF9830",
+                    "index": 1
+                  },
+                  "2": {
+                    "text": "Hard-failed",
+                    "color": "red",
+                    "index": 2
+                  }
+                }
+              }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "#FF9830",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 2
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "autoSizeColumns": true,
+          "autoSizeRows": true,
+          "autoSizePolygons": true,
+          "layoutDisplayLimit": 100,
+          "layoutNumColumns": 4,
+          "layoutNumRows": 4,
+          "globalPolygonSize": "25",
+          "globalPolygonBorderSize": 2,
+          "globalPolygonBorderColor": "rgba(0,0,0,0)",
+          "globalShape": "hexagon_pointed_top",
+          "globalAutoScaleFonts": true,
+          "globalLabelFontSize": 12,
+          "globalValueFontSize": 14,
+          "globalTextFontAutoColorEnabled": true,
+          "globalTextFontFamily": "Inter",
+          "ellipseEnabled": false,
+          "sortByField": "thresholdLevel",
+          "sortByDirection": 4,
+          "globalTooltipsEnabled": true,
+          "globalTooltipsShowTimestampEnabled": false,
+          "globalTooltipsShowValueEnabled": true,
+          "tooltipDisplayMode": "all",
+          "globalDisplayMode": "all",
+          "globalShowValueEnabled": true,
+          "globalOperator": "max",
+          "globalDecimals": 0,
+          "globalUnitFormat": "short",
+          "globalFillColor": "#299c46",
+          "globalThresholdsConfig": [
+            {
+              "value": 0,
+              "state": 0,
+              "color": "#299c46"
+            },
+            {
+              "value": 1,
+              "state": 1,
+              "color": "#ed8128"
+            },
+            {
+              "value": 2,
+              "state": 2,
+              "color": "#f53636"
+            }
+          ],
+          "globalGradientsEnabled": true,
+          "globalClickthrough": "",
+          "compositeConfig": {
+            "animationSpeed": "1500",
+            "composites": [],
+            "enabled": true
+          },
+          "overrideConfig": {
+            "overrides": []
+          }
+        },
+        "description": "Worst module status over the selected range, one hexagon per exporter and module. Green is OK, orange degraded, red hard-failed."
+      },
+      {
+        "id": 26,
+        "type": "bargauge",
+        "title": "Module duration p95",
+        "gridPos": {
+          "x": 17,
+          "y": 48,
+          "w": 7,
+          "h": 11
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (exporter, module)(label_replace(histogram_quantile(0.95, sum by (le, instance, module)(rate(network_topology_discovery_module_duration_seconds_bucket{instance=~\"$exporter\"}[10m]))), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "legendFormat": "{{exporter}} / {{module}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "decimals": 3,
+            "min": 0,
+            "max": 0.2,
+            "color": {
+              "mode": "continuous-GrYlRd"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 0.15
+                },
+                {
+                  "color": "red",
+                  "value": 0.5
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true,
+          "valueMode": "color",
+          "namePlacement": "auto",
+          "sizing": "auto",
+          "minVizHeight": 10,
+          "minVizWidth": 8,
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          }
+        },
+        "description": "95th percentile of network_topology_discovery_module_duration_seconds over the last 10 minutes, per exporter and module."
+      },
+      {
+        "id": 27,
+        "type": "gauge",
+        "title": "SNMP walk success",
+        "gridPos": {
+          "x": 0,
+          "y": 59,
+          "w": 6,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (exporter)(label_replace(sum by (instance)(rate(network_topology_snmp_walks_total{instance=~\"$exporter\",status=\"ok\"}[5m])) / sum by (instance)(rate(network_topology_snmp_walks_total{instance=~\"$exporter\"}[5m])) * 100, \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "legendFormat": "{{exporter}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "decimals": 1,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 90
+                },
+                {
+                  "color": "green",
+                  "value": 99
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "orientation": "auto",
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true,
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "sizing": "auto",
+          "minVizHeight": 75,
+          "minVizWidth": 75
+        },
+        "description": "Share of SNMP walks with status=ok (network_topology_snmp_walks_total, 5 minute rate) per exporter."
+      },
+      {
+        "id": 28,
+        "type": "gauge",
+        "title": "SNMP session pool hit ratio",
+        "gridPos": {
+          "x": 6,
+          "y": 59,
+          "w": 6,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (exporter)(label_replace(sum by (instance)(rate(network_topology_snmp_session_pool_hits_total{instance=~\"$exporter\"}[5m])) / (sum by (instance)(rate(network_topology_snmp_session_pool_hits_total{instance=~\"$exporter\"}[5m])) + sum by (instance)(rate(network_topology_snmp_session_pool_misses_total{instance=~\"$exporter\"}[5m]))) * 100, \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "legendFormat": "{{exporter}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "decimals": 1,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 50
+                },
+                {
+                  "color": "green",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "orientation": "auto",
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true,
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "sizing": "auto",
+          "minVizHeight": 75,
+          "minVizWidth": 75
+        },
+        "description": "Share of SNMP session requests served from the pool without re-establishing a session (hits / (hits + misses), 5 minute rate)."
+      },
+      {
+        "id": 29,
+        "type": "piechart",
+        "title": "Credential trial outcomes",
+        "gridPos": {
+          "x": 12,
+          "y": 59,
+          "w": 6,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (exporter, status)(label_replace(sum by (instance, status)(increase(network_topology_credential_trials_total{instance=~\"$exporter\"}[$__range])), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "legendFormat": "{{exporter}} / {{status}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "color": {
+              "mode": "palette-classic"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byRegexp",
+                "options": ".*failed.*|.*error.*"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "red"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "pieType": "donut",
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": [
+              "value"
+            ],
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          },
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          }
+        },
+        "description": "SNMP credential trials over the selected range (network_topology_credential_trials_total), split by exporter and outcome. Any non-ok slice indicates devices rejecting the configured credentials."
+      },
+      {
+        "id": 30,
+        "type": "barchart",
+        "title": "Walker outcomes",
+        "gridPos": {
+          "x": 18,
+          "y": 59,
+          "w": 6,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (walker, outcome)(increase(network_topology_walker_outcome_total{instance=~\"$exporter\"}[$__range])) or sum by (walker, outcome)(increase(network_topology_bgp_walker_outcome_total{instance=~\"$exporter\"}[$__range]))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "fillOpacity": 85,
+              "lineWidth": 1,
+              "gradientMode": "none"
+            },
+            "unit": "short",
+            "decimals": 0
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "edges"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "green"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "error"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "red"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "walker_drift"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "orange"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "orientation": "horizontal",
+          "stacking": "normal",
+          "showValue": "never",
+          "xTickLabelRotation": 0,
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          },
+          "barWidth": 0.8,
+          "groupWidth": 0.7
+        },
+        "description": "Walk results per protocol walker over the selected range, stacked by outcome (edges, no_neighbours, mib_unimplemented, walker_drift, error). BGP vendor walkers are included.",
+        "transformations": [
+          {
+            "id": "groupingToMatrix",
+            "options": {
+              "rowField": "walker",
+              "columnField": "outcome",
+              "valueField": "Value"
+            }
+          }
+        ]
+      },
+      {
+        "id": 31,
+        "type": "timeseries",
+        "title": "Discovery cycle p95",
+        "gridPos": {
+          "x": 0,
+          "y": 67,
+          "w": 8,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (exporter)(label_replace(histogram_quantile(0.95, sum by (le, instance)(rate(network_topology_discovery_cycle_duration_seconds_bucket{instance=~\"$exporter\"}[$__rate_interval]))), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "{{exporter}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "decimals": 2,
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 15,
+              "gradientMode": "opacity",
+              "showPoints": "never",
+              "spanNulls": true
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "calcs": [
+              "lastNotNull",
+              "max"
+            ],
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "description": "95th percentile duration of a full discovery cycle per exporter."
+      },
+      {
+        "id": 32,
+        "type": "timeseries",
+        "title": "SNMP rate-limit wait p95",
+        "gridPos": {
+          "x": 8,
+          "y": 67,
+          "w": 8,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "max by (exporter)(label_replace(histogram_quantile(0.95, sum by (le, instance)(rate(network_topology_snmp_rate_limit_wait_seconds_bucket{instance=~\"$exporter\"}[$__rate_interval]))), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": true,
+            "instant": false,
+            "legendFormat": "{{exporter}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "decimals": 3,
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 15,
+              "gradientMode": "opacity",
+              "showPoints": "never",
+              "spanNulls": true
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "calcs": [
+              "lastNotNull",
+              "max"
+            ],
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "description": "95th percentile time a poll spent blocked on the per-device SNMP rate limiter."
+      },
+      {
+        "id": 33,
+        "type": "stat",
+        "title": "Cycle budget skips",
+        "gridPos": {
+          "x": 16,
+          "y": 67,
+          "w": 8,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "expr": "sum by (exporter)(label_replace(sum by (instance)(increase(network_topology_cycle_budget_skips_total{instance=~\"$exporter\"}[$__range])), \"exporter\", \"$1\", \"instance\", \"netobs-(.*):9100\"))",
+            "editorMode": "code",
+            "range": false,
+            "instant": true,
+            "legendFormat": "{{exporter}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "noValue": "0",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 10
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "value_and_name",
+          "justifyMode": "center",
+          "orientation": "vertical"
+        },
+        "description": "Devices skipped because a discovery cycle exhausted its time budget (network_topology_cycle_budget_skips_total) over the selected range. Anything above zero means discovery is falling behind."
+      }
+    ]
+  }
+}

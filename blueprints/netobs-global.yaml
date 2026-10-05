@@ -67,3 +67,15 @@ incidents:
   # cycle_budget_skips_total increments. Models a transient SNMP rate-limit or
   # routing-table churn event on the fabric.
   - { kind: nettopo_discovery_slow, every: 120m, for: 8m, intensity: 0.4 }
+  # Background operational noise at the levels a ~130-device multi-vendor core really sees.
+  # Cadences are deliberately co-prime (41m/97m/8h) so faults overlap irregularly rather than
+  # firing in lockstep, and intensities keep each one partial.
+  # A handful of devices (intensity 0.05 of ~128, so ~6) miss SNMP polling for a few minutes:
+  # control-plane CPU spikes during config backups or route churn routinely starve snmpd.
+  - { kind: nettopo_devices_unreachable, every: 41m, for: 3m, intensity: 0.05 }
+  # A neighbour walker returns partial or erroring tables for a few minutes (LLDP/CDP MIB
+  # timeouts on busy chassis), so the reconciled graph briefly under-reports edges.
+  - { kind: nettopo_walker_degraded, every: 97m, for: 5m, intensity: 0.2 }
+  # SNMPv3 credential drift after a rotation: a slice of devices rejects the new auth key
+  # until the change reaches them. A few times a day on an estate this size.
+  - { kind: nettopo_auth_failures, every: 8h, for: 20m, intensity: 0.15 }

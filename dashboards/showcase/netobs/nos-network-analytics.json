@@ -1,0 +1,668 @@
+{
+  "apiVersion": "dashboard.grafana.app/v1beta1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "nos-network-analytics",
+    "annotations": {
+      "grafana.app/folder": "netobs-showcase"
+    }
+  },
+  "spec": {
+    "title": "Network Observability - Network Analytics",
+    "description": "Multi-dimensional analytics of the discovered global network: fabric health KPIs, exporter health radar, estate composition, device profiles, link flow, degree distribution, topology event flow and server fleet throughput.",
+    "uid": "nos-network-analytics",
+    "tags": [
+      "netobs-showcase",
+      "analytics"
+    ],
+    "editable": true,
+    "graphTooltip": 1,
+    "schemaVersion": 41,
+    "refresh": "1m",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timezone": "browser",
+    "links": [
+      {
+        "type": "dashboards",
+        "tags": [
+          "netobs-showcase"
+        ],
+        "asDropdown": true,
+        "title": "Network Observability",
+        "includeVars": false,
+        "keepTime": true,
+        "targetBlank": false,
+        "icon": "external link",
+        "tooltip": "",
+        "url": ""
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "type": "query",
+          "name": "exporter",
+          "label": "Exporter",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "grafanacloud-prom"
+          },
+          "query": {
+            "qryType": 1,
+            "query": "label_values(network_topology_device_info, instance)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "definition": "label_values(network_topology_device_info, instance)",
+          "refresh": 2,
+          "sort": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "current": {
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "options": [],
+          "hide": 0
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "text",
+        "title": "",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 24,
+          "h": 4
+        },
+        "options": {
+          "mode": "markdown",
+          "content": "### Network analytics\nMulti-dimensional views of the discovered estate across the enterprise DC, the global Clos core and the regional spokes. Fabric KPIs and the exporter health radar come from the SNMP topology discovery exporters (`network_topology_*`); composition, degree and tier-to-tier link flow are computed from `network_topology_device_info` and `network_topology_edge_info`; event flow is read from the exporter's topology change log stream in Loki; the host matrix uses `node_network_*` and `windows_net_*` interface counters. Use the Exporter selector to scope the device-level charts."
+        }
+      },
+      {
+        "id": 2,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Fabric health KPIs",
+        "description": "Estate-wide discovery and federation health over the selected range. Walk success = ok share of network_topology_snmp_walks_total; credential success = ok share of network_topology_credential_trials_total; pool hit ratio = session_pool_hits / (hits + misses); modules healthy = share of network_topology_module_last_status at 0; graph freshness = share of the range with network_topology_graph_stale at 0; spokes reporting = time-averaged network_topology_federation_spoke_up across hub spokes.",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 24,
+          "h": 7
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "sum(increase(network_topology_snmp_walks_total{status=\"ok\"}[$__range])) / sum(increase(network_topology_snmp_walks_total[$__range]))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "sum(increase(network_topology_credential_trials_total{status=\"ok\"}[$__range])) / sum(increase(network_topology_credential_trials_total[$__range]))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "sum(increase(network_topology_snmp_session_pool_hits_total[$__range])) / (sum(increase(network_topology_snmp_session_pool_hits_total[$__range])) + sum(increase(network_topology_snmp_session_pool_misses_total[$__range])))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "D",
+            "expr": "count(network_topology_module_last_status == 0) / count(network_topology_module_last_status) or vector(0)",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "E",
+            "expr": "1 - avg(avg_over_time(network_topology_graph_stale[$__range]))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "F",
+            "expr": "avg(avg_over_time(network_topology_federation_spoke_up[$__range]))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "\nconst series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst TXT = theme.colors.text.primary;\nconst MUTED = theme.colors.text.secondary;\nconst GRID = theme.isDark ? 'rgba(204,204,220,0.12)' : 'rgba(36,41,46,0.12)';\nconst PANEL_BG = theme.colors.background.primary;\nfunction val(v) { return v; }\nfunction frames(refId) { return series.filter((s) => s.refId === refId); }\nfunction rows(refId) {\n  const out = [];\n  frames(refId).forEach((f) => {\n    if (!f.fields.length) { return; }\n    const n = f.fields[0].values.length;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((fl) => {\n        const v = fl.values.get ? fl.values.get(i) : fl.values[i];\n        r[fl.name] = v;\n        if (fl.type === 'number' && fl.name !== 'Time') { r.__value = v; }\n        if (fl.labels) { Object.assign(r, fl.labels); }\n      });\n      out.push(r);\n    }\n  });\n  return out;\n}\nfunction scalar(refId) {\n  const r = rows(refId);\n  if (!r.length || r[0].__value === undefined || r[0].__value === null || isNaN(r[0].__value)) { return null; }\n  return Number(r[0].__value);\n}\nfunction byInstance(refId) {\n  const m = {};\n  rows(refId).forEach((r) => { if (r.instance) { m[r.instance] = Number(r.__value); } });\n  return m;\n}\nconst TIER_ORDER = ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'ext-peer': 'External peer', 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_COLOR = { 'ext-peer': '#F2495C', 'edge-fw': '#FF9830', 'wan-core': '#FADE2A', spine: '#B877D9',\n  leaf: '#5794F2', host: '#73BF69', other: '#8E8E8E' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_COLOR = { lldp: '#5794F2', cdp: '#73BF69', fdb: '#8E8E8E', bgp: '#FF9830', ospf: '#FADE2A',\n  isis: '#B877D9', mpls_te: '#F2495C' };\nfunction tierOf(id) {\n  const s = String(id || '');\n  for (const t of ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host']) { if (s.startsWith(t)) { return t; } }\n  return 'other';\n}\nfunction shortExp(i) { return String(i || '').replace(/^netobs-/, '').replace(/:\\d+$/, ''); }\nconst EXP_NAME = { 'ent-dc1': 'Enterprise DC (hq-dc1)', 'glb-hub': 'Global hub', 'spoke-emea': 'EMEA spoke' };\nfunction expName(i) { const s = shortExp(i); return EXP_NAME[s] || s; }\n// Degree = distinct neighbours per device, from edge_info rows (instance-scoped).\nfunction degreeMap(edgeRows) {\n  const nb = {}; const protos = {};\n  edgeRows.forEach((e) => {\n    const a = e.instance + '|' + e.src_device; const b = e.instance + '|' + e.dst_device;\n    (nb[a] = nb[a] || new Set()).add(e.dst_device);\n    (nb[b] = nb[b] || new Set()).add(e.src_device);\n    (protos[a] = protos[a] || new Set()).add(e.discovery_proto);\n    (protos[b] = protos[b] || new Set()).add(e.discovery_proto);\n  });\n  return { nb, protos };\n}\nfunction noData(msg) {\n  return { title: { text: msg, left: 'center', top: 'middle', textStyle: { color: MUTED, fontSize: 14, fontWeight: 'normal' } } };\n}\n\nconst k = [\n  { ref: 'A', name: 'SNMP walk success' },\n  { ref: 'B', name: 'Credential success' },\n  { ref: 'C', name: 'Session pool hit ratio' },\n  { ref: 'D', name: 'Discovery modules healthy' },\n  { ref: 'E', name: 'Graph freshness' },\n  { ref: 'F', name: 'Federation spokes reporting' },\n];\nconst n = k.length;\nconst ser = k.map((g, i) => {\n  const v = scalar(g.ref);\n  const pct = v === null ? 0 : Math.max(0, Math.min(100, v * 100));\n  return {\n    type: 'gauge', center: [((i + 0.5) / n * 100) + '%', '58%'], radius: '78%',\n    startAngle: 220, endAngle: -40, min: 0, max: 100, splitNumber: 4,\n    progress: { show: true, width: 12, roundCap: true,\n      itemStyle: { color: pct >= 99 ? '#73BF69' : pct >= 90 ? '#FADE2A' : pct >= 75 ? '#FF9830' : '#F2495C' } },\n    axisLine: { roundCap: true, lineStyle: { width: 12, color: [[1, GRID]] } },\n    axisTick: { show: false }, splitLine: { show: false },\n    axisLabel: { show: false },\n    pointer: { show: false },\n    anchor: { show: false },\n    title: { show: true, offsetCenter: [0, '82%'], color: MUTED, fontSize: 13 },\n    detail: { valueAnimation: true, offsetCenter: [0, '2%'], fontSize: 26, fontWeight: 600, color: TXT,\n      formatter: () => (v === null ? 'n/a' : (pct >= 99.95 || pct === 0 ? pct.toFixed(0) : pct.toFixed(1)) + '%') },\n    data: [{ value: pct, name: g.name }],\n  };\n});\nreturn { backgroundColor: 'transparent', series: ser };\n"
+        }
+      },
+      {
+        "id": 3,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Estate composition - site, tier, vendor, OS",
+        "description": "Drill-down of every discovered device (network_topology_device_info): site -> tier (from the device_id prefix) -> vendor -> OS version (outer ring). Click a segment to zoom in; click the centre to zoom out.",
+        "gridPos": {
+          "x": 0,
+          "y": 11,
+          "w": 12,
+          "h": 14
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "network_topology_device_info{instance=~\"$exporter\"}",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "\nconst series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst TXT = theme.colors.text.primary;\nconst MUTED = theme.colors.text.secondary;\nconst GRID = theme.isDark ? 'rgba(204,204,220,0.12)' : 'rgba(36,41,46,0.12)';\nconst PANEL_BG = theme.colors.background.primary;\nfunction val(v) { return v; }\nfunction frames(refId) { return series.filter((s) => s.refId === refId); }\nfunction rows(refId) {\n  const out = [];\n  frames(refId).forEach((f) => {\n    if (!f.fields.length) { return; }\n    const n = f.fields[0].values.length;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((fl) => {\n        const v = fl.values.get ? fl.values.get(i) : fl.values[i];\n        r[fl.name] = v;\n        if (fl.type === 'number' && fl.name !== 'Time') { r.__value = v; }\n        if (fl.labels) { Object.assign(r, fl.labels); }\n      });\n      out.push(r);\n    }\n  });\n  return out;\n}\nfunction scalar(refId) {\n  const r = rows(refId);\n  if (!r.length || r[0].__value === undefined || r[0].__value === null || isNaN(r[0].__value)) { return null; }\n  return Number(r[0].__value);\n}\nfunction byInstance(refId) {\n  const m = {};\n  rows(refId).forEach((r) => { if (r.instance) { m[r.instance] = Number(r.__value); } });\n  return m;\n}\nconst TIER_ORDER = ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'ext-peer': 'External peer', 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_COLOR = { 'ext-peer': '#F2495C', 'edge-fw': '#FF9830', 'wan-core': '#FADE2A', spine: '#B877D9',\n  leaf: '#5794F2', host: '#73BF69', other: '#8E8E8E' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_COLOR = { lldp: '#5794F2', cdp: '#73BF69', fdb: '#8E8E8E', bgp: '#FF9830', ospf: '#FADE2A',\n  isis: '#B877D9', mpls_te: '#F2495C' };\nfunction tierOf(id) {\n  const s = String(id || '');\n  for (const t of ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host']) { if (s.startsWith(t)) { return t; } }\n  return 'other';\n}\nfunction shortExp(i) { return String(i || '').replace(/^netobs-/, '').replace(/:\\d+$/, ''); }\nconst EXP_NAME = { 'ent-dc1': 'Enterprise DC (hq-dc1)', 'glb-hub': 'Global hub', 'spoke-emea': 'EMEA spoke' };\nfunction expName(i) { const s = shortExp(i); return EXP_NAME[s] || s; }\n// Degree = distinct neighbours per device, from edge_info rows (instance-scoped).\nfunction degreeMap(edgeRows) {\n  const nb = {}; const protos = {};\n  edgeRows.forEach((e) => {\n    const a = e.instance + '|' + e.src_device; const b = e.instance + '|' + e.dst_device;\n    (nb[a] = nb[a] || new Set()).add(e.dst_device);\n    (nb[b] = nb[b] || new Set()).add(e.src_device);\n    (protos[a] = protos[a] || new Set()).add(e.discovery_proto);\n    (protos[b] = protos[b] || new Set()).add(e.discovery_proto);\n  });\n  return { nb, protos };\n}\nfunction noData(msg) {\n  return { title: { text: msg, left: 'center', top: 'middle', textStyle: { color: MUTED, fontSize: 14, fontWeight: 'normal' } } };\n}\n\nconst dev = rows('A');\nif (!dev.length) { return noData('No devices discovered for this scope'); }\nconst tree = {};\ndev.forEach((d) => {\n  const site = d.site || 'unknown'; const tier = TIER_NAME[tierOf(d.device_id)];\n  const ven = d.vendor || 'unknown'; const os = d.os_version || 'unknown';\n  tree[site] = tree[site] || {}; tree[site][tier] = tree[site][tier] || {};\n  tree[site][tier][ven] = tree[site][tier][ven] || {};\n  tree[site][tier][ven][os] = (tree[site][tier][ven][os] || 0) + 1;\n});\nconst SITE_COLOR = ['#5794F2', '#B877D9', '#FF9830', '#73BF69', '#F2CC0C', '#8AB8FF', '#FF7383'];\nconst sites = Object.keys(tree).sort();\nconst tierKey = (name) => Object.keys(TIER_NAME).find((k) => TIER_NAME[k] === name) || 'other';\nconst data = sites.map((s, si) => ({\n  name: s, itemStyle: { color: SITE_COLOR[si % SITE_COLOR.length] },\n  children: Object.keys(tree[s]).sort((a, b) => TIER_ORDER.indexOf(tierKey(a)) - TIER_ORDER.indexOf(tierKey(b))).map((t) => ({\n    name: t, itemStyle: { color: TIER_COLOR[tierKey(t)] },\n    children: Object.keys(tree[s][t]).sort().map((v) => ({\n      name: v, itemStyle: { color: VENDOR_COLOR[v] || '#8E8E8E' },\n      children: Object.keys(tree[s][t][v]).map((o) => ({ name: o, value: tree[s][t][v][o],\n        itemStyle: { color: VENDOR_COLOR[v] || '#8E8E8E', opacity: 0.7 } })),\n    })),\n  })),\n}));\nreturn {\n  backgroundColor: 'transparent',\n  tooltip: { trigger: 'item', formatter: (p) => p.treePathInfo.slice(1).map((x) => x.name).join(' / ') + '<br/><b>' + p.value + '</b> devices' },\n  series: [{\n    type: 'sunburst', data, radius: ['12%', '95%'], center: ['50%', '52%'], sort: undefined,\n    nodeClick: 'rootToNode', emphasis: { focus: 'ancestor' },\n    itemStyle: { borderColor: PANEL_BG, borderWidth: 1.5 },\n    label: { color: '#fff', fontSize: 11, textBorderColor: 'rgba(0,0,0,0.45)', textBorderWidth: 2 },\n    levels: [\n      {},\n      { r0: '12%', r: '34%', label: { rotate: 'tangential', fontSize: 12, fontWeight: 600, minAngle: 25 } },\n      { r0: '34%', r: '62%', label: { rotate: 'radial', minAngle: 6 } },\n      { r0: '62%', r: '82%', label: { rotate: 'radial', minAngle: 6 } },\n      { r0: '82%', r: '86%', label: { show: false }, itemStyle: { borderWidth: 0.5 } },\n    ],\n  }],\n};\n"
+        }
+      },
+      {
+        "id": 4,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Discovery health profile per exporter",
+        "description": "Each exporter normalised 0-1 on six axes over the selected range: SNMP walk success, credential success, session pool hit ratio, share of discovery modules at status 0, cycle budget adherence (1 - cycle_budget_skips / discovery cycles) and graph freshness (share of the range with graph_stale at 0). A full hexagon is a healthy exporter; a dent shows which subsystem is degrading. Tooltip adds the p95 discovery cycle time.",
+        "gridPos": {
+          "x": 12,
+          "y": 11,
+          "w": 12,
+          "h": 14
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "sum by (instance)(increase(network_topology_snmp_walks_total{status=\"ok\"}[$__range])) / sum by (instance)(increase(network_topology_snmp_walks_total[$__range]))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "sum by (instance)(increase(network_topology_credential_trials_total{status=\"ok\"}[$__range])) / sum by (instance)(increase(network_topology_credential_trials_total[$__range]))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "sum by (instance)(increase(network_topology_snmp_session_pool_hits_total[$__range])) / (sum by (instance)(increase(network_topology_snmp_session_pool_hits_total[$__range])) + sum by (instance)(increase(network_topology_snmp_session_pool_misses_total[$__range])))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "D",
+            "expr": "(count by (instance)(network_topology_module_last_status == 0) or (count by (instance)(network_topology_module_last_status) * 0)) / count by (instance)(network_topology_module_last_status)",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "E",
+            "expr": "1 - (sum by (instance)(increase(network_topology_cycle_budget_skips_total[$__range])) / sum by (instance)(increase(network_topology_discovery_cycle_duration_seconds_count[$__range])))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "F",
+            "expr": "1 - max by (instance)(avg_over_time(network_topology_graph_stale[$__range]))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "G",
+            "expr": "histogram_quantile(0.95, sum by (instance, le)(rate(network_topology_discovery_cycle_duration_seconds_bucket[$__range])))",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "\nconst series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst TXT = theme.colors.text.primary;\nconst MUTED = theme.colors.text.secondary;\nconst GRID = theme.isDark ? 'rgba(204,204,220,0.12)' : 'rgba(36,41,46,0.12)';\nconst PANEL_BG = theme.colors.background.primary;\nfunction val(v) { return v; }\nfunction frames(refId) { return series.filter((s) => s.refId === refId); }\nfunction rows(refId) {\n  const out = [];\n  frames(refId).forEach((f) => {\n    if (!f.fields.length) { return; }\n    const n = f.fields[0].values.length;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((fl) => {\n        const v = fl.values.get ? fl.values.get(i) : fl.values[i];\n        r[fl.name] = v;\n        if (fl.type === 'number' && fl.name !== 'Time') { r.__value = v; }\n        if (fl.labels) { Object.assign(r, fl.labels); }\n      });\n      out.push(r);\n    }\n  });\n  return out;\n}\nfunction scalar(refId) {\n  const r = rows(refId);\n  if (!r.length || r[0].__value === undefined || r[0].__value === null || isNaN(r[0].__value)) { return null; }\n  return Number(r[0].__value);\n}\nfunction byInstance(refId) {\n  const m = {};\n  rows(refId).forEach((r) => { if (r.instance) { m[r.instance] = Number(r.__value); } });\n  return m;\n}\nconst TIER_ORDER = ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'ext-peer': 'External peer', 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_COLOR = { 'ext-peer': '#F2495C', 'edge-fw': '#FF9830', 'wan-core': '#FADE2A', spine: '#B877D9',\n  leaf: '#5794F2', host: '#73BF69', other: '#8E8E8E' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_COLOR = { lldp: '#5794F2', cdp: '#73BF69', fdb: '#8E8E8E', bgp: '#FF9830', ospf: '#FADE2A',\n  isis: '#B877D9', mpls_te: '#F2495C' };\nfunction tierOf(id) {\n  const s = String(id || '');\n  for (const t of ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host']) { if (s.startsWith(t)) { return t; } }\n  return 'other';\n}\nfunction shortExp(i) { return String(i || '').replace(/^netobs-/, '').replace(/:\\d+$/, ''); }\nconst EXP_NAME = { 'ent-dc1': 'Enterprise DC (hq-dc1)', 'glb-hub': 'Global hub', 'spoke-emea': 'EMEA spoke' };\nfunction expName(i) { const s = shortExp(i); return EXP_NAME[s] || s; }\n// Degree = distinct neighbours per device, from edge_info rows (instance-scoped).\nfunction degreeMap(edgeRows) {\n  const nb = {}; const protos = {};\n  edgeRows.forEach((e) => {\n    const a = e.instance + '|' + e.src_device; const b = e.instance + '|' + e.dst_device;\n    (nb[a] = nb[a] || new Set()).add(e.dst_device);\n    (nb[b] = nb[b] || new Set()).add(e.src_device);\n    (protos[a] = protos[a] || new Set()).add(e.discovery_proto);\n    (protos[b] = protos[b] || new Set()).add(e.discovery_proto);\n  });\n  return { nb, protos };\n}\nfunction noData(msg) {\n  return { title: { text: msg, left: 'center', top: 'middle', textStyle: { color: MUTED, fontSize: 14, fontWeight: 'normal' } } };\n}\n\nconst axes = [\n  { ref: 'A', name: 'Walk success' },\n  { ref: 'B', name: 'Credential success' },\n  { ref: 'C', name: 'Pool hit ratio' },\n  { ref: 'D', name: 'Modules healthy' },\n  { ref: 'E', name: 'Cycle budget adherence' },\n  { ref: 'F', name: 'Graph freshness' },\n];\nconst m = axes.map((a) => byInstance(a.ref));\nconst p95 = byInstance('G');\nconst inst = Array.from(new Set(m.flatMap((x) => Object.keys(x)))).sort();\nif (!inst.length) { return noData('No discovery exporters reporting'); }\nconst COLORS = ['#5794F2', '#FF9830', '#73BF69', '#B877D9', '#F2495C'];\nreturn {\n  backgroundColor: 'transparent',\n  color: COLORS,\n  legend: { bottom: 0, textStyle: { color: TXT }, data: inst.map(expName) },\n  tooltip: { trigger: 'item', formatter: (p) => {\n    return '<b>' + p.name + '</b><br/>' + axes.map((a, j) => a.name + ': ' + (p.value[j] === null ? 'n/a' : (p.value[j] * 100).toFixed(1) + '%')).join('<br/>')\n      + '<br/>Cycle p95: ' + (p95[p.data.inst] !== undefined ? p95[p.data.inst].toFixed(1) + ' s' : 'n/a');\n  } },\n  radar: {\n    center: ['50%', '50%'], radius: '66%', shape: 'polygon', splitNumber: 4,\n    indicator: axes.map((a) => ({ name: a.name, min: 0, max: 1 })),\n    axisName: { color: TXT, fontSize: 12 },\n    splitLine: { lineStyle: { color: GRID } },\n    splitArea: { areaStyle: { color: ['transparent', theme.isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.025)'] } },\n    axisLine: { lineStyle: { color: GRID } },\n  },\n  series: inst.map((i, k) => ({\n    type: 'radar', name: expName(i), symbolSize: 6, itemStyle: { color: COLORS[k % COLORS.length] },\n    lineStyle: { width: 2.2, color: COLORS[k % COLORS.length], type: k === 0 ? 'solid' : k === 1 ? 'solid' : 'dashed' },\n    areaStyle: { opacity: 0.1 },\n    data: [{ name: expName(i), inst: i,\n      value: m.map((x) => (x[i] === undefined || isNaN(x[i]) ? null : Math.max(0, Math.min(1, x[i])))) }],\n  })),\n};\n"
+        }
+      },
+      {
+        "id": 5,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Device profile - parallel coordinates",
+        "description": "One line per discovered device across exporter, site, tier, vendor, uptime (network_topology_device_uptime_seconds), degree (distinct neighbours) and number of discovery protocols seeing it (both from network_topology_edge_info). Drag along any axis to brush a range, for example low-uptime high-degree devices.",
+        "gridPos": {
+          "x": 0,
+          "y": 25,
+          "w": 16,
+          "h": 14
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "network_topology_device_info{instance=~\"$exporter\"}",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "network_topology_device_uptime_seconds{instance=~\"$exporter\"}",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "network_topology_edge_info{instance=~\"$exporter\"}",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "\nconst series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst TXT = theme.colors.text.primary;\nconst MUTED = theme.colors.text.secondary;\nconst GRID = theme.isDark ? 'rgba(204,204,220,0.12)' : 'rgba(36,41,46,0.12)';\nconst PANEL_BG = theme.colors.background.primary;\nfunction val(v) { return v; }\nfunction frames(refId) { return series.filter((s) => s.refId === refId); }\nfunction rows(refId) {\n  const out = [];\n  frames(refId).forEach((f) => {\n    if (!f.fields.length) { return; }\n    const n = f.fields[0].values.length;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((fl) => {\n        const v = fl.values.get ? fl.values.get(i) : fl.values[i];\n        r[fl.name] = v;\n        if (fl.type === 'number' && fl.name !== 'Time') { r.__value = v; }\n        if (fl.labels) { Object.assign(r, fl.labels); }\n      });\n      out.push(r);\n    }\n  });\n  return out;\n}\nfunction scalar(refId) {\n  const r = rows(refId);\n  if (!r.length || r[0].__value === undefined || r[0].__value === null || isNaN(r[0].__value)) { return null; }\n  return Number(r[0].__value);\n}\nfunction byInstance(refId) {\n  const m = {};\n  rows(refId).forEach((r) => { if (r.instance) { m[r.instance] = Number(r.__value); } });\n  return m;\n}\nconst TIER_ORDER = ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'ext-peer': 'External peer', 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_COLOR = { 'ext-peer': '#F2495C', 'edge-fw': '#FF9830', 'wan-core': '#FADE2A', spine: '#B877D9',\n  leaf: '#5794F2', host: '#73BF69', other: '#8E8E8E' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_COLOR = { lldp: '#5794F2', cdp: '#73BF69', fdb: '#8E8E8E', bgp: '#FF9830', ospf: '#FADE2A',\n  isis: '#B877D9', mpls_te: '#F2495C' };\nfunction tierOf(id) {\n  const s = String(id || '');\n  for (const t of ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host']) { if (s.startsWith(t)) { return t; } }\n  return 'other';\n}\nfunction shortExp(i) { return String(i || '').replace(/^netobs-/, '').replace(/:\\d+$/, ''); }\nconst EXP_NAME = { 'ent-dc1': 'Enterprise DC (hq-dc1)', 'glb-hub': 'Global hub', 'spoke-emea': 'EMEA spoke' };\nfunction expName(i) { const s = shortExp(i); return EXP_NAME[s] || s; }\n// Degree = distinct neighbours per device, from edge_info rows (instance-scoped).\nfunction degreeMap(edgeRows) {\n  const nb = {}; const protos = {};\n  edgeRows.forEach((e) => {\n    const a = e.instance + '|' + e.src_device; const b = e.instance + '|' + e.dst_device;\n    (nb[a] = nb[a] || new Set()).add(e.dst_device);\n    (nb[b] = nb[b] || new Set()).add(e.src_device);\n    (protos[a] = protos[a] || new Set()).add(e.discovery_proto);\n    (protos[b] = protos[b] || new Set()).add(e.discovery_proto);\n  });\n  return { nb, protos };\n}\nfunction noData(msg) {\n  return { title: { text: msg, left: 'center', top: 'middle', textStyle: { color: MUTED, fontSize: 14, fontWeight: 'normal' } } };\n}\n\nconst dev = rows('A');\nif (!dev.length) { return noData('No devices discovered for this scope'); }\nconst up = {}; rows('B').forEach((r) => { up[r.instance + '|' + r.device_id] = Number(r.__value); });\nconst dg = degreeMap(rows('C'));\nconst exps = Array.from(new Set(dev.map((d) => expName(d.instance)))).sort();\nconst tiers = TIER_ORDER.filter((t) => dev.some((d) => tierOf(d.device_id) === t)).map((t) => TIER_NAME[t]);\nconst vendors = Array.from(new Set(dev.map((d) => d.vendor))).sort();\nconst sites = Array.from(new Set(dev.map((d) => d.site))).sort();\nconst byTier = {};\ndev.forEach((d) => {\n  const key = d.instance + '|' + d.device_id; const t = tierOf(d.device_id);\n  const deg = dg.nb[key] ? dg.nb[key].size : 0;\n  const np = dg.protos[key] ? dg.protos[key].size : 0;\n  const u = up[key] !== undefined ? +(up[key] / 86400).toFixed(1) : null;\n  (byTier[t] = byTier[t] || []).push({ name: d.device_id, value: [expName(d.instance), d.site, TIER_NAME[t], d.vendor, u, deg, np] });\n});\nconst all = Object.values(byTier).flat();\nconst maxOf = (j) => Math.max(1, ...all.map((x) => Number(x.value[j]) || 0));\nconst upMax = Math.ceil(maxOf(4) / 50) * 50; const degMax = maxOf(5); const prMax = maxOf(6);\nconst catAxis = (dim, name, data) => ({ dim, name, type: 'category', data });\nreturn {\n  backgroundColor: 'transparent',\n  legend: { top: 0, textStyle: { color: TXT }, data: TIER_ORDER.filter((t) => byTier[t]).map((t) => TIER_NAME[t]) },\n  tooltip: { trigger: 'item', formatter: (p) => '<b>' + p.name + '</b><br/>' + p.value[0] + ' / ' + p.value[1] + '<br/>' + p.value[2] + ', ' + p.value[3]\n    + '<br/>Uptime ' + p.value[4] + ' d<br/>Degree ' + p.value[5] + ' neighbours, ' + p.value[6] + ' protocols' },\n  parallel: { left: 70, right: 90, top: 60, bottom: 30,\n    parallelAxisDefault: {\n      nameLocation: 'start', nameGap: 18, nameTextStyle: { color: TXT, fontSize: 12, fontWeight: 600 },\n      axisLine: { lineStyle: { color: MUTED } }, axisTick: { lineStyle: { color: MUTED } },\n      axisLabel: { color: TXT, fontSize: 11, backgroundColor: PANEL_BG, padding: [1, 3], borderRadius: 2 }, splitLine: { show: false },\n    } },\n  parallelAxis: [\n    catAxis(0, 'Exporter', exps), catAxis(1, 'Site', sites), catAxis(2, 'Tier', tiers), catAxis(3, 'Vendor', vendors),\n    { dim: 4, name: 'Uptime (days)', type: 'value', min: 0, max: upMax },\n    { dim: 5, name: 'Degree', type: 'value', min: 0, max: degMax, minInterval: 1 },\n    { dim: 6, name: 'Protocols', type: 'value', min: 0, max: prMax, minInterval: 1 },\n  ],\n  series: TIER_ORDER.filter((t) => byTier[t]).map((t) => ({\n    name: TIER_NAME[t], type: 'parallel', smooth: 0.15, data: byTier[t],\n    lineStyle: { color: TIER_COLOR[t], width: t === 'host' ? 0.8 : 1.6, opacity: t === 'host' ? 0.35 : 0.75 },\n    emphasis: { lineStyle: { width: 3, opacity: 1 } },\n  })),\n};\n"
+        }
+      },
+      {
+        "id": 6,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Links by discovery protocol",
+        "description": "Radial stacked bar of discovered links per exporter, split by discovery protocol: count by (instance, discovery_proto) of network_topology_edge_info. Ring order is exporter; the arc length is the link count, total in brackets.",
+        "gridPos": {
+          "x": 16,
+          "y": 25,
+          "w": 8,
+          "h": 14
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count by (instance, discovery_proto)(network_topology_edge_info{instance=~\"$exporter\"})",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "\nconst series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst TXT = theme.colors.text.primary;\nconst MUTED = theme.colors.text.secondary;\nconst GRID = theme.isDark ? 'rgba(204,204,220,0.12)' : 'rgba(36,41,46,0.12)';\nconst PANEL_BG = theme.colors.background.primary;\nfunction val(v) { return v; }\nfunction frames(refId) { return series.filter((s) => s.refId === refId); }\nfunction rows(refId) {\n  const out = [];\n  frames(refId).forEach((f) => {\n    if (!f.fields.length) { return; }\n    const n = f.fields[0].values.length;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((fl) => {\n        const v = fl.values.get ? fl.values.get(i) : fl.values[i];\n        r[fl.name] = v;\n        if (fl.type === 'number' && fl.name !== 'Time') { r.__value = v; }\n        if (fl.labels) { Object.assign(r, fl.labels); }\n      });\n      out.push(r);\n    }\n  });\n  return out;\n}\nfunction scalar(refId) {\n  const r = rows(refId);\n  if (!r.length || r[0].__value === undefined || r[0].__value === null || isNaN(r[0].__value)) { return null; }\n  return Number(r[0].__value);\n}\nfunction byInstance(refId) {\n  const m = {};\n  rows(refId).forEach((r) => { if (r.instance) { m[r.instance] = Number(r.__value); } });\n  return m;\n}\nconst TIER_ORDER = ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'ext-peer': 'External peer', 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_COLOR = { 'ext-peer': '#F2495C', 'edge-fw': '#FF9830', 'wan-core': '#FADE2A', spine: '#B877D9',\n  leaf: '#5794F2', host: '#73BF69', other: '#8E8E8E' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_COLOR = { lldp: '#5794F2', cdp: '#73BF69', fdb: '#8E8E8E', bgp: '#FF9830', ospf: '#FADE2A',\n  isis: '#B877D9', mpls_te: '#F2495C' };\nfunction tierOf(id) {\n  const s = String(id || '');\n  for (const t of ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host']) { if (s.startsWith(t)) { return t; } }\n  return 'other';\n}\nfunction shortExp(i) { return String(i || '').replace(/^netobs-/, '').replace(/:\\d+$/, ''); }\nconst EXP_NAME = { 'ent-dc1': 'Enterprise DC (hq-dc1)', 'glb-hub': 'Global hub', 'spoke-emea': 'EMEA spoke' };\nfunction expName(i) { const s = shortExp(i); return EXP_NAME[s] || s; }\n// Degree = distinct neighbours per device, from edge_info rows (instance-scoped).\nfunction degreeMap(edgeRows) {\n  const nb = {}; const protos = {};\n  edgeRows.forEach((e) => {\n    const a = e.instance + '|' + e.src_device; const b = e.instance + '|' + e.dst_device;\n    (nb[a] = nb[a] || new Set()).add(e.dst_device);\n    (nb[b] = nb[b] || new Set()).add(e.src_device);\n    (protos[a] = protos[a] || new Set()).add(e.discovery_proto);\n    (protos[b] = protos[b] || new Set()).add(e.discovery_proto);\n  });\n  return { nb, protos };\n}\nfunction noData(msg) {\n  return { title: { text: msg, left: 'center', top: 'middle', textStyle: { color: MUTED, fontSize: 14, fontWeight: 'normal' } } };\n}\n\nconst r = rows('A');\nif (!r.length) { return noData('No links discovered for this scope'); }\nconst inst = Array.from(new Set(r.map((x) => x.instance))).sort();\nconst protos = Object.keys(PROTO_COLOR).filter((p) => r.some((x) => x.discovery_proto === p));\nconst tot = {}; r.forEach((x) => { tot[x.instance] = (tot[x.instance] || 0) + Number(x.__value); });\nreturn {\n  backgroundColor: 'transparent',\n  legend: { bottom: 0, textStyle: { color: TXT }, itemWidth: 12, itemHeight: 10 },\n  tooltip: { trigger: 'item', formatter: (p) => '<b>' + p.name + '</b><br/>' + p.seriesName.toUpperCase() + ': ' + p.value + ' links' },\n  polar: { radius: ['14%', '78%'], center: ['50%', '46%'] },\n  angleAxis: { type: 'value', startAngle: 90, max: (v) => v.max * 1.12, axisLine: { lineStyle: { color: GRID } }, splitLine: { lineStyle: { color: GRID } },\n    axisTick: { show: false }, axisLabel: { show: false } },\n  radiusAxis: { type: 'category', data: inst.map((i) => expName(i) + ' (' + tot[i] + ')'), z: 10,\n    axisLabel: { color: TXT, fontSize: 11, fontWeight: 600, interval: 0, align: 'right', margin: 6, backgroundColor: PANEL_BG, padding: [2, 4], borderRadius: 3 }, axisLine: { show: false }, axisTick: { show: false } },\n  series: protos.map((p) => ({\n    type: 'bar', name: p, coordinateSystem: 'polar', stack: 'links', roundCap: false, barWidth: '62%',\n    itemStyle: { color: PROTO_COLOR[p], borderColor: PANEL_BG, borderWidth: 1 },\n    data: inst.map((i) => { const x = r.find((y) => y.instance === i && y.discovery_proto === p); return x ? Number(x.__value) : 0; }),\n  })),\n};\n"
+        }
+      },
+      {
+        "id": 7,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Device degree distribution by tier",
+        "description": "Box plot of distinct neighbours per device, grouped by tier (device_id prefix), computed from network_topology_edge_info joined to network_topology_device_info. Whiskers at 1.5 IQR; red points are outliers such as an under-cabled leaf or a host with an extra adjacency.",
+        "gridPos": {
+          "x": 0,
+          "y": 39,
+          "w": 9,
+          "h": 13
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "network_topology_device_info{instance=~\"$exporter\"}",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "network_topology_edge_info{instance=~\"$exporter\"}",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "\nconst series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst TXT = theme.colors.text.primary;\nconst MUTED = theme.colors.text.secondary;\nconst GRID = theme.isDark ? 'rgba(204,204,220,0.12)' : 'rgba(36,41,46,0.12)';\nconst PANEL_BG = theme.colors.background.primary;\nfunction val(v) { return v; }\nfunction frames(refId) { return series.filter((s) => s.refId === refId); }\nfunction rows(refId) {\n  const out = [];\n  frames(refId).forEach((f) => {\n    if (!f.fields.length) { return; }\n    const n = f.fields[0].values.length;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((fl) => {\n        const v = fl.values.get ? fl.values.get(i) : fl.values[i];\n        r[fl.name] = v;\n        if (fl.type === 'number' && fl.name !== 'Time') { r.__value = v; }\n        if (fl.labels) { Object.assign(r, fl.labels); }\n      });\n      out.push(r);\n    }\n  });\n  return out;\n}\nfunction scalar(refId) {\n  const r = rows(refId);\n  if (!r.length || r[0].__value === undefined || r[0].__value === null || isNaN(r[0].__value)) { return null; }\n  return Number(r[0].__value);\n}\nfunction byInstance(refId) {\n  const m = {};\n  rows(refId).forEach((r) => { if (r.instance) { m[r.instance] = Number(r.__value); } });\n  return m;\n}\nconst TIER_ORDER = ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'ext-peer': 'External peer', 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_COLOR = { 'ext-peer': '#F2495C', 'edge-fw': '#FF9830', 'wan-core': '#FADE2A', spine: '#B877D9',\n  leaf: '#5794F2', host: '#73BF69', other: '#8E8E8E' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_COLOR = { lldp: '#5794F2', cdp: '#73BF69', fdb: '#8E8E8E', bgp: '#FF9830', ospf: '#FADE2A',\n  isis: '#B877D9', mpls_te: '#F2495C' };\nfunction tierOf(id) {\n  const s = String(id || '');\n  for (const t of ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host']) { if (s.startsWith(t)) { return t; } }\n  return 'other';\n}\nfunction shortExp(i) { return String(i || '').replace(/^netobs-/, '').replace(/:\\d+$/, ''); }\nconst EXP_NAME = { 'ent-dc1': 'Enterprise DC (hq-dc1)', 'glb-hub': 'Global hub', 'spoke-emea': 'EMEA spoke' };\nfunction expName(i) { const s = shortExp(i); return EXP_NAME[s] || s; }\n// Degree = distinct neighbours per device, from edge_info rows (instance-scoped).\nfunction degreeMap(edgeRows) {\n  const nb = {}; const protos = {};\n  edgeRows.forEach((e) => {\n    const a = e.instance + '|' + e.src_device; const b = e.instance + '|' + e.dst_device;\n    (nb[a] = nb[a] || new Set()).add(e.dst_device);\n    (nb[b] = nb[b] || new Set()).add(e.src_device);\n    (protos[a] = protos[a] || new Set()).add(e.discovery_proto);\n    (protos[b] = protos[b] || new Set()).add(e.discovery_proto);\n  });\n  return { nb, protos };\n}\nfunction noData(msg) {\n  return { title: { text: msg, left: 'center', top: 'middle', textStyle: { color: MUTED, fontSize: 14, fontWeight: 'normal' } } };\n}\n\nconst dev = rows('A');\nif (!dev.length) { return noData('No devices discovered for this scope'); }\nconst dg = degreeMap(rows('B'));\nconst groups = {};\ndev.forEach((d) => {\n  const key = d.instance + '|' + d.device_id; const t = tierOf(d.device_id);\n  (groups[t] = groups[t] || []).push({ v: dg.nb[key] ? dg.nb[key].size : 0, id: d.device_id, inst: d.instance });\n});\nconst tiers = TIER_ORDER.filter((t) => groups[t]);\nfunction q(a, p) { const i = (a.length - 1) * p; const lo = Math.floor(i); const hi = Math.ceil(i); return a[lo] + (a[hi] - a[lo]) * (i - lo); }\nconst box = []; const outl = []; const counts = [];\ntiers.forEach((t, ti) => {\n  const a = groups[t].map((x) => x.v).sort((x, y) => x - y);\n  const q1 = q(a, 0.25); const q2 = q(a, 0.5); const q3 = q(a, 0.75); const iqr = q3 - q1;\n  const lw = Math.max(a[0], q1 - 1.5 * iqr); const hw = Math.min(a[a.length - 1], q3 + 1.5 * iqr);\n  box.push({ value: [lw, q1, q2, q3, hw], itemStyle: { color: TIER_COLOR[t] + '55', borderColor: TIER_COLOR[t] } });\n  counts.push(a.length);\n  groups[t].forEach((x) => { if (x.v < lw || x.v > hw) { outl.push({ value: [ti, x.v], name: x.id + ' (' + shortExp(x.inst) + ')' }); } });\n});\nreturn {\n  backgroundColor: 'transparent',\n  grid: { left: 50, right: 20, top: 30, bottom: 50 },\n  tooltip: { trigger: 'item', formatter: (p) => p.seriesType === 'boxplot'\n    ? '<b>' + p.name + '</b> (' + counts[p.dataIndex] + ' devices)<br/>max ' + p.value[5] + '<br/>Q3 ' + p.value[4] + '<br/>median ' + p.value[3] + '<br/>Q1 ' + p.value[2] + '<br/>min ' + p.value[1]\n    : '<b>' + p.name + '</b><br/>degree ' + p.value[1] },\n  xAxis: { type: 'category', data: tiers.map((t, i) => TIER_NAME[t] + '\\n' + counts[i] + ' devices'),\n    axisLabel: { color: TXT, fontSize: 11, interval: 0 }, axisLine: { lineStyle: { color: MUTED } } },\n  yAxis: { type: 'value', name: 'Neighbours', nameTextStyle: { color: MUTED }, minInterval: 1,\n    axisLabel: { color: MUTED }, splitLine: { lineStyle: { color: GRID } } },\n  series: [\n    { type: 'boxplot', name: 'Degree', data: box, boxWidth: [16, 46] },\n    { type: 'scatter', name: 'Outlier', data: outl, symbolSize: 8, itemStyle: { color: '#F2495C' } },\n  ],\n};\n"
+        }
+      },
+      {
+        "id": 8,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Tier-to-tier link flow",
+        "description": "Sankey of discovered adjacencies between tiers, one link per device pair and protocol from network_topology_edge_info, oriented from the upper tier (external peer, edge, WAN core) down to hosts. Hover a band for its protocol mix.",
+        "gridPos": {
+          "x": 9,
+          "y": 39,
+          "w": 15,
+          "h": 13
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "network_topology_edge_info{instance=~\"$exporter\"}",
+            "editorMode": "code",
+            "instant": true,
+            "range": false,
+            "format": "table"
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "\nconst series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst TXT = theme.colors.text.primary;\nconst MUTED = theme.colors.text.secondary;\nconst GRID = theme.isDark ? 'rgba(204,204,220,0.12)' : 'rgba(36,41,46,0.12)';\nconst PANEL_BG = theme.colors.background.primary;\nfunction val(v) { return v; }\nfunction frames(refId) { return series.filter((s) => s.refId === refId); }\nfunction rows(refId) {\n  const out = [];\n  frames(refId).forEach((f) => {\n    if (!f.fields.length) { return; }\n    const n = f.fields[0].values.length;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((fl) => {\n        const v = fl.values.get ? fl.values.get(i) : fl.values[i];\n        r[fl.name] = v;\n        if (fl.type === 'number' && fl.name !== 'Time') { r.__value = v; }\n        if (fl.labels) { Object.assign(r, fl.labels); }\n      });\n      out.push(r);\n    }\n  });\n  return out;\n}\nfunction scalar(refId) {\n  const r = rows(refId);\n  if (!r.length || r[0].__value === undefined || r[0].__value === null || isNaN(r[0].__value)) { return null; }\n  return Number(r[0].__value);\n}\nfunction byInstance(refId) {\n  const m = {};\n  rows(refId).forEach((r) => { if (r.instance) { m[r.instance] = Number(r.__value); } });\n  return m;\n}\nconst TIER_ORDER = ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'ext-peer': 'External peer', 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_COLOR = { 'ext-peer': '#F2495C', 'edge-fw': '#FF9830', 'wan-core': '#FADE2A', spine: '#B877D9',\n  leaf: '#5794F2', host: '#73BF69', other: '#8E8E8E' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_COLOR = { lldp: '#5794F2', cdp: '#73BF69', fdb: '#8E8E8E', bgp: '#FF9830', ospf: '#FADE2A',\n  isis: '#B877D9', mpls_te: '#F2495C' };\nfunction tierOf(id) {\n  const s = String(id || '');\n  for (const t of ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host']) { if (s.startsWith(t)) { return t; } }\n  return 'other';\n}\nfunction shortExp(i) { return String(i || '').replace(/^netobs-/, '').replace(/:\\d+$/, ''); }\nconst EXP_NAME = { 'ent-dc1': 'Enterprise DC (hq-dc1)', 'glb-hub': 'Global hub', 'spoke-emea': 'EMEA spoke' };\nfunction expName(i) { const s = shortExp(i); return EXP_NAME[s] || s; }\n// Degree = distinct neighbours per device, from edge_info rows (instance-scoped).\nfunction degreeMap(edgeRows) {\n  const nb = {}; const protos = {};\n  edgeRows.forEach((e) => {\n    const a = e.instance + '|' + e.src_device; const b = e.instance + '|' + e.dst_device;\n    (nb[a] = nb[a] || new Set()).add(e.dst_device);\n    (nb[b] = nb[b] || new Set()).add(e.src_device);\n    (protos[a] = protos[a] || new Set()).add(e.discovery_proto);\n    (protos[b] = protos[b] || new Set()).add(e.discovery_proto);\n  });\n  return { nb, protos };\n}\nfunction noData(msg) {\n  return { title: { text: msg, left: 'center', top: 'middle', textStyle: { color: MUTED, fontSize: 14, fontWeight: 'normal' } } };\n}\n\nconst e = rows('A');\nif (!e.length) { return noData('No links discovered for this scope'); }\n// One undirected link per device pair, oriented from the upper tier to the lower tier so the flow is acyclic.\nconst seen = {}; const flows = {}; const protoMix = {}; let intra = 0;\ne.forEach((x) => {\n  const a = x.src_device; const b = x.dst_device;\n  const k = x.instance + '|' + (a < b ? a + '|' + b : b + '|' + a) + '|' + x.discovery_proto;\n  if (seen[k]) { return; } seen[k] = 1;\n  let ta = tierOf(a); let tb = tierOf(b);\n  if (ta === tb) { intra++; return; }\n  if (TIER_ORDER.indexOf(ta) > TIER_ORDER.indexOf(tb)) { const t = ta; ta = tb; tb = t; }\n  const fk = ta + '>' + tb; flows[fk] = (flows[fk] || 0) + 1;\n  protoMix[fk] = protoMix[fk] || {}; protoMix[fk][x.discovery_proto] = (protoMix[fk][x.discovery_proto] || 0) + 1;\n});\nconst used = new Set(); Object.keys(flows).forEach((k) => k.split('>').forEach((t) => used.add(t)));\nconst nodes = TIER_ORDER.filter((t) => used.has(t)).map((t) => ({ name: TIER_NAME[t], itemStyle: { color: TIER_COLOR[t], borderColor: TIER_COLOR[t] } }));\nconst links = Object.keys(flows).map((k) => { const [s, d] = k.split('>'); return { source: TIER_NAME[s], target: TIER_NAME[d], value: flows[k], key: k }; });\nreturn {\n  backgroundColor: 'transparent',\n  title: { text: intra ? intra + ' intra-tier adjacencies (for example spine-spine, WAN core mesh) not drawn' : '', right: 10, bottom: 4,\n    textStyle: { color: MUTED, fontSize: 11, fontWeight: 'normal' } },\n  tooltip: { trigger: 'item', formatter: (p) => {\n    if (p.dataType === 'edge') {\n      const mix = protoMix[p.data.key] || {};\n      return '<b>' + p.data.source + ' -> ' + p.data.target + '</b>: ' + p.data.value + ' links<br/>'\n        + Object.keys(mix).map((m) => m.toUpperCase() + ' ' + mix[m]).join(', ');\n    }\n    return '<b>' + p.name + '</b>: ' + p.value + ' link ends';\n  } },\n  series: [{\n    type: 'sankey', left: 20, right: 110, top: 16, bottom: 28, nodeWidth: 18, nodeGap: 14, layoutIterations: 64,\n    data: nodes, links, emphasis: { focus: 'adjacency' },\n    label: { color: TXT, fontSize: 12, fontWeight: 600, formatter: (p) => p.name + '  ' + p.value },\n    lineStyle: { color: 'gradient', curveness: 0.5, opacity: 0.4 },\n  }],\n};\n"
+        }
+      },
+      {
+        "id": 9,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Topology event flow",
+        "description": "ThemeRiver of topology change and conflict log events per exporter, from the exporter's Loki stream {source=\"network-topology-exporter\"} counted by change_kind / conflict_type. Band width is events per 2 minute step.",
+        "gridPos": {
+          "x": 0,
+          "y": 52,
+          "w": 12,
+          "h": 12
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "grafanacloud-logs"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "loki",
+              "uid": "grafanacloud-logs"
+            },
+            "refId": "A",
+            "editorMode": "code",
+            "queryType": "range",
+            "expr": "sum by (instance, change_kind, conflict_type)(count_over_time({source=\"network-topology-exporter\", instance=~\"$exporter\"}[$__auto]))",
+            "step": "2m",
+            "legendFormat": ""
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "\nconst series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst TXT = theme.colors.text.primary;\nconst MUTED = theme.colors.text.secondary;\nconst GRID = theme.isDark ? 'rgba(204,204,220,0.12)' : 'rgba(36,41,46,0.12)';\nconst PANEL_BG = theme.colors.background.primary;\nfunction val(v) { return v; }\nfunction frames(refId) { return series.filter((s) => s.refId === refId); }\nfunction rows(refId) {\n  const out = [];\n  frames(refId).forEach((f) => {\n    if (!f.fields.length) { return; }\n    const n = f.fields[0].values.length;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((fl) => {\n        const v = fl.values.get ? fl.values.get(i) : fl.values[i];\n        r[fl.name] = v;\n        if (fl.type === 'number' && fl.name !== 'Time') { r.__value = v; }\n        if (fl.labels) { Object.assign(r, fl.labels); }\n      });\n      out.push(r);\n    }\n  });\n  return out;\n}\nfunction scalar(refId) {\n  const r = rows(refId);\n  if (!r.length || r[0].__value === undefined || r[0].__value === null || isNaN(r[0].__value)) { return null; }\n  return Number(r[0].__value);\n}\nfunction byInstance(refId) {\n  const m = {};\n  rows(refId).forEach((r) => { if (r.instance) { m[r.instance] = Number(r.__value); } });\n  return m;\n}\nconst TIER_ORDER = ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'ext-peer': 'External peer', 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_COLOR = { 'ext-peer': '#F2495C', 'edge-fw': '#FF9830', 'wan-core': '#FADE2A', spine: '#B877D9',\n  leaf: '#5794F2', host: '#73BF69', other: '#8E8E8E' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_COLOR = { lldp: '#5794F2', cdp: '#73BF69', fdb: '#8E8E8E', bgp: '#FF9830', ospf: '#FADE2A',\n  isis: '#B877D9', mpls_te: '#F2495C' };\nfunction tierOf(id) {\n  const s = String(id || '');\n  for (const t of ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host']) { if (s.startsWith(t)) { return t; } }\n  return 'other';\n}\nfunction shortExp(i) { return String(i || '').replace(/^netobs-/, '').replace(/:\\d+$/, ''); }\nconst EXP_NAME = { 'ent-dc1': 'Enterprise DC (hq-dc1)', 'glb-hub': 'Global hub', 'spoke-emea': 'EMEA spoke' };\nfunction expName(i) { const s = shortExp(i); return EXP_NAME[s] || s; }\n// Degree = distinct neighbours per device, from edge_info rows (instance-scoped).\nfunction degreeMap(edgeRows) {\n  const nb = {}; const protos = {};\n  edgeRows.forEach((e) => {\n    const a = e.instance + '|' + e.src_device; const b = e.instance + '|' + e.dst_device;\n    (nb[a] = nb[a] || new Set()).add(e.dst_device);\n    (nb[b] = nb[b] || new Set()).add(e.src_device);\n    (protos[a] = protos[a] || new Set()).add(e.discovery_proto);\n    (protos[b] = protos[b] || new Set()).add(e.discovery_proto);\n  });\n  return { nb, protos };\n}\nfunction noData(msg) {\n  return { title: { text: msg, left: 'center', top: 'middle', textStyle: { color: MUTED, fontSize: 14, fontWeight: 'normal' } } };\n}\n\nconst fr = frames('A');\nconst pts = {}; const names = new Set(); const times = new Set();\nfr.forEach((f) => {\n  const tf = f.fields.find((x) => x.type === 'time'); const vf = f.fields.find((x) => x.type === 'number');\n  if (!tf || !vf) { return; }\n  const l = vf.labels || {};\n  const kind = l.change_kind ? 'change ' + l.change_kind : (l.conflict_type ? 'conflict' : 'other');\n  const name = (EXP_NAME[shortExp(l.instance)] ? { 'ent-dc1': 'DC1', 'glb-hub': 'Hub', 'spoke-emea': 'EMEA' }[shortExp(l.instance)] : shortExp(l.instance)) + ' ' + kind;\n  names.add(name);\n  const n = tf.values.length;\n  for (let i = 0; i < n; i++) {\n    const t = tf.values.get ? tf.values.get(i) : tf.values[i]; const v = vf.values.get ? vf.values.get(i) : vf.values[i];\n    times.add(t); pts[name + '@' + t] = (pts[name + '@' + t] || 0) + (Number(v) || 0);\n  }\n});\nif (!names.size) { return noData('No topology events in range'); }\nconst ts = Array.from(times).sort((a, b) => a - b);\nconst nm = Array.from(names).sort();\nconst data = [];\nnm.forEach((n) => ts.forEach((t) => data.push([t, pts[n + '@' + t] || 0, n])));\nconst PAL = ['#5794F2', '#8AB8FF', '#73BF69', '#96D98D', '#FF9830', '#FFB357', '#B877D9', '#CA95E5', '#F2495C', '#FADE2A'];\nreturn {\n  backgroundColor: 'transparent', color: PAL,\n  legend: { top: 0, left: 10, right: 10, textStyle: { color: TXT, fontSize: 11 }, itemWidth: 12, itemHeight: 9, itemGap: 8, data: nm },\n  tooltip: { trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: MUTED } } },\n  singleAxis: { type: 'time', top: 70, bottom: 34, left: 30, right: 30,\n    axisLabel: { color: MUTED, formatter: { hour: '{HH}:{mm}', minute: '{HH}:{mm}' } },\n    axisLine: { lineStyle: { color: MUTED } }, splitLine: { show: true, lineStyle: { color: GRID } } },\n  series: [{ type: 'themeRiver', data, label: { show: false }, emphasis: { focus: 'self' } }],\n};\n"
+        }
+      },
+      {
+        "id": 10,
+        "type": "volkovlabs-echarts-panel",
+        "title": "Server fleet interface throughput matrix",
+        "description": "Host x time matrix of total interface throughput (receive + transmit, bits per second) from node_network_receive/transmit_bytes_total (Linux and macOS, loopback excluded) and windows_net_bytes_received/sent_total (Windows), sampled every 2 minutes.",
+        "gridPos": {
+          "x": 12,
+          "y": 52,
+          "w": 12,
+          "h": 12
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "(sum by (instance)(rate(node_network_receive_bytes_total{device!=\"lo\"}[$__rate_interval]) + rate(node_network_transmit_bytes_total{device!=\"lo\"}[$__rate_interval])) * 8) or (sum by (instance)(rate(windows_net_bytes_received_total[$__rate_interval]) + rate(windows_net_bytes_sent_total[$__rate_interval])) * 8)",
+            "editorMode": "code",
+            "instant": false,
+            "range": true,
+            "format": "time_series",
+            "interval": "2m",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "options": {
+          "renderer": "canvas",
+          "map": "none",
+          "themeEditor": {
+            "name": "default",
+            "config": "{}"
+          },
+          "editorMode": "code",
+          "editor": {
+            "format": "auto"
+          },
+          "getOption": "\nconst series = context.panel.data.series || [];\nconst theme = context.grafana.theme;\nconst TXT = theme.colors.text.primary;\nconst MUTED = theme.colors.text.secondary;\nconst GRID = theme.isDark ? 'rgba(204,204,220,0.12)' : 'rgba(36,41,46,0.12)';\nconst PANEL_BG = theme.colors.background.primary;\nfunction val(v) { return v; }\nfunction frames(refId) { return series.filter((s) => s.refId === refId); }\nfunction rows(refId) {\n  const out = [];\n  frames(refId).forEach((f) => {\n    if (!f.fields.length) { return; }\n    const n = f.fields[0].values.length;\n    for (let i = 0; i < n; i++) {\n      const r = {};\n      f.fields.forEach((fl) => {\n        const v = fl.values.get ? fl.values.get(i) : fl.values[i];\n        r[fl.name] = v;\n        if (fl.type === 'number' && fl.name !== 'Time') { r.__value = v; }\n        if (fl.labels) { Object.assign(r, fl.labels); }\n      });\n      out.push(r);\n    }\n  });\n  return out;\n}\nfunction scalar(refId) {\n  const r = rows(refId);\n  if (!r.length || r[0].__value === undefined || r[0].__value === null || isNaN(r[0].__value)) { return null; }\n  return Number(r[0].__value);\n}\nfunction byInstance(refId) {\n  const m = {};\n  rows(refId).forEach((r) => { if (r.instance) { m[r.instance] = Number(r.__value); } });\n  return m;\n}\nconst TIER_ORDER = ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host', 'other'];\nconst TIER_NAME = { 'ext-peer': 'External peer', 'edge-fw': 'Edge firewall', 'wan-core': 'WAN core',\n  spine: 'Spine', leaf: 'Leaf', host: 'Host', other: 'Other' };\nconst TIER_COLOR = { 'ext-peer': '#F2495C', 'edge-fw': '#FF9830', 'wan-core': '#FADE2A', spine: '#B877D9',\n  leaf: '#5794F2', host: '#73BF69', other: '#8E8E8E' };\nconst VENDOR_COLOR = { arista: '#5794F2', cisco: '#73BF69', juniper: '#FF9830', nokia: '#B877D9' };\nconst PROTO_COLOR = { lldp: '#5794F2', cdp: '#73BF69', fdb: '#8E8E8E', bgp: '#FF9830', ospf: '#FADE2A',\n  isis: '#B877D9', mpls_te: '#F2495C' };\nfunction tierOf(id) {\n  const s = String(id || '');\n  for (const t of ['ext-peer', 'edge-fw', 'wan-core', 'spine', 'leaf', 'host']) { if (s.startsWith(t)) { return t; } }\n  return 'other';\n}\nfunction shortExp(i) { return String(i || '').replace(/^netobs-/, '').replace(/:\\d+$/, ''); }\nconst EXP_NAME = { 'ent-dc1': 'Enterprise DC (hq-dc1)', 'glb-hub': 'Global hub', 'spoke-emea': 'EMEA spoke' };\nfunction expName(i) { const s = shortExp(i); return EXP_NAME[s] || s; }\n// Degree = distinct neighbours per device, from edge_info rows (instance-scoped).\nfunction degreeMap(edgeRows) {\n  const nb = {}; const protos = {};\n  edgeRows.forEach((e) => {\n    const a = e.instance + '|' + e.src_device; const b = e.instance + '|' + e.dst_device;\n    (nb[a] = nb[a] || new Set()).add(e.dst_device);\n    (nb[b] = nb[b] || new Set()).add(e.src_device);\n    (protos[a] = protos[a] || new Set()).add(e.discovery_proto);\n    (protos[b] = protos[b] || new Set()).add(e.discovery_proto);\n  });\n  return { nb, protos };\n}\nfunction noData(msg) {\n  return { title: { text: msg, left: 'center', top: 'middle', textStyle: { color: MUTED, fontSize: 14, fontWeight: 'normal' } } };\n}\n\nconst fr = frames('A');\nconst hosts = []; const times = new Set(); const cell = {};\nfr.forEach((f) => {\n  const tf = f.fields.find((x) => x.type === 'time'); const vf = f.fields.find((x) => x.type === 'number');\n  if (!tf || !vf) { return; }\n  const h = (vf.labels && vf.labels.instance) || vf.name;\n  if (hosts.indexOf(h) < 0) { hosts.push(h); }\n  for (let i = 0; i < tf.values.length; i++) {\n    const t = tf.values.get ? tf.values.get(i) : tf.values[i]; const v = vf.values.get ? vf.values.get(i) : vf.values[i];\n    if (v === null || v === undefined) { continue; }\n    times.add(t); cell[h + '@' + t] = Number(v) / 1e6;\n  }\n});\nif (!hosts.length) { return noData('No interface counters for the server fleet'); }\nhosts.sort();\nconst ts = Array.from(times).sort((a, b) => a - b);\nconst pad = (n) => (n < 10 ? '0' : '') + n;\nconst lab = ts.map((t) => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); });\nconst data = []; let mn = Infinity; let mx = -Infinity;\nhosts.forEach((h, y) => ts.forEach((t, x) => { const v = cell[h + '@' + t]; if (v !== undefined) { data.push([x, y, +v.toFixed(2)]); mn = Math.min(mn, v); mx = Math.max(mx, v); } }));\nreturn {\n  backgroundColor: 'transparent',\n  tooltip: { position: 'top', formatter: (p) => '<b>' + hosts[p.value[1]] + '</b> at ' + lab[p.value[0]] + '<br/>' + p.value[2] + ' Mbit/s (rx + tx)' },\n  grid: { left: 110, right: 70, top: 10, bottom: 40 },\n  xAxis: { type: 'category', data: lab, splitArea: { show: false }, axisLabel: { color: MUTED, fontSize: 10 }, axisLine: { lineStyle: { color: MUTED } } },\n  yAxis: { type: 'category', data: hosts, axisLabel: { color: TXT, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } },\n  visualMap: { min: Math.floor(mn), max: Math.ceil(mx), calculable: true, orient: 'vertical', right: 0, top: 'middle', itemHeight: 140,\n    text: ['Mbit/s', ''], textStyle: { color: MUTED },\n    inRange: { color: ['#0b2a4a', '#1f60c4', '#3d9be9', '#73BF69', '#FADE2A', '#FF9830', '#F2495C'] } },\n  series: [{ type: 'heatmap', data, itemStyle: { borderColor: PANEL_BG, borderWidth: 1.5, borderRadius: 2 },\n    emphasis: { itemStyle: { borderColor: TXT, borderWidth: 1 } } }],\n};\n"
+        }
+      }
+    ]
+  }
+}

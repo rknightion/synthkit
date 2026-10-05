@@ -30,6 +30,8 @@ Every dashboard JSON here is generated. Edit the generator, never the JSON.
   holds the exact invocation.
 - `examples/control/synthkit-customer-control.json` is tracked output of
   `cmd/synthkit-control-dash`.
+- `showcase/*/<uid>.json` is tracked output of the `<uid>.gen.py` beside it: plugin-heavy
+  dashboards the Go builder does not model. `showcase/README.md` has the regenerate and push steps.
 - `internal/synthkit-selfobs.json` is tracked output of `internal/build_selfobs_dashboard.py`.
   `just selfobs-dashboard` rebuilds and pushes it, and is marked `[confirm]` because it writes to a
   live stack.

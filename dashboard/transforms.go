@@ -5,6 +5,7 @@ package dashboard
 import (
 	"github.com/grafana/grafana-foundation-sdk/go/cog"
 	"github.com/grafana/grafana-foundation-sdk/go/dashboardv2"
+	"github.com/grafana/grafana-foundation-sdk/go/nodegraph"
 	"github.com/grafana/grafana-foundation-sdk/go/prometheus"
 	"github.com/grafana/grafana-foundation-sdk/go/table"
 )
@@ -88,4 +89,17 @@ func organizeTransformation(opts OrganizeOptions) *dashboardv2.TransformationBui
 	return dashboardv2.NewTransformationBuilder().
 		Group("organize").
 		Options(options)
+}
+
+// NodeGraphTablesPanel builds a built-in nodeGraph panel from a nodes and an edges instant table
+// target. Grafana's nodeGraph will not infer nodes from an edges-only frame and requires string
+// `id` (nodes and edges), `source` and `target` columns, so callers build those as labels in PromQL
+// (label_join). organize hides or renames the table value columns ("Value #A", "Value #B").
+func NodeGraphTablesPanel(title string, nodes, edges *dashboardv2.TargetBuilder, organize OrganizeOptions) *dashboardv2.PanelBuilder {
+	qg := dashboardv2.NewQueryGroupBuilder().Target(nodes).Target(edges)
+	qg.Transformations([]cog.Builder[dashboardv2.TransformationKind]{organizeTransformation(organize)})
+	return dashboardv2.NewPanelBuilder().
+		Title(title).
+		Visualization(nodegraph.NewVisualizationV2Builder()).
+		Data(qg)
 }

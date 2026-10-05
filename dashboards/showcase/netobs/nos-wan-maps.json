@@ -1,0 +1,4203 @@
+{
+  "apiVersion": "dashboard.grafana.app/v1beta1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "nos-wan-maps",
+    "annotations": {
+      "grafana.app/folder": "netobs-showcase"
+    }
+  },
+  "spec": {
+    "uid": "nos-wan-maps",
+    "title": "Network Observability - Global WAN and Federation Maps",
+    "description": "Geographic and logical maps of the global network's topology federation: hub, regional spokes and the enterprise DC, coloured by spoke liveness, push age and rejected graph updates.",
+    "tags": [
+      "netobs-showcase"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 41,
+    "editable": true,
+    "graphTooltip": 1,
+    "refresh": "1m",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    },
+    "links": [
+      {
+        "type": "dashboards",
+        "title": "Network Observability",
+        "tags": [
+          "netobs-showcase"
+        ],
+        "asDropdown": true,
+        "includeVars": false,
+        "keepTime": true,
+        "icon": "external link",
+        "targetBlank": false
+      }
+    ],
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Spokes up",
+        "description": "Spokes the hub currently marks live (network_topology_federation_spoke_up) out of 5.",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "sum(network_topology_federation_spoke_up{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"})",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 4
+                },
+                {
+                  "color": "green",
+                  "value": 5
+                }
+              ]
+            },
+            "mappings": []
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Oldest spoke push",
+        "description": "Largest seconds-since-last-push across all spokes, seen from the hub.",
+        "gridPos": {
+          "x": 4,
+          "y": 0,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "max(time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"})",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 120
+                },
+                {
+                  "color": "orange",
+                  "value": 180
+                },
+                {
+                  "color": "red",
+                  "value": 300
+                }
+              ]
+            },
+            "mappings": []
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "EMEA edge spoke push age",
+        "description": "Seconds since the emea-edge1 spoke exporter last pushed successfully (spoke-side network_topology_federation_spoke_push_last_success_unix).",
+        "gridPos": {
+          "x": 8,
+          "y": 0,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "time() - network_topology_federation_spoke_push_last_success_unix{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 120
+                },
+                {
+                  "color": "orange",
+                  "value": 180
+                },
+                {
+                  "color": "red",
+                  "value": 300
+                }
+              ]
+            },
+            "mappings": []
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Rejected updates (1h)",
+        "description": "Graph updates the hub rejected in the last hour, all reasons.",
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "sum(increase(network_topology_graph_updates_rejected_total{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}[1h]))",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 5
+                },
+                {
+                  "color": "red",
+                  "value": 20
+                }
+              ]
+            },
+            "mappings": []
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 5,
+        "type": "stat",
+        "title": "Boundary observations",
+        "description": "Inter-domain boundary adjacencies visible to the hub.",
+        "gridPos": {
+          "x": 16,
+          "y": 0,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count(network_topology_boundary_observation_info{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"})",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "purple",
+                  "value": null
+                }
+              ]
+            },
+            "mappings": []
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 6,
+        "type": "stat",
+        "title": "Hub graph devices",
+        "description": "Devices in the federated hub graph (network_topology_graph_devices_total).",
+        "gridPos": {
+          "x": 20,
+          "y": 0,
+          "w": 4,
+          "h": 4
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "network_topology_graph_devices_total{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "textMode": "value",
+          "orientation": "auto",
+          "wideLayout": true,
+          "showPercentChange": false
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "blue",
+                  "value": null
+                }
+              ]
+            },
+            "mappings": []
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 7,
+        "type": "esnet-networkmap-panel",
+        "title": "Global WAN - hub to spoke push paths",
+        "description": "Site locations: global hub London, dc-amer Ashburn, dc-apac Singapore, dc-emea Frankfurt, dc-edge-1 Dublin, dc-edge-2 Amsterdam, EMEA edge spoke exporter (emea-edge1) Paris, enterprise DC hq-dc1 Chicago (standalone discovery, not federated, so it has no push path). Each path is a federation push path from a spoke to the hub, drawn as a curve between sites, not a measured route or circuit. Colour is seconds since the hub last accepted a push (green under 120 s, yellow 120 s, orange 180 s, red 300 s and above). The hub to spoke half is held at 300 s or more (red) whenever network_topology_federation_spoke_up is 0, so a spoke the hub marks down always shows red; the spoke to hub half is the raw push age from network_topology_federation_spoke_last_push_timestamp_seconds. The emea-edge1 path uses the spoke-side network_topology_federation_spoke_push_last_success_unix for both halves. No bandwidth or utilisation is shown: the topology exporters do not measure link traffic.",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 15,
+          "h": 17
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "sum by (src, dst) (label_replace(label_replace((((time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}) and on (spoke_id) (network_topology_federation_spoke_up{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"} == 1)) or (clamp_min((time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}), 300) and on (spoke_id) (network_topology_federation_spoke_up{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"} == 0))), \"src\", \"hub\", \"instance\", \".*\"), \"dst\", \"$1\", \"spoke_id\", \"(.+)\") or label_replace(label_replace(time() - network_topology_federation_spoke_push_last_success_unix{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}, \"src\", \"hub\", \"instance\", \".*\"), \"dst\", \"emea-edge1\", \"instance\", \".*\"))",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "sum by (src, dst) (label_replace(label_replace(time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}, \"src\", \"hub\", \"instance\", \".*\"), \"dst\", \"$1\", \"spoke_id\", \"(.+)\") or label_replace(label_replace(time() - network_topology_federation_spoke_push_last_success_unix{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}, \"src\", \"hub\", \"instance\", \".*\"), \"dst\", \"emea-edge1\", \"instance\", \".*\"))",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "options": {
+          "background": "#D6D6D6",
+          "customEdgeTooltip": "<div><strong>${forward.from} - ${forward.to}</strong><br/>Hub to spoke half: seconds since last push, held at 300 s or more while the hub marks the spoke down: ${forward.dataPoint}<br/>Spoke to hub half: seconds since last push: ${reverse.dataPoint}</div>",
+          "customNodeTooltip": "<div><strong>${meta.display_name}</strong><br/>Site ID: ${name}</div>",
+          "enableCustomEdgeTooltip": true,
+          "enableCustomNodeTooltip": true,
+          "enableEdgeAnimation": true,
+          "enableEditing": false,
+          "enableNodeAnimation": true,
+          "enableScrolling": false,
+          "initialViewStrategy": "static",
+          "layerLimit": 1,
+          "layers": [
+            {
+              "color": "#8AB8FF",
+              "dashboardEdgeDstVar": "destination",
+              "dashboardEdgeSrcVar": "source",
+              "dashboardNodeVar": "node",
+              "srcField": "src",
+              "dstField": "dst",
+              "inboundValueField": "Value #A",
+              "outboundValueField": "Value #B",
+              "edgeWidth": 4,
+              "endpointId": "names",
+              "legend": true,
+              "mapjson": "{\"name\": \"Federation push paths\", \"pathLayout\": {\"type\": \"curveNatural\"}, \"nodes\": [{\"name\": \"hub\", \"coordinate\": [51.5074, -0.1278], \"meta\": {\"display_name\": \"Global hub (London)\", \"svg\": \"<circle r='9'/><text x='-11' y='24' fill='#111827' font-size='12' text-anchor='end'>London hub + 4 EMEA sites</text>\"}}, {\"name\": \"dc-amer\", \"coordinate\": [39.0438, -77.4874], \"meta\": {\"display_name\": \"dc-amer (Ashburn)\", \"svg\": \"<circle r='7'/><text x='-11' y='14' fill='#111827' font-size='12' text-anchor='end'>dc-amer - Ashburn</text>\"}}, {\"name\": \"dc-apac\", \"coordinate\": [1.3521, 103.8198], \"meta\": {\"display_name\": \"dc-apac (Singapore)\", \"svg\": \"<circle r='7'/><text x='11' y='4' fill='#111827' font-size='12'>dc-apac - Singapore</text>\"}}, {\"name\": \"dc-emea\", \"coordinate\": [50.1109, 8.6821], \"meta\": {\"display_name\": \"dc-emea (Frankfurt)\", \"svg\": \"<circle r='7'/>\"}}, {\"name\": \"dc-edge-1\", \"coordinate\": [53.3498, -6.2603], \"meta\": {\"display_name\": \"dc-edge-1 (Dublin)\", \"svg\": \"<circle r='7'/>\"}}, {\"name\": \"dc-edge-2\", \"coordinate\": [52.3676, 4.9041], \"meta\": {\"display_name\": \"dc-edge-2 (Amsterdam)\", \"svg\": \"<circle r='7'/>\"}}, {\"name\": \"emea-edge1\", \"coordinate\": [48.8566, 2.3522], \"meta\": {\"display_name\": \"emea-edge1 (Paris)\", \"svg\": \"<circle r='7'/>\"}}, {\"name\": \"hq-dc1\", \"coordinate\": [41.8781, -87.6298], \"meta\": {\"display_name\": \"hq-dc1 (Chicago)\", \"svg\": \"<circle r='7'/><text x='-11' y='-8' fill='#111827' font-size='12' text-anchor='end'>hq-dc1 - Chicago</text>\"}}], \"edges\": [{\"name\": \"hub--dc-amer\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-amer\"]}}, \"coordinates\": [[51.5074, -0.1278], [50, -40], [39.0438, -77.4874]], \"children\": []}, {\"name\": \"hub--dc-apac\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-apac\"]}}, \"coordinates\": [[51.5074, -0.1278], [38, 60], [1.3521, 103.8198]], \"children\": []}, {\"name\": \"hub--dc-emea\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-emea\"]}}, \"coordinates\": [[51.5074, -0.1278], [52, 4], [50.1109, 8.6821]], \"children\": []}, {\"name\": \"hub--dc-edge-1\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-edge-1\"]}}, \"coordinates\": [[51.5074, -0.1278], [53.3498, -6.2603]], \"children\": []}, {\"name\": \"hub--dc-edge-2\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-edge-2\"]}}, \"coordinates\": [[51.5074, -0.1278], [52.3676, 4.9041]], \"children\": []}, {\"name\": \"hub--emea-edge1\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"emea-edge1\"]}}, \"coordinates\": [[51.5074, -0.1278], [48.8566, 2.3522]], \"children\": []}]}",
+              "name": "Hub to spoke push paths",
+              "nodeThresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#8AB8FF",
+                    "value": null
+                  }
+                ]
+              },
+              "nodeWidth": 8,
+              "pathOffset": 3,
+              "visible": true
+            },
+            {
+              "color": "#64748B",
+              "edgeWidth": 2,
+              "endpointId": "names",
+              "legend": false,
+              "mapjson": "{\"nodes\":[],\"edges\":[]}",
+              "nodeWidth": 5,
+              "pathOffset": 2,
+              "visible": false,
+              "name": "Layer 2"
+            },
+            {
+              "color": "#64748B",
+              "edgeWidth": 2,
+              "endpointId": "names",
+              "legend": false,
+              "mapjson": "{\"nodes\":[],\"edges\":[]}",
+              "nodeWidth": 5,
+              "pathOffset": 2,
+              "visible": false,
+              "name": "Layer 3"
+            }
+          ],
+          "legendColumnLength": 4,
+          "legendDefaultBehavior": "visible",
+          "legendPosition": "bottomleft",
+          "showLegend": true,
+          "showSidebar": false,
+          "showViewControls": true,
+          "tileset": {
+            "boundaries": null,
+            "geographic": "arcgis",
+            "labels": null
+          },
+          "topologySource": "json",
+          "viewport": {
+            "center": {
+              "lat": 30,
+              "lng": 8
+            },
+            "zoom": 2.5
+          },
+          "latitudeVar": "",
+          "longitudeVar": ""
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "decimals": 0,
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 120
+                },
+                {
+                  "color": "orange",
+                  "value": 180
+                },
+                {
+                  "color": "red",
+                  "value": 300
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          }
+        ],
+        "pluginVersion": "3.1.0"
+      },
+      {
+        "id": 8,
+        "type": "esnet-networkmap-panel",
+        "title": "Europe detail - hub, EMEA and edge spokes",
+        "description": "Zoomed view of the European sites. Site locations: global hub London, dc-amer Ashburn, dc-apac Singapore, dc-emea Frankfurt, dc-edge-1 Dublin, dc-edge-2 Amsterdam, EMEA edge spoke exporter (emea-edge1) Paris, enterprise DC hq-dc1 Chicago (standalone discovery, not federated, so it has no push path). Each path is a federation push path from a spoke to the hub, drawn as a curve between sites, not a measured route or circuit. Colour is seconds since the hub last accepted a push (green under 120 s, yellow 120 s, orange 180 s, red 300 s and above). The hub to spoke half is held at 300 s or more (red) whenever network_topology_federation_spoke_up is 0, so a spoke the hub marks down always shows red; the spoke to hub half is the raw push age from network_topology_federation_spoke_last_push_timestamp_seconds. The emea-edge1 path uses the spoke-side network_topology_federation_spoke_push_last_success_unix for both halves. No bandwidth or utilisation is shown: the topology exporters do not measure link traffic.",
+        "gridPos": {
+          "x": 15,
+          "y": 4,
+          "w": 9,
+          "h": 17
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "sum by (src, dst) (label_replace(label_replace((((time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}) and on (spoke_id) (network_topology_federation_spoke_up{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"} == 1)) or (clamp_min((time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}), 300) and on (spoke_id) (network_topology_federation_spoke_up{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"} == 0))), \"src\", \"hub\", \"instance\", \".*\"), \"dst\", \"$1\", \"spoke_id\", \"(.+)\") or label_replace(label_replace(time() - network_topology_federation_spoke_push_last_success_unix{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}, \"src\", \"hub\", \"instance\", \".*\"), \"dst\", \"emea-edge1\", \"instance\", \".*\"))",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "sum by (src, dst) (label_replace(label_replace(time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}, \"src\", \"hub\", \"instance\", \".*\"), \"dst\", \"$1\", \"spoke_id\", \"(.+)\") or label_replace(label_replace(time() - network_topology_federation_spoke_push_last_success_unix{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}, \"src\", \"hub\", \"instance\", \".*\"), \"dst\", \"emea-edge1\", \"instance\", \".*\"))",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "options": {
+          "background": "#D6D6D6",
+          "customEdgeTooltip": "<div><strong>${forward.from} - ${forward.to}</strong><br/>Hub to spoke half: seconds since last push, held at 300 s or more while the hub marks the spoke down: ${forward.dataPoint}<br/>Spoke to hub half: seconds since last push: ${reverse.dataPoint}</div>",
+          "customNodeTooltip": "<div><strong>${meta.display_name}</strong><br/>Site ID: ${name}</div>",
+          "enableCustomEdgeTooltip": true,
+          "enableCustomNodeTooltip": true,
+          "enableEdgeAnimation": true,
+          "enableEditing": false,
+          "enableNodeAnimation": true,
+          "enableScrolling": false,
+          "initialViewStrategy": "static",
+          "layerLimit": 1,
+          "layers": [
+            {
+              "color": "#8AB8FF",
+              "dashboardEdgeDstVar": "destination",
+              "dashboardEdgeSrcVar": "source",
+              "dashboardNodeVar": "node",
+              "srcField": "src",
+              "dstField": "dst",
+              "inboundValueField": "Value #A",
+              "outboundValueField": "Value #B",
+              "edgeWidth": 4,
+              "endpointId": "names",
+              "legend": true,
+              "mapjson": "{\"name\": \"Federation push paths\", \"pathLayout\": {\"type\": \"curveNatural\"}, \"nodes\": [{\"name\": \"hub\", \"coordinate\": [51.5074, -0.1278], \"meta\": {\"display_name\": \"Global hub (London)\", \"svg\": \"<circle r='9'/><text x='11' y='16' fill='#111827' font-size='12'>Global hub - London</text>\"}}, {\"name\": \"dc-amer\", \"coordinate\": [39.0438, -77.4874], \"meta\": {\"display_name\": \"dc-amer (Ashburn)\", \"svg\": \"<circle r='7'/><text x='11' y='4' fill='#111827' font-size='12'>dc-amer - Ashburn</text>\"}}, {\"name\": \"dc-apac\", \"coordinate\": [1.3521, 103.8198], \"meta\": {\"display_name\": \"dc-apac (Singapore)\", \"svg\": \"<circle r='7'/><text x='11' y='4' fill='#111827' font-size='12'>dc-apac - Singapore</text>\"}}, {\"name\": \"dc-emea\", \"coordinate\": [50.1109, 8.6821], \"meta\": {\"display_name\": \"dc-emea (Frankfurt)\", \"svg\": \"<circle r='7'/><text x='11' y='4' fill='#111827' font-size='12'>dc-emea - Frankfurt</text>\"}}, {\"name\": \"dc-edge-1\", \"coordinate\": [53.3498, -6.2603], \"meta\": {\"display_name\": \"dc-edge-1 (Dublin)\", \"svg\": \"<circle r='7'/><text x='-11' y='4' fill='#111827' font-size='12' text-anchor='end'>dc-edge-1 - Dublin</text>\"}}, {\"name\": \"dc-edge-2\", \"coordinate\": [52.3676, 4.9041], \"meta\": {\"display_name\": \"dc-edge-2 (Amsterdam)\", \"svg\": \"<circle r='7'/><text x='11' y='-6' fill='#111827' font-size='12'>dc-edge-2 - Amsterdam</text>\"}}, {\"name\": \"emea-edge1\", \"coordinate\": [48.8566, 2.3522], \"meta\": {\"display_name\": \"emea-edge1 (Paris)\", \"svg\": \"<circle r='7'/><text x='-11' y='14' fill='#111827' font-size='12' text-anchor='end'>emea-edge1 - Paris</text>\"}}, {\"name\": \"hq-dc1\", \"coordinate\": [41.8781, -87.6298], \"meta\": {\"display_name\": \"hq-dc1 (Chicago)\", \"svg\": \"<circle r='7'/><text x='11' y='4' fill='#111827' font-size='12'>hq-dc1 - Chicago</text>\"}}], \"edges\": [{\"name\": \"hub--dc-amer\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-amer\"]}}, \"coordinates\": [[51.5074, -0.1278], [39.0438, -77.4874]], \"children\": []}, {\"name\": \"hub--dc-apac\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-apac\"]}}, \"coordinates\": [[51.5074, -0.1278], [1.3521, 103.8198]], \"children\": []}, {\"name\": \"hub--dc-emea\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-emea\"]}}, \"coordinates\": [[51.5074, -0.1278], [50.1109, 8.6821]], \"children\": []}, {\"name\": \"hub--dc-edge-1\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-edge-1\"]}}, \"coordinates\": [[51.5074, -0.1278], [53.3498, -6.2603]], \"children\": []}, {\"name\": \"hub--dc-edge-2\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"dc-edge-2\"]}}, \"coordinates\": [[51.5074, -0.1278], [52.3676, 4.9041]], \"children\": []}, {\"name\": \"hub--emea-edge1\", \"meta\": {\"endpoint_identifiers\": {\"names\": [\"hub\", \"emea-edge1\"]}}, \"coordinates\": [[51.5074, -0.1278], [48.8566, 2.3522]], \"children\": []}]}",
+              "name": "Hub to spoke push paths",
+              "nodeThresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#8AB8FF",
+                    "value": null
+                  }
+                ]
+              },
+              "nodeWidth": 8,
+              "pathOffset": 3,
+              "visible": true
+            },
+            {
+              "color": "#64748B",
+              "edgeWidth": 2,
+              "endpointId": "names",
+              "legend": false,
+              "mapjson": "{\"nodes\":[],\"edges\":[]}",
+              "nodeWidth": 5,
+              "pathOffset": 2,
+              "visible": false,
+              "name": "Layer 2"
+            },
+            {
+              "color": "#64748B",
+              "edgeWidth": 2,
+              "endpointId": "names",
+              "legend": false,
+              "mapjson": "{\"nodes\":[],\"edges\":[]}",
+              "nodeWidth": 5,
+              "pathOffset": 2,
+              "visible": false,
+              "name": "Layer 3"
+            }
+          ],
+          "legendColumnLength": 4,
+          "legendDefaultBehavior": "visible",
+          "legendPosition": "bottomleft",
+          "showLegend": true,
+          "showSidebar": false,
+          "showViewControls": true,
+          "tileset": {
+            "boundaries": null,
+            "geographic": "arcgis",
+            "labels": null
+          },
+          "topologySource": "json",
+          "viewport": {
+            "center": {
+              "lat": 51.3,
+              "lng": 1.5
+            },
+            "zoom": 5.0
+          },
+          "latitudeVar": "",
+          "longitudeVar": ""
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "decimals": 0,
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 120
+                },
+                {
+                  "color": "orange",
+                  "value": 180
+                },
+                {
+                  "color": "red",
+                  "value": 300
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          }
+        ],
+        "pluginVersion": "3.1.0"
+      },
+      {
+        "id": 9,
+        "type": "tamirsuliman-weathermap-panel",
+        "title": "Federation weathermap - push age, liveness and rejected updates",
+        "description": "Logical hub-and-spoke view of the federated topology estate. Spoke links (A side, spoke to hub) show seconds since the hub last accepted that spoke's push (network_topology_federation_spoke_last_push_timestamp_seconds); colour and width scale against a 300 s staleness budget set on this map (40% yellow, 60% orange, 100% red). A spoke link blinks red when network_topology_federation_spoke_up is 0. The emea-edge1 link uses the spoke-side push_last_success_unix. The validator link shows graph updates rejected by the hub in the last 15 minutes (network_topology_graph_updates_rejected_total, all reasons) against a budget of 20. Node borders: spoke liveness, and network_topology_graph_stale for the hub and the standalone enterprise DC. No bandwidth is shown; the exporters do not measure link traffic.",
+        "gridPos": {
+          "x": 0,
+          "y": 21,
+          "w": 15,
+          "h": 19
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "push age {{spoke_id}}",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "network_topology_federation_spoke_up{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "up {{spoke_id}}",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "time() - network_topology_federation_spoke_push_last_success_unix{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "push age emea-edge1",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "D",
+            "expr": "sum(increase(network_topology_graph_updates_rejected_total{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}[15m]))",
+            "editorMode": "code",
+            "legendFormat": "rejected all 15m",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "E",
+            "expr": "sum(increase(network_topology_graph_updates_rejected_total{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\",reason=\"stale_generation\"}[15m]))",
+            "editorMode": "code",
+            "legendFormat": "rejected stale_generation 15m",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "F",
+            "expr": "network_topology_federation_spoke_push_queue_depth{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "queue emea-edge1",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "G",
+            "expr": "sum(increase(network_topology_federation_spoke_push_failures_total{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}[15m]))",
+            "editorMode": "code",
+            "legendFormat": "failures emea-edge1",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "H",
+            "expr": "network_topology_graph_stale{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "graph stale hub",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "I",
+            "expr": "network_topology_graph_stale{job=\"integrations/network-topology-exporter\",instance=\"netobs-ent-dc1:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "graph stale hq-dc1",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "J",
+            "expr": "network_topology_graph_devices_total{job=\"integrations/network-topology-exporter\",instance=\"netobs-ent-dc1:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "devices hq-dc1",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "K",
+            "expr": "sum(network_topology_federation_spoke_up{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"})",
+            "editorMode": "code",
+            "legendFormat": "spokes up total",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "weathermap": {
+            "version": 14,
+            "id": "nos-wan-weathermap",
+            "nodes": [
+              {
+                "id": "hub",
+                "position": [
+                  550,
+                  320
+                ],
+                "label": "Global hub - netobs-glb-hub (London)",
+                "showLabel": true,
+                "anchors": {
+                  "0": {
+                    "numLinks": 7,
+                    "numFilledLinks": 0
+                  },
+                  "1": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "2": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "3": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "4": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  }
+                },
+                "useConstantSpacing": false,
+                "compactVerticalLinks": false,
+                "padding": {
+                  "vertical": 7,
+                  "horizontal": 12
+                },
+                "colors": {
+                  "font": "#1F2937",
+                  "background": "#FFFFFF",
+                  "border": "#5794F2",
+                  "statusDown": "#F2495C"
+                },
+                "nodeIcon": {
+                  "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/router.svg",
+                  "name": "networking/router",
+                  "size": {
+                    "width": 40,
+                    "height": 40
+                  },
+                  "padding": {
+                    "vertical": 2,
+                    "horizontal": 2
+                  },
+                  "drawInside": false
+                },
+                "useIconBoundaryForLinks": true,
+                "isConnection": false,
+                "nodeStatusColorTarget": "border",
+                "statusQuery": "graph stale hub",
+                "statusValueMappings": [
+                  {
+                    "value": 0,
+                    "color": "#73BF69"
+                  },
+                  {
+                    "value": 1,
+                    "color": "#F2495C"
+                  }
+                ],
+                "tooltipMetrics": [
+                  {
+                    "label": "Rejected updates (15m)",
+                    "query": "rejected all 15m",
+                    "units": "short"
+                  },
+                  {
+                    "label": "Spokes up",
+                    "query": "spokes up total",
+                    "units": "short"
+                  }
+                ]
+              },
+              {
+                "id": "dc-amer",
+                "position": [
+                  230,
+                  320
+                ],
+                "label": "dc-amer (Ashburn)",
+                "showLabel": true,
+                "anchors": {
+                  "0": {
+                    "numLinks": 1,
+                    "numFilledLinks": 0
+                  },
+                  "1": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "2": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "3": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "4": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  }
+                },
+                "useConstantSpacing": false,
+                "compactVerticalLinks": false,
+                "padding": {
+                  "vertical": 7,
+                  "horizontal": 12
+                },
+                "colors": {
+                  "font": "#1F2937",
+                  "background": "#FFFFFF",
+                  "border": "#5794F2",
+                  "statusDown": "#F2495C"
+                },
+                "nodeIcon": {
+                  "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                  "name": "networking/building",
+                  "size": {
+                    "width": 40,
+                    "height": 40
+                  },
+                  "padding": {
+                    "vertical": 2,
+                    "horizontal": 2
+                  },
+                  "drawInside": false
+                },
+                "useIconBoundaryForLinks": true,
+                "isConnection": false,
+                "nodeStatusColorTarget": "border",
+                "statusQuery": "up dc-amer",
+                "statusValueMappings": [
+                  {
+                    "value": 0,
+                    "color": "#F2495C"
+                  },
+                  {
+                    "value": 1,
+                    "color": "#73BF69"
+                  }
+                ]
+              },
+              {
+                "id": "dc-apac",
+                "position": [
+                  880,
+                  320
+                ],
+                "label": "dc-apac (Singapore)",
+                "showLabel": true,
+                "anchors": {
+                  "0": {
+                    "numLinks": 1,
+                    "numFilledLinks": 0
+                  },
+                  "1": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "2": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "3": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "4": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  }
+                },
+                "useConstantSpacing": false,
+                "compactVerticalLinks": false,
+                "padding": {
+                  "vertical": 7,
+                  "horizontal": 12
+                },
+                "colors": {
+                  "font": "#1F2937",
+                  "background": "#FFFFFF",
+                  "border": "#5794F2",
+                  "statusDown": "#F2495C"
+                },
+                "nodeIcon": {
+                  "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                  "name": "networking/building",
+                  "size": {
+                    "width": 40,
+                    "height": 40
+                  },
+                  "padding": {
+                    "vertical": 2,
+                    "horizontal": 2
+                  },
+                  "drawInside": false
+                },
+                "useIconBoundaryForLinks": true,
+                "isConnection": false,
+                "nodeStatusColorTarget": "border",
+                "statusQuery": "up dc-apac",
+                "statusValueMappings": [
+                  {
+                    "value": 0,
+                    "color": "#F2495C"
+                  },
+                  {
+                    "value": 1,
+                    "color": "#73BF69"
+                  }
+                ]
+              },
+              {
+                "id": "dc-emea",
+                "position": [
+                  550,
+                  70
+                ],
+                "label": "dc-emea (Frankfurt)",
+                "showLabel": true,
+                "anchors": {
+                  "0": {
+                    "numLinks": 1,
+                    "numFilledLinks": 0
+                  },
+                  "1": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "2": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "3": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "4": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  }
+                },
+                "useConstantSpacing": false,
+                "compactVerticalLinks": false,
+                "padding": {
+                  "vertical": 7,
+                  "horizontal": 12
+                },
+                "colors": {
+                  "font": "#1F2937",
+                  "background": "#FFFFFF",
+                  "border": "#5794F2",
+                  "statusDown": "#F2495C"
+                },
+                "nodeIcon": {
+                  "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                  "name": "networking/building",
+                  "size": {
+                    "width": 40,
+                    "height": 40
+                  },
+                  "padding": {
+                    "vertical": 2,
+                    "horizontal": 2
+                  },
+                  "drawInside": false
+                },
+                "useIconBoundaryForLinks": true,
+                "isConnection": false,
+                "nodeStatusColorTarget": "border",
+                "statusQuery": "up dc-emea",
+                "statusValueMappings": [
+                  {
+                    "value": 0,
+                    "color": "#F2495C"
+                  },
+                  {
+                    "value": 1,
+                    "color": "#73BF69"
+                  }
+                ]
+              },
+              {
+                "id": "dc-edge-1",
+                "position": [
+                  230,
+                  110
+                ],
+                "label": "dc-edge-1 (Dublin)",
+                "showLabel": true,
+                "anchors": {
+                  "0": {
+                    "numLinks": 1,
+                    "numFilledLinks": 0
+                  },
+                  "1": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "2": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "3": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "4": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  }
+                },
+                "useConstantSpacing": false,
+                "compactVerticalLinks": false,
+                "padding": {
+                  "vertical": 7,
+                  "horizontal": 12
+                },
+                "colors": {
+                  "font": "#1F2937",
+                  "background": "#FFFFFF",
+                  "border": "#5794F2",
+                  "statusDown": "#F2495C"
+                },
+                "nodeIcon": {
+                  "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                  "name": "networking/building",
+                  "size": {
+                    "width": 40,
+                    "height": 40
+                  },
+                  "padding": {
+                    "vertical": 2,
+                    "horizontal": 2
+                  },
+                  "drawInside": false
+                },
+                "useIconBoundaryForLinks": true,
+                "isConnection": false,
+                "nodeStatusColorTarget": "border",
+                "statusQuery": "up dc-edge-1",
+                "statusValueMappings": [
+                  {
+                    "value": 0,
+                    "color": "#F2495C"
+                  },
+                  {
+                    "value": 1,
+                    "color": "#73BF69"
+                  }
+                ]
+              },
+              {
+                "id": "dc-edge-2",
+                "position": [
+                  870,
+                  110
+                ],
+                "label": "dc-edge-2 (Amsterdam)",
+                "showLabel": true,
+                "anchors": {
+                  "0": {
+                    "numLinks": 1,
+                    "numFilledLinks": 0
+                  },
+                  "1": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "2": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "3": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "4": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  }
+                },
+                "useConstantSpacing": false,
+                "compactVerticalLinks": false,
+                "padding": {
+                  "vertical": 7,
+                  "horizontal": 12
+                },
+                "colors": {
+                  "font": "#1F2937",
+                  "background": "#FFFFFF",
+                  "border": "#5794F2",
+                  "statusDown": "#F2495C"
+                },
+                "nodeIcon": {
+                  "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                  "name": "networking/building",
+                  "size": {
+                    "width": 40,
+                    "height": 40
+                  },
+                  "padding": {
+                    "vertical": 2,
+                    "horizontal": 2
+                  },
+                  "drawInside": false
+                },
+                "useIconBoundaryForLinks": true,
+                "isConnection": false,
+                "nodeStatusColorTarget": "border",
+                "statusQuery": "up dc-edge-2",
+                "statusValueMappings": [
+                  {
+                    "value": 0,
+                    "color": "#F2495C"
+                  },
+                  {
+                    "value": 1,
+                    "color": "#73BF69"
+                  }
+                ]
+              },
+              {
+                "id": "emea-edge1",
+                "position": [
+                  550,
+                  575
+                ],
+                "label": "emea-edge1 spoke exporter (Paris)",
+                "showLabel": true,
+                "anchors": {
+                  "0": {
+                    "numLinks": 1,
+                    "numFilledLinks": 0
+                  },
+                  "1": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "2": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "3": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "4": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  }
+                },
+                "useConstantSpacing": false,
+                "compactVerticalLinks": false,
+                "padding": {
+                  "vertical": 7,
+                  "horizontal": 12
+                },
+                "colors": {
+                  "font": "#1F2937",
+                  "background": "#FFFFFF",
+                  "border": "#5794F2",
+                  "statusDown": "#F2495C"
+                },
+                "nodeIcon": {
+                  "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                  "name": "networking/building",
+                  "size": {
+                    "width": 40,
+                    "height": 40
+                  },
+                  "padding": {
+                    "vertical": 2,
+                    "horizontal": 2
+                  },
+                  "drawInside": false
+                },
+                "useIconBoundaryForLinks": true,
+                "isConnection": false,
+                "nodeStatusColorTarget": "border",
+                "tooltipMetrics": [
+                  {
+                    "label": "Push queue depth",
+                    "query": "queue emea-edge1",
+                    "units": "short"
+                  },
+                  {
+                    "label": "Push failures (15m)",
+                    "query": "failures emea-edge1",
+                    "units": "short"
+                  }
+                ]
+              },
+              {
+                "id": "validator",
+                "position": [
+                  880,
+                  560
+                ],
+                "label": "Hub graph-update validator",
+                "showLabel": true,
+                "anchors": {
+                  "0": {
+                    "numLinks": 1,
+                    "numFilledLinks": 0
+                  },
+                  "1": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "2": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "3": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "4": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  }
+                },
+                "useConstantSpacing": false,
+                "compactVerticalLinks": false,
+                "padding": {
+                  "vertical": 7,
+                  "horizontal": 12
+                },
+                "colors": {
+                  "font": "#1F2937",
+                  "background": "#FFFFFF",
+                  "border": "#5794F2",
+                  "statusDown": "#F2495C"
+                },
+                "nodeIcon": {
+                  "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/firewall.svg",
+                  "name": "networking/firewall",
+                  "size": {
+                    "width": 40,
+                    "height": 40
+                  },
+                  "padding": {
+                    "vertical": 2,
+                    "horizontal": 2
+                  },
+                  "drawInside": false
+                },
+                "useIconBoundaryForLinks": true,
+                "isConnection": false,
+                "nodeStatusColorTarget": "border",
+                "tooltipMetrics": [
+                  {
+                    "label": "stale_generation (15m)",
+                    "query": "rejected stale_generation 15m",
+                    "units": "short"
+                  }
+                ]
+              },
+              {
+                "id": "hq-dc1",
+                "position": [
+                  230,
+                  560
+                ],
+                "label": "Enterprise DC hq-dc1 (Chicago) - standalone",
+                "showLabel": true,
+                "anchors": {
+                  "0": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "1": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "2": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "3": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  },
+                  "4": {
+                    "numLinks": 0,
+                    "numFilledLinks": 0
+                  }
+                },
+                "useConstantSpacing": false,
+                "compactVerticalLinks": false,
+                "padding": {
+                  "vertical": 7,
+                  "horizontal": 12
+                },
+                "colors": {
+                  "font": "#1F2937",
+                  "background": "#FFFFFF",
+                  "border": "#5794F2",
+                  "statusDown": "#F2495C"
+                },
+                "nodeIcon": {
+                  "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/server.svg",
+                  "name": "networking/server",
+                  "size": {
+                    "width": 40,
+                    "height": 40
+                  },
+                  "padding": {
+                    "vertical": 2,
+                    "horizontal": 2
+                  },
+                  "drawInside": false
+                },
+                "useIconBoundaryForLinks": true,
+                "isConnection": false,
+                "nodeStatusColorTarget": "border",
+                "statusQuery": "graph stale hq-dc1",
+                "statusValueMappings": [
+                  {
+                    "value": 0,
+                    "color": "#73BF69"
+                  },
+                  {
+                    "value": 1,
+                    "color": "#F2495C"
+                  }
+                ],
+                "tooltipMetrics": [
+                  {
+                    "label": "Devices in graph",
+                    "query": "devices hq-dc1",
+                    "units": "short"
+                  }
+                ]
+              }
+            ],
+            "links": [
+              {
+                "id": "push-dc-amer",
+                "nodes": [
+                  {
+                    "id": "dc-amer",
+                    "position": [
+                      230,
+                      320
+                    ],
+                    "label": "dc-amer (Ashburn)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 1,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                      "name": "networking/building",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "up dc-amer",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#F2495C"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#73BF69"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "hub",
+                    "position": [
+                      550,
+                      320
+                    ],
+                    "label": "Global hub - netobs-glb-hub (London)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 7,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/router.svg",
+                      "name": "networking/router",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "graph stale hub",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#73BF69"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#F2495C"
+                      }
+                    ],
+                    "tooltipMetrics": [
+                      {
+                        "label": "Rejected updates (15m)",
+                        "query": "rejected all 15m",
+                        "units": "short"
+                      },
+                      {
+                        "label": "Spokes up",
+                        "query": "spokes up total",
+                        "units": "short"
+                      }
+                    ]
+                  }
+                ],
+                "sides": {
+                  "A": {
+                    "bandwidth": 300,
+                    "query": "push age dc-amer",
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  },
+                  "Z": {
+                    "bandwidth": 0,
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  }
+                },
+                "units": "s",
+                "arrows": {
+                  "width": 8,
+                  "height": 10,
+                  "offset": 2
+                },
+                "stroke": 6,
+                "showThroughputPercentage": false,
+                "statusDownColor": "#F2495C",
+                "statusBlink": true,
+                "singleDirection": true,
+                "animation": "inherit",
+                "statusQuery": "up dc-amer"
+              },
+              {
+                "id": "push-dc-apac",
+                "nodes": [
+                  {
+                    "id": "dc-apac",
+                    "position": [
+                      880,
+                      320
+                    ],
+                    "label": "dc-apac (Singapore)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 1,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                      "name": "networking/building",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "up dc-apac",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#F2495C"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#73BF69"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "hub",
+                    "position": [
+                      550,
+                      320
+                    ],
+                    "label": "Global hub - netobs-glb-hub (London)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 7,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/router.svg",
+                      "name": "networking/router",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "graph stale hub",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#73BF69"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#F2495C"
+                      }
+                    ],
+                    "tooltipMetrics": [
+                      {
+                        "label": "Rejected updates (15m)",
+                        "query": "rejected all 15m",
+                        "units": "short"
+                      },
+                      {
+                        "label": "Spokes up",
+                        "query": "spokes up total",
+                        "units": "short"
+                      }
+                    ]
+                  }
+                ],
+                "sides": {
+                  "A": {
+                    "bandwidth": 300,
+                    "query": "push age dc-apac",
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  },
+                  "Z": {
+                    "bandwidth": 0,
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  }
+                },
+                "units": "s",
+                "arrows": {
+                  "width": 8,
+                  "height": 10,
+                  "offset": 2
+                },
+                "stroke": 6,
+                "showThroughputPercentage": false,
+                "statusDownColor": "#F2495C",
+                "statusBlink": true,
+                "singleDirection": true,
+                "animation": "inherit",
+                "statusQuery": "up dc-apac"
+              },
+              {
+                "id": "push-dc-emea",
+                "nodes": [
+                  {
+                    "id": "dc-emea",
+                    "position": [
+                      550,
+                      70
+                    ],
+                    "label": "dc-emea (Frankfurt)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 1,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                      "name": "networking/building",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "up dc-emea",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#F2495C"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#73BF69"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "hub",
+                    "position": [
+                      550,
+                      320
+                    ],
+                    "label": "Global hub - netobs-glb-hub (London)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 7,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/router.svg",
+                      "name": "networking/router",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "graph stale hub",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#73BF69"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#F2495C"
+                      }
+                    ],
+                    "tooltipMetrics": [
+                      {
+                        "label": "Rejected updates (15m)",
+                        "query": "rejected all 15m",
+                        "units": "short"
+                      },
+                      {
+                        "label": "Spokes up",
+                        "query": "spokes up total",
+                        "units": "short"
+                      }
+                    ]
+                  }
+                ],
+                "sides": {
+                  "A": {
+                    "bandwidth": 300,
+                    "query": "push age dc-emea",
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  },
+                  "Z": {
+                    "bandwidth": 0,
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  }
+                },
+                "units": "s",
+                "arrows": {
+                  "width": 8,
+                  "height": 10,
+                  "offset": 2
+                },
+                "stroke": 6,
+                "showThroughputPercentage": false,
+                "statusDownColor": "#F2495C",
+                "statusBlink": true,
+                "singleDirection": true,
+                "animation": "inherit",
+                "statusQuery": "up dc-emea"
+              },
+              {
+                "id": "push-dc-edge-1",
+                "nodes": [
+                  {
+                    "id": "dc-edge-1",
+                    "position": [
+                      230,
+                      110
+                    ],
+                    "label": "dc-edge-1 (Dublin)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 1,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                      "name": "networking/building",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "up dc-edge-1",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#F2495C"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#73BF69"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "hub",
+                    "position": [
+                      550,
+                      320
+                    ],
+                    "label": "Global hub - netobs-glb-hub (London)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 7,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/router.svg",
+                      "name": "networking/router",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "graph stale hub",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#73BF69"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#F2495C"
+                      }
+                    ],
+                    "tooltipMetrics": [
+                      {
+                        "label": "Rejected updates (15m)",
+                        "query": "rejected all 15m",
+                        "units": "short"
+                      },
+                      {
+                        "label": "Spokes up",
+                        "query": "spokes up total",
+                        "units": "short"
+                      }
+                    ]
+                  }
+                ],
+                "sides": {
+                  "A": {
+                    "bandwidth": 300,
+                    "query": "push age dc-edge-1",
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  },
+                  "Z": {
+                    "bandwidth": 0,
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  }
+                },
+                "units": "s",
+                "arrows": {
+                  "width": 8,
+                  "height": 10,
+                  "offset": 2
+                },
+                "stroke": 6,
+                "showThroughputPercentage": false,
+                "statusDownColor": "#F2495C",
+                "statusBlink": true,
+                "singleDirection": true,
+                "animation": "inherit",
+                "statusQuery": "up dc-edge-1"
+              },
+              {
+                "id": "push-dc-edge-2",
+                "nodes": [
+                  {
+                    "id": "dc-edge-2",
+                    "position": [
+                      870,
+                      110
+                    ],
+                    "label": "dc-edge-2 (Amsterdam)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 1,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                      "name": "networking/building",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "up dc-edge-2",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#F2495C"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#73BF69"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "hub",
+                    "position": [
+                      550,
+                      320
+                    ],
+                    "label": "Global hub - netobs-glb-hub (London)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 7,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/router.svg",
+                      "name": "networking/router",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "graph stale hub",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#73BF69"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#F2495C"
+                      }
+                    ],
+                    "tooltipMetrics": [
+                      {
+                        "label": "Rejected updates (15m)",
+                        "query": "rejected all 15m",
+                        "units": "short"
+                      },
+                      {
+                        "label": "Spokes up",
+                        "query": "spokes up total",
+                        "units": "short"
+                      }
+                    ]
+                  }
+                ],
+                "sides": {
+                  "A": {
+                    "bandwidth": 300,
+                    "query": "push age dc-edge-2",
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  },
+                  "Z": {
+                    "bandwidth": 0,
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  }
+                },
+                "units": "s",
+                "arrows": {
+                  "width": 8,
+                  "height": 10,
+                  "offset": 2
+                },
+                "stroke": 6,
+                "showThroughputPercentage": false,
+                "statusDownColor": "#F2495C",
+                "statusBlink": true,
+                "singleDirection": true,
+                "animation": "inherit",
+                "statusQuery": "up dc-edge-2"
+              },
+              {
+                "id": "push-emea-edge1",
+                "nodes": [
+                  {
+                    "id": "emea-edge1",
+                    "position": [
+                      550,
+                      575
+                    ],
+                    "label": "emea-edge1 spoke exporter (Paris)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 1,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/building.svg",
+                      "name": "networking/building",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "tooltipMetrics": [
+                      {
+                        "label": "Push queue depth",
+                        "query": "queue emea-edge1",
+                        "units": "short"
+                      },
+                      {
+                        "label": "Push failures (15m)",
+                        "query": "failures emea-edge1",
+                        "units": "short"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "hub",
+                    "position": [
+                      550,
+                      320
+                    ],
+                    "label": "Global hub - netobs-glb-hub (London)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 7,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/router.svg",
+                      "name": "networking/router",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "graph stale hub",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#73BF69"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#F2495C"
+                      }
+                    ],
+                    "tooltipMetrics": [
+                      {
+                        "label": "Rejected updates (15m)",
+                        "query": "rejected all 15m",
+                        "units": "short"
+                      },
+                      {
+                        "label": "Spokes up",
+                        "query": "spokes up total",
+                        "units": "short"
+                      }
+                    ]
+                  }
+                ],
+                "sides": {
+                  "A": {
+                    "bandwidth": 300,
+                    "query": "push age emea-edge1",
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  },
+                  "Z": {
+                    "bandwidth": 0,
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  }
+                },
+                "units": "s",
+                "arrows": {
+                  "width": 8,
+                  "height": 10,
+                  "offset": 2
+                },
+                "stroke": 6,
+                "showThroughputPercentage": false,
+                "statusDownColor": "#F2495C",
+                "statusBlink": true,
+                "singleDirection": true,
+                "animation": "inherit"
+              },
+              {
+                "id": "hub-validator",
+                "nodes": [
+                  {
+                    "id": "hub",
+                    "position": [
+                      550,
+                      320
+                    ],
+                    "label": "Global hub - netobs-glb-hub (London)",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 7,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/router.svg",
+                      "name": "networking/router",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "statusQuery": "graph stale hub",
+                    "statusValueMappings": [
+                      {
+                        "value": 0,
+                        "color": "#73BF69"
+                      },
+                      {
+                        "value": 1,
+                        "color": "#F2495C"
+                      }
+                    ],
+                    "tooltipMetrics": [
+                      {
+                        "label": "Rejected updates (15m)",
+                        "query": "rejected all 15m",
+                        "units": "short"
+                      },
+                      {
+                        "label": "Spokes up",
+                        "query": "spokes up total",
+                        "units": "short"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "validator",
+                    "position": [
+                      880,
+                      560
+                    ],
+                    "label": "Hub graph-update validator",
+                    "showLabel": true,
+                    "anchors": {
+                      "0": {
+                        "numLinks": 1,
+                        "numFilledLinks": 0
+                      },
+                      "1": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "2": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "3": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      },
+                      "4": {
+                        "numLinks": 0,
+                        "numFilledLinks": 0
+                      }
+                    },
+                    "useConstantSpacing": false,
+                    "compactVerticalLinks": false,
+                    "padding": {
+                      "vertical": 7,
+                      "horizontal": 12
+                    },
+                    "colors": {
+                      "font": "#1F2937",
+                      "background": "#FFFFFF",
+                      "border": "#5794F2",
+                      "statusDown": "#F2495C"
+                    },
+                    "nodeIcon": {
+                      "src": "public/plugins/tamirsuliman-weathermap-panel/icons/networking/firewall.svg",
+                      "name": "networking/firewall",
+                      "size": {
+                        "width": 40,
+                        "height": 40
+                      },
+                      "padding": {
+                        "vertical": 2,
+                        "horizontal": 2
+                      },
+                      "drawInside": false
+                    },
+                    "useIconBoundaryForLinks": true,
+                    "isConnection": false,
+                    "nodeStatusColorTarget": "border",
+                    "tooltipMetrics": [
+                      {
+                        "label": "stale_generation (15m)",
+                        "query": "rejected stale_generation 15m",
+                        "units": "short"
+                      }
+                    ]
+                  }
+                ],
+                "sides": {
+                  "A": {
+                    "bandwidth": 20,
+                    "query": "rejected all 15m",
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  },
+                  "Z": {
+                    "bandwidth": 0,
+                    "labelOffset": 50,
+                    "anchor": 0,
+                    "dashboardLink": "",
+                    "portLabel": "",
+                    "directionLabel": ""
+                  }
+                },
+                "units": "short",
+                "arrows": {
+                  "width": 8,
+                  "height": 10,
+                  "offset": 2
+                },
+                "stroke": 6,
+                "showThroughputPercentage": false,
+                "statusDownColor": "#F2495C",
+                "statusBlink": true,
+                "singleDirection": true,
+                "animation": "inherit",
+                "waypoints": [
+                  {
+                    "x": 700,
+                    "y": 470
+                  },
+                  {
+                    "x": 880,
+                    "y": 470
+                  }
+                ]
+              }
+            ],
+            "scale": [
+              {
+                "percent": 0,
+                "color": "#73BF69"
+              },
+              {
+                "percent": 40,
+                "color": "#FADE2A"
+              },
+              {
+                "percent": 60,
+                "color": "#FF9830"
+              },
+              {
+                "percent": 100,
+                "color": "#F2495C"
+              }
+            ],
+            "settings": {
+              "link": {
+                "spacing": {
+                  "horizontal": 12,
+                  "vertical": 8
+                },
+                "stroke": {
+                  "color": "rgba(36, 41, 46, 0.25)"
+                },
+                "label": {
+                  "background": "#FFFFFF",
+                  "border": "rgba(36, 41, 46, 0.35)",
+                  "font": "#1F2937"
+                },
+                "showAllWithPercentage": false,
+                "defaultUnits": "s",
+                "linkDecimals": 0,
+                "valueMappingMode": "last",
+                "timeline": {
+                  "enabled": false
+                },
+                "dynamicStroke": {
+                  "enabled": true,
+                  "minWidth": 4,
+                  "maxWidth": 12
+                },
+                "flowAnimation": {
+                  "enabled": true,
+                  "speed": 1
+                },
+                "gradientColor": false,
+                "hoverHighlight": true,
+                "labelCollision": true,
+                "labelHideZoom": 3
+              },
+              "animation": {
+                "enabled": true,
+                "respectReducedMotion": true,
+                "maxAnimatedLinks": 100,
+                "pauseInEditMode": true,
+                "showLegend": false
+              },
+              "fontSizing": {
+                "node": 12,
+                "link": 11
+              },
+              "colorScaleMode": "percent",
+              "panel": {
+                "backgroundColor": "#EEF1F5",
+                "showTimestamp": true,
+                "panelSize": {
+                  "width": 1100,
+                  "height": 640
+                },
+                "zoomScale": 0,
+                "offset": {
+                  "x": 0,
+                  "y": 0
+                },
+                "viewZoomPan": true,
+                "grid": {
+                  "enabled": false,
+                  "size": 20,
+                  "guidesEnabled": false
+                }
+              },
+              "tooltip": {
+                "fontSize": 11,
+                "textColor": "#1F2937",
+                "backgroundColor": "#FFFFFF",
+                "inboundColor": "#73BF69",
+                "outboundColor": "#5794F2",
+                "scaleToBandwidth": false
+              },
+              "scale": {
+                "position": {
+                  "x": 1,
+                  "y": 22
+                },
+                "size": {
+                  "width": 60,
+                  "height": 200
+                },
+                "title": "% of budget",
+                "fontSizing": {
+                  "title": 12,
+                  "threshold": 10
+                },
+                "scaleUnit": "%",
+                "fontColor": "#1F2937",
+                "backgroundColor": "rgba(255, 255, 255, 0.9)"
+              },
+              "statusLegend": {
+                "enabled": true,
+                "position": {
+                  "x": 82,
+                  "y": 4
+                },
+                "items": [
+                  {
+                    "id": "status-up",
+                    "color": "#73BF69",
+                    "label": "spoke up / graph fresh"
+                  },
+                  {
+                    "id": "status-down",
+                    "color": "#F2495C",
+                    "label": "spoke down / graph stale"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        },
+        "pluginVersion": "1.6.12"
+      },
+      {
+        "id": 10,
+        "type": "bargauge",
+        "title": "Push age per spoke",
+        "description": "Seconds since each spoke last pushed to the hub (network_topology_federation_spoke_last_push_timestamp_seconds), plus the emea-edge1 exporter's own last-success age. Scale 0 to 300 s.",
+        "gridPos": {
+          "x": 15,
+          "y": 21,
+          "w": 9,
+          "h": 10
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "{{spoke_id}}",
+            "format": "time_series",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "time() - network_topology_federation_spoke_push_last_success_unix{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "emea-edge1 (spoke side)",
+            "format": "time_series",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "lcd",
+          "showUnfilled": true,
+          "valueMode": "color",
+          "namePlacement": "left",
+          "sizing": "auto",
+          "minVizHeight": 16,
+          "maxVizHeight": 40,
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "min": 0,
+            "max": 300,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 120
+                },
+                {
+                  "color": "orange",
+                  "value": 180
+                },
+                {
+                  "color": "red",
+                  "value": 300
+                }
+              ]
+            },
+            "decimals": 0
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 11,
+        "type": "timeseries",
+        "title": "Rejected graph updates by reason",
+        "description": "Graph updates the hub rejected, by reason (network_topology_graph_updates_rejected_total, increase per interval). stale_generation means a spoke pushed a graph older than the one the hub already holds.",
+        "gridPos": {
+          "x": 15,
+          "y": 31,
+          "w": 9,
+          "h": 9
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "sum by (reason) (increase(network_topology_graph_updates_rejected_total{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}[$__rate_interval]))",
+            "editorMode": "code",
+            "legendFormat": "{{reason}}",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 70,
+              "lineWidth": 1,
+              "stacking": {
+                "mode": "normal",
+                "group": "A"
+              },
+              "barAlignment": 0,
+              "showPoints": "never"
+            }
+          },
+          "overrides": []
+        },
+        "interval": "2m"
+      },
+      {
+        "id": 12,
+        "type": "state-timeline",
+        "title": "Spoke liveness",
+        "description": "Liveness of each spoke as tracked by the hub (network_topology_federation_spoke_up: 1 up, 0 down).",
+        "gridPos": {
+          "x": 0,
+          "y": 40,
+          "w": 12,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "network_topology_federation_spoke_up{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "{{spoke_id}}",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "showValue": "never",
+          "rowHeight": 0.8,
+          "mergeValues": true,
+          "alignValue": "center",
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "tooltip": {
+            "mode": "single"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {
+                    "text": "DOWN",
+                    "color": "red",
+                    "index": 0
+                  },
+                  "1": {
+                    "text": "UP",
+                    "color": "green",
+                    "index": 1
+                  }
+                }
+              }
+            ],
+            "custom": {
+              "fillOpacity": 80,
+              "lineWidth": 0
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 13,
+        "type": "timeseries",
+        "title": "Push age over time",
+        "description": "Seconds since last push per spoke; dashed lines mark the 120 s, 180 s and 300 s bands used on the maps.",
+        "gridPos": {
+          "x": 12,
+          "y": 40,
+          "w": 12,
+          "h": 8
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "time() - network_topology_federation_spoke_last_push_timestamp_seconds{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "{{spoke_id}}",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "time() - network_topology_federation_spoke_push_last_success_unix{job=\"integrations/network-topology-exporter\",instance=\"netobs-spoke-emea:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "emea-edge1 (spoke side)",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 120
+                },
+                {
+                  "color": "orange",
+                  "value": 180
+                },
+                {
+                  "color": "red",
+                  "value": 300
+                }
+              ]
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 8,
+              "showPoints": "never",
+              "gradientMode": "opacity",
+              "thresholdsStyle": {
+                "mode": "dashed"
+              }
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 14,
+        "type": "table",
+        "title": "Boundary observations at the hub",
+        "description": "One row per inter-domain boundary adjacency the hub can see (network_topology_boundary_observation_info): the two peers, the device that reported it, its port and the discovery protocol.",
+        "gridPos": {
+          "x": 0,
+          "y": 48,
+          "w": 14,
+          "h": 14
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "network_topology_boundary_observation_info{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "sortBy": [
+            {
+              "displayName": "Reporting device",
+              "desc": false
+            }
+          ],
+          "footer": {
+            "show": false
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "filterable": true
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "proto"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-text"
+                  }
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "purple"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "Value": true,
+                "__name__": true,
+                "job": true,
+                "instance": true
+              },
+              "indexByName": {
+                "peer_a": 0,
+                "peer_b": 1,
+                "reporting_device": 2,
+                "src_port": 3,
+                "proto": 4
+              },
+              "renameByName": {
+                "peer_a": "External peer",
+                "peer_b": "Internal peer",
+                "reporting_device": "Reporting device",
+                "src_port": "Port",
+                "proto": "Protocol"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 15,
+        "type": "bargauge",
+        "title": "Boundary observations by leaf",
+        "description": "Boundary adjacencies grouped by the leaf the reporting host hangs off (leaf parsed from reporting_device, for example host-leaf01-02 is on leaf-01).",
+        "gridPos": {
+          "x": 14,
+          "y": 48,
+          "w": 4,
+          "h": 14
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "count by (leaf) (label_replace(network_topology_boundary_observation_info{job=\"integrations/network-topology-exporter\",instance=\"netobs-glb-hub:9100\"}, \"leaf\", \"leaf-$1\", \"reporting_device\", \"host-leaf([0-9]+)-.*\"))",
+            "editorMode": "code",
+            "legendFormat": "{{leaf}}",
+            "format": "time_series",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true,
+          "valueMode": "color",
+          "namePlacement": "left",
+          "sizing": "manual",
+          "minVizHeight": 22,
+          "maxVizHeight": 40,
+          "text": {
+            "titleSize": 14,
+            "valueSize": 16
+          },
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "min": 0,
+            "decimals": 0,
+            "color": {
+              "mode": "continuous-BlPu"
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 16,
+        "type": "text",
+        "title": "About these maps",
+        "description": "",
+        "gridPos": {
+          "x": 18,
+          "y": 48,
+          "w": 6,
+          "h": 14
+        },
+        "datasource": null,
+        "targets": [],
+        "options": {
+          "mode": "markdown",
+          "content": "### Reading this board\n\n**Global hub** `netobs-glb-hub` (London) federates five regional spokes: dc-amer (Ashburn), dc-apac (Singapore), dc-emea (Frankfurt), dc-edge-1 (Dublin) and dc-edge-2 (Amsterdam). The **emea-edge1** spoke exporter (Paris) reports its own push health. The **enterprise DC** hq-dc1 (Chicago) runs standalone discovery and is not federated.\n\n- Map paths are logical push paths drawn between sites, not circuits.\n- Link colour = seconds since last push; red means stale (300 s or more) or marked down by the hub.\n- Rejected updates are hub-wide; the exporter does not attribute them to a spoke.\n- No link bandwidth is shown anywhere on this board: topology discovery does not measure traffic."
+        },
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        }
+      },
+      {
+        "id": 17,
+        "type": "row",
+        "title": "External probe locations",
+        "collapsed": false,
+        "gridPos": {
+          "x": 0,
+          "y": 62,
+          "w": 24,
+          "h": 1
+        },
+        "panels": []
+      },
+      {
+        "id": 18,
+        "type": "geomap",
+        "title": "Probe agent locations - success and latency",
+        "description": "One marker per probe location, placed from the sm_check_info geohash label. Colour is mean probe_success across the checks run from that location (green 99% and above, orange 90%, red below), size scales with the number of checks, and the tooltip adds mean probe_duration_seconds. All probe agents currently report the same location geohash, so they share one marker; the table alongside breaks them out per agent.",
+        "gridPos": {
+          "x": 0,
+          "y": 63,
+          "w": 10,
+          "h": 13
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "avg by (geohash) (probe_success * on (instance, job, probe) group_left (region, geohash) max by (instance, job, probe, region, geohash) (sm_check_info))",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "avg by (geohash) (probe_duration_seconds * on (instance, job, probe) group_left (region, geohash) max by (instance, job, probe, region, geohash) (sm_check_info))",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "count by (geohash) (max by (instance, job, probe, region, geohash) (sm_check_info))",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "options": {
+          "view": {
+            "id": "coords",
+            "lat": 30,
+            "lon": 10,
+            "zoom": 1.6,
+            "allLayers": true
+          },
+          "controls": {
+            "showZoom": true,
+            "mouseWheelZoom": false,
+            "showAttribution": true
+          },
+          "basemap": {
+            "type": "default",
+            "name": "Basemap",
+            "config": {}
+          },
+          "tooltip": {
+            "mode": "details"
+          },
+          "layers": [
+            {
+              "type": "markers",
+              "name": "Probe locations",
+              "location": {
+                "mode": "geohash",
+                "geohash": "geohash"
+              },
+              "config": {
+                "showLegend": true,
+                "style": {
+                  "size": {
+                    "field": "Checks",
+                    "fixed": 12,
+                    "min": 12,
+                    "max": 26
+                  },
+                  "color": {
+                    "field": "Success"
+                  },
+                  "opacity": 0.85,
+                  "symbol": {
+                    "mode": "fixed",
+                    "fixed": "img/icons/marker/circle.svg"
+                  },
+                  "text": {
+                    "field": "Success",
+                    "mode": "field"
+                  },
+                  "textConfig": {
+                    "fontSize": 13,
+                    "offsetX": 0,
+                    "offsetY": -24,
+                    "textAlign": "center",
+                    "textBaseline": "middle"
+                  }
+                }
+              },
+              "tooltip": true
+            }
+          ]
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "decimals": 1,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 0.9
+                },
+                {
+                  "color": "green",
+                  "value": 0.99
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Mean latency"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "s"
+                },
+                {
+                  "id": "decimals",
+                  "value": 3
+                },
+                {
+                  "id": "min"
+                },
+                {
+                  "id": "max"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "yellow",
+                        "value": 0.5
+                      },
+                      {
+                        "color": "red",
+                        "value": 1
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Checks"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "decimals",
+                  "value": 0
+                },
+                {
+                  "id": "min"
+                },
+                {
+                  "id": "max"
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "blue"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "transformations": [
+          {
+            "id": "joinByField",
+            "options": {
+              "byField": "geohash",
+              "mode": "outer"
+            }
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "Time 1": true,
+                "Time 2": true,
+                "Time 3": true
+              },
+              "renameByName": {
+                "Value #A": "Success",
+                "Value #B": "Mean latency",
+                "Value #C": "Checks"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 19,
+        "type": "table",
+        "title": "Probe agents - success and latency",
+        "description": "Per probe agent: region, number of checks (sm_check_info), mean probe_success and mean probe_duration_seconds across its checks.",
+        "gridPos": {
+          "x": 10,
+          "y": 63,
+          "w": 14,
+          "h": 6
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "label_replace(avg by (probe, region) (probe_success * on (instance, job, probe) group_left (region) max by (instance, job, probe, region, geohash) (sm_check_info)), \"probe\", \"$1\", \"probe\", \"[^-]+-(private.*)\")",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "B",
+            "expr": "label_replace(avg by (probe, region) (probe_duration_seconds * on (instance, job, probe) group_left (region) max by (instance, job, probe, region, geohash) (sm_check_info)), \"probe\", \"$1\", \"probe\", \"[^-]+-(private.*)\")",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "C",
+            "expr": "label_replace(count by (probe, region) (max by (instance, job, probe, region, geohash) (sm_check_info)), \"probe\", \"$1\", \"probe\", \"[^-]+-(private.*)\")",
+            "editorMode": "code",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true,
+            "range": false
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "cellHeight": "sm",
+          "footer": {
+            "show": false
+          },
+          "sortBy": [
+            {
+              "displayName": "Region",
+              "desc": false
+            }
+          ]
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "decimals": 1,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 0.9
+                },
+                {
+                  "color": "green",
+                  "value": 0.99
+                }
+              ]
+            },
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              }
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Mean latency"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "s"
+                },
+                {
+                  "id": "decimals",
+                  "value": 3
+                },
+                {
+                  "id": "min"
+                },
+                {
+                  "id": "max"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "yellow",
+                        "value": 0.5
+                      },
+                      {
+                        "color": "red",
+                        "value": 1
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Checks"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "decimals",
+                  "value": 0
+                },
+                {
+                  "id": "min"
+                },
+                {
+                  "id": "max"
+                },
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "blue"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "gradient"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Mean latency"
+              },
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "gauge",
+                    "mode": "lcd",
+                    "valueDisplayMode": "text"
+                  }
+                },
+                {
+                  "id": "max",
+                  "value": 0.5
+                }
+              ]
+            }
+          ]
+        },
+        "transformations": [
+          {
+            "id": "joinByField",
+            "options": {
+              "byField": "probe",
+              "mode": "outer"
+            }
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "Time 1": true,
+                "Time 2": true,
+                "Time 3": true,
+                "region 2": true,
+                "region 3": true
+              },
+              "indexByName": {
+                "probe": 0,
+                "region 1": 1,
+                "Value #C": 2,
+                "Value #A": 3,
+                "Value #B": 4
+              },
+              "renameByName": {
+                "probe": "Probe agent",
+                "region 1": "Region",
+                "Value #A": "Success",
+                "Value #B": "Mean latency",
+                "Value #C": "Checks"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 20,
+        "type": "timeseries",
+        "title": "Probe latency by check",
+        "description": "probe_duration_seconds per check (job) and probe agent.",
+        "gridPos": {
+          "x": 10,
+          "y": 69,
+          "w": 14,
+          "h": 7
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "grafanacloud-prom"
+            },
+            "refId": "A",
+            "expr": "label_replace(avg by (job, probe) (probe_duration_seconds), \"probe\", \"$1\", \"probe\", \"[^-]+-(private.*)\")",
+            "editorMode": "code",
+            "legendFormat": "{{job}} from {{probe}}",
+            "format": "time_series",
+            "instant": false,
+            "range": true
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean"
+            ]
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "decimals": 1,
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 6,
+              "showPoints": "never",
+              "gradientMode": "opacity"
+            }
+          },
+          "overrides": []
+        }
+      }
+    ]
+  }
+}

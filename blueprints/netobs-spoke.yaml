@@ -38,3 +38,10 @@ integrations:
     session_pool: true
     out_of_scope_neighbours: 1
     otlp_output: true
+
+# Background operational noise for a WAN-attached edge site: SNMP crosses a lossy WAN link,
+# so a couple of the 9 devices (intensity 0.2) drop out of polling for a few minutes most
+# hours. UNSCOPED (no target:): one exporter per blueprint.
+incidents:
+  - { kind: nettopo_devices_unreachable, every: 71m, for: 5m, intensity: 0.2 }
+  - { kind: nettopo_discovery_slow, every: 163m, for: 6m, intensity: 0.4 }

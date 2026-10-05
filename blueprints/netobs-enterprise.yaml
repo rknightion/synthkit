@@ -44,3 +44,18 @@ integrations:
       - {src_device: edge-fw-01, src_port: GigabitEthernet0/1, dst_device: spine-02, dst_port: Ethernet47, proto: bgp}
     session_pool: true
     out_of_scope_neighbours: 2
+
+# Background operational noise for a ~33-device enterprise DC. UNSCOPED (no target:) because
+# integration constructs are absent from the scenario target index; one exporter per
+# blueprint, so the fault applies to netobs-ent-dc1. Cadences are co-prime so faults overlap
+# irregularly, and intensities keep each one partial.
+incidents:
+  # ~3 of 33 devices (intensity 0.1) miss SNMP polls for a few minutes: access switches
+  # starve snmpd during config backups or spanning-tree recalculation.
+  - { kind: nettopo_devices_unreachable, every: 53m, for: 4m, intensity: 0.1 }
+  # LLDP/CDP neighbour tables time out on a busy chassis, so edges briefly under-report.
+  - { kind: nettopo_walker_degraded, every: 137m, for: 6m, intensity: 0.25 }
+  # Discovery runs slow while a backup job saturates the management network.
+  - { kind: nettopo_discovery_slow, every: 211m, for: 7m, intensity: 0.3 }
+  # SNMPv3 credential rotation lagging on part of the estate, a few times a day.
+  - { kind: nettopo_auth_failures, every: 6h, for: 15m, intensity: 0.3 }
