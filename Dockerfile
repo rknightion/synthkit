@@ -7,7 +7,7 @@ COPY internal/control/ui/ ./
 RUN npm run build           # emptyOutDir:false keeps .gitkeep; emits index.html + assets/
 
 # --- Go build stage ---
-FROM golang:1.27.1@sha256:23fe8075c2e428136326703a2c63203f0c57595d8400eedbe06a29cab53055e8 AS build
+FROM golang:1.27.1@sha256:1e93e00a31255c07e9a34c4207f3006e1501730c5323697cee7dfb827fdae44c AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
