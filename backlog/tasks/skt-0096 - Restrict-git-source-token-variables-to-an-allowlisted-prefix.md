@@ -1,9 +1,11 @@
 ---
 id: SKT-0096
 title: Restrict git source token variables to an allowlisted prefix
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-07 20:31'
+updated_date: '2026-10-07 21:41'
 labels:
   - security
   - hardening
@@ -31,3 +33,9 @@ POST /control/blueprints/sources accepts any HTTPS URL and any TokenEnvVar name 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Isolated candidate with frozen ownership; acceptance reproduction, focused checks and just check; independent review before root landing. HA seam design is independently challenged and frozen first.
+<!-- SECTION:PLAN:END -->

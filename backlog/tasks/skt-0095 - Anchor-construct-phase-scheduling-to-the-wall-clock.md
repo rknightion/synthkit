@@ -1,9 +1,11 @@
 ---
 id: SKT-0095
 title: Anchor construct phase scheduling to the wall clock
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-07 20:31'
+updated_date: '2026-10-07 21:41'
 labels:
   - feature
   - ha
@@ -30,3 +32,9 @@ seedPhases (internal/runner/runner.go) sets each construct's first due time to n
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Isolated candidate with frozen ownership; acceptance reproduction, focused checks and just check; independent review before root landing. HA seam design is independently challenged and frozen first.
+<!-- SECTION:PLAN:END -->
