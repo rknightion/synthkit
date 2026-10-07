@@ -52,7 +52,7 @@ A git source moves through four explicit states: **configured → fetched → st
   "url": "https://github.com/example/synthkit-blueprints",
   "ref": "refs/heads/main",
   "subpath": "blueprints",
-  "token_env_var": "MY_REPO_TOKEN"
+  "token_env_var": "GIT_TOKEN_REPO"
 }
 ```
 
@@ -64,7 +64,7 @@ A git source moves through four explicit states: **configured → fetched → st
 | `url` | Required absolute HTTPS repository URL with a non-empty host. SSH, embedded credentials, and fragments are rejected. |
 | `ref` | Required Git ref, e.g. `refs/heads/main` or `refs/tags/v1.0`. |
 | `subpath` | Directory within the repo holding `*.yaml` files (`""` = repo root). |
-| `token_env_var` | Name of an environment variable holding the HTTPS PAT for private repos. Empty = public repo. The token itself never leaves the server; only the variable name is persisted. |
+| `token_env_var` | `GIT_TOKEN` or an environment-variable name starting with `GIT_TOKEN_` and a non-empty suffix, holding a read-only HTTPS PAT. Empty uses the `GIT_TOKEN` default; if that is also empty, no authentication is sent. Only the variable name is persisted; the token is sent to the configured git host as HTTPS Basic auth. |
 
 `Fetch now` contacts the remote, reports authentication and network failures immediately, and stages the fetched YAML. Each source reports its fetched SHA, fetched file count, and effective names. A fetch never changes the running process: restart to load that staged snapshot. The source row separately reports the loaded SHA, pending-restart state, and the names loaded or skipped by the most recent restart.
 
@@ -72,7 +72,9 @@ A git source moves through four explicit states: **configured → fetched → st
 
 Set `GIT_POLL_INTERVAL` (in seconds) to enable background polling. The poller resolves each configured source's configured ref to its current commit SHA and marks an unseen remote SHA as **update available**. Polling is change detection, not automatic apply: it does not fetch blobs, alter the staged snapshot, or change the running blueprints. Choose **Fetch now** to stage the observed revision, then restart to apply it.
 
-A default fallback PAT for all sources can be set via `GIT_TOKEN`; individual sources override with `token_env_var`. See [Configuration](configuration.md).
+A default fallback PAT for all sources can be set via `GIT_TOKEN`; individual sources override with a `GIT_TOKEN_<suffix>` variable in `token_env_var`. Existing explicit `GIT_TOKEN` sources remain supported. Other legacy variable names must be renamed before fetching again.
+
+Set `GIT_SOURCE_HOST_ALLOWLIST` to restrict source hosts, for example `git.example,mirror.example`. It accepts exact case-insensitive hostnames or IP addresses, not URLs, ports, wildcards or empty list entries. Subdomains are not implicitly allowed; any HTTPS port on an allowed host is permitted. Empty leaves host restrictions disabled. The policy applies both when saving sources and before fetching or polling persisted sources. Redirects are refused, so use the final HTTPS repository URL. See [Configuration](configuration.md).
 
 ## Staging layout
 

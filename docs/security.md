@@ -51,6 +51,20 @@ for Fleet Management and self-observability, kept deliberately isolated from the
 stack so a leak of one cannot be used against the other. See [Credentials](credentials.md) for the
 full reference and where to generate each one.
 
+Git source credentials are limited to `GIT_TOKEN` (also the empty-name default) and
+`GIT_TOKEN_<non-empty suffix>` environment variables. Names such as `CONTROL_TOKEN` or
+synthetic/self-observability tokens are rejected both at source admission and before git I/O,
+including for persisted legacy sources. Rename old custom token variables to the permitted prefix.
+
+For delegated control access, configure `GIT_SOURCE_HOST_ALLOWLIST` with exact trusted hostnames or
+IP addresses. Empty permits any HTTPS host and therefore still lets a control-plane user send a git
+PAT to a chosen host. Matching is case-insensitive and does not include subdomains; any HTTPS port
+on an allowed host is permitted. URLs, ports, wildcards and empty list entries are rejected. This
+policy is enforced at admission and before fetch/ref lookup, before credential resolution. Redirects
+are refused to prevent a trusted URL from forwarding credentials to another destination. This is a
+host-name policy, not an IP-range or DNS-rebinding defense; enforce network egress restrictions
+separately where needed. Use read-only, repository-scoped git PATs.
+
 ## Where secrets live
 
 **Credentials belong only in a gitignored `.env` file. They must never be committed, and they must
@@ -63,7 +77,7 @@ Two secondary places also need attention:
 
 - **The control-state snapshot** (`CONFIG_SNAPSHOT_PATH`, default `./control-state.json`) contains
   operational state and git source metadata. It persists only a private source's configured
-  `token_env_var` name (for example `MY_GIT_TOKEN`), never the resolved token value. The token is
+  `token_env_var` name (for example `GIT_TOKEN_REPO`), never the resolved token value. The token is
   read from the process environment only when a fetch runs. The snapshot is still owner-only
   operational data and should be excluded from untrusted backups. See [Control Plane](control-plane.md).
 - **Docker's persistent volume** (`/data`, bind-mounted to `control-state-data/` and owned by uid

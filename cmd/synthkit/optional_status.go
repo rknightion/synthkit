@@ -63,8 +63,13 @@ func collectOptionalRuntimeFacts(resolved []*blueprint.Resolved, sources []bpsou
 			continue
 		}
 		facts.privateGitDeclared = true
-		if source.TokenEnvVar != "" && os.Getenv(source.TokenEnvVar) == "" {
-			facts.privateGitCredentialGap = true
+		if source.TokenEnvVar == "GIT_TOKEN" {
+			facts.privateGitCredentialGap = facts.privateGitCredentialGap || cfg.GitTokenDefault == ""
+		} else if source.TokenEnvVar != "" {
+			// Do not probe arbitrary process secrets from legacy persisted metadata.
+			if bpsource.ValidateSource(source) != nil || os.Getenv(source.TokenEnvVar) == "" {
+				facts.privateGitCredentialGap = true
+			}
 		}
 		if source.LoadedSHA == "" || source.LastErr != "" {
 			facts.privateGitVerified = false

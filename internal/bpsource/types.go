@@ -110,6 +110,7 @@ type Options struct {
 	Registry       *core.Registry          // runner.Catalog()
 	RuntimeLimits  blueprint.RuntimeLimits // process scheduling/cost bounds used by blueprint load validation
 	Git            GitClient               // nanogit adapter (may be nil → git sources skipped)
+	SourcePolicy   SourcePolicy            // process-wide source admission policy
 	Config         SourceConfig            // control.Store adapter
 	Now            func() int64            // unix-ms clock (injectable for tests)
 }
@@ -125,6 +126,7 @@ type Manager struct {
 	reg        *core.Registry
 	limits     blueprint.RuntimeLimits
 	git        GitClient
+	policy     SourcePolicy
 	cfg        SourceConfig
 	now        func() int64
 	boot       Manifest

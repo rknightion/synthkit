@@ -63,8 +63,9 @@ type Config struct {
 	ControlExposure  string        // CONTROL_EXPOSURE_ACK — trusted-network | tls-proxy for non-loopback exposure
 
 	// External/custom blueprint sources (git + local).
-	GitPollInterval int    // GIT_POLL_INTERVAL — seconds between "update available" polls (0 = off)
-	GitTokenDefault string // GIT_TOKEN — default HTTPS PAT for private git blueprint repos (fallback when a source's token_env_var is empty)
+	GitPollInterval        int    // GIT_POLL_INTERVAL — seconds between "update available" polls (0 = off)
+	GitTokenDefault        string // GIT_TOKEN — default HTTPS PAT for private git blueprint repos (fallback when a source's token_env_var is empty)
+	GitSourceHostAllowlist string // GIT_SOURCE_HOST_ALLOWLIST — optional comma-separated exact hosts, parsed by bpsource.NewSourcePolicy
 
 	// Self-observability (OTLP → a SEPARATE self-obs stack; internal/selfobs). Own credential
 	// triplet, NEVER GC_TOKEN; default-off. It is independent of synthetic DRY_RUN because it
@@ -136,32 +137,33 @@ func Load(envPath string) (*Config, error) {
 		return n, nil
 	}
 	cfg := &Config{
-		PromRWURL:        get("GC_PROM_RW", ""),
-		PromUser:         get("GC_PROM_USER", ""),
-		OTLPEndpoint:     get("GC_OTLP_ENDPOINT", ""),
-		OTLPUser:         get("GC_OTLP_USER", ""),
-		LokiURL:          get("GC_LOKI", ""),
-		LokiUser:         get("GC_LOKI_USER", ""),
-		Token:            get("GC_TOKEN", ""),
-		FaroCollector:    get("GC_FARO_COLLECTOR", ""),
-		FaroAppKey:       get("GC_FARO_APP_KEY", ""),
-		FMURL:            get("GC_FM_URL", ""),
-		FMStackID:        get("GC_FM_STACK_ID", ""),
-		FMToken:          get("GC_FM_TOKEN", ""),
-		SMURL:            get("GC_SM_URL", ""),
-		SMToken:          get("GC_SM_TOKEN", ""),
-		SigilEndpoint:    get("GC_SIGIL_ENDPOINT", ""),
-		SigilTenantID:    get("GC_SIGIL_TENANT_ID", ""),
-		SigilToken:       get("GC_SIGIL_TOKEN", ""),
-		BlueprintsDir:    get("BLUEPRINTS", "./blueprints"),
-		BlueprintNames:   parseBlueprintNames(get("BLUEPRINT_NAMES", "")),
-		BlueprintDataDir: get("BLUEPRINT_DATA_DIR", "./data/blueprints"),
-		HTTPAddr:         get("JSON_HTTP_ADDR", "127.0.0.1:8088"),
-		HostBind:         get("SYNTHKIT_BIND", ""),
-		SnapshotPath:     get("CONFIG_SNAPSHOT_PATH", "./control-state.json"),
-		ControlToken:     get("CONTROL_TOKEN", ""),
-		ControlExposure:  get("CONTROL_EXPOSURE_ACK", ""),
-		GitTokenDefault:  get("GIT_TOKEN", ""),
+		PromRWURL:              get("GC_PROM_RW", ""),
+		PromUser:               get("GC_PROM_USER", ""),
+		OTLPEndpoint:           get("GC_OTLP_ENDPOINT", ""),
+		OTLPUser:               get("GC_OTLP_USER", ""),
+		LokiURL:                get("GC_LOKI", ""),
+		LokiUser:               get("GC_LOKI_USER", ""),
+		Token:                  get("GC_TOKEN", ""),
+		FaroCollector:          get("GC_FARO_COLLECTOR", ""),
+		FaroAppKey:             get("GC_FARO_APP_KEY", ""),
+		FMURL:                  get("GC_FM_URL", ""),
+		FMStackID:              get("GC_FM_STACK_ID", ""),
+		FMToken:                get("GC_FM_TOKEN", ""),
+		SMURL:                  get("GC_SM_URL", ""),
+		SMToken:                get("GC_SM_TOKEN", ""),
+		SigilEndpoint:          get("GC_SIGIL_ENDPOINT", ""),
+		SigilTenantID:          get("GC_SIGIL_TENANT_ID", ""),
+		SigilToken:             get("GC_SIGIL_TOKEN", ""),
+		BlueprintsDir:          get("BLUEPRINTS", "./blueprints"),
+		BlueprintNames:         parseBlueprintNames(get("BLUEPRINT_NAMES", "")),
+		BlueprintDataDir:       get("BLUEPRINT_DATA_DIR", "./data/blueprints"),
+		HTTPAddr:               get("JSON_HTTP_ADDR", "127.0.0.1:8088"),
+		HostBind:               get("SYNTHKIT_BIND", ""),
+		SnapshotPath:           get("CONFIG_SNAPSHOT_PATH", "./control-state.json"),
+		ControlToken:           get("CONTROL_TOKEN", ""),
+		ControlExposure:        get("CONTROL_EXPOSURE_ACK", ""),
+		GitTokenDefault:        get("GIT_TOKEN", ""),
+		GitSourceHostAllowlist: get("GIT_SOURCE_HOST_ALLOWLIST", ""),
 
 		SelfObsEnabled:   strings.EqualFold(get("SELFOBS_ENABLED", "false"), "true"),
 		SelfOTLPEndpoint: get("GC_SELF_OTLP_ENDPOINT", ""),

@@ -5,6 +5,7 @@ package bpsource
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	nanogit "github.com/grafana/nanogit"
@@ -25,14 +26,21 @@ var _ GitClient = (*nanogitClient)(nil)
 // as the full form (e.g. "refs/heads/main") so this is consistent.
 type nanogitClient struct {
 	tokenLookup func(name string) string
+	policy      SourcePolicy
 }
 
 // NewNanogitClient returns a GitClient backed by nanogit.
 // tokenLookup maps an env-var name → its value (production: os.Getenv;
-// tests: a stub map lookup). Empty envVarName OR empty looked-up value
-// means no authentication (public repo).
+// tests: a stub map lookup). An empty name is passed to tokenLookup for the
+// GIT_TOKEN fallback; an empty looked-up value means no authentication.
 func NewNanogitClient(tokenLookup func(name string) string) GitClient {
-	return &nanogitClient{tokenLookup: tokenLookup}
+	return NewNanogitClientWithPolicy(tokenLookup, SourcePolicy{})
+}
+
+// NewNanogitClientWithPolicy enforces the resolved process policy before looking
+// up credentials or making requests, including for persisted sources.
+func NewNanogitClientWithPolicy(tokenLookup func(name string) string, policy SourcePolicy) GitClient {
+	return &nanogitClient{tokenLookup: tokenLookup, policy: policy}
 }
 
 // newClient constructs a nanogit.Client for the given URL, optionally
@@ -41,8 +49,20 @@ func NewNanogitClient(tokenLookup func(name string) string) GitClient {
 // directly (no "Bearer" prefix); the caller is responsible for passing
 // the correct format if needed (most Git forges accept a PAT directly).
 func (c *nanogitClient) newClient(url, tokenEnvVar string) (nanogit.Client, error) {
-	var opts []options.Option
-	if tokenEnvVar != "" && c.tokenLookup != nil {
+	if err := validateTokenEnvVar(tokenEnvVar); err != nil {
+		return nil, err
+	}
+	if err := c.policy.validateURL(url); err != nil {
+		return nil, err
+	}
+	// Do not follow redirects: even an initially allowed host must not redirect
+	// a credential-bearing request to another host (or downgrade to HTTP).
+	opts := []options.Option{options.WithHTTPClient(&http.Client{
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return fmt.Errorf("git source redirects are not permitted; configure the final HTTPS URL")
+		},
+	})}
+	if c.tokenLookup != nil {
 		if token := c.tokenLookup(tokenEnvVar); token != "" {
 			// For GitHub, the convention is "token <PAT>" or just the PAT as password.
 			// nanogit's WithBasicAuth accepts (username, password); Git forges accept

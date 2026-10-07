@@ -28,6 +28,7 @@ func NewManager(opts Options) *Manager {
 		reg:        opts.Registry,
 		limits:     opts.RuntimeLimits,
 		git:        opts.Git,
+		policy:     opts.SourcePolicy,
 		cfg:        opts.Config,
 		now:        now,
 		latestSHAs: map[string]string{},
@@ -107,7 +108,7 @@ func (m *Manager) Sources() []Source {
 // a fresh FetchNow stages it. Loaded results remain, because they describe the running process
 // until the next restart.
 func (m *Manager) UpsertSource(source Source) error {
-	if err := ValidateSource(source); err != nil {
+	if err := m.policy.ValidateSource(source); err != nil {
 		return err
 	}
 	if m.cfg == nil {

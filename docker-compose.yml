@@ -19,6 +19,8 @@ services:
     # The self-obs paths (OTLP + profiles) use their OWN tokens (never GC_TOKEN). They are
     # independent of synthetic DRY_RUN and ship only when SELFOBS_ENABLED plus their credentials
     # are set.
+    # GIT_SOURCE_HOST_ALLOWLIST flows from this selected file without an empty
+    # environment override that could silently disable its configured restrictions.
     env_file: ${SYNTHKIT_ENV_FILE:-.env}
     environment:
       BLUEPRINTS: /app/blueprints

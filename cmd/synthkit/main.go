@@ -352,15 +352,21 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	// in the control UI's diagnostics panel instead of only in stderr.
 	diag := control.NewDiagnostics()
 
-	// Build the git client and blueprint source manager.
-	// tokenLookup: source's TokenEnvVar names the env var; empty name falls back to GIT_TOKEN.
+	// Build the git client and blueprint source manager from the resolved configuration.
+	// Reject malformed host policy before constructing either source consumer.
+	sourcePolicy, err := bpsource.NewSourcePolicy(cfg.GitSourceHostAllowlist)
+	if err != nil {
+		return fmt.Errorf("git source policy: %w", err)
+	}
+	// Empty and explicit GIT_TOKEN names both use the resolved default, including env-file values.
+	// The client checks the permitted variable prefix before invoking this lookup.
 	tokenLookup := func(name string) string {
-		if name == "" {
+		if name == "" || name == "GIT_TOKEN" {
 			return cfg.GitTokenDefault
 		}
 		return os.Getenv(name)
 	}
-	gitClient := bpsource.NewNanogitClient(tokenLookup)
+	gitClient := bpsource.NewNanogitClientWithPolicy(tokenLookup, sourcePolicy)
 	sc := bpsource.NewStoreSourceConfig(store)
 	mgr := bpsource.NewManager(bpsource.Options{
 		BakedDir:       cfg.BlueprintsDir,
@@ -369,6 +375,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		Registry:       reg,
 		RuntimeLimits:  blueprint.RuntimeLimits{MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries},
 		Git:            gitClient,
+		SourcePolicy:   sourcePolicy,
 		Config:         sc,
 		Now:            func() int64 { return time.Now().UnixMilli() },
 	})

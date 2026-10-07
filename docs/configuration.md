@@ -90,7 +90,8 @@ These variables support pulling blueprints from git repositories or custom uploa
 |---|---|---|
 | `BLUEPRINT_DATA_DIR` | `./data/blueprints` | Staging directory for custom and git-sourced blueprints. In Docker compose this is `/data/blueprints` (on the `/data` volume). |
 | `GIT_POLL_INTERVAL` | `0` | Seconds between "update available" polls for git blueprint sources. `0` = polling off; sources are fetched on demand or at startup. |
-| `GIT_TOKEN` | _(empty)_ | Default HTTPS PAT for private git blueprint repos whose source config does not specify a `token_env_var`. Leave empty for public repos. |
+| `GIT_TOKEN` | _(empty)_ | Default HTTPS PAT for private git blueprint repos whose source config leaves `token_env_var` empty or explicitly names `GIT_TOKEN`. Leave empty for public repos. Other token variable names must be `GIT_TOKEN_` followed by a non-empty suffix. |
+| `GIT_SOURCE_HOST_ALLOWLIST` | _(empty)_ | Optional comma-separated exact HTTPS source hostnames or IP addresses, enforced at source validation and before every git fetch or ref lookup. Empty permits any HTTPS host. Entries are case-insensitive; URLs, ports, wildcards and empty entries are invalid. A hostname entry permits that host on any HTTPS port, not its subdomains. Git redirects are refused; configure the final HTTPS URL. |
 
 ---
 
