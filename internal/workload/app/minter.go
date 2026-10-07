@@ -3,7 +3,9 @@
 package app
 
 import (
+	"fmt"
 	"math"
+	"sync/atomic"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/genai"
@@ -28,6 +30,7 @@ type minter struct {
 	routes       []string      // entry-node request routes; one drawn per request → r.Route
 	graph        *graph
 	automation   *AutomationFlow // optional coherent app-local sequence; no graph calls
+	tick         uint64
 }
 
 func newMinter(name, env, cluster string, weight float64, nonProd bool, traffic Traffic, models []ModelChoice, g *graph) *minter {
@@ -136,22 +139,33 @@ func (m *minter) expectedVolume(now time.Time, tickSec float64, eng *shape.Engin
 
 // Mint fabricates this tick's correlated requests (StochasticRound of the expected volume).
 func (m *minter) Mint(now time.Time, tickSec float64, eng *shape.Engine) []*ledger.Request {
+	// Empty ticks also consume an identity unit, matching the live tick sequence.
+	tick := atomic.AddUint64(&m.tick, 1) - 1
 	n := ledger.StochasticRound(m.expectedVolume(now, tickSec, eng), eng.Float64())
 	if n <= 0 {
 		return nil
 	}
 	out := make([]*ledger.Request, 0, n)
-	for range n {
-		out = append(out, m.mintOne(now, eng))
+	for requestIdx := range n {
+		out = append(out, m.mintRequest(now, eng, tick, requestIdx))
 	}
 	return out
 }
 
 // mintOne fabricates one fully-correlated request and walks the graph into a hop tree.
 func (m *minter) mintOne(now time.Time, eng *shape.Engine) *ledger.Request {
+	return m.mintRequest(now, eng, atomic.AddUint64(&m.tick, 1)-1, 0)
+}
+
+func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requestIdx int) *ledger.Request {
+	// Match ai_agent's tick/request correlation pattern: agent/tool choices downstream
+	// hash SpanID, so crypto-random correlation would change unchanged dump inventories.
+	// Binding identity and tick/request ordinals keep live requests distinct; timestamps
+	// and traffic/incident draws retain their existing wall-clock semantics.
+	seed := fmt.Sprintf("app\x00%s\x00%s\x00%s\x00%d\x00%d", m.workloadName, m.env, m.cluster, tick, requestIdx)
 	mc := m.drawModel(eng)
 	r := &ledger.Request{
-		Correlation: ledger.NewCorrelation(),
+		Correlation: ledger.NewCorrelationFromSeed(seed),
 		Workload:    m.workloadName,
 		Env:         m.env,
 		Cluster:     m.cluster,

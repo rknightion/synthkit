@@ -74,28 +74,32 @@ var appParityGoldens = map[string]appParityGolden{
 		Traces: "630647b6f06f01029ba77c8f3ffb78ca484e129a82188cb619ce230444f3d0d2",
 		Counts: appParityCounts{MetricSeries: 2, LogStreams: 0, LogLines: 0, TraceBlocks: 1, Spans: 6},
 	},
+	// App tick/request correlation no longer consumes crypto-random bytes before
+	// projection. These six trace pins reflect the resulting child span/parent ID
+	// stream shift in this seeded-reader harness; audited base/candidate payloads
+	// preserve all non-ID fields, metrics, logs, counts and parent topology.
 	"3bfda9556c3d/workload-0": {
-		Traces: "772c075029860afb7898bf13960943ddbe4f7180e6b8cd438a45e535667b293c",
+		Traces: "db269dbc5c5692c9a482e809c6cb635cdaf6a814555f0155c42d5b60e3dda90a",
 		Counts: appParityCounts{MetricSeries: 21703, LogStreams: 1, LogLines: 1, TraceBlocks: 1, Spans: 2},
 	},
 	"3d6e63e34731/workload-0": {
-		Traces: "d67e19ca399875b8bd39ef2cb474d0481dcab0860ffb7b16c50b78d773a509ae",
+		Traces: "507563f873affeb04ee2850020870bbbf2efd9ed2b55208fa404a349448486bb",
 		Counts: appParityCounts{MetricSeries: 44557, LogStreams: 4, LogLines: 4, TraceBlocks: 6, Spans: 15},
 	},
 	"30c71ab79cac/workload-0": {
-		Traces: "541911c92d2b510d65ba55504eb871a8f09fb077f1d85266ea6232a7fcaef387",
+		Traces: "aa985a0188d21cdca55a2c3f94b088da9030e9f53809e7cdc618679e664ecaf5",
 		Counts: appParityCounts{MetricSeries: 23018, LogStreams: 3, LogLines: 3, TraceBlocks: 4, Spans: 14},
 	},
 	"30c71ab79cac/workload-1": {
-		Traces: "000d86ae8b5720d4089461c1ae78e4ef5e3489a8926bf65c6dbb737d60d588e9",
+		Traces: "471df253ea51f85abb6b044bb11b5c2b2571202352b9fd458164d053267281fd",
 		Counts: appParityCounts{MetricSeries: 22203, LogStreams: 1, LogLines: 1, TraceBlocks: 2, Spans: 9},
 	},
 	"30c71ab79cac/workload-2": {
-		Traces: "a0bc3e9cd006a96af49a3eb780c950f40723b8c1aa056bbd0aab2f137e1023b5",
+		Traces: "e7dcecd88f856046693297980558fc6ae65a281fabb7c8b498d3e47d8cac42c4",
 		Counts: appParityCounts{MetricSeries: 22119, LogStreams: 2, LogLines: 2, TraceBlocks: 1, Spans: 7},
 	},
 	"30c71ab79cac/workload-3": {
-		Traces: "82fcd96b37780fc4c107176415db4030a39f3abb151a9405635e76a66ecd0a84",
+		Traces: "a6e06785d9cf39cdaa1533bc3b6a14a626c479e7737c58a5963dc1db5e051b64",
 		Counts: appParityCounts{MetricSeries: 22119, LogStreams: 2, LogLines: 2, TraceBlocks: 1, Spans: 7},
 	},
 	"4292cbaa24fb/workload-2": {
