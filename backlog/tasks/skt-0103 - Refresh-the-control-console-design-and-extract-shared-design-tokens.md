@@ -4,7 +4,7 @@ title: Refresh the control console design and extract shared design tokens
 status: To Do
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-07 20:31'
+updated_date: '2026-10-07 21:28'
 labels:
   - ui
   - design
@@ -30,3 +30,9 @@ The console is due a design pass and should share design tokens with other front
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-07: a design pass covering the console and an adjacent frontend was produced and approved by the maintainer; AC #2 is met once the token extraction lands against it.
+<!-- SECTION:NOTES:END -->
