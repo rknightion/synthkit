@@ -735,7 +735,7 @@ func (bp *bpRuntime) resetBudgetWindow(now time.Time) {
 	}
 }
 
-// phaseOffset returns a deterministic per-instance start offset in [0, interval) derived from the
+// phaseOffset returns a deterministic per-instance epoch phase in [0, interval) derived from the
 // instance name. Without it Run seeds every instance nextDue=now, so instances sharing the DPM-floor
 // interval re-synchronise onto the SAME master tick every interval and run a whole window's heavy work
 // in a single cycle — overrunning MasterTick and coalescing (dropping) the next fires. Spreading the
@@ -750,16 +750,34 @@ func phaseOffset(name string, interval time.Duration) time.Duration {
 	return time.Duration(h.Sum64() % uint64(interval))
 }
 
-// seedPhases sets each instance's first nextDue to now + its phase offset. Called once at the top of
-// Run so the live loop starts already de-synchronised. RunOnce does not consult nextDue (it ticks
-// every instance unconditionally), so the -once -dump inventory is unaffected.
+// nextPhaseDue returns the first epoch-anchored phase at or after now. It depends
+// only on wall clock, name and interval, so restarts and HA handoffs share a cadence.
+func nextPhaseDue(now time.Time, name string, interval time.Duration) time.Time {
+	if interval <= 0 {
+		return now
+	}
+	remainder := time.Duration(now.UnixNano() % int64(interval))
+	if remainder < 0 {
+		remainder += interval
+	}
+	wait := phaseOffset(name, interval) - remainder
+	if wait < 0 {
+		wait += interval
+	}
+	return now.Round(0).Add(wait)
+}
+
+// seedPhases sets each instance's first nextDue to its next epoch-anchored phase.
+// Called once at the top of Run so the live loop starts already de-synchronised.
+// RunOnce does not consult nextDue (it ticks every instance unconditionally), so
+// the -once -dump inventory is unaffected.
 func (r *Runner) seedPhases(now time.Time) {
 	for _, bp := range r.bps {
 		for _, bc := range bp.constructs {
-			bc.nextDue = now.Add(phaseOffset(bc.name, bc.interval))
+			bc.nextDue = nextPhaseDue(now, bc.name, bc.interval)
 		}
 		for _, bw := range bp.workloads {
-			bw.nextDue = now.Add(phaseOffset(bw.workload.Name(), bw.interval))
+			bw.nextDue = nextPhaseDue(now, bw.workload.Name(), bw.interval)
 		}
 	}
 }
@@ -1007,7 +1025,7 @@ func (r *Runner) tickBlueprintInstances(ctx context.Context, bp *bpRuntime, t ti
 			continue
 		}
 		if !t.Before(bc.nextDue) {
-			bc.nextDue = t.Add(bc.interval)
+			bc.nextDue = nextPhaseDue(t.Add(time.Nanosecond), bc.name, bc.interval)
 			// Error surfaced via the tick observer (structured tick_error → self-obs + health store);
 			// not re-logged here to keep on-box output minimal.
 			_ = r.observeTick(ctx, bp.name, bc.kind, bc.name, func(ctx context.Context) error {
@@ -1017,7 +1035,7 @@ func (r *Runner) tickBlueprintInstances(ctx context.Context, bp *bpRuntime, t ti
 	}
 	for _, bw := range bp.workloads {
 		if !t.Before(bw.nextDue) {
-			bw.nextDue = t.Add(bw.interval)
+			bw.nextDue = nextPhaseDue(t.Add(time.Nanosecond), bw.workload.Name(), bw.interval)
 			bw.world.EmitSpanMetrics = r.spanMetricsEnabled(bp.name)
 			// Error surfaced via the tick observer (structured tick_error → self-obs + health store);
 			// not re-logged here to keep on-box output minimal.
