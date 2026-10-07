@@ -88,10 +88,17 @@ func main() {
 	dump := flag.Bool("dump", false, "with -once: print the full series/label inventory (diff vs signals/)")
 	inventoryJSON := flag.Bool("inventory-json", false, "with -once in dry-run mode: write the canonical telemetry inventory as JSON")
 	preflightCheck := flag.Bool("preflight", false, "validate and probe mandatory live Grafana endpoints, then exit")
+	validateCheck := flag.Bool("validate", false, "validate the selected local blueprint set and print JSON series projections, then exit")
 	healthcheck := flag.Bool("healthcheck", false, "exit successfully only when the local control plane is delivery-ready")
 	showVersion := flag.Bool("version", false, "print the release version and source revision as JSON, then exit")
 	envPath := flag.String("env", ".env", "path to .env file (optional)")
 	flag.Parse()
+	if *validateCheck {
+		if err := runValidate(*envPath, os.Stdout); err != nil {
+			log.Fatalf("synthkit: %v", err)
+		}
+		return
+	}
 	if *showVersion {
 		if err := json.NewEncoder(os.Stdout).Encode(struct {
 			Version  string `json:"version"`

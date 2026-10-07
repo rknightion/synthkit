@@ -21,6 +21,7 @@ loads the complete catalog.
 |---|---|---|
 | `-once` | false | Run one full cycle and exit. |
 | `-dump` | false | With `-once`: print the full series/label inventory to stdout (diff against `signals/`). |
+| `-validate` | false | Offline validation of the selected local blueprint set; print JSON cardinality projections and diagnostics, then exit non-zero on errors. |
 | `-preflight` | false | Validate and probe mandatory live Grafana endpoints, then exit with redacted lane/reason output. |
 | `-healthcheck` | false | Exit successfully only when the local control plane reports delivery readiness; used by Compose. |
 | `-version` | false | Print `{"version":"X.Y.Z","revision":"<40-hex>"}` as JSON, then exit. Local builds report `dev`/`unknown` unless stamped. |
@@ -29,6 +30,9 @@ loads the complete catalog.
 **Verification modes** (I32):
 
 ```bash
+# Validate a selected set offline (no credentials needed, no state writes).
+BLUEPRINT_NAMES=otlp-native ./synthkit -validate
+
 # Print the full inventory of distinct series names + label keys — push nothing.
 DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
 
@@ -40,6 +44,22 @@ DRY_RUN=false BLUEPRINT_NAMES=otlp-native ./synthkit -once
 ```
 
 `DRY_RUN` defaults to `true`. You must explicitly set `DRY_RUN=false` to push synthetic data to Grafana Cloud. See [Configuration](configuration.md) for the full environment variable reference, and [Credentials](credentials.md) for how the Grafana Cloud tokens are scoped.
+
+`-validate` uses `BLUEPRINTS`, `BLUEPRINT_NAMES`, `BLUEPRINT_DATA_DIR` and the source
+configuration in `CONFIG_SNAPSHOT_PATH`. It reads built-ins, namespaced uploads and already-fetched
+git snapshots; it never fetches remote sources, writes a boot manifest, changes file permissions,
+provisions Synthetic Monitoring, starts self-observability or contacts telemetry endpoints.
+This remains offline even with `DRY_RUN=false`. Empty selection validates the empty setup-mode set;
+`BLUEPRINT_NAMES=*` selects all available local blueprints. Unknown selected names, strict schema
+errors, cross-blueprint identity collisions and unavailable projections fail the command.
+
+Stdout is one JSON object with `ok`, `blueprints` and `diagnostics`. Each blueprint has `name`,
+`provenance`, `cardinality`, `estimated` and warning `diagnostics`. Set/load errors carry
+`severity`, `source`, `stage` and `detail` in the top-level diagnostics array. Cardinality is the
+number of distinct metric series observed in one throwaway dry cycle (including native OTLP
+metrics), **not** a long-term upper bound; low-volume request lanes and time-dependent families may
+vary or be absent in that cycle. `cardinality: -1` means the projection was unavailable. Runtime
+control overrides are not applied. Validation takes precedence over other mode flags.
 
 **What `-dump` output is deterministic, and what isn't.** The authoritative section of a
 `-dump` — each sink's `<name> {[sorted label/attribute keys]}` inventory block — is the
