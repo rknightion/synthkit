@@ -7,7 +7,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-08 02:19'
-updated_date: '2026-10-08 02:21'
+updated_date: '2026-10-08 08:20'
 labels: []
 dependencies: []
 priority: high
@@ -39,4 +39,6 @@ Final aggregate review found that app request correlation IDs depend only on wor
 
 <!-- SECTION:NOTES:BEGIN -->
 loop1: new follow-up implementation attempts 0; origin SKT-0106 (deterministic app inventory) consumed 2 implementation attempts, preserve its ceiling history for a direct repair instead of resetting counters. Full 10-file aggregate CodeRabbit completed with one verified major; no fix or extra review was dispatched after owner close-out. Resume in an authorized run with a design that separates deterministic inventory selection from live correlation uniqueness. Evidence /tmp/H92I-root-rescue/routine-aggregate-coderabbit.log; do not blindly add randomness to inventory selection.
+
+Owner decision: authorized as the next small repair. Keep live correlation/trace uniqueness across minter reconstruction separate from deterministic inventory selection; carry the two prior attempts from the deterministic-inventory work.
 <!-- SECTION:NOTES:END -->
