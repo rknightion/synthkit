@@ -1,11 +1,11 @@
 ---
 id: SKT-0092
 title: Add a lease-based HA mode with crash-only fencing
-status: Parked
+status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:30'
-updated_date: '2026-10-08 12:50'
+updated_date: '2026-10-08 14:44'
 labels:
   - feature
   - ha
@@ -55,6 +55,8 @@ Isolated candidate with frozen ownership; acceptance reproduction, focused check
 Authorized attempt 4/review round 4: repair retained fatal/normal terminal arbitration; deterministic failing-first exit windows and real client-go renewal-loss proof, paired dump and final gate, then independent security delta review.
 
 Authorized loop3 attempt5: reapply retained candidate, repair fatal/normal exit arbitration and build failure; failing-first seven exit-window tests, real client-go renewal loss proof, byte-identical HA-off dump, local gate and pre-land reviews. Attempt6 rescue only if attempt5 fails.
+
+Proof-and-land only: reapply exact retained candidate without code changes; historical pre-arbiter red is accepted by owner, fresh green identity and security round5 required.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
