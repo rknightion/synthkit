@@ -55,12 +55,18 @@ func TestAppMinterAgentFlowInventoryRepeatable(t *testing.T) {
 	if !reflect.DeepEqual(first, repeat) {
 		t.Error("fixed-tick minter-to-trace inventory drift")
 	}
-	if !reflect.DeepEqual(firstIDs, repeatIDs) {
-		t.Error("fixed-tick request correlations drift")
-	}
 	later, laterIDs := render(now.Add(time.Hour))
-	if !reflect.DeepEqual(first, later) || !reflect.DeepEqual(firstIDs, laterIDs) {
-		t.Error("first-tick inventory or correlation depends on wall clock")
+	if !reflect.DeepEqual(first, later) {
+		t.Error("first-tick inventory depends on wall clock")
+	}
+	for i := range firstIDs {
+		// Root span keys are trace-local deterministic choices, not live joins.
+		if firstIDs[i].SpanID != repeatIDs[i].SpanID || firstIDs[i].SpanID != laterIDs[i].SpanID {
+			t.Error("fixed-tick trace-local selection key drift")
+		}
+		if firstIDs[i].TraceID == repeatIDs[i].TraceID || firstIDs[i].TraceID == laterIDs[i].TraceID {
+			t.Error("live trace identity repeated across reconstructed minters")
+		}
 	}
 }
 

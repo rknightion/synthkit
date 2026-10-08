@@ -158,14 +158,17 @@ func (m *minter) mintOne(now time.Time, eng *shape.Engine) *ledger.Request {
 }
 
 func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requestIdx int) *ledger.Request {
-	// Match ai_agent's tick/request correlation pattern: agent/tool choices downstream
-	// hash SpanID, so crypto-random correlation would change unchanged dump inventories.
-	// Binding identity and tick/request ordinals keep live requests distinct; timestamps
-	// and traffic/incident draws retain their existing wall-clock semantics.
+	// Cross-trace join keys must be fresh even when an equivalent minter restarts.
+	// Only the root SpanID is deterministic: span identity is scoped by TraceID,
+	// and agent/tool selection (and automation planning) hashes this local key.
+	// Keeping its binding/tick/request seed preserves fixed-input inventory without
+	// making any live trace, session, request or cross-system join repeat.
 	seed := fmt.Sprintf("app\x00%s\x00%s\x00%s\x00%d\x00%d", m.workloadName, m.env, m.cluster, tick, requestIdx)
+	correlation := ledger.NewCorrelation()
+	correlation.SpanID = ledger.NewCorrelationFromSeed(seed).SpanID
 	mc := m.drawModel(eng)
 	r := &ledger.Request{
-		Correlation: ledger.NewCorrelationFromSeed(seed),
+		Correlation: correlation,
 		Workload:    m.workloadName,
 		Env:         m.env,
 		Cluster:     m.cluster,
