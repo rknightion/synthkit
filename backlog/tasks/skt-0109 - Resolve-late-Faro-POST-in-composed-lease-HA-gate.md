@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-08 15:06'
-updated_date: '2026-10-08 15:10'
+updated_date: '2026-10-08 16:34'
 labels: []
 dependencies: []
 type: bug
@@ -28,10 +28,14 @@ After integrating the reviewed lease HA candidate, composed just check failed Te
 
 <!-- SECTION:PLAN:BEGIN -->
 Read failure/source and run only targeted bounded reproduction if needed; no implementation or gate rerun until classification and authority resolved.
+
+Owner-authorized loop5 test-only direct admission/completion oracle and fake-server lifetime fix; injected late POST must fail once, race count50, full gate, high review, composed main gate.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Bounded read-only diagnosis: major test-oracle defect at internal/runner/delivery_test.go27-35,62-74; asynchronous server arrivals may increment after client worker join even when admitted before deadline. Test never revokes gate.20 targeted repetitions pass, not resolution of historical red. No runtime defect or revert justified. Attempts0 implementation; owner must authorize test-only direct admission/completion observation and fake-server lifetime synchronization, no assertion loosening. Main composed gate remains red; resume exact narrow correction and new gate only after owner consent.
+
+loop5 attempt1 completed; late-POST injection failed as required and focused runner race count50 passed, but full just check red in TestHACoordinatorRenewalLossSuppressesCleanup/sigterm (seal after exit1). Read-only diagnosis: earlier-admitted invocation resumes during test exit300ms delay; observer logs entry not successful sealing. Independent existing contract/observer discrepancy, no runtime violation established; targeted40 pass does not clear red. Faro-only owned-file retry cannot repair cause, so remaining retry unused. Candidate uncommitted in /Users/rob/repos/skh-loop5/F09. Resume after owner authorizes separate HA contract/test correction, then exact candidate gate and high review; no land.
 <!-- SECTION:NOTES:END -->
