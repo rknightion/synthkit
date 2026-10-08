@@ -1,11 +1,11 @@
 ---
 id: SKT-0092
 title: Add a lease-based HA mode with crash-only fencing
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:30'
-updated_date: '2026-10-08 12:20'
+updated_date: '2026-10-08 12:50'
 labels:
   - feature
   - ha
@@ -67,4 +67,6 @@ Final root rescue just check command exited 0, but its all-tracked before/after 
 Owner decision for the next run: one further review-repair round (round 4) is granted on the retained candidate, within implementation attempt 4. The lane may also own the sink files it asked for: internal/sink/promrw/promrw.go and its test, internal/sink/loki/loki.go and its test, internal/sink/otlp/egress.go with its egress tests, internal/sink/pyroscope/pyroscope.go and its test.
 
 loop2: implementation attempt 4 of 4 consumed; review round 4 not reached because candidate fails compilation (cmd/synthkit/ha_main.go:647 missing return), just check exit 1. Seven deterministic bounded exit-window tests reproduced retained races. No HA land, no green repaired lifecycle/dump/CodeRabbit. Failed tree 0747197737a2d19245ac465965d34711189b3650 retained in H92X worktree with exact binary patch capture. Resume only after owner authorizes further change-and-verify cycle; no ceiling reset.
+
+loop3: implementation change-and-verify attempts5 completed; final authorized rescue slot6 used read-only (no extra change-and-verify cycle); review round4 REJECT major proof provenance. Exact retained candidate already includes arbiter; historical seven runtime-red cases precede it. Compiler-only panic repair passed unchanged seven tests, actual client-go/local Lease renewal-loss cases, HA-off coordinated full-byte dump, just check and CodeRabbit0. No test weakening, no commit/land. Final Astra confirms acceptance premise incompatible. Resume only genuine identity-bound missing red evidence or owner-corrected proof contract plus authorized security review. Current candidate tree2c03f0dad824ac42676b127f91d15555b770f4be retained uncommitted; full binary patch/base and all gate/review evidence /Users/rob/repos/synthkit-hosted/codex/retained-2026-10-08-loop3/H92X-attempt5/; security evidence sibling H92XR/; no additional implementation authorized.
 <!-- SECTION:NOTES:END -->

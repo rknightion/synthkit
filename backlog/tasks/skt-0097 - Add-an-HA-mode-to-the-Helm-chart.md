@@ -4,7 +4,7 @@ title: Add an HA mode to the Helm chart
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-08 10:05'
+updated_date: '2026-10-08 12:50'
 labels:
   - feature
   - ha
@@ -42,4 +42,6 @@ Allow replicas: 2 only when lease HA and the kubernetes state backend are both e
 loop1: implementation attempts 0; dependency parked on SKT-0094 (named ConfigMap state backend) plus SKT-0092 (lease HA) and SKT-0093 (standby readiness). Resume after accepted prerequisite lands/gates. No chart or cluster changes.
 
 loop2: implementation attempts 0; dependency-held by SKT-0092 (lease HA with crash-only fencing), whose final authorized implementation attempt failed compilation and was not landed. No downstream source changes. Resume in frozen order after prerequisite accepted land and green composed gate; owner must first authorize further HA repair.
+
+loop3: implementation attempts0; dependency-held by SKT-0092 (lease HA with crash-only fencing). Attempt5 local gate and review completed, but security rejects retained-runtime-red proof provenance; final Astra rescue confirms incompatible premise, no HA land. Resume frozen order only after corrected proof contract or valid missing evidence, accepted HA land and green composed gate. No downstream source changes.
 <!-- SECTION:NOTES:END -->
