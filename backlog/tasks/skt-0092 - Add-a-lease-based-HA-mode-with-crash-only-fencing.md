@@ -1,11 +1,11 @@
 ---
 id: SKT-0092
 title: Add a lease-based HA mode with crash-only fencing
-status: Parked
+status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:30'
-updated_date: '2026-10-08 08:20'
+updated_date: '2026-10-08 09:55'
 labels:
   - feature
   - ha
@@ -51,6 +51,8 @@ Design (from an adversarial review of the queue and runner code):
 
 <!-- SECTION:PLAN:BEGIN -->
 Isolated candidate with frozen ownership; acceptance reproduction, focused checks and just check; independent review before root landing. HA seam design is independently challenged and frozen first.
+
+Authorized attempt 4/review round 4: repair retained fatal/normal terminal arbitration; deterministic failing-first exit windows and real client-go renewal-loss proof, paired dump and final gate, then independent security delta review.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

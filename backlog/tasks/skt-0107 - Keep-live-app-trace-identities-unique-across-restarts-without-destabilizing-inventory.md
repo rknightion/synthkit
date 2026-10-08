@@ -3,11 +3,11 @@ id: SKT-0107
 title: >-
   Keep live app trace identities unique across restarts without destabilizing
   inventory
-status: Parked
+status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-08 02:19'
-updated_date: '2026-10-08 08:20'
+updated_date: '2026-10-08 09:55'
 labels: []
 dependencies: []
 priority: high
@@ -34,6 +34,12 @@ Final aggregate review found that app request correlation IDs depend only on wor
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+loop2 attempt 3: reproduce repeated live identities at public minter boundary; separate correlation uniqueness from deterministic inventory selection; gate and independent review.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
