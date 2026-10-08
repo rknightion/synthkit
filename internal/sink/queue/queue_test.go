@@ -17,6 +17,43 @@ import (
 // identityShard routes by a caller-supplied key so tests can force shard placement.
 func identityShard(i int) func(int) uint64 { return func(int) uint64 { return uint64(i) } }
 
+func TestDrainRequiresPositiveSenderExit(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	exited := make(chan struct{})
+	q := New[int](Options{Shards: 1, BatchMax: 1, Capacity: 2}, func(ctx context.Context, _ []int) error {
+		close(entered)
+		<-ctx.Done()
+		<-release
+		close(exited)
+		return ctx.Err()
+	}, identityShard(0), nil)
+	q.Start()
+	_ = q.Write(context.Background(), []int{1})
+	<-entered
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if !errors.Is(q.DrainJoined(ctx), context.DeadlineExceeded) {
+		t.Fatal("drain claimed sender exit")
+	}
+	select {
+	case <-q.Done():
+		t.Fatal("abandoned sender marked done")
+	default:
+	}
+	close(release)
+	joined, stop := context.WithTimeout(context.Background(), time.Second)
+	defer stop()
+	if err := q.DrainJoined(joined); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-exited:
+	default:
+		t.Fatal("sender not joined")
+	}
+}
+
 func TestDefaultCapacityMatchesConfiguredSurface(t *testing.T) {
 	if got := (Options{}).withDefaults().Capacity; got != 500000 {
 		t.Fatalf("default capacity=%d, want 500000", got)

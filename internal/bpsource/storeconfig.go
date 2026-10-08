@@ -2,7 +2,10 @@
 
 package bpsource
 
-import "github.com/rknightion/synthkit/internal/control"
+import (
+	"context"
+	"github.com/rknightion/synthkit/internal/control"
+)
 
 // storeSourceConfig adapts a *control.Store to the SourceConfig interface, storing configured
 // git sources in control.State.BlueprintSources. bpsource may import control (composition
@@ -28,7 +31,10 @@ func (s *storeSourceConfig) Sources() []Source {
 
 // UpsertSource adds or replaces the source with matching ID in the store.
 func (s *storeSourceConfig) UpsertSource(src Source) error {
-	s.store.Update(func(st *control.State) {
+	return s.UpsertSourceContext(context.Background(), src)
+}
+func (s *storeSourceConfig) UpsertSourceContext(ctx context.Context, src Source) error {
+	_, err := s.store.UpdateContext(ctx, func(st *control.State) {
 		v := sourceToView(src)
 		for i, existing := range st.BlueprintSources {
 			if existing.ID == src.ID {
@@ -38,12 +44,18 @@ func (s *storeSourceConfig) UpsertSource(src Source) error {
 		}
 		st.BlueprintSources = append(st.BlueprintSources, v)
 	})
+	if s.store.HAEnabled() {
+		return err
+	}
 	return nil
 }
 
 // RemoveSource removes the source with the given ID from the store. No-op if not found.
 func (s *storeSourceConfig) RemoveSource(id string) error {
-	s.store.Update(func(st *control.State) {
+	return s.RemoveSourceContext(context.Background(), id)
+}
+func (s *storeSourceConfig) RemoveSourceContext(ctx context.Context, id string) error {
+	_, err := s.store.UpdateContext(ctx, func(st *control.State) {
 		filtered := st.BlueprintSources[:0]
 		for _, v := range st.BlueprintSources {
 			if v.ID != id {
@@ -56,7 +68,19 @@ func (s *storeSourceConfig) RemoveSource(id string) error {
 		}
 		st.BlueprintSources = filtered
 	})
+	if s.store.HAEnabled() {
+		return err
+	}
 	return nil
+}
+
+func upsertSourceContext(ctx context.Context, cfg SourceConfig, src Source) error {
+	if contextual, ok := cfg.(interface {
+		UpsertSourceContext(context.Context, Source) error
+	}); ok {
+		return contextual.UpsertSourceContext(ctx, src)
+	}
+	return cfg.UpsertSource(src)
 }
 
 // sourceToView maps bpsource.Source → control.SourceView field-for-field.

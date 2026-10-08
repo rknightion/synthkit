@@ -40,6 +40,7 @@ type Sink struct {
 	url      string
 	auth     string
 	hc       *http.Client
+	delivery httpretry.Delivery
 	dryRun   bool
 	highCard map[string]struct{} // keys forbidden as stream labels
 
@@ -76,10 +77,14 @@ func New(url, user, token string, dryRun bool, extraForbidden ...string) *Sink {
 		url:      url,
 		auth:     "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+token)),
 		hc:       &http.Client{Timeout: 15 * time.Second},
+		delivery: httpretry.DefaultDelivery(),
 		dryRun:   dryRun,
 		highCard: forbidden,
 	}
 }
+
+// SetDelivery installs policy before the first Write.
+func (s *Sink) SetDelivery(d httpretry.Delivery) { s.delivery = d; d.ConfigureClient(s.hc) }
 
 // Loki push JSON: {"streams":[{"stream":{...}, "values":[["<ns>","<line>",{meta}], ...]}]}
 type pushBody struct {
@@ -222,7 +227,7 @@ func (s *Sink) Write(ctx context.Context, streams []Stream) error {
 		start = time.Now()
 	}
 	var lastStatus int
-	retryErr := httpretry.EmitOncePolicy().Do(ctx, func(rctx context.Context) (int, error) {
+	retryErr := s.delivery.Policy(httpretry.EmitOncePolicy()).Do(ctx, func(rctx context.Context) (int, error) {
 		// Rebuild request per attempt — bytes.NewReader is re-readable only from the start,
 		// so create a fresh reader from the same gz slice each time.
 		req, err := http.NewRequestWithContext(rctx, http.MethodPost, s.url, bytes.NewReader(gz))
@@ -232,22 +237,18 @@ func (s *Sink) Write(ctx context.Context, streams []Stream) error {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Content-Encoding", "gzip")
 		req.Header.Set("Authorization", s.auth)
-		resp, err := s.hc.Do(req)
-		if err != nil {
-			lastStatus = 0
-			return 0, err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode/100 != 2 {
-			b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return s.delivery.Send(rctx, s.hc, req, func(resp *http.Response) (int, error) {
+			if resp.StatusCode/100 != 2 {
+				b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+				lastStatus = resp.StatusCode
+				return resp.StatusCode, fmt.Errorf("loki push: HTTP %d: %s", resp.StatusCode, b)
+			}
 			lastStatus = resp.StatusCode
-			return resp.StatusCode, fmt.Errorf("loki push: HTTP %d: %s", resp.StatusCode, b)
-		}
-		lastStatus = resp.StatusCode
-		return resp.StatusCode, nil
+			return resp.StatusCode, nil
+		})
 	})
 	s.observe(ctx, blueprint, total, len(gz), lastStatus, time.Since(start), false, retryErr)
-	return operationalerr.New(operationalerr.Classify(lastStatus, retryErr))
+	return httpretry.Preserve(retryErr, operationalerr.New(operationalerr.Classify(lastStatus, retryErr)))
 }
 
 // observe fires the self-observability hook (no-op when unset).

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
+	"github.com/rknightion/synthkit/internal/ha"
 	"gopkg.in/yaml.v3"
 )
 
@@ -121,12 +122,20 @@ func (m *Manager) scanCustom() ([]Loaded, []Diag) {
 }
 
 func (m *Manager) scanCustomWithSelection(applySelection bool) ([]Loaded, []Diag) {
-	if err := ensurePrivateDir(m.dataDir); err != nil {
-		return nil, []Diag{{"error", "custom", "secure", err.Error()}}
-	}
 	dir := filepath.Join(m.dataDir, customDir)
-	if err := secureBlueprintDir(dir); err != nil {
-		return nil, []Diag{{"error", "custom", "secure", err.Error()}}
+	if !m.readOnly {
+		if err := ensurePrivateDir(m.dataDir); err != nil {
+			return nil, []Diag{{"error", "custom", "secure", err.Error()}}
+		}
+		if err := secureBlueprintDir(dir); err != nil {
+			return nil, []Diag{{"error", "custom", "secure", err.Error()}}
+		}
+	} else {
+		for _, path := range []string{m.dataDir, dir} {
+			if err := validateReadOnlyBlueprintDir(path); err != nil {
+				return nil, []Diag{{"error", "custom", "secure", err.Error()}}
+			}
+		}
 	}
 	return m.loadDir(dir, ProvUpload, "", applySelection, func(fn string) (string, bool) {
 		ns, _, ok := parseUploadFilename(fn)
@@ -143,18 +152,30 @@ func (m *Manager) scanGitDirs() ([]Loaded, []Diag) {
 func (m *Manager) scanGitDirsWithSelection(applySelection bool) ([]Loaded, []Diag) {
 	var out []Loaded
 	var diags []Diag
-	if err := ensurePrivateDir(m.dataDir); err != nil {
-		return nil, []Diag{{"error", "git", "secure", err.Error()}}
-	}
-	if err := ensurePrivateDir(filepath.Join(m.dataDir, gitDir)); err != nil {
-		return nil, []Diag{{"error", "git", "secure", err.Error()}}
+	if !m.readOnly {
+		if err := ensurePrivateDir(m.dataDir); err != nil {
+			return nil, []Diag{{"error", "git", "secure", err.Error()}}
+		}
+		if err := ensurePrivateDir(filepath.Join(m.dataDir, gitDir)); err != nil {
+			return nil, []Diag{{"error", "git", "secure", err.Error()}}
+		}
+	} else {
+		for _, path := range []string{m.dataDir, filepath.Join(m.dataDir, gitDir)} {
+			if err := validateReadOnlyBlueprintDir(path); err != nil {
+				return nil, []Diag{{"error", "git", "secure", err.Error()}}
+			}
+		}
 	}
 	for _, s := range m.sourceSnapshot() {
 		if s.FetchedSHA == "" {
 			continue
 		}
 		dir := filepath.Join(m.dataDir, gitDir, s.ID)
-		if err := secureBlueprintDir(dir); err != nil {
+		secure := secureBlueprintDir
+		if m.readOnly {
+			secure = validateReadOnlyBlueprintDir
+		}
+		if err := secure(dir); err != nil {
 			diags = append(diags, Diag{"error", s.ID, "secure", err.Error()})
 			continue
 		}
@@ -167,6 +188,38 @@ func (m *Manager) scanGitDirsWithSelection(applySelection bool) ([]Loaded, []Dia
 	return out, diags
 }
 
+// validateReadOnlyBlueprintDir retains the writable scan's symlink/regular-file
+// admission without mkdir/chmod. Missing directories mean nothing staged.
+func validateReadOnlyBlueprintDir(dir string) error {
+	info, err := os.Lstat(dir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("staged blueprint directory must be a real directory")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) != ".yaml" {
+			continue
+		}
+		info, err := os.Lstat(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("staged YAML must be a regular file")
+		}
+	}
+	return nil
+}
+
 // Resolve is the startup entry-point: it scans the already-fetched directories, builds and
 // persists a Manifest, and returns the merged
 // Loaded set plus any diagnostics.
@@ -175,7 +228,6 @@ func (m *Manager) scanGitDirsWithSelection(applySelection bool) ([]Loaded, []Dia
 // restarting never reaches out to a newer remote revision and therefore never applies a change
 // that the operator has not fetched first.
 func (m *Manager) Resolve(ctx context.Context) ([]Loaded, Manifest, []Diag) {
-	_ = ctx // kept for the composition-root startup seam; resolving itself performs no network I/O.
 	var allLoaded []Loaded
 	var allDiags []Diag
 	m.available = map[string]struct{}{}
@@ -222,11 +274,15 @@ func (m *Manager) Resolve(ctx context.Context) ([]Loaded, Manifest, []Diag) {
 	}
 
 	// 3. Persist manifest + update boot.
-	_ = writeManifest(m.dataDir, man) // best-effort; non-fatal if disk is unhappy
+	if !m.readOnly {
+		_ = m.gate.Do(ctx, ha.Mutation, func(context.Context) error { return writeManifest(m.dataDir, man) })
+	} // legacy best-effort persistence
 	m.mu.Lock()
 	m.boot = man
 	m.mu.Unlock()
-	allDiags = append(allDiags, m.recordLoadResults(git, gd)...)
+	if !m.readOnly {
+		allDiags = append(allDiags, m.recordLoadResults(ctx, git, gd)...)
+	}
 
 	return allLoaded, man, allDiags
 }
@@ -234,7 +290,32 @@ func (m *Manager) Resolve(ctx context.Context) ([]Loaded, Manifest, []Diag) {
 // recordLoadResults persists the startup result alongside each source's fetched metadata. This
 // lets an operator distinguish "fetched but skipped" from "not fetched" after the process is
 // running, rather than inferring load success from a restart banner that has already cleared.
-func (m *Manager) recordLoadResults(loaded []Loaded, diags []Diag) []Diag {
+// CommitResolved is the acquisition-only persistence phase. The preparation
+// capability is passed through to the very same store, never replaced by a bypass gate.
+func (m *Manager) CommitResolved(ctx context.Context, man Manifest, loaded []Loaded, diags []Diag) error {
+	return m.gate.Do(ctx, ha.Mutation, func(c context.Context) error {
+		if err := c.Err(); err != nil {
+			return err
+		}
+		if err := writeManifest(m.dataDir, man); err != nil {
+			return err
+		}
+		var gitLoaded []Loaded
+		for _, l := range loaded {
+			if l.Provenance == ProvGit {
+				gitLoaded = append(gitLoaded, l)
+			}
+		}
+		for _, d := range m.recordLoadResults(c, gitLoaded, diags) {
+			if d.Severity == "error" {
+				return fmt.Errorf("source load result: %s", d.Detail)
+			}
+		}
+		return c.Err()
+	})
+}
+
+func (m *Manager) recordLoadResults(ctx context.Context, loaded []Loaded, diags []Diag) []Diag {
 	if m.cfg == nil {
 		return nil
 	}
@@ -263,7 +344,7 @@ func (m *Manager) recordLoadResults(loaded []Loaded, diags []Diag) []Diag {
 		source.Skipped = append([]string{}, skipped[source.ID]...)
 		sort.Strings(source.LoadedNames)
 		sort.Strings(source.Skipped)
-		if err := m.cfg.UpsertSource(source); err != nil {
+		if err := upsertSourceContext(ctx, m.cfg, source); err != nil {
 			persistDiags = append(persistDiags, Diag{"error", source.ID, "persist", err.Error()})
 		}
 	}

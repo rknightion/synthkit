@@ -17,6 +17,8 @@ import (
 
 	"github.com/rknightion/synthkit/internal/construct/fleetmgmt"
 	"github.com/rknightion/synthkit/internal/fleethook"
+	"github.com/rknightion/synthkit/internal/ha"
+	"github.com/rknightion/synthkit/internal/sink/httpretry"
 )
 
 // Collector is the fleet's resolved fake collector identity. It is a direct alias
@@ -49,6 +51,8 @@ type ReceiptObserver func(ctx context.Context, collector string, receipt Receipt
 
 // Config is the runtime configuration for the fleet controller.
 type Config struct {
+	Delivery httpretry.Delivery
+	Bounded  ha.Bounded
 	// FMURL is the Fleet Management API base URL,
 	// e.g. "https://fleet-management-prod-006.grafana.net".
 	FMURL string

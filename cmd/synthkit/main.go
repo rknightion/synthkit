@@ -35,6 +35,7 @@ import (
 	"github.com/rknightion/synthkit/internal/fleet"
 	"github.com/rknightion/synthkit/internal/fleethook"
 	"github.com/rknightion/synthkit/internal/fleetstatus"
+	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/healthstatus"
 	"github.com/rknightion/synthkit/internal/inventory"
 	"github.com/rknightion/synthkit/internal/jsondata"
@@ -94,6 +95,13 @@ func main() {
 	envPath := flag.String("env", ".env", "path to .env file (optional)")
 	flag.Parse()
 	if *validateCheck {
+		cfg, err := config.Load(*envPath)
+		if err != nil {
+			log.Fatalf("synthkit: %v", err)
+		}
+		if cfg.HAMode == "lease" {
+			log.Fatal("synthkit: offline validation requires HA_MODE=off")
+		}
 		if err := runValidate(*envPath, os.Stdout); err != nil {
 			log.Fatalf("synthkit: %v", err)
 		}
@@ -258,6 +266,10 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		return fmt.Errorf("control exposure: %w", err)
 	}
 
+	if cfg.HAMode == "lease" {
+		return runLeaseMode(cfg, once, dump, inventoryJSON)
+	}
+
 	// Self-profiling (Pyroscope → a SEPARATE self-obs stack). Process profiles are just another
 	// self-obs signal, so they share SELFOBS_ENABLED (no separate master switch) independently of
 	// synthetic DRY_RUN. A no-op when its
@@ -267,7 +279,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		URL:           cfg.PyroscopeURL,
 		User:          cfg.PyroscopeUser,
 		Password:      cfg.PyroscopePassword,
-		Tags:          profiling.ParseTags(cfg.PyroscopeTags),
+		Tags:          haRoleTags(profiling.ParseTags(cfg.PyroscopeTags), ha.RoleLeader),
 		MutexFraction: cfg.PyroscopeMutexFraction,
 		BlockRate:     cfg.PyroscopeBlockRate,
 		Version:       version,
@@ -478,7 +490,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		Endpoint:       cfg.SelfOTLPEndpoint,
 		User:           cfg.SelfOTLPUser,
 		Password:       cfg.SelfOTLPPassword,
-		Tags:           selfobs.ParseTags(cfg.SelfObsTags),
+		Tags:           haRoleTags(selfobs.ParseTags(cfg.SelfObsTags), ha.RoleLeader),
 		Version:        version,
 		MetricInterval: cfg.SelfObsMetricInterval,
 		DryRun:         cfg.DryRun, // stamped as the synthetic run mode; self-obs still exports

@@ -6,6 +6,9 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/rknightion/synthkit/internal/ha"
+	"github.com/rknightion/synthkit/internal/sink/httpretry"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -25,6 +28,29 @@ import (
 // TestHighCardAssertion proves the sink rejects a UUID-class key used as a stream label.
 // This is the guard that stops an emitter bug from exploding stream cardinality on a
 // production-shaped stack. Runs in dry-run so nothing is pushed.
+func TestHAAttemptRedirectAndFenceIdentity(t *testing.T) {
+	var redirects atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { redirects.Add(1); w.WriteHeader(200) }))
+	defer target.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, 307) }))
+	defer source.Close()
+	g := ha.NewGate()
+	_ = g.Activate(context.Background(), func(context.Context) error { return nil })
+	s := New(source.URL, "user", "token", false)
+	s.SetDelivery(httpretry.Delivery{Gate: g, HTTPTimeout: time.Second, RetryMaxElapsed: time.Millisecond})
+	batch := []Stream{{Labels: map[string]string{"job": "test"}, Lines: []Line{{T: time.Now(), Body: "synthetic"}}}}
+	if err := s.Write(context.Background(), batch); err == nil {
+		t.Fatal("redirect acknowledged as delivery")
+	}
+	if redirects.Load() != 0 {
+		t.Fatal("ungated redirect followed")
+	}
+	g.Revoke()
+	if err := s.Write(context.Background(), batch); !errors.Is(err, ha.ErrNotLeader) {
+		t.Fatal("terminal fence identity lost", err)
+	}
+}
+
 func TestHighCardAssertion(t *testing.T) {
 	s := New("http://example/loki/api/v1/push", "u", "tok", true)
 

@@ -30,10 +30,11 @@ import (
 
 // Sink pushes synthetic pprof profiles to a Pyroscope push.v1 endpoint.
 type Sink struct {
-	url    string
-	auth   string
-	hc     *http.Client
-	dryRun bool
+	url      string
+	auth     string
+	hc       *http.Client
+	delivery httpretry.Delivery
+	dryRun   bool
 
 	// Observe, when non-nil, is called once per push with the outcome
 	// (self-observability seam, set only by package main when enabled).
@@ -51,15 +52,19 @@ type Sink struct {
 // dryRun=true records an inventory without hitting the network.
 func New(url, user, password string, dryRun bool) *Sink {
 	return &Sink{
-		url:    url,
-		hc:     &http.Client{Timeout: 15 * time.Second},
-		auth:   "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password)),
-		dryRun: dryRun,
+		url:      url,
+		hc:       &http.Client{Timeout: 15 * time.Second},
+		delivery: httpretry.DefaultDelivery(),
+		auth:     "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password)),
+		dryRun:   dryRun,
 	}
 }
 
 // Write pushes a batch of Series to the Pyroscope push.v1 endpoint.
 // In dry-run mode it records an inventory and fires the observer without network I/O.
+// SetDelivery installs policy before the first Write.
+func (s *Sink) SetDelivery(d httpretry.Delivery) { s.delivery = d; d.ConfigureClient(s.hc) }
+
 func (s *Sink) Write(ctx context.Context, batch []Series) error {
 	if len(batch) == 0 {
 		return nil
@@ -82,7 +87,7 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 		start = time.Now()
 	}
 	var lastStatus int
-	retryErr := httpretry.EmitOncePolicy().Do(ctx, func(rctx context.Context) (int, error) {
+	retryErr := s.delivery.Policy(httpretry.EmitOncePolicy()).Do(ctx, func(rctx context.Context) (int, error) {
 		httpReq, rerr := http.NewRequestWithContext(rctx, http.MethodPost, endpoint, bytes.NewReader(raw))
 		if rerr != nil {
 			return 0, rerr
@@ -92,22 +97,18 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 		httpReq.Header.Set("Connect-Protocol-Version", "1")
 		// NOTE: do NOT set Content-Encoding — the body is raw (uncompressed) proto.
 		// NOTE: do NOT set X-Scope-OrgID — Grafana Cloud resolves tenant from basic auth.
-		resp, derr := s.hc.Do(httpReq)
-		if derr != nil {
-			lastStatus = 0
-			return 0, derr
-		}
-		defer resp.Body.Close()
-		_, _ = io.Copy(io.Discard, resp.Body)
-		lastStatus = resp.StatusCode
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return resp.StatusCode, nil
-		}
-		return resp.StatusCode, fmt.Errorf("pyroscope: push status %d", resp.StatusCode)
+		return s.delivery.Send(rctx, s.hc, httpReq, func(resp *http.Response) (int, error) {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			lastStatus = resp.StatusCode
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return resp.StatusCode, nil
+			}
+			return resp.StatusCode, fmt.Errorf("pyroscope: push status %d", resp.StatusCode)
+		})
 	})
 	s.observe(ctx, batch, lastStatus, len(raw), time.Since(start), false, retryErr)
 	if retryErr != nil {
-		return operationalerr.New(operationalerr.Classify(lastStatus, retryErr))
+		return httpretry.Preserve(retryErr, operationalerr.New(operationalerr.Classify(lastStatus, retryErr)))
 	}
 	return nil
 }

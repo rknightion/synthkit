@@ -16,6 +16,66 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// TestHAStateClientIsolation includes tests: Kubernetes is confined to exact
+// adapters, while the frozen gate remains stdlib-only and the catalog pure.
+func TestHAStateClientIsolation(t *testing.T) {
+	root := repoRoot(t)
+	module := "github.com/rknightion/synthkit/"
+	if _, err := os.Stat(filepath.Join(root, "internal", "persist")); err == nil {
+		t.Fatal("unauthorized persistence package")
+	}
+	for _, file := range goFilesUnder(t, filepath.Join(root, "cmd"), filepath.Join(root, "internal")) {
+		rel, err := filepath.Rel(root, file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rel = filepath.ToSlash(rel)
+		parsed, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		kubeAdapter := strings.HasPrefix(rel, "internal/ha/kubernetes/")
+		stateAdapter := rel == "internal/control/backend_kubernetes.go" || rel == "internal/control/backend_kubernetes_test.go"
+		gateRoot := strings.HasPrefix(rel, "internal/ha/") && !kubeAdapter
+		seam := rel == "internal/control/backend.go"
+		catalog := false
+		for _, p := range []string{"construct", "workload", "core", "fixture", "shape", "ledger", "state"} {
+			catalog = catalog || strings.HasPrefix(rel, "internal/"+p+"/")
+		}
+		consumer := strings.HasPrefix(rel, "internal/runner/") || strings.HasPrefix(rel, "internal/sink/") || strings.HasPrefix(rel, "internal/fleet/")
+		for _, im := range parsed.Imports {
+			path := strings.Trim(im.Path.Value, "\"")
+			first := strings.Split(path, "/")[0]
+			stdlib := !strings.Contains(first, ".")
+			if strings.HasPrefix(path, "k8s.io/") && !kubeAdapter && !stateAdapter {
+				t.Errorf("%s: Kubernetes import outside exact adapters: %s", rel, path)
+			}
+			if gateRoot && !stdlib {
+				t.Errorf("%s: gate root is stdlib-only: %s", rel, path)
+			}
+			if seam && !stdlib && path != module+"internal/ha" {
+				t.Errorf("%s: backend seam import: %s", rel, path)
+			}
+			if consumer && strings.HasPrefix(path, module+"internal/ha/") {
+				t.Errorf("%s: consumer imported HA adapter: %s", rel, path)
+			}
+			if catalog && (path == module+"internal/ha" || strings.HasPrefix(path, module+"internal/ha/") || strings.HasPrefix(path, "k8s.io/") || strings.HasPrefix(path, module+"internal/control")) {
+				t.Errorf("%s: catalog depends on HA/state delivery: %s", rel, path)
+			}
+			if kubeAdapter || strings.HasPrefix(rel, "internal/control/backend_") {
+				for _, p := range []string{"control", "runner", "construct", "workload", "blueprint", "bpsource", "selfobs", "profiling"} {
+					if strings.HasPrefix(path, module+"internal/"+p) && (kubeAdapter || p != "control") {
+						t.Errorf("%s: adapter imports consumer/catalog: %s", rel, path)
+					}
+				}
+				if strings.HasPrefix(path, "go.opentelemetry.io/otel") {
+					t.Errorf("%s: HA/state adapter imports SDK", rel)
+				}
+			}
+		}
+	}
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	wd, err := os.Getwd()

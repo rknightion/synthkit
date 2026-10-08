@@ -78,11 +78,15 @@ type Queue[T any] struct {
 	flushReq []chan chan error // per-shard synchronous-flush barrier (used by Flush)
 	pending  int64             // atomic: enqueued-but-not-yet-flushed, for Depth()
 
-	startOnce sync.Once
-	stopOnce  sync.Once
-	stop      chan struct{}
-	wg        sync.WaitGroup
-	sequence  uint64
+	startOnce  sync.Once
+	started    atomic.Bool
+	stopOnce   sync.Once
+	stop       chan struct{}
+	wg         sync.WaitGroup
+	sequence   uint64
+	done       chan struct{}
+	sendCtx    context.Context
+	sendCancel context.CancelFunc
 
 	logMu   sync.Mutex
 	lastLog time.Time
@@ -92,7 +96,7 @@ type Queue[T any] struct {
 // routing key (same identity → same ordered sender). obs may be nil.
 func New[T any](opts Options, flush func(context.Context, []T) error, shard func(T) uint64, obs Observer) *Queue[T] {
 	opts = opts.withDefaults()
-	q := &Queue[T]{opts: opts, flush: flush, shard: shard, obs: obs, stop: make(chan struct{})}
+	q := &Queue[T]{opts: opts, flush: flush, shard: shard, obs: obs, stop: make(chan struct{}), done: make(chan struct{})}
 	perShard := opts.Capacity / opts.Shards
 	if perShard < 1 {
 		perShard = 1
@@ -110,6 +114,14 @@ func New[T any](opts Options, flush func(context.Context, []T) error, shard func
 // capacity (backpressure). Satisfies core.{Metric,Log,Trace,Pyroscope}Writer.
 func (q *Queue[T]) Write(ctx context.Context, batch []T) error {
 	for _, item := range batch {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		select {
+		case <-q.stop:
+			return context.Canceled
+		default:
+		}
 		ch := q.chans[int(q.shard(item)%uint64(q.opts.Shards))]
 		// Increment BEFORE the send so a sender can never decrement (on flush) an item the
 		// producer hasn't counted yet — Depth() would otherwise transiently read negative.
@@ -159,12 +171,18 @@ func (q *Queue[T]) warnFull(blocked time.Duration) {
 }
 
 // Start launches the sender goroutines once (idempotent).
-func (q *Queue[T]) Start() {
+func (q *Queue[T]) Start() { q.StartContext(context.Background()) }
+
+// StartContext binds delivery, independently of producer cancellation. Set once before use.
+func (q *Queue[T]) StartContext(ctx context.Context) {
 	q.startOnce.Do(func() {
+		q.started.Store(true)
+		q.sendCtx, q.sendCancel = context.WithCancel(ctx)
 		for i := range q.chans {
 			q.wg.Add(1)
 			go func(shard int) { defer q.wg.Done(); q.sender(shard) }(i)
 		}
+		go func() { q.wg.Wait(); close(q.done) }()
 	})
 }
 
@@ -244,7 +262,7 @@ func (q *Queue[T]) flushPending(shard int, pending *[]T) error {
 		if end > len(items) {
 			end = len(items)
 		}
-		if err := q.flush(context.Background(), items[start:end]); err != nil {
+		if err := q.flush(q.sendCtx, items[start:end]); err != nil {
 			code := operationalerr.CodeOf(err)
 			if firstCode == operationalerr.CodeNone {
 				firstCode = code
@@ -272,13 +290,35 @@ func (q *Queue[T]) flushPending(shard int, pending *[]T) error {
 
 // Drain stops the senders after flushing pending items, bounded by ctx. Idempotent.
 func (q *Queue[T]) Drain(ctx context.Context) {
+	// Preserve the legacy wait-only non-HA API. HA uses DrainJoined explicitly.
 	q.stopOnce.Do(func() { close(q.stop) })
-	done := make(chan struct{})
-	go func() { q.wg.Wait(); close(done) }()
+	if !q.started.Load() {
+		return
+	}
 	select {
-	case <-done:
+	case <-q.done:
 	case <-ctx.Done():
 		log.Printf("queue: %s sink drain exceeded deadline", q.opts.Sink)
+	}
+}
+
+// Done closes only after the real sender functions have exited.
+func (q *Queue[T]) Done() <-chan struct{} { return q.done }
+
+// DrainJoined never treats a timed-out wait as completion. The caller must crash
+// without release if its global shutdown deadline expires.
+func (q *Queue[T]) DrainJoined(ctx context.Context) error {
+	q.Start()
+	q.stopOnce.Do(func() { close(q.stop) })
+	stop := context.AfterFunc(ctx, q.sendCancel)
+	defer stop()
+	select {
+	case <-q.done:
+		q.sendCancel()
+		return nil
+	case <-ctx.Done():
+		q.sendCancel()
+		return ctx.Err()
 	}
 }
 

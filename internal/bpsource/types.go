@@ -8,6 +8,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/blueprint"
 	"github.com/rknightion/synthkit/internal/core"
+	"github.com/rknightion/synthkit/internal/ha"
 )
 
 // Provenance tags where a blueprint came from (for the UI badge + pending-diff).
@@ -104,6 +105,8 @@ type ValidationResult struct {
 
 // Options configures a Manager at construction time.
 type Options struct {
+	Gate           ha.LeaderGate
+	ReadOnly       bool                    // scanning never mkdirs/chmods; writes are a distinct gated commit
 	BakedDir       string                  // cfg.BlueprintsDir (built-ins)
 	BlueprintNames []string                // exact-name allowlist; empty selects none, "*" selects every available blueprint
 	DataDir        string                  // <volume>/blueprints (custom + git + manifest)
@@ -121,6 +124,8 @@ type Options struct {
 // the /control/blueprints/pending GET must do NO inline git I/O (the UI polls it every 5s on an
 // unguarded route; an inline HeadSHA-per-source would be a rate-limit/DoS/latency footgun).
 type Manager struct {
+	gate       ha.LeaderGate
+	readOnly   bool
 	bakedDir   string
 	dataDir    string
 	reg        *core.Registry

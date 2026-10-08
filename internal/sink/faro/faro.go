@@ -184,9 +184,10 @@ const maxConcurrentPOSTs = 8
 
 // Sink POSTs Faro beacons to <collector>/<appKey>.
 type Sink struct {
-	url    string // full collect URL incl. appKey: <collector>/<appKey>
-	hc     *http.Client
-	dryRun bool
+	url      string // full collect URL incl. appKey: <collector>/<appKey>
+	hc       *http.Client
+	delivery httpretry.Delivery
+	dryRun   bool
 
 	// Observe, when non-nil, is called ONCE per Write (a batch of beacons) with the aggregate
 	// outcome (self-observability seam, set only by package main when enabled). nil ⇒ the push
@@ -210,11 +211,15 @@ func New(collector, appKey string, dryRun bool) *Sink {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.IdleConnTimeout = 20 * time.Second
 	return &Sink{
-		url:    url,
-		hc:     &http.Client{Timeout: 15 * time.Second, Transport: tr},
-		dryRun: dryRun,
+		url:      url,
+		hc:       &http.Client{Timeout: 15 * time.Second, Transport: tr},
+		delivery: httpretry.DefaultDelivery(),
+		dryRun:   dryRun,
 	}
 }
+
+// SetDelivery installs HA policy before use.
+func (s *Sink) SetDelivery(d httpretry.Delivery) { s.delivery = d; d.ConfigureClient(s.hc) }
 
 // URL returns the full collect endpoint (collector + appKey) — exported for logging.
 func (s *Sink) URL() string { return s.url }
@@ -252,7 +257,9 @@ func (s *Sink) Write(ctx context.Context, payloads []Payload) error {
 	var mu sync.Mutex
 	var firstErr error
 	posted := 0
+	confirmed := 0
 
+dispatch:
 	for i := range payloads {
 		p := payloads[i]
 		if len(p.Measurements) == 0 && len(p.Events) == 0 && len(p.Exceptions) == 0 {
@@ -264,28 +271,49 @@ func (s *Sink) Write(ctx context.Context, payloads []Payload) error {
 			log.Printf("[faro] skipping beacon with empty session id (app=%s) — would 400 at collector", p.Meta.App.Name)
 			continue
 		}
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			break dispatch
+		}
+		if ctx.Err() != nil {
+			<-sem
+			break dispatch
+		}
 		posted++
 		wg.Add(1)
-		sem <- struct{}{}
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			if err := s.post(ctx, p); err != nil {
-				mu.Lock()
+			err := s.post(ctx, p)
+			mu.Lock()
+			if err != nil {
 				if firstErr == nil {
 					firstErr = err
 				}
-				mu.Unlock()
+			} else {
+				confirmed++
 			}
+			mu.Unlock()
 		}()
 	}
 	wg.Wait()
+	if firstErr == nil && ctx.Err() != nil {
+		firstErr = ctx.Err()
+	}
 	status := 200
 	if firstErr != nil {
 		status = 0
 	}
-	s.observe(ctx, posted, status, time.Since(start), false, firstErr)
-	return operationalerr.New(operationalerr.CodeOf(firstErr))
+	// HA reports only positively acknowledged beacons on a partial write, never
+	// credits unscheduled/cancelled workers as delivered. Legacy observation stays
+	// unchanged when the HA policy is absent.
+	items := posted
+	if s.delivery.HTTPTimeout > 0 {
+		items = confirmed
+	}
+	s.observe(ctx, items, status, time.Since(start), false, firstErr)
+	return httpretry.Preserve(firstErr, operationalerr.New(operationalerr.CodeOf(firstErr)))
 }
 
 // observe fires the self-observability hook (no-op when unset). Faro carries no blueprint
@@ -329,7 +357,7 @@ func (s *Sink) post(ctx context.Context, p Payload) error {
 		return fmt.Errorf("faro gzip: %w", err)
 	}
 	var lastStatus int
-	err = httpretry.EmitOncePolicy().Do(ctx, func(rctx context.Context) (int, error) {
+	err = s.delivery.Policy(httpretry.EmitOncePolicy()).Do(ctx, func(rctx context.Context) (int, error) {
 		// Fresh request per attempt — bytes.NewReader rewinds from the gz slice each time.
 		req, err := http.NewRequestWithContext(rctx, http.MethodPost, s.url, bytes.NewReader(gz))
 		if err != nil {
@@ -342,22 +370,18 @@ func (s *Sink) post(ctx context.Context, p Payload) error {
 		if p.Meta.Session.ID != "" {
 			req.Header.Set("X-Faro-Session-Id", p.Meta.Session.ID)
 		}
-		resp, err := s.hc.Do(req)
-		if err != nil {
-			// Transport-level failure (EOF on a reused keep-alive conn, reset, timeout). EmitOncePolicy
-			// treats status=0 as retryable — it will retry within the budget.
-			return 0, fmt.Errorf("faro post: %w", err)
-		}
-		lastStatus = resp.StatusCode
-		// Got a real HTTP response — drain+close for keep-alive reuse.
-		if resp.StatusCode/100 != 2 {
-			msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return s.delivery.Send(rctx, s.hc, req, func(resp *http.Response) (int, error) {
+			lastStatus = resp.StatusCode
+			// Got a real HTTP response — drain+close for keep-alive reuse.
+			if resp.StatusCode/100 != 2 {
+				msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+				resp.Body.Close()
+				return resp.StatusCode, fmt.Errorf("faro post: status %d: %s", resp.StatusCode, strings.TrimSpace(string(msg)))
+			}
+			io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
 			resp.Body.Close()
-			return resp.StatusCode, fmt.Errorf("faro post: status %d: %s", resp.StatusCode, strings.TrimSpace(string(msg)))
-		}
-		io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
-		resp.Body.Close()
-		return resp.StatusCode, nil
+			return resp.StatusCode, nil
+		})
 	})
-	return operationalerr.New(operationalerr.Classify(lastStatus, err))
+	return httpretry.Preserve(err, operationalerr.New(operationalerr.Classify(lastStatus, err)))
 }

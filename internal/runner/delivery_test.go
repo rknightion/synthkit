@@ -4,7 +4,15 @@ package runner
 
 import (
 	"context"
+	"github.com/rknightion/synthkit/internal/ha"
+	"github.com/rknightion/synthkit/internal/pushhook"
+	nativesigil "github.com/rknightion/synthkit/internal/sigil"
+	"github.com/rknightion/synthkit/internal/sink/httpretry"
+	sigilsink "github.com/rknightion/synthkit/internal/sink/sigil"
+	"net/http"
+	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,6 +21,111 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 	"github.com/rknightion/synthkit/internal/sink/queue"
 )
+
+func TestHAActualFaro5000WholeWrite(t *testing.T) {
+	var posts, active, cancelled atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		posts.Add(1)
+		active.Add(1)
+		defer active.Add(-1)
+		select {
+		case <-time.After(4 * time.Millisecond):
+			w.WriteHeader(202)
+		case <-r.Context().Done():
+			cancelled.Add(1)
+		}
+	}))
+	defer srv.Close()
+	g := ha.NewGate()
+	_ = g.Activate(context.Background(), func(context.Context) error { return nil })
+	sink := faro.New(srv.URL, "key", false)
+	var observation pushhook.Event
+	sink.Observe = func(_ context.Context, event pushhook.Event) { observation = event }
+	sink.SetDelivery(httpretry.Delivery{Gate: g, HTTPTimeout: time.Second, RetryMaxElapsed: 10 * time.Millisecond})
+	r := New(Sinks{RUM: sink}, nil, Options{Gate: g, Delivery: ha.Bounded{Timeout: 80 * time.Millisecond, Margin: 200 * time.Millisecond, Crash: func() { t.Error("workers failed to join") }}, SendShards: 1, SendBatchMax: 5000, SendCapacity: 5000, SendDeadline: time.Hour})
+	payloads := make([]faro.Payload, 5000)
+	for i := range payloads {
+		payloads[i] = faro.Payload{Meta: faro.Meta{Session: faro.Session{ID: "session"}}, Measurements: []faro.Measurement{{Type: "web-vitals", Values: map[string]float64{"lcp": 100}}}}
+	}
+	if err := r.queues.RUM.Write(context.Background(), payloads); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	if err := r.Flush(context.Background()); err == nil {
+		t.Fatal("5000-beacon fanout escaped outer deadline")
+	}
+	if time.Since(start) > 350*time.Millisecond {
+		t.Fatal("whole write deadline restarted across waves")
+	}
+	joined, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := r.JoinQueues(joined); err != nil {
+		t.Fatal(err)
+	}
+	n := posts.Load()
+	if n <= 0 || n >= 5000 {
+		t.Fatalf("actual fanout not partial: %d", n)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if posts.Load() != n || active.Load() != 0 {
+		t.Fatalf("late POSTs/workers: before=%d after=%d active=%d", n, posts.Load(), active.Load())
+	}
+	if observation.Items <= 0 || observation.Items > int(n) || observation.ErrorCode == "" {
+		t.Fatalf("partial Faro outcome not truthful: observed=%+v HTTP=%d", observation, n)
+	}
+	t.Logf("5000 real beacons; posted=%d confirmed=%d cancelled=%d; joined without later POSTs", n, observation.Items, cancelled.Load())
+}
+
+func TestHAActualSigilThreeStagesShareDeadline(t *testing.T) {
+	var mu sync.Mutex
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths = append(paths, r.URL.Path)
+		mu.Unlock()
+		select {
+		case <-time.After(70 * time.Millisecond):
+			w.WriteHeader(202)
+			_, _ = w.Write([]byte(`{"results":[{"score_id":"score","accepted":true,"status":"accepted"}],"accepted":1,"duplicates":0,"rejected":0}`))
+		case <-r.Context().Done():
+		}
+	}))
+	defer srv.Close()
+	g := ha.NewGate()
+	_ = g.Activate(context.Background(), func(context.Context) error { return nil })
+	sink, err := sigilsink.New(srv.URL, "user", "token", false)
+	var observation pushhook.Event
+	if err != nil {
+		t.Fatal(err)
+	}
+	sink.SetDelivery(httpretry.Delivery{Gate: g, HTTPTimeout: time.Second, RetryMaxElapsed: 10 * time.Millisecond})
+	sink.Observe = func(_ context.Context, event pushhook.Event) { observation = event }
+	r := New(Sinks{Sigil: sink}, nil, Options{Gate: g, Delivery: ha.Bounded{Timeout: 100 * time.Millisecond, Margin: 100 * time.Millisecond, Crash: func() { t.Error("stage did not join") }}, SendShards: 1, SendDeadline: time.Hour})
+	value := 1.0
+	batch := []nativesigil.Export{{Generations: []nativesigil.Generation{{ID: "generation", OperationName: "generateText"}}, WorkflowSteps: []nativesigil.WorkflowStep{{ID: "step", StepName: "route"}}, Scores: []nativesigil.Score{{ScoreID: "score", GenerationID: "generation", Number: &value}}}}
+	_ = r.queues.Sigil.Write(context.Background(), batch)
+	start := time.Now()
+	if err := r.Flush(context.Background()); err == nil {
+		t.Fatal("three-stage write escaped absolute deadline")
+	}
+	if time.Since(start) > 220*time.Millisecond {
+		t.Fatal("deadline reset between stages")
+	}
+	joined, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := r.JoinQueues(joined); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(30 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	if observation.Items != 1 || observation.ErrorCode == "" {
+		t.Fatalf("partial Sigil delivery not truthful: %+v", observation)
+	}
+	if len(paths) != 2 || paths[0] != "/api/v1/generations:export" || paths[1] != "/api/v1/workflow-steps:export" {
+		t.Fatalf("cancelled write launched later stage or omitted real stages: %v", paths)
+	}
+}
 
 func TestShardSeriesStableAndLabelOrderIndependent(t *testing.T) {
 	a := promrw.Series{Name: "m", Labels: map[string]string{"x": "1", "y": "2"}}

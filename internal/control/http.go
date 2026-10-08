@@ -4,9 +4,12 @@ package control
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"github.com/rknightion/synthkit/internal/ha"
 	"log"
 	"net/http"
 	"strconv"
@@ -34,10 +37,70 @@ type Handler struct {
 	diag     *Diagnostics
 	onChange func(State) // optional self-obs audit hook; called after every successful mutation
 	bpadmin  BlueprintAdmin
+	gate     ha.LeaderGate
+	bounded  ha.Bounded
+	haMode   bool
+	serial   chan struct{}
 }
 
 // ServeHTTP dispatches to the assembled router.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
+
+// SetHA installs the same gate as file persistence, before serving any request.
+func (h *Handler) SetHA(gate ha.LeaderGate, bounded ha.Bounded) *Handler {
+	if gate == nil {
+		panic("control: nil HA gate")
+	}
+	h.gate = gate
+	h.bounded = bounded
+	h.bounded.Gate = gate
+	h.haMode = true
+	return h
+}
+
+// mutationProgress retains the single HTTP outcome and exposes the real socket
+// to ResponseController through middleware. A timed-out operation cannot emit a
+// fresh successful body or append a second not-leader response.
+type mutationProgress struct {
+	http.ResponseWriter
+	ctx     context.Context
+	written bool
+}
+
+func (w *mutationProgress) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+func (w *mutationProgress) WriteHeader(code int) {
+	if w.written {
+		return
+	}
+	w.written = true
+	w.ResponseWriter.WriteHeader(code)
+}
+func (w *mutationProgress) Write(body []byte) (int, error) {
+	if !w.written && w.ctx != nil && w.ctx.Err() != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, err := w.ResponseWriter.Write([]byte(`{"code":"state_operation_timeout"}`))
+		return len(body), err
+	}
+	if !w.written {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+func mutationError(w http.ResponseWriter, err error) bool {
+	if err == nil {
+		return false
+	}
+	code := "state_persist_failed"
+	if errors.Is(err, ha.ErrNotLeader) {
+		code = "not_leader"
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	writeJSON(w, map[string]string{"code": code})
+	return true
+}
 
 // SetStatus attaches the runtime status source feeding GET /control/status. Chained so
 // main.go can write NewHandler(...).SetStatus(...). Returns h.
@@ -123,7 +186,15 @@ type StatusSources struct {
 // POST /control/constructs · POST /control/kinds · POST /control/reset.
 // GETs are strictly side-effect-free (I26).
 func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSource) *Handler {
-	h := &Handler{store: store}
+	h := &Handler{store: store, gate: ha.AlwaysLeader{}, serial: make(chan struct{}, 1)}
+	h.serial <- struct{}{}
+	update := func(w http.ResponseWriter, r *http.Request, fn func(*State)) (State, bool) {
+		if !h.haMode {
+			return store.Update(fn), true
+		}
+		out, err := store.UpdateContext(r.Context(), fn)
+		return out, !mutationError(w, err)
+	}
 	var schemaSrc SchemaSource
 	if len(src) > 0 {
 		schemaSrc = src[0]
@@ -280,7 +351,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		out := store.Update(func(s *State) { s.VolumeMultiplier = next.VolumeMultiplier })
+		out, ok := update(w, r, func(s *State) { s.VolumeMultiplier = next.VolumeMultiplier })
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -321,11 +395,14 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 				}
 			}
 		}
-		out := store.Update(func(s *State) {
+		out, ok := update(w, r, func(s *State) {
 			for mode, f := range body {
 				s.SetFailure(mode, f)
 			}
 		})
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -352,9 +429,12 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		out := store.Update(func(s *State) {
+		out, ok := update(w, r, func(s *State) {
 			s.ActiveScenarios = append([]string{}, *body.ActiveScenarios...)
 		})
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -382,7 +462,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			out := store.SetScenarioActive(body.Scenario, active)
+			out, ok := update(w, r, func(s *State) { s.ActiveScenarios = setMember(s.ActiveScenarios, body.Scenario, active) })
+			if !ok {
+				return
+			}
 			apply(out)
 			writeJSON(w, out)
 		})
@@ -421,9 +504,12 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			return
 		}
 		ri.ID = "rt-" + strconv.FormatInt(time.Now().UnixNano(), 36)
-		out := store.Update(func(s *State) {
+		out, ok := update(w, r, func(s *State) {
 			s.RuntimeIncidents = append(s.RuntimeIncidents, ri)
 		})
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -442,7 +528,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			http.Error(w, "unknown runtime incident "+id, http.StatusNotFound)
 			return
 		}
-		out := store.Update(func(s *State) {
+		out, ok := update(w, r, func(s *State) {
 			kept := s.RuntimeIncidents[:0]
 			for _, ri := range s.RuntimeIncidents {
 				if ri.ID != id {
@@ -451,6 +537,9 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			}
 			s.RuntimeIncidents = append([]RuntimeIncident{}, kept...)
 		})
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -479,7 +568,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		out := store.Update(func(s *State) {
+		out, ok := update(w, r, func(s *State) {
 			if s.Scaling == nil {
 				s.Scaling = map[string]int{}
 			}
@@ -487,6 +576,9 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 				s.Scaling[k] = v
 			}
 		})
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -499,11 +591,14 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		if !decodeStrict(w, r, &body) {
 			return
 		}
-		out := store.Update(func(s *State) {
+		out, ok := update(w, r, func(s *State) {
 			if body.DisabledBlueprints != nil {
 				s.DisabledBlueprints = *body.DisabledBlueprints
 			}
 		})
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -523,7 +618,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 				http.Error(w, "missing blueprint", http.StatusBadRequest)
 				return
 			}
-			out := store.SetBlueprintDisabled(body.Blueprint, disabled)
+			out, ok := update(w, r, func(s *State) { s.DisabledBlueprints = setMember(s.DisabledBlueprints, body.Blueprint, disabled) })
+			if !ok {
+				return
+			}
 			apply(out)
 			writeJSON(w, out)
 		})
@@ -541,11 +639,14 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		if !decodeStrict(w, r, &body) {
 			return
 		}
-		out := store.Update(func(s *State) {
+		out, ok := update(w, r, func(s *State) {
 			if body.SpanMetricsBlueprints != nil {
 				s.SpanMetricsBlueprints = *body.SpanMetricsBlueprints
 			}
 		})
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -570,9 +671,12 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		out := store.Update(func(s *State) {
+		out, ok := update(w, r, func(s *State) {
 			s.DisabledConstructs = append([]string{}, *body.DisabledConstructs...)
 		})
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -597,9 +701,12 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		out := store.Update(func(s *State) {
+		out, ok := update(w, r, func(s *State) {
 			s.DisabledKinds = append([]string{}, *body.DisabledKinds...)
 		})
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -620,7 +727,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	})
 
 	mux.HandleFunc("POST /control/reset", guard(func(w http.ResponseWriter, r *http.Request) {
-		out := store.Reset()
+		out, ok := update(w, r, func(s *State) { *s = DefaultState() })
+		if !ok {
+			return
+		}
 		apply(out)
 		writeJSON(w, out)
 	}))
@@ -729,7 +839,17 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		if !decodeStrict(w, r, &sv) {
 			return
 		}
-		if err := h.bpadmin.UpsertSource(sv); err != nil {
+		upsert := func() error { return h.bpadmin.UpsertSource(sv) }
+		if contextual, ok := h.bpadmin.(interface {
+			UpsertSourceContext(context.Context, SourceView) error
+		}); ok {
+			upsert = func() error { return contextual.UpsertSourceContext(r.Context(), sv) }
+		}
+		if err := upsert(); err != nil {
+			if errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				mutationError(w, err)
+				return
+			}
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -744,7 +864,17 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			return
 		}
 		id := r.URL.Query().Get("id")
-		if err := h.bpadmin.RemoveSource(id); err != nil {
+		remove := func() error { return h.bpadmin.RemoveSource(id) }
+		if contextual, ok := h.bpadmin.(interface {
+			RemoveSourceContext(context.Context, string) error
+		}); ok {
+			remove = func() error { return contextual.RemoveSourceContext(r.Context(), id) }
+		}
+		if err := remove(); err != nil {
+			if errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				mutationError(w, err)
+				return
+			}
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -759,14 +889,63 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			return
 		}
 		id := r.URL.Query().Get("id")
-		if err := h.bpadmin.FetchNow(id); err != nil {
+		fetch := func() error { return h.bpadmin.FetchNow(id) }
+		if contextual, ok := h.bpadmin.(interface {
+			FetchNowContext(context.Context, string) error
+		}); ok {
+			fetch = func() error { return contextual.FetchNowContext(r.Context(), id) }
+		}
+		if err := fetch(); err != nil {
+			if errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				mutationError(w, err)
+				return
+			}
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
 		writeJSON(w, map[string]string{"status": "fetched"})
 	}))
 
-	h.mux = corsEcho(protectControlReads(token, mux))
+	admission := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !h.haMode || r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		RequireToken(token, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			progress := &mutationProgress{ResponseWriter: w}
+			err := h.bounded.Run(r.Context(), ha.Mutation, func(ctx context.Context) error {
+				progress.ctx = ctx
+				// Body reads stay INSIDE admission. Bind the real connection to
+				// the same absolute deadline so a slow body cannot strand the
+				// function until the server's unrelated 15s ReadTimeout.
+				if deadline, ok := ctx.Deadline(); ok {
+					controller := http.NewResponseController(progress)
+					for _, setDeadline := range []func(time.Time) error{controller.SetReadDeadline, controller.SetWriteDeadline} {
+						if err := setDeadline(deadline); err != nil && !errors.Is(err, http.ErrNotSupported) {
+							return err
+						}
+					}
+				}
+				select {
+				case <-h.serial:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				defer func() { h.serial <- struct{}{} }()
+				if r.URL.Path == "/control/blueprints/custom" {
+					progress.WriteHeader(http.StatusServiceUnavailable)
+					writeJSON(progress, map[string]string{"code": "ha_upload_unavailable"})
+					return nil
+				}
+				mux.ServeHTTP(progress, r.WithContext(ctx))
+				return nil
+			})
+			if err != nil && !progress.written {
+				mutationError(progress, err)
+			}
+		})).ServeHTTP(w, r)
+	})
+	h.mux = corsEcho(protectControlReads(token, admission))
 	return h
 }
 

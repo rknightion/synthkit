@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/sigil"
 	"github.com/rknightion/synthkit/internal/sink/faro"
 	"github.com/rknightion/synthkit/internal/sink/loki"
@@ -18,6 +19,7 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 	pyroscope "github.com/rknightion/synthkit/internal/sink/pyroscope"
 	"github.com/rknightion/synthkit/internal/sink/queue"
+	"sync"
 )
 
 // queueSet holds the per-signal delivery queues (nil when the sink is absent). Each queue
@@ -37,6 +39,8 @@ type queueSet struct {
 // *queue.Queue[T] satisfies this (none of these methods mention T).
 type drainable interface {
 	Start()
+	StartContext(context.Context)
+	DrainJoined(context.Context) error
 	Run(ctx context.Context, drainDeadline time.Duration)
 	Flush(ctx context.Context) error
 	Drain(ctx context.Context)
@@ -157,45 +161,94 @@ func (r *Runner) buildQueues() {
 	if r.sinks.Metrics != nil {
 		mo := o
 		mo.Sink = "promrw"
-		r.queues.Metrics = queue.New[promrw.Series](mo, r.sinks.Metrics.Write, shardSeries, nil)
+		r.queues.Metrics = queue.New[promrw.Series](mo, boundedWrite(r.opts.Delivery, r.sinks.Metrics.Write), shardSeries, nil)
 	}
 	if r.sinks.Logs != nil {
 		lo := o
 		lo.Sink = "loki"
-		r.queues.Logs = queue.New[loki.Stream](lo, r.sinks.Logs.Write, shardStream, nil)
+		r.queues.Logs = queue.New[loki.Stream](lo, boundedWrite(r.opts.Delivery, r.sinks.Logs.Write), shardStream, nil)
 	}
 	if r.sinks.Traces != nil {
 		to := o
 		to.Sink = "otlp"
-		r.queues.Traces = queue.New[otlp.Resource](to, r.sinks.Traces.Write, roundRobin[otlp.Resource](), nil)
+		r.queues.Traces = queue.New[otlp.Resource](to, boundedWrite(r.opts.Delivery, r.sinks.Traces.Write), roundRobin[otlp.Resource](), nil)
 	}
 	if r.sinks.Profiles != nil {
 		po := o
 		po.Sink = "pyroscope"
-		r.queues.Profiles = queue.New[pyroscope.Series](po, r.sinks.Profiles.Write, shardProfile, nil)
+		r.queues.Profiles = queue.New[pyroscope.Series](po, boundedWrite(r.opts.Delivery, r.sinks.Profiles.Write), shardProfile, nil)
 	}
 	if r.sinks.RUM != nil {
 		fo := o
 		fo.Sink = "faro"
-		r.queues.RUM = queue.New[faro.Payload](fo, r.sinks.RUM.Write, shardFaro, nil)
+		r.queues.RUM = queue.New[faro.Payload](fo, boundedWrite(r.opts.Delivery, r.sinks.RUM.Write), shardFaro, nil)
 	}
 	if r.sinks.OTLPMetrics != nil {
 		omo := o
 		omo.Sink = "otlpmetrics"
 		omo.Deadline = 2 * time.Second // Alloy applicationObservability batch cadence
-		r.queues.OTLPMetrics = queue.New[otlp.MetricResource](omo, r.sinks.OTLPMetrics.Write, shardMetricResource, nil)
+		r.queues.OTLPMetrics = queue.New[otlp.MetricResource](omo, boundedWrite(r.opts.Delivery, r.sinks.OTLPMetrics.Write), shardMetricResource, nil)
 	}
 	if r.sinks.OTLPLogs != nil {
 		olo := o
 		olo.Sink = "otlplogs"
 		olo.Deadline = 2 * time.Second // Alloy pod-log batch cadence
-		r.queues.OTLPLogs = queue.New[otlp.LogResource](olo, r.sinks.OTLPLogs.Write, shardLogResource, nil)
+		r.queues.OTLPLogs = queue.New[otlp.LogResource](olo, boundedWrite(r.opts.Delivery, r.sinks.OTLPLogs.Write), shardLogResource, nil)
 	}
 	if r.sinks.Sigil != nil {
 		so := o
 		so.Sink = "sigil"
-		r.queues.Sigil = queue.New[sigil.Export](so, r.sinks.Sigil.Write, shardSigil, nil)
+		r.queues.Sigil = queue.New[sigil.Export](so, boundedWrite(r.opts.Delivery, r.sinks.Sigil.Write), shardSigil, nil)
 	}
+}
+
+// boundedWrite starts the absolute whole-operation timer before raw encoding and
+// shares it with all fanout, stages and attempt admissions. Non-HA is transparent.
+func boundedWrite[T any](b ha.Bounded, fn func(context.Context, []T) error) func(context.Context, []T) error {
+	return func(ctx context.Context, items []T) error {
+		return b.Run(ctx, ha.Delivery, func(c context.Context) error { return fn(c, items) })
+	}
+}
+
+// JoinQueues stops every queue concurrently and proves positive sender exit under
+// one global deadline, rather than allocating a new wait budget per sink.
+func (r *Runner) JoinQueues(ctx context.Context) error {
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var errs []error
+	for _, q := range r.eachQueue() {
+		wg.Add(1)
+		go func(q drainable) {
+			defer wg.Done()
+			if err := q.DrainJoined(ctx); err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}(q)
+	}
+	wg.Wait()
+	return errors.Join(errs...)
+}
+
+// CleanupFleet joins bounded aggregate cleanup only after RunProducers returned.
+func (r *Runner) CleanupFleet(ctx context.Context) error {
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var errs []error
+	for _, c := range r.fleetControllers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := c.Cleanup(ctx); err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	return errors.Join(errs...)
 }
 
 // SetQueueObserver injects the delivery-queue backpressure observer (self-obs) into every

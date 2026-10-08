@@ -8,8 +8,10 @@
 package control
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rknightion/synthkit/internal/ha"
 	"log"
 	"os"
 	"path/filepath"
@@ -99,16 +101,34 @@ type Store struct {
 	persistErr   string
 	persistErrMs int64
 	persistOKMs  int64
+	gate         ha.LeaderGate
+	strict       bool
 }
 
 // NewStore loads the snapshot at path (defaults apply when absent/corrupt — loud log,
 // never a crash).
-func NewStore(path string) *Store {
-	st := &Store{path: path, state: DefaultState(), now: time.Now}
+func NewStore(path string) *Store { st, _ := newStore(path, ha.AlwaysLeader{}, false); return st }
+
+// NewHAStore loads without writing and fails closed on unreadable/corrupt files.
+// The same gate is retained for preparation and every later file mutation.
+func NewHAStore(path string, gate ha.LeaderGate) (*Store, error) {
+	if gate == nil {
+		return nil, fmt.Errorf("control: nil HA gate")
+	}
+	return newStore(path, gate, true)
+}
+func newStore(path string, gate ha.LeaderGate, strict bool) (*Store, error) {
+	st := &Store{path: path, state: DefaultState(), now: time.Now, gate: gate, strict: strict}
 	data, err := os.ReadFile(path)
+	if strict && err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
 	if err == nil {
 		var s State
 		if jerr := json.Unmarshal(data, &s); jerr != nil {
+			if strict {
+				return nil, fmt.Errorf("control: corrupt snapshot: %w", jerr)
+			}
 			log.Printf("control: snapshot %s unreadable (%v) — starting from defaults", path, jerr)
 		} else {
 			if s.Failures == nil {
@@ -144,8 +164,11 @@ func NewStore(path string) *Store {
 			st.state = s
 		}
 	}
-	return st
+	return st, nil
 }
+
+// HAEnabled reports the immutable file-persistence mode, not current leadership.
+func (s *Store) HAEnabled() bool { return s.strict }
 
 // Snapshot returns a deep copy of the current state.
 func (s *Store) Snapshot() State {
@@ -158,12 +181,32 @@ func (s *Store) Snapshot() State {
 // and returns the new snapshot. persist is called under the mutex so that a
 // concurrent Reset/Update cannot overwrite the file with a stale copy.
 func (s *Store) Update(fn func(*State)) State {
-	s.mu.Lock()
-	fn(&s.state)
-	out := cloneState(s.state)
-	s.recordPersist(s.persist(out))
-	s.mu.Unlock()
+	out, _ := s.UpdateContext(context.Background(), fn)
 	return out
+}
+
+// UpdateContext rejects before file I/O, and HA never publishes failed persistence.
+func (s *Store) UpdateContext(ctx context.Context, fn func(*State)) (State, error) {
+	if s.strict {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+	}
+	var out State
+	err := s.gate.Do(ctx, ha.Mutation, func(c context.Context) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		next := cloneState(s.state)
+		fn(&next)
+		err := s.persistContext(c, next)
+		s.recordPersist(err)
+		if err == nil || !s.strict {
+			s.state = next
+		}
+		out = cloneState(s.state)
+		return err
+	})
+	return out, err
 }
 
 // SetBlueprintDisabled atomically adds or removes one blueprint from the disabled set.
@@ -199,13 +242,9 @@ func setMember(values []string, value string, present bool) []string {
 }
 
 // Reset returns the state to defaults (persisted atomically under the lock).
-func (s *Store) Reset() State {
-	s.mu.Lock()
-	s.state = DefaultState()
-	out := cloneState(s.state)
-	s.recordPersist(s.persist(out))
-	s.mu.Unlock()
-	return out
+func (s *Store) Reset() State { return s.Update(func(st *State) { *st = DefaultState() }) }
+func (s *Store) ResetContext(ctx context.Context) (State, error) {
+	return s.UpdateContext(ctx, func(st *State) { *st = DefaultState() })
 }
 
 // recordPersist folds a persist outcome into the runtime health fields. Caller holds s.mu.
@@ -228,12 +267,13 @@ func (s *Store) PersistHealth() PersistHealth {
 // ProbeWrite atomically persists the current snapshot without changing its logical contents.
 // Startup calls this before serving control mutations so readiness proves that the mounted state
 // directory supports the same temp-file-plus-rename operation every later mutation depends on.
-func (s *Store) ProbeWrite() error {
-	s.mu.Lock()
-	err := s.persist(cloneState(s.state))
-	s.recordPersist(err)
-	s.mu.Unlock()
+func (s *Store) ProbeWrite() error { return s.ProbeWriteContext(context.Background()) }
+func (s *Store) ProbeWriteContext(ctx context.Context) error {
+	_, err := s.UpdateContext(ctx, func(*State) {})
 	return err
+}
+func (s *Store) persistContext(ctx context.Context, st State) error {
+	return s.gate.Do(ctx, ha.Mutation, func(c context.Context) error { return s.persistWithContext(c, st) })
 }
 
 // PersistHealth is the last snapshot-persist outcome, surfaced via /control/status.
@@ -246,10 +286,17 @@ type PersistHealth struct {
 
 // persist writes the snapshot atomically: temp file in the SAME directory + rename
 // (I25 — this is why the state mount must be a directory, never a single file).
-func (s *Store) persist(st State) error {
+func (s *Store) persist(st State) error { return s.persistContext(context.Background(), st) }
+func (s *Store) persistWithContext(ctx context.Context, st State) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	data, err := json.MarshalIndent(st, "", "  ")
 	if err != nil {
 		log.Printf("control: marshal snapshot: %v", err)
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	dir := filepath.Dir(s.path)
@@ -268,6 +315,10 @@ func (s *Store) persist(st State) error {
 			return werr
 		}
 		return cerr
+	}
+	if err := ctx.Err(); err != nil {
+		os.Remove(name)
+		return err
 	}
 	if err := os.Rename(name, s.path); err != nil {
 		os.Remove(name)

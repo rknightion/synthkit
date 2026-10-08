@@ -89,11 +89,71 @@ These variables support pulling blueprints from git repositories or custom uploa
 | Variable | Default | Purpose |
 |---|---|---|
 | `BLUEPRINT_DATA_DIR` | `./data/blueprints` | Staging directory for custom and git-sourced blueprints. In Docker compose this is `/data/blueprints` (on the `/data` volume). |
-| `GIT_POLL_INTERVAL` | `0` | Seconds between "update available" polls for git blueprint sources. `0` = polling off; sources are fetched on demand or at startup. |
+| `GIT_POLL_INTERVAL` | `0` | Seconds between "update available" polls for git blueprint sources. `0` = polling off; sources are fetched only on operator demand, never at startup. |
 | `GIT_TOKEN` | _(empty)_ | Default HTTPS PAT for private git blueprint repos whose source config leaves `token_env_var` empty or explicitly names `GIT_TOKEN`. Leave empty for public repos. Other token variable names must be `GIT_TOKEN_` followed by a non-empty suffix. |
 | `GIT_SOURCE_HOST_ALLOWLIST` | _(empty)_ | Optional comma-separated exact HTTPS source hostnames or IP addresses, enforced at source validation and before every git fetch or ref lookup. Empty permits any HTTPS host. Entries are case-insensitive; URLs, ports, wildcards and empty entries are invalid. A hostname entry permits that host on any HTTPS port, not its subdomains. Git redirects are refused; configure the final HTTPS URL. |
 
 ---
+
+## Lease HA (binary staging mode)
+
+`HA_MODE` unset, empty or `off` retains the single-emitter file workflow. `lease` uses
+client-go against one named, **pre-created** Lease and in-cluster credentials; it never
+creates, lists, watches or deletes Kubernetes resources. No kubeconfig fallback is used.
+This first binary stage supports `STATE_BACKEND=file`; the Kubernetes state adapter and
+HA chart/readiness integration are separate follow-up work, not enabled by these variables.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `HA_MODE` | `off` | Exactly `off` or `lease`; all other values fail startup. |
+| `HA_LEASE_NAME` | _(empty)_ | Required named pre-created Lease in lease mode. |
+| `HA_NAMESPACE` | _(empty)_ | Required explicit namespace in lease mode. |
+| `POD_UID` | _(empty)_ | Required downward-API Pod UID; a random process nonce prevents reuse after a container restart. |
+| `HA_LEASE_DURATION` | `30s` | Positive integral seconds, strictly greater than the renewal deadline. |
+| `HA_RENEW_DEADLINE` | `15s` | Strictly greater than 1.2 times the retry period. |
+| `HA_RETRY_PERIOD` | `2s` | Positive election retry period. |
+| `HA_KUBE_REQUEST_TIMEOUT` | `2s` | Positive request cap, strictly below the renewal deadline. |
+| `HA_HTTP_TIMEOUT` | `5s` | Cap for each synthetic/Fleet HTTP attempt; redirects are refused. |
+| `HA_RETRY_MAX_ELAPSED` | `3s` | Clamp each sink's existing retry-series budget; never enlarge an existing budget. Zero still permits the first attempt. |
+| `HA_FLUSH_TIMEOUT` | `8s` | One absolute deadline around each raw Write, including encoding, Faro fanout, all three Sigil stages, response reads and worker join. |
+| `HA_FENCE_MARGIN` | `2s` | Positive join/exit allowance; a normally executing process that fails to join is crashed, never treated as finished. |
+| `HA_RELEASE_TIMEOUT` | `2s` | Total named Get/CAS release budget, after renewal is sealed. |
+| `STATE_BACKEND` | `file` | Existing file paths remain authoritative in this binary stage. |
+
+Startup rejects equality as well as overshoot: both the clamped retry series plus HTTP
+attempt plus margin, and the whole operation cap plus margin, must be strictly below
+`HA_LEASE_DURATION - HA_RENEW_DEADLINE`. The operation comparison includes the 2s state
+write deadline. OTLP's existing five-minute retry policy is included in this validation;
+Faro's many request waves and Sigil's sequential stages share the outer cap rather than
+restarting a deadline. A timeout without positive worker exit invokes terminal fencing
+and immediate exit.
+
+Standby loads files and builds without starting producers, RUM sessions, Fleet lifecycle,
+git polling, state probes or source/manifest/SM artifact writes. Authenticated mutations
+return HTTP 503 `not_leader` before reading their bodies. Empty credential preflight and
+separately authenticated operational telemetry are the only standby export exceptions.
+Acquisition rereads control and fetched blueprint files, rebuilds topology, then commits
+load results/manifest and probes the file store through a private preparation capability.
+Only successful, uncancelled preparation opens public admission.
+
+SIGTERM closes mutations and stops/joins producers first. All queues, admitted mutations,
+Fleet cleanup and HTTP shutdown share one `SEND_DRAIN_DEADLINE` (lease-mode default **10s
+when unset**). An explicit value is validated, never silently clamped; a copied example
+with an explicit `30s` still means 30s. Buffered delivery is best effort. Only positive
+sender/worker exit permits sealing renewal and explicitly clearing this process's Lease
+holder with a resourceVersion precondition. A cap expiry or leadership-loss callback
+crashes without drain, unregister, exporter flush or release. No work follows a release
+attempt. Operational providers have immutable `ha.role=standby|leader` resources; the
+one transition rotates providers without relabelling buffered standby events.
+
+These are **local admission fences, not distributed exclusivity**. A request admitted
+before revocation may remain remotely in flight; arbitrary process suspension and delayed
+remote commits are not fenced. Handoff resets counters, histograms, RNG/shape state and
+queues; fixture identities remain deterministic. Unfinished traces/RUM sessions and
+buffered data can truncate. Crash takeover can cost the Lease duration plus polling and
+preparation, not universally seconds. File state is not shared failover continuity.
+HA upload mutations and automatic SM provisioning are unavailable; SM emission is
+suppressed read-only until its separate persistence work is implemented.
 
 ## Decoupled delivery queue
 

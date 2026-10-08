@@ -5,10 +5,124 @@ package httpretry
 import (
 	"context"
 	"errors"
+	"github.com/rknightion/synthkit/internal/ha"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestHARealHTTPResponseCancellationCannotBecomeSuccess(t *testing.T) {
+	cancelled := make(chan struct{})
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(200)
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+		close(cancelled)
+	}))
+	defer srv.Close()
+	g := ha.NewGate()
+	_ = g.Activate(context.Background(), func(context.Context) error { return nil })
+	d := Delivery{Gate: g, HTTPTimeout: 30 * time.Millisecond}
+	hc := &http.Client{}
+	d.ConfigureClient(hc)
+	req, _ := http.NewRequest("POST", srv.URL, nil)
+	_, err := d.Send(context.Background(), hc, req, func(resp *http.Response) (int, error) {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return resp.StatusCode, nil
+	})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("cancelled response read acknowledged as success", err)
+	}
+	select {
+	case <-cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("real HTTP server did not observe cancellation")
+	}
+	g.Revoke()
+	_, err = d.Send(context.Background(), hc, req, func(*http.Response) (int, error) { t.Fatal("post-fence response"); return 0, nil })
+	if !errors.Is(err, ha.ErrNotLeader) || calls.Load() != 1 {
+		t.Fatal("late HTTP admission", err, calls.Load())
+	}
+}
+
+func TestRetrySleepPreservesTerminalErrorIdentity(t *testing.T) {
+	for _, terminal := range []error{context.Canceled, context.DeadlineExceeded} {
+		t.Run(terminal.Error(), func(t *testing.T) {
+			attempts := 0
+			p := Policy{MaxElapsed: time.Hour, InitialDelay: time.Second,
+				Retryable: func(int, error) bool { return true },
+				sleep:     func(context.Context, time.Duration) error { return terminal },
+			}
+			err := p.Do(context.Background(), func(context.Context) (int, error) {
+				attempts++
+				return 503, errTransport
+			})
+			if !errors.Is(err, terminal) || !errors.Is(err, errTransport) || attempts != 1 {
+				t.Fatalf("sleep cancellation identity: error=%v attempts=%d", err, attempts)
+			}
+		})
+	}
+}
+
+func TestFakeClockRetryBudgetIncludesBoundaryFinalAttempt(t *testing.T) {
+	for _, e := range []time.Duration{0, 3 * time.Second} {
+		clock := time.Unix(0, 0)
+		start := clock
+		attempts := 0
+		p := Policy{MaxElapsed: e, InitialDelay: 3 * time.Second, Retryable: func(int, error) bool { return true }, now: func() time.Time { return clock }, sleep: func(_ context.Context, d time.Duration) error { clock = clock.Add(d); return nil }}
+		err := p.Do(context.Background(), func(context.Context) (int, error) {
+			attempts++
+			if e == 0 || attempts == 2 {
+				clock = clock.Add(5 * time.Second)
+			}
+			return 503, errTransport
+		})
+		wantAttempts := 2
+		if e == 0 {
+			wantAttempts = 1
+		}
+		if err != errTransport || attempts != wantAttempts || clock.Sub(start) != e+5*time.Second {
+			t.Fatalf("retry boundary: E=%v attempts=%d elapsed=%v err=%v", e, attempts, clock.Sub(start), err)
+		}
+	}
+}
+
+func TestHARequestFenceRedirectAndRetry(t *testing.T) {
+	var redirected atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { redirected.Add(1); w.WriteHeader(200) }))
+	defer target.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
+	}))
+	defer source.Close()
+	g := ha.NewGate()
+	_ = g.Activate(context.Background(), func(context.Context) error { return nil })
+	d := Delivery{Gate: g, HTTPTimeout: time.Second, RetryMaxElapsed: 10 * time.Millisecond}
+	hc := &http.Client{}
+	d.ConfigureClient(hc)
+	req, _ := http.NewRequest(http.MethodPost, source.URL, nil)
+	if _, err := d.Send(req.Context(), hc, req, func(resp *http.Response) (int, error) { return resp.StatusCode, nil }); err != nil {
+		t.Fatal(err)
+	}
+	if redirected.Load() != 0 {
+		t.Fatal("ungated redirect followed")
+	}
+	g.Revoke()
+	attempts := 0
+	err := d.Policy(OTLPPolicy()).Do(context.Background(), func(ctx context.Context) (int, error) {
+		attempts++
+		return d.Send(ctx, hc, req, func(resp *http.Response) (int, error) { t.Fatal("post-fence request"); return 0, nil })
+	})
+	if !errors.Is(err, ha.ErrNotLeader) || attempts != 1 {
+		t.Fatalf("retry lost terminal fence: attempts=%d err=%v", attempts, err)
+	}
+}
 
 // errTransport is a synthetic transport-level error (no HTTP status).
 var errTransport = errors.New("transport: connection refused")
@@ -114,6 +228,8 @@ func TestStopsOnNonRetryable4xx(t *testing.T) {
 
 func TestRespectsCtxCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	down := errors.New("down")
 	var calls int32
 	p := Policy{
 		MaxElapsed:   5 * time.Second,
@@ -129,10 +245,10 @@ func TestRespectsCtxCancellation(t *testing.T) {
 	}()
 	err := p.Do(ctx, func(_ context.Context) (int, error) {
 		atomic.AddInt32(&calls, 1)
-		return 503, errors.New("down")
+		return 503, down
 	})
-	if err == nil {
-		t.Fatal("expected error after ctx cancellation, got nil")
+	if !errors.Is(err, context.Canceled) || !errors.Is(err, down) {
+		t.Fatalf("retry sleep lost cancellation or original failure: %v", err)
 	}
 	// Should not retry much after cancel.
 	if n := atomic.LoadInt32(&calls); n > 3 {

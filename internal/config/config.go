@@ -16,6 +16,10 @@ import (
 
 // Config is the resolved runtime configuration.
 type Config struct {
+	HAMode, HALeaseName, HANamespace, PodUID                                          string
+	HALeaseDuration, HARenewDeadline, HARetryPeriod, HAKubeRequestTimeout             time.Duration
+	HAHTTPTimeout, HARetryMaxElapsed, HAFlushTimeout, HAFenceMargin, HAReleaseTimeout time.Duration
+	StateBackend                                                                      string
 	// Sinks (one CAP token covers metrics/logs/traces; RUM has its own pair).
 	PromRWURL     string // GC_PROM_RW
 	PromUser      string // GC_PROM_USER
@@ -137,6 +141,11 @@ func Load(envPath string) (*Config, error) {
 		return n, nil
 	}
 	cfg := &Config{
+		HAMode:                 get("HA_MODE", "off"),
+		HALeaseName:            get("HA_LEASE_NAME", ""),
+		HANamespace:            get("HA_NAMESPACE", ""),
+		PodUID:                 get("POD_UID", ""),
+		StateBackend:           get("STATE_BACKEND", "file"),
 		PromRWURL:              get("GC_PROM_RW", ""),
 		PromUser:               get("GC_PROM_USER", ""),
 		OTLPEndpoint:           get("GC_OTLP_ENDPOINT", ""),
@@ -179,6 +188,36 @@ func Load(envPath string) (*Config, error) {
 
 		ProfilesURL:  get("GC_PROFILES_URL", ""),
 		ProfilesUser: get("GC_PROFILES_USER", ""),
+	}
+	if cfg.HAMode == "" {
+		cfg.HAMode = "off"
+	}
+	if cfg.StateBackend == "" {
+		cfg.StateBackend = "file"
+	}
+	for _, field := range []struct {
+		key, raw, def string
+		dst           *time.Duration
+	}{
+		{"HA_LEASE_DURATION", get("HA_LEASE_DURATION", "30s"), "30s", &cfg.HALeaseDuration},
+		{"HA_RENEW_DEADLINE", get("HA_RENEW_DEADLINE", "15s"), "15s", &cfg.HARenewDeadline},
+		{"HA_RETRY_PERIOD", get("HA_RETRY_PERIOD", "2s"), "2s", &cfg.HARetryPeriod},
+		{"HA_KUBE_REQUEST_TIMEOUT", get("HA_KUBE_REQUEST_TIMEOUT", "2s"), "2s", &cfg.HAKubeRequestTimeout},
+		{"HA_HTTP_TIMEOUT", get("HA_HTTP_TIMEOUT", "5s"), "5s", &cfg.HAHTTPTimeout},
+		{"HA_RETRY_MAX_ELAPSED", get("HA_RETRY_MAX_ELAPSED", "3s"), "3s", &cfg.HARetryMaxElapsed},
+		{"HA_FLUSH_TIMEOUT", get("HA_FLUSH_TIMEOUT", "8s"), "8s", &cfg.HAFlushTimeout},
+		{"HA_FENCE_MARGIN", get("HA_FENCE_MARGIN", "2s"), "2s", &cfg.HAFenceMargin},
+		{"HA_RELEASE_TIMEOUT", get("HA_RELEASE_TIMEOUT", "2s"), "2s", &cfg.HAReleaseTimeout},
+	} {
+		raw := field.raw
+		if raw == "" {
+			raw = field.def
+		}
+		value, parseErr := time.ParseDuration(raw)
+		if parseErr != nil {
+			return nil, fmt.Errorf("config: bad %s: %w", field.key, parseErr)
+		}
+		*field.dst = value
 	}
 	if cfg.PyroscopeMutexFraction, err = getInt("PYROSCOPE_MUTEX_FRACTION"); err != nil {
 		return nil, err
@@ -265,9 +304,13 @@ func Load(envPath string) (*Config, error) {
 	if cfg.SendCapacity == 0 {
 		cfg.SendCapacity = 500000
 	}
-	sendDrainStr := get("SEND_DRAIN_DEADLINE", "30s")
+	drainDefault := "30s"
+	if cfg.HAMode == "lease" {
+		drainDefault = "10s"
+	}
+	sendDrainStr := get("SEND_DRAIN_DEADLINE", drainDefault)
 	if sendDrainStr == "" {
-		sendDrainStr = "30s"
+		sendDrainStr = drainDefault
 	}
 	sdd, sdderr := time.ParseDuration(sendDrainStr)
 	if sdderr != nil {
@@ -275,7 +318,59 @@ func Load(envPath string) (*Config, error) {
 	}
 	cfg.SendDrainDeadline = sdd
 
+	if err := cfg.ValidateHA(); err != nil {
+		return nil, err
+	}
 	return cfg, nil
+}
+
+// ValidateHA evaluates both the per-series policy and the complete operation cap.
+// Optional Faro fanout and sequential Sigil stages are bounded by the same outer
+// cap, not by a fictitious single request. Equality is deliberately rejected.
+func (c *Config) ValidateHA() error {
+	if c.HAMode != "off" && c.HAMode != "lease" {
+		return fmt.Errorf("config: HA_MODE must be off or lease")
+	}
+	if c.StateBackend != "file" {
+		return fmt.Errorf("config: STATE_BACKEND=%s unavailable until the state adapter is installed", c.StateBackend)
+	}
+	if c.HAMode == "off" {
+		return nil
+	}
+	if c.HALeaseName == "" || c.HANamespace == "" || c.PodUID == "" {
+		return fmt.Errorf("config: lease mode requires HA_LEASE_NAME, HA_NAMESPACE and POD_UID")
+	}
+	if c.HALeaseDuration <= 0 || c.HALeaseDuration%time.Second != 0 || c.HALeaseDuration <= c.HARenewDeadline || c.HARetryPeriod <= 0 || float64(c.HARenewDeadline) <= 1.2*float64(c.HARetryPeriod) || c.HAKubeRequestTimeout <= 0 || c.HAKubeRequestTimeout >= c.HARenewDeadline {
+		return fmt.Errorf("config: invalid HA lease/renew/retry/request durations")
+	}
+	if c.HAHTTPTimeout <= 0 || c.HARetryMaxElapsed < 0 || c.HAFlushTimeout <= 0 || c.HAFenceMargin <= 0 || c.HAReleaseTimeout <= 0 || c.SendDrainDeadline <= 0 || c.SendDeadline <= 0 || c.SendShards <= 0 || c.SendBatchMax <= 0 || c.SendCapacity <= 0 {
+		return fmt.Errorf("config: invalid HA delivery/shutdown budgets")
+	}
+	gap := c.HALeaseDuration - c.HARenewDeadline
+	// Existing maximum is OTLP's 5min (all shared egress lanes); other series
+	// are 2.5s or 3s. E=0 still has one H-duration attempt.
+	for _, existing := range []time.Duration{2500 * time.Millisecond, 3 * time.Second, 5 * time.Minute} {
+		e := min(existing, c.HARetryMaxElapsed)
+		if e >= gap || c.HAHTTPTimeout >= gap-e || c.HAFenceMargin >= gap-e-c.HAHTTPTimeout {
+			return fmt.Errorf("config: HA retry series plus fence margin must be below lease minus renew")
+		}
+	}
+	operation := max(c.HAFlushTimeout, 2*time.Second)
+	if operation >= gap || c.HAFenceMargin >= gap-operation {
+		return fmt.Errorf("config: HA whole flush plus fence margin must be below lease minus renew")
+	}
+	return nil
+}
+
+// RedactedHA extends the legacy projection without changing HA-off config views.
+func (c *Config) RedactedHA() RedactedConfig {
+	view := c.Redacted()
+	view.Groups = append(view.Groups, RedactedGroup{Title: "Lease HA", Fields: []RedactedField{
+		safe("HA_MODE", c.HAMode), safe("STATE_BACKEND", c.StateBackend), safe("HA_LEASE_NAME", c.HALeaseName), safe("HA_NAMESPACE", c.HANamespace), secret("POD_UID", c.PodUID),
+		safe("HA_LEASE_DURATION", c.HALeaseDuration.String()), safe("HA_RENEW_DEADLINE", c.HARenewDeadline.String()), safe("HA_RETRY_PERIOD", c.HARetryPeriod.String()), safe("HA_KUBE_REQUEST_TIMEOUT", c.HAKubeRequestTimeout.String()),
+		safe("HA_HTTP_TIMEOUT", c.HAHTTPTimeout.String()), safe("HA_RETRY_MAX_ELAPSED", c.HARetryMaxElapsed.String()), safe("HA_FLUSH_TIMEOUT", c.HAFlushTimeout.String()), safe("HA_FENCE_MARGIN", c.HAFenceMargin.String()), safe("HA_RELEASE_TIMEOUT", c.HAReleaseTimeout.String()),
+	}})
+	return view
 }
 
 // parseBlueprintNames turns the optional comma-separated selection into a stable runtime selector.

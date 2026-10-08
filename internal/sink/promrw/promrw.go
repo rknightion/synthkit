@@ -36,11 +36,12 @@ const (
 
 // Sink pushes series to a Prometheus remote_write endpoint.
 type Sink struct {
-	url    string
-	hc     *http.Client
-	auth   string
-	dryRun bool
-	capFn  func() int // live cap closure: called per-push to read the current series budget (0/nil = unlimited)
+	url      string
+	hc       *http.Client
+	delivery httpretry.Delivery
+	auth     string
+	dryRun   bool
+	capFn    func() int // live cap closure: called per-push to read the current series budget (0/nil = unlimited)
 
 	// Observe, when non-nil, is called once per push with the outcome (self-observability seam,
 	// set only by package main when enabled). nil ⇒ the push path is unchanged. On a live push
@@ -73,13 +74,17 @@ type Sink struct {
 // capFn may be nil (unlimited). dryRun=true logs pushes without hitting the network.
 func New(url, user, token string, dryRun bool, capFn func() int) *Sink {
 	return &Sink{
-		url:    url,
-		hc:     &http.Client{Timeout: 15 * time.Second},
-		auth:   "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+token)),
-		dryRun: dryRun,
-		capFn:  capFn,
+		url:      url,
+		hc:       &http.Client{Timeout: 15 * time.Second},
+		delivery: httpretry.DefaultDelivery(),
+		auth:     "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+token)),
+		dryRun:   dryRun,
+		capFn:    capFn,
 	}
 }
+
+// SetDelivery installs HA policy before any Write. Non-HA retains constructor defaults.
+func (s *Sink) SetDelivery(d httpretry.Delivery) { s.delivery = d; d.ConfigureClient(s.hc) }
 
 // uuidClassLabels is the set of high-cardinality UUID-class label keys that must never
 // appear as Mimir labels. These keys are unique per request/session, which would create
@@ -182,7 +187,7 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 		start = time.Now()
 	}
 	var lastStatus int
-	retryErr := httpretry.MetricsPolicy().Do(ctx, func(rctx context.Context) (int, error) {
+	retryErr := s.delivery.Policy(httpretry.MetricsPolicy()).Do(ctx, func(rctx context.Context) (int, error) {
 		httpReq, rerr := http.NewRequestWithContext(rctx, http.MethodPost, s.url, bytes.NewReader(compressed))
 		if rerr != nil {
 			return 0, rerr
@@ -192,23 +197,19 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 		httpReq.Header.Set("X-Prometheus-Remote-Write-Version", RemoteWriteVersion)
 		httpReq.Header.Set("Authorization", s.auth)
 		httpReq.Header.Set("User-Agent", "synthkit-promrw/2")
-		resp, derr := s.hc.Do(httpReq)
-		if derr != nil {
-			lastStatus = 0 // transport error: no HTTP status (matches the otlp sink)
-			return 0, derr
-		}
-		defer resp.Body.Close()
-		_, _ = io.Copy(io.Discard, resp.Body)
-		lastStatus = resp.StatusCode
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return resp.StatusCode, nil
-		}
-		// 415/406 ⇒ receiver rejects RW2 — permanent, surfaced (MetricsPolicy retries only 429/5xx).
-		return resp.StatusCode, fmt.Errorf("promrw: remote_write status %d", resp.StatusCode)
+		return s.delivery.Send(rctx, s.hc, httpReq, func(resp *http.Response) (int, error) {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			lastStatus = resp.StatusCode
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return resp.StatusCode, nil
+			}
+			// 415/406 ⇒ receiver rejects RW2 — permanent, surfaced (MetricsPolicy retries only 429/5xx).
+			return resp.StatusCode, fmt.Errorf("promrw: remote_write status %d", resp.StatusCode)
+		})
 	})
 	s.observe(ctx, batch, lastStatus, len(compressed), time.Since(start), false, retryErr)
 	if retryErr != nil {
-		return operationalerr.New(operationalerr.Classify(lastStatus, retryErr))
+		return httpretry.Preserve(retryErr, operationalerr.New(operationalerr.Classify(lastStatus, retryErr)))
 	}
 	return nil
 }

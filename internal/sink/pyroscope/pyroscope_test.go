@@ -6,11 +6,16 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
+	"github.com/rknightion/synthkit/internal/ha"
+	"github.com/rknightion/synthkit/internal/sink/httpretry"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	pprofpb "github.com/rknightion/synthkit/internal/pyroscope/pprofpb"
 
@@ -25,6 +30,29 @@ func testProfile(ts int64) *pprofpb.Profile {
 		SampleType:  []*pprofpb.ValueType{{Type: 1, Unit: 2}},
 		TimeNanos:   ts,
 		Sample:      []*pprofpb.Sample{{Value: []int64{1}}},
+	}
+}
+
+func TestHAAttemptRedirectAndFenceIdentity(t *testing.T) {
+	var redirects atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { redirects.Add(1); w.WriteHeader(200) }))
+	defer target.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, 307) }))
+	defer source.Close()
+	g := ha.NewGate()
+	_ = g.Activate(context.Background(), func(context.Context) error { return nil })
+	s := New(source.URL, "user", "token", false)
+	s.SetDelivery(httpretry.Delivery{Gate: g, HTTPTimeout: time.Second, RetryMaxElapsed: time.Millisecond})
+	batch := []Series{{Labels: []LabelPair{{Name: "service_name", Value: "test"}}, Profile: testProfile(t0ns)}}
+	if err := s.Write(context.Background(), batch); err == nil {
+		t.Fatal("redirect acknowledged as delivery")
+	}
+	if redirects.Load() != 0 {
+		t.Fatal("ungated redirect followed")
+	}
+	g.Revoke()
+	if err := s.Write(context.Background(), batch); !errors.Is(err, ha.ErrNotLeader) {
+		t.Fatal("terminal fence identity lost", err)
 	}
 }
 

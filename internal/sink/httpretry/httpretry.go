@@ -12,7 +12,10 @@ package httpretry
 
 import (
 	"context"
+	"errors"
+	"github.com/rknightion/synthkit/internal/ha"
 	"math/rand/v2"
+	"net/http"
 	"time"
 )
 
@@ -33,6 +36,8 @@ type Policy struct {
 	Multiplier   float64
 	Jitter       float64
 	Retryable    func(status int, err error) bool
+	now          func() time.Time // private deterministic clock seam; nil keeps the real runtime path
+	sleep        func(context.Context, time.Duration) error
 }
 
 // Do executes attempt repeatedly until it returns nil, the budget expires, or the
@@ -45,7 +50,11 @@ func (p Policy) Do(ctx context.Context, attempt func(context.Context) (status in
 		return ctx.Err()
 	}
 
-	deadline := time.Now().Add(p.MaxElapsed)
+	now := time.Now
+	if p.now != nil {
+		now = p.now
+	}
+	deadline := now().Add(p.MaxElapsed)
 	delay := p.InitialDelay
 
 	var lastErr error
@@ -55,6 +64,12 @@ func (p Policy) Do(ctx context.Context, attempt func(context.Context) (status in
 			return nil
 		}
 		lastErr = err
+		if errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) {
+			return err
+		}
+		if ctx.Err() != nil {
+			return errors.Join(err, ctx.Err())
+		}
 
 		// Check retryability predicate.
 		if p.Retryable != nil && !p.Retryable(status, err) {
@@ -62,7 +77,7 @@ func (p Policy) Do(ctx context.Context, attempt func(context.Context) (status in
 		}
 
 		// Check remaining budget.
-		remaining := time.Until(deadline)
+		remaining := deadline.Sub(now())
 		if remaining <= 0 {
 			return lastErr
 		}
@@ -86,10 +101,16 @@ func (p Policy) Do(ctx context.Context, attempt func(context.Context) (status in
 			sleep = remaining
 		}
 
-		select {
-		case <-ctx.Done():
-			return lastErr
-		case <-time.After(sleep):
+		if p.sleep != nil {
+			if err := p.sleep(ctx, sleep); err != nil {
+				return errors.Join(lastErr, err)
+			}
+		} else {
+			select {
+			case <-ctx.Done():
+				return errors.Join(lastErr, ctx.Err())
+			case <-time.After(sleep):
+			}
 		}
 
 		// Advance delay for the next round.
@@ -101,6 +122,59 @@ func (p Policy) Do(ctx context.Context, attempt func(context.Context) (status in
 			delay = next
 		}
 	}
+}
+
+// Delivery is injected before use. A zero configuration is not a runtime gate;
+// constructors explicitly install AlwaysLeader for compatibility.
+type Delivery struct {
+	Gate                         ha.LeaderGate
+	HTTPTimeout, RetryMaxElapsed time.Duration
+}
+
+func DefaultDelivery() Delivery { return Delivery{Gate: ha.AlwaysLeader{}} }
+func (d Delivery) ConfigureClient(hc *http.Client) {
+	if d.HTTPTimeout > 0 {
+		hc.Timeout = d.HTTPTimeout
+		hc.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	}
+}
+func (d Delivery) Policy(p Policy) Policy {
+	if d.HTTPTimeout > 0 && p.MaxElapsed > d.RetryMaxElapsed {
+		p.MaxElapsed = d.RetryMaxElapsed
+	}
+	return p
+}
+
+// Send admits immediately at client.Do and accounts response processing as part of
+// that attempt. Body closure and cancellation happen only after consume returns.
+func (d Delivery) Send(ctx context.Context, hc *http.Client, req *http.Request, consume func(*http.Response) (int, error)) (int, error) {
+	status := 0
+	err := d.Gate.Do(ctx, ha.Delivery, func(c context.Context) error {
+		if d.HTTPTimeout > 0 {
+			var cancel context.CancelFunc
+			c, cancel = context.WithTimeout(c, d.HTTPTimeout)
+			defer cancel()
+		}
+		resp, e := hc.Do(req.WithContext(c))
+		if e != nil {
+			return e
+		}
+		defer resp.Body.Close()
+		status, e = consume(resp)
+		if c.Err() != nil {
+			return errors.Join(e, c.Err())
+		}
+		return e
+	})
+	return status, err
+}
+
+// Preserve terminal admission/cancellation identity while sanitizing other errors.
+func Preserve(err error, sanitized error) error {
+	if errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	return sanitized
 }
 
 // isTransport returns true for transport-level errors (status <= 0 means no HTTP response).

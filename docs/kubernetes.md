@@ -13,10 +13,45 @@ outside the pod.
 
 Kubernetes is the mode most people reach for, because synthkit exists to model Kubernetes estates.
 It is worth being explicit that the chart does **not** observe the cluster it runs in: synthkit
-reads no Kubernetes API, needs no RBAC, and its ServiceAccount carries no projected token. The
-estates it emits come from blueprints, not from the surrounding cluster.
+reads no Kubernetes API **in the default HA-off chart**, needs no RBAC, and its ServiceAccount
+carries no projected token. The optional binary Lease mode described below is a coordination
+exception; estates still come from blueprints, never from the surrounding cluster.
 
 ---
+
+## Optional binary Lease mode (not yet a two-replica chart)
+
+The binary accepts `HA_MODE=lease` with existing local file state. This is a staging mode
+for the election/lifecycle seam, **not** stateless failover or shared-state continuity.
+The current chart remains one replica/Recreate; do not override its replica count or
+attach one ReadWriteOnce claim to two replicas. Standby-aware readiness, Kubernetes state
+and stateless HA chart wiring must land before an HA chart deployment is supported.
+
+An operator configuring the binary directly must pre-create the exact Lease and supply
+`HA_LEASE_NAME`, `HA_NAMESPACE` and downward-API `POD_UID`, with a mounted ServiceAccount
+token and working API-server egress. Runtime RBAC needs only `get`/`update` for that named
+`coordination.k8s.io/leases` resource (`resourceNames`); no create/list/watch/delete or
+Event permission is used. Missing/forbidden/malformed Lease data fails startup. File mode
+requires no ConfigMaps and rereads its existing control and fetched-source files on
+acquisition. No remote git fetch happens during bootstrap. Configuration lists the HA
+budget defaults and strict validation inequalities.
+
+Lease loss irreversibly closes local admission and exits immediately without drain or
+release. Earlier admitted network requests can still be in flight: this is not an
+API-server fencing token and does not promise distributed exclusivity. Planned SIGTERM
+stops and joins production, then positively joins a globally capped best-effort drain
+while renewal continues. Only then is renewal sealed and the current named Lease holder
+cleared with a resourceVersion CAS. A different holder is never cleared, and any missing
+join crashes without release. No synthetic, Fleet, state or SM operation follows release.
+
+Defaults require termination grace **greater than 16s**: 10s global drain + 2s final
+renewal join + 2s release + 2s allowance; the chart's existing 60s remains unchanged.
+Handoff is restart semantics: counters/histograms and in-memory shape/queue state reset,
+unfinished traces/RUM sessions and queued data may truncate, and fixture identities stay
+stable. Crash takeover may take the 30s Lease duration plus acquisition/preparation. Do
+not promise zero gaps, duplication or data loss. HA uploads and automatic SM provisioning
+remain unavailable; the binary suppresses unsupported SM emission without artifact I/O.
+Process telemetry/profiles carry immutable `ha.role` tags, including standby exports.
 
 ## Install
 

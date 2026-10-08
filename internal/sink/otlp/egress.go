@@ -25,6 +25,7 @@ type egress struct {
 	url      string
 	auth     string
 	hc       *http.Client
+	delivery httpretry.Delivery
 	sinkName string // pushhook attribution: "otlp" (traces) | "otlpmetrics"
 }
 
@@ -35,9 +36,16 @@ func newEgress(endpoint, signalPath, user, token, sinkName string) egress {
 		url:      strings.TrimRight(endpoint, "/") + signalPath,
 		auth:     "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+token)),
 		hc:       &http.Client{Timeout: 30 * time.Second},
+		delivery: httpretry.DefaultDelivery(),
 		sinkName: sinkName,
 	}
 }
+
+// SetDelivery configures all three shared-OTLP lanes before use.
+func (s *Sink) SetDelivery(d httpretry.Delivery)        { s.eg.setDelivery(d) }
+func (s *MetricsSink) SetDelivery(d httpretry.Delivery) { s.eg.setDelivery(d) }
+func (s *LogsSink) SetDelivery(d httpretry.Delivery)    { s.eg.setDelivery(d) }
+func (e *egress) setDelivery(d httpretry.Delivery)      { e.delivery = d; d.ConfigureClient(e.hc) }
 
 // post gzips a pre-serialised ExportXServiceRequest body and ships it with the Alloy-aligned
 // OTLP retry policy, firing obs once (nil obs ⇒ no hook). items is the signal-item count
@@ -52,7 +60,7 @@ func (e egress) post(ctx context.Context, body []byte, items int, blueprint stri
 		start = time.Now()
 	}
 	var lastStatus int
-	retryErr := httpretry.OTLPPolicy().Do(ctx, func(rctx context.Context) (int, error) {
+	retryErr := e.delivery.Policy(httpretry.OTLPPolicy()).Do(ctx, func(rctx context.Context) (int, error) {
 		httpReq, err := http.NewRequestWithContext(rctx, http.MethodPost, e.url, bytes.NewReader(gz))
 		if err != nil {
 			return 0, fmt.Errorf("otlp %s: build request: %w", e.sinkName, err)
@@ -60,19 +68,15 @@ func (e egress) post(ctx context.Context, body []byte, items int, blueprint stri
 		httpReq.Header.Set("Content-Type", "application/x-protobuf")
 		httpReq.Header.Set("Content-Encoding", "gzip")
 		httpReq.Header.Set("Authorization", e.auth)
-		resp, err := e.hc.Do(httpReq)
-		if err != nil {
-			lastStatus = 0
-			return 0, fmt.Errorf("otlp %s: %w", e.sinkName, err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode/100 != 2 {
-			b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return e.delivery.Send(rctx, e.hc, httpReq, func(resp *http.Response) (int, error) {
+			if resp.StatusCode/100 != 2 {
+				b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+				lastStatus = resp.StatusCode
+				return resp.StatusCode, fmt.Errorf("otlp %s: HTTP %d: %s", e.sinkName, resp.StatusCode, b)
+			}
 			lastStatus = resp.StatusCode
-			return resp.StatusCode, fmt.Errorf("otlp %s: HTTP %d: %s", e.sinkName, resp.StatusCode, b)
-		}
-		lastStatus = resp.StatusCode
-		return resp.StatusCode, nil
+			return resp.StatusCode, nil
+		})
 	})
 	if obs != nil {
 		obs(ctx, pushhook.Event{
@@ -81,5 +85,5 @@ func (e egress) post(ctx context.Context, body []byte, items int, blueprint stri
 			ErrorCode: operationalerr.Classify(lastStatus, retryErr),
 		})
 	}
-	return operationalerr.New(operationalerr.Classify(lastStatus, retryErr))
+	return httpretry.Preserve(retryErr, operationalerr.New(operationalerr.Classify(lastStatus, retryErr)))
 }

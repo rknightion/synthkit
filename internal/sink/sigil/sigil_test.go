@@ -6,12 +6,16 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/rknightion/synthkit/internal/ha"
+	"github.com/rknightion/synthkit/internal/sink/httpretry"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -57,6 +61,32 @@ func testServer(t *testing.T, reqs *[]capturedRequest) *httptest.Server {
 		}
 		_, _ = w.Write([]byte(`{"accepted":true}`))
 	}))
+}
+
+func TestHAAttemptRedirectAndFenceIdentity(t *testing.T) {
+	var redirects atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { redirects.Add(1); w.WriteHeader(200) }))
+	defer target.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, 307) }))
+	defer source.Close()
+	g := ha.NewGate()
+	_ = g.Activate(context.Background(), func(context.Context) error { return nil })
+	s, err := New(source.URL, "user", "token", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.SetDelivery(httpretry.Delivery{Gate: g, HTTPTimeout: time.Second, RetryMaxElapsed: time.Millisecond})
+	batch := []nativesigil.Export{{Generations: []nativesigil.Generation{{ID: "generation", OperationName: "generateText"}}}}
+	if err := s.Write(context.Background(), batch); err == nil {
+		t.Fatal("redirect acknowledged as delivery")
+	}
+	if redirects.Load() != 0 {
+		t.Fatal("ungated redirect followed")
+	}
+	g.Revoke()
+	if err := s.Write(context.Background(), batch); !errors.Is(err, ha.ErrNotLeader) {
+		t.Fatal("terminal fence identity lost", err)
+	}
 }
 
 func TestSink_Write_SendsGenerations(t *testing.T) {

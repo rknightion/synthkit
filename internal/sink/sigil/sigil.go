@@ -31,6 +31,7 @@ type Sink struct {
 	endpoint string
 	auth     string // "Basic <base64(tenantID:token)>"
 	hc       *http.Client
+	delivery httpretry.Delivery
 	policy   httpretry.Policy
 	dryRun   bool
 
@@ -64,6 +65,7 @@ func New(endpoint, tenantID, token string, dryRun bool) (*Sink, error) {
 		endpoint:   endpoint,
 		auth:       auth,
 		hc:         &http.Client{Timeout: 15 * time.Second},
+		delivery:   httpretry.DefaultDelivery(),
 		policy:     httpretry.EmitOncePolicy(),
 		dryRun:     dryRun,
 		invOpNames: map[string]bool{},
@@ -73,7 +75,13 @@ func New(endpoint, tenantID, token string, dryRun bool) (*Sink, error) {
 // Write implements core.SigilWriter. For each Export it POSTs non-empty
 // generation/workflow-step/score slices to the three ingest endpoints.
 // In DRY_RUN mode it skips the POST and increments Inventory instead.
+// SetDelivery installs HA policy before use.
+func (s *Sink) SetDelivery(d httpretry.Delivery) { s.delivery = d; d.ConfigureClient(s.hc) }
+
 func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	var (
 		allGens   []*sigilv1.Generation
 		allSteps  []*sigilv1.WorkflowStep
@@ -110,15 +118,21 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 	status := 0
 	delivered := 0
 
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if len(allGens) > 0 {
 		req := &sigilv1.ExportGenerationsRequest{Generations: allGens}
 		var err error
 		status, _, err = s.postProto(ctx, "/api/v1/generations:export", req)
 		if err != nil {
 			s.observe(ctx, delivered, status, time.Since(start), false, err)
-			return operationalerr.New(operationalerr.Classify(status, err))
+			return httpretry.Preserve(err, operationalerr.New(operationalerr.Classify(status, err)))
 		}
 		delivered += len(allGens)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	if len(allSteps) > 0 {
 		req := &sigilv1.ExportWorkflowStepsRequest{WorkflowSteps: allSteps}
@@ -126,9 +140,12 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 		status, _, err = s.postProto(ctx, "/api/v1/workflow-steps:export", req)
 		if err != nil {
 			s.observe(ctx, delivered, status, time.Since(start), false, err)
-			return operationalerr.New(operationalerr.Classify(status, err))
+			return httpretry.Preserve(err, operationalerr.New(operationalerr.Classify(status, err)))
 		}
 		delivered += len(allSteps)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	if len(allScores) > 0 {
 		req := &sigilv1.ExportScoresRequest{Scores: allScores}
@@ -144,7 +161,7 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 		}
 		if err != nil {
 			s.observe(ctx, delivered, status, time.Since(start), false, err)
-			return operationalerr.New(operationalerr.Classify(status, err))
+			return httpretry.Preserve(err, operationalerr.New(operationalerr.Classify(status, err)))
 		}
 		delivered += len(allScores)
 	}
@@ -223,12 +240,15 @@ func marshalScoreRequest(req *sigilv1.ExportScoresRequest) ([]byte, error) {
 // postBody POSTs one already-materialized JSON request body. Materializing before the retry loop
 // guarantees every attempt carries identical ids and optional-field presence.
 func (s *Sink) postBody(ctx context.Context, path string, body []byte) (int, []byte, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, nil, err
+	}
 
 	url := s.endpoint + path
 	lastStatus := 0
 	var lastBody []byte
 
-	err := s.policy.Do(ctx, func(ctx context.Context) (int, error) {
+	err := s.delivery.Policy(s.policy).Do(ctx, func(ctx context.Context) (int, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 		if err != nil {
 			return 0, err
@@ -236,25 +256,22 @@ func (s *Sink) postBody(ctx context.Context, path string, body []byte) (int, []b
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", s.auth)
 
-		resp, err := s.hc.Do(req)
-		if err != nil {
-			return 0, err
-		}
-		defer func() { _ = resp.Body.Close() }()
-		lastStatus = resp.StatusCode
-		responseBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes+1))
-		if err != nil {
-			return resp.StatusCode, err
-		}
-		if len(responseBody) > maxResponseBodyBytes {
-			return resp.StatusCode, fmt.Errorf("sigil ingest response exceeds %d bytes", maxResponseBodyBytes)
-		}
-		lastBody = responseBody
+		return s.delivery.Send(ctx, s.hc, req, func(resp *http.Response) (int, error) {
+			lastStatus = resp.StatusCode
+			responseBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes+1))
+			if err != nil {
+				return resp.StatusCode, err
+			}
+			if len(responseBody) > maxResponseBodyBytes {
+				return resp.StatusCode, fmt.Errorf("sigil ingest response exceeds %d bytes", maxResponseBodyBytes)
+			}
+			lastBody = responseBody
 
-		if resp.StatusCode >= 300 {
-			return resp.StatusCode, fmt.Errorf("sigil ingest returned HTTP %d", resp.StatusCode)
-		}
-		return resp.StatusCode, nil
+			if resp.StatusCode >= 300 {
+				return resp.StatusCode, fmt.Errorf("sigil ingest returned HTTP %d", resp.StatusCode)
+			}
+			return resp.StatusCode, nil
+		})
 	})
 	return lastStatus, lastBody, err
 }

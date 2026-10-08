@@ -22,6 +22,21 @@ type smHandoff struct {
 // a private registration artifact matches that snapshot, target fingerprint, and source version.
 // It runs before runner construction; the construct receives only config-version strings.
 func prepareSMHandoff(resolved []*blueprint.Resolved, cfg *config.Config, sourceVersion string, now time.Time) (smHandoff, error) {
+	if cfg.HAMode == "lease" {
+		handoff := smHandoff{}
+		for _, bp := range resolved {
+			kept := bp.Constructs[:0]
+			for _, instance := range bp.Constructs {
+				if instance.Kind == sm.Kind {
+					handoff.Declared = true
+					continue
+				}
+				kept = append(kept, instance)
+			}
+			bp.Constructs = kept
+		}
+		return handoff, nil // no artifact writes/deletes and no unregistered HA SM emission
+	}
 	var probes []smstate.ProbeSpec
 	var checks []smstate.CheckSpec
 	probeSeen := map[string]bool{}

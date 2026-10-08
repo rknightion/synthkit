@@ -3,14 +3,204 @@
 package control
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
+	"github.com/rknightion/synthkit/internal/ha"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
+
+func TestHASlowMutationBodyCannotCrashOrAcknowledgeSuccess(t *testing.T) {
+	gate := ha.NewGate()
+	store, err := NewHAStore(filepath.Join(t.TempDir(), "state.json"), gate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = gate.Activate(context.Background(), func(ctx context.Context) error { return store.ProbeWriteContext(ctx) })
+	var mu sync.Mutex
+	crashed := false
+	h := NewHandler(store, func(State) { t.Error("incomplete body applied") }, "").SetHA(gate, ha.Bounded{Timeout: 100 * time.Millisecond, Margin: 100 * time.Millisecond, Crash: func() { mu.Lock(); crashed = true; mu.Unlock() }})
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	conn, err := net.DialTimeout("tcp", srv.Listener.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(time.Second))
+	_, err = io.WriteString(conn, "POST /control/load HTTP/1.1\r\nHost: local\r\nContent-Length: 100\r\nContent-Type: application/json\r\n\r\n{")
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, readErr := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: "POST"})
+	if response != nil {
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		if response.StatusCode == 200 || strings.Contains(string(body), "not_leader") {
+			t.Fatalf("slow body produced false success/leadership result: %d %s", response.StatusCode, body)
+		}
+	} else if readErr == nil {
+		t.Fatal("no observed response or bounded connection close")
+	}
+	joined, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := gate.Wait(joined); err != nil {
+		t.Fatal("body reader abandoned", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if crashed || gate.Role() != ha.RoleLeader || store.Snapshot().VolumeMultiplier != 1 {
+		t.Fatal("slow client crashed or mutated the leader")
+	}
+}
+
+func TestHAStandbyAuthenticatesBeforeFenceAndNeverReadsBody(t *testing.T) {
+	gate := ha.NewGate()
+	path := filepath.Join(t.TempDir(), "state.json")
+	store, err := NewHAStore(path, gate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := NewHandler(store, func(State) { t.Fatal("standby ApplyControl") }, "password").SetHA(gate, ha.Bounded{Timeout: 2 * time.Second, Margin: time.Second, Crash: func() { t.Error("unexpected watchdog") }})
+	for _, route := range []string{"/control/load", "/control/reset", "/control/failures", "/control/incidents", "/control/blueprints/custom", "/control/blueprints/sources", "/control/blueprints/sources/fetch", "/control/blueprints/validate", "/control/restart"} {
+		request := httptest.NewRequest("POST", route, strings.NewReader("invalid body"))
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, request)
+		if w.Code != 401 {
+			t.Fatalf("%s auth bypass: %d", route, w.Code)
+		}
+		request = httptest.NewRequest("POST", route, &unreadableHABody{t: t})
+		request.SetBasicAuth("control", "password")
+		w = httptest.NewRecorder()
+		h.ServeHTTP(w, request)
+		if w.Code != 503 || !strings.Contains(w.Body.String(), `"code": "not_leader"`) {
+			t.Fatalf("%s not fenced: %d %s", route, w.Code, w.Body.String())
+		}
+	}
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	req, _ := http.NewRequest("POST", srv.URL+"/control/reset", strings.NewReader("{}"))
+	req.SetBasicAuth("control", "password")
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 503 {
+		t.Fatal("real HTTP mutation not fenced")
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("standby wrote control state", err)
+	}
+	if err := store.ProbeWrite(); !errors.Is(err, ha.ErrNotLeader) {
+		t.Fatal("standby ProbeWrite not fenced", err)
+	}
+}
+
+func TestHAMutationWaitIncludesOrderedApplyAndEvent(t *testing.T) {
+	gate := ha.NewGate()
+	store, err := NewHAStore(filepath.Join(t.TempDir(), "state.json"), gate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = gate.Activate(context.Background(), func(ctx context.Context) error { return store.ProbeWriteContext(ctx) })
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var mu sync.Mutex
+	var applied []State
+	events := 0
+	h := NewHandler(store, func(s State) {
+		mu.Lock()
+		n := len(applied)
+		applied = append(applied, s)
+		mu.Unlock()
+		if n == 0 {
+			close(entered)
+			<-release
+		}
+	}, "").SetHA(gate, ha.Bounded{Timeout: 2 * time.Second, Margin: time.Second, Crash: func() { t.Error("unexpected watchdog") }}).SetChangeObserver(func(State) { mu.Lock(); events++; mu.Unlock() })
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	client := &http.Client{Timeout: time.Second}
+	done := make(chan int, 2)
+	post := func(path, body string) {
+		resp, err := client.Post(srv.URL+path, "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Error(err)
+			done <- 0
+			return
+		}
+		resp.Body.Close()
+		done <- resp.StatusCode
+	}
+	go post("/control/load", `{"volume_multiplier":2}`)
+	<-entered
+	go post("/control/blueprints", `{"disabled_blueprints":["test"]}`)
+	wait, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if !errors.Is(gate.Wait(wait), context.DeadlineExceeded) {
+		t.Fatal("Wait omitted late ApplyControl/event")
+	}
+	close(release)
+	for i := 0; i < 2; i++ {
+		if code := <-done; code != 200 {
+			t.Fatal("mutation failed", code)
+		}
+	}
+	joined, stop := context.WithTimeout(context.Background(), time.Second)
+	defer stop()
+	if err := gate.Wait(joined); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if events != 2 || len(applied) != 2 || applied[1].VolumeMultiplier != 2 || len(applied[1].DisabledBlueprints) != 1 {
+		t.Fatalf("disjoint edits/application ordering/events lost: events=%d applied=%v", events, applied)
+	}
+}
+
+type unreadableHABody struct{ t *testing.T }
+
+func (b *unreadableHABody) Read([]byte) (int, error) {
+	b.t.Fatal("standby read mutation body")
+	return 0, nil
+}
+
+func TestHAFilePreparationAndPersistFailure(t *testing.T) {
+	gate := ha.NewGate()
+	path := filepath.Join(t.TempDir(), "state.json")
+	store, err := NewHAStore(path, gate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gate.Activate(context.Background(), func(ctx context.Context) error { return store.ProbeWriteContext(ctx) }); err != nil {
+		t.Fatal(err)
+	}
+	before := store.Snapshot()
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(path, 0700); err != nil {
+		t.Fatal(err)
+	}
+	h := NewHandler(store, func(State) { t.Fatal("failed persist applied") }, "").SetHA(gate, ha.Bounded{Timeout: 2 * time.Second, Margin: time.Second, Crash: func() { t.Error("unexpected watchdog") }})
+	req := httptest.NewRequest("POST", "/control/load", strings.NewReader(`{"volume_multiplier":2}`))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != 503 || store.Snapshot().VolumeMultiplier != before.VolumeMultiplier {
+		t.Fatalf("failed file persist acknowledged/published: %d %s", w.Code, w.Body.String())
+	}
+}
 
 // schemaSourceFunc adapts a plain function to the SchemaSource interface.
 type schemaSourceFunc func() Schema

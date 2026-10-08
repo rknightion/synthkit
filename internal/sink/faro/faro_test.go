@@ -6,6 +6,9 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/rknightion/synthkit/internal/ha"
+	"github.com/rknightion/synthkit/internal/sink/httpretry"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +22,29 @@ import (
 
 // TestURLBuildsCollectPath verifies the appKey is appended as a single path segment
 // with no double slash, regardless of a trailing slash on the collector base.
+func TestHAAttemptRedirectAndFenceIdentity(t *testing.T) {
+	var redirects atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { redirects.Add(1); w.WriteHeader(200) }))
+	defer target.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, 307) }))
+	defer source.Close()
+	g := ha.NewGate()
+	_ = g.Activate(context.Background(), func(context.Context) error { return nil })
+	s := New(source.URL, "key", false)
+	s.SetDelivery(httpretry.Delivery{Gate: g, HTTPTimeout: time.Second, RetryMaxElapsed: time.Millisecond})
+	batch := []Payload{{Meta: Meta{Session: Session{ID: "session"}}, Measurements: []Measurement{{Type: "web-vitals", Values: map[string]float64{"lcp": 100}}}}}
+	if err := s.Write(context.Background(), batch); err == nil {
+		t.Fatal("redirect acknowledged as delivery")
+	}
+	if redirects.Load() != 0 {
+		t.Fatal("ungated redirect followed")
+	}
+	g.Revoke()
+	if err := s.Write(context.Background(), batch); !errors.Is(err, ha.ErrNotLeader) {
+		t.Fatal("terminal fence identity lost", err)
+	}
+}
+
 func TestURLBuildsCollectPath(t *testing.T) {
 	cases := map[string]string{
 		"https://faro-collector-prod-gb-south-1.grafana.net/collect":  "https://faro-collector-prod-gb-south-1.grafana.net/collect/KEY",

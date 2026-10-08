@@ -18,7 +18,9 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/fleethook"
+	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/operationalerr"
+	"github.com/rknightion/synthkit/internal/sink/httpretry"
 )
 
 // Controller drives the FM registration lifecycle. Construct one per blueprint that
@@ -33,6 +35,10 @@ type Controller struct {
 // NewController returns a ready Controller. heartbeat defaults to defaultHeartbeatSeconds
 // when cfg.HeartbeatInterval ≤ 0 (predecessor controller.go:20).
 func NewController(cfg Config) *Controller {
+	if cfg.Delivery.Gate == nil {
+		cfg.Delivery = httpretry.DefaultDelivery()
+	}
+	cfg.Bounded.Gate = cfg.Delivery.Gate
 	d := time.Duration(cfg.HeartbeatInterval) * time.Second
 	if d <= 0 {
 		d = defaultHeartbeatSeconds * time.Second
@@ -45,6 +51,7 @@ func NewController(cfg Config) *Controller {
 	// Build the FM client (and its HTTP connection pool) ONCE and reuse it across every
 	// heartbeat; the previous code allocated a fresh *http.Client per tick, churning the pool.
 	c.client = c.newClient()
+	c.client.SetDelivery(cfg.Delivery, cfg.Bounded)
 	return c
 }
 
@@ -61,6 +68,9 @@ func (c *Controller) Start(ctx context.Context, roster []Collector) {
 // loop exits without unregistering — callers that need cleanup should call unregisterRegistered
 // themselves (Start does this for the fixed-roster case). Blocks until ctx is done (run in a goroutine).
 func (c *Controller) StartDynamic(ctx context.Context, provider RosterProvider) {
+	if ctx.Err() != nil {
+		return
+	}
 	c.reconcile(ctx, provider()) // initial register
 
 	t := time.NewTicker(c.heartbeat)
@@ -84,6 +94,9 @@ func (c *Controller) authMissing() bool {
 // reconcile registers any id in want not yet registered, unregisters any registered id no longer
 // in want, then heartbeats every id in want.
 func (c *Controller) reconcile(ctx context.Context, want []Collector) {
+	if ctx.Err() != nil {
+		return
+	}
 	client := c.client
 	wantSet := make(map[string]bool, len(want))
 	for _, col := range want {
@@ -106,6 +119,9 @@ func (c *Controller) reconcile(ctx context.Context, want []Collector) {
 	}
 	// Register new + heartbeat current.
 	for _, col := range want {
+		if ctx.Err() != nil {
+			return
+		}
 		if !c.registered[col.ID] {
 			err := client.RegisterCollector(ctx, col)
 			code := operationalerr.CodeOf(err)
@@ -128,6 +144,12 @@ func (c *Controller) reconcile(ctx context.Context, want []Collector) {
 }
 
 // unregisterRegistered unwinds every still-registered id (shutdown path).
+// Cleanup is called only after the producer/reconcile goroutine has positively
+// joined. The aggregate inherits the coordinator's global drain deadline.
+func (c *Controller) Cleanup(ctx context.Context) error {
+	return c.cfg.Bounded.Run(ctx, ha.Delivery, func(ctx context.Context) error { c.unregisterRegistered(ctx); return ctx.Err() })
+}
+
 func (c *Controller) unregisterRegistered(ctx context.Context) {
 	if c.authMissing() {
 		c.registered = map[string]bool{}
@@ -135,6 +157,9 @@ func (c *Controller) unregisterRegistered(ctx context.Context) {
 	}
 	client := c.client
 	for id := range c.registered {
+		if ctx.Err() != nil {
+			return
+		}
 		err := client.UnregisterCollector(ctx, id)
 		code := operationalerr.CodeOf(err)
 		c.observe(ctx, fleethook.OpUnregister, id, 0, code)

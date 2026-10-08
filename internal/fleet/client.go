@@ -25,7 +25,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/operationalerr"
+	"github.com/rknightion/synthkit/internal/sink/httpretry"
 )
 
 const maxGetConfigResponseBytes = 1 << 20 // bounded before any server-provided config is decoded
@@ -56,11 +58,13 @@ func (r getConfigResponse) notModified() (bool, bool) {
 // Client posts connect-JSON calls to the FM CollectorService on behalf of a stack.
 // When dryRun is true no HTTP calls are made; each call logs its intent instead.
 type Client struct {
-	base    string
-	stackID string
-	token   string
-	http    *http.Client
-	dryRun  bool
+	base     string
+	stackID  string
+	token    string
+	http     *http.Client
+	dryRun   bool
+	delivery httpretry.Delivery
+	bounded  ha.Bounded
 }
 
 // NewClient returns a live FM client.
@@ -68,10 +72,11 @@ type Client struct {
 // stackID and token are the FM stack credentials (Basic auth: stackID as user, predecessor line 44).
 func NewClient(base, stackID, token string) *Client {
 	return &Client{
-		base:    strings.TrimRight(base, "/"),
-		stackID: stackID,
-		token:   token,
-		http:    &http.Client{Timeout: 15 * time.Second},
+		base:     strings.TrimRight(base, "/"),
+		stackID:  stackID,
+		token:    token,
+		http:     &http.Client{Timeout: 15 * time.Second},
+		delivery: httpretry.DefaultDelivery(), bounded: ha.Bounded{Gate: ha.AlwaysLeader{}},
 	}
 }
 
@@ -82,10 +87,20 @@ func NewDryRunClient(base, stackID, token string) *Client {
 	return c
 }
 
+// SetDelivery installs per-attempt and whole-operation policy before use.
+func (c *Client) SetDelivery(d httpretry.Delivery, b ha.Bounded) {
+	c.delivery = d
+	c.bounded = b
+	d.ConfigureClient(c.http)
+}
+
 // post marshals body as JSON and POSTs it to <base>/collector.v1.CollectorService/<method>.
 // Auth: HTTP Basic with stackID/token (predecessor client.go:44).
 // response is decoded only when non-nil; callers must ensure it contains no retained secrets.
 func (c *Client) post(ctx context.Context, method string, body, response any) error {
+	return c.bounded.Run(ctx, ha.Delivery, func(ctx context.Context) error { return c.postRaw(ctx, method, body, response) })
+}
+func (c *Client) postRaw(ctx context.Context, method string, body, response any) error {
 	b, err := json.Marshal(body)
 	if err != nil {
 		return operationalerr.New(operationalerr.CodeInternal)
@@ -102,31 +117,33 @@ func (c *Client) post(ctx context.Context, method string, body, response any) er
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.SetBasicAuth(c.stackID, c.token) // predecessor line 44
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return operationalerr.New(operationalerr.CodeOf(err))
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return operationalerr.New(operationalerr.Classify(resp.StatusCode, nil))
-	}
-	if response != nil {
-		// Only GetConfig supplies a response target. Read its complete bounded body before
-		// decoding: a single Decode can otherwise accept a valid prefix and leave unbounded
-		// trailing data unread.
-		payload, err := io.ReadAll(io.LimitReader(resp.Body, maxGetConfigResponseBytes+1))
-		if err != nil || len(payload) > maxGetConfigResponseBytes {
-			return operationalerr.New(operationalerr.CodeRejected)
+	_, sendErr := c.delivery.Send(ctx, c.http, req, func(resp *http.Response) (int, error) {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			code := operationalerr.Classify(resp.StatusCode, nil)
+			if code == operationalerr.CodeNone {
+				code = operationalerr.CodeRejected
+			}
+			return resp.StatusCode, operationalerr.New(code)
 		}
-		decoder := json.NewDecoder(bytes.NewReader(payload))
-		if err := decoder.Decode(response); err != nil && err != io.EOF {
-			return operationalerr.New(operationalerr.CodeRejected)
+		if response != nil {
+			// Only GetConfig supplies a response target. Read its complete bounded body before
+			// decoding: a single Decode can otherwise accept a valid prefix and leave unbounded
+			// trailing data unread.
+			payload, err := io.ReadAll(io.LimitReader(resp.Body, maxGetConfigResponseBytes+1))
+			if err != nil || len(payload) > maxGetConfigResponseBytes {
+				return resp.StatusCode, operationalerr.New(operationalerr.CodeRejected)
+			}
+			decoder := json.NewDecoder(bytes.NewReader(payload))
+			if err := decoder.Decode(response); err != nil && err != io.EOF {
+				return resp.StatusCode, operationalerr.New(operationalerr.CodeRejected)
+			}
+			if err := decoder.Decode(&struct{}{}); err != io.EOF {
+				return resp.StatusCode, operationalerr.New(operationalerr.CodeRejected)
+			}
 		}
-		if err := decoder.Decode(&struct{}{}); err != io.EOF {
-			return operationalerr.New(operationalerr.CodeRejected)
-		}
-	}
-	return nil
+		return resp.StatusCode, nil
+	})
+	return httpretry.Preserve(sendErr, operationalerr.New(operationalerr.CodeOf(sendErr)))
 }
 
 // RegisterCollector posts to RegisterCollector with id, name (=id), and local_attributes.

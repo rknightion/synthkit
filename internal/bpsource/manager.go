@@ -12,17 +12,22 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
+	"github.com/rknightion/synthkit/internal/ha"
 )
 
 // NewManager constructs a Manager from the given Options.
 // The boot manifest is read from disk immediately (empty manifest if absent).
 // latestSHAs is initialised to an empty map.
 func NewManager(opts Options) *Manager {
+	if opts.Gate == nil {
+		opts.Gate = ha.AlwaysLeader{}
+	}
 	now := opts.Now
 	if now == nil {
 		now = func() int64 { return time.Now().UnixMilli() }
 	}
 	m := &Manager{
+		gate: opts.Gate, readOnly: opts.ReadOnly,
 		bakedDir:   opts.BakedDir,
 		dataDir:    opts.DataDir,
 		reg:        opts.Registry,
@@ -108,6 +113,12 @@ func (m *Manager) Sources() []Source {
 // a fresh FetchNow stages it. Loaded results remain, because they describe the running process
 // until the next restart.
 func (m *Manager) UpsertSource(source Source) error {
+	return m.UpsertSourceContext(context.Background(), source)
+}
+func (m *Manager) UpsertSourceContext(ctx context.Context, source Source) error {
+	return m.gate.Do(ctx, ha.Mutation, func(c context.Context) error { return m.upsertSource(c, source) })
+}
+func (m *Manager) upsertSource(ctx context.Context, source Source) error {
 	if err := m.policy.ValidateSource(source); err != nil {
 		return err
 	}
@@ -156,13 +167,16 @@ func (m *Manager) UpsertSource(source Source) error {
 		source.Skipped = []string{}
 	}
 	source.PendingRestart = source.FetchedSHA != "" && source.FetchedSHA != source.LoadedSHA
-	return m.cfg.UpsertSource(source)
+	return upsertSourceContext(ctx, m.cfg, source)
 }
 
 // FetchNow fetches (or skip-fetches) a single git source by ID.
 // It updates latestSHAs[id] under m.mu and persists LastSHA/LastFetchMs/LastErr
 // via cfg.UpsertSource.
 func (m *Manager) FetchNow(ctx context.Context, id string) error {
+	return m.gate.Do(ctx, ha.Mutation, func(c context.Context) error { return m.fetchNow(c, id) })
+}
+func (m *Manager) fetchNow(ctx context.Context, id string) error {
 	if m.cfg == nil {
 		return fmt.Errorf("bpsource: source configuration is not available")
 	}
@@ -185,7 +199,7 @@ func (m *Manager) FetchNow(ctx context.Context, id string) error {
 	headSHA, err := m.git.HeadSHA(ctx, src.URL, src.Ref, src.TokenEnvVar)
 	if err != nil {
 		// Record the error in config but return it for the caller.
-		if _, persistErr := m.mergeFetchStatus(id, src, func(current *Source) {
+		if _, persistErr := m.mergeFetchStatus(ctx, id, src, func(current *Source) {
 			current.LastErr = err.Error()
 		}); persistErr != nil {
 			return fmt.Errorf("bpsource: recording fetch error for %q: %w", id, persistErr)
@@ -214,7 +228,7 @@ func (m *Manager) FetchNow(ctx context.Context, id string) error {
 
 	// If HEAD matches what we already have on-disk and the dir is non-empty, skip fetch.
 	if headSHA == src.FetchedSHA && dirNonEmpty(gitIDDir) {
-		merged, err := m.mergeFetchStatus(id, src, func(current *Source) {
+		merged, err := m.mergeFetchStatus(ctx, id, src, func(current *Source) {
 			current.ObservedSHA = headSHA
 			current.LastErr = ""
 		})
@@ -230,7 +244,7 @@ func (m *Manager) FetchNow(ctx context.Context, id string) error {
 	// Fetch new YAML blobs.
 	blobs, err := m.git.FetchYAML(ctx, src.URL, src.Ref, src.Subpath, src.TokenEnvVar)
 	if err != nil {
-		if _, persistErr := m.mergeFetchStatus(id, src, func(current *Source) {
+		if _, persistErr := m.mergeFetchStatus(ctx, id, src, func(current *Source) {
 			current.ObservedSHA = headSHA
 			current.LastErr = err.Error()
 		}); persistErr != nil {
@@ -259,7 +273,7 @@ func (m *Manager) FetchNow(ctx context.Context, id string) error {
 
 	// Persist the new metadata onto a fresh source value, so a concurrent configuration edit
 	// cannot be reverted by this older fetch result.
-	merged, err := m.mergeFetchStatus(id, src, func(current *Source) {
+	merged, err := m.mergeFetchStatus(ctx, id, src, func(current *Source) {
 		current.FetchedSHA = headSHA
 		current.FetchedFileCount = len(blobs)
 		current.EffectiveNames = effectiveNames(current.Namespace, blobs)
@@ -321,7 +335,7 @@ func sameFetchConfiguration(current, fetched Source) bool {
 // mergeFetchStatus applies only server-owned fields to a fresh persisted source. It deliberately
 // rejects a result produced for an older URL/ref/subpath/namespace, rather than restoring that
 // stale client configuration over an operator's concurrent edit.
-func (m *Manager) mergeFetchStatus(id string, fetched Source, merge func(*Source)) (bool, error) {
+func (m *Manager) mergeFetchStatus(ctx context.Context, id string, fetched Source, merge func(*Source)) (bool, error) {
 	m.sourceMu.Lock()
 	defer m.sourceMu.Unlock()
 	if m.cfg == nil {
@@ -336,7 +350,7 @@ func (m *Manager) mergeFetchStatus(id string, fetched Source, merge func(*Source
 		}
 		merge(&current)
 		current.PendingRestart = current.FetchedSHA != "" && current.FetchedSHA != current.LoadedSHA
-		if err := m.cfg.UpsertSource(current); err != nil {
+		if err := upsertSourceContext(ctx, m.cfg, current); err != nil {
 			return true, err
 		}
 		return true, nil
@@ -367,6 +381,9 @@ func sourceChangedDuringFetch(id string) error {
 // identity is therefore Namespace(ns, name). Validation runs before the write so a rejected
 // prospective collision cannot leave a staged file that would fail on restart.
 func (m *Manager) StageUpload(ns, name string, data []byte) error {
+	if m.readOnly {
+		return fmt.Errorf("HA uploads are unavailable")
+	}
 	_, bareName, err := m.validateUpload(ns, name, data)
 	if err != nil {
 		return err
@@ -437,6 +454,9 @@ func (m *Manager) validateUpload(ns, name string, data []byte) (*blueprint.Resol
 
 // RemoveUpload deletes a staged upload by its namespaced name "<ns>/<name>".
 func (m *Manager) RemoveUpload(nsName string) error {
+	if m.readOnly {
+		return fmt.Errorf("HA uploads are unavailable")
+	}
 	parts := strings.SplitN(nsName, "/", 2)
 	if len(parts) < 2 {
 		return fmt.Errorf("bpsource: RemoveUpload: %q is not a namespaced name (want <ns>/<name>)", nsName)
@@ -510,6 +530,9 @@ func (m *Manager) Pending() Pending {
 // PollSources refreshes latestSHAs via HeadSHA for each source. Called only by
 // the background poll goroutine — never by Pending.
 func (m *Manager) PollSources(ctx context.Context) {
+	_ = m.gate.Do(ctx, ha.Mutation, func(c context.Context) error { m.pollSources(c); return c.Err() })
+}
+func (m *Manager) pollSources(ctx context.Context) {
 	if m.git == nil || m.cfg == nil {
 		return
 	}
@@ -517,7 +540,7 @@ func (m *Manager) PollSources(ctx context.Context) {
 		sha, err := m.git.HeadSHA(ctx, s.URL, s.Ref, s.TokenEnvVar)
 		if err != nil {
 			// Keep prior cached value on error (degrade-and-continue).
-			_, _ = m.mergeFetchStatus(s.ID, s, func(current *Source) {
+			_, _ = m.mergeFetchStatus(ctx, s.ID, s, func(current *Source) {
 				current.LastErr = err.Error()
 			})
 			continue
@@ -525,7 +548,7 @@ func (m *Manager) PollSources(ctx context.Context) {
 		m.mu.Lock()
 		m.latestSHAs[s.ID] = sha
 		m.mu.Unlock()
-		_, _ = m.mergeFetchStatus(s.ID, s, func(current *Source) {
+		_, _ = m.mergeFetchStatus(ctx, s.ID, s, func(current *Source) {
 			current.ObservedSHA = sha
 			current.LastErr = ""
 		})

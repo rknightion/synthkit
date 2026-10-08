@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rknightion/synthkit/internal/control"
+	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/runner"
 )
 
@@ -25,6 +27,81 @@ func writeFile(t *testing.T, path, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestHAReadOnlyScanRejectsSymlinkRootsAndYAML(t *testing.T) {
+	for _, kind := range []string{"root", "custom", "yaml"} {
+		t.Run(kind, func(t *testing.T) {
+			root := t.TempDir()
+			outside := filepath.Join(root, "outside")
+			if err := os.MkdirAll(filepath.Join(outside, "custom"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(outside, "custom", "sample__mini.yaml"), miniBlueprint)
+			data := filepath.Join(root, "data")
+			switch kind {
+			case "root":
+				if err := os.Symlink(outside, data); err != nil {
+					t.Fatal(err)
+				}
+			case "custom":
+				if err := os.Mkdir(data, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(filepath.Join(outside, "custom"), filepath.Join(data, "custom")); err != nil {
+					t.Fatal(err)
+				}
+			case "yaml":
+				if err := os.MkdirAll(filepath.Join(data, "custom"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(filepath.Join(outside, "custom", "sample__mini.yaml"), filepath.Join(data, "custom", "sample__mini.yaml")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			mgr := NewManager(Options{Gate: ha.NewGate(), ReadOnly: true, BakedDir: filepath.Join(root, "baked"), BlueprintNames: []string{"*"}, DataDir: data, Registry: runner.Catalog()})
+			loaded, _, diags := mgr.Resolve(context.Background())
+			found := false
+			for _, d := range diags {
+				found = found || d.Severity == "error" && d.Stage == "secure"
+			}
+			if len(loaded) != 0 || !found {
+				t.Fatalf("read-only scan followed %s symlink: loaded=%d diags=%v", kind, len(loaded), diags)
+			}
+		})
+	}
+}
+
+func TestHAResolveIsReadOnlyAndPreparationUsesSameGate(t *testing.T) {
+	root := t.TempDir()
+	baked := filepath.Join(root, "baked")
+	data := filepath.Join(root, "data")
+	writeFile(t, filepath.Join(baked, "mini.yaml"), miniBlueprint)
+	gate := ha.NewGate()
+	store, err := control.NewHAStore(filepath.Join(root, "state.json"), gate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mgr := NewManager(Options{Gate: gate, ReadOnly: true, BakedDir: baked, BlueprintNames: []string{"mini"}, DataDir: data, Registry: runner.Catalog(), Config: NewStoreSourceConfig(store)})
+	loaded, manifest, diags := mgr.Resolve(context.Background())
+	if len(loaded) != 1 {
+		t.Fatal("read-only load failed", diags)
+	}
+	if _, err := os.Stat(data); !os.IsNotExist(err) {
+		t.Fatal("standby resolve created data/manifest directories", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "state.json")); !os.IsNotExist(err) {
+		t.Fatal("standby persisted status", err)
+	}
+	if err := mgr.CommitResolved(context.Background(), manifest, loaded, diags); err != ha.ErrNotLeader {
+		t.Fatal("standby commit admitted", err)
+	}
+	if err := gate.Activate(context.Background(), func(ctx context.Context) error { return mgr.CommitResolved(ctx, manifest, loaded, diags) }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(data, ".boot-manifest.json")); err != nil {
+		t.Fatal("preparation did not persist manifest", err)
 	}
 }
 

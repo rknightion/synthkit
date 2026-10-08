@@ -31,6 +31,7 @@ import (
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/fleet"
 	"github.com/rknightion/synthkit/internal/fleethook"
+	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/scale"
 	"github.com/rknightion/synthkit/internal/shape"
@@ -56,6 +57,8 @@ type Sinks struct {
 
 // Options tunes the scheduler.
 type Options struct {
+	Gate              ha.LeaderGate
+	Delivery          ha.Bounded
 	MasterTick        time.Duration // ledger mint + ProjectBatch cadence (default 5s)
 	MinMetricInterval time.Duration // DPM floor for metric lanes (default 60s)
 	MaxDPMPerSeries   int           // maximum explicit high_dpm cadence (default 6 DPM; MAX_DPM_PER_SERIES)
@@ -93,6 +96,10 @@ type TickFunc func(ctx context.Context, blueprint, kind, name string, fn func(co
 type CycleFunc func(ctx context.Context, blueprint string, dur time.Duration, dropped int)
 
 func (o *Options) defaults() {
+	if o.Gate == nil {
+		o.Gate = ha.AlwaysLeader{}
+	}
+	o.Delivery.Gate = o.Gate
 	if o.MasterTick <= 0 {
 		o.MasterTick = 5 * time.Second
 	}
@@ -288,7 +295,8 @@ type Runner struct {
 	// queues are the per-signal delivery queues that decouple sink delivery from the tick (I41).
 	// Built once in New (before AddBlueprint), wired into each instance World by buildWorld, and
 	// started/drained by Run / RunOnce.
-	queues queueSet
+	queues           queueSet
+	fleetControllers []*fleet.Controller // written before launch; read only after producer join
 
 	// shapeWarnings accumulates per-blueprint shape-engine warnings (incident-schedule entries the
 	// engine skipped during AddBlueprint) so the composition root can surface them as diagnostics.
@@ -786,6 +794,9 @@ func (r *Runner) seedPhases(now time.Time) {
 // workload EXACTLY its own requests (exactly-once trace/log projection — I10).
 // Used by RunOnce and external callers; Run uses the per-blueprint masterTickOne on its own goroutines.
 func (r *Runner) MasterTick(ctx context.Context, now time.Time) error {
+	if err := r.admitProduction(ctx); err != nil {
+		return err
+	}
 	// Ensure the delivery-queue senders are running: MasterTick enqueues (workload projection),
 	// and a standalone caller (outside Run/RunOnce) would otherwise block on a full buffer with
 	// nothing draining it. Idempotent — the live loop and RunOnce have already started them.
@@ -844,6 +855,9 @@ func (r *Runner) masterTickOne(ctx context.Context, bp *bpRuntime, now time.Time
 // RunOnce drives one complete cycle at now (the -once verification mode): budget
 // reset, one master tick, one metric Tick for every instance.
 func (r *Runner) RunOnce(ctx context.Context, now time.Time) error {
+	if err := r.admitProduction(ctx); err != nil {
+		return err
+	}
 	var errs []error
 	// Freeze cycle eligibility before projection can receive a control update.
 	// A newly enabled blueprint must not enter only the metric stage with an
@@ -900,6 +914,9 @@ func (r *Runner) RunOnce(ctx context.Context, now time.Time) error {
 // concurrency-safe sinks). Per-tick work is bounded by Options.TickTimeout; coalesced (dropped)
 // ticks and per-cycle wall-clock are surfaced via the CycleFunc seam. RunOnce stays serial.
 func (r *Runner) Run(ctx context.Context) error {
+	if err := r.admitProduction(ctx); err != nil {
+		return err
+	}
 	r.seedPhases(time.Now())
 
 	var wg sync.WaitGroup
@@ -926,6 +943,38 @@ func (r *Runner) Run(ctx context.Context) error {
 //
 // When Options.Fleet.FMURL is empty, registration is disabled: the collectors still emit metrics
 // (the construct ticks regardless), so this logs once and starts nothing — metrics-only mode.
+// RunProducers starts the queues on an independent delivery lifetime and joins all
+// producers before returning. The HA coordinator then drains and positively joins senders.
+func (r *Runner) RunProducers(ctx, deliveryCtx context.Context) error {
+	if err := r.admitProduction(ctx); err != nil {
+		return err
+	}
+	r.seedPhases(time.Now())
+	for _, q := range r.eachQueue() {
+		q.StartContext(deliveryCtx)
+	}
+	if err := r.admitProduction(ctx); err != nil {
+		return err
+	}
+	var wg sync.WaitGroup
+	for _, bp := range r.bps {
+		wg.Add(1)
+		go r.blueprintLoop(ctx, bp, &wg)
+	}
+	r.startFleetControllers(ctx, &wg)
+	wg.Wait()
+	return ctx.Err()
+}
+func (r *Runner) admitProduction(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if r.opts.Gate.Role() != ha.RoleLeader {
+		return ha.ErrNotLeader
+	}
+	return nil
+}
+
 func (r *Runner) startFleetControllers(ctx context.Context, wg *sync.WaitGroup) {
 	if r.opts.Fleet.FMURL == "" {
 		// Log the metrics-only fallback at most ONCE (not per blueprint) — the message is a
@@ -944,10 +993,12 @@ func (r *Runner) startFleetControllers(ctx context.Context, wg *sync.WaitGroup) 
 		if provider == nil {
 			continue
 		}
+		controller := fleet.NewController(r.opts.Fleet)
+		r.fleetControllers = append(r.fleetControllers, controller)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fleet.NewController(r.opts.Fleet).StartDynamic(ctx, provider)
+			controller.StartDynamic(ctx, provider)
 		}()
 	}
 }
@@ -975,6 +1026,9 @@ func (r *Runner) blueprintLoop(ctx context.Context, bp *bpRuntime, wg *sync.Wait
 		case t := <-budgetReset.C:
 			bp.resetBudgetWindow(t)
 		case t := <-master.C:
+			if err := r.admitProduction(ctx); err != nil {
+				return
+			}
 			if !r.enabled(bp.name) {
 				lastTick = t
 				continue
