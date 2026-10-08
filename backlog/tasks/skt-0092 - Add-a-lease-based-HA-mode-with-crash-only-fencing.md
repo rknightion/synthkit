@@ -1,11 +1,11 @@
 ---
 id: SKT-0092
 title: Add a lease-based HA mode with crash-only fencing
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:30'
-updated_date: '2026-10-08 14:44'
+updated_date: '2026-10-08 15:10'
 labels:
   - feature
   - ha
@@ -71,4 +71,6 @@ Owner decision for the next run: one further review-repair round (round 4) is gr
 loop2: implementation attempt 4 of 4 consumed; review round 4 not reached because candidate fails compilation (cmd/synthkit/ha_main.go:647 missing return), just check exit 1. Seven deterministic bounded exit-window tests reproduced retained races. No HA land, no green repaired lifecycle/dump/CodeRabbit. Failed tree 0747197737a2d19245ac465965d34711189b3650 retained in H92X worktree with exact binary patch capture. Resume only after owner authorizes further change-and-verify cycle; no ceiling reset.
 
 loop3: implementation change-and-verify attempts5 completed; final authorized rescue slot6 used read-only (no extra change-and-verify cycle); review round4 REJECT major proof provenance. Exact retained candidate already includes arbiter; historical seven runtime-red cases precede it. Compiler-only panic repair passed unchanged seven tests, actual client-go/local Lease renewal-loss cases, HA-off coordinated full-byte dump, just check and CodeRabbit0. No test weakening, no commit/land. Final Astra confirms acceptance premise incompatible. Resume only genuine identity-bound missing red evidence or owner-corrected proof contract plus authorized security review. Current candidate tree2c03f0dad824ac42676b127f91d15555b770f4be retained uncommitted; full binary patch/base and all gate/review evidence /Users/rob/repos/synthkit-hosted/codex/retained-2026-10-08-loop3/H92X-attempt5/; security evidence sibling H92XR/; no additional implementation authorized.
+
+loop4: no new implementation attempt; security round5 ACCEPT0 critical/major/minor, fresh retained identity/focused tests/dump/gate0, code landed ddee479a9e4c2b56021de3f4de3dd2c7b9dfdcc0. Composed first env failure repaired append-only; second composed source357b29 red TestHAActualFaro5000WholeWrite late server count121->122. SKT-0109 (resolve late Faro POST proof-oracle failure) owns unresolved red: source shows server-arrival oracle defect,20 bounded focused passes insufficient. No runtime rollback justified. Not Done; resume only owner-authorized test-proof repair and green composed gate; prior attempts remain5, no new implementation.
 <!-- SECTION:NOTES:END -->

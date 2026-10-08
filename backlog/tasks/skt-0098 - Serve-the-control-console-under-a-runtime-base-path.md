@@ -4,7 +4,7 @@ title: Serve the control console under a runtime base path
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-08 12:50'
+updated_date: '2026-10-08 15:10'
 labels:
   - feature
   - ui
@@ -40,4 +40,6 @@ loop1: implementation attempts 0; frozen order and shared HTTP/config seam depen
 loop2: implementation attempts 0; dependency-held by SKT-0092 (lease HA with crash-only fencing), whose final authorized implementation attempt failed compilation and was not landed. No downstream source changes. Resume in frozen order after prerequisite accepted land and green composed gate; owner must first authorize further HA repair.
 
 loop3: implementation attempts0; dependency-held by SKT-0092 (lease HA with crash-only fencing). Attempt5 local gate and review completed, but security rejects retained-runtime-red proof provenance; final Astra rescue confirms incompatible premise, no HA land. Resume frozen order only after corrected proof contract or valid missing evidence, accepted HA land and green composed gate. No downstream source changes.
+
+loop4: implementation attempts0; HA source landed ddee479 but composed gate remains red, owned by SKT-0109 (resolve late Faro POST test-oracle proof defect). No readiness/console/backend/chart code begun. Resume frozen order only after owner-authorized HA proof repair and green composed gate; readiness+console first, then state backend, then chart.
 <!-- SECTION:NOTES:END -->
