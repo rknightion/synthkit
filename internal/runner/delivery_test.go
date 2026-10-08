@@ -9,6 +9,7 @@ import (
 	nativesigil "github.com/rknightion/synthkit/internal/sigil"
 	"github.com/rknightion/synthkit/internal/sink/httpretry"
 	sigilsink "github.com/rknightion/synthkit/internal/sink/sigil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -22,12 +23,32 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/queue"
 )
 
+// faroAttemptGate observes the actual per-attempt client.Do/response-processing
+// lifetime, not the runner's outer whole-write admission or server scheduling.
+type faroAttemptGate struct {
+	ha.LeaderGate
+	start, finish func()
+}
+
+func (g faroAttemptGate) Do(ctx context.Context, op ha.Operation, fn func(context.Context) error) error {
+	return g.LeaderGate.Do(ctx, op, func(c context.Context) error {
+		g.start()
+		defer g.finish()
+		return fn(c)
+	})
+}
+
 func TestHAActualFaro5000WholeWrite(t *testing.T) {
 	var posts, active, cancelled atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		posts.Add(1)
 		active.Add(1)
 		defer active.Add(-1)
+		// Read through EOF so server-side disconnect detection can observe
+		// cancellation; an unread POST body suppresses that notification.
+		if _, err := io.Copy(io.Discard, r.Body); err != nil {
+			return
+		}
 		select {
 		case <-time.After(4 * time.Millisecond):
 			w.WriteHeader(202)
@@ -41,7 +62,26 @@ func TestHAActualFaro5000WholeWrite(t *testing.T) {
 	sink := faro.New(srv.URL, "key", false)
 	var observation pushhook.Event
 	sink.Observe = func(_ context.Context, event pushhook.Event) { observation = event }
-	sink.SetDelivery(httpretry.Delivery{Gate: g, HTTPTimeout: time.Second, RetryMaxElapsed: 10 * time.Millisecond})
+	var mu sync.Mutex
+	var admitted, completed int
+	var joinedClient bool
+	attempts := faroAttemptGate{
+		LeaderGate: g,
+		start: func() {
+			mu.Lock()
+			defer mu.Unlock()
+			admitted++
+			if joinedClient {
+				t.Errorf("late client POST admission after queue join: %d", admitted)
+			}
+		},
+		finish: func() {
+			mu.Lock()
+			defer mu.Unlock()
+			completed++
+		},
+	}
+	sink.SetDelivery(httpretry.Delivery{Gate: attempts, HTTPTimeout: time.Second, RetryMaxElapsed: 10 * time.Millisecond})
 	r := New(Sinks{RUM: sink}, nil, Options{Gate: g, Delivery: ha.Bounded{Timeout: 80 * time.Millisecond, Margin: 200 * time.Millisecond, Crash: func() { t.Error("workers failed to join") }}, SendShards: 1, SendBatchMax: 5000, SendCapacity: 5000, SendDeadline: time.Hour})
 	payloads := make([]faro.Payload, 5000)
 	for i := range payloads {
@@ -62,18 +102,32 @@ func TestHAActualFaro5000WholeWrite(t *testing.T) {
 	if err := r.JoinQueues(joined); err != nil {
 		t.Fatal(err)
 	}
+	mu.Lock()
+	joinedClient = true
+	clientPosts, clientCompleted := admitted, completed
+	mu.Unlock()
+	if clientPosts <= 0 || clientPosts >= 5000 || clientCompleted != clientPosts {
+		t.Fatalf("client fanout not partial/joined: admitted=%d completed=%d", clientPosts, clientCompleted)
+	}
+
+	// Client join cannot synchronize independently scheduled server arrivals.
+	// Keep the server alive through all admitted client attempts, then explicitly
+	// join its handlers before taking the final HTTP accounting snapshot.
+	srv.Close()
 	n := posts.Load()
 	if n <= 0 || n >= 5000 {
 		t.Fatalf("actual fanout not partial: %d", n)
 	}
-	time.Sleep(50 * time.Millisecond)
-	if posts.Load() != n || active.Load() != 0 {
-		t.Fatalf("late POSTs/workers: before=%d after=%d active=%d", n, posts.Load(), active.Load())
+	mu.Lock()
+	finalAdmitted, finalCompleted := admitted, completed
+	mu.Unlock()
+	if finalAdmitted != clientPosts || finalCompleted != clientPosts || active.Load() != 0 {
+		t.Fatalf("late POSTs/workers: before=%d after=%d completed=%d active=%d", clientPosts, finalAdmitted, finalCompleted, active.Load())
 	}
 	if observation.Items <= 0 || observation.Items > int(n) || observation.ErrorCode == "" {
 		t.Fatalf("partial Faro outcome not truthful: observed=%+v HTTP=%d", observation, n)
 	}
-	t.Logf("5000 real beacons; posted=%d confirmed=%d cancelled=%d; joined without later POSTs", n, observation.Items, cancelled.Load())
+	t.Logf("5000 real beacons; admitted=%d completed=%d posted=%d confirmed=%d cancelled=%d; joined without later client POSTs", clientPosts, clientCompleted, n, observation.Items, cancelled.Load())
 }
 
 func TestHAActualSigilThreeStagesShareDeadline(t *testing.T) {
