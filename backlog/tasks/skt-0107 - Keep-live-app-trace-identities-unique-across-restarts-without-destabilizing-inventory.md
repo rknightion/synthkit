@@ -3,11 +3,11 @@ id: SKT-0107
 title: >-
   Keep live app trace identities unique across restarts without destabilizing
   inventory
-status: In Progress
+status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-08 02:19'
-updated_date: '2026-10-08 09:55'
+updated_date: '2026-10-08 10:28'
 labels: []
 dependencies: []
 priority: high
@@ -23,16 +23,16 @@ Final aggregate review found that app request correlation IDs depend only on wor
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Live requests from two equivalent newly initialized minters have distinct correlation identities across restart/handoff
-- [ ] #2 Fixed-input agent/tool inventory remains deterministic without filtering or test-special-case behavior
-- [ ] #3 Failing-first public-boundary regression proves the repeated-ID bug and a proportionate gate/review verifies the repair
+- [x] #1 Live requests from two equivalent newly initialized minters have distinct correlation identities across restart/handoff
+- [x] #2 Fixed-input agent/tool inventory remains deterministic without filtering or test-special-case behavior
+- [x] #3 Failing-first public-boundary regression proves the repeated-ID bug and a proportionate gate/review verifies the repair
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -47,4 +47,12 @@ loop2 attempt 3: reproduce repeated live identities at public minter boundary; s
 loop1: new follow-up implementation attempts 0; origin SKT-0106 (deterministic app inventory) consumed 2 implementation attempts, preserve its ceiling history for a direct repair instead of resetting counters. Full 10-file aggregate CodeRabbit completed with one verified major; no fix or extra review was dispatched after owner close-out. Resume in an authorized run with a design that separates deterministic inventory selection from live correlation uniqueness. Evidence /tmp/H92I-root-rescue/routine-aggregate-coderabbit.log; do not blindly add randomness to inventory selection.
 
 Owner decision: authorized as the next small repair. Keep live correlation/trace uniqueness across minter reconstruction separate from deterministic inventory selection; carry the two prior attempts from the deterministic-inventory work.
+
+loop2: implementation attempt3 accepted, landed cd59a0ebbb1d9fe500e6e2c665c6752f1ae89add. Public restart test failed base, passed repair; full inventory byte-identical; 13 payloads differ only in IDs; T107R ACCEPT. Composed just check exit0 on exact integrated SHA with clean unchanged tree; CI run37761972503 success at same SHA. Aggregate CodeRabbit complete all4 files, zero findings. No live tenant proof claimed.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fresh live trace/session/request correlation across reconstructed minters; deterministic trace-local span selection preserves inventory. Proven failing-first public regression, ID-only golden audit, full gate, independent review, aggregate CodeRabbit and exact-SHA CI.
+<!-- SECTION:FINAL_SUMMARY:END -->
