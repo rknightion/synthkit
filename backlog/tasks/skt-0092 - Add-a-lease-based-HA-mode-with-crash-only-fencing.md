@@ -1,11 +1,11 @@
 ---
 id: SKT-0092
 title: Add a lease-based HA mode with crash-only fencing
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:30'
-updated_date: '2026-10-07 21:41'
+updated_date: '2026-10-08 02:08'
 labels:
   - feature
   - ha
@@ -52,3 +52,9 @@ Design (from an adversarial review of the queue and runner code):
 <!-- SECTION:PLAN:BEGIN -->
 Isolated candidate with frozen ownership; acceptance reproduction, focused checks and just check; independent review before root landing. HA seam design is independently challenged and frozen first.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop1: implementation attempts 3 (two worker full-gate cycles, one root rescue); review-repair rounds 3 reached. Do not reset counts next loop. Final independent delta review REJECT: fatal cancellation lacks terminal arbitration for former-leader/late normal exits; source-feasible late/standby windows still select Exit(0) after fatal selection. No live unsafe release claimed. Remaining implementation specialist attempt 4 cannot bypass exhausted review ceiling. Resume only after owner raises review-repair ceiling, then implement serialized fatal/normal exit admission and deterministic bounded late/standby interleaving proof without gate lock across network I/O. Initial integrated coordinator proof reproduced actual post-loss seal/release; shared fatal context repaired that overlap and retry cancellation identity, but additional arbitration remains. Local reviewed snapshot 5c0c189a29cd08eb5703871918e70481c9ab466f plus dirty four-file root delta retained on candidate branch; no HA landed or pushed. Evidence /tmp/H92I-root-rescue/security-manual-notes.log. Full-byte HA-off paired dump proved; actual client-go local loss/Fleet/delivery tests and exact delta CodeRabbit green. In-flight final local gate allowed to finish; not acceptance.
+<!-- SECTION:NOTES:END -->

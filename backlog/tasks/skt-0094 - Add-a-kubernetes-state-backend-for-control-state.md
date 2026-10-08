@@ -1,9 +1,10 @@
 ---
 id: SKT-0094
 title: Add a kubernetes state backend for control state
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
+updated_date: '2026-10-08 02:08'
 labels:
   - feature
   - ha
@@ -41,3 +42,9 @@ Rules (from review of internal/control/control.go, which reads once at NewStore 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop1: implementation attempts 0; frozen order waits for SKT-0092 (lease HA), SKT-0093 (standby readiness), and SKT-0098 (runtime console base path). All unlanded/parked. Frozen reviewed backend API design retained; no backend/ConfigMap source implementation. Resume after accepted prerequisite lands/gates.
+<!-- SECTION:NOTES:END -->

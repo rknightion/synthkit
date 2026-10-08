@@ -1,9 +1,10 @@
 ---
 id: SKT-0098
 title: Serve the control console under a runtime base path
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
+updated_date: '2026-10-08 02:08'
 labels:
   - feature
   - ui
@@ -30,3 +31,9 @@ Running the console behind a reverse proxy under a prefix is impossible today: V
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop1: implementation attempts 0; frozen order and shared HTTP/config seam depend on SKT-0092 (lease HA with crash-only fencing) landing first. HA candidate rejected at review ceiling. Resume after accepted HA land/gate; no UI/base-path source changes.
+<!-- SECTION:NOTES:END -->

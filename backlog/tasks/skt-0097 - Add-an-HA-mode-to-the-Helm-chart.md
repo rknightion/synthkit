@@ -1,9 +1,10 @@
 ---
 id: SKT-0097
 title: Add an HA mode to the Helm chart
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
+updated_date: '2026-10-08 02:08'
 labels:
   - feature
   - ha
@@ -34,3 +35,9 @@ Allow replicas: 2 only when lease HA and the kubernetes state backend are both e
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop1: implementation attempts 0; dependency parked on SKT-0094 (named ConfigMap state backend) plus SKT-0092 (lease HA) and SKT-0093 (standby readiness). Resume after accepted prerequisite lands/gates. No chart or cluster changes.
+<!-- SECTION:NOTES:END -->
