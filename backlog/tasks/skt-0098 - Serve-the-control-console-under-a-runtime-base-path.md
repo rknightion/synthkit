@@ -4,7 +4,7 @@ title: Serve the control console under a runtime base path
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-08 02:08'
+updated_date: '2026-10-08 10:05'
 labels:
   - feature
   - ui
@@ -36,4 +36,6 @@ Running the console behind a reverse proxy under a prefix is impossible today: V
 
 <!-- SECTION:NOTES:BEGIN -->
 loop1: implementation attempts 0; frozen order and shared HTTP/config seam depend on SKT-0092 (lease HA with crash-only fencing) landing first. HA candidate rejected at review ceiling. Resume after accepted HA land/gate; no UI/base-path source changes.
+
+loop2: implementation attempts 0; dependency-held by SKT-0092 (lease HA with crash-only fencing), whose final authorized implementation attempt failed compilation and was not landed. No downstream source changes. Resume in frozen order after prerequisite accepted land and green composed gate; owner must first authorize further HA repair.
 <!-- SECTION:NOTES:END -->

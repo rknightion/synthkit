@@ -4,7 +4,7 @@ title: Add a kubernetes state backend for control state
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-08 02:08'
+updated_date: '2026-10-08 10:05'
 labels:
   - feature
   - ha
@@ -47,4 +47,6 @@ Rules (from review of internal/control/control.go, which reads once at NewStore 
 
 <!-- SECTION:NOTES:BEGIN -->
 loop1: implementation attempts 0; frozen order waits for SKT-0092 (lease HA), SKT-0093 (standby readiness), and SKT-0098 (runtime console base path). All unlanded/parked. Frozen reviewed backend API design retained; no backend/ConfigMap source implementation. Resume after accepted prerequisite lands/gates.
+
+loop2: implementation attempts 0; dependency-held by SKT-0092 (lease HA with crash-only fencing), whose final authorized implementation attempt failed compilation and was not landed. No downstream source changes. Resume in frozen order after prerequisite accepted land and green composed gate; owner must first authorize further HA repair.
 <!-- SECTION:NOTES:END -->

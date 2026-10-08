@@ -1,11 +1,11 @@
 ---
 id: SKT-0092
 title: Add a lease-based HA mode with crash-only fencing
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:30'
-updated_date: '2026-10-08 09:55'
+updated_date: '2026-10-08 10:05'
 labels:
   - feature
   - ha
@@ -63,4 +63,6 @@ loop1: implementation attempts 3 (two worker full-gate cycles, one root rescue);
 Final root rescue just check command exited 0, but its all-tracked before/after hash wrapper failed on symlink-to-directory; do not claim wrapper identity proof. Independent security rejection/round ceiling remains controlling. Final 51-file unlanded candidate and four-file exact review delta preserved; no candidate or tree deletion.
 
 Owner decision for the next run: one further review-repair round (round 4) is granted on the retained candidate, within implementation attempt 4. The lane may also own the sink files it asked for: internal/sink/promrw/promrw.go and its test, internal/sink/loki/loki.go and its test, internal/sink/otlp/egress.go with its egress tests, internal/sink/pyroscope/pyroscope.go and its test.
+
+loop2: implementation attempt 4 of 4 consumed; review round 4 not reached because candidate fails compilation (cmd/synthkit/ha_main.go:647 missing return), just check exit 1. Seven deterministic bounded exit-window tests reproduced retained races. No HA land, no green repaired lifecycle/dump/CodeRabbit. Failed tree 0747197737a2d19245ac465965d34711189b3650 retained in H92X worktree with exact binary patch capture. Resume only after owner authorizes further change-and-verify cycle; no ceiling reset.
 <!-- SECTION:NOTES:END -->

@@ -4,7 +4,7 @@ title: Make readiness standby-aware in HA mode
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-08 02:08'
+updated_date: '2026-10-08 10:05'
 labels:
   - feature
   - ha
@@ -38,4 +38,6 @@ In HA_MODE=lease a standby never pushes, so today's delivery-aware readiness (in
 
 <!-- SECTION:NOTES:BEGIN -->
 loop1: implementation attempts 0; dependency parked on SKT-0092 (lease HA with crash-only fencing), whose third review-repair round remains rejected. Resume after accepted HA lands and composed gate green; no readiness source changes.
+
+loop2: implementation attempts 0; dependency-held by SKT-0092 (lease HA with crash-only fencing), whose final authorized implementation attempt failed compilation and was not landed. No downstream source changes. Resume in frozen order after prerequisite accepted land and green composed gate; owner must first authorize further HA repair.
 <!-- SECTION:NOTES:END -->
