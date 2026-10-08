@@ -203,7 +203,8 @@ func TestHALossSubprocessHelper(t *testing.T) {
 
 // Drive loss through the real coordinator and client-go renewal loop. Direct
 // haCrash tests above separately observe admission linearization; these cases
-// exercise the integration which must never turn loss into planned cleanup.
+// exercise crash-only loss. SIGTERM can already have admitted a handoff action;
+// its later method entry is not evidence of a new admission after fatal selection.
 type haLossHTTPRequest struct {
 	path string
 	at   int64
@@ -386,8 +387,8 @@ func TestHACoordinatorRenewalLossSuppressesCleanup(t *testing.T) {
 				t.Fatal("coordinator loss failed to exit within bound")
 			}
 			log := readHALossEvents(events)
-			if !strings.Contains(log, "\"kind\":\"on-stopped\"") || strings.Contains(log, "\"kind\":\"seal\"") || strings.Contains(log, "\"kind\":\"release\"") || strings.Contains(log, "\"kind\":\"exit-0\"") {
-				t.Fatalf("actual coordinator loss entered planned cleanup: %s\n%s", log, output.String())
+			if err := haLossCleanupError(log, scenario == "sigterm"); err != nil {
+				t.Fatalf("actual coordinator loss violated terminal admission: %v\n%s\n%s", err, log, output.String())
 			}
 			apiMu.Lock()
 			released := releaseAttempts
@@ -430,9 +431,49 @@ func TestHACoordinatorRenewalLossSuppressesCleanup(t *testing.T) {
 			if !equalHALossState(before, after) {
 				t.Fatalf("loss performed state cleanup: before=%v after=%v", before, after)
 			}
-			t.Logf("scenario=%s actual client-go OnStoppedLeading, exit1, delivery=%d, pre-loss planned unregister=%d, no post-loss drain/unregister/seal/release/state cleanup", scenario, pushes, priorUnregisters)
+			t.Logf("scenario=%s actual client-go OnStoppedLeading, exit1, delivery=%d, pre-loss planned unregister=%d, no new terminal admission/release/state cleanup", scenario, pushes, priorUnregisters)
 		})
 	}
+}
+
+// BeforeHandoff is an eligibility marker, NOT an admission oracle. In the real
+// coordinator, terminal.admit checks under the mutex which crash holds through
+// the non-returning exit. Thus an entry during the injected exit delay can only
+// be an earlier admission. TestHATerminalAdmissionOrder separately observes that
+// actual admission check and forces the unlock-to-action-entry scheduling gap.
+func haLossCleanupError(log string, sigterm bool) error {
+	var stopped, fatal, signaled, priorSealHandoff, sealed bool
+	for _, line := range strings.Split(strings.TrimSpace(log), "\n") {
+		var event struct {
+			Kind string `json:"kind"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			return err
+		}
+		switch event.Kind {
+		case "sigterm":
+			signaled = true
+		case "on-stopped":
+			stopped = true
+		case "exit-1":
+			fatal = true
+		case "seal-handoff":
+			if !fatal && signaled {
+				priorSealHandoff = true
+			}
+		case "seal":
+			if !sigterm || !priorSealHandoff || sealed {
+				return errors.New("seal without an earlier SIGTERM handoff")
+			}
+			sealed = true
+		case "release", "exit-0":
+			return fmt.Errorf("loss entered %s", event.Kind)
+		}
+	}
+	if !stopped || !fatal {
+		return errors.New("missing loss callback or fatal selection")
+	}
+	return nil
 }
 
 func haLossStopTime(t *testing.T, log string) int64 {
@@ -553,8 +594,11 @@ func TestHACoordinatorLossHelper(t *testing.T) {
 		}
 		return nil
 	}
+	deps.BeforeHandoff = func(step string) { events.record(step + "-handoff") }
 	deps.Exit = func(code int) {
 		events.record("exit-" + strconv.Itoa(code))
+		// Test-only delay exposes earlier-admitted actions still in flight.
+		// Production's immediate os.Exit is the final fence, not cancellation.
 		time.Sleep(300 * time.Millisecond)
 		os.Exit(code)
 	}
