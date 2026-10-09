@@ -1,9 +1,11 @@
 ---
 id: SKT-0113
 title: Diagnose the flaky HA planned-release lifecycle test
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - loop7
 created_date: '2026-10-09 11:19'
+updated_date: '2026-10-09 13:38'
 labels: []
 dependencies: []
 type: bug
@@ -29,3 +31,15 @@ TestHAGenericLeaseFileReloadAndPlannedRelease (cmd/synthkit/ha_lifecycle_test.go
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+loop7: deterministic forced interleaving plus contended race stress; test-only repair with unchanged timings/assertions or bounded evidence question.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop7: retained implementation attempts0; temporary diagnostic cycle reverted. Bounded unchanged contended race stress8/40 failures; shutdown watchdog with request-header reader, origin unproven; no deterministic reproduction/test-only fix. Park needs=owner per goal explicit stop rule. Resume after scoped deterministic transport investigation decision, runtime/timing changes still prohibited. Evidence retained privately by root; no code changed.
+<!-- SECTION:NOTES:END -->

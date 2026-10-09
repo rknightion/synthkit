@@ -4,7 +4,7 @@ title: Add a kubernetes state backend for control state
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-08 16:34'
+updated_date: '2026-10-09 14:16'
 labels:
   - feature
   - ha
@@ -55,4 +55,6 @@ loop3: implementation attempts0; dependency-held by SKT-0092 (lease HA with cras
 loop4: implementation attempts0; HA source landed ddee479 but composed gate remains red, owned by SKT-0109 (resolve late Faro POST test-oracle proof defect). No readiness/console/backend/chart code begun. Resume frozen order only after owner-authorized HA proof repair and green composed gate; readiness+console first, then state backend, then chart.
 
 loop5 attempts0; dependency-held: SKT-0109 (late Faro POST oracle) candidate unlanded because full gate exposes independent coordinator-loss assertion/admission discrepancy. No downstream source changes. Resume only after authorized repair and prerequisite accepted land/composed green.
+
+loop7 implementation attempts0; dependency park: H93/B98 must land before S94; R13 park itself is not a blocker per goal. Resume frozen order after prerequisite accepted land/green gate; no candidate/source changes this run.
 <!-- SECTION:NOTES:END -->

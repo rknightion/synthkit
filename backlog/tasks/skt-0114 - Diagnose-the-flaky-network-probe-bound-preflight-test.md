@@ -1,9 +1,11 @@
 ---
 id: SKT-0114
 title: Diagnose the flaky network probe bound preflight test
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - loop7
 created_date: '2026-10-09 11:19'
+updated_date: '2026-10-09 14:16'
 labels: []
 dependencies: []
 type: bug
@@ -29,3 +31,15 @@ TestCheckBoundsEachNetworkProbe (internal/preflight/preflight_test.go) failed in
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+loop7: deterministic failing-first test-only probe bound repair without widening probes/timeouts; focused repeated race proof, local gate, root review/land; composed criterion waits for all three CI repairs.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop7 implementation attempts1, focused fail-first proof + race100/package20 passes and independent routine review PASS. Exact one-file candidate retained uncommitted; full gate red only known R12 control-dash600s timeout. No AC3 checked or land: frozen all-three composed prerequisite also needs accepted R13. Resume after blockers resolve; no unchanged failed gate retry.
+<!-- SECTION:NOTES:END -->

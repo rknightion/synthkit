@@ -1,10 +1,10 @@
 ---
 id: SKT-0098
 title: Serve the control console under a runtime base path
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-09 11:18'
+updated_date: '2026-10-09 14:16'
 labels:
   - feature
   - ui
@@ -52,4 +52,6 @@ loop4: implementation attempts0; HA source landed ddee479 but composed gate rema
 loop5 attempts0; dependency-held: SKT-0109 (late Faro POST oracle) candidate unlanded because full gate exposes independent coordinator-loss assertion/admission discrepancy. No downstream source changes. Resume only after authorized repair and prerequisite accepted land/composed green.
 
 loop6 partial, not landed: adds ControlBasePath (CONTROL_BASE_PATH) and Handler.SetBasePath; main.go and ha_main.go wiring (SetBasePath before serving, mount under base+/control/) was never done. Candidate retained byte-exact at /Users/rob/repos/synthkit-hosted/codex/retained-2026-10-08-loop6/B98/candidate.patch (base 14719af, sha256 3c6a123e7375be174b068601fb63f4987e00fed28ded6d48c6f35c36ce96fc9d). Gate was red on the control-dash race timeout and an HA planned-exit assertion.
+
+loop7 implementation attempts0; dependency park: H93 must land before B98; retained patch unchanged and hash verified. Resume frozen order after prerequisite accepted land/green gate; no candidate/source changes this run.
 <!-- SECTION:NOTES:END -->

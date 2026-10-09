@@ -1,9 +1,11 @@
 ---
 id: SKT-0112
 title: Keep the control-dash race package inside the test timeout
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - loop7
 created_date: '2026-10-09 11:19'
+updated_date: '2026-10-09 14:15'
 labels: []
 dependencies: []
 type: bug
@@ -29,3 +31,17 @@ Under `just race`, cmd/synthkit-control-dash took 363s (CI 37810460433), 437s (3
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+loop7: record race timing before/after test-only optimization retaining every scenario/assertion; root review and CI timing after landing.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop7 attempt1 unsuccessful: GOMAXPROCS2 experiment >240s reverted, baseline >420s, unchanged gate >900s; no candidate. Root cause-based retry inspects serial unique-blueprint derivation and repeated full catalogue in generator-shape tests; preserve real shipped scenarios/all assertions, no runtime change.
+
+loop7 attempts2 test-only experimental cycles, both reverted clean; race baseline terminal default-timeout600.516s, single-blueprint experiment externally bounded210s. All14 scenarios share1 blueprint; shape-generator tests do not derive (root initial hypothesis corrected). Load~180/10CPUs materially confounds timings; no idle impossibility claim. Park needs=owner; recommend uncontended exact package timing before deciding runtime scope. No timeout/skip/assertion/justfile/runtime changes retained.
+<!-- SECTION:NOTES:END -->
