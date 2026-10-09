@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-08 15:06'
-updated_date: '2026-10-09 11:18'
+updated_date: '2026-10-09 22:04'
 labels: []
 dependencies: []
 type: bug
@@ -39,7 +39,7 @@ Reapply retained Faro oracle unchanged; test-only deterministic terminal admissi
 <!-- SECTION:NOTES:BEGIN -->
 Bounded read-only diagnosis: major test-oracle defect at internal/runner/delivery_test.go27-35,62-74; asynchronous server arrivals may increment after client worker join even when admitted before deadline. Test never revokes gate.20 targeted repetitions pass, not resolution of historical red. No runtime defect or revert justified. Attempts0 implementation; owner must authorize test-only direct admission/completion observation and fake-server lifetime synchronization, no assertion loosening. Main composed gate remains red; resume exact narrow correction and new gate only after owner consent.
 
-loop5 attempt1 completed; late-POST injection failed as required and focused runner race count50 passed, but full just check red in TestHACoordinatorRenewalLossSuppressesCleanup/sigterm (seal after exit1). Read-only diagnosis: earlier-admitted invocation resumes during test exit300ms delay; observer logs entry not successful sealing. Independent existing contract/observer discrepancy, no runtime violation established; targeted40 pass does not clear red. Faro-only owned-file retry cannot repair cause, so remaining retry unused. Candidate uncommitted in /Users/rob/repos/skh-loop5/F09. Resume after owner authorizes separate HA contract/test correction, then exact candidate gate and high review; no land.
+loop5 attempt1 completed; late-POST injection failed as required and focused runner race count50 passed, but full just check red in TestHACoordinatorRenewalLossSuppressesCleanup/sigterm (seal after exit1). Read-only diagnosis: earlier-admitted invocation resumes during test exit300ms delay; observer logs entry not successful sealing. Independent existing contract/observer discrepancy, no runtime violation established; targeted40 pass does not clear red. Faro-only owned-file retry cannot repair cause, so remaining retry unused. Candidate uncommitted in the retained local candidate worktree. Resume after owner authorizes separate HA contract/test correction, then exact candidate gate and high review; no land.
 
 loop6 (reconstructed by planner after the loop was interrupted by a host OS update): retained oracle committed b88833e, observer reconciliation 50892a2, both reviews accepted 0 critical/major. Composed just check exit 0 at 14719af3aa2714e4823b4c6229e68a6f377aa4f2 (evidence operator-held local evidence). CI 37855685768 at that SHA was red on an unrelated control-dash race-package timeout, tracked separately; CI 37889782301 at bb4c4e2 is green.
 <!-- SECTION:NOTES:END -->

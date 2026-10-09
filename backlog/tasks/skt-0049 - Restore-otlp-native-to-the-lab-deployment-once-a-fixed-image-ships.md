@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@codex'
 created_date: '2026-08-31 15:13'
-updated_date: '2026-09-02 21:14'
+updated_date: '2026-10-09 22:04'
 labels: []
 dependencies: []
 ordinal: 140000
@@ -70,7 +70,7 @@ Confirm the fixed immutable image is published, then change only the standing de
 
 2026-09-03 read-back evidence: the distinct enriched/naked native-OTLP query was attempted against the named lab context with the captured http_server_request_duration_seconds_count family and the two declared service identities. The context was online, but datasource discovery and the explicit Prometheus datasource path both returned Unauthorized. The standing-cluster read path also stopped at an expired AWS SSO session. Therefore the goal-level far-side proof for the two modes, SKT-0046 promoted labels, and SKT-0048 span-resource changes remains unproven; no infrastructure write was made. Resume with a fresh noninteractive metrics-read credential or refreshed standing-lab read session, then query both declared services in one bounded window and compare the sourced label/resource sets.
 
-2026-09-02: far-side proof obtained; the read-credential blocker is resolved. A CAP token with metrics:read and logs:read on every instance in the org is stored at /Users/rob/repos/chat-personal/grafana/cap_token_metrics_read (chmod 600, policy 2nd-sept-2026-token), verified HTTP 200 on Mimir and Loki query for all four instances.
+2026-09-02: far-side proof obtained; the read-credential blocker is resolved. A CAP token with metrics:read and logs:read on every instance in the org is stored at the operator-held read-only CAP credential (chmod 600, policy 2nd-sept-2026-token), verified HTTP 200 on Mimir and Loki query for all four instances.
 
 Root cause of the three previous read parks was not a missing credential. The Mimir Basic-auth username is the Prometheus instance id (hmInstancePromId), not the stack id; Loki wants hlInstanceId. Both differ from the stack id. Using the stack id returns 401 with the same body a revoked credential produces, so a working one reads as dead. Lab stack 1802885 maps to prom tenant 3529994 and loki tenant 1760672. Resolve tenant ids from the Cloud API instances endpoint at run time.
 

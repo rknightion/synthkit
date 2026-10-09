@@ -4,7 +4,7 @@ title: Migrate the repo task surface to just and retire Makefiles and ad-hoc scr
 status: Done
 assignee: []
 created_date: '2026-08-28 19:06'
-updated_date: '2026-08-29 16:49'
+updated_date: '2026-10-09 22:04'
 labels:
   - 'wave:2-fleet'
 dependencies: []
@@ -22,7 +22,7 @@ justfile per repo, CI calls `just`). Verified against `just 1.58.0`.
 
 ## 1. Outcome
 
-`/Users/rob/repos/synthkit/justfile` is the single task surface. `just --list` answers "what can I do
+`justfile` is the single task surface. `just --list` answers "what can I do
 in this repo"; `just check` is the complete PR gate and is exactly the union of what `ci-success`
 gates. The 12,915-byte `Makefile` (40 targets) is deleted. One script — `scripts/spdx-check.sh` — is
 absorbed into a `[script('bash')]` recipe and deleted; every other tracked script survives as a file
@@ -439,7 +439,7 @@ sbom:
 
 ## 3. Makefile disposition
 
-Every target in `/Users/rob/repos/synthkit/Makefile`. After the table: `git rm Makefile`.
+Every target in `Makefile`. After the table: `git rm Makefile`.
 
 | Make target | Replacement recipe | Notes |
 |---|---|---|
