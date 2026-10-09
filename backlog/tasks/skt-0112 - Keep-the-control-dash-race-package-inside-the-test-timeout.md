@@ -1,11 +1,11 @@
 ---
 id: SKT-0112
 title: Keep the control-dash race package inside the test timeout
-status: Parked
+status: In Progress
 assignee:
-  - '@loop8'
+  - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-09 16:03'
+updated_date: '2026-10-09 22:09'
 labels: []
 dependencies: []
 type: bug
@@ -38,6 +38,8 @@ Under `just race`, cmd/synthkit-control-dash took 363s (CI 37810460433), 437s (3
 loop7: record race timing before/after test-only optimization retaining every scenario/assertion; root review and CI timing after landing.
 
 loop8: uncontended phase1 race timing first; only if over180s profile and optimize generic derivation with identical output and all scenario assertions preserved. Root reviews and lands; CI plus composed gate prove remaining criteria.
+
+Generic profiled hot-path optimization preserving retained output golden and shipped scenario assertions; uncontended race timing twice under180s, high independent review and root landing; exact-SHA CI plus composed gate.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
