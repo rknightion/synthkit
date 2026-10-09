@@ -1,7 +1,7 @@
 # Dockerfile.skcapture — multi-stage build for the skcapture inspector binary.
 #
-# Stage 1: build the static skcapture binary from source.
-# Stage 2: minimal final image with kubectl on PATH (skcapture shells out to kubectl).
+# Build skcapture and kubectl from source with the patched Go toolchain.
+# Final stage: minimal image with kubectl on PATH (skcapture shells out to kubectl).
 #
 # Build:
 #   docker build -f Dockerfile.skcapture -t skcapture:dev .
@@ -24,33 +24,37 @@ ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
     go build -trimpath -ldflags="-s -w" -o /skcapture ./cmd/skcapture
 
-# ─── Stage 2: final image ─────────────────────────────────────────────────────
-# Alpine base + pinned kubectl binary. skcapture shells out to kubectl so it
-# must be on PATH in the final image.
-#
-# Pinned kubectl version: update KUBECTL_VERSION when your cluster API server
-# requires a newer minor version (keep within ±1 of your cluster version).
-FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+# ─── kubectl builder ─────────────────────────────────────────────────────────
+# The upstream v1.37.1 binaries still use Go 1.26.8, affected by
+# CVE-2026-78667 and CVE-2026-97031. Rebuild the checksum-pinned official
+# source with Go 1.27.2; use its vendored dependencies without modifying them.
+FROM golang:1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c AS kubectl-builder
+
+# Keep kubectl within ±1 minor of the cluster API server. Version and source
+# checksum must be updated together; checksum from the sibling .sha256 URL.
+ARG KUBECTL_VERSION=1.37.1
+ARG KUBECTL_SOURCE_CHECKSUM=d58492a058ac7cb1db0829a9e12317024f48d4bcbf56344b32b11276f9bdc2cf
+ADD --checksum=sha256:${KUBECTL_SOURCE_CHECKSUM} https://dl.k8s.io/release/v${KUBECTL_VERSION}/kubernetes-src.tar.gz /tmp/kubernetes-src.tar.gz
+WORKDIR /kubectl-src
+RUN tar -xzf /tmp/kubernetes-src.tar.gz -C /kubectl-src
 
 ARG TARGETARCH
-ARG KUBECTL_VERSION=1.37.0
-# Verified against dl.k8s.io/release/v1.37.0/bin/linux/<arch>/kubectl.sha256.
-ARG KUBECTL_CHECKSUM_AMD64=6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
-ARG KUBECTL_CHECKSUM_ARM64=922df28df248cc00a9e025f947704f1d1482de64ece54cfe57e61f19eaf1eef3
+RUN case "$TARGETARCH" in amd64|arm64) ;; *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; esac && \
+    flags="-s -w" && \
+    for pkg in k8s.io/client-go/pkg/version k8s.io/component-base/version; do \
+      flags="$flags -X ${pkg}.gitVersion=v${KUBECTL_VERSION} -X ${pkg}.gitMajor=${KUBECTL_VERSION%%.*} -X ${pkg}.gitMinor=$(echo "$KUBECTL_VERSION" | cut -d. -f2)"; \
+    done && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+    go build -mod=vendor -trimpath -tags=selinux,notest,grpcnotrace \
+      -ldflags="$flags" -o /kubectl ./cmd/kubectl
 
-# Upgrade base packages before installing tools so the pinned base cannot retain
-# a fixed OpenSSL vulnerability. Match kubectl and the inspector to the target CPU.
-RUN apk upgrade --no-cache && apk add --no-cache curl ca-certificates && \
-    case "$TARGETARCH" in \
-      amd64) checksum="$KUBECTL_CHECKSUM_AMD64" ;; \
-      arm64) checksum="$KUBECTL_CHECKSUM_ARM64" ;; \
-      *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
-    esac && \
-    curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
-      -o /usr/local/bin/kubectl && \
-    echo "${checksum}  /usr/local/bin/kubectl" | sha256sum -c - && \
-    chmod +x /usr/local/bin/kubectl && \
-    apk del curl
+# ─── Final image ──────────────────────────────────────────────────────────────
+# Alpine base + source-built kubectl. No compiler or source in the final image.
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+
+# Upgrade base packages so the pinned base cannot retain a fixed vulnerability.
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates
+COPY --from=kubectl-builder /kubectl /usr/local/bin/kubectl
 
 # Copy the skcapture binary from the builder stage.
 COPY --from=builder /skcapture /usr/local/bin/skcapture
