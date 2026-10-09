@@ -1,10 +1,10 @@
 ---
 id: SKT-0093
 title: Make readiness standby-aware in HA mode
-status: Parked
+status: To Do
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-08 16:34'
+updated_date: '2026-10-09 11:18'
 labels:
   - feature
   - ha
@@ -34,6 +34,12 @@ In HA_MODE=lease a standby never pushes, so today's delivery-aware readiness (in
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+loop6: preserve default/leader readiness, standby readiness from configuration/build/preflight only; tests each criterion, local gate, independent review, root landing.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
@@ -46,4 +52,6 @@ loop3: implementation attempts0; dependency-held by SKT-0092 (lease HA with cras
 loop4: implementation attempts0; HA source landed ddee479 but composed gate remains red, owned by SKT-0109 (resolve late Faro POST test-oracle proof defect). No readiness/console/backend/chart code begun. Resume frozen order only after owner-authorized HA proof repair and green composed gate; readiness+console first, then state backend, then chart.
 
 loop5 attempts0; dependency-held: SKT-0109 (late Faro POST oracle) candidate unlanded because full gate exposes independent coordinator-loss assertion/admission discrepancy. No downstream source changes. Resume only after authorized repair and prerequisite accepted land/composed green.
+
+loop6 partial, not landed: lane gate red only on the control-dash race-package timeout (unowned). Candidate retained byte-exact at /Users/rob/repos/synthkit-hosted/codex/retained-2026-10-08-loop6/H93/candidate.patch (base 14719af, sha256 7aa01d96aeb417c8c895b0a40663b943f6f748a6f87d92e3bcf4ed579f754abe); ownership extended to the readiness callback wiring in cmd/synthkit/ha_main.go plus cmd/synthkit/ha_readiness_test.go. Resume from that patch once the race budget is fixed.
 <!-- SECTION:NOTES:END -->

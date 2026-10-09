@@ -1,10 +1,10 @@
 ---
 id: SKT-0098
 title: Serve the control console under a runtime base path
-status: Parked
+status: To Do
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-08 16:34'
+updated_date: '2026-10-09 11:18'
 labels:
   - feature
   - ui
@@ -32,6 +32,12 @@ Running the console behind a reverse proxy under a prefix is impossible today: V
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+loop6: runtime configured base path with one relative UI build, prefix-aware redirects/assets/API; Go serving proof and UI URL tests, unchanged default/Infinity shapes, environment alignment, gate/review/root landing.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
@@ -44,4 +50,6 @@ loop3: implementation attempts0; dependency-held by SKT-0092 (lease HA with cras
 loop4: implementation attempts0; HA source landed ddee479 but composed gate remains red, owned by SKT-0109 (resolve late Faro POST test-oracle proof defect). No readiness/console/backend/chart code begun. Resume frozen order only after owner-authorized HA proof repair and green composed gate; readiness+console first, then state backend, then chart.
 
 loop5 attempts0; dependency-held: SKT-0109 (late Faro POST oracle) candidate unlanded because full gate exposes independent coordinator-loss assertion/admission discrepancy. No downstream source changes. Resume only after authorized repair and prerequisite accepted land/composed green.
+
+loop6 partial, not landed: adds ControlBasePath (CONTROL_BASE_PATH) and Handler.SetBasePath; main.go and ha_main.go wiring (SetBasePath before serving, mount under base+/control/) was never done. Candidate retained byte-exact at /Users/rob/repos/synthkit-hosted/codex/retained-2026-10-08-loop6/B98/candidate.patch (base 14719af, sha256 3c6a123e7375be174b068601fb63f4987e00fed28ded6d48c6f35c36ce96fc9d). Gate was red on the control-dash race timeout and an HA planned-exit assertion.
 <!-- SECTION:NOTES:END -->

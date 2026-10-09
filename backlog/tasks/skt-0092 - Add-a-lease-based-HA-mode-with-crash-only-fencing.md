@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:30'
-updated_date: '2026-10-08 15:10'
+updated_date: '2026-10-09 11:19'
 labels:
   - feature
   - ha
@@ -73,4 +73,6 @@ loop2: implementation attempt 4 of 4 consumed; review round 4 not reached becaus
 loop3: implementation change-and-verify attempts5 completed; final authorized rescue slot6 used read-only (no extra change-and-verify cycle); review round4 REJECT major proof provenance. Exact retained candidate already includes arbiter; historical seven runtime-red cases precede it. Compiler-only panic repair passed unchanged seven tests, actual client-go/local Lease renewal-loss cases, HA-off coordinated full-byte dump, just check and CodeRabbit0. No test weakening, no commit/land. Final Astra confirms acceptance premise incompatible. Resume only genuine identity-bound missing red evidence or owner-corrected proof contract plus authorized security review. Current candidate tree2c03f0dad824ac42676b127f91d15555b770f4be retained uncommitted; full binary patch/base and all gate/review evidence /Users/rob/repos/synthkit-hosted/codex/retained-2026-10-08-loop3/H92X-attempt5/; security evidence sibling H92XR/; no additional implementation authorized.
 
 loop4: no new implementation attempt; security round5 ACCEPT0 critical/major/minor, fresh retained identity/focused tests/dump/gate0, code landed ddee479a9e4c2b56021de3f4de3dd2c7b9dfdcc0. Composed first env failure repaired append-only; second composed source357b29 red TestHAActualFaro5000WholeWrite late server count121->122. SKT-0109 (resolve late Faro POST proof-oracle failure) owns unresolved red: source shows server-arrival oracle defect,20 bounded focused passes insufficient. No runtime rollback justified. Not Done; resume only owner-authorized test-proof repair and green composed gate; prior attempts remain5, no new implementation.
+
+2026-10-09 planner: composed just check green at 14719af after SKT-0109; closing this task now waits on SKT-0113 (flaky HA planned-release lifecycle test, red in CI 37860640279) and a clean CI run, then verification of #1-6 against main.
 <!-- SECTION:NOTES:END -->
