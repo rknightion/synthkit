@@ -4,7 +4,7 @@ title: Make readiness standby-aware in HA mode
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-09 14:16'
+updated_date: '2026-10-09 16:56'
 labels:
   - feature
   - ha
@@ -53,7 +53,9 @@ loop4: implementation attempts0; HA source landed ddee479 but composed gate rema
 
 loop5 attempts0; dependency-held: SKT-0109 (late Faro POST oracle) candidate unlanded because full gate exposes independent coordinator-loss assertion/admission discrepancy. No downstream source changes. Resume only after authorized repair and prerequisite accepted land/composed green.
 
-loop6 partial, not landed: lane gate red only on the control-dash race-package timeout (unowned). Candidate retained byte-exact at /Users/rob/repos/synthkit-hosted/codex/retained-2026-10-08-loop6/H93/candidate.patch (base 14719af, sha256 7aa01d96aeb417c8c895b0a40663b943f6f748a6f87d92e3bcf4ed579f754abe); ownership extended to the readiness callback wiring in cmd/synthkit/ha_main.go plus cmd/synthkit/ha_readiness_test.go. Resume from that patch once the race budget is fixed.
+loop6 partial, not landed: lane gate red only on the control-dash race-package timeout (unowned). Candidate retained byte-exact at operator-held local evidence (base 14719af, sha256 7aa01d96aeb417c8c895b0a40663b943f6f748a6f87d92e3bcf4ed579f754abe); ownership extended to the readiness callback wiring in cmd/synthkit/ha_main.go plus cmd/synthkit/ha_readiness_test.go. Resume from that patch once the race budget is fixed.
 
 loop7 implementation attempts0; dependency park: R12 must land before H93; retained patch unchanged and hash verified. Resume frozen order after prerequisite accepted land/green gate; no candidate/source changes this run.
+
+loop8 attempts0, priorcountsunchanged. Parkneedsdependency: frozenH93orderrequires R12land; R13landed but R12ownerparkedsharedpathscope. Retainedpatch hashverified and untouched, resumecurrentmainafterperformanceprerequisite.
 <!-- SECTION:NOTES:END -->

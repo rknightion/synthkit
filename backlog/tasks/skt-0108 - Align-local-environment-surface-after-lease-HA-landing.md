@@ -35,7 +35,7 @@ Observe failing composed env-check; append only missing allowlisted example defa
 <!-- SECTION:NOTES:BEGIN -->
 Append-only14 documented HA/state defaults verified, original local bytes/settings retained; TestEnvSurfaceAligned passes in composed357b29. Overall just check fails separate Faro oracle test owned by SKT-0109 (resolve late Faro POST proof defect); zero tracked runtime changes. Resume final gate after authorized proof repair.
 
-Composed just check exit 0 at 14719af3aa2714e4823b4c6229e68a6f377aa4f2 after SKT-0109 landed (evidence /Users/rob/repos/synthkit-hosted/codex/retained-2026-10-08-loop6/F09/F09COMPFIX-14719af-gate.json).
+Composed just check exit 0 at 14719af3aa2714e4823b4c6229e68a6f377aa4f2 after SKT-0109 landed (evidence operator-held local evidence).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
