@@ -27,7 +27,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
 # ─── kubectl builder ─────────────────────────────────────────────────────────
 # The upstream v1.37.1 binaries still use Go 1.26.8, affected by
 # CVE-2026-78667 and CVE-2026-97031. Rebuild the checksum-pinned official
-# source with Go 1.27.2; use its vendored dependencies without modifying them.
+# source with Go 1.27.2 and an alternate module graph fixing x/net.
+# The upstream source logic and vendor tree remain untouched; vendor is unused.
 FROM golang:1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c AS kubectl-builder
 
 # Keep kubectl within ±1 minor of the cluster API server. Version and source
@@ -38,6 +39,12 @@ ADD --checksum=sha256:${KUBECTL_SOURCE_CHECKSUM} https://dl.k8s.io/release/v${KU
 WORKDIR /kubectl-src
 RUN tar -xzf /tmp/kubernetes-src.tar.gz -C /kubectl-src
 
+# Keep the alternate files at the source root so staging replacements still work.
+# Disable the upstream workspace and authenticate downloaded modules via sumdb.
+ENV GOWORK=off GOSUMDB=sum.golang.org
+RUN cp go.mod kubectl-build.mod && cp go.sum kubectl-build.sum && \
+    go get -modfile=kubectl-build.mod golang.org/x/net@v0.60.0
+
 ARG TARGETARCH
 RUN case "$TARGETARCH" in amd64|arm64) ;; *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; esac && \
     flags="-s -w" && \
@@ -45,7 +52,7 @@ RUN case "$TARGETARCH" in amd64|arm64) ;; *) echo "unsupported architecture: $TA
       flags="$flags -X ${pkg}.gitVersion=v${KUBECTL_VERSION} -X ${pkg}.gitMajor=${KUBECTL_VERSION%%.*} -X ${pkg}.gitMinor=$(echo "$KUBECTL_VERSION" | cut -d. -f2)"; \
     done && \
     CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
-    go build -mod=vendor -trimpath -tags=selinux,notest,grpcnotrace \
+    go build -modfile=kubectl-build.mod -mod=readonly -trimpath -tags=selinux,notest,grpcnotrace \
       -ldflags="$flags" -o /kubectl ./cmd/kubectl
 
 # ─── Final image ──────────────────────────────────────────────────────────────
