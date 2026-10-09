@@ -2,7 +2,6 @@
 tier: guarded
 gate: just check
 ci-required: ci-success
-baseline-red: SKT-0112 - local race-tier control-dash package exceeds the unchanged 10m timeout at a9a31e1121cd25d6b025584b99d14d6af88196aa; compare exact base and candidate gate failures until the performance repair is accepted. Keep every test, assertion and timeout, and all required CI checks.
 release-on-push: yes
 deploy-on-push: no
 receiver: https://loopwatch.m7kni.com

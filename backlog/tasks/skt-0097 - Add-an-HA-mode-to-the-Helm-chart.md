@@ -4,7 +4,7 @@ title: Add an HA mode to the Helm chart
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-09 14:16'
+updated_date: '2026-10-09 16:56'
 labels:
   - feature
   - ha
@@ -50,4 +50,6 @@ loop4: implementation attempts0; HA source landed ddee479 but composed gate rema
 loop5 attempts0; dependency-held: SKT-0109 (late Faro POST oracle) candidate unlanded because full gate exposes independent coordinator-loss assertion/admission discrepancy. No downstream source changes. Resume only after authorized repair and prerequisite accepted land/composed green.
 
 loop7 implementation attempts0; dependency park: S94 must land before C97. Resume frozen order after prerequisite accepted land/green gate; no candidate/source changes this run.
+
+loop8 attempts0, priorcountsunchanged. Parkneedsdependency: S94backendmustland beforechartenvconformance. Resumeafterbackendseamavailable; nochartchangeundertaken.
 <!-- SECTION:NOTES:END -->
