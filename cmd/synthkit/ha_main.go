@@ -56,6 +56,8 @@ type haDependencies struct {
 	Exit      func(int) // production os.Exit; terminal and non-returning
 	// BeforeHandoff is a test-only scheduling hook, before terminal admission.
 	BeforeHandoff func(string)
+	// WrapHTTPListener is a test-only process-edge scheduling hook.
+	WrapHTTPListener func(net.Listener) net.Listener
 }
 
 func productionHADependencies() haDependencies {
@@ -443,7 +445,11 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 		prodCancel()
 		return err
 	}
-	srv := &http.Server{Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
+	if deps.WrapHTTPListener != nil {
+		listener = deps.WrapHTTPListener(listener)
+	}
+	httpDrain := &haHTTPDrain{}
+	srv := &http.Server{Handler: router, ConnState: httpDrain.connState, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- srv.Serve(listener) }()
 	election, err := deps.Election(context.Background(), lease.Options{Namespace: cfg.HANamespace, Name: cfg.HALeaseName, PodUID: cfg.PodUID, LeaseDuration: cfg.HALeaseDuration, RenewDeadline: cfg.HARenewDeadline, RetryPeriod: cfg.HARetryPeriod, RequestTimeout: cfg.HAKubeRequestTimeout, Stopped: crash, Started: func(leadCtx context.Context) {
@@ -599,7 +605,7 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 	cleanup(current.runner.JoinQueues)
 	cleanup(current.runner.CleanupFleet)
 	cleanup(gate.Wait)
-	cleanup(srv.Shutdown)
+	cleanup(func(ctx context.Context) error { return httpDrain.shutdown(ctx, srv) })
 	wg.Wait()
 	if len(cleanupErrs) > 0 || drainCtx.Err() != nil {
 		crash()

@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"syscall"
@@ -148,10 +149,15 @@ func awaitHA(t *testing.T, fn func() bool) {
 }
 
 func TestHAGenericLeaseFileReloadAndPlannedRelease(t *testing.T) {
-	exerciseHALeaseFileLifecycle(t, false)
+	exerciseHALeaseFileLifecycle(t, false, false)
 }
-func TestHAExpiredGlobalDrainDoesNotRelease(t *testing.T) { exerciseHALeaseFileLifecycle(t, true) }
-func exerciseHALeaseFileLifecycle(t *testing.T, expire bool) {
+func TestHAPlannedReleaseWithIncompleteHTTPHeaders(t *testing.T) {
+	exerciseHALeaseFileLifecycle(t, false, true)
+}
+func TestHAExpiredGlobalDrainDoesNotRelease(t *testing.T) {
+	exerciseHALeaseFileLifecycle(t, true, false)
+}
+func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) {
 	t.Helper()
 	api, srv := newNamedLeaseRecorder(t)
 	defer srv.Close()
@@ -219,6 +225,24 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire bool) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, exe, "-test.run=^TestHAGenericLeaseFileHelper$")
 	cmd.Env = append(os.Environ(), "SYNTHKIT_HA_CONFIG="+cfgPath, "SYNTHKIT_HA_API="+srv.URL, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
+	var headerRead <-chan error
+	if incompleteHeaders {
+		reader, writer, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reader.Close()
+		defer writer.Close()
+		cmd.ExtraFiles = []*os.File{writer}
+		cmd.Env = append(cmd.Env, "SYNTHKIT_HA_HEADER_READ_FD=3")
+		ready := make(chan error, 1)
+		headerRead = ready
+		go func() {
+			var b [1]byte
+			_, err := io.ReadFull(reader, b[:])
+			ready <- err
+		}()
+	}
 	logPath := filepath.Join(root, "process.log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
@@ -286,6 +310,31 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire bool) {
 	if code != 200 || !strings.Contains(string(body), "second") {
 		t.Fatalf("acquisition retained stale topology: %d %s", code, body)
 	}
+	if incompleteHeaders {
+		conn, err := net.DialTimeout("tcp", cfg.HTTPAddr, time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
+		if err := conn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := io.WriteString(conn, incompleteHAHeader); err != nil {
+			t.Fatal(err)
+		}
+		// The child acknowledges only after consuming this incomplete header,
+		// immediately before net/http asks for the missing bytes. Keep the socket
+		// open across SIGTERM; no timer or client cleanup can unblock its reader.
+		select {
+		case err := <-headerRead:
+			if err != nil {
+				t.Fatal(err)
+			}
+		case <-ctx.Done():
+			t.Fatal("child did not reach incomplete request-header read")
+		}
+		t.Log("child consumed incomplete HTTP header; reader held open across SIGTERM")
+	}
 	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		t.Fatal(err)
 	}
@@ -324,6 +373,112 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire bool) {
 	}
 }
 
+// A normal active handler is not an idle/header-only connection: shutdown must
+// preserve its socket and context, then positively join it before handoff.
+func TestHAHTTPDrainJoinsActiveHandler(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	drain := &haHTTPDrain{}
+	entered := make(chan context.Context, 1)
+	finish := make(chan struct{})
+	var finishOnce sync.Once
+	finishHandler := func() { finishOnce.Do(func() { close(finish) }) }
+	defer finishHandler()
+	accepted := make(chan struct{}, 2)
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		entered <- r.Context()
+		select {
+		case <-finish:
+		case <-ctx.Done():
+		}
+		_, _ = io.WriteString(w, "joined")
+	}))
+	srv.Config.ConnState = func(c net.Conn, state http.ConnState) {
+		drain.connState(c, state)
+		if state == http.StateNew {
+			accepted <- struct{}{}
+		}
+	}
+	srv.Start()
+	defer srv.Close()
+	response := make(chan error, 1)
+	go func() {
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
+		resp, err := srv.Client().Do(req)
+		if err == nil {
+			defer resp.Body.Close()
+			var body []byte
+			body, err = io.ReadAll(resp.Body)
+			if err == nil && string(body) != "joined" {
+				err = fmt.Errorf("active response: %q", body)
+			}
+		}
+		response <- err
+	}()
+	var active context.Context
+	select {
+	case active = <-entered:
+	case <-ctx.Done():
+		t.Fatal("handler did not start")
+	}
+	<-accepted
+	idle, err := net.DialTimeout("tcp", srv.Listener.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer idle.Close()
+	select {
+	case <-accepted:
+	case <-ctx.Done():
+		t.Fatal("header-only connection not accepted")
+	}
+	joined := make(chan error, 1)
+	go func() { joined <- drain.shutdown(ctx, srv.Config) }()
+	deadline, _ := ctx.Deadline()
+	if err := idle.SetReadDeadline(deadline); err != nil {
+		t.Fatal(err)
+	}
+	var b [1]byte
+	if _, err := idle.Read(b[:]); err != io.EOF {
+		t.Fatalf("header-only connection not closed: %v", err)
+	}
+	// Cover an accept racing with shutdown without depending on socket timing.
+	late, peer := net.Pipe()
+	defer peer.Close()
+	if err := peer.SetReadDeadline(deadline); err != nil {
+		t.Fatal(err)
+	}
+	drain.connState(late, http.StateNew)
+	if _, err := peer.Read(b[:]); err != io.EOF {
+		t.Fatalf("late connection not closed: %v", err)
+	}
+	if err := active.Err(); err != nil {
+		t.Fatalf("shutdown canceled active handler: %v", err)
+	}
+	select {
+	case err := <-joined:
+		t.Fatalf("shutdown returned before active handler joined: %v", err)
+	default:
+	}
+	finishHandler()
+	select {
+	case err := <-response:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal("active response did not finish")
+	}
+	select {
+	case err := <-joined:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal("HTTP shutdown did not join")
+	}
+}
+
 type diagnosticElection struct{ leaseElection }
 
 func (e diagnosticElection) Seal(ctx context.Context) error {
@@ -335,6 +490,42 @@ func (e diagnosticElection) Release(ctx context.Context) error {
 	err := e.leaseElection.Release(ctx)
 	fmt.Fprintln(os.Stderr, "release result:", err)
 	return err
+}
+
+const incompleteHAHeader = "GET /incomplete HTTP/1.1\r\n"
+
+// headerReadListener observes the real net/http read path, not a simulated
+// shutdown. The pipe is process-local test coordination, never a runtime API.
+type headerReadListener struct {
+	net.Listener
+	ready io.Writer
+}
+
+func (l headerReadListener) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	return &headerReadConn{Conn: c, ready: l.ready}, nil
+}
+
+type headerReadConn struct {
+	net.Conn
+	ready  io.Writer
+	prefix []byte
+	sent   bool
+}
+
+func (c *headerReadConn) Read(p []byte) (int, error) {
+	if !c.sent && string(c.prefix) == incompleteHAHeader {
+		c.sent = true
+		_, _ = c.ready.Write([]byte{1})
+	}
+	n, err := c.Conn.Read(p)
+	if remaining := len(incompleteHAHeader) - len(c.prefix); remaining > 0 {
+		c.prefix = append(c.prefix, p[:min(n, remaining)]...)
+	}
+	return n, err
 }
 
 func TestHAGenericLeaseFileHelper(t *testing.T) {
@@ -355,6 +546,19 @@ func TestHAGenericLeaseFileHelper(t *testing.T) {
 	term := make(chan struct{})
 	go func() { <-signals; close(term) }()
 	deps := productionHADependencies()
+	if os.Getenv("SYNTHKIT_HA_HEADER_READ_FD") == "3" {
+		ready := os.NewFile(3, "header-read")
+		defer ready.Close()
+		deps.WrapHTTPListener = func(l net.Listener) net.Listener {
+			return headerReadListener{Listener: l, ready: ready}
+		}
+		deps.Exit = func(code int) {
+			if code != 0 {
+				_ = pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			}
+			os.Exit(code)
+		}
+	}
 	deps.Election = func(ctx context.Context, o lease.Options) (leaseElection, error) {
 		e, err := lease.NewForClient(ctx, o, os.Getenv("SYNTHKIT_HA_API"), &http.Client{Timeout: o.RequestTimeout})
 		return diagnosticElection{leaseElection: e}, err
