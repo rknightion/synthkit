@@ -216,12 +216,28 @@ func TestCheckClassifiesTLSFailures(t *testing.T) {
 }
 
 func TestCheckBoundsEachNetworkProbe(t *testing.T) {
+	for _, cancelServerContext := range []bool{false, true} {
+		t.Run(fmt.Sprintf("cancel-server-context=%t", cancelServerContext), func(t *testing.T) {
+			testCheckBoundsEachNetworkProbe(t, cancelServerContext)
+		})
+	}
+}
+
+func testCheckBoundsEachNetworkProbe(t *testing.T, cancelServerContext bool) {
 	release := make(chan struct{})
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		select {
-		case <-r.Context().Done():
-		case <-release:
+		if cancelServerContext {
+			// Force the server-side cancellation notification to run before the
+			// client observes its deadline. Returning here would send an implicit
+			// HTTP 200, racing the client's timeout classification.
+			ctx, cancel := context.WithCancel(r.Context())
+			cancel()
+			r = r.WithContext(ctx)
+			<-r.Context().Done()
 		}
+		// Only test cleanup may release the handler. A canceled server context
+		// must not turn this deliberately unresponsive endpoint into HTTP 200.
+		<-release
 	}))
 	defer srv.Close()
 	cfg := validConfig()
@@ -237,6 +253,9 @@ func TestCheckBoundsEachNetworkProbe(t *testing.T) {
 	}
 	if elapsed := time.Since(started); elapsed > time.Second {
 		t.Fatalf("bounded probes took %v", elapsed)
+	}
+	if len(results) != 3 {
+		t.Fatalf("results = %v, want one result per mandatory lane", results)
 	}
 	for _, result := range results {
 		if result.State != StateUnreachable || result.Reason != ReasonTimeout {
