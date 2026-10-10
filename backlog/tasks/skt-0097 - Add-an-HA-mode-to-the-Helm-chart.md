@@ -1,10 +1,11 @@
 ---
 id: SKT-0097
 title: Add an HA mode to the Helm chart
-status: Parked
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-10 09:54'
+updated_date: '2026-10-10 19:53'
 labels:
   - feature
   - ha
@@ -35,6 +36,12 @@ Allow replicas: 2 only when lease HA and the kubernetes state backend are both e
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Frozen HA seam chart section9 on accepted landed Kubernetes backend; render HAon/off invalid fixtures, Kubernetes version/PDB/noPVC/namedresources/RBAC/persistence-preserving upgrade tests, envkeys match Go andseam. Fullgate/CodeRabbit/securityreview preland; no livecluster.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
