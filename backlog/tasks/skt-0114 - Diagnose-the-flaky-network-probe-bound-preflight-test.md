@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-10 18:54'
+updated_date: '2026-10-10 21:37'
 labels: []
 dependencies: []
 type: bug
@@ -54,6 +54,8 @@ This run: Dependency SKT-0112 (control-dash race performance) unaccepted/unlande
 This run: one minimal review correction observes forced request-context cancellation. Original-handler overlay deterministically reproduced ready/implicit200 for all3 probes; corrected race100 passed15.466s without widening20ms probe/1s bound. Root landed8c4e4c042f0f5b50d755f491fcdc42e85573b234, CI38071356877 all10 jobs success includingci-success; clean detached composed just check exit0 at that exactSHA. Attempt history preserved: retained prior attempt1 plus one review-repair cycle, infrastructure outages chargednone. Aggregate routine CodeRabbit remains run-level gate. No generation/inventory behavior changed; conditional generation not applicable and external prerequisite rows unexecuted.
 
 Run-level aggregate CodeRabbit now complete against851d879 from6edd50e: all20changedfiles reviewed, outcomecompleted, zero findings. Prior deferred routine review requirement satisfied.
+
+loop12: one new review-repair change/verify cycle after the retained prior attempt, no historical reset. Done after deterministic fail-first, race100, exact-SHA CI/composed proof and aggregate CodeRabbit.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

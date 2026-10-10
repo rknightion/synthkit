@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-10 18:49'
+updated_date: '2026-10-10 21:37'
 labels: []
 dependencies: []
 type: bug
@@ -64,4 +64,6 @@ Final retained candidate landed at9e53587826f0c5053cf27ff1482c3b66b715093e; CI38
 Recovery CI38043010547 atc3492b04510375b8e9b20af9465367b47a9edf11 succeeded withci-success. Criterion remains failed489.278s; prerequisite chain parked.
 
 This run: profile baseline timed out600.791s/wall610.74s, one of two new authorized change-and-verify cycles used. Exact8file candidatepatch4c3cb85f4c9aadb3c61ca7d2dffcd5fe9ad590a4a2a9ad2203d16f4a9cd3115a independently reviewed clean, standalone race274.083s but module-wide516.005s, full gategreen beforelatestprefixbase. Latestbase851d879 gate failed staleignored embeddedUI output; generation via existing justui denied beforeexecution on overwrite permission. No bypass/no CItrial/no land/no revert needed. Parkdefect toolpermission: owner must permit archiving and overwriting ignoredUI output, then regenerateactualembedinputs/gate samecandidate andexactSHA CI under300s orrevert. Priorattempt history notreset; onecycleleft.
+
+loop12: one of two new authorized implementation cycles used; previous-loop counts preserved. Park defect on denied ignored-output overwrite prerequisite, latest-base gate not green and no exact CI trial or performance land.
 <!-- SECTION:NOTES:END -->
