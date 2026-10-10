@@ -4,7 +4,7 @@ title: Make readiness standby-aware in HA mode
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-10 00:10'
+updated_date: '2026-10-10 09:54'
 labels:
   - feature
   - ha
@@ -60,4 +60,6 @@ loop7 implementation attempts0; dependency park: R12 must land before H93; retai
 loop8 attempts0, priorcountsunchanged. Parkneedsdependency: frozenH93orderrequires R12land; R13landed but R12ownerparkedsharedpathscope. Retainedpatch hashverified and untouched, resumecurrentmainafterperformanceprerequisite.
 
 loop10: new implementation attempts0, historical implementation count0 unchanged. Dependency park on SKT-0112 (control-dash race performance) acceptance and land; no gate or acceptance claimed. Resume frozen serial order after prerequisite green/land, using retained exact candidate where provided; no reset or reconstruction from prose.
+
+This run: Dependency SKT-0112 (control-dash race performance) unaccepted/unlanded; performance prerequisite reverted after CI489.278s. Retained input unchanged; zero new implementation attempts. Resume frozen order after prerequisite accepted land and gate.
 <!-- SECTION:NOTES:END -->
