@@ -1,9 +1,11 @@
 ---
 id: SKT-0120
 title: Build current embedded UI before Go validation
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-10 18:49'
+updated_date: '2026-10-10 23:41'
 labels: []
 dependencies: []
 priority: medium
@@ -30,3 +32,9 @@ After a source fast-forward changing Vite base, ignored ui/dist can still contai
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Regenerate private UI embed prerequisite before Go test/race; seed stale absolute-asset index and retain ignored-input hash receipts; gate and independent review.
+<!-- SECTION:PLAN:END -->

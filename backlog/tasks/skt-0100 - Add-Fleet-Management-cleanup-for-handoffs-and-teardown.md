@@ -1,9 +1,11 @@
 ---
 id: SKT-0100
 title: Add Fleet Management cleanup for handoffs and teardown
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-07 20:31'
+updated_date: '2026-10-10 23:45'
 labels:
   - feature
   - ha
@@ -32,3 +34,11 @@ The FM controller exits without unregistering (StartDynamic, internal/fleet/cont
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Persist registered collector set through existing gated backend adapter; handoff reconciliation and one-shot teardown, preserving restart semantics; fake-boundary fail-first tests, env alignment, gate and guarded review.
+
+Use one aggregate selected-roster FM controller with empty-roster reconciliation so a persisted registered set never lets sibling controllers remove each other. Keep existing state-backend signatures and HA gating unchanged; narrowly adapt FM restart cleanup wiring and runner fleet proof.
+<!-- SECTION:PLAN:END -->

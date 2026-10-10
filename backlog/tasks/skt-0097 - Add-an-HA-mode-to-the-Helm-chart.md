@@ -1,11 +1,11 @@
 ---
 id: SKT-0097
 title: Add an HA mode to the Helm chart
-status: Parked
+status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-10 21:37'
+updated_date: '2026-10-10 23:41'
 labels:
   - feature
   - ha
@@ -41,6 +41,8 @@ Allow replicas: 2 only when lease HA and the kubernetes state backend are both e
 
 <!-- SECTION:PLAN:BEGIN -->
 Frozen HA seam chart section9 on accepted landed Kubernetes backend; render HAon/off invalid fixtures, Kubernetes version/PDB/noPVC/namedresources/RBAC/persistence-preserving upgrade tests, envkeys match Go andseam. Fullgate/CodeRabbit/securityreview preland; no livecluster.
+
+Resume retained chart on current main; reproduce Helm 3.22 fixture failure before fixing; preserve non-HA 1.25 floor and validate HA at 1.31; local gate, guarded reviews, root CI trial and revert on red.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
