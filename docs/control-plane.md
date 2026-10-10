@@ -42,6 +42,30 @@ lists staged custom/git blueprints.
 
 Open `http://127.0.0.1:8088/control/ui` (or the host's address if exposed).
 
+### Reverse-proxy prefix
+
+Set `CONTROL_BASE_PATH=/x/y` for the external console URL `/x/y/control/ui/`.
+The same UI build works at any configured prefix: the server inserts a trusted
+`<base href="/x/y/control/ui/">` and API prefix `/x/y/control/` into the page.
+Navigation, assets, deep links and the trailing-slash redirect use that prefix.
+Empty (the default) keeps the existing `/control/ui/` and `/control/` URLs.
+
+The prefix is a canonical absolute path, without a trailing slash, encoding,
+empty segments, `.`/`..` segments, query or fragment. Only ASCII letters, digits,
+`.`, `_`, `~` and `-` within segments are accepted. Invalid configuration fails
+loading. `X-Forwarded-Prefix` and other request headers are never trusted; the
+operator must configure the actual public prefix. This setting does not replace
+the token/exposure requirements above.
+
+A proxy can strip `/x/y` before forwarding `/control/` to synthkit, or preserve
+the prefix when the host router mounts the control handler at `/x/y/control/`.
+The handler strips a preserved prefix before dispatch, while injecting external
+URLs for either proxy mode. Both ordinary and HA modes configure the base path
+before serving and mount the handler at `CONTROL_BASE_PATH + "/control/"` as well
+as `/control/` for stripping proxies. With an empty prefix, `/control/` is mounted
+once. Do not apply `http.StripPrefix` a second time. The prefix is not a new
+API wrapper: Infinity GET payloads and existing root-host routes are unchanged.
+
 The UI provides:
 
 - **Overview** — per-blueprint emission status, sink readiness strip, dry-run indicator.

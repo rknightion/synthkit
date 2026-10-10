@@ -3,9 +3,9 @@ import solid from "vite-plugin-solid";
 
 export default defineConfig(({ command }) => ({
   plugins: [solid()],
-  // build: served from the binary under /control/ui/. dev: served at / so the
-  // /control proxy below only forwards API calls, not the app's own assets/HMR.
-  base: command === "build" ? "/control/ui/" : "/",
+  // One build works at any external prefix. The server inserts <base href>
+  // before these relative assets; dev stays at / for its API-only proxy.
+  base: command === "build" ? "./" : "/",
   server: {
     proxy: { "/control": "http://127.0.0.1:8088" }, // dev: forward API to a running synthkit
   },

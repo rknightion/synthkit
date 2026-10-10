@@ -28,10 +28,15 @@ beforeEach(() => {
   }));
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  document.querySelector("base")?.remove();
+  document.querySelector('meta[name="control-api-prefix"]')?.remove();
+  window.history.replaceState({}, "", "/");
+});
 
 // The shell renders and the "/" Overview route mounts. App owns its own Router
-// (base derived from import.meta.env.BASE_URL, "" under vitest), the StoreProvider,
+// (base derived from server-injected <base>, absent in dev), the StoreProvider,
 // and the lifecycle in onMount — this proves the frame composes end-to-end.
 test("renders the shell and mounts the Overview route at /", () => {
   const { getByRole } = render(() => <App />);
@@ -39,6 +44,28 @@ test("renders the shell and mounts the Overview route at /", () => {
   expect(getByRole("complementary")).toBeInTheDocument(); // <aside class="rail">
   // Overview view mounted at "/" (the view heading, not the nav link).
   expect(getByRole("heading", { name: "Overview", level: 1 })).toBeInTheDocument();
+});
+
+test("prefixed deep links render and DOM navigation/assets/API stay under prefix", async () => {
+  const base = document.createElement("base");
+  base.href = "/x/y/control/ui/";
+  document.head.append(base);
+  const meta = document.createElement("meta");
+  meta.name = "control-api-prefix";
+  meta.content = "/x/y/control/";
+  document.head.append(meta);
+  window.history.replaceState({}, "", "/x/y/control/ui/config");
+  const page = render(() => <App />);
+  expect(await page.findByRole("heading", { name: "Config", level: 1 })).toBeInTheDocument();
+  const overview = page.getByRole("link", { name: /Overview/ });
+  // Solid Router canonicalizes the root link without the trailing slash;
+  // the server's tested redirect canonicalizes full-page navigation.
+  expect(overview.getAttribute("href")).toBe("/x/y/control/ui");
+  expect(vi.mocked(fetch).mock.calls.every(([url]) => String(url).startsWith("/x/y/control/"))).toBe(true);
+  const script = document.createElement("script");
+  script.src = "./assets/app.js";
+  expect(new URL(script.src).pathname).toBe("/x/y/control/ui/assets/app.js");
+  page.unmount();
 });
 
 test.each([

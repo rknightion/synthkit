@@ -4,6 +4,7 @@ package control
 
 import (
 	"embed"
+	"html"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -16,23 +17,30 @@ var uiDist embed.FS
 // served from the embedded FS; everything else (client-side routes) falls back to index.html.
 // When no build is present (clean checkout — only dist/.gitkeep), it serves a "not built" page
 // so the Go gate stays green without a Node build.
-func spaHandler() http.Handler {
+func spaHandler() http.Handler { return spaHandlerWithBase(func() string { return "" }) }
+
+func spaHandlerWithBase(basePath func() string) http.Handler {
 	sub, err := fs.Sub(uiDist, "ui/dist")
 	if err != nil {
 		panic(err) // embed guarantees ui/dist exists at build time
 	}
 	index, idxErr := fs.ReadFile(sub, "index.html")
-	notBuilt := []byte(`<!doctype html><meta charset="utf-8"><title>synthkit control plane</title>` +
+	notBuilt := []byte(`<!doctype html><html><head><meta charset="utf-8"><title>synthkit control plane</title></head>` +
 		`<body style="font-family:system-ui;background:#0b0c14;color:#e8e9f2;padding:40px">` +
 		`<h1>synthkit control plane</h1><p>UI assets not built. Run <code>just ui</code> ` +
 		`(or rebuild the Docker image).</p></body>`)
 	serveIndex := func(w http.ResponseWriter) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		page := index
 		if idxErr != nil {
-			_, _ = w.Write(notBuilt)
-			return
+			page = notBuilt
 		}
-		_, _ = w.Write(index)
+		// The head insertion precedes all relative build assets and modulepreloads.
+		// HTML-escape even though config validation admits only safe path segments.
+		prefix := html.EscapeString(basePath())
+		runtime := `<base href="` + prefix + `/control/ui/">` +
+			`<meta name="control-api-prefix" content="` + prefix + `/control/">`
+		_, _ = w.Write([]byte(strings.Replace(string(page), "<head>", "<head>"+runtime, 1)))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := strings.TrimPrefix(r.URL.Path, "/control/ui/")

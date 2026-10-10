@@ -15,7 +15,11 @@ import { Schema } from "./views/Schema";
 import { BpManage } from "./views/BpManage";
 // import the other views as they are ported (Phase 2)
 
-const routerBase = import.meta.env.BASE_URL.replace(/\/+$/, ""); // "" in dev, "/control/ui" in build
+// Use the server-injected base, not Vite's relative build base or the current
+// client route (which may be a deep link). No <base> means Vite dev at /.
+export function runtimeRouterBase(): string {
+  return document.querySelector("base") ? new URL(document.baseURI).pathname.replace(/\/+$/, "") : "";
+}
 
 const hasActiveSelection = () => {
   const s = window.getSelection?.();
@@ -39,7 +43,7 @@ export default function App() {
   );
   return (
     <StoreProvider store={store}>
-      <Router root={Shell} base={routerBase}>
+      <Router root={Shell} base={runtimeRouterBase()}>
         <Route path="/" component={Overview} />
         <Route path="/config" component={Config} />
         <Route path="/health" component={Health} />

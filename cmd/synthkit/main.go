@@ -649,7 +649,8 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			LiveDeliveryExpected: !cfg.DryRun,
 		})
 	}
-	mux.Handle("/control/", control.NewHandler(store, r.ApplyControl, cfg.ControlToken, r).
+	handler := control.NewHandler(store, r.ApplyControl, cfg.ControlToken, r).
+		SetBasePath(cfg.ControlBasePath).
 		SetStatus(control.StatusSources{
 			Sinks:       ps.Snapshot,
 			Queues:      func() []pushstatus.QueueStat { return ps.SnapshotQueues(r.QueueDepths()) },
@@ -669,7 +670,8 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		SetChangeObserver(func(s control.State) {
 			configureReadinessLanes()
 			so.EmitEvent("config_change", configChangeAttrs(s), configChangeBody(s))
-		}))
+		})
+	mountControlHandler(mux, cfg.ControlBasePath, handler)
 	mux.Handle("/", jsonHost(r, cfg.ControlToken))
 	newSrv := func(addr string) *http.Server {
 		return &http.Server{
@@ -720,6 +722,15 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		return nil
 	}
 	return err
+}
+
+// mountControlHandler supports proxies that preserve or strip the configured
+// external prefix. The default path is registered once, including with no prefix.
+func mountControlHandler(mux *http.ServeMux, prefix string, handler http.Handler) {
+	mux.Handle("/control/", handler)
+	if prefix != "" {
+		mux.Handle(prefix+"/control/", handler)
+	}
 }
 
 func jsonHost(src jsondata.Source, token string) http.Handler {

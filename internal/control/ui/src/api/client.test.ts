@@ -1,7 +1,23 @@
 import { test, expect, vi, beforeEach } from "vitest";
-import { getJSON, postJSON, delJSON, ApiError } from "./client";
+import { getJSON, getText, postJSON, delJSON, ApiError } from "./client";
 
-beforeEach(() => { vi.restoreAllMocks(); });
+beforeEach(() => { vi.restoreAllMocks(); document.querySelector('meta[name="control-api-prefix"]')?.remove(); });
+
+test("all API methods use the server-injected runtime prefix", async () => {
+  const meta = document.createElement("meta");
+  meta.name = "control-api-prefix";
+  meta.content = "/x/y/control/";
+  document.head.append(meta);
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+  await getJSON("state");
+  await getText("blueprint?blueprint=alpha");
+  await postJSON("load", { volume_multiplier: 2 });
+  await delJSON("blueprints/sources?id=x");
+  expect(vi.mocked(fetch).mock.calls.map(([url]) => url)).toEqual([
+    "/x/y/control/state", "/x/y/control/blueprint?blueprint=alpha",
+    "/x/y/control/load", "/x/y/control/blueprints/sources?id=x",
+  ]);
+});
 
 test("getJSON returns parsed JSON for 2xx", async () => {
   vi.stubGlobal("fetch", vi.fn(async () =>

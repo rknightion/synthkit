@@ -19,6 +19,8 @@ services:
     # The self-obs paths (OTLP + profiles) use their OWN tokens (never GC_TOKEN). They are
     # independent of synthetic DRY_RUN and ship only when SELFOBS_ENABLED plus their credentials
     # are set.
+    # CONTROL_BASE_PATH flows from this selected env_file too: the trusted external
+    # proxy prefix must not be shadowed by an empty environment override.
     # GIT_SOURCE_HOST_ALLOWLIST flows from this selected file without an empty
     # environment override that could silently disable its configured restrictions.
     env_file: ${SYNTHKIT_ENV_FILE:-.env}

@@ -13,6 +13,9 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
+
+	"github.com/rknightion/synthkit/internal/config"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/fleetstatus"
@@ -27,6 +30,7 @@ const maxBodyBytes = 1 << 20 // 1 MiB
 // without disturbing existing call sites — *Handler satisfies http.Handler (ServeHTTP)
 // and the variadic NewHandler tail stays byte-identical.
 type Handler struct {
+	basePath string
 	mux      http.Handler // corsEcho(mux): the assembled, CORS-wrapped router
 	store    *Store
 	status   StatusSources
@@ -44,7 +48,27 @@ type Handler struct {
 }
 
 // ServeHTTP dispatches to the assembled router.
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Support either a prefix-preserving proxy or one that strips the prefix.
+	// Clone rather than mutate the request seen by outer middleware.
+	if h.basePath != "" && strings.HasPrefix(r.URL.Path, h.basePath+"/control/") {
+		r = r.Clone(r.Context())
+		r.URL.Path = strings.TrimPrefix(r.URL.Path, h.basePath)
+		r.URL.RawPath = ""
+	}
+	h.mux.ServeHTTP(w, r)
+}
+
+// SetBasePath installs the trusted external prefix before serving requests.
+// The composition root must mount this handler at prefix+"/control/" when
+// the proxy preserves the prefix. No forwarded headers influence these URLs.
+func (h *Handler) SetBasePath(prefix string) *Handler {
+	if err := config.ValidateControlBasePath(prefix); err != nil {
+		panic(err) // config.Load already validates this operator-provided value
+	}
+	h.basePath = prefix
+	return h
+}
 
 // SetHA installs the same gate as file persistence, before serving any request.
 func (h *Handler) SetHA(gate ha.LeaderGate, bounded ha.Bounded) *Handler {
@@ -250,8 +274,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		_, _ = w.Write(h.bpSchema)
 	})
-	mux.Handle("GET /control/ui", http.RedirectHandler("/control/ui/", http.StatusFound))
-	mux.Handle("GET /control/ui/", spaHandler())
+	mux.HandleFunc("GET /control/ui", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, h.basePath+"/control/ui/", http.StatusFound)
+	})
+	mux.Handle("GET /control/ui/", spaHandlerWithBase(func() string { return h.basePath }))
 	// GET /control/status — sink readiness + persist health (protected when configured,
 	// I26). Status is read off h.status at request time so the source can be attached after
 	// construction via SetStatus.

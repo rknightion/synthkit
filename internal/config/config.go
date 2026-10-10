@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -63,6 +64,7 @@ type Config struct {
 	HTTPAddr         string        // JSON_HTTP_ADDR — control plane + Infinity JSON host over HTTP (default 127.0.0.1:8088)
 	HostBind         string        // SYNTHKIT_BIND — effective host-side Compose publish address
 	SnapshotPath     string        // CONFIG_SNAPSHOT_PATH — control-plane state (default ./control-state.json)
+	ControlBasePath  string        // CONTROL_BASE_PATH — trusted external proxy prefix, empty or canonical absolute path
 	ControlToken     string        // CONTROL_TOKEN — HTTP Basic password (user: control) for sensitive reads and mutations (empty = auth disabled)
 	ControlExposure  string        // CONTROL_EXPOSURE_ACK — trusted-network | tls-proxy for non-loopback exposure
 
@@ -169,6 +171,7 @@ func Load(envPath string) (*Config, error) {
 		HTTPAddr:               get("JSON_HTTP_ADDR", "127.0.0.1:8088"),
 		HostBind:               get("SYNTHKIT_BIND", ""),
 		SnapshotPath:           get("CONFIG_SNAPSHOT_PATH", "./control-state.json"),
+		ControlBasePath:        get("CONTROL_BASE_PATH", ""),
 		ControlToken:           get("CONTROL_TOKEN", ""),
 		ControlExposure:        get("CONTROL_EXPOSURE_ACK", ""),
 		GitTokenDefault:        get("GIT_TOKEN", ""),
@@ -318,10 +321,31 @@ func Load(envPath string) (*Config, error) {
 	}
 	cfg.SendDrainDeadline = sdd
 
+	if err := ValidateControlBasePath(cfg.ControlBasePath); err != nil {
+		return nil, err
+	}
 	if err := cfg.ValidateHA(); err != nil {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// ValidateControlBasePath accepts only canonical, origin-relative prefixes.
+// Reject encoding, dot segments, separators and URL syntax rather than letting
+// browser/proxy normalization interpret the same configured prefix differently.
+func ValidateControlBasePath(prefix string) error {
+	if prefix == "" {
+		return nil
+	}
+	if !regexp.MustCompile(`^(/[A-Za-z0-9._~-]+)+$`).MatchString(prefix) {
+		return fmt.Errorf("CONTROL_BASE_PATH must be empty or an absolute path without a trailing slash (for example /x/y)")
+	}
+	for _, segment := range strings.Split(prefix[1:], "/") {
+		if segment == "." || segment == ".." {
+			return fmt.Errorf("CONTROL_BASE_PATH must not contain dot segments")
+		}
+	}
+	return nil
 }
 
 // ValidateHA evaluates both the per-series policy and the complete operation cap.
