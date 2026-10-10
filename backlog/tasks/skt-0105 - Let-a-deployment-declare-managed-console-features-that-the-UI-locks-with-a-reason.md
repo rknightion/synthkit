@@ -3,9 +3,11 @@ id: SKT-0105
 title: >-
   Let a deployment declare managed console features that the UI locks with a
   reason
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-07 21:37'
+updated_date: '2026-10-10 23:49'
 labels:
   - feature
   - ui
@@ -34,3 +36,9 @@ When the console runs behind a reverse proxy or a managed wrapper, some control 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Optional managed-feature enum config with reasons, escaped runtime meta and presentation-only disabled controls. Reject unknown keys, preserve unset index bytes, exercise UI rendering, align env/docs and gate. Isolated append-only changes rebased onto preceding shared-file land before acceptance.
+<!-- SECTION:PLAN:END -->
