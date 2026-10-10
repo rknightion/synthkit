@@ -111,6 +111,19 @@ func (l *haLifecycle) terminate() {
 	close(l.term)
 }
 
+// readinessFacts is installed only on views whose config/build/preflight completed.
+// Read the lifecycle flags together so a revoked former leader cannot look like standby.
+func (l *haLifecycle) readinessFacts() control.HAReadiness {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	role := l.gate.Role()
+	return control.HAReadiness{
+		ConfigLoaded: true, RunnerBuilt: true, PreflightPassed: true,
+		Standby:       !l.acquired && role == ha.RoleStandby,
+		Transitioning: l.activating || l.terminating || (l.acquired && role != ha.RoleLeader),
+	}
+}
+
 type haQueueObserver struct {
 	view   *haView
 	status *pushstatus.Store
@@ -133,6 +146,7 @@ type haView struct {
 	manifest           bpsource.Manifest
 	diagnostics        []bpsource.Diag
 	handler            http.Handler
+	readinessFacts     func() control.HAReadiness // installed before view publication, after preflight
 	so                 atomic.Pointer[selfobs.SelfObs]
 	observabilityReady chan struct{}
 	prom               *promrw.Sink
@@ -293,9 +307,29 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 			so.ObserveCycle(ctx, bp, d, dropped)
 		}
 	})
+	readiness := func() control.ReadinessReport {
+		facts := control.HAReadiness{ConfigLoaded: true, RunnerBuilt: true}
+		if v.readinessFacts != nil {
+			facts = v.readinessFacts()
+		}
+		persist := store.PersistHealth()
+		var required []string
+		for _, lane := range v.runner.DeliveryReadinessLanes() {
+			required = append(required, lane.Name)
+		}
+		return control.EvaluateReadiness(control.ReadinessInput{
+			HA: &facts, ProcessRunning: true, HTTPServing: true,
+			SetupRequired: !mgr.SelectionRequested(),
+			Blueprints:    control.BlueprintReadiness{Loaded: len(loaded), Active: v.runner.ActiveBlueprintCount()},
+			PersistedState: control.PersistedStateReadiness{
+				Writable: persist.LastOKMs > 0 && persist.LastError == "", Error: persist.LastError,
+			},
+			Lanes: ps.SnapshotLanes(), RequiredLanes: required, LiveDeliveryExpected: !cfg.DryRun,
+		})
+	}
 	mutationBound := ha.Bounded{Gate: gate, Timeout: 2 * time.Second, Margin: cfg.HAFenceMargin, Crash: bound.Crash}
 	handler := control.NewHandler(store, v.runner.ApplyControl, cfg.ControlToken, v.runner).SetHA(gate, mutationBound).
-		SetStatus(control.StatusSources{Sinks: ps.Snapshot, Queues: func() []pushstatus.QueueStat { return ps.SnapshotQueues(v.runner.QueueDepths()) }, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, DryRun: cfg.DryRun}).
+		SetStatus(control.StatusSources{Sinks: ps.Snapshot, Queues: func() []pushstatus.QueueStat { return ps.SnapshotQueues(v.runner.QueueDepths()) }, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, DryRun: cfg.DryRun, Readiness: readiness}).
 		SetBlueprintAdmin(&haBlueprintAdmin{blueprintAdminAdapter: &blueprintAdminAdapter{mgr: mgr, sc: sc}}).SetInventory(v.runner).SetConfig(toControlConfigView(cfg.RedactedHA())).SetHealth(func() any { return healthReport(hs.Snapshot()) }).
 		SetChangeObserver(func(s control.State) {
 			configure()
@@ -407,6 +441,7 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 		prodCancel()
 		return err
 	}
+	standby.readinessFacts = l.readinessFacts
 	l.current.Store(standby)
 	standbyOps, err := startHAOperational(cfg, standby, ha.RoleStandby)
 	if err != nil {
@@ -468,6 +503,7 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 			if err := deps.Preflight(prepCtx, cfg); err != nil {
 				return err
 			}
+			leader.readinessFacts = l.readinessFacts
 			commit := ha.Bounded{Gate: gate, Timeout: 2 * time.Second, Margin: cfg.HAFenceMargin, Crash: crash}
 			if err := commit.Run(prepCtx, ha.Mutation, func(ctx context.Context) error {
 				if err := leader.store.ProbeWriteContext(ctx); err != nil {

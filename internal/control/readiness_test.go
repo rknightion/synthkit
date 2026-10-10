@@ -132,3 +132,80 @@ func containsReason(reasons []string, want string) bool {
 	}
 	return false
 }
+
+func TestEvaluateReadinessHAStandbyBootstrap(t *testing.T) {
+	in := ReadinessInput{
+		ProcessRunning: true, HTTPServing: true,
+		Blueprints:           BlueprintReadiness{Loaded: 1, Active: 1},
+		HA:                   &HAReadiness{Standby: true, ConfigLoaded: true, RunnerBuilt: true, PreflightPassed: true},
+		LiveDeliveryExpected: true, RequiredLanes: []string{"promrw"},
+		Lanes: []pushstatus.LaneStatus{{Name: "promrw", Configured: true, State: pushstatus.LaneNotAttempted}},
+	}
+	got := EvaluateReadiness(in)
+	if !got.Ready || got.LiveReady || got.PersistedState.Writable || len(got.Reasons) != 0 {
+		t.Fatalf("bootstrapped standby must be ready without state writes or pushes: %+v", got)
+	}
+	for _, missing := range []string{"config", "runner", "preflight", "activation", "termination", "process", "http"} {
+		t.Run(missing, func(t *testing.T) {
+			copy := in
+			facts := *in.HA
+			copy.HA = &facts
+			switch missing {
+			case "config":
+				facts.ConfigLoaded = false
+			case "runner":
+				facts.RunnerBuilt = false
+			case "preflight":
+				facts.PreflightPassed = false
+			case "activation", "termination":
+				facts.Transitioning = true
+			case "process":
+				copy.ProcessRunning = false
+			case "http":
+				copy.HTTPServing = false
+			}
+			if report := EvaluateReadiness(copy); report.Ready || report.LiveReady || len(report.ReasonCodes) == 0 {
+				t.Fatalf("missing %s must hold standby red: %+v", missing, report)
+			}
+		})
+	}
+}
+
+func TestEvaluateReadinessHALeaderDeliveryUnchanged(t *testing.T) {
+	in := ReadinessInput{
+		ProcessRunning: true, HTTPServing: true,
+		Blueprints:           BlueprintReadiness{Loaded: 1, Active: 1},
+		PersistedState:       PersistedStateReadiness{Writable: true},
+		HA:                   &HAReadiness{ConfigLoaded: true, RunnerBuilt: true, PreflightPassed: true},
+		LiveDeliveryExpected: true, RequiredLanes: []string{"promrw"},
+		Lanes: []pushstatus.LaneStatus{{Name: "promrw", Configured: true, State: pushstatus.LaneNotAttempted}},
+	}
+	if got := EvaluateReadiness(in); got.Ready || got.LiveReady || !containsReason(got.Reasons, "not_attempted") {
+		t.Fatalf("leader with never-pushed lane must stay red: %+v", got)
+	}
+	in.Lanes[0].State, in.Lanes[0].LiveReady = pushstatus.LaneSuccess, true
+	if got := EvaluateReadiness(in); !got.Ready || !got.LiveReady {
+		t.Fatalf("leader with fresh delivery must be ready: %+v", got)
+	}
+	in.HA.Transitioning = true
+	if got := EvaluateReadiness(in); got.Ready || got.LiveReady {
+		t.Fatalf("terminating leader must not be ready: %+v", got)
+	}
+}
+
+func TestEvaluateReadinessNonHAUnchanged(t *testing.T) {
+	in := ReadinessInput{
+		ProcessRunning: true, HTTPServing: true,
+		Blueprints:           BlueprintReadiness{Loaded: 1, Active: 1},
+		LiveDeliveryExpected: true, RequiredLanes: []string{"promrw"},
+		Lanes: []pushstatus.LaneStatus{{Name: "promrw", Configured: true, State: pushstatus.LaneNotAttempted}},
+	}
+	if got := EvaluateReadiness(in); got.Ready || !containsReason(got.Reasons, "not writable") || !containsReason(got.Reasons, "not_attempted") {
+		t.Fatalf("non-HA still requires writable state and first delivery: %+v", got)
+	}
+	in.PersistedState.Writable = true
+	in.Lanes[0].State, in.Lanes[0].LiveReady = pushstatus.LaneSuccess, true
+	if got := EvaluateReadiness(in); !got.Ready || !got.LiveReady {
+		t.Fatalf("non-HA fresh delivery must remain ready: %+v", got)
+	}
+}

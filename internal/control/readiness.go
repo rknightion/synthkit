@@ -30,6 +30,8 @@ type PersistedStateReadiness struct {
 type ReadinessReasonCode string
 
 const (
+	ReadinessHABootstrapIncomplete     ReadinessReasonCode = "ha_bootstrap_incomplete"
+	ReadinessHATransitioning           ReadinessReasonCode = "ha_transitioning"
 	ReadinessProcessNotRunning         ReadinessReasonCode = "process_not_running"
 	ReadinessHTTPNotServing            ReadinessReasonCode = "http_not_serving"
 	ReadinessSetupRequired             ReadinessReasonCode = "setup_required"
@@ -43,10 +45,21 @@ const (
 	ReadinessNoLiveDeliveryLane        ReadinessReasonCode = "no_live_delivery_lane"
 )
 
+// HAReadiness records bootstrap and lifecycle facts for lease mode only. A nil HA input
+// preserves non-HA readiness. Transitioning includes activation, termination, and revocation.
+type HAReadiness struct {
+	Standby         bool
+	Transitioning   bool
+	ConfigLoaded    bool
+	RunnerBuilt     bool
+	PreflightPassed bool
+}
+
 // ReadinessInput is assembled at the composition root. The evaluator intentionally does not
 // depend on runner, HTTP, or store implementations: those layers supply their factual state and
 // retain their existing ownership boundaries.
 type ReadinessInput struct {
+	HA                   *HAReadiness
 	ProcessRunning       bool
 	HTTPServing          bool
 	SetupRequired        bool
@@ -59,7 +72,8 @@ type ReadinessInput struct {
 
 // ReadinessReport is the body for a local HTTP readiness endpoint. HTTPReady means this process
 // has assembled and is serving its HTTP handler; Ready adds blueprint, state-volume, and delivery
-// gates. LiveReady is kept explicit so dry-run can be reported as intentionally configured while
+// gates for leaders and non-HA processes; a standby uses bootstrap gates only.
+// LiveReady is kept explicit so dry-run can be reported as intentionally configured while
 // never being presented as a live deployment.
 type ReadinessReport struct {
 	Running        bool                    `json:"running"`
@@ -131,6 +145,24 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 	}
 	if !report.HTTPReady {
 		addReason(ReadinessHTTPNotServing, "HTTP handler is not serving")
+	}
+	if in.HA != nil {
+		bootstrapReady := in.HA.ConfigLoaded && in.HA.RunnerBuilt && in.HA.PreflightPassed
+		if !bootstrapReady {
+			addReason(ReadinessHABootstrapIncomplete, "HA configuration, runner build, or credential preflight is incomplete")
+		}
+		if in.HA.Transitioning {
+			addReason(ReadinessHATransitioning, "HA lifecycle is transitioning")
+		}
+		if in.HA.Standby || !bootstrapReady || in.HA.Transitioning {
+			// A standby has no delivery evidence and has not probed state writability.
+			// Do not represent either as a successful live deployment or write probe.
+			if in.HA.Standby {
+				report.PersistedState = PersistedStateReadiness{}
+			}
+			report.Ready = len(report.ReasonCodes) == 0
+			return report
+		}
 	}
 	if report.SetupRequired {
 		addReason(ReadinessSetupRequired, "no blueprints selected; setup required")
