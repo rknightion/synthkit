@@ -4,15 +4,165 @@ package bpsource
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/runner"
 )
+
+type sourceMemoryDocuments struct {
+	mu     sync.Mutex
+	docs   map[control.Key]control.Snapshot
+	writes int
+}
+type sourceMemoryBackend struct {
+	docs *sourceMemoryDocuments
+	gate ha.LeaderGate
+}
+
+func (b sourceMemoryBackend) Load(ctx context.Context, k control.Key) (control.Snapshot, error) {
+	b.docs.mu.Lock()
+	defer b.docs.mu.Unlock()
+	snap, ok := b.docs.docs[k]
+	if !ok {
+		return snap, fmt.Errorf("missing precreated slot")
+	}
+	snap.Data = append([]byte(nil), snap.Data...)
+	return snap, ctx.Err()
+}
+func (b sourceMemoryBackend) CompareAndSwap(ctx context.Context, k control.Key, r control.Revision, data []byte) (control.Revision, error) {
+	var out control.Revision
+	err := b.gate.Do(ctx, ha.Mutation, func(c context.Context) error {
+		if err := c.Err(); err != nil {
+			return err
+		}
+		b.docs.mu.Lock()
+		defer b.docs.mu.Unlock()
+		current, ok := b.docs.docs[k]
+		if !ok {
+			return fmt.Errorf("missing slot")
+		}
+		if current.Revision != r {
+			return control.ErrConflict
+		}
+		out = control.Revision(string(r) + "x")
+		b.docs.docs[k] = control.Snapshot{Data: append([]byte(nil), data...), Revision: out}
+		b.docs.writes++
+		return nil
+	})
+	return out, err
+}
+
+// Backend-only fake advertises immutable fetching; legacy file-mode fakes do not.
+type immutableFakeGit struct{ *fakeGit }
+
+func (g immutableFakeGit) FetchYAMLAtCommit(ctx context.Context, url, sha, subpath, tokenEnvVar string) (map[string][]byte, error) {
+	for key, head := range g.head {
+		if strings.HasPrefix(key, url+"@") && head == sha {
+			return g.FetchYAML(ctx, url, strings.TrimPrefix(key, url+"@"), subpath, tokenEnvVar)
+		}
+	}
+	return nil, fmt.Errorf("unknown commit")
+}
+
+func TestKubernetesSourceDocumentsResolveWithoutDisk(t *testing.T) {
+	ctx := context.Background()
+	key, _ := control.GitSourceKey("source")
+	state := control.DefaultState()
+	state.BlueprintSources = []control.SourceView{{ID: "source", Name: "source", Namespace: "cached", URL: "https://example.invalid/repository", Ref: "main"}}
+	data, _ := json.Marshal(state)
+	documents := &sourceMemoryDocuments{docs: map[control.Key]control.Snapshot{control.Control: {Data: data, Revision: "1"}, control.BootManifest: {Revision: "1"}, key: {Revision: "1"}}}
+	backend := sourceMemoryBackend{docs: documents, gate: ha.AlwaysLeader{}}
+	store, err := control.NewBackendStore(ctx, backend, ha.AlwaysLeader{}, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const fetched = "1111111111111111111111111111111111111111"
+	git := immutableFakeGit{&fakeGit{head: map[string]string{"https://example.invalid/repository@main": fetched}, yaml: map[string]map[string][]byte{"https://example.invalid/repository@main": {"mini.yaml": []byte(miniBlueprint)}}}}
+	root := t.TempDir()
+	absent := filepath.Join(root, "absent")
+	opts := Options{Backend: backend, CASAttempts: 5, MaxDocumentBytes: 786432, Gate: ha.AlwaysLeader{}, ReadOnly: true, BlueprintNames: []string{"cached/mini"}, BakedDir: filepath.Join(root, "baked"), DataDir: absent, Registry: runner.Catalog(), Git: git, Config: NewStoreSourceConfig(store)}
+	m := NewManager(opts)
+	if err := m.LoadBackend(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.FetchNow(ctx, "source"); err != nil {
+		t.Fatal(err)
+	}
+	loaded, manifest, diags := m.Resolve(ctx)
+	if len(loaded) != 1 || len(diags) != 0 || manifest.SourceSHAs["source"] != fetched {
+		t.Fatalf("resolve: %v %v %v", loaded, manifest, diags)
+	}
+	if err := m.CommitResolved(ctx, manifest, loaded, diags); err != nil {
+		t.Fatal(err)
+	}
+	snap, _ := backend.Load(ctx, key)
+	doc, err := decodeSourceDocument(snap.Data)
+	if err != nil || doc.FetchedSHA != fetched || doc.FetchStatus.LoadedSHA != fetched || string(doc.Files["mini.yaml"]) != miniBlueprint {
+		t.Fatal("source roundtrip", doc, err)
+	}
+	if len(store.Snapshot().BlueprintSources) == 0 || store.Snapshot().BlueprintSources[0].FetchedSHA != "" {
+		t.Fatal("status torn into control document")
+	}
+	if _, err := os.Stat(absent); !os.IsNotExist(err) {
+		t.Fatal("backend required disk", err)
+	}
+	gate := ha.NewGate()
+	standby := sourceMemoryBackend{docs: documents, gate: gate}
+	opts.Backend = standby
+	opts.Gate = gate
+	freshStore, err := control.NewBackendStore(ctx, standby, gate, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts.Config = NewStoreSourceConfig(freshStore)
+	opts.Git = &fakeGit{err: fmt.Errorf("git host unavailable")}
+	reads := NewManager(opts)
+	before := documents.writes
+	if err := reads.LoadBackend(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got, man, ds := reads.Resolve(ctx)
+	if len(got) != 1 || len(ds) != 0 || documents.writes != before {
+		t.Fatal("standby/offline resolve", ds)
+	}
+	if err := reads.CommitResolved(ctx, man, got, ds); err != ha.ErrNotLeader || documents.writes != before {
+		t.Fatal("standby write", err)
+	}
+	// A legacy client must not silently fall back to a second mutable-ref read.
+	m.git = git.fakeGit
+	before = documents.writes
+	if err := m.FetchNow(ctx, "source"); err == nil || documents.writes != before {
+		t.Fatal("backend accepted git client without immutable fetch capability", err)
+	}
+	m.git = git
+	m.maxDocumentBytes = 64
+	before = documents.writes
+	if err := m.FetchNow(ctx, "source"); err == nil || documents.writes != before {
+		t.Fatal("encoded cap not enforced")
+	}
+	if _, err := store.ResetContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	opts.Gate = ha.AlwaysLeader{}
+	opts.Backend = backend
+	opts.Config = NewStoreSourceConfig(store)
+	reset := NewManager(opts)
+	if err := reset.LoadBackend(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got, _, _ = reset.Resolve(ctx)
+	if len(got) != 0 || len(reset.Sources()) != 0 {
+		t.Fatal("reset gave old source authority")
+	}
+}
 
 const miniBlueprint = `name: mini
 hosts:

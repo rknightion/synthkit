@@ -40,6 +40,38 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/sigil"
 )
 
+// openConfiguredState never writes during construction. Production Kubernetes state
+// uses only in-cluster credentials and explicit precreated object names.
+func openConfiguredState(ctx context.Context, cfg *config.Config, gate ha.LeaderGate) (*control.Store, control.StateBackend, error) {
+	if cfg.StateBackend != "kubernetes" {
+		if cfg.HAMode == "lease" {
+			store, err := control.NewHAStore(cfg.SnapshotPath, gate)
+			return store, nil, err
+		}
+		return control.NewStore(cfg.SnapshotPath), nil, nil
+	}
+	objects := map[control.Key]string{control.Control: cfg.StateControlConfigMap, control.BootManifest: cfg.StateBootConfigMap}
+	for id, name := range cfg.StateGitSourceConfigMaps {
+		key, err := control.GitSourceKey(id)
+		if err != nil {
+			return nil, nil, err
+		}
+		objects[key] = name
+	}
+	backend, err := control.NewKubernetesBackend(control.KubernetesBackendOptions{Gate: gate, Namespace: cfg.HANamespace, Objects: objects, RequestTimeout: cfg.HAKubeRequestTimeout, MaxDocumentBytes: control.MaxStateDocumentBytes})
+	if err != nil {
+		return nil, nil, err
+	}
+	// Verify every named slot without discovering or manufacturing resources.
+	for key := range objects {
+		if _, err := backend.Load(ctx, key); err != nil {
+			return nil, nil, err
+		}
+	}
+	store, err := control.NewBackendStore(ctx, backend, gate, cfg.StateCASMaxAttempts)
+	return store, backend, err
+}
+
 // haCrash is the sole loss/watchdog path: no drain, unregister, release or log.
 func haCrash(gate *ha.Gate, exit func(int)) func() {
 	return func() { gate.Revoke(); exit(1); panic("HA crash returned") }
@@ -54,6 +86,9 @@ type haDependencies struct {
 	Election  func(context.Context, lease.Options) (leaseElection, error)
 	Preflight func(context.Context, *config.Config) error
 	Exit      func(int) // production os.Exit; terminal and non-returning
+	// StateBackend is a test-only process-edge factory. Production uses in-cluster auth.
+	StateBackend     func(ha.LeaderGate) control.StateBackend
+	BeforeProduction func(*haView) // test-only first-tick observation on the real composed runner
 	// BeforeHandoff is a test-only scheduling hook, before terminal admission.
 	BeforeHandoff func(string)
 	// WrapHTTPListener is a test-only process-edge scheduling hook.
@@ -160,11 +195,19 @@ type haView struct {
 
 // newHAView is read-only even during acquisition; writes are committed separately
 // using Activate's preparation context. A fresh view rebuilds topology, not merely knobs.
-func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, bound ha.Bounded) (*haView, error) {
+func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, bound ha.Bounded, injected ...control.StateBackend) (*haView, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	store, err := control.NewHAStore(cfg.SnapshotPath, gate)
+	var store *control.Store
+	var backend control.StateBackend
+	var err error
+	if len(injected) > 0 && injected[0] != nil {
+		backend = injected[0]
+		store, err = control.NewBackendStore(ctx, backend, gate, cfg.StateCASMaxAttempts)
+	} else {
+		store, backend, err = openConfiguredState(ctx, cfg, gate)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +223,10 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	}
 	sc := bpsource.NewStoreSourceConfig(store)
 	reg := runner.Catalog()
-	mgr := bpsource.NewManager(bpsource.Options{Gate: gate, ReadOnly: true, BakedDir: cfg.BlueprintsDir, BlueprintNames: cfg.BlueprintNames, DataDir: cfg.BlueprintDataDir, Registry: reg, RuntimeLimits: blueprint.RuntimeLimits{MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries}, Git: bpsource.NewNanogitClientWithPolicy(tokenLookup, policy), SourcePolicy: policy, Config: sc})
+	mgr := bpsource.NewManager(bpsource.Options{Backend: backend, CASAttempts: cfg.StateCASMaxAttempts, MaxDocumentBytes: cfg.StateGitSourceMaxBytes, BackendError: store.ObserveBackendError, Gate: gate, ReadOnly: true, BakedDir: cfg.BlueprintsDir, BlueprintNames: cfg.BlueprintNames, DataDir: cfg.BlueprintDataDir, Registry: reg, RuntimeLimits: blueprint.RuntimeLimits{MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries}, Git: bpsource.NewNanogitClientWithPolicy(tokenLookup, policy), SourcePolicy: policy, Config: sc})
+	if err := mgr.LoadBackend(ctx); err != nil {
+		return nil, err
+	}
 	loaded, manifest, diags := mgr.Resolve(ctx)
 	if err := mgr.SelectionError(); err != nil {
 		return nil, err
@@ -433,7 +479,11 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 		case <-startupDone:
 		}
 	}()
-	standby, err := newHAView(prodCtx, cfg, gate, bound)
+	var injectedBackend control.StateBackend
+	if deps.StateBackend != nil {
+		injectedBackend = deps.StateBackend(gate)
+	}
+	standby, err := newHAView(prodCtx, cfg, gate, bound, injectedBackend)
 	if err != nil {
 		prodCancel()
 		return err
@@ -497,7 +547,7 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 		var leader *haView
 		err := gate.Activate(leadCtx, func(prepCtx context.Context) error {
 			var err error
-			leader, err = newHAView(prepCtx, cfg, gate, bound)
+			leader, err = newHAView(prepCtx, cfg, gate, bound, injectedBackend)
 			if err != nil {
 				return err
 			}
@@ -543,6 +593,9 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 			close(l.producerDone)
 			l.mu.Unlock()
 			return
+		}
+		if deps.BeforeProduction != nil {
+			deps.BeforeProduction(leader)
 		}
 		go func() {
 			defer close(l.producerDone)

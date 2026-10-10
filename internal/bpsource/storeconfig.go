@@ -36,6 +36,9 @@ func (s *storeSourceConfig) UpsertSource(src Source) error {
 func (s *storeSourceConfig) UpsertSourceContext(ctx context.Context, src Source) error {
 	_, err := s.store.UpdateContext(ctx, func(st *control.State) {
 		v := sourceToView(src)
+		if s.store.UsesBackend() {
+			v = control.SourceView{ID: src.ID, Name: src.Name, Namespace: src.Namespace, URL: src.URL, Ref: src.Ref, Subpath: src.Subpath, TokenEnvVar: src.TokenEnvVar}
+		}
 		for i, existing := range st.BlueprintSources {
 			if existing.ID == src.ID {
 				st.BlueprintSources[i] = v

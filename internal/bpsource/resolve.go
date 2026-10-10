@@ -150,6 +150,9 @@ func (m *Manager) scanGitDirs() ([]Loaded, []Diag) {
 }
 
 func (m *Manager) scanGitDirsWithSelection(applySelection bool) ([]Loaded, []Diag) {
+	if m.backend != nil {
+		return m.scanBackendGit(applySelection)
+	}
 	var out []Loaded
 	var diags []Diag
 	if !m.readOnly {
@@ -184,6 +187,44 @@ func (m *Manager) scanGitDirsWithSelection(applySelection bool) ([]Loaded, []Dia
 		})
 		out = append(out, ld...)
 		diags = append(diags, d...)
+	}
+	return out, diags
+}
+
+func (m *Manager) scanBackendGit(applySelection bool) ([]Loaded, []Diag) {
+	var out []Loaded
+	var diags []Diag
+	for _, s := range m.sourceSnapshot() {
+		if s.FetchedSHA == "" {
+			continue
+		}
+		m.sourceMu.Lock()
+		doc := m.backendDocs[s.ID]
+		m.sourceMu.Unlock()
+		files := make([]string, 0, len(doc.Files))
+		for fn := range doc.Files {
+			files = append(files, fn)
+		}
+		sort.Strings(files)
+		for _, fn := range files {
+			data := doc.Files[fn]
+			bare, err := declaredBlueprintName(data)
+			if err != nil {
+				diags = append(diags, Diag{"error", diagSource(s.ID, fn), "load", err.Error()})
+				continue
+			}
+			name := Namespace(s.Namespace, bare)
+			m.available[name] = struct{}{}
+			if _, selected := m.selection[name]; applySelection && !m.selectAll && !selected {
+				continue
+			}
+			resolved, err := blueprint.LoadNamespaced(data, SanitizeNS(s.Namespace), m.reg, m.limits)
+			if err != nil {
+				diags = append(diags, Diag{"error", diagSource(s.ID, fn), "load", err.Error()})
+				continue
+			}
+			out = append(out, Loaded{Resolved: resolved, Provenance: ProvGit, SourceID: s.ID})
+		}
 	}
 	return out, diags
 }
@@ -275,7 +316,13 @@ func (m *Manager) Resolve(ctx context.Context) ([]Loaded, Manifest, []Diag) {
 
 	// 3. Persist manifest + update boot.
 	if !m.readOnly {
-		_ = m.gate.Do(ctx, ha.Mutation, func(context.Context) error { return writeManifest(m.dataDir, man) })
+		err := m.gate.Do(ctx, ha.Mutation, func(c context.Context) error { return m.commitManifest(c, man) })
+		if err != nil && m.backend != nil {
+			allDiags = append(allDiags, Diag{"error", "manifest", "persist", err.Error()})
+			if m.backendError != nil {
+				m.backendError(err)
+			}
+		}
 	} // legacy best-effort persistence
 	m.mu.Lock()
 	m.boot = man
@@ -297,7 +344,7 @@ func (m *Manager) CommitResolved(ctx context.Context, man Manifest, loaded []Loa
 		if err := c.Err(); err != nil {
 			return err
 		}
-		if err := writeManifest(m.dataDir, man); err != nil {
+		if err := m.commitManifest(c, man); err != nil {
 			return err
 		}
 		var gitLoaded []Loaded
@@ -332,9 +379,10 @@ func (m *Manager) recordLoadResults(ctx context.Context, loaded []Loaded, diags 
 		skipped[parts[0]] = append(skipped[parts[0]], parts[1]+": "+diag.Detail)
 	}
 	var persistDiags []Diag
+	sources := m.sourceSnapshot()
 	m.sourceMu.Lock()
 	defer m.sourceMu.Unlock()
-	for _, source := range m.cfg.Sources() {
+	for _, source := range sources {
 		if source.FetchedSHA == "" {
 			continue
 		}
@@ -344,7 +392,19 @@ func (m *Manager) recordLoadResults(ctx context.Context, loaded []Loaded, diags 
 		source.Skipped = append([]string{}, skipped[source.ID]...)
 		sort.Strings(source.LoadedNames)
 		sort.Strings(source.Skipped)
-		if err := upsertSourceContext(ctx, m.cfg, source); err != nil {
+		var err error
+		if m.backend != nil {
+			err = m.mutateSource(ctx, source, func(d *sourceDocument) {
+				if d.ConfigFingerprint == sourceFingerprint(source) && d.FetchedSHA == source.FetchedSHA {
+					d.FetchStatus.LoadedSHA = source.LoadedSHA
+					d.FetchStatus.LoadedNames = source.LoadedNames
+					d.FetchStatus.Skipped = source.Skipped
+				}
+			})
+		} else {
+			err = upsertSourceContext(ctx, m.cfg, source)
+		}
+		if err != nil {
 			persistDiags = append(persistDiags, Diag{"error", source.ID, "persist", err.Error()})
 		}
 	}

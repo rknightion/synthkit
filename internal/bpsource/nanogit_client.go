@@ -11,6 +11,7 @@ import (
 	nanogit "github.com/grafana/nanogit"
 	"github.com/grafana/nanogit/options"
 	"github.com/grafana/nanogit/protocol"
+	"github.com/grafana/nanogit/protocol/hash"
 )
 
 // Compile-time assertion: nanogitClient implements GitClient.
@@ -116,9 +117,34 @@ func (c *nanogitClient) FetchYAML(ctx context.Context, url, ref, subpath, tokenE
 	if err != nil {
 		return nil, fmt.Errorf("nanogit: GetRef %q on %q: %w", ref, url, err)
 	}
-	commitHash := r.Hash
+	return fetchYAMLTree(ctx, client, url, r.Hash, subpath)
+}
 
-	// 2. Fetch the complete flat tree for this commit.
+// FetchYAMLAtCommit fetches only the tree and blobs identified by commitSHA.
+// Unlike FetchYAML it never resolves a mutable ref. Backend snapshots require
+// this additive capability so their files and receipt refer to the same commit.
+func (c *nanogitClient) FetchYAMLAtCommit(ctx context.Context, url, commitSHA, subpath, tokenEnvVar string) (map[string][]byte, error) {
+	commitHash, err := exactCommitHash(commitSHA)
+	if err != nil {
+		return nil, err
+	}
+	client, err := c.newClient(url, tokenEnvVar)
+	if err != nil {
+		return nil, err
+	}
+	return fetchYAMLTree(ctx, client, url, commitHash, subpath)
+}
+
+func exactCommitHash(sha string) (hash.Hash, error) {
+	h, err := hash.FromHex(sha)
+	if err != nil || h == hash.Zero || sha != h.String() {
+		return hash.Zero, fmt.Errorf("bpsource: immutable fetch requires a nonzero canonical 40-character commit SHA")
+	}
+	return h, nil
+}
+
+func fetchYAMLTree(ctx context.Context, client nanogit.Client, url string, commitHash hash.Hash, subpath string) (map[string][]byte, error) {
+	// Fetch the complete flat tree for this exact commit.
 	flatTree, err := client.GetFlatTree(ctx, commitHash)
 	if err != nil {
 		return nil, fmt.Errorf("nanogit: GetFlatTree for commit %s on %q: %w", commitHash.String(), url, err)

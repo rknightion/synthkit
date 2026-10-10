@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
+	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/ha"
 )
 
@@ -27,6 +28,7 @@ func NewManager(opts Options) *Manager {
 		now = func() int64 { return time.Now().UnixMilli() }
 	}
 	m := &Manager{
+		backend: opts.Backend, casAttempts: opts.CASAttempts, maxDocumentBytes: opts.MaxDocumentBytes, backendError: opts.BackendError, backendDocs: map[string]sourceDocument{},
 		gate: opts.Gate, readOnly: opts.ReadOnly,
 		bakedDir:   opts.BakedDir,
 		dataDir:    opts.DataDir,
@@ -50,7 +52,11 @@ func NewManager(opts Options) *Manager {
 			m.selection[name] = struct{}{}
 		}
 	}
-	m.boot = readManifest(m.dataDir)
+	if m.backend == nil {
+		m.boot = readManifest(m.dataDir)
+	} else {
+		m.boot = Manifest{SourceSHAs: map[string]string{}}
+	}
 	if m.cfg != nil {
 		for _, source := range m.cfg.Sources() {
 			if source.ObservedSHA != "" {
@@ -119,6 +125,15 @@ func (m *Manager) UpsertSourceContext(ctx context.Context, source Source) error 
 	return m.gate.Do(ctx, ha.Mutation, func(c context.Context) error { return m.upsertSource(c, source) })
 }
 func (m *Manager) upsertSource(ctx context.Context, source Source) error {
+	if m.backend != nil {
+		key, err := control.GitSourceKey(source.ID)
+		if err != nil {
+			return err
+		}
+		if _, err = m.backend.Load(ctx, key); err != nil {
+			return err
+		}
+	}
 	if err := m.policy.ValidateSource(source); err != nil {
 		return err
 	}
@@ -212,6 +227,10 @@ func (m *Manager) fetchNow(ctx context.Context, id string) error {
 	m.latestSHAs[id] = headSHA
 	m.mu.Unlock()
 
+	if m.backend != nil {
+		return m.fetchBackend(ctx, src, headSHA)
+	}
+
 	gitIDDir := filepath.Join(m.dataDir, gitDir, id)
 	if err := ensurePrivateDir(m.dataDir); err != nil {
 		return fmt.Errorf("bpsource: secure data root: %w", err)
@@ -290,6 +309,54 @@ func (m *Manager) fetchNow(ctx context.Context, id string) error {
 	return nil
 }
 
+// immutableGitClient is additive: legacy file-mode GitClient implementations
+// keep their existing mutable-ref API. Durable snapshots fail closed without it.
+// Implementations must return files from commitSHA without resolving a ref again.
+type immutableGitClient interface {
+	FetchYAMLAtCommit(ctx context.Context, url, commitSHA, subpath, tokenEnvVar string) (map[string][]byte, error)
+}
+
+func (m *Manager) fetchBackend(ctx context.Context, src Source, sha string) error {
+	git, ok := m.git.(immutableGitClient)
+	if !ok {
+		return fmt.Errorf("bpsource: backend requires immutable-commit git fetching")
+	}
+	if _, err := exactCommitHash(sha); err != nil {
+		return err
+	}
+	blobs, err := git.FetchYAMLAtCommit(ctx, src.URL, sha, src.Subpath, src.TokenEnvVar)
+	if err != nil {
+		_, persistErr := m.mergeFetchStatus(ctx, src.ID, src, func(s *Source) { s.ObservedSHA = sha; s.LastErr = err.Error() })
+		if persistErr != nil {
+			return persistErr
+		}
+		return err
+	}
+	for fn := range blobs {
+		if filepath.Base(fn) != fn || filepath.Ext(fn) != ".yaml" {
+			return fmt.Errorf("bpsource: invalid fetched filename")
+		}
+	}
+	if !m.sourceStillMatches(src) {
+		return sourceChangedDuringFetch(src.ID)
+	}
+	stamp := m.now()
+	fingerprint := sourceFingerprint(src)
+	m.sourceMu.Lock()
+	defer m.sourceMu.Unlock()
+	return m.mutateSource(ctx, src, func(d *sourceDocument) {
+		if d.ConfigFingerprint != fingerprint {
+			d.FetchStatus = fetchStatus{}
+		}
+		d.ConfigFingerprint = fingerprint
+		d.FetchedSHA = sha
+		d.Files = blobs
+		d.FetchStatus.ObservedSHA = sha
+		d.FetchStatus.LastFetchMs = stamp
+		d.FetchStatus.LastErr = ""
+	})
+}
+
 func effectiveNames(namespace string, blobs map[string][]byte) []string {
 	names := make([]string, 0, len(blobs))
 	for _, data := range blobs {
@@ -309,7 +376,13 @@ func (m *Manager) sourceSnapshot() []Source {
 	}
 	m.sourceMu.Lock()
 	defer m.sourceMu.Unlock()
-	return cloneSources(m.cfg.Sources())
+	sources := cloneSources(m.cfg.Sources())
+	if m.backend != nil {
+		for i, s := range sources {
+			sources[i] = joinSource(s, m.backendDocs[s.ID])
+		}
+	}
+	return sources
 }
 
 func cloneSources(sources []Source) []Source {
@@ -347,6 +420,24 @@ func (m *Manager) mergeFetchStatus(ctx context.Context, id string, fetched Sourc
 		}
 		if !sameFetchConfiguration(current, fetched) {
 			return false, nil
+		}
+		if m.backend != nil {
+			err := m.mutateSource(ctx, current, func(d *sourceDocument) {
+				fresh := joinSource(current, *d)
+				merge(&fresh)
+				if d.ConfigFingerprint != sourceFingerprint(current) {
+					d.Files = map[string][]byte{}
+					d.FetchedSHA = ""
+				}
+				d.ConfigFingerprint = sourceFingerprint(current)
+				d.FetchStatus.ObservedSHA = fresh.ObservedSHA
+				d.FetchStatus.LastErr = ""
+				if fresh.LastErr != "" {
+					d.FetchStatus.LastErr = "git operation failed"
+				}
+				d.FetchStatus.LastFetchMs = fresh.LastFetchMs
+			})
+			return true, err
 		}
 		merge(&current)
 		current.PendingRestart = current.FetchedSHA != "" && current.FetchedSHA != current.LoadedSHA

@@ -24,8 +24,8 @@ exception; estates still come from blueprints, never from the surrounding cluste
 The binary accepts `HA_MODE=lease` with existing local file state. This is a staging mode
 for the election/lifecycle seam, **not** stateless failover or shared-state continuity.
 The current chart remains one replica/Recreate; do not override its replica count or
-attach one ReadWriteOnce claim to two replicas. Standby-aware readiness, Kubernetes state
-and stateless HA chart wiring must land before an HA chart deployment is supported.
+attach one ReadWriteOnce claim to two replicas. Stateless HA chart wiring must land before
+an HA chart deployment is supported.
 
 An operator configuring the binary directly must pre-create the exact Lease and supply
 `HA_LEASE_NAME`, `HA_NAMESPACE` and downward-API `POD_UID`, with a mounted ServiceAccount
@@ -52,6 +52,29 @@ stable. Crash takeover may take the 30s Lease duration plus acquisition/preparat
 not promise zero gaps, duplication or data loss. HA uploads and automatic SM provisioning
 remain unavailable; the binary suppresses unsupported SM emission without artifact I/O.
 Process telemetry/profiles carry immutable `ha.role` tags, including standby exports.
+
+## Optional named ConfigMap state
+
+The binary also accepts `STATE_BACKEND=kubernetes` with either lease mode or HA off. Supply
+`HA_NAMESPACE`, `STATE_CONTROL_CONFIGMAP`, `STATE_BOOT_CONFIGMAP` and the JSON
+`STATE_GIT_SOURCE_CONFIGMAPS` mapping. Pre-create every named ConfigMap. Each document lives in
+`binaryData["document"]`; an empty object is a valid initial document. Runtime uses only named
+`get` and resourceVersion-conditional `update` over core `configmaps`. A namespace Role may grant
+`get/update/patch` restricted by `resourceNames` to those exact names. No create/list/watch/delete
+or Event permissions are needed. The installing principal, not the workload, creates resources;
+protect populated objects from reset on upgrades/rollback. Chart/RBAC wiring remains separate.
+
+The projected ServiceAccount credentials and API-server egress must work. Missing, forbidden,
+corrupt or oversize documents fail startup; no fallback to local defaults is permitted. The
+encoded source cap defaults to 786432 bytes and cannot be widened; aggregate ConfigMap data must
+also fit 1 MiB. Fetch status and git files are one source document, joined to current source
+configuration by stable ID and fingerprint. Removed/reconfigured sources ignore old blobs.
+
+Kubernetes control/manifest/git state does not need a PVC or disk materialization. HA-off custom
+uploads still use the existing local upload directory and require retained disk for continuity;
+Kubernetes mode does not make them shared. HA upload and automatic SM exclusions are unchanged.
+With HA off, Kubernetes state is still one emitter, not permission to scale replicas. The current
+chart remains unchanged; this is a binary capability, not a supported two-replica chart promise.
 
 ## Install
 

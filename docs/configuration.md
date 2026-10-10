@@ -25,6 +25,40 @@ Cross-references: for where to obtain the sink credentials see [credentials.md](
 
 ---
 
+## Kubernetes state backend
+
+`STATE_BACKEND=file` remains the default, including with `HA_MODE=lease`. File state keeps its
+existing paths and failure behavior. Optional `STATE_BACKEND=kubernetes` stores control state,
+boot manifest, git fetch status and fetched git YAML in named pre-created ConfigMaps. It uses
+in-cluster authentication only, never `KUBECONFIG`, discovery, create, list, watch or delete.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `STATE_BACKEND` | `file` | `file` or `kubernetes`. Kubernetes with HA off is valid for one emitter. |
+| `STATE_CONTROL_CONFIGMAP` | empty | Required Kubernetes control-document object name. |
+| `STATE_BOOT_CONFIGMAP` | empty | Required Kubernetes manifest object name, distinct from control. |
+| `STATE_GIT_SOURCE_CONFIGMAPS` | `{}` | JSON object mapping source IDs to distinct pre-created ConfigMap names. Every configured source needs a slot. |
+| `STATE_GIT_SOURCE_MAX_BYTES` | `786432` | Encoded git document cap including files, metadata and receipts. Integer 1..786432. No truncation. |
+| `STATE_CAS_MAX_ATTEMPTS` | `5` | Integer 1..5; retries share a 2s state-operation deadline. |
+| `HA_NAMESPACE` | empty | Required namespace for Kubernetes state, even with HA off. |
+| `HA_KUBE_REQUEST_TIMEOUT` | `2s` | Positive named-API request timeout. Lease mode also requires it below the renew deadline. |
+
+Each object owns `binaryData["document"]`; unrelated keys and metadata are preserved. Control and
+manifest documents have the same 768 KiB hard cap, and the total ConfigMap data must fit 1 MiB.
+Conflicts reload and replay the same request intent. Lost write responses are reconciled through
+atomic bounded operation receipts; an evicted/unreadable outcome fails closed with HTTP 503
+`state_outcome_unknown` and failed persisted-state readiness. Conflict exhaustion is HTTP 409
+`state_conflict`, not an in-memory success. Reset still clears source configuration and incidents;
+allocated source documents remain but no longer have authority.
+
+Kubernetes-backed git snapshots boot offline without a git host or staged git files. A lease
+standby reads without writing; acquisition rereads documents and rebuilds/applies current state
+before production starts. `CONFIG_SNAPSHOT_PATH` is ignored for Kubernetes control state.
+`BLUEPRINT_DATA_DIR` is not authoritative for Kubernetes git/manifest state. With HA off, existing
+uploads remain file-backed in that directory: they still need retained local disk and do not
+follow a lease or gain shared-upload durability. HA upload/automatic SM exclusions are unchanged.
+The current Helm chart is not yet a stateless two-replica deployment.
+
 ## Synthetic data sinks
 
 One Grafana Cloud Access Policy (CAP) token with `metrics:write`, `logs:write`, `traces:write`, and `profiles:write` covers all synthetic sinks. The `GC_*_USER` values are numeric data-source instance IDs, not email addresses.
@@ -101,8 +135,8 @@ These variables support pulling blueprints from git repositories or custom uploa
 `HA_MODE` unset, empty or `off` retains the single-emitter file workflow. `lease` uses
 client-go against one named, **pre-created** Lease and in-cluster credentials; it never
 creates, lists, watches or deletes Kubernetes resources. No kubeconfig fallback is used.
-This first binary stage supports `STATE_BACKEND=file`; the Kubernetes state adapter and
-HA chart/readiness integration are separate follow-up work, not enabled by these variables.
+File remains the default backend; optional Kubernetes document state is described above.
+Stateless HA chart wiring remains separate work, not enabled by these variables.
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -119,7 +153,7 @@ HA chart/readiness integration are separate follow-up work, not enabled by these
 | `HA_FLUSH_TIMEOUT` | `8s` | One absolute deadline around each raw Write, including encoding, Faro fanout, all three Sigil stages, response reads and worker join. |
 | `HA_FENCE_MARGIN` | `2s` | Positive join/exit allowance; a normally executing process that fails to join is crashed, never treated as finished. |
 | `HA_RELEASE_TIMEOUT` | `2s` | Total named Get/CAS release budget, after renewal is sealed. |
-| `STATE_BACKEND` | `file` | Existing file paths remain authoritative in this binary stage. |
+| `STATE_BACKEND` | `file` | Existing file paths or optional named Kubernetes documents. |
 
 Startup rejects equality as well as overshoot: both the clamped retry series plus HTTP
 attempt plus margin, and the whole operation cap plus margin, must be strictly below

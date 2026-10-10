@@ -6,7 +6,9 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"regexp"
@@ -21,6 +23,9 @@ type Config struct {
 	HALeaseDuration, HARenewDeadline, HARetryPeriod, HAKubeRequestTimeout             time.Duration
 	HAHTTPTimeout, HARetryMaxElapsed, HAFlushTimeout, HAFenceMargin, HAReleaseTimeout time.Duration
 	StateBackend                                                                      string
+	StateControlConfigMap, StateBootConfigMap                                         string
+	StateGitSourceConfigMaps                                                          map[string]string
+	StateGitSourceMaxBytes, StateCASMaxAttempts                                       int
 	// Sinks (one CAP token covers metrics/logs/traces; RUM has its own pair).
 	PromRWURL     string // GC_PROM_RW
 	PromUser      string // GC_PROM_USER
@@ -148,6 +153,8 @@ func Load(envPath string) (*Config, error) {
 		HANamespace:            get("HA_NAMESPACE", ""),
 		PodUID:                 get("POD_UID", ""),
 		StateBackend:           get("STATE_BACKEND", "file"),
+		StateControlConfigMap:  get("STATE_CONTROL_CONFIGMAP", ""),
+		StateBootConfigMap:     get("STATE_BOOT_CONFIGMAP", ""),
 		PromRWURL:              get("GC_PROM_RW", ""),
 		PromUser:               get("GC_PROM_USER", ""),
 		OTLPEndpoint:           get("GC_OTLP_ENDPOINT", ""),
@@ -191,6 +198,35 @@ func Load(envPath string) (*Config, error) {
 
 		ProfilesURL:  get("GC_PROFILES_URL", ""),
 		ProfilesUser: get("GC_PROFILES_USER", ""),
+	}
+	// Unused Kubernetes settings must not change the legacy file startup path.
+	cfg.StateGitSourceConfigMaps = map[string]string{}
+	cfg.StateGitSourceMaxBytes, cfg.StateCASMaxAttempts = 786432, 5
+	if cfg.StateBackend == "kubernetes" {
+		sourceMap := get("STATE_GIT_SOURCE_CONFIGMAPS", "{}")
+		if sourceMap == "" {
+			sourceMap = "{}"
+		}
+		cfg.StateGitSourceConfigMaps, err = parseStateSourceMappings(sourceMap)
+		if err != nil {
+			return nil, err
+		}
+		maxBytes := get("STATE_GIT_SOURCE_MAX_BYTES", "786432")
+		if maxBytes == "" {
+			maxBytes = "786432"
+		}
+		cfg.StateGitSourceMaxBytes, err = strconv.Atoi(maxBytes)
+		if err != nil {
+			return nil, fmt.Errorf("config: invalid STATE_GIT_SOURCE_MAX_BYTES")
+		}
+		attempts := get("STATE_CAS_MAX_ATTEMPTS", "5")
+		if attempts == "" {
+			attempts = "5"
+		}
+		cfg.StateCASMaxAttempts, err = strconv.Atoi(attempts)
+		if err != nil {
+			return nil, fmt.Errorf("config: invalid STATE_CAS_MAX_ATTEMPTS")
+		}
 	}
 	if cfg.HAMode == "" {
 		cfg.HAMode = "off"
@@ -348,6 +384,55 @@ func ValidateControlBasePath(prefix string) error {
 	return nil
 }
 
+func stateDNSLabel(s string) bool {
+	return len(s) > 0 && len(s) <= 63 && regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`).MatchString(s)
+}
+func stateDNSName(s string) bool {
+	if len(s) > 253 {
+		return false
+	}
+	for _, part := range strings.Split(s, ".") {
+		if !stateDNSLabel(part) {
+			return false
+		}
+	}
+	return true
+}
+func parseStateSourceMappings(raw string) (map[string]string, error) {
+	d := json.NewDecoder(strings.NewReader(raw))
+	token, err := d.Token()
+	if err != nil || token != json.Delim('{') {
+		return nil, fmt.Errorf("config: STATE_GIT_SOURCE_CONFIGMAPS must be an object")
+	}
+	result := map[string]string{}
+	for d.More() {
+		key, err := d.Token()
+		if err != nil {
+			return nil, err
+		}
+		id, ok := key.(string)
+		if !ok {
+			return nil, fmt.Errorf("config: invalid source mapping key")
+		}
+		if _, exists := result[id]; exists {
+			return nil, fmt.Errorf("config: duplicate source mapping key")
+		}
+		var name string
+		if err := d.Decode(&name); err != nil {
+			return nil, fmt.Errorf("config: source mapping values must be names")
+		}
+		result[id] = name
+	}
+	if _, err := d.Token(); err != nil {
+		return nil, err
+	}
+	var extra any
+	if err := d.Decode(&extra); err != io.EOF {
+		return nil, fmt.Errorf("config: trailing source mapping data")
+	}
+	return result, nil
+}
+
 // ValidateHA evaluates both the per-series policy and the complete operation cap.
 // Optional Faro fanout and sequential Sigil stages are bounded by the same outer
 // cap, not by a fictitious single request. Equality is deliberately rejected.
@@ -355,8 +440,20 @@ func (c *Config) ValidateHA() error {
 	if c.HAMode != "off" && c.HAMode != "lease" {
 		return fmt.Errorf("config: HA_MODE must be off or lease")
 	}
-	if c.StateBackend != "file" {
-		return fmt.Errorf("config: STATE_BACKEND=%s unavailable until the state adapter is installed", c.StateBackend)
+	if c.StateBackend != "file" && c.StateBackend != "kubernetes" {
+		return fmt.Errorf("config: STATE_BACKEND must be file or kubernetes")
+	}
+	if c.StateBackend == "kubernetes" {
+		if !stateDNSLabel(c.HANamespace) || !stateDNSName(c.StateControlConfigMap) || !stateDNSName(c.StateBootConfigMap) || c.StateControlConfigMap == c.StateBootConfigMap || c.HAKubeRequestTimeout <= 0 || c.StateGitSourceMaxBytes < 1 || c.StateGitSourceMaxBytes > 786432 || c.StateCASMaxAttempts < 1 || c.StateCASMaxAttempts > 5 {
+			return fmt.Errorf("config: invalid Kubernetes state mapping, cap or budget")
+		}
+		names := map[string]bool{c.StateControlConfigMap: true, c.StateBootConfigMap: true}
+		for id, name := range c.StateGitSourceConfigMaps {
+			if !regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`).MatchString(id) || strings.Contains(id, "__") || !stateDNSName(name) || names[name] {
+				return fmt.Errorf("config: invalid or duplicate state source mapping")
+			}
+			names[name] = true
+		}
 	}
 	if c.HAMode == "off" {
 		return nil
@@ -386,9 +483,20 @@ func (c *Config) ValidateHA() error {
 	return nil
 }
 
-// RedactedHA extends the legacy projection without changing HA-off config views.
-func (c *Config) RedactedHA() RedactedConfig {
+func (c *Config) RedactedState() RedactedConfig {
 	view := c.Redacted()
+	if c.StateBackend == "kubernetes" {
+		mapping, _ := json.Marshal(c.StateGitSourceConfigMaps)
+		view.Groups = append(view.Groups, RedactedGroup{Title: "State backend", Fields: []RedactedField{
+			safe("STATE_BACKEND", c.StateBackend), safe("STATE_CONTROL_CONFIGMAP", c.StateControlConfigMap), safe("STATE_BOOT_CONFIGMAP", c.StateBootConfigMap), safe("STATE_GIT_SOURCE_CONFIGMAPS", string(mapping)), safe("STATE_GIT_SOURCE_MAX_BYTES", strconv.Itoa(c.StateGitSourceMaxBytes)), safe("STATE_CAS_MAX_ATTEMPTS", strconv.Itoa(c.StateCASMaxAttempts)), safe("HA_NAMESPACE", c.HANamespace), safe("HA_KUBE_REQUEST_TIMEOUT", c.HAKubeRequestTimeout.String()),
+		}})
+	}
+	return view
+}
+
+// RedactedHA extends the legacy projection without changing HA-off file config views.
+func (c *Config) RedactedHA() RedactedConfig {
+	view := c.RedactedState()
 	view.Groups = append(view.Groups, RedactedGroup{Title: "Lease HA", Fields: []RedactedField{
 		safe("HA_MODE", c.HAMode), safe("STATE_BACKEND", c.StateBackend), safe("HA_LEASE_NAME", c.HALeaseName), safe("HA_NAMESPACE", c.HANamespace), secret("POD_UID", c.PodUID),
 		safe("HA_LEASE_DURATION", c.HALeaseDuration.String()), safe("HA_RENEW_DEADLINE", c.HARenewDeadline.String()), safe("HA_RETRY_PERIOD", c.HARetryPeriod.String()), safe("HA_KUBE_REQUEST_TIMEOUT", c.HAKubeRequestTimeout.String()),

@@ -355,8 +355,14 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	// Control plane store is built HERE (before blueprint resolution) so the source-config
 	// adapter can read/write git source state during Resolve. ApplyControl runs after AddBlueprint
 	// (below) — but the store itself is safe to construct first; Snapshot() is idempotent.
-	store := control.NewStore(cfg.SnapshotPath)
+	store, backend, err := openConfiguredState(context.Background(), cfg, ha.AlwaysLeader{})
+	if err != nil {
+		return err
+	}
 	if err := store.ProbeWrite(); err != nil {
+		if backend != nil {
+			return err
+		}
 		log.Printf("control: startup state-volume probe failed: %v", err)
 	}
 
@@ -381,6 +387,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	gitClient := bpsource.NewNanogitClientWithPolicy(tokenLookup, sourcePolicy)
 	sc := bpsource.NewStoreSourceConfig(store)
 	mgr := bpsource.NewManager(bpsource.Options{
+		Backend: backend, CASAttempts: cfg.StateCASMaxAttempts, MaxDocumentBytes: cfg.StateGitSourceMaxBytes, BackendError: store.ObserveBackendError,
 		BakedDir:       cfg.BlueprintsDir,
 		BlueprintNames: cfg.BlueprintNames,
 		DataDir:        cfg.BlueprintDataDir,
@@ -392,8 +399,10 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		Now:            func() int64 { return time.Now().UnixMilli() },
 	})
 
-	// Resolve loads built-ins + custom uploads + on-disk git blobs, fetching any configured
-	// git sources (degrade-on-error). Replaces the old filepath.Glob + blueprint.Load loop.
+	if err := mgr.LoadBackend(context.Background()); err != nil {
+		return err
+	}
+	// Resolve loads baked/upload files and already-fetched git snapshots offline.
 	loaded, _, resolveDiags := mgr.Resolve(context.Background())
 	if err := mgr.SelectionError(); err != nil {
 		return err
@@ -402,6 +411,9 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	for _, d := range resolveDiags {
 		diag.Add(d.Severity, d.Source, d.Stage, d.Detail)
 		if d.Severity == "error" {
+			if backend != nil && d.Stage == "persist" {
+				return fmt.Errorf("state startup persistence failed: %s", d.Detail)
+			}
 			skippedBlueprints++
 		}
 	}
@@ -625,7 +637,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		log.Printf("WARNING: CONTROL_TOKEN unset — control-plane reads and mutations are unauthenticated on the verified loopback-only exposure")
 	}
 	mux := http.NewServeMux()
-	cv := toControlConfigView(cfg.Redacted())
+	cv := toControlConfigView(cfg.RedactedState())
 	adapter := &blueprintAdminAdapter{mgr: mgr, sc: sc}
 	readiness := func() control.ReadinessReport {
 		persist := store.PersistHealth()
@@ -656,7 +668,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			Queues:      func() []pushstatus.QueueStat { return ps.SnapshotQueues(r.QueueDepths()) },
 			ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, Readiness: readiness,
 			Optional: func() []optionallane.Disposition {
-				facts := collectOptionalRuntimeFacts(runtimeResolved, sc.Sources(), cfg, smState)
+				facts := collectOptionalRuntimeFacts(runtimeResolved, mgr.Sources(), cfg, smState)
 				return optionalRuntimeDispositions(cfg, facts, ps.SnapshotLanes(), fs.Snapshot(), r.FleetRosterCount(), so.Enabled(), prof != nil && perr == nil)
 			},
 			DryRun: cfg.DryRun,

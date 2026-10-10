@@ -10,6 +10,7 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/rknightion/synthkit/internal/ha"
 	"log"
@@ -94,15 +95,18 @@ func DefaultState() State {
 // PersistHealth() for /control/status — they are deliberately NOT part of the persisted
 // State snapshot (a persist failure shouldn't itself be persisted).
 type Store struct {
-	mu           sync.Mutex
-	path         string
-	state        State
-	now          func() time.Time
-	persistErr   string
-	persistErrMs int64
-	persistOKMs  int64
-	gate         ha.LeaderGate
-	strict       bool
+	mu             sync.Mutex
+	path           string
+	state          State
+	now            func() time.Time
+	persistErr     string
+	persistErrMs   int64
+	persistOKMs    int64
+	gate           ha.LeaderGate
+	strict         bool
+	backend        StateBackend
+	casAttempts    int
+	outcomeUnknown bool
 }
 
 // NewStore loads the snapshot at path (defaults apply when absent/corrupt — loud log,
@@ -187,6 +191,9 @@ func (s *Store) Update(fn func(*State)) State {
 
 // UpdateContext rejects before file I/O, and HA never publishes failed persistence.
 func (s *Store) UpdateContext(ctx context.Context, fn func(*State)) (State, error) {
+	if s.backend != nil {
+		return s.updateBackend(ctx, fn)
+	}
 	if s.strict {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 2*time.Second)
@@ -249,6 +256,12 @@ func (s *Store) ResetContext(ctx context.Context) (State, error) {
 
 // recordPersist folds a persist outcome into the runtime health fields. Caller holds s.mu.
 func (s *Store) recordPersist(err error) {
+	if errors.Is(err, ErrOutcomeUnknown) {
+		s.outcomeUnknown = true
+	}
+	if s.outcomeUnknown {
+		err = ErrOutcomeUnknown
+	}
 	ms := s.now().UnixMilli()
 	if err != nil {
 		s.persistErr, s.persistErrMs = err.Error(), ms

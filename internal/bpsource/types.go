@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
+	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/ha"
 )
@@ -105,17 +106,21 @@ type ValidationResult struct {
 
 // Options configures a Manager at construction time.
 type Options struct {
-	Gate           ha.LeaderGate
-	ReadOnly       bool                    // scanning never mkdirs/chmods; writes are a distinct gated commit
-	BakedDir       string                  // cfg.BlueprintsDir (built-ins)
-	BlueprintNames []string                // exact-name allowlist; empty selects none, "*" selects every available blueprint
-	DataDir        string                  // <volume>/blueprints (custom + git + manifest)
-	Registry       *core.Registry          // runner.Catalog()
-	RuntimeLimits  blueprint.RuntimeLimits // process scheduling/cost bounds used by blueprint load validation
-	Git            GitClient               // nanogit adapter (may be nil → git sources skipped)
-	SourcePolicy   SourcePolicy            // process-wide source admission policy
-	Config         SourceConfig            // control.Store adapter
-	Now            func() int64            // unix-ms clock (injectable for tests)
+	Backend          control.StateBackend // nil retains legacy file staging
+	CASAttempts      int
+	MaxDocumentBytes int
+	BackendError     func(error)
+	Gate             ha.LeaderGate
+	ReadOnly         bool                    // scanning never mkdirs/chmods; writes are a distinct gated commit
+	BakedDir         string                  // cfg.BlueprintsDir (built-ins)
+	BlueprintNames   []string                // exact-name allowlist; empty selects none, "*" selects every available blueprint
+	DataDir          string                  // <volume>/blueprints (custom + git + manifest)
+	Registry         *core.Registry          // runner.Catalog()
+	RuntimeLimits    blueprint.RuntimeLimits // process scheduling/cost bounds used by blueprint load validation
+	Git              GitClient               // nanogit adapter (may be nil → git sources skipped)
+	SourcePolicy     SourcePolicy            // process-wide source admission policy
+	Config           SourceConfig            // control.Store adapter
+	Now              func() int64            // unix-ms clock (injectable for tests)
 }
 
 // Manager is the composition-root object wiring all of the above. Constructed in main.go.
@@ -124,21 +129,25 @@ type Options struct {
 // the /control/blueprints/pending GET must do NO inline git I/O (the UI polls it every 5s on an
 // unguarded route; an inline HeadSHA-per-source would be a rate-limit/DoS/latency footgun).
 type Manager struct {
-	gate       ha.LeaderGate
-	readOnly   bool
-	bakedDir   string
-	dataDir    string
-	reg        *core.Registry
-	limits     blueprint.RuntimeLimits
-	git        GitClient
-	policy     SourcePolicy
-	cfg        SourceConfig
-	now        func() int64
-	boot       Manifest
-	mu         sync.Mutex
-	sourceMu   sync.Mutex
-	latestSHAs map[string]string
-	selection  map[string]struct{}
-	selectAll  bool
-	available  map[string]struct{}
+	backend                       control.StateBackend
+	casAttempts, maxDocumentBytes int
+	backendError                  func(error)
+	backendDocs                   map[string]sourceDocument // guarded by sourceMu
+	gate                          ha.LeaderGate
+	readOnly                      bool
+	bakedDir                      string
+	dataDir                       string
+	reg                           *core.Registry
+	limits                        blueprint.RuntimeLimits
+	git                           GitClient
+	policy                        SourcePolicy
+	cfg                           SourceConfig
+	now                           func() int64
+	boot                          Manifest
+	mu                            sync.Mutex
+	sourceMu                      sync.Mutex
+	latestSHAs                    map[string]string
+	selection                     map[string]struct{}
+	selectAll                     bool
+	available                     map[string]struct{}
 }

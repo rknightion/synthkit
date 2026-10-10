@@ -117,6 +117,15 @@ func mutationError(w http.ResponseWriter, err error) bool {
 		return false
 	}
 	code := "state_persist_failed"
+	if errors.Is(err, ErrOutcomeUnknown) {
+		code = "state_outcome_unknown"
+	}
+	if errors.Is(err, ErrConflict) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		writeJSON(w, map[string]string{"code": "state_conflict"})
+		return true
+	}
 	if errors.Is(err, ha.ErrNotLeader) {
 		code = "not_leader"
 	}
@@ -213,7 +222,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	h := &Handler{store: store, gate: ha.AlwaysLeader{}, serial: make(chan struct{}, 1)}
 	h.serial <- struct{}{}
 	update := func(w http.ResponseWriter, r *http.Request, fn func(*State)) (State, bool) {
-		if !h.haMode {
+		if !h.haMode && store.backend == nil {
 			return store.Update(fn), true
 		}
 		out, err := store.UpdateContext(r.Context(), fn)
@@ -261,7 +270,11 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		writeJSON(w, full)
 	})
 	mux.HandleFunc("GET /control/state", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, store.Snapshot())
+		state := store.Snapshot()
+		if store.backend != nil && h.bpadmin != nil {
+			state.BlueprintSources = h.bpadmin.Sources()
+		}
+		writeJSON(w, state)
 	})
 	// GET /control/blueprint-schema — the COMPLETE blueprint authoring schema (every key a
 	// blueprint may contain), derived from the live Go types. Read off h.bpSchema at request
@@ -872,7 +885,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			upsert = func() error { return contextual.UpsertSourceContext(r.Context(), sv) }
 		}
 		if err := upsert(); err != nil {
-			if errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			if errors.Is(err, ErrOutcomeUnknown) || errors.Is(err, ErrConflict) || errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				mutationError(w, err)
 				return
 			}
@@ -897,7 +910,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			remove = func() error { return contextual.RemoveSourceContext(r.Context(), id) }
 		}
 		if err := remove(); err != nil {
-			if errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			if errors.Is(err, ErrOutcomeUnknown) || errors.Is(err, ErrConflict) || errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				mutationError(w, err)
 				return
 			}
@@ -922,7 +935,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			fetch = func() error { return contextual.FetchNowContext(r.Context(), id) }
 		}
 		if err := fetch(); err != nil {
-			if errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			if errors.Is(err, ErrOutcomeUnknown) || errors.Is(err, ErrConflict) || errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				mutationError(w, err)
 				return
 			}
@@ -933,8 +946,21 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	}))
 
 	admission := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !h.haMode || r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
+		if (!h.haMode && store.backend == nil) || r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 			mux.ServeHTTP(w, r)
+			return
+		}
+		if !h.haMode {
+			RequireToken(token, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				select {
+				case <-h.serial:
+				case <-r.Context().Done():
+					mutationError(w, r.Context().Err())
+					return
+				}
+				defer func() { h.serial <- struct{}{} }()
+				mux.ServeHTTP(w, r)
+			})).ServeHTTP(w, r)
 			return
 		}
 		RequireToken(token, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -23,6 +23,10 @@ services:
     # proxy prefix must not be shadowed by an empty environment override.
     # GIT_SOURCE_HOST_ALLOWLIST flows from this selected file without an empty
     # environment override that could silently disable its configured restrictions.
+    # STATE_BACKEND and STATE_* mappings/caps, HA_NAMESPACE and
+    # HA_KUBE_REQUEST_TIMEOUT flow unchanged through this file. Do not shadow them
+    # with empty Compose environment values. Kubernetes mode requires in-cluster auth;
+    # the ordinary Compose deployment retains file-backed state and uploads.
     env_file: ${SYNTHKIT_ENV_FILE:-.env}
     environment:
       BLUEPRINTS: /app/blueprints
