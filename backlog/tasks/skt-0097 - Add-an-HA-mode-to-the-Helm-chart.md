@@ -1,11 +1,11 @@
 ---
 id: SKT-0097
 title: Add an HA mode to the Helm chart
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-10 19:53'
+updated_date: '2026-10-10 21:04'
 labels:
   - feature
   - ha
@@ -63,4 +63,6 @@ loop8 attempts0, priorcountsunchanged. Parkneedsdependency: S94backendmustland b
 loop10: new implementation attempts0, historical implementation count0 unchanged. Dependency park on SKT-0094 (Kubernetes state backend) acceptance and land; no gate or acceptance claimed. Resume frozen serial order after prerequisite green/land, using retained exact candidate where provided; no reset or reconstruction from prose.
 
 This run: Dependency SKT-0094 (Kubernetes state backend) unaccepted/unlanded; performance prerequisite reverted after CI489.278s. Retained input unchanged; zero new implementation attempts. Resume frozen order after prerequisite accepted land and gate.
+
+This run: fourcycles used(worker2,rescue1,rescue2), noreset. Safeoperator-precreatedcandidate localrender/fullgate+CodeRabbitfull/deltas+securityfull/delta passed; rootland02c61a12e5485662de888979c3321e6b7f2b83da CI38085650843 FAILED. Helm3.22CIlookup/precreationrace fixtureobservedzeroAPIrequests unlikelocalHelm4.3; independent reusableHelm4 strictKubernetes1.25 rejectsHAfixturePDBunhealthyPodEvictionPolicy. go/helm/reusable/ci-successred, race/e2eskippednotpasses. Rootrevertedownchartlandas6cf9d89569f60d6ff9dfae774926dfcb355d7918 because noauthorizedrepaircycle remains; precedingfourupstreamlands retained. Parkdefect needsownerbudget plusversion/schemafloorCIintegration scope, exactretainedcandidatebytecomplete notrecodedfromprose. No acceptancechecked or livechartdeployed; recoveryCI/composedproofpending.
 <!-- SECTION:NOTES:END -->
