@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - loop7
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-09 16:56'
+updated_date: '2026-10-10 00:10'
 labels: []
 dependencies: []
 type: bug
@@ -44,4 +44,6 @@ loop7: deterministic failing-first test-only probe bound repair without widening
 loop7 implementation attempts1, focused fail-first proof + race100/package20 passes and independent routine review PASS. Exact one-file candidate retained uncommitted; full gate red only known R12 control-dash600s timeout. No AC3 checked or land: frozen all-three composed prerequisite also needs accepted R13. Resume after blockers resolve; no unchanged failed gate retry.
 
 loop8 attempts0 (priorloop7 implementation1 unchanged). Frozen dependency R12mustland; R12ownerparked shared-path optimization. R14 retainedworktreebase89b5cb1742b53d975b53caad0fdf78688d7f8ff9 onlypreflighttestdirty; workingbinarydiff exactlymatches frozenretainedpatch01779a8ca97dd106664ef2d35dfc60b1ae752686525c440838cbbc3a1e81ad3e. Parkneedsdependency, resumeunchangedrebase thenrace100/fullgateafterR12; finalcomposedallthreecriterionnotchecked.
+
+loop10: new implementation attempts0, historical implementation count1 unchanged. Dependency park on SKT-0112 (control-dash race performance) acceptance and land; no gate or acceptance claimed. Resume frozen serial order after prerequisite green/land, using retained exact candidate where provided; no reset or reconstruction from prose.
 <!-- SECTION:NOTES:END -->

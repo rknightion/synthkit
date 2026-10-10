@@ -4,7 +4,7 @@ title: Serve the control console under a runtime base path
 status: Parked
 assignee: []
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-09 16:56'
+updated_date: '2026-10-10 00:10'
 labels:
   - feature
   - ui
@@ -56,4 +56,6 @@ loop6 partial, not landed: adds ControlBasePath (CONTROL_BASE_PATH) and Handler.
 loop7 implementation attempts0; dependency park: H93 must land before B98; retained patch unchanged and hash verified. Resume frozen order after prerequisite accepted land/green gate; no candidate/source changes this run.
 
 loop8 attempts0, priorcountsunchanged. Parkneedsdependency: H93mustland first, blockedR12. RetainedB98patchverified untouched; resumeafterreadinessland.
+
+loop10: new implementation attempts0, historical implementation count0 unchanged. Dependency park on SKT-0093 (standby-aware readiness) acceptance and land; no gate or acceptance claimed. Resume frozen serial order after prerequisite green/land, using retained exact candidate where provided; no reset or reconstruction from prose.
 <!-- SECTION:NOTES:END -->

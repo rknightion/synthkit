@@ -1,11 +1,11 @@
 ---
 id: SKT-0112
 title: Keep the control-dash race package inside the test timeout
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-09 22:09'
+updated_date: '2026-10-10 00:08'
 labels: []
 dependencies: []
 type: bug
@@ -52,4 +52,6 @@ loop7 attempts2 test-only experimental cycles, both reverted clean; race baselin
 loop8 phase1 sole loop lane: exact base a9a31e1121cd25d6b025584b99d14d6af88196aa race package passed exit0 real569.58s user564.15 sys50.12; load36.73/38.68/46.28 before9.89/19.61/32.74 after. Over180s releases authorized phase2 profile/generic optimization. Ambient load not cause proof; no source changes in measurement.
 
 loop8 attempts0/2 implementation cycles; read-only profile409.76s race exit0,53.5GB allocations dominated shared runner/state/promrw; app2.58%. No candidate or changes. Park needs=owner: grant bounded shared-path generic optimization outside explicit current dirs, preserving all output, or revise requirement. Resume from preserved profile/golden; all14 scenarios/11 queries/full manifest repeat-identical on unchanged code, not fix proof.
+
+loop10: complex implementation cycles2/2 and owner-granted SUPER1/1 spent, no ceiling reset. First revised candidate measured229.46/227.35s uncontended and failed180s. Final generic synchronized writer-local clone cache candidate preserves golden/scenarios/assertions, unchanged focused/race/reference/CLI proofs and three independent correctness verdicts; real allocation9.82% lower with28.85% cross-call reuse. Final under180 timing and full gate UNOBSERVED: two bounded20m host quiet-cut episodes failed with continuing foreign gates. Park needs owner to reserve exclusive host window, then verify same retained candidate, not recode; no permission to stop siblings or relax acceptance. If final timings fail, further implementation requires owner ceiling/scope decision. Retained cost estimate roughly290MiB across84 diagnostic writers;16MiB/16384 caps apply per-writer charged cache, not global heap/RSS. Final candidate/evidence operator-held; no source land or CI performance claim.
 <!-- SECTION:NOTES:END -->
