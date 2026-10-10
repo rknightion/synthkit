@@ -6,8 +6,7 @@ import (
 	"context"
 	"errors"
 	"hash/fnv"
-	"io"
-	"sort"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -47,36 +46,50 @@ type drainable interface {
 	SetObserver(queue.Observer)
 }
 
-func hashStringMap(h io.Writer, m map[string]string) {
-	keys := make([]string, 0, len(m))
+// These are the standard FNV-1a 64-bit constants. Hash strings directly to
+// preserve the existing shard identity without allocating a byte slice for each
+// key, value and separator passed through an io.Writer.
+const (
+	shardOffset64 = uint64(14695981039346656037)
+	shardPrime64  = uint64(1099511628211)
+)
+
+func hashShardString(h uint64, s string) uint64 {
+	for i := 0; i < len(s); i++ {
+		h ^= uint64(s[i])
+		h *= shardPrime64
+	}
+	return h
+}
+
+func hashStringMap(h uint64, m map[string]string) uint64 {
+	var scratch [32]string
+	keys := scratch[:0]
+	if len(m) > len(scratch) {
+		keys = make([]string, 0, len(m))
+	}
 	for k := range m {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, k := range keys {
-		_, _ = h.Write([]byte(k))
-		_, _ = h.Write([]byte{0})
-		_, _ = h.Write([]byte(m[k]))
-		_, _ = h.Write([]byte{0})
+		h = hashShardString(h, k) * shardPrime64 // NUL separator
+		h = hashShardString(h, m[k]) * shardPrime64
 	}
+	return h
 }
 
 // shardSeries routes by metric identity (name + sorted labels) so consecutive snapshots of
 // the same series always reach the same ordered sender — preserving the cumulative-counter
 // timestamp order required by ARCHITECTURE I3.
 func shardSeries(s promrw.Series) uint64 {
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(s.Name))
-	_, _ = h.Write([]byte{0})
-	hashStringMap(h, s.Labels)
-	return h.Sum64()
+	h := hashShardString(shardOffset64, s.Name) * shardPrime64
+	return hashStringMap(h, s.Labels)
 }
 
 // shardStream routes by Loki stream identity (preserves per-stream line order).
 func shardStream(s loki.Stream) uint64 {
-	h := fnv.New64a()
-	hashStringMap(h, s.Labels)
-	return h.Sum64()
+	return hashStringMap(shardOffset64, s.Labels)
 }
 
 // shardProfile routes by Pyroscope series identity.

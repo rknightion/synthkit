@@ -3,9 +3,12 @@
 package runner
 
 import (
+	"cmp"
 	"context"
+	"hash/maphash"
 	"log"
 	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -71,29 +74,153 @@ type stampedMetrics struct {
 	allowListVersion  string
 	allowListVariant  string
 	recordSuppression func(MetricSuppression)
+	labels            metricLabelCache
+}
+
+// These are cache admission limits, never telemetry limits. Each scoped writer
+// retains at most 16K immutable label maps and 16 MiB of charged storage. Wide or
+// oversized maps and a full cache use ordinary, uncached clones.
+const (
+	maxMetricLabelSets       = 16_384
+	maxMetricLabelCacheBytes = 16 << 20
+	maxCachedMetricLabels    = 128
+)
+
+type cachedMetricLabels struct {
+	labels map[string]string
+	bytes  int
+}
+
+// metricLabelCache belongs to one writer, not the state or the shared sink. Only
+// immutable CLONES escape its mutex; eviction never clears a published map.
+// Values/timestamps/exemplars/provenance are deliberately not cached.
+// The mutex also supports direct concurrent Write callers outside the runner's
+// usual single-goroutine-per-instance schedule.
+type metricLabelCache struct {
+	mu    sync.Mutex
+	seed  maphash.Seed
+	sets  map[uint64]cachedMetricLabels
+	bytes int
+}
+
+func (c *metricLabelCache) hashSeed() maphash.Seed {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.seed == (maphash.Seed{}) {
+		c.seed = maphash.MakeSeed()
+	}
+	return c.seed
+}
+
+// metricLabelCharge bounds retained string bytes plus a conservative allowance
+// for map slots, string allocation rounding and the cache entry. Clone retained
+// strings too: a short substring must not keep a caller's large buffer alive.
+// This is a storage admission budget, not a measurement of Go runtime heap/RSS.
+func metricLabelCharge(source map[string]string, label string) int {
+	if len(source) > maxCachedMetricLabels {
+		return 0
+	}
+	size := 256 + 128 + len(BlueprintLabel)
+	if len(label) > maxMetricLabelCacheBytes-size {
+		return 0
+	}
+	size += len(label)
+	for k, v := range source {
+		if k == BlueprintLabel {
+			continue
+		}
+		// Subtract before adding so arbitrary input lengths cannot overflow.
+		if 128 > maxMetricLabelCacheBytes-size {
+			return 0
+		}
+		size += 128
+		if len(k) > maxMetricLabelCacheBytes-size {
+			return 0
+		}
+		size += len(k)
+		if len(v) > maxMetricLabelCacheBytes-size {
+			return 0
+		}
+		size += len(v)
+	}
+	return size
+}
+
+// stamped requires c.mu. A digest is only a lookup hint: full final-label
+// equality is required even on a hit. Collisions can replace a cached entry but
+// never merge distinct identities. At capacity we keep the existing working
+// set rather than churn it on every cumulative snapshot.
+func (c *metricLabelCache) stamped(hash uint64, source map[string]string, label string) map[string]string {
+	old, found := c.sets[hash]
+	if found && sameStampedMetricLabels(old.labels, source, label) {
+		return old.labels
+	}
+	charge := metricLabelCharge(source, label)
+	retain := charge > 0 && (found || len(c.sets) < maxMetricLabelSets) && charge <= maxMetricLabelCacheBytes-c.bytes+old.bytes
+	labels := make(map[string]string, len(source)+1)
+	if retain {
+		for k, v := range source {
+			if k != BlueprintLabel {
+				labels[strings.Clone(k)] = strings.Clone(v)
+			}
+		}
+		labels[BlueprintLabel] = strings.Clone(label)
+		if c.sets == nil {
+			c.sets = make(map[uint64]cachedMetricLabels)
+		}
+		c.sets[hash] = cachedMetricLabels{labels: labels, bytes: charge}
+		c.bytes += charge - old.bytes
+	} else {
+		maps.Copy(labels, source)
+		labels[BlueprintLabel] = label
+	}
+	return labels
 }
 
 func (w *stampedMetrics) Write(ctx context.Context, batch []promrw.Series) error {
 	// Record inventory from the UNSTAMPED source (before blueprint label is added) so the
 	// blueprint label this writer adds is not counted as part of the construct's own labels.
-	for _, s := range batch {
-		w.inv.recordMetric(s.Name, sortedLabelPairs(s.Labels))
+	// Hash labels while the inventory pairs are already sorted, then reuse their
+	// immutable stamped clones across cumulative snapshots from this writer.
+	// Always read source content again: arbitrary callers can change maps between
+	// Write calls, and inventory must still observe every UNSTAMPED attempt.
+	var labelHashes []uint64
+	var labelHash maphash.Hash
+	if w.label != "" && len(batch) > 0 {
+		labelHashes = make([]uint64, len(batch))
+		labelHash.SetSeed(w.labels.hashSeed())
 	}
-	stamped := make([]promrw.Series, len(batch))
-	for i, s := range batch {
-		s.Producer = metricProducer(w.producer, s.Labels["job"])
-		s.ProducerAllowListVersion = w.allowListVersion
-		s.ProducerAllowListVariant = w.allowListVariant
-		if w.label != "" {
-			lbls := make(map[string]string, len(s.Labels)+1)
-			maps.Copy(lbls, s.Labels)
-			lbls[BlueprintLabel] = w.label
-			s.Labels = lbls
+	if w.inv != nil || labelHashes != nil {
+		// recordMetric consumes the sorted pairs synchronously. Reuse one local
+		// buffer across the batch instead of allocating and reflect-sorting a
+		// slice per series; unusually wide label maps still have no size limit.
+		var scratch [32][2]string
+		pairs := scratch[:0]
+		for i := range batch {
+			s := &batch[i]
+			pairs = pairs[:0]
+			if cap(pairs) < len(s.Labels) {
+				pairs = make([][2]string, 0, len(s.Labels))
+			}
+			for k, v := range s.Labels {
+				pairs = append(pairs, [2]string{k, v})
+			}
+			slices.SortFunc(pairs, func(a, b [2]string) int { return cmp.Compare(a[0], b[0]) })
+			w.inv.recordMetric(s.Name, pairs)
+			if labelHashes != nil {
+				labelHash.Reset()
+				for _, pair := range pairs {
+					_, _ = labelHash.WriteString(pair[0])
+					_, _ = labelHash.WriteString("\x00")
+					_, _ = labelHash.WriteString(pair[1])
+					_, _ = labelHash.WriteString("\x00")
+				}
+				labelHashes[i] = labelHash.Sum64()
+			}
 		}
-		// Exemplars pass through unstamped — never aliased; no blueprint label on exemplars.
-		stamped[i] = s
 	}
-	batch = stamped
+	// Inventory includes every attempted series, but only admitted series need
+	// cloning and provenance stamping before delivery.
 	if allowed := w.budget.take(len(batch)); allowed < len(batch) {
 		log.Printf("runner: blueprint %q over series budget — dropping %d of %d series this window", w.bp, len(batch)-allowed, len(batch))
 		batch = batch[:allowed]
@@ -101,7 +228,58 @@ func (w *stampedMetrics) Write(ctx context.Context, batch []promrw.Series) error
 	if len(batch) == 0 {
 		return nil
 	}
-	return w.sink.Write(ctx, batch)
+	stamped := make([]promrw.Series, len(batch))
+	if labelHashes != nil {
+		w.labels.mu.Lock()
+	}
+	producers := make(map[string]string)
+	for i := range batch {
+		stamped[i] = batch[i]
+		s := &stamped[i]
+		job := s.Labels["job"]
+		producer, ok := producers[job]
+		if !ok {
+			producer = metricProducer(w.producer, job)
+			if len(producers) < maxMetricLabelSets {
+				producers[job] = producer
+			}
+		}
+		s.Producer = producer
+		s.ProducerAllowListVersion = w.allowListVersion
+		s.ProducerAllowListVariant = w.allowListVariant
+		if w.label != "" {
+			s.Labels = w.labels.stamped(labelHashes[i], s.Labels, w.label)
+		}
+		// Exemplars pass through unstamped — never aliased; no blueprint label on exemplars.
+	}
+	if labelHashes != nil {
+		w.labels.mu.Unlock()
+	}
+	// The sink can block, retain samples or call this writer again. No I/O or
+	// downstream callbacks occur while holding the label-cache mutex.
+	return w.sink.Write(ctx, stamped)
+}
+
+func sameStampedMetricLabels(stamped, source map[string]string, label string) bool {
+	if stamped == nil || stamped[BlueprintLabel] != label {
+		return false
+	}
+	count := len(source)
+	if _, ok := source[BlueprintLabel]; !ok {
+		count++
+	}
+	if len(stamped) != count {
+		return false
+	}
+	for k, v := range source {
+		if k == BlueprintLabel {
+			continue
+		}
+		if got, ok := stamped[k]; !ok || got != v {
+			return false
+		}
+	}
+	return true
 }
 
 // metricProducer uses the synthetic series' declared job, which is already

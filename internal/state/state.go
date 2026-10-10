@@ -94,14 +94,15 @@ type scalarState struct {
 }
 
 type histoState struct {
-	name      string
-	labels    map[string]string
-	bounds    []float64 // finite upper bounds (the pinned `le` set; +Inf is implicit)
-	style     LEStyle   // `le` rendering convention (fixed at first Observe for this series)
-	counts    []float64 // cumulative count ≤ bounds[i]; len == len(bounds)
-	sum       float64
-	count     float64           // total observations (== the +Inf bucket)
-	exemplars []promrw.Exemplar // drained each Collect; placed on the landing bucket by value
+	name         string
+	labels       map[string]string
+	bounds       []float64           // finite upper bounds (the pinned `le` set; +Inf is implicit)
+	style        LEStyle             // `le` rendering convention (fixed at first Observe for this series)
+	counts       []float64           // cumulative count ≤ bounds[i]; len == len(bounds)
+	bucketLabels []map[string]string // immutable expanded labels, including the +Inf bucket
+	sum          float64
+	count        float64           // total observations (== the +Inf bucket)
+	exemplars    []promrw.Exemplar // drained each Collect; placed on the landing bucket by value
 }
 
 // nativeHistoState accumulates a cumulative exponential (native) histogram across ticks.
@@ -292,7 +293,13 @@ func (s *State) Reset(name string, labels map[string]string) {
 // incl. +Inf) + `_sum` + `_count` series — the exact wire shape Mimir stores for an
 // OTLP/Prometheus histogram.
 func (s *State) Collect(now time.Time) []promrw.Series {
-	out := make([]promrw.Series, 0, len(s.counters)+len(s.gauges)+len(s.histos)*4+len(s.natives))
+	// Reserve the full classic expansion, not an estimate: large histograms otherwise
+	// repeatedly copy the entire batch as the slice grows.
+	count := len(s.counters) + len(s.gauges) + len(s.natives)
+	for _, hs := range s.histos {
+		count += len(hs.bounds) + 3 // finite buckets, +Inf, sum, count
+	}
+	out := make([]promrw.Series, 0, count)
 	// Add()-tracked series (counters + cumulative _sum/_total monotonic gauges) are
 	// rate-able; tag them KindCounter so the dashboard generator queries them with rate().
 	for _, cs := range s.counters {
@@ -303,6 +310,16 @@ func (s *State) Collect(now time.Time) []promrw.Series {
 		out = append(out, promrw.Series{Name: gs.name, Labels: gs.labels, Value: gs.value, T: now, Kind: gs.kind})
 	}
 	for _, hs := range s.histos {
+		// Bounds, style and labels are fixed for the lifetime of a histogram. Keep
+		// its expansion with the state instead of cloning and formatting it every
+		// tick. Like scalar labels, these maps are read-only to Collect callers.
+		if hs.bucketLabels == nil {
+			hs.bucketLabels = make([]map[string]string, len(hs.bounds)+1)
+			for i, b := range hs.bounds {
+				hs.bucketLabels[i] = withLE(hs.labels, formatLE(b, hs.style))
+			}
+			hs.bucketLabels[len(hs.bounds)] = withLE(hs.labels, "+Inf")
+		}
 		// Pre-bin exemplars by landing bucket (index into bounds; len(bounds) == +Inf).
 		var byBucket map[int][]promrw.Exemplar
 		if len(hs.exemplars) > 0 {
@@ -312,10 +329,10 @@ func (s *State) Collect(now time.Time) []promrw.Series {
 				byBucket[idx] = append(byBucket[idx], ex)
 			}
 		}
-		for i, b := range hs.bounds {
+		for i := range hs.bounds {
 			out = append(out, promrw.Series{
 				Name:      hs.name + "_bucket",
-				Labels:    withLE(hs.labels, formatLE(b, hs.style)),
+				Labels:    hs.bucketLabels[i],
 				Value:     hs.counts[i],
 				T:         now,
 				Kind:      promrw.KindHistogram,
@@ -324,7 +341,7 @@ func (s *State) Collect(now time.Time) []promrw.Series {
 		}
 		out = append(out, promrw.Series{
 			Name:      hs.name + "_bucket",
-			Labels:    withLE(hs.labels, "+Inf"),
+			Labels:    hs.bucketLabels[len(hs.bounds)],
 			Value:     hs.count,
 			T:         now,
 			Kind:      promrw.KindHistogram,
