@@ -31,6 +31,19 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+# Optional stateless HA. An operator must precreate every named Lease/ConfigMap outside
+# Helm. The chart never creates or owns mutable state, on install, upgrade or rollback.
+ha:
+  enabled: false
+  mode: lease
+  stateBackend: kubernetes
+  replicas: 2
+  leaseName: ""
+  controlConfigMap: ""
+  bootConfigMap: ""
+  # Explicit predeclared source ID -> ConfigMap slots. Unused slots are allowed.
+  gitSourceConfigMaps: {}
+
 # ── Runtime behaviour (non-secret; rendered into a ConfigMap) ────────────────────────────────
 # Every key below maps to an environment variable that internal/config reads with a literal key.
 config:
@@ -56,7 +69,9 @@ config:
   sendBatchMax: "5000"
   sendBatchDeadline: 5s
   sendQueueCapacity: "500000"
-  sendDrainDeadline: 30s
+  # Empty selects the binary default: 30s with HA off, 10s with HA enabled.
+  # HA overrides must be positive integral seconds and fit termination grace.
+  sendDrainDeadline: ""
 
 # ── Self-observability: a SEPARATE stack, with its own Secret ────────────────────────────────
 # synthkit's own process telemetry (RED metrics, traces, operational logs, continuous profiles).
@@ -285,10 +300,9 @@ resources:
     memory: 1Gi
 
 # ── Scheduling and pod shape ─────────────────────────────────────────────────────────────────
-# NOTE: replica count is deliberately not a value. Two emitters push the SAME series identities
-# to the same backend, which produces duplicate samples and out-of-order writes rather than more
-# throughput, and each holds its own cumulative counter state. The Deployment is pinned to one
-# replica with the Recreate strategy so a ReadWriteOnce claim does not deadlock on upgrade.
+# HA off stays one replica/Recreate: two independent emitters duplicate series, and a
+# ReadWriteOnce claim cannot roll between nodes. HA opts into exactly two stateless replicas
+# with local Lease admission and a hostname spread constraint; it is not throughput scaling.
 nodeSelector: {}
 tolerations: []
 affinity: {}
@@ -302,7 +316,7 @@ terminationGracePeriodSeconds: 60
 # Recreate workload is nine objects nobody will ever roll back to. Two keeps one step of history.
 revisionHistoryLimit: 2
 
-# NO PodDisruptionBudget, deliberately — do not add one. This workload runs exactly one replica, so
+# HA off has NO PodDisruptionBudget, deliberately. It runs exactly one replica, so
 # a PDB with minAvailable: 1 (or maxUnavailable: 0) can never be satisfied by evicting it, and a
 # node drain blocks forever. synthkit is a generator: a brief gap during a drain is a gap in
 # synthetic data, not an outage, and the counters it resets on restart are a clean rate() window.
@@ -330,7 +344,7 @@ serviceAccount:
   create: true
   name: ""
   annotations: {}
-  # synthkit calls no Kubernetes API. It does not need a projected token.
+  # HA off calls no Kubernetes API. HA always mounts a token for named Lease/state access.
   automountServiceAccountToken: false
 
 # ── Probes ───────────────────────────────────────────────────────────────────────────────────

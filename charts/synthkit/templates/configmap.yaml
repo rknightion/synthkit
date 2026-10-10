@@ -21,7 +21,26 @@ data:
   SEND_BATCH_MAX: {{ .Values.config.sendBatchMax | quote }}
   SEND_BATCH_DEADLINE: {{ .Values.config.sendBatchDeadline | quote }}
   SEND_QUEUE_CAPACITY: {{ .Values.config.sendQueueCapacity | quote }}
-  SEND_DRAIN_DEADLINE: {{ .Values.config.sendDrainDeadline | quote }}
+  SEND_DRAIN_DEADLINE: {{ include "synthkit.sendDrainDeadline" . | quote }}
+  {{- if .Values.ha.enabled }}
+  HA_MODE: {{ .Values.ha.mode | quote }}
+  HA_LEASE_NAME: {{ .Values.ha.leaseName | quote }}
+  HA_LEASE_DURATION: "30s"
+  HA_RENEW_DEADLINE: "15s"
+  HA_RETRY_PERIOD: "2s"
+  HA_KUBE_REQUEST_TIMEOUT: "2s"
+  HA_HTTP_TIMEOUT: "5s"
+  HA_RETRY_MAX_ELAPSED: "3s"
+  HA_FLUSH_TIMEOUT: "8s"
+  HA_FENCE_MARGIN: "2s"
+  HA_RELEASE_TIMEOUT: "2s"
+  STATE_BACKEND: {{ .Values.ha.stateBackend | quote }}
+  STATE_CONTROL_CONFIGMAP: {{ .Values.ha.controlConfigMap | quote }}
+  STATE_BOOT_CONFIGMAP: {{ .Values.ha.bootConfigMap | quote }}
+  STATE_GIT_SOURCE_CONFIGMAPS: {{ .Values.ha.gitSourceConfigMaps | toJson | quote }}
+  STATE_GIT_SOURCE_MAX_BYTES: "786432"
+  STATE_CAS_MAX_ATTEMPTS: "5"
+  {{- end }}
   SELFOBS_ENABLED: {{ .Values.selfObs.enabled | quote }}
   SELFOBS_TAGS: {{ .Values.selfObs.tags | quote }}
   SELFOBS_METRIC_INTERVAL: {{ .Values.selfObs.metricInterval | quote }}

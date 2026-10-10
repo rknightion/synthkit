@@ -1,0 +1,5 @@
+{{- include "synthkit.validate" . -}}
+{{/* The operator precreates all named mutable Lease and ConfigMap state outside
+Helm. Never render these objects as managed resources or hooks, including on install:
+a lookup followed by a hook can delete an object populated between render and execution.
+Keeping state out of the release also prevents replay of initial state on rollback. */}}

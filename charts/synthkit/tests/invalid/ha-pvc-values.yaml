@@ -1,0 +1,9 @@
+ha:
+  enabled: true
+  mode: lease
+  stateBackend: kubernetes
+  leaseName: sample-election
+  controlConfigMap: sample-control
+  bootConfigMap: sample-boot
+persistence:
+  enabled: true

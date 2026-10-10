@@ -19,13 +19,101 @@ exception; estates still come from blueprints, never from the surrounding cluste
 
 ---
 
-## Optional binary Lease mode (not yet a two-replica chart)
+## Optional stateless HA chart
 
-The binary accepts `HA_MODE=lease` with existing local file state. This is a staging mode
-for the election/lifecycle seam, **not** stateless failover or shared-state continuity.
-The current chart remains one replica/Recreate; do not override its replica count or
-attach one ReadWriteOnce claim to two replicas. Stateless HA chart wiring must land before
-an HA chart deployment is supported.
+HA is opt-in and requires Kubernetes **1.31 or newer**. HA off retains Kubernetes 1.25 support,
+one replica/Recreate and the existing persistent-volume defaults. The HA chart uses exactly two
+replicas with lease election and Kubernetes state, RollingUpdate `maxSurge: 1` / `maxUnavailable: 0`,
+no state volume or PVC, and a PDB with `minAvailable: 1` / `unhealthyPodEvictionPolicy: AlwaysAllow`.
+Hostname topology spread uses `maxSkew: 1` and `ScheduleAnyway`, so a single-node cluster is not
+made unschedulable. Resources and probes retain their existing settings.
+
+```yaml
+ha:
+  enabled: true
+  mode: lease
+  stateBackend: kubernetes
+  replicas: 2
+  leaseName: sample-election
+  controlConfigMap: sample-control
+  bootConfigMap: sample-boot
+  gitSourceConfigMaps:
+    sample_source: sample-source
+persistence:
+  enabled: false
+```
+
+The slot map is the explicit inventory of predeclared source IDs and named ConfigMaps. Valid
+unused slots are allowed. Chart rendering rejects malformed IDs/names, duplicate object names,
+unknown values fields, HA file state, PVCs, automatic SM provisioning and `extraEnv` overrides of
+any HA/state key. Mutable control-source configuration is not a chart inventory: the runtime
+rejects a configured source with a missing or unknown slot before accepting its persistence.
+Source IDs may contain single underscores. There is no invented configured-source-ID environment
+variable or discovery/list API.
+
+**The operator must precreate all named state outside Helm.** This includes the Lease, control and
+boot ConfigMaps, and every declared source ConfigMap, even unused slots. The chart never looks up,
+creates or manages these objects, either as hooks or managed release resources. There is no automatic
+bootstrap mode; `ha.createResources` is rejected. Missing objects fail runtime startup, never trigger
+workload creation. Helm's installing principal needs no access to the named mutable state; the
+separate provisioning principal needs permission to create the initial objects.
+
+The following initial-object examples match the values above. They are provisioning inputs for an
+external operator, **not chart templates or hooks**. Supply the workload namespace in that operator's
+provisioning context. Create only when absent and handle AlreadyExists by preserving the existing
+object. Never apply an empty initial object over existing state, delete/recreate it, or add Helm
+release ownership metadata. These examples do not provision anything by themselves.
+
+```yaml
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: sample-election
+spec: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-control
+binaryData: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-boot
+binaryData: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-source
+binaryData: {}
+```
+
+State is absent from both rendered hooks and stored release manifests, so chart install, upgrade,
+rollback and uninstall have no state-object operations to replay. This is not a `keep`-annotation
+guarantee: install hooks can delete an object that appeared after a NotFound lookup. Precreate new
+slots before an upgrade and keep names stable. Retain old mappings and objects for intended rollback,
+and only roll back to revisions that also leave mutable state outside Helm ownership. Backups,
+retention and eventual cleanup are operator responsibilities, independent of the release lifecycle.
+
+HA mounts a ServiceAccount token and injects `HA_NAMESPACE` from `metadata.namespace` and `POD_UID`
+from `metadata.uid`; process identity also includes a random nonce. Runtime Role access is limited
+to `get/update/patch` over exact `resourceNames` for the Lease and control/boot/source ConfigMaps.
+No create/list/watch/delete/Event permission is granted. The chart's ingress-only NetworkPolicy
+does not restrict API-server egress. If another policy restricts egress, the operator must supply
+working API connectivity; this chart does not invent API-server CIDRs or endpoint discovery.
+
+HA emits the binary's default budgets: Lease 30s, renewal 15s, retry 2s, Kubernetes request 2s,
+HTTP 5s, retry-series 3s, whole-flush 8s, fence allowance 2s and release 2s. State document size is
+786432 bytes and CAS attempts are 5. Empty `config.sendDrainDeadline` selects 10s for HA and 30s
+for HA off. HA overrides use positive integral seconds, with termination grace strictly greater
+than drain plus the 6s final renewal/release/fence allowance; the existing 60s grace stays unchanged.
+Chart-managed environment variables cannot be shadowed through `extraEnv`.
+
+The binary separately accepts `HA_MODE=lease` with existing local file state. That staging mode is
+**not** stateless failover or shared-state continuity and is not a supported two-replica chart
+combination. Never attach one ReadWriteOnce claim to two replicas.
 
 An operator configuring the binary directly must pre-create the exact Lease and supply
 `HA_LEASE_NAME`, `HA_NAMESPACE` and downward-API `POD_UID`, with a mounted ServiceAccount
@@ -61,8 +149,9 @@ The binary also accepts `STATE_BACKEND=kubernetes` with either lease mode or HA 
 `binaryData["document"]`; an empty object is a valid initial document. Runtime uses only named
 `get` and resourceVersion-conditional `update` over core `configmaps`. A namespace Role may grant
 `get/update/patch` restricted by `resourceNames` to those exact names. No create/list/watch/delete
-or Event permissions are needed. The installing principal, not the workload, creates resources;
-protect populated objects from reset on upgrades/rollback. Chart/RBAC wiring remains separate.
+or Event permissions are needed. A separate provisioning operator, not Helm or the workload,
+creates resources and preserves populated objects. The HA chart wires these exact names and
+runtime permissions using the operator-owned lifecycle described above.
 
 The projected ServiceAccount credentials and API-server egress must work. Missing, forbidden,
 corrupt or oversize documents fail startup; no fallback to local defaults is permitted. The
@@ -73,8 +162,8 @@ configuration by stable ID and fingerprint. Removed/reconfigured sources ignore 
 Kubernetes control/manifest/git state does not need a PVC or disk materialization. HA-off custom
 uploads still use the existing local upload directory and require retained disk for continuity;
 Kubernetes mode does not make them shared. HA upload and automatic SM exclusions are unchanged.
-With HA off, Kubernetes state is still one emitter, not permission to scale replicas. The current
-chart remains unchanged; this is a binary capability, not a supported two-replica chart promise.
+With HA off, Kubernetes state is still one emitter, not permission to scale replicas. This remains
+a standalone binary capability; the chart selects Kubernetes state only for its explicit HA mode.
 
 ## Install
 
