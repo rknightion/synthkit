@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-10 23:41'
+updated_date: '2026-10-10 23:54'
 labels:
   - feature
   - ha
@@ -43,6 +43,8 @@ Allow replicas: 2 only when lease HA and the kubernetes state backend are both e
 Frozen HA seam chart section9 on accepted landed Kubernetes backend; render HAon/off invalid fixtures, Kubernetes version/PDB/noPVC/namedresources/RBAC/persistence-preserving upgrade tests, envkeys match Go andseam. Fullgate/CodeRabbit/securityreview preland; no livecluster.
 
 Resume retained chart on current main; reproduce Helm 3.22 fixture failure before fixing; preserve non-HA 1.25 floor and validate HA at 1.31; local gate, guarded reviews, root CI trial and revert on red.
+
+Repair workflow validation boundary by separately validating every non-HA fixture at1.25 and HA fixture at1.31 with same pinned reusable and required aggregator; establish valid HA-capable image selection with registry/source provenance; document backup and old-emitter stop sequencing.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -71,4 +73,6 @@ This run: fourcycles used(worker2,rescue1,rescue2), noreset. Safeoperator-precre
 Recovery complete: exactrevertSHA6cf9d89569f60d6ff9dfae774926dfcb355d7918 CI38086210754 all10jobs success andcleancomposed justcheck0. LocalpinnedchartSHA02c61a composedgate0 doesnotclearitsfailedCI. Safe15fileoperatorprecreatedcandidate retainedbyteexact; chartremainsunaccepted/reverted/parked at4cycles. Fourprecedingupstreamfeaturesremain. No more CIattempt/codechanges/Helmoperation.
 
 loop12: four implementation cycles exhausted, no reset. Park defect after exact CI Helm-version fixture and Kubernetes schema-floor failures; own chart land reverted and exact recovery CI/composed gate green.
+
+Security review rejects current candidate before land: CI schema job still sends HA fixture to Kubernetes1.25; inherited default image is malformed and appVersion fallback1.3.1 lacks HA/state parsing. No CItrial/land. Newly authorized worker cycle spent; one authorized rescue cycle remains.
 <!-- SECTION:NOTES:END -->
