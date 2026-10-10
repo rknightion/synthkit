@@ -9,19 +9,12 @@ spec:
   # ONE replica, not configurable. Two emitters generate the SAME series identities against the
   # same backend — duplicate samples and out-of-order writes, not more throughput — and each keeps
   # its own cumulative counter state.
-  replicas: {{ if .Values.ha.enabled }}2{{ else }}1{{ end }}
+  replicas: 1
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   # Recreate, not RollingUpdate: a ReadWriteOnce claim cannot be mounted by the incoming pod while
   # the outgoing one still holds it, so a rolling upgrade would deadlock.
   strategy:
-    {{- if .Values.ha.enabled }}
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-    {{- else }}
     type: Recreate
-    {{- end }}
   selector:
     matchLabels:
       {{- include "synthkit.selectorLabels" . | nindent 6 }}
@@ -39,7 +32,7 @@ spec:
         {{- end }}
     spec:
       serviceAccountName: {{ include "synthkit.serviceAccountName" . }}
-      automountServiceAccountToken: {{ if .Values.ha.enabled }}true{{ else }}{{ .Values.serviceAccount.automountServiceAccountToken }}{{ end }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
       # synthkit is configured entirely through environment variables, so the kubelet's per-Service
       # env injection is both noise and a collision surface. It reads no Service address either way.
       enableServiceLinks: false
@@ -72,21 +65,10 @@ spec:
               value: {{ .Values.config.blueprintNames | quote }}
             # State lives on the mounted volume. The image's rootfs is read-only, so the relative
             # ./control-state.json default would fail every save.
-            {{- if not .Values.ha.enabled }}
             - name: CONFIG_SNAPSHOT_PATH
               value: /data/control-state.json
             - name: BLUEPRINT_DATA_DIR
               value: /data/blueprints
-            {{- else }}
-            - name: HA_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_UID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.uid
-            {{- end }}
             # Closed by default: 127.0.0.1:8088, reachable only through kubectl port-forward.
             - name: JSON_HTTP_ADDR
               value: {{ include "synthkit.httpAddr" . | quote }}
@@ -138,10 +120,8 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            {{- if not .Values.ha.enabled }}
             - name: data
               mountPath: /data
-            {{- end }}
             # readOnlyRootFilesystem leaves no writable temp dir; the Go runtime and TLS stack
             # expect one.
             - name: tmp
@@ -150,7 +130,6 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
-        {{- if not .Values.ha.enabled }}
         - name: data
           {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
@@ -160,7 +139,6 @@ spec:
           # Synthetic Monitoring ownership ledger are lost with the node.
           emptyDir: {}
           {{- end }}
-        {{- end }}
         - name: tmp
           emptyDir: {}
         {{- with .Values.extraVolumes }}
@@ -178,20 +156,7 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.ha.enabled }}
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              {{- include "synthkit.selectorLabels" . | nindent 14 }}
-        {{- with .Values.topologySpreadConstraints }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-      {{- else }}
       {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
-      {{- end }}
       {{- end }}

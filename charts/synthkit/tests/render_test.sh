@@ -89,13 +89,6 @@ assert_secret_key() {
   fi
 }
 
-echo "== HA lifecycle and runtime contract =="
-if (cd "$CHART_DIR/../.." && go test ./charts/synthkit/tests -run '^TestHA' -count=1); then
-  ok "HA render contract"
-else
-  bad "HA render contract"
-fi
-
 echo "== helm lint =="
 if helm lint "$CHART_DIR" >/dev/null 2>&1; then ok "helm lint"; else bad "helm lint"; helm lint "$CHART_DIR"; fi
 
@@ -255,15 +248,11 @@ KUBECONFORM_ARGS=(
 )
 if command -v kubeconform >/dev/null 2>&1; then
   for f in "$CI_DIR"/*-values.yaml; do
-    # HA opts into the separate stable PDB API floor; all legacy fixtures retain 1.25.
-    version="$KUBE_VERSION"
-    if [ "$(basename "$f")" = "11-ha-values.yaml" ]; then version=1.31.0; fi
-    KUBECONFORM_ARGS[2]="$version"
-    if render -f "$f" --kube-version "$version" | kubeconform "${KUBECONFORM_ARGS[@]}" -summary - >/dev/null 2>&1; then
-      ok "kubeconform $(basename "$f") against $version"
+    if render -f "$f" | kubeconform "${KUBECONFORM_ARGS[@]}" -summary - >/dev/null 2>&1; then
+      ok "kubeconform $(basename "$f") against $KUBE_VERSION"
     else
-      bad "kubeconform $(basename "$f") against $version"
-      render -f "$f" --kube-version "$version" | kubeconform "${KUBECONFORM_ARGS[@]}" - 2>&1 | tail -5 >&2
+      bad "kubeconform $(basename "$f") against $KUBE_VERSION"
+      render -f "$f" | kubeconform "${KUBECONFORM_ARGS[@]}" - 2>&1 | tail -5 >&2
     fi
   done
 elif [ -n "${REQUIRE_KUBECONFORM:-}" ]; then

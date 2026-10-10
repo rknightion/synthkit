@@ -143,33 +143,6 @@ with the ownership table above these form the reserved surface that extraEnv may
 - SM_PROVISION_APPLY
 - SM_PROVISION_ADOPT_LEGACY
 - SM_PROVISION_MIGRATE_TARGET
-- HA_MODE
-- HA_LEASE_NAME
-- HA_NAMESPACE
-- POD_UID
-- HA_LEASE_DURATION
-- HA_RENEW_DEADLINE
-- HA_RETRY_PERIOD
-- HA_KUBE_REQUEST_TIMEOUT
-- HA_HTTP_TIMEOUT
-- HA_RETRY_MAX_ELAPSED
-- HA_FLUSH_TIMEOUT
-- HA_FENCE_MARGIN
-- HA_RELEASE_TIMEOUT
-- STATE_BACKEND
-- STATE_CONTROL_CONFIGMAP
-- STATE_BOOT_CONFIGMAP
-- STATE_GIT_SOURCE_CONFIGMAPS
-- STATE_GIT_SOURCE_MAX_BYTES
-- STATE_CAS_MAX_ATTEMPTS
-{{- end -}}
-
-{{- define "synthkit.sendDrainDeadline" -}}
-{{- if .Values.config.sendDrainDeadline -}}
-{{- .Values.config.sendDrainDeadline -}}
-{{- else if .Values.ha.enabled -}}10s
-{{- else -}}30s
-{{- end -}}
 {{- end -}}
 
 {{/*
@@ -239,45 +212,6 @@ VALIDATION. Included by every rendered object, so a bad permutation fails `helm 
 misbehaves once it is running.
 */}}
 {{- define "synthkit.validate" -}}
-{{- if .Values.ha.enabled -}}
-  {{- if not (semverCompare ">=1.31.0-0" .Capabilities.KubeVersion.Version) -}}
-    {{- fail "HA requires Kubernetes >=1.31 for AlwaysAllow unhealthy pod eviction" -}}
-  {{- end -}}
-  {{- if or (ne .Values.ha.mode "lease") (ne .Values.ha.stateBackend "kubernetes") (ne (int .Values.ha.replicas) 2) -}}
-    {{- fail "HA requires lease mode, kubernetes state and exactly two replicas" -}}
-  {{- end -}}
-  {{- if or .Values.persistence.enabled .Values.persistence.existingClaim -}}
-    {{- fail "HA must not use a PVC; disable persistence and clear existingClaim" -}}
-  {{- end -}}
-  {{- if .Values.smProvision.enabled -}}{{- fail "HA does not support automatic SM provisioning" -}}{{- end -}}
-  {{- if or (gt (len .Values.extraVolumes) 0) (gt (len .Values.extraVolumeMounts) 0) -}}
-    {{- fail "HA does not support extra state volumes or mounts" -}}
-  {{- end -}}
-  {{- $names := dict (include "synthkit.fullname" .) true -}}
-  {{- range $name := (list .Values.ha.leaseName .Values.ha.controlConfigMap .Values.ha.bootConfigMap) -}}
-    {{- if or (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) (hasKey $names $name) -}}
-      {{- fail "HA requires valid distinct named Lease/control/boot objects, separate from the runtime ConfigMap" -}}
-    {{- end -}}
-    {{- range $part := splitList "." $name -}}
-      {{- if gt (len $part) 63 -}}{{- fail "HA object DNS labels must not exceed 63 characters" -}}{{- end -}}
-    {{- end -}}
-    {{- $_ := set $names $name true -}}
-  {{- end -}}
-  {{- range $id, $name := .Values.ha.gitSourceConfigMaps -}}
-    {{- if or (not (regexMatch "^[a-z0-9][a-z0-9_-]*$" $id)) (contains "__" $id) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) (hasKey $names $name) -}}
-      {{- fail "HA source slots require valid source IDs and distinct ConfigMap names" -}}
-    {{- end -}}
-    {{- range $part := splitList "." $name -}}
-      {{- if gt (len $part) 63 -}}{{- fail "HA object DNS labels must not exceed 63 characters" -}}{{- end -}}
-    {{- end -}}
-    {{- $_ := set $names $name true -}}
-  {{- end -}}
-  {{- $drain := include "synthkit.sendDrainDeadline" . -}}
-  {{- if not (regexMatch "^[1-9][0-9]*s$" $drain) -}}{{- fail "HA sendDrainDeadline must be positive integral seconds" -}}{{- end -}}
-  {{- if le (int .Values.terminationGracePeriodSeconds) (add (int (trimSuffix "s" $drain)) 6) -}}
-    {{- fail "HA termination grace must exceed drain deadline plus 6s renewal/release/fence allowance" -}}
-  {{- end -}}
-{{- end -}}
 {{- $own := include "synthkit.credentialOwnership" . | fromYaml -}}
 {{- $creds := .Values.credentials -}}
 {{- $seen := dict -}}

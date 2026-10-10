@@ -1,9 +1,0 @@
-ha:
-  enabled: true
-  mode: lease
-  stateBackend: file
-  leaseName: sample-election
-  controlConfigMap: sample-control
-  bootConfigMap: sample-boot
-persistence:
-  enabled: false
