@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-10 10:43'
+updated_date: '2026-10-10 18:49'
 labels: []
 dependencies: []
 type: bug
@@ -42,6 +42,8 @@ loop8: uncontended phase1 race timing first; only if over180s profile and optimi
 Generic profiled hot-path optimization preserving retained output golden and shipped scenario assertions; uncontended race timing twice under180s, high independent review and root landing; exact-SHA CI plus composed gate.
 
 Apply exact retained reviewed patch, green local gate, root land and exact-SHA CI timing under300s; revert on red or slow verdict. No new implementation attempt.
+
+Profile unchanged package before any edit; use cause-backed structural test reduction preserving all scenarios and assertions. Two authorized implementation cycles. Exact commit CI below300s or immediate revert.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -60,4 +62,6 @@ loop10: complex implementation cycles2/2 and owner-granted SUPER1/1 spent, no ce
 Final retained candidate landed at9e53587826f0c5053cf27ff1482c3b66b715093e; CI38041646449 green, but go just race measured489.278s for control-dash, above300s criterion. Immediately reverted asc3492b04510375b8e9b20af9465367b47a9edf11. No new implementation attempts; previous ceiling exhausted. Park owner scope/ceiling decision, recovery CI pending.
 
 Recovery CI38043010547 atc3492b04510375b8e9b20af9465367b47a9edf11 succeeded withci-success. Criterion remains failed489.278s; prerequisite chain parked.
+
+This run: profile baseline timed out600.791s/wall610.74s, one of two new authorized change-and-verify cycles used. Exact8file candidatepatch4c3cb85f4c9aadb3c61ca7d2dffcd5fe9ad590a4a2a9ad2203d16f4a9cd3115a independently reviewed clean, standalone race274.083s but module-wide516.005s, full gategreen beforelatestprefixbase. Latestbase851d879 gate failed staleignored embeddedUI output; generation via existing justui denied beforeexecution on overwrite permission. No bypass/no CItrial/no land/no revert needed. Parkdefect toolpermission: owner must permit archiving and overwriting ignoredUI output, then regenerateactualembedinputs/gate samecandidate andexactSHA CI under300s orrevert. Priorattempt history notreset; onecycleleft.
 <!-- SECTION:NOTES:END -->

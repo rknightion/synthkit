@@ -1,10 +1,11 @@
 ---
 id: SKT-0093
 title: Make readiness standby-aware in HA mode
-status: Parked
-assignee: []
+status: Done
+assignee:
+  - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-10 09:54'
+updated_date: '2026-10-10 18:54'
 labels:
   - feature
   - ha
@@ -22,14 +23,14 @@ In HA_MODE=lease a standby never pushes, so today's delivery-aware readiness (in
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Standby reports Ready after config load, runner build and credential preflight
-- [ ] #2 Leader readiness semantics unchanged; a leader whose lane never pushed stays NotReady
-- [ ] #3 Non-HA mode readiness unchanged
+- [x] #1 Standby reports Ready after config load, runner build and credential preflight
+- [x] #2 Leader readiness semantics unchanged; a leader whose lane never pushed stays NotReady
+- [x] #3 Non-HA mode readiness unchanged
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -38,6 +39,8 @@ In HA_MODE=lease a standby never pushes, so today's delivery-aware readiness (in
 
 <!-- SECTION:PLAN:BEGIN -->
 loop6: preserve default/leader readiness, standby readiness from configuration/build/preflight only; tests each criterion, local gate, independent review, root landing.
+
+Continue retained readiness candidate on current main; verify each criterion, full gate, independent review, root serial land.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -62,4 +65,14 @@ loop8 attempts0, priorcountsunchanged. Parkneedsdependency: frozenH93orderrequir
 loop10: new implementation attempts0, historical implementation count0 unchanged. Dependency park on SKT-0112 (control-dash race performance) acceptance and land; no gate or acceptance claimed. Resume frozen serial order after prerequisite green/land, using retained exact candidate where provided; no reset or reconstruction from prose.
 
 This run: Dependency SKT-0112 (control-dash race performance) unaccepted/unlanded; performance prerequisite reverted after CI489.278s. Retained input unchanged; zero new implementation attempts. Resume frozen order after prerequisite accepted land and gate.
+
+This run: retained readiness patch unchanged, focused fail-first bootstrap404 vs503 and three-criterion/HTTP lifecycle proofs passed; original fullgate control-dash timeout was not waived. Changedbase fullgate green after preceding preflight land. Root landed846cde48401059639aa52b49aca0f06ed4721175; CI38073096315 all10jobs success, clean detached composed just check exit0 exactSHA. One retained application/change-verification cycle plus changedbase verification, no source repair/probe widening. Conditional generation not applicable, no emitted signal/inventory behavior changed. Eight external troubleshooting prerequisites unexecuted; aggregate routineCodeRabbit run-level review pending.
+
+Run-level aggregate CodeRabbit now complete against851d879 from6edd50e: all20changedfiles reviewed, outcomecompleted, zero findings. Prior deferred routine review requirement satisfied.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Lease standby readiness uses configuration/build/preflight bootstrap facts rather than state writability or delivery. Leader/nonHA behavior stays unchanged. Criteria1-3 proved with focused tests, observed fail-first, exact landedSHA CI and composed gate.
+<!-- SECTION:FINAL_SUMMARY:END -->

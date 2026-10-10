@@ -1,10 +1,11 @@
 ---
 id: SKT-0098
 title: Serve the control console under a runtime base path
-status: Parked
-assignee: []
+status: Done
+assignee:
+  - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-10 09:54'
+updated_date: '2026-10-10 18:53'
 labels:
   - feature
   - ui
@@ -20,14 +21,14 @@ Running the console behind a reverse proxy under a prefix is impossible today: V
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Console works end to end under an arbitrary prefix with one build
-- [ ] #2 Default (no prefix) unchanged; Infinity GET shapes unchanged
-- [ ] #3 UI tests cover prefixed API URL construction
+- [x] #1 Console works end to end under an arbitrary prefix with one build
+- [x] #2 Default (no prefix) unchanged; Infinity GET shapes unchanged
+- [x] #3 UI tests cover prefixed API URL construction
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -36,6 +37,8 @@ Running the console behind a reverse proxy under a prefix is impossible today: V
 
 <!-- SECTION:PLAN:BEGIN -->
 loop6: runtime configured base path with one relative UI build, prefix-aware redirects/assets/API; Go serving proof and UI URL tests, unchanged default/Infinity shapes, environment alignment, gate/review/root landing.
+
+Continue retained base-path patch on accepted readiness main; finish ordinary/lease handler wiring, verify actual local console under configured prefix and unchanged default/Infinity, URL tests, environment alignment and full gate. Root reviews and lands serially.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -60,4 +63,12 @@ loop8 attempts0, priorcountsunchanged. Parkneedsdependency: H93mustland first, b
 loop10: new implementation attempts0, historical implementation count0 unchanged. Dependency park on SKT-0093 (standby-aware readiness) acceptance and land; no gate or acceptance claimed. Resume frozen serial order after prerequisite green/land, using retained exact candidate where provided; no reset or reconstruction from prose.
 
 This run: Dependency SKT-0093 (standby-aware readiness) unaccepted/unlanded; performance prerequisite reverted after CI489.278s. Retained input unchanged; zero new implementation attempts. Resume frozen order after prerequisite accepted land and gate.
+
+This run: one new implementation cycle from retainedpatch; before-serve ordinary/lease configuration and dualmounts fixed; browser onebuild default plus2prefixes, navigation/deeplink/assets/22APIrequests each andstrippedproxy/Infinitypayload checks passed. Fail-first UI/compositiontestobserved; fullcandidategate0. Rootland851d8796c32cce37f26a0fb52643414a5556ca7b, CI38075941912 all10jobs success andexactcleancomposedgate0. AggregateCodeRabbit6edd50e..851d879 completedall20files0findings. No externalservicesused; emittedinventoryunchanged/no blueprintgeneration change. Knownlocalvalidation prereqstaleignoreddist trackedseparately bySKT-0120 (build embedded UI before Go validation).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+One relative UI build now serves default or configured runtime prefix, with matching router/assets/API URLs and ordinary/lease dual mounting. Browser proof, URL tests, unchanged Infinity payloads, exact landedSHA CI, composed gate and completeaggregate review prove criteria1-3.
+<!-- SECTION:FINAL_SUMMARY:END -->

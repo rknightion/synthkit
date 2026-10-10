@@ -1,10 +1,11 @@
 ---
 id: SKT-0094
 title: Add a kubernetes state backend for control state
-status: Parked
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-10 09:54'
+updated_date: '2026-10-10 18:29'
 labels:
   - feature
   - ha
@@ -42,6 +43,12 @@ Rules (from review of internal/control/control.go, which reads once at NewStore 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Frozen HA seam section5; file default preserved, named precreated ConfigMap backend for control/manifest/status/capped blobs; CAS conflict reapply; acquisition re-read beforetick; unknown outcome503/notready; fakeclient publicboundary/failfirst proof then fullgate/security/CodeRabbit preland. No cluster interaction.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
