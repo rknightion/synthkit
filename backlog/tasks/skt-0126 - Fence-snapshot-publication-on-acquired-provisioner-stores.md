@@ -4,9 +4,10 @@ title: Fence snapshot publication on acquired provisioner stores
 status: To Do
 assignee: []
 created_date: '2026-10-11 19:48'
-updated_date: '2026-10-11 19:49'
+updated_date: '2026-10-11 20:40'
 labels: []
-dependencies: []
+dependencies:
+  - SKT-0099
 references:
   - internal/smstore/file.go
 priority: low

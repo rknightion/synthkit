@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 20:16'
+updated_date: '2026-10-11 20:40'
 labels:
   - feature
   - ha
@@ -59,4 +59,6 @@ Scoped delta security CONDITIONAL PASS: F1 resolved by positively owned consiste
 Four-cycle ceiling reached. Code provisionally landed as d850591d71efcdcbca80df2597bd89625d36d08e after exact local fullgate0, guarded full/delta review and pinned scanner evidence. Mandatory composed just check at that exactSHA failed in race tier: TestKubernetesProvisionLostSMResponseRetainsPending reads fakeSM.posts in kubernetes_test.go:429 concurrently with ServeHTTP write in main_test.go:110. This is a genuine new test-fixture race, not hostload/infrastructure; prior localgreen does not clear it. Root reverted only its code with c4c61fb437e05bfc4841e289ff79abe94679906a, restoring the exact pre-code tree while preserving all tracker/instruction work and complete candidate evidence. No root rescue, unchanged rerun or fifth cycle. Original and restored exact CI remain owned; restoration composed gate running. No criteria checked. Park defect at lineage ceiling4; resume exact retained treed0f02189/patch81683d81 only after owner raises ceiling for synchronized HTTP fixture observations, reviewed repair and exact gates/CI. A separately recorded repair task does not reset that budget.
 
 Original pushed d850591 CI38170368433 terminal overallcancelled; required ci-success114564142236 failed because go race and e2e jobs were cancelled by superseding revert push. This is not a CIpass or infrastructure-rerun authorization; no rerun requested. Root reverted immediately on proven composed fixture race before original CIterminal, a disclosed never-cut-land-mid-CI timing deviation. Restoration has its own exactSHA watcher and composedgate. Source defect remains independently reproduced locally; original CI cancellation is not substituted as code-failure proof.
+
+Restoration verified: exactc4c61fb437e05bfc4841e289ff79abe94679906a full composed just check exit0, clean detached source, plus exact CI38171230322/ci-success114569308907 success. This proves restored baseline only; feature stays reverted, Parked and all criteria unchecked. Complete code candidate, fail-first proofs, clean localgate/reviews/scans and failing composed race are retained. Chart wiring SKT-0099.01 (extend existing named-state chart) is To Do/unadmitted; fixture repair SKT-0127 (synchronize lost-response observations) is Parked at original lineage budget. Resume only with owner-raised cycle authority. Root finalpublication contains tracker receipts only; no engine implementation survives this run.
 <!-- SECTION:NOTES:END -->
