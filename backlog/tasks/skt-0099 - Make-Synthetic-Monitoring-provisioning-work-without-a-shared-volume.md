@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 20:14'
+updated_date: '2026-10-11 20:16'
 labels:
   - feature
   - ha
@@ -57,4 +57,6 @@ Third counted cycle repaired the torn file read with positively acquired O_EXCL 
 Scoped delta security CONDITIONAL PASS: F1 resolved by positively owned consistent read, actual concurrent apply/handoff proof accepted, new runtime negative source matrix complete; finalfullgate remains external. Minor inherited PublishSnapshot lifecycle caveat recorded separately as SKT-0126 (fence snapshot publication on acquired provisioner stores): no production call or lock bypass, left unchanged. Native pinnedgitleaks8.30.1 history and exact1727file materialized candidate scans both exit0/no leaks, existing config unchanged. Count reconciled883reachable=15no-diff merges+1empty+1deleted-file-only+866fragment-eligible, consistent with tagged scanner/parser semantics; no unexplained text coverage gap or scan rerun. Final artifact-only fullgate still running.
 
 Four-cycle ceiling reached. Code provisionally landed as d850591d71efcdcbca80df2597bd89625d36d08e after exact local fullgate0, guarded full/delta review and pinned scanner evidence. Mandatory composed just check at that exactSHA failed in race tier: TestKubernetesProvisionLostSMResponseRetainsPending reads fakeSM.posts in kubernetes_test.go:429 concurrently with ServeHTTP write in main_test.go:110. This is a genuine new test-fixture race, not hostload/infrastructure; prior localgreen does not clear it. Root reverted only its code with c4c61fb437e05bfc4841e289ff79abe94679906a, restoring the exact pre-code tree while preserving all tracker/instruction work and complete candidate evidence. No root rescue, unchanged rerun or fifth cycle. Original and restored exact CI remain owned; restoration composed gate running. No criteria checked. Park defect at lineage ceiling4; resume exact retained treed0f02189/patch81683d81 only after owner raises ceiling for synchronized HTTP fixture observations, reviewed repair and exact gates/CI. A separately recorded repair task does not reset that budget.
+
+Original pushed d850591 CI38170368433 terminal overallcancelled; required ci-success114564142236 failed because go race and e2e jobs were cancelled by superseding revert push. This is not a CIpass or infrastructure-rerun authorization; no rerun requested. Root reverted immediately on proven composed fixture race before original CIterminal, a disclosed never-cut-land-mid-CI timing deviation. Restoration has its own exactSHA watcher and composedgate. Source defect remains independently reproduced locally; original CI cancellation is not substituted as code-failure proof.
 <!-- SECTION:NOTES:END -->
