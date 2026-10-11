@@ -3,10 +3,11 @@ id: SKT-0128
 title: >-
   Classify and repair the Fleet HA fixture initial Lease timeout without
   weakening proof
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 22:10'
+updated_date: '2026-10-11 22:11'
 labels: []
 dependencies: []
 priority: high
@@ -39,3 +40,9 @@ An exact clean detached pre-publication composed gate at ef9aa7e5eed726632fee6dc
 <!-- SECTION:PLAN:BEGIN -->
 Read exact red/green logs and unchanged fixture source; one bounded focused race diagnostic. Root decides source-proven small test-only prerequisite scope versus owner/evidence park. Preserve all original timing and proof contracts, then review and exact composed gate only on a changed candidate if repair is warranted.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop16: implementation attempts0, one bounded read-only race diagnostic3repetitions passed2.674s; exact red/green fixture and production dependency bytes unchanged. Original initial named Lease GET100ms timeout cause remains unknown; no source-proven test-only repair, original request/scheduling evidence absent. This is not the completed planned-release HTTP shutdown defect and isolated green does not clear the composed failure. No probe, timeout, assertion, fixture, runtime or test changed; no unchanged full-gate rerun. Park dependency: resume with actual request/scheduling evidence establishing a bounded fixture repair or separate owner-authorized diagnostic scope. Later distinct candidates require their own full exact gates and CI; prior red remains disclosed.
+<!-- SECTION:NOTES:END -->
