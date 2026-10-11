@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-11 14:18'
+updated_date: '2026-10-11 15:27'
 labels: []
 dependencies: []
 type: bug
@@ -76,4 +76,6 @@ Last of two newly authorized cycles completed, historical counts not reset. Froz
 Exact revert67d3605942608089d96c83d0812f7bbe79ac9d4f recovery composedjustcheck failed unchanged shipped-scenario race timeout600.692s (875.124s total). CauseUNKNOWN, latergatelegsnotreached. UIgeneration0/sourceindexclean, no changed-baseline waiver or weaker proof. This task owns remaining main local gate performance repair, but authorized cycles exhausted; no further implementation without owner decision. Recovery CI pending separately.
 
 Owner regrade: final-main CI race threshold is under600seconds, not300seconds. No new code cycle; retained performance candidate stays unlanded. At or above600seconds park for owner decision; no rerun hunt.
+
+Current scanner-corrected main376696d747d4bde69eea1fdd3bb26fac733266a6 composed just check failed unchanged control-dash race at600.953s, TestShippedScenarioImpactQueriesUseDerivedFamilies default10minute timeout. CauseUNKNOWN; later gate legs unexecuted, not passes. This is local evidence, not final-main CI600second verdict. No unchanged rerun, new code cycle or timeout regrade. Root owns remaining local-gate blocker and will read final planned main CI; further runtime repair remains outside current no-code grant.
 <!-- SECTION:NOTES:END -->

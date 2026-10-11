@@ -5,6 +5,7 @@ package runner
 import (
 	"context"
 	"github.com/rknightion/synthkit/internal/ha"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/pushhook"
 	nativesigil "github.com/rknightion/synthkit/internal/sigil"
 	"github.com/rknightion/synthkit/internal/sink/httpretry"
@@ -130,54 +131,185 @@ func TestHAActualFaro5000WholeWrite(t *testing.T) {
 	t.Logf("5000 real beacons; admitted=%d completed=%d posted=%d confirmed=%d cancelled=%d; joined without later client POSTs", clientPosts, clientCompleted, n, observation.Items, cancelled.Load())
 }
 
+// sigilProofGate instruments the real admission callback, including response
+// consumption. The whole-write and per-attempt instances observe different seams.
+// Neither substitutes for the HTTP client or manufactures a successful result.
+type sigilProofGate struct {
+	ha.LeaderGate
+	start  func(context.Context) context.Context
+	finish func()
+}
+
+func (g sigilProofGate) Do(ctx context.Context, op ha.Operation, fn func(context.Context) error) error {
+	return g.LeaderGate.Do(ctx, op, func(c context.Context) error {
+		c = g.start(c)
+		defer g.finish()
+		return fn(c)
+	})
+}
+
 func TestHAActualSigilThreeStagesShareDeadline(t *testing.T) {
-	var mu sync.Mutex
-	var paths []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		paths = append(paths, r.URL.Path)
-		mu.Unlock()
-		select {
-		case <-time.After(70 * time.Millisecond):
-			w.WriteHeader(202)
-			_, _ = w.Write([]byte(`{"results":[{"score_id":"score","accepted":true,"status":"accepted"}],"accepted":1,"duplicates":0,"rejected":0}`))
-		case <-r.Context().Done():
-		}
-	}))
-	defer srv.Close()
-	g := ha.NewGate()
-	_ = g.Activate(context.Background(), func(context.Context) error { return nil })
-	sink, err := sigilsink.New(srv.URL, "user", "token", false)
-	var observation pushhook.Event
-	if err != nil {
-		t.Fatal(err)
-	}
-	sink.SetDelivery(httpretry.Delivery{Gate: g, HTTPTimeout: time.Second, RetryMaxElapsed: 10 * time.Millisecond})
-	sink.Observe = func(_ context.Context, event pushhook.Event) { observation = event }
-	r := New(Sinks{Sigil: sink}, nil, Options{Gate: g, Delivery: ha.Bounded{Timeout: 100 * time.Millisecond, Margin: 100 * time.Millisecond, Crash: func() { t.Error("stage did not join") }}, SendShards: 1, SendDeadline: time.Hour})
-	value := 1.0
-	batch := []nativesigil.Export{{Generations: []nativesigil.Generation{{ID: "generation", OperationName: "generateText"}}, WorkflowSteps: []nativesigil.WorkflowStep{{ID: "step", StepName: "route"}}, Scores: []nativesigil.Score{{ScoreID: "score", GenerationID: "generation", Number: &value}}}}
-	_ = r.queues.Sigil.Write(context.Background(), batch)
-	start := time.Now()
-	if err := r.Flush(context.Background()); err == nil {
-		t.Fatal("three-stage write escaped absolute deadline")
-	}
-	if time.Since(start) > 220*time.Millisecond {
-		t.Fatal("deadline reset between stages")
-	}
-	joined, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := r.JoinQueues(joined); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(30 * time.Millisecond)
-	mu.Lock()
-	defer mu.Unlock()
-	if observation.Items != 1 || observation.ErrorCode == "" {
-		t.Fatalf("partial Sigil delivery not truthful: %+v", observation)
-	}
-	if len(paths) != 2 || paths[0] != "/api/v1/generations:export" || paths[1] != "/api/v1/workflow-steps:export" {
-		t.Fatalf("cancelled write launched later stage or omitted real stages: %v", paths)
+	// Stage eligibility is no longer determined by two 70ms sleeps competing
+	// for a 100ms budget. The partial proof cancels only after the real workflow
+	// handler has drained its request; expiry is exercised separately without
+	// requiring a first-stage success near the clock boundary.
+	for _, scenario := range []string{"controlled-partial", "absolute-expiry"} {
+		t.Run(scenario, func(t *testing.T) {
+			partial := scenario == "controlled-partial"
+			var mu sync.Mutex
+			var paths []string
+			var active, cancelled atomic.Int32
+			workflowObserved := make(chan struct{}, 1)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				active.Add(1)
+				defer active.Add(-1)
+				mu.Lock()
+				paths = append(paths, req.URL.Path)
+				mu.Unlock()
+				// EOF is essential: server disconnect detection is not reliable
+				// while an unread POST body remains. This is the receipt fence.
+				if _, err := io.Copy(io.Discard, req.Body); err != nil {
+					t.Errorf("drain real Sigil request: %v", err)
+					return
+				}
+				if partial && req.URL.Path == "/api/v1/generations:export" {
+					w.WriteHeader(http.StatusAccepted)
+					return
+				}
+				if req.URL.Path == "/api/v1/workflow-steps:export" {
+					workflowObserved <- struct{}{}
+				}
+				// Never acknowledge the cancelled stage. No handler sleeps and
+				// no sender-entry notification stand in for an HTTP receipt.
+				<-req.Context().Done()
+				cancelled.Add(1)
+			}))
+			defer srv.Close()
+			g := ha.NewGate()
+			defer g.Revoke()
+			if err := g.Activate(context.Background(), func(context.Context) error { return nil }); err != nil {
+				t.Fatal(err)
+			}
+			sink, err := sigilsink.New(srv.URL, "user", "token", false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wholeDeadline time.Time
+			var wholeContext context.Context
+			var cancelWhole context.CancelFunc
+			var wholeCalls, wholeCompleted, admitted, completed int
+			var joinedClient bool
+			whole := sigilProofGate{
+				LeaderGate: g,
+				start: func(c context.Context) context.Context {
+					mu.Lock()
+					defer mu.Unlock()
+					// Add controlled cancellation, retaining the real Bounded
+					// deadline. This does not reset or extend its 100ms budget.
+					wholeContext, cancelWhole = context.WithCancel(c)
+					wholeCalls++
+					var ok bool
+					wholeDeadline, ok = c.Deadline()
+					if !ok {
+						t.Error("whole write missing absolute deadline")
+					}
+					return wholeContext
+				},
+				finish: func() { mu.Lock(); wholeCompleted++; mu.Unlock() },
+			}
+			attempts := sigilProofGate{
+				LeaderGate: g,
+				start: func(c context.Context) context.Context {
+					mu.Lock()
+					defer mu.Unlock()
+					admitted++
+					if joinedClient {
+						t.Error("late Sigil client admission after queue join")
+					}
+					deadline, ok := c.Deadline()
+					if !ok || !deadline.Equal(wholeDeadline) {
+						t.Errorf("attempt %d deadline reset: got %v (present=%t), whole-write %v", admitted, deadline, ok, wholeDeadline)
+					}
+					return c
+				},
+				finish: func() { mu.Lock(); completed++; mu.Unlock() },
+			}
+			sink.SetDelivery(httpretry.Delivery{Gate: attempts, HTTPTimeout: time.Second, RetryMaxElapsed: 10 * time.Millisecond})
+			var observation pushhook.Event
+			var observations int
+			sink.Observe = func(_ context.Context, event pushhook.Event) {
+				mu.Lock()
+				defer mu.Unlock()
+				observation = event
+				observations++
+			}
+			r := New(Sinks{Sigil: sink}, nil, Options{Gate: whole, Delivery: ha.Bounded{Timeout: 100 * time.Millisecond, Margin: 100 * time.Millisecond, Crash: func() { t.Error("stage did not join") }}, SendShards: 1, SendDeadline: time.Hour})
+			value := 1.0
+			batch := []nativesigil.Export{{Generations: []nativesigil.Generation{{ID: "generation", OperationName: "generateText"}}, WorkflowSteps: []nativesigil.WorkflowStep{{ID: "step", StepName: "route"}}, Scores: []nativesigil.Score{{ScoreID: "score", GenerationID: "generation", Number: &value}}}}
+			if err := r.queues.Sigil.Write(context.Background(), batch); err != nil {
+				t.Fatal(err)
+			}
+			start := time.Now()
+			flushed := make(chan error, 1)
+			go func() { flushed <- r.Flush(context.Background()) }()
+			if partial {
+				select {
+				case <-workflowObserved:
+					// The generation response has been consumed and the actual
+					// next HTTP request received, so cancellation is inside the
+					// workflow attempt, not in the between-stage window.
+					mu.Lock()
+					cancelWhole()
+					mu.Unlock()
+				case err := <-flushed:
+					t.Fatalf("write ended before real workflow receipt: %v", err)
+				}
+			}
+			if err := <-flushed; err == nil {
+				t.Fatal("three-stage write escaped cancellation/absolute deadline")
+			}
+			if elapsed := time.Since(start); elapsed > 220*time.Millisecond {
+				t.Fatalf("deadline reset between stages: elapsed=%s", elapsed)
+			}
+			joined, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if err := r.JoinQueues(joined); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case <-r.queues.Sigil.Done():
+			default:
+				t.Fatal("Sigil queue join returned before sender exit")
+			}
+			mu.Lock()
+			joinedClient = true
+			clientPosts, clientCompleted := admitted, completed
+			mu.Unlock()
+			// Positive client completion is not a server handler join.
+			srv.Close()
+			mu.Lock()
+			defer mu.Unlock()
+			if wholeCalls != 1 || wholeCompleted != 1 || clientPosts == 0 || clientCompleted != clientPosts || admitted != clientPosts || completed != clientPosts || active.Load() != 0 {
+				t.Fatalf("Sigil work not positively joined: whole=%d/%d client=%d/%d final=%d/%d active=%d", wholeCalls, wholeCompleted, clientPosts, clientCompleted, admitted, completed, active.Load())
+			}
+			wantItems, wantCode := 0, operationalerr.CodeTimeout
+			if !partial && wholeContext.Err() != context.DeadlineExceeded {
+				t.Fatalf("write did not reach actual absolute expiry: %v", wholeContext.Err())
+			}
+			if partial {
+				wantCode = operationalerr.CodeCanceled
+				wantItems = 1
+				if len(paths) != 2 || paths[0] != "/api/v1/generations:export" || paths[1] != "/api/v1/workflow-steps:export" || admitted != 2 || cancelled.Load() != 1 {
+					t.Fatalf("cancelled write launched later stage or omitted real stages: paths=%v admitted=%d cancelled=%d", paths, admitted, cancelled.Load())
+				}
+			} else if len(paths) > 1 || (len(paths) == 1 && paths[0] != "/api/v1/generations:export") || admitted != 1 {
+				t.Fatalf("expired write admitted later stage: paths=%v admitted=%d", paths, admitted)
+			}
+			if observations != 1 || observation.Items != wantItems || observation.ErrorCode != wantCode {
+				t.Fatalf("partial Sigil delivery not truthful: observations=%d event=%+v wantItems=%d wantCode=%s", observations, observation, wantItems, wantCode)
+			}
+			t.Logf("real HTTP paths=%v; whole deadline=%v; admitted=%d completed=%d confirmed=%d terminal=%s handlers joined", paths, wholeDeadline, admitted, completed, observation.Items, observation.ErrorCode)
+		})
 	}
 }
 

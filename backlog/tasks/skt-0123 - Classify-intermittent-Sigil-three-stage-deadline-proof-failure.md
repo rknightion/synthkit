@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 14:34'
-updated_date: '2026-10-11 14:36'
+updated_date: '2026-10-11 15:30'
 labels: []
 dependencies: []
 priority: medium
@@ -40,3 +40,9 @@ Read the existing failed exact-base log and delivery/queue/sink code without rer
 
 Bounded test-only proof correction: replace unguaranteed first-response scheduling premise with direct inherited deadline identity, real handler-synchronised cancellation and explicit client/queue/server joins; separately retain actual absolute expiry proof. Preserve exact partial count/two stages/no score assertions. No runtime or timeout changes. Guarded proof review and local full base/candidate gate before serial root landing.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+One test-only cycle: unchanged deadline100ms/margin100ms/Flush220ms bounds, actual workflow HTTP receipt cancellation, exact inherited deadlines, one confirmed generation/no score, positive attempts/queue/server joins, separate actual expiry. Base/candidate just check0; four scratch faults fail correct assertions. Full1file CodeRabbit complete0major1validminor: finite100ms receipt/cancellation scheduling can still flake, left without timeout increase. Independent guarded equivalence PASS. Historical timeout causeUNKNOWN; pre-existing between-stage aggregate-observation gap outside scope, recorded separately as SKT-0124 (investigate missing aggregate observation on cancellation). Root landing/exact CI/composed proof pending.
+<!-- SECTION:NOTES:END -->
