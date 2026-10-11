@@ -142,6 +142,16 @@ an `env_file` value.
 
 ## Verification
 
+- HA-loss subprocess proofs synchronize on the real HTTP handler's recorded observation before
+  revocation; sender entry or an elapsed sleep is not a delivery receipt. Keep the five-second
+  subprocess bound, partial-batch exclusion, admission fence and hard-exit assertions intact.
+- Fleet cleanup intent is destination-bound. Retain old intent on URL/stack mismatch or nonempty
+  unbound legacy state; never silently relabel it. Explicit teardown requires actual completion,
+  while the binary's ordinary restart leaves collectors registered. Chart-managed Kubernetes Fleet wiring
+  remains separate from the runtime adapter and requires the generic named-state chart seam.
+- Secret scanning covers Git history. A forward prose edit does not clear a historical finding;
+  preserve credential canaries and history scope rather than adding a blanket file exception.
+
 - Renderer changes are checked by inventory diff, not by unit test: `just dump` prints the full
   series/label inventory for offline comparison against `signals/`.
 - A new blueprint field or config struct needs the wiring pass `just gen` (regenerates
