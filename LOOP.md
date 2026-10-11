@@ -31,6 +31,13 @@ grafana-stack: none
   Do not "fix" the exclusion.
 - Slow tier: `just lab` (about 35 minutes in CI) and `just race` (about 10 minutes). Run once on the
   final candidate, never in the inner loop.
+- `cmd/synthkit-control-dash` under `just race` runs against Go's default 600 s test timeout (562 s in
+  CI, one 600.953 s failure). Host load above about 10 logical CPUs confounds it: a local timeout
+  under load proves nothing, and never relax the timeout or an assertion to get green.
+- Keep scratch on a canonical path, never macOS's symlinked `/tmp`: private snapshot path validation
+  fails under it.
+- Docker `just secret-scan` from a linked worktree cannot read the worktree's git metadata: "0 commits
+  scanned" is not a pass. Mount the metadata and confirm the commit count, or leave it to CI.
 - The tree is habitually dirty with unrelated work: stage explicit paths, never `git add -A` or
   `git add .`.
 - `backlog task edit --notes` / `--plan` bare silently replace the whole section; use
