@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-11 09:06'
+updated_date: '2026-10-11 09:22'
 labels: []
 dependencies: []
 type: bug
@@ -72,4 +72,6 @@ loop12: one of two new authorized implementation cycles used; previous-loop coun
 Current repair ownership: integrated managed-console source1200cefd6a16e61a0c11d535b626502c16fce171 composed check failed unchanged shipped-scenario race test at600.732s (764.874s full elapsed). Actual cause code/performance versus environment unknown. Existing performance candidate is active fix-forward; later gate legs not reached, not passed. No unchanged gate rerun or weaker proof.
 
 Last of two newly authorized cycles completed, historical counts not reset. Frozen eight-file candidate passed after independent actual-HTTP synchronization prerequisite, fresh correctness review and25fileaggregateCodeRabbit0findings; landed177c8b025e97398dd70fed69d1b60787ff04be20. ExactCI38125851942all10jobs success BUT go just race reports ok github.com/rknightion/synthkit/cmd/synthkit-control-dash 412.433s, exceeding300s. Immediately reverted only performance commit as67d3605942608089d96c83d0812f7bbe79ac9d4f. Local composed0/race304.660s is not CI acceptance. No criteria checked/Done; parkowner for revised scope/repair budget or explicit criterion decision. Recovery CI/composed proof pending, all scenario/assertion/timeout contracts preserved.
+
+Exact revert67d3605942608089d96c83d0812f7bbe79ac9d4f recovery composedjustcheck failed unchanged shipped-scenario race timeout600.692s (875.124s total). CauseUNKNOWN, latergatelegsnotreached. UIgeneration0/sourceindexclean, no changed-baseline waiver or weaker proof. This task owns remaining main local gate performance repair, but authorized cycles exhausted; no further implementation without owner decision. Recovery CI pending separately.
 <!-- SECTION:NOTES:END -->
