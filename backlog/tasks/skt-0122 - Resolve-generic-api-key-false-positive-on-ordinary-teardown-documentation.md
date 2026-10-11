@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 09:56'
-updated_date: '2026-10-11 14:16'
+updated_date: '2026-10-11 15:03'
 labels: []
 dependencies: []
 priority: high
@@ -43,4 +43,6 @@ Precise rule-level prose false-positive correction with fail-first full-history 
 
 <!-- SECTION:NOTES:BEGIN -->
 One read-only diagnosis, zero implementation attempts. Exact main-only fully redacted scan reproduces one historical ordinary-prose finding at the landed runtime SHA; no secret values printed or identified. Parkowner approval of a precise scanner-contract correction with unchanged full-history scope and intact credential/canary coverage. This task owns present main CI red; no unchanged rerun or new allowlist attempted.
+
+Approved correction implemented locally: rule-specific exact source-line prose handling, no file exclusion/fingerprint/history waiver. Full792commit ancestry scan before correction reproduced exactly one redacted prose finding; after correction no leaks. Existing detector controls and four runtime-generated replacement keys in source/patch forms all detected;13findings in config check. Candidate just check0; completed2file CodeRabbit0findings. Base had unrelated Sigil deadline-test failure, candidate failure list empty. Guarded review and root exact-SHA CI/composed proof remain required before acceptance.
 <!-- SECTION:NOTES:END -->

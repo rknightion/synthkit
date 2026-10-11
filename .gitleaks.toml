@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 #
 # gitleaks configuration for synthkit. The default ruleset is inherited in full; this file only
-# narrows the `generic-api-key` heuristic where it fires on test data.
+# narrows the `generic-api-key` heuristic where it fires on test data or ordinary prose.
 #
 # Scope a new allowlist by VALUE, not by file. Verified against gitleaks v8.30.1: a `paths`
 # criterion is applied on its own even under `condition = "AND"`, so pairing a path with a regex
@@ -44,6 +44,19 @@ id = "generic-api-key"
   [[rules.allowlists]]
   description = "lowercase snake_case metric names in construct test inventories"
   regexes = ['''^[a-z][a-z0-9]*(?:_[a-z0-9]+){2,}$''']
+
+  # A historical teardown sentence is ordinary prose, not an assignment. Match only its
+  # complete source line, never its path, surrounding document or other comma-separated values.
+  # Git patch fragments can carry an added-line marker and a trailing newline; directory scans
+  # do not. Permit that marker and use line anchors, without relaxing the sentence itself.
+  # Character classes keep scanner-matched literal text out of this configuration. The guard
+  # reads the source sentence and rejects synthetic replacements in both source and patch form.
+  [[rules.allowlists]]
+  description = "one exact ordinary teardown sentence, not a credential"
+  regexTarget = "line"
+  regexes = [
+    '''(?m)^\+?authentica[t]ion, unavailabl[e]/corrup[t] state or an unregister failure exits nonzero\. The HA-off teardown$''',
+  ]
 
   # The native Datadog envelope records these observed attribute NAMES, never values.
   # Leading underscores exclude them from the ordinary lowercase metric-name rule above.
