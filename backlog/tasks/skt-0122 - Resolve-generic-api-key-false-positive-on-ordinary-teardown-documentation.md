@@ -1,11 +1,11 @@
 ---
 id: SKT-0122
 title: Resolve generic-api-key false positive on ordinary teardown documentation
-status: Parked
+status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 09:56'
-updated_date: '2026-10-11 09:56'
+updated_date: '2026-10-11 14:16'
 labels: []
 dependencies: []
 priority: high
@@ -32,6 +32,12 @@ Exact main CI38128447237 atf493ff84292c117f01c16f1d8bb110af8a61ab66 failed secre
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Precise rule-level prose false-positive correction with fail-first full-history redacted scan and preserved plus expanded representative canaries; guarded review before serial landing and exact CI.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 

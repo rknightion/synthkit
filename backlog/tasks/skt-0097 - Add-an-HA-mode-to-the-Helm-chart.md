@@ -1,11 +1,11 @@
 ---
 id: SKT-0097
 title: Add an HA mode to the Helm chart
-status: Parked
+status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 00:24'
+updated_date: '2026-10-11 14:18'
 labels:
   - feature
   - ha
@@ -45,6 +45,8 @@ Frozen HA seam chart section9 on accepted landed Kubernetes backend; render HAon
 Resume retained chart on current main; reproduce Helm 3.22 fixture failure before fixing; preserve non-HA 1.25 floor and validate HA at 1.31; local gate, guarded reviews, root CI trial and revert on red.
 
 Repair workflow validation boundary by separately validating every non-HA fixture at1.25 and HA fixture at1.31 with same pinned reusable and required aggregator; establish valid HA-capable image selection with registry/source provenance; document backup and old-emitter stop sequencing.
+
+One owner-raised coordination-only repair cycle: serialize the two required schema invocations without reducing fixture coverage or changing shared reusable; Helm3.22 base/candidate gates, delta guarded reviews, serial exact CI trial and immediate revert on red.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

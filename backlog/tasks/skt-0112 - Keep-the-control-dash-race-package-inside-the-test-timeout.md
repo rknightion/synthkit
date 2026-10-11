@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-11 09:22'
+updated_date: '2026-10-11 14:18'
 labels: []
 dependencies: []
 type: bug
@@ -20,9 +20,9 @@ Under `just race`, cmd/synthkit-control-dash took 363s (CI 37810460433), 437s (3
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 go test -race ./cmd/synthkit-control-dash -count=1 completes in under 5 minutes on the CI go job, measured at the landed SHA
-- [ ] #2 TestShippedScenarioImpactQueriesUseDerivedFamilies still covers every shipped scenario and keeps every assertion; no test is skipped under race and no -timeout is raised
-- [ ] #3 just check exits 0 at the landed SHA
+- [ ] #1 The exact final main CI go job Run just race log reports cmd/synthkit-control-dash ok in under 600 seconds; unchanged package timeout retained.
+- [ ] #2 TestShippedScenarioImpactQueriesUseDerivedFamilies covers every shipped scenario with every assertion; no skip under race and no timeout increase.
+- [ ] #3 just check exits 0 on the exact final main SHA.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -74,4 +74,6 @@ Current repair ownership: integrated managed-console source1200cefd6a16e61a0c11d
 Last of two newly authorized cycles completed, historical counts not reset. Frozen eight-file candidate passed after independent actual-HTTP synchronization prerequisite, fresh correctness review and25fileaggregateCodeRabbit0findings; landed177c8b025e97398dd70fed69d1b60787ff04be20. ExactCI38125851942all10jobs success BUT go just race reports ok github.com/rknightion/synthkit/cmd/synthkit-control-dash 412.433s, exceeding300s. Immediately reverted only performance commit as67d3605942608089d96c83d0812f7bbe79ac9d4f. Local composed0/race304.660s is not CI acceptance. No criteria checked/Done; parkowner for revised scope/repair budget or explicit criterion decision. Recovery CI/composed proof pending, all scenario/assertion/timeout contracts preserved.
 
 Exact revert67d3605942608089d96c83d0812f7bbe79ac9d4f recovery composedjustcheck failed unchanged shipped-scenario race timeout600.692s (875.124s total). CauseUNKNOWN, latergatelegsnotreached. UIgeneration0/sourceindexclean, no changed-baseline waiver or weaker proof. This task owns remaining main local gate performance repair, but authorized cycles exhausted; no further implementation without owner decision. Recovery CI pending separately.
+
+Owner regrade: final-main CI race threshold is under600seconds, not300seconds. No new code cycle; retained performance candidate stays unlanded. At or above600seconds park for owner decision; no rerun hunt.
 <!-- SECTION:NOTES:END -->

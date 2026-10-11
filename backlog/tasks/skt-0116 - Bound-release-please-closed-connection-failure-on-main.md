@@ -1,9 +1,11 @@
 ---
 id: SKT-0116
 title: Bound release-please closed-connection failure on main
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-09 14:36'
+updated_date: '2026-10-11 14:16'
 labels: []
 dependencies: []
 priority: medium
@@ -29,3 +31,9 @@ Release-please run37943031534 at board-only main edf7243dc6742373da1c3feb8b3e724
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Read exact failed release automation logs and subsequent exact-main successful runs; classify evidence without mutation or rerun.
+<!-- SECTION:PLAN:END -->
