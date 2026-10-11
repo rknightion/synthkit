@@ -6,6 +6,7 @@ release-on-push: yes
 deploy-on-push: no
 receiver: https://loopwatch.m7kni.com
 grafana-stack: none
+baseline-red: SKT-0122 - full-history secret-scan flags ordinary teardown prose in docs/fleet-management.md
 
 ## Credentials
 - Secrets live only in the ignored `.env`, never in YAML, a blueprint, a doc or a backlog task. A new
