@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 19:16'
+updated_date: '2026-10-11 19:44'
 labels:
   - feature
   - ha
@@ -51,4 +51,6 @@ Candidate partial after two change-and-verify cycles (implementation/full gate, 
 Full independent security review BLOCK on treeb6c51fac: major torn file activation read in internal/smstore/file.go:33,45 can combine stale nil Pending with newly complete registration while durable pending remains; source-confirmed interleaving, no runtime reproduction yet. Both initial CodeRabbit majors rejected against approved mapping/lock requirements. Compatible official Helm3.19.0 focused unchanged chart proof passed all4cases with actual fake API reads/precreation and byte-identical state. Third counted change-and-verify cycle routed to retry worker for fail-first race repair and complete required composed-runner negative matrix, then exact finalfullgate and guarded delta reviews. Ceiling remains4; no reset. Local retained checkpoint dd4102104ae75654ada28c5d29882fbf8b5885ad identifies exact last-reviewed tree for limited delta review and is not a land.
 
 Retry preflight stopped before edits because narrowed repair brief omitted cmd/sm-provision/lease.go file-mode lock composition. Root inspected and added that branch only for positively acquired store/release composition, preserving all Kubernetes Lease behavior and frozen APIs. Candidate remains exact prior tree, real index empty, no gate or CodeRabbit run; zero additional cycles consumed. Third counted cycle continues on same retry route.
+
+Third counted cycle repaired the torn file read with positively acquired O_EXCL store lifetime and post-release refusal; actual concurrent apply/handoff regression failed before and passed after. Expanded runtime persisted-evidence matrix90cases green; bound-spec matrix39cases observed no failures in prior focused invocation, but whole invocation red for two new fixture-index errors later corrected. CodeRabbit exact seven-file delta completed0findings. Final fullgate exit1 before tests/race: ignored .go evidence copies under scratch became a Go package and redeclared symbols. Candidate treed0f02189e64c743b78e2241db0bc09af3851c7d2, patch81683d810e4ae34414a1500b40554e775e965b871132dee1fb4d7ba6d10744e2, source bytes unchanged after gate and root verified. Fourth/final rescue cycle owns artifact preservation/rename and overlay-map update only, then one fullgate; delta security and native pinned history/candidate scans run independently. No fifth cycle permitted.
 <!-- SECTION:NOTES:END -->
