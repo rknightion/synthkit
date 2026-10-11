@@ -25,7 +25,6 @@ type Config struct {
 	StateBackend                                                                      string
 	StateControlConfigMap, StateBootConfigMap                                         string
 	StateFleetConfigMap                                                               string
-	StateSMConfigMap, SMProvisionLeaseName                                            string
 	// FleetUnregister is a CLI-only teardown request, never an environment switch.
 	FleetUnregister                             bool
 	StateGitSourceConfigMaps                    map[string]string
@@ -162,8 +161,6 @@ func Load(envPath string) (*Config, error) {
 		StateControlConfigMap:  get("STATE_CONTROL_CONFIGMAP", ""),
 		StateBootConfigMap:     get("STATE_BOOT_CONFIGMAP", ""),
 		StateFleetConfigMap:    get("STATE_FLEET_CONFIGMAP", ""),
-		StateSMConfigMap:       get("STATE_SM_CONFIGMAP", ""),
-		SMProvisionLeaseName:   get("SM_PROVISION_LEASE_NAME", ""),
 		PromRWURL:              get("GC_PROM_RW", ""),
 		PromUser:               get("GC_PROM_USER", ""),
 		OTLPEndpoint:           get("GC_OTLP_ENDPOINT", ""),
@@ -380,96 +377,6 @@ func Load(envPath string) (*Config, error) {
 	return cfg, nil
 }
 
-// SMProvisionConfig is the one-shot tool surface. It neither loads emitter
-// credentials nor inherits DRY_RUN or HA_MODE authorization.
-type SMProvisionConfig struct {
-	SMURL, SMToken                                                string
-	Apply, AdoptLegacy, MigrateTarget                             bool
-	StateBackend, SnapshotPath, StateSMConfigMap                  string
-	Namespace, ProvisionLeaseName, EmitterLeaseName, PodUID       string
-	LeaseDuration, RenewDeadline, RetryPeriod, KubeRequestTimeout time.Duration
-	HTTPTimeout, OperationTimeout, FenceMargin, ReleaseTimeout    time.Duration
-	CASAttempts                                                   int
-}
-
-func LoadSMProvision() (*SMProvisionConfig, error) {
-	get := func(key, def string) string {
-		if value := os.Getenv(key); value != "" {
-			return value
-		}
-		return def
-	}
-	c := &SMProvisionConfig{SMURL: get("GC_SM_URL", ""), SMToken: get("GC_SM_TOKEN", ""), StateBackend: get("STATE_BACKEND", "file"), SnapshotPath: get("CONFIG_SNAPSHOT_PATH", "./control-state.json"), StateSMConfigMap: get("STATE_SM_CONFIGMAP", ""), Namespace: get("HA_NAMESPACE", ""), ProvisionLeaseName: get("SM_PROVISION_LEASE_NAME", ""), EmitterLeaseName: get("HA_LEASE_NAME", ""), PodUID: get("POD_UID", "")}
-	for _, v := range []struct {
-		key, raw string
-		dst      *bool
-	}{
-		{"SM_PROVISION_APPLY", get("SM_PROVISION_APPLY", "false"), &c.Apply},
-		{"SM_PROVISION_ADOPT_LEGACY", get("SM_PROVISION_ADOPT_LEGACY", "false"), &c.AdoptLegacy},
-		{"SM_PROVISION_MIGRATE_TARGET", get("SM_PROVISION_MIGRATE_TARGET", "false"), &c.MigrateTarget},
-	} {
-		switch v.raw {
-		case "true":
-			*v.dst = true
-		case "false":
-		default:
-			return nil, fmt.Errorf("%s must be exactly true or false", v.key)
-		}
-	}
-	if c.StateBackend == "kubernetes" {
-		for _, v := range []struct {
-			key, raw string
-			dst      *time.Duration
-		}{
-			{"HA_LEASE_DURATION", get("HA_LEASE_DURATION", "30s"), &c.LeaseDuration},
-			{"HA_RENEW_DEADLINE", get("HA_RENEW_DEADLINE", "15s"), &c.RenewDeadline},
-			{"HA_RETRY_PERIOD", get("HA_RETRY_PERIOD", "2s"), &c.RetryPeriod},
-			{"HA_KUBE_REQUEST_TIMEOUT", get("HA_KUBE_REQUEST_TIMEOUT", "2s"), &c.KubeRequestTimeout},
-			{"HA_HTTP_TIMEOUT", get("HA_HTTP_TIMEOUT", "5s"), &c.HTTPTimeout},
-			{"HA_FLUSH_TIMEOUT", get("HA_FLUSH_TIMEOUT", "8s"), &c.OperationTimeout},
-			{"HA_FENCE_MARGIN", get("HA_FENCE_MARGIN", "2s"), &c.FenceMargin},
-			{"HA_RELEASE_TIMEOUT", get("HA_RELEASE_TIMEOUT", "2s"), &c.ReleaseTimeout},
-		} {
-			var err error
-			*v.dst, err = time.ParseDuration(v.raw)
-			if err != nil {
-				return nil, fmt.Errorf("config: invalid %s", v.key)
-			}
-		}
-		var err error
-		c.CASAttempts, err = strconv.Atoi(get("STATE_CAS_MAX_ATTEMPTS", "5"))
-		if err != nil {
-			return nil, fmt.Errorf("config: invalid STATE_CAS_MAX_ATTEMPTS")
-		}
-	}
-	return c, c.Validate()
-}
-func (c *SMProvisionConfig) Validate() error {
-	if c.SMURL == "" || c.SMToken == "" {
-		return fmt.Errorf("GC_SM_URL and GC_SM_TOKEN are required")
-	}
-	if c.AdoptLegacy && c.MigrateTarget {
-		return fmt.Errorf("target migration and legacy adoption cannot be combined")
-	}
-	if c.StateBackend == "file" {
-		return nil
-	}
-	if c.StateBackend != "kubernetes" {
-		return fmt.Errorf("STATE_BACKEND must be file or kubernetes")
-	}
-	if !stateDNSLabel(c.Namespace) || !stateDNSName(c.StateSMConfigMap) || !stateDNSName(c.ProvisionLeaseName) || c.ProvisionLeaseName == c.EmitterLeaseName || c.PodUID == "" {
-		return fmt.Errorf("invalid dedicated SM state/Lease identity")
-	}
-	if c.LeaseDuration%time.Second != 0 || c.LeaseDuration <= c.RenewDeadline || c.RetryPeriod <= 0 || float64(c.RenewDeadline) <= 1.2*float64(c.RetryPeriod) || c.KubeRequestTimeout <= 0 || c.KubeRequestTimeout >= c.RenewDeadline || c.HTTPTimeout <= 0 || c.OperationTimeout <= 0 || c.FenceMargin <= 0 || c.ReleaseTimeout <= 0 || c.CASAttempts < 1 || c.CASAttempts > 5 {
-		return fmt.Errorf("invalid SM provisioning budgets")
-	}
-	gap := c.LeaseDuration - c.RenewDeadline
-	if c.HTTPTimeout > c.OperationTimeout || max(c.OperationTimeout, 2*time.Second) >= gap || c.FenceMargin >= gap-max(c.OperationTimeout, 2*time.Second) {
-		return fmt.Errorf("SM operation plus fence margin must be below lease minus renew")
-	}
-	return nil
-}
-
 // ParseControlManagedFeatures reads a JSON object of presentation-only feature reasons.
 // This does not add an authorization or server mutation barrier.
 func ParseControlManagedFeatures(raw string) (map[string]string, error) {
@@ -596,16 +503,6 @@ func (c *Config) ValidateHA() error {
 			return fmt.Errorf("config: Fleet registration with Kubernetes state requires STATE_FLEET_CONFIGMAP")
 		}
 	}
-	if c.StateBackend == "kubernetes" && c.StateSMConfigMap != "" {
-		if !stateDNSName(c.StateSMConfigMap) || !stateDNSName(c.SMProvisionLeaseName) || c.SMProvisionLeaseName == c.HALeaseName || c.StateSMConfigMap == c.StateControlConfigMap || c.StateSMConfigMap == c.StateBootConfigMap || c.StateSMConfigMap == c.StateFleetConfigMap {
-			return fmt.Errorf("config: invalid or duplicate SM state/Lease mapping")
-		}
-		for _, name := range c.StateGitSourceConfigMaps {
-			if name == c.StateSMConfigMap {
-				return fmt.Errorf("config: duplicate SM state mapping")
-			}
-		}
-	}
 	if c.HAMode == "off" {
 		return nil
 	}
@@ -639,7 +536,7 @@ func (c *Config) RedactedState() RedactedConfig {
 	if c.StateBackend == "kubernetes" {
 		mapping, _ := json.Marshal(c.StateGitSourceConfigMaps)
 		view.Groups = append(view.Groups, RedactedGroup{Title: "State backend", Fields: []RedactedField{
-			safe("STATE_BACKEND", c.StateBackend), safe("STATE_CONTROL_CONFIGMAP", c.StateControlConfigMap), safe("STATE_BOOT_CONFIGMAP", c.StateBootConfigMap), safe("STATE_FLEET_CONFIGMAP", c.StateFleetConfigMap), safe("STATE_SM_CONFIGMAP", c.StateSMConfigMap), safe("SM_PROVISION_LEASE_NAME", c.SMProvisionLeaseName), safe("STATE_GIT_SOURCE_CONFIGMAPS", string(mapping)), safe("STATE_GIT_SOURCE_MAX_BYTES", strconv.Itoa(c.StateGitSourceMaxBytes)), safe("STATE_CAS_MAX_ATTEMPTS", strconv.Itoa(c.StateCASMaxAttempts)), safe("HA_NAMESPACE", c.HANamespace), safe("HA_KUBE_REQUEST_TIMEOUT", c.HAKubeRequestTimeout.String()),
+			safe("STATE_BACKEND", c.StateBackend), safe("STATE_CONTROL_CONFIGMAP", c.StateControlConfigMap), safe("STATE_BOOT_CONFIGMAP", c.StateBootConfigMap), safe("STATE_FLEET_CONFIGMAP", c.StateFleetConfigMap), safe("STATE_GIT_SOURCE_CONFIGMAPS", string(mapping)), safe("STATE_GIT_SOURCE_MAX_BYTES", strconv.Itoa(c.StateGitSourceMaxBytes)), safe("STATE_CAS_MAX_ATTEMPTS", strconv.Itoa(c.StateCASMaxAttempts)), safe("HA_NAMESPACE", c.HANamespace), safe("HA_KUBE_REQUEST_TIMEOUT", c.HAKubeRequestTimeout.String()),
 		}})
 	}
 	return view

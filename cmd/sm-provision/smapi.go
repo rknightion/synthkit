@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/operationalerr"
 )
 
@@ -18,7 +17,6 @@ type smClient struct {
 	base  string
 	token string
 	hc    *http.Client
-	bound *ha.Bounded
 }
 
 type apiError struct {
@@ -34,12 +32,6 @@ func ambiguousAPIError(err error) bool {
 }
 
 func (c *smClient) do(ctx context.Context, method, path string, body, out any) error {
-	if c.bound != nil {
-		return c.bound.Run(ctx, ha.Mutation, func(ctx context.Context) error { return c.rawDo(ctx, method, path, body, out) })
-	}
-	return c.rawDo(ctx, method, path, body, out)
-}
-func (c *smClient) rawDo(ctx context.Context, method, path string, body, out any) error {
 	var reader io.Reader
 	if body != nil {
 		encoded, err := json.Marshal(body)

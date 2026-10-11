@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,69 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rknightion/synthkit/internal/config"
 	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/smstate"
-	"github.com/rknightion/synthkit/internal/smstore"
 )
-
-// retainPendingStore simulates a failed pending-consumption write, after the
-// actual file adapter has durably persisted authoritative complete registration.
-// All earlier writes and all remote operations use the real provisioner/store.
-type retainPendingStore struct{ smstore.Store }
-
-func (s retainPendingStore) UpdateProvision(ctx context.Context, b smstore.SnapshotBinding, fn func(*smstore.ProvisionState) error) error {
-	d, err := s.Store.Load(ctx)
-	if err != nil {
-		return err
-	}
-	hadPending := d.Provision.Pending != nil
-	if err := fn(&d.Provision); err != nil {
-		return err
-	}
-	if hadPending && d.Provision.Pending == nil && d.Snapshot != nil && d.Provision.Registration != nil && smstate.ValidateRegistration(*d.Snapshot, *d.Provision.Registration) == nil {
-		return errors.New("fixture pending consumption failed")
-	}
-	return s.Store.UpdateProvision(ctx, b, fn)
-}
-
-func TestFileProvisionRetainsCompletePendingHelper(t *testing.T) {
-	path := os.Getenv("SYNTHKIT_SM_PENDING_CONFIG")
-	if path == "" {
-		return
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var cfg config.SMProvisionConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		t.Fatal(err)
-	}
-	dir := smstate.RuntimeDir(cfg.SnapshotPath)
-	store, release, err := smstore.AcquireFileStore(dir)
-	if err != nil {
-		fmt.Println("lock-contention=true")
-		return
-	}
-	defer func() {
-		if err := release(); err != nil {
-			t.Error(err)
-		}
-	}()
-	deps := productionProvisionDependencies()
-	deps.client = &smClient{base: cfg.SMURL, token: cfg.SMToken, hc: &http.Client{Timeout: 5 * time.Second}}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := executeStored(ctx, cfg, retainPendingStore{store}, dir, deps); err == nil || !strings.Contains(err.Error(), "pending operation") {
-		t.Fatalf("expected failed pending consumption, got %v", err)
-	}
-	d, err := store.Load(ctx)
-	if err != nil || d.Provision.Pending == nil || d.Provision.Registration == nil || smstate.ValidateRegistration(*d.Snapshot, *d.Provision.Registration) != nil {
-		t.Fatalf("complete registration/pending not retained: %v", err)
-	}
-	fmt.Println("retained-complete-pending=true")
-}
 
 type fakeSM struct {
 	probes           []smProbe
@@ -187,7 +126,7 @@ func testProvisioner(server *httptest.Server, stateDir string, snapshot smstate.
 			SchemaVersion: smstate.SchemaVersion, TargetFingerprint: snapshot.TargetFingerprint,
 		},
 		snapshot: snapshot, registration: smstate.Registration{
-			SchemaVersion: smstate.ActivationSchemaVersion, SnapshotHash: snapshot.SnapshotHash,
+			SchemaVersion: smstate.SchemaVersion, SnapshotHash: snapshot.SnapshotHash,
 			TargetFingerprint: snapshot.TargetFingerprint, SourceVersion: snapshot.SourceVersion,
 		}, apply: apply, adopt: adopt, now: func() time.Time { return time.Unix(200, 0) },
 	}
@@ -464,10 +403,6 @@ func TestOwnershipSurvivesSnapshotAndSourceVersionEvolution(t *testing.T) {
 	changedChecks[0].FrequencyMS = 30000
 	newSnapshot, err := smstate.NewSnapshot(oldSnapshot.Probes, changedChecks, server.URL, "token", "dev-next", time.Unix(101, 0))
 	if err != nil {
-		t.Fatal(err)
-	}
-	// The store now checks the actual current emitter snapshot on every write.
-	if err := smstate.WriteSnapshot(stateDir, newSnapshot); err != nil {
 		t.Fatal(err)
 	}
 	p := testProvisioner(server, stateDir, newSnapshot, true, false)

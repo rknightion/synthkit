@@ -68,9 +68,7 @@ independent of synthetic `DRY_RUN`. The staff triplets never reuse `GC_TOKEN`.
 | `GC_FM_STACK_ID` | identifier | FM Basic-auth user: Grafana Cloud stack ID, not `GC_PROM_USER`. |
 | `GC_FM_TOKEN` | **secret** | CAP token with `fleet-management:write`; requires a `fleet_management` blueprint feature. |
 | `GC_SM_URL` | endpoint | Synthetic Monitoring API base for the version-matched Docker `sm-provision` profile. |
-| `GC_SM_TOKEN` | **secret** | Synthetic Monitoring API token for that provisioner; source checkouts or separately configured in-cluster Jobs use the same binary. The tool must match the current snapshot version; v2 activation is release-independent when specs/target/schema match. |
-| `STATE_SM_CONFIGMAP` | non-secret name | Precreated aggregate SM state slot for diskless in-cluster provisioning. |
-| `SM_PROVISION_LEASE_NAME` | non-secret name | Dedicated precreated Lease distinct from the emitter Lease; all writers to that SM slot use the same name. |
+| `GC_SM_TOKEN` | **secret** | Synthetic Monitoring API token for that provisioner; source checkouts may run the same binary directly. |
 | `SM_PROVISION_APPLY` | non-secret flag | Exact `true` enables one-shot writes; false/absent previews. |
 | `SM_PROVISION_ADOPT_LEGACY` | non-secret flag | Exact `true` records the exact-match preview and allows only that same plan on apply. |
 | `SM_PROVISION_MIGRATE_TARGET` | non-secret flag | Exact `true` enables preview-bound credential/endpoint migration; apply also requires a matching marker no older than 15 minutes. |

@@ -4,7 +4,6 @@ package control
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/ha"
@@ -41,19 +40,6 @@ func NewKubernetesBackend(o KubernetesBackendOptions) (StateBackend, error) {
 	}
 	return newKubernetesBackend(o, client.ConfigMaps(o.Namespace))
 }
-
-// NewKubernetesBackendForClient exposes the same gated named adapter for explicit
-// local embedding/tests. Production exclusively uses NewKubernetesBackend and
-// in-cluster credentials; there is no environment endpoint or discovery fallback.
-func NewKubernetesBackendForClient(o KubernetesBackendOptions, endpoint string, hc *http.Client) (StateBackend, error) {
-	cfg := &rest.Config{Host: endpoint, Timeout: o.RequestTimeout, ContentConfig: rest.ContentConfig{ContentType: "application/json", AcceptContentTypes: "application/json"}}
-	client, err := coreclient.NewForConfigAndClient(cfg, hc)
-	if err != nil {
-		return nil, err
-	}
-	return newKubernetesBackend(o, client.ConfigMaps(o.Namespace))
-}
-
 func newKubernetesBackend(o KubernetesBackendOptions, c namedConfigMaps) (StateBackend, error) {
 	if o.Gate == nil || c == nil || o.RequestTimeout <= 0 || o.MaxDocumentBytes < 1 || o.MaxDocumentBytes > MaxStateDocumentBytes || len(validation.IsDNS1123Label(o.Namespace)) != 0 {
 		return nil, fmt.Errorf("state: invalid Kubernetes backend options")

@@ -29,8 +29,7 @@ SM provisioning uses a dedicated SM API token — separate from `GC_TOKEN` and f
 | `GC_SM_TOKEN` | SM API bearer token (not `GC_TOKEN`) |
 
 The provisioner never scans blueprints. The emitter resolves the exact selected built-in, custom,
-and Git sources and publishes an exact snapshot. File mode uses private files under `/data/runtime`;
-Kubernetes mode uses a named aggregate ConfigMap and requires no shared volume. The provisioner reads only
+and Git sources and writes a private snapshot under `/data/runtime`. The provisioner reads only
 that snapshot. `SM_PROVISION_APPLY` is its independent write gate; emitter `DRY_RUN` is irrelevant.
 
 See [Credentials](credentials.md) for token-scoping guidance.
@@ -55,19 +54,10 @@ SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provis
 docker compose restart synthkit
 ```
 
-The restart is the activation boundary. On startup the emitter validates activation schema 2,
-exact specification/target hash, complete resource IDs and authoritative API `modified` bindings.
-Release version is provenance, not part of that hash: an already complete registration at release A
-remains active at B when every specification field, target and schema is unchanged. The write tool
-must still match the **current snapshot source version**, before inventory and on every state write.
-Adoption/migration approvals retain their strict source-version binding.
-
-The first v1-to-v2 format upgrade requires one explicit apply/restart. File activation uses new
-`sm-snapshot-v2.json` and `sm-registration-v2.json` files. Existing v1 ownership, previews, pending
-journal and lock are retained; a legacy registration can import ownership only, never activate v2.
-With intact ownership and unchanged remote specs, that first apply makes no remote changes. Later
-release-only upgrades need no new apply. Changed specs, partial/missing registration or any pending
-journal keep SM suppressed; unreadable/corrupt storage fails closed rather than becoming empty state.
+The restart is the activation boundary. On startup the same image validates the registration's
+snapshot hash, target fingerprint, source version, resource IDs, and authoritative API `modified`
+values. Missing, stale, corrupt, or incomplete state keeps SM suppressed and reports the lane as
+partial.
 
 The provisioner owns only IDs recorded in its private durable ownership ledger. That ledger is
 independent of one snapshot/source version, so a changed check can update its recorded ID while the
@@ -107,32 +97,6 @@ whether to adopt. Resources are never deleted.
 
 ---
 
-## In-cluster one-shot mode — no shared volume
-
-The binary supports `STATE_BACKEND=kubernetes` independently of emitter HA. Precreate a distinct
-`STATE_SM_CONFIGMAP` and `SM_PROVISION_LEASE_NAME` in `HA_NAMESPACE`, and supply downward-API
-`POD_UID`. The provisioning Lease must differ from `HA_LEASE_NAME`, including with emitter HA off.
-Every writer to the SM slot must use the same provisioning Lease; the aggregate document records
-that immutable lock identity. Give the tool only named get/update on that SM ConfigMap and its
-Lease, projected in-cluster API credentials and the SM credential pair. There is no KUBECONFIG,
-endpoint override, discovery or resource creation fallback. The emitter needs named state access
-and uses its own emission authority, never the tool's provisioning Lease.
-
-No SM request or state update occurs before acquisition. Acquisition is capped at two minutes and
-the invocation at ten minutes. The tool reuses the HA duration settings: default HTTP timeout 5s,
-whole-operation cap 8s and fence allowance 2s must fit strictly below Lease minus renewal (30s−15s).
-State retries are 1..5 CAS attempts sharing 2s. Every mutation first persists pending evidence and
-removes activation; uncertain API/state outcomes stop without replaying the mutation. Inspect retained
-pending evidence before any explicit recovery. Lease authority is local admission plus bounded hard
-exit, **not remote SM fencing or exactly-once delivery**. Planned termination joins work while renewal
-continues, then seals and releases; unexpected loss hard-exits without release.
-
-Kubernetes HA standby performs zero writes; acquisition publishes/revalidates the current snapshot
-before building the production runner and its first tick. File Lease HA remains suppressed without
-artifact I/O. There is no automatic file-to-Kubernetes ownership migration or dual writing: moving
-existing ownership needs a separately approved offline procedure. Current Helm SM Job wiring remains
-file-only and rejects HA provisioning; this binary capability does not make that Job diskless.
-
 ## Phase 2 — run the emitter
 
 After the successful apply and required restart, verify the authenticated disposition first:
@@ -159,7 +123,7 @@ Each check also emits a Loki log line per tick with stream labels `{source="synt
 Base labels on every series: `job` (check job), `instance` (check target URL), `probe` (probe name), `config_version`. User labels declared in the blueprint become `label_<k>` labels on both metrics and the Loki stream.
 
 !!! warning "config_version is a stable join key"
-    All SM series join on `(instance, job, probe, config_version)`. `config_version` encodes the check's `modified` timestamp. If you re-provision after editing a check, all series must be re-stamped with the new `config_version`. A successful explicit apply followed by restart/acquisition injects the new authoritative value; an already running process is not hot-activated.
+    All SM series join on `(instance, job, probe, config_version)`. `config_version` encodes the check's `modified` timestamp. If you re-provision after editing a check, all series must be re-stamped with the new `config_version`. The emitter handles this automatically; no manual action is needed.
 
 ---
 

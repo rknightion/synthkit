@@ -3,7 +3,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"sort"
 	"time"
@@ -11,9 +10,7 @@ import (
 	"github.com/rknightion/synthkit/internal/blueprint"
 	"github.com/rknightion/synthkit/internal/config"
 	"github.com/rknightion/synthkit/internal/construct/sm"
-	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/smstate"
-	"github.com/rknightion/synthkit/internal/smstore"
 )
 
 type smHandoff struct {
@@ -21,21 +18,11 @@ type smHandoff struct {
 	Registered bool
 }
 
-func configuredSMStore(cfg *config.Config, backend control.StateBackend) (smstore.Store, error) {
-	if cfg.StateBackend != "kubernetes" {
-		return smstore.NewFileStore(smstate.RuntimeDir(cfg.SnapshotPath)), nil
-	}
-	if cfg.StateSMConfigMap == "" {
-		return nil, nil
-	}
-	return smstore.NewBackendStore(backend, cfg.StateCASMaxAttempts, cfg.SMProvisionLeaseName)
-}
-
-// prepareSMHandoff binds activation to this boot's specification/target/schema,
-// not its release. Publication is explicitly authorized by the composition root.
-// Constructs receive only validated authoritative config-version strings.
-func prepareSMHandoff(ctx context.Context, resolved []*blueprint.Resolved, cfg *config.Config, sourceVersion string, now time.Time, store smstore.Store, publish bool) (smHandoff, error) {
-	if cfg.HAMode == "lease" && cfg.StateBackend != "kubernetes" {
+// prepareSMHandoff writes the exact current-boot snapshot and suppresses every SM construct unless
+// a private registration artifact matches that snapshot, target fingerprint, and source version.
+// It runs before runner construction; the construct receives only config-version strings.
+func prepareSMHandoff(resolved []*blueprint.Resolved, cfg *config.Config, sourceVersion string, now time.Time) (smHandoff, error) {
+	if cfg.HAMode == "lease" {
 		handoff := smHandoff{}
 		for _, bp := range resolved {
 			kept := bp.Constructs[:0]
@@ -86,35 +73,22 @@ func prepareSMHandoff(ctx context.Context, resolved []*blueprint.Resolved, cfg *
 		}
 	}
 	if len(checks) == 0 {
-		if publish && store != nil {
-			if err := store.PublishSnapshot(ctx, nil); err != nil {
-				return smHandoff{}, errors.New("synthetic monitoring snapshot could not be invalidated")
-			}
+		if err := smstate.RemoveSnapshot(smstate.RuntimeDir(cfg.SnapshotPath)); err != nil {
+			return smHandoff{}, errors.New("synthetic monitoring snapshot could not be invalidated")
 		}
 		return smHandoff{}, nil
 	}
 	handoff := smHandoff{Declared: true}
-	if store == nil {
-		return handoff, errors.New("synthetic monitoring requires STATE_SM_CONFIGMAP and a dedicated provisioning Lease with Kubernetes state")
-	}
 	snapshot, err := smstate.NewSnapshot(probes, checks, cfg.SMURL, cfg.SMToken, sourceVersion, now)
 	if err != nil {
 		return handoff, err
 	}
-	if publish {
-		if err := store.PublishSnapshot(ctx, &snapshot); err != nil {
-			return handoff, errors.New("synthetic monitoring snapshot could not be written")
-		}
+	runtimeDir := smstate.RuntimeDir(cfg.SnapshotPath)
+	if err := smstate.WriteSnapshot(runtimeDir, snapshot); err != nil {
+		return handoff, errors.New("synthetic monitoring snapshot could not be written")
 	}
-	doc, err := store.Load(ctx)
+	registration, err := smstate.ReadRegistration(runtimeDir, snapshot)
 	if err != nil {
-		return handoff, errors.New("synthetic monitoring state is unavailable or invalid")
-	}
-	var registration smstate.Registration
-	if doc.Provision.Registration != nil {
-		registration = *doc.Provision.Registration
-	}
-	if doc.Provision.Pending != nil || smstate.ValidateRegistration(snapshot, registration) != nil {
 		// Missing, corrupt, stale, or mismatched state is one fail-closed outcome: no SM emitter.
 		for _, bp := range resolved {
 			filtered := bp.Constructs[:0]

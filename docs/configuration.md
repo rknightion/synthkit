@@ -38,8 +38,6 @@ in-cluster authentication only, never `KUBECONFIG`, discovery, create, list, wat
 | `STATE_CONTROL_CONFIGMAP` | empty | Required Kubernetes control-document object name. |
 | `STATE_BOOT_CONFIGMAP` | empty | Required Kubernetes manifest object name, distinct from control. |
 | `STATE_FLEET_CONFIGMAP` | empty | Required for live Fleet registration with Kubernetes state: distinct pre-created ConfigMap holding the aggregate registered-ID cleanup ledger. Needs named get/update permissions. File mode uses `CONFIG_SNAPSHOT_PATH` plus `.fleet.json`; dry-run never writes this ledger. |
-| `STATE_SM_CONFIGMAP` | empty | Distinct precreated aggregate SM state slot, required for selected SM with Kubernetes state. |
-| `SM_PROVISION_LEASE_NAME` | empty | Dedicated precreated provisioning Lease, distinct from `HA_LEASE_NAME`; all writers to the SM slot use this same name. |
 | `STATE_GIT_SOURCE_CONFIGMAPS` | `{}` | JSON object mapping source IDs to distinct pre-created ConfigMap names. Every configured source needs a slot. |
 | `STATE_GIT_SOURCE_MAX_BYTES` | `786432` | Encoded git document cap including files, metadata and receipts. Integer 1..786432. No truncation. |
 | `STATE_CAS_MAX_ATTEMPTS` | `5` | Integer 1..5; retries share a 2s state-operation deadline. |
@@ -59,10 +57,8 @@ standby reads without writing; acquisition rereads documents and rebuilds/applie
 before production starts. `CONFIG_SNAPSHOT_PATH` is ignored for Kubernetes control state.
 `BLUEPRINT_DATA_DIR` is not authoritative for Kubernetes git/manifest state. With HA off, existing
 uploads remain file-backed in that directory: they still need retained local disk and do not
-follow a lease or gain shared-upload durability. HA uploads and automatic SM provisioning remain
-excluded. Manual diskless SM provisioning and acquisition-time activation are supported with the
-named SM mapping; file Lease HA still suppresses SM. The HA chart's SM Job remains file-only;
-see [Kubernetes](kubernetes.md) for the separately wired stateless emitter chart.
+follow a lease or gain shared-upload durability. HA upload/automatic SM exclusions are unchanged.
+The current Helm chart is not yet a stateless two-replica deployment.
 
 ## Synthetic data sinks
 
@@ -193,9 +189,8 @@ remote commits are not fenced. Handoff resets counters, histograms, RNG/shape st
 queues; fixture identities remain deterministic. Unfinished traces/RUM sessions and
 buffered data can truncate. Crash takeover can cost the Lease duration plus polling and
 preparation, not universally seconds. File state is not shared failover continuity.
-HA upload mutations and automatic SM provisioning are unavailable. Kubernetes SM is explicitly
-provisioned under its own Lease and validated on emitter acquisition before production. File Lease
-HA still suppresses SM without artifact I/O.
+HA upload mutations and automatic SM provisioning are unavailable; SM emission is
+suppressed read-only until its separate persistence work is implemented.
 
 ## Decoupled delivery queue
 
@@ -265,17 +260,15 @@ RED metrics on the synthetic pipeline, Go runtime metrics, per-tick traces, and 
 ## Synthetic Monitoring provisioner
 
 These credentials authorize only the one-shot, version-matched `sm-provision` Compose job (or the
-same binary in a source checkout or a separately configured in-cluster Job). The emitter uses their
-presence to bind and validate its snapshot, but it never calls the SM API: provisioning, registration persistence, and the required
-emitter restart remain separate phases. First v2 format activation requires explicit apply/restart;
-subsequent unchanged-spec/target/schema release bumps retain registration, while the tool must still
-match the current snapshot version. See [synthetic-monitoring.md](synthetic-monitoring.md).
+same binary in a source checkout). The emitter uses their presence to bind and validate its private
+snapshot, but it never calls the SM API: provisioning, registration persistence, and the required
+emitter restart remain separate phases. See [synthetic-monitoring.md](synthetic-monitoring.md).
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `GC_SM_URL` | _(empty)_ | Synthetic Monitoring API endpoint, e.g. `https://synthetic-monitoring-api-<region>.grafana.net` |
 | `GC_SM_TOKEN` | _(empty)_ | SM API token (a dedicated SM token, NOT `GC_TOKEN`). |
-| `SM_PROVISION_APPLY` | `false` | Independent one-shot provisioner write gate; only exact `true` permits mutations. |
+| `SM_PROVISION_APPLY` | `false` | Compose provisioner write gate; only exact `true` permits mutations. |
 | `SM_PROVISION_ADOPT_LEGACY` | `false` | Exact `true` on preview records an exact-match adoption marker; the same flag plus apply consumes it. |
 | `SM_PROVISION_MIGRATE_TARGET` | `false` | Exact `true` enables the preview-bound credential/endpoint rotation path; apply must consume the identical marker within 15 minutes. |
 

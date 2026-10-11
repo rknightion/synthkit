@@ -5,7 +5,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -21,62 +20,6 @@ func writeEnv(t *testing.T, content string) string {
 	return p
 }
 
-func TestSMProvisionParserIsToolOnlyAndStrictlyGated(t *testing.T) {
-	t.Setenv("GC_SM_URL", "https://sm.example")
-	t.Setenv("GC_SM_TOKEN", strconv.FormatInt(time.Now().UnixNano(), 36))
-	t.Setenv("STATE_BACKEND", "file")
-	t.Setenv("DRY_RUN", "invalid")
-	t.Setenv("HA_MODE", "invalid")
-	t.Setenv("HA_FLUSH_TIMEOUT", "invalid")
-	t.Setenv("STATE_SM_CONFIGMAP", "invalid!")
-	c, err := LoadSMProvision()
-	if err != nil || c.Apply {
-		t.Fatal("file tool inherited unused emitter/Kubernetes settings", err)
-	}
-	t.Setenv("SM_PROVISION_APPLY", "TRUE")
-	if _, err := LoadSMProvision(); err == nil {
-		t.Fatal("inexact apply accepted")
-	}
-	t.Setenv("SM_PROVISION_APPLY", "true")
-	t.Setenv("SM_PROVISION_ADOPT_LEGACY", "true")
-	t.Setenv("SM_PROVISION_MIGRATE_TARGET", "true")
-	if _, err := LoadSMProvision(); err == nil {
-		t.Fatal("combined approval gates accepted")
-	}
-}
-func TestSMProvisionKubernetesIdentityAndBudgets(t *testing.T) {
-	t.Setenv("GC_SM_URL", "https://sm.example")
-	t.Setenv("GC_SM_TOKEN", strconv.FormatInt(time.Now().UnixNano(), 36))
-	t.Setenv("SM_PROVISION_ADOPT_LEGACY", "false")
-	t.Setenv("SM_PROVISION_MIGRATE_TARGET", "false")
-	t.Setenv("STATE_BACKEND", "kubernetes")
-	t.Setenv("HA_NAMESPACE", "test")
-	t.Setenv("STATE_SM_CONFIGMAP", "sm")
-	t.Setenv("SM_PROVISION_LEASE_NAME", "provision")
-	t.Setenv("HA_LEASE_NAME", "emitter")
-	t.Setenv("POD_UID", "tool")
-	c, err := LoadSMProvision()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c.CASAttempts != 5 || c.OperationTimeout != 8*time.Second || c.HTTPTimeout != 5*time.Second {
-		t.Fatal("provision defaults drift")
-	}
-	t.Setenv("SM_PROVISION_LEASE_NAME", "emitter")
-	if _, err := LoadSMProvision(); err == nil {
-		t.Fatal("emitter Lease reused")
-	}
-	t.Setenv("SM_PROVISION_LEASE_NAME", "provision")
-	t.Setenv("HA_FLUSH_TIMEOUT", "13s")
-	if _, err := LoadSMProvision(); err == nil {
-		t.Fatal("gap equality accepted")
-	}
-	t.Setenv("HA_FLUSH_TIMEOUT", "8s")
-	t.Setenv("STATE_CAS_MAX_ATTEMPTS", "6")
-	if _, err := LoadSMProvision(); err == nil {
-		t.Fatal("unbounded CAS attempts accepted")
-	}
-}
 func TestLoadFleetStateSlot(t *testing.T) {
 	cfg, err := Load(writeEnv(t, "STATE_FLEET_CONFIGMAP=fleet-state\n"))
 	if err != nil {

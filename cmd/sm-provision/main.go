@@ -10,14 +10,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
-	"github.com/rknightion/synthkit/internal/config"
 	"github.com/rknightion/synthkit/internal/smstate"
-	"github.com/rknightion/synthkit/internal/smstore"
 )
 
 var version = "dev"
@@ -53,9 +54,7 @@ type plan struct {
 
 type provisioner struct {
 	client              *smClient
-	stateDir            string // file-only fixtures and legacy ownership import
-	store               smstore.Store
-	ctx                 context.Context
+	stateDir            string
 	snapshot            smstate.Snapshot
 	ownership           smstate.OwnershipLedger
 	registration        smstate.Registration
@@ -77,74 +76,93 @@ func main() {
 }
 
 func run() error {
-	cfg, err := config.LoadSMProvision()
+	apply, err := explicitBool("SM_PROVISION_APPLY")
 	if err != nil {
 		return err
 	}
-	return runWithDependencies(context.Background(), *cfg, productionProvisionDependencies())
-}
-
-func executeStored(ctx context.Context, cfg config.SMProvisionConfig, store smstore.Store, stateDir string, deps provisionDependencies) error {
-	doc, err := store.Load(ctx)
+	adopt, err := explicitBool("SM_PROVISION_ADOPT_LEGACY")
 	if err != nil {
-		return errors.New("SM state is unavailable or invalid")
+		return err
 	}
-	if doc.Provision.Pending != nil {
+	migrate, err := explicitBool("SM_PROVISION_MIGRATE_TARGET")
+	if err != nil {
+		return err
+	}
+	if migrate && adopt {
+		return errors.New("target migration and legacy adoption cannot be combined")
+	}
+	smURL, smToken := os.Getenv("GC_SM_URL"), os.Getenv("GC_SM_TOKEN")
+	if smURL == "" || smToken == "" {
+		return errors.New("GC_SM_URL and GC_SM_TOKEN are required")
+	}
+	snapshotPath := envDefault("CONFIG_SNAPSHOT_PATH", "./control-state.json")
+	stateDir := smstate.RuntimeDir(snapshotPath)
+	release, err := smstate.AcquireLock(stateDir)
+	if err != nil {
+		return errors.New("private state lock is unavailable")
+	}
+	defer func() { _ = release() }()
+	if pendingStateExists(stateDir) {
 		return errors.New("pending operation requires explicit operator review")
 	}
-	if doc.Snapshot == nil {
+	snapshot, err := smstate.ReadSnapshot(stateDir)
+	if err != nil {
 		return errors.New("private snapshot is unavailable or invalid")
 	}
-	snapshot := *doc.Snapshot
-	if snapshot.TargetFingerprint != smstate.TargetFingerprint(cfg.SMURL, cfg.SMToken) {
+	if snapshot.TargetFingerprint != smstate.TargetFingerprint(smURL, smToken) {
 		return errors.New("private snapshot target does not match configured target")
 	}
 	if snapshot.SourceVersion != version {
 		return errors.New("provisioner version does not match private snapshot")
 	}
-	ownership := smstate.OwnershipLedger{SchemaVersion: smstate.SchemaVersion, TargetFingerprint: snapshot.TargetFingerprint}
+	ownership := smstate.OwnershipLedger{
+		SchemaVersion: smstate.SchemaVersion, TargetFingerprint: snapshot.TargetFingerprint,
+	}
 	migrationFrom := ""
 	migrationRetargeted := false
-	if current := doc.Provision.Ownership; current != nil {
-		ownership = *current
+	if current, readErr := smstate.ReadOwnershipState(stateDir); readErr == nil {
 		if current.TargetFingerprint != snapshot.TargetFingerprint {
-			if !cfg.MigrateTarget {
+			if !migrate {
 				return errors.New("ownership target migration requires SM_PROVISION_MIGRATE_TARGET=true")
 			}
 			migrationFrom = current.TargetFingerprint
-		} else if marker := doc.Provision.Migration; marker != nil {
-			if !cfg.MigrateTarget || marker.NewTargetFingerprint != snapshot.TargetFingerprint {
+		} else if marker, markerErr := smstate.ReadMigrationPreview(stateDir); markerErr == nil {
+			if !migrate || marker.NewTargetFingerprint != snapshot.TargetFingerprint {
 				return errors.New("target migration is incomplete; SM_PROVISION_MIGRATE_TARGET=true is required to resume")
 			}
 			migrationFrom = marker.OldTargetFingerprint
 			migrationRetargeted = true
-		} else if cfg.MigrateTarget {
+		} else if !errors.Is(markerErr, os.ErrNotExist) {
+			return errors.New("private target migration state is invalid")
+		} else if migrate {
 			return errors.New("ownership target migration is not required")
 		}
-	} else if cfg.StateBackend == "file" {
-		legacy, err := smstate.OwnershipFromRegistration(stateDir, snapshot.TargetFingerprint)
-		if err == nil {
+		ownership = current
+	} else if errors.Is(readErr, os.ErrNotExist) {
+		// One-time migration from the older snapshot-bound activation artifact. Its IDs remain
+		// ownership evidence, but it never bypasses the emitter's exact snapshot validation.
+		if legacy, legacyErr := smstate.OwnershipFromRegistration(stateDir, snapshot.TargetFingerprint); legacyErr == nil {
 			ownership = legacy
-		} else if !errors.Is(err, os.ErrNotExist) {
+		} else if !errors.Is(legacyErr, os.ErrNotExist) {
 			return errors.New("private ownership state is invalid")
 		}
+	} else {
+		return errors.New("private ownership state is invalid")
 	}
-	p := &provisioner{client: deps.client, stateDir: stateDir, store: store, snapshot: snapshot, ownership: ownership,
-		registration: smstate.Registration{SchemaVersion: smstate.ActivationSchemaVersion, SnapshotHash: snapshot.SnapshotHash, TargetFingerprint: snapshot.TargetFingerprint, SourceVersion: snapshot.SourceVersion},
-		apply:        cfg.Apply, adopt: cfg.AdoptLegacy, migrate: cfg.MigrateTarget, migrationFrom: migrationFrom, migrationRetargeted: migrationRetargeted, now: deps.Clock}
-	return p.execute(ctx)
+	registration := smstate.Registration{
+		SchemaVersion: smstate.SchemaVersion, SnapshotHash: snapshot.SnapshotHash,
+		TargetFingerprint: snapshot.TargetFingerprint, SourceVersion: snapshot.SourceVersion,
+	}
+	p := &provisioner{
+		client:   &smClient{base: strings.TrimRight(smURL, "/"), token: smToken, hc: &http.Client{Timeout: 30 * time.Second}},
+		stateDir: stateDir, snapshot: snapshot, ownership: ownership, registration: registration,
+		apply: apply, adopt: adopt, migrate: migrate, migrationFrom: migrationFrom,
+		migrationRetargeted: migrationRetargeted, now: time.Now,
+	}
+	return p.execute(context.Background())
 }
 
-func (p *provisioner) execute(ctx context.Context) (err error) {
-	p.ctx = ctx
-	if p.store == nil {
-		var release func() error
-		p.store, release, err = smstore.AcquireFileStore(p.stateDir)
-		if err != nil {
-			return errors.New("private state lock is unavailable")
-		}
-		defer func() { err = errors.Join(err, release()); p.store = nil }()
-	}
+func (p *provisioner) execute(ctx context.Context) error {
 	remoteProbes, err := p.client.listProbes(ctx)
 	if err != nil {
 		return errors.New("remote probe inventory is unavailable")
@@ -173,18 +191,13 @@ func (p *provisioner) execute(ctx context.Context) (err error) {
 			if p.migrationRetargeted {
 				return errors.New("target migration is already retargeted; rerun with SM_PROVISION_APPLY=true to resume")
 			}
-			v := p.migrationPreview(planned, migrationResources)
-			if err := p.update(func(s *smstore.ProvisionState) error {
-				s.Migration = &v
-				return nil
-			}); err != nil {
+			if err := smstate.WriteMigrationPreview(p.stateDir, p.migrationPreview(planned, migrationResources)); err != nil {
 				return errors.New("target migration preview could not be persisted")
 			}
 			fmt.Println("target migration preview recorded; rerun with SM_PROVISION_APPLY=true and the same snapshot")
 		}
 		if p.adopt && adoptionCount(planned) > 0 {
-			v := p.adoptionPreview(planned)
-			if err := p.update(func(s *smstore.ProvisionState) error { s.Adoption = &v; return nil }); err != nil {
+			if err := smstate.WriteAdoptionPreview(p.stateDir, p.adoptionPreview(planned)); err != nil {
 				return errors.New("legacy adoption preview could not be persisted")
 			}
 			fmt.Println("legacy adoption preview recorded; rerun with SM_PROVISION_APPLY=true and the same snapshot")
@@ -192,7 +205,7 @@ func (p *provisioner) execute(ctx context.Context) (err error) {
 		return nil
 	}
 	if p.migrate {
-		preview, err := p.readMigration()
+		preview, err := smstate.ReadMigrationPreview(p.stateDir)
 		expected := p.migrationPreview(planned, migrationResources)
 		if err == nil {
 			expected.WrittenUnixMS = preview.WrittenUnixMS
@@ -205,7 +218,7 @@ func (p *provisioner) execute(ctx context.Context) (err error) {
 		if !p.migrationRetargeted {
 			p.ownership.TargetFingerprint = p.snapshot.TargetFingerprint
 			p.ownership.WrittenUnixMS = p.now().UnixMilli()
-			if err := p.update(func(s *smstore.ProvisionState) error { v := p.ownership; s.Ownership = &v; return nil }); err != nil {
+			if err := smstate.WriteOwnership(p.stateDir, p.ownership); err != nil {
 				return errors.New("target migration ownership retarget could not be persisted")
 			}
 			p.migrationRetargeted = true
@@ -217,7 +230,7 @@ func (p *provisioner) execute(ctx context.Context) (err error) {
 		}
 	}
 	if adoptionCount(planned) > 0 {
-		preview, err := p.readAdoption()
+		preview, err := smstate.ReadAdoptionPreview(p.stateDir)
 		expected := p.adoptionPreview(planned)
 		expected.WrittenUnixMS = preview.WrittenUnixMS
 		if err != nil || preview != expected {
@@ -240,11 +253,11 @@ func (p *provisioner) execute(ctx context.Context) (err error) {
 	if err := smstate.ValidateRegistration(p.snapshot, p.registration); err != nil {
 		return errors.New("provisioning did not produce a complete registration")
 	}
-	if err := p.update(func(s *smstore.ProvisionState) error { s.Adoption = nil; return nil }); err != nil {
+	if err := smstate.RemoveAdoptionPreview(p.stateDir); err != nil {
 		return errors.New("legacy adoption preview could not be cleared")
 	}
 	if p.migrate {
-		if err := p.update(func(s *smstore.ProvisionState) error { s.Migration = nil; return nil }); err != nil {
+		if err := smstate.RemoveMigrationPreview(p.stateDir); err != nil {
 			return errors.New("target migration preview could not be cleared")
 		}
 	}
@@ -440,7 +453,7 @@ func (p *provisioner) applyProbe(ctx context.Context, item probePlan) (smstate.R
 	if err != nil {
 		return smstate.Resource{}, err
 	}
-	if err := p.clearPending(); err != nil {
+	if err := smstate.RemoveJournal(p.stateDir); err != nil {
 		return smstate.Resource{}, errors.New("pending operation requires explicit operator review")
 	}
 	return resource, nil
@@ -481,7 +494,7 @@ func (p *provisioner) applyCheck(ctx context.Context, item checkPlan, probeIDs m
 	if err != nil {
 		return smstate.Resource{}, err
 	}
-	if err := p.clearPending(); err != nil {
+	if err := smstate.RemoveJournal(p.stateDir); err != nil {
 		return smstate.Resource{}, errors.New("pending operation requires explicit operator review")
 	}
 	return resource, nil
@@ -497,7 +510,7 @@ func (p *provisioner) beginMutation(operation, kind, key string, desired any) er
 		SnapshotHash: p.snapshot.SnapshotHash, ExpectedHash: smstate.SpecHash(desired), ExpectedSpec: expected,
 		StartedUnixMS: p.now().UnixMilli(),
 	}
-	if err := p.update(func(s *smstore.ProvisionState) error { s.Pending = &journal; s.Registration = nil; return nil }); err != nil {
+	if err := smstate.WriteJournal(p.stateDir, journal); err != nil {
 		return errors.New("pending journal could not be persisted")
 	}
 	return nil
@@ -523,6 +536,9 @@ func (p *provisioner) persistResource(kind, key string, id int64, modified float
 		p.ownership.Resources = append(p.ownership.Resources, resource)
 	}
 	p.ownership.WrittenUnixMS = p.now().UnixMilli()
+	if err := smstate.WriteOwnership(p.stateDir, p.ownership); err != nil {
+		return smstate.Resource{}, errors.New("private ownership could not be persisted")
+	}
 	found = false
 	for index := range p.registration.Resources {
 		if p.registration.Resources[index].Kind == kind && p.registration.Resources[index].Key == key {
@@ -535,12 +551,7 @@ func (p *provisioner) persistResource(kind, key string, id int64, modified float
 		p.registration.Resources = append(p.registration.Resources, resource)
 	}
 	p.registration.WrittenUnixMS = p.now().UnixMilli()
-	if err := p.update(func(s *smstore.ProvisionState) error {
-		o, r := p.ownership, p.registration
-		s.Ownership = &o
-		s.Registration = &r
-		return nil
-	}); err != nil {
+	if err := smstate.WriteRegistration(p.stateDir, p.registration); err != nil {
 		return smstate.Resource{}, errors.New("private registration could not be persisted")
 	}
 	return resource, nil
@@ -746,6 +757,11 @@ func pendingMutationError(err error) error {
 		return errors.New("remote mutation outcome is ambiguous; pending operation requires explicit operator review")
 	}
 	return errors.New("remote mutation did not complete; pending operation requires explicit operator review")
+}
+
+func pendingStateExists(dir string) bool {
+	_, err := os.Lstat(filepath.Join(dir, smstate.JournalFilename))
+	return err == nil || !errors.Is(err, os.ErrNotExist)
 }
 
 func explicitBool(name string) (bool, error) {

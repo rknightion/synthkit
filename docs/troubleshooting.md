@@ -34,10 +34,7 @@ All nine lanes report one of `enabled`, `partial`, `disabled`, or `unsupported`.
 only closed non-secret missing field names; `disabled` is intentional/no request; `unsupported` is
 a hard stop. Fleet metrics and API registration are separate rows. For Synthetic Monitoring,
 `partial` after an apply normally means the required `docker compose restart synthkit` was not
-performed or the specification/target/schema binding is stale. After the first explicit v2 format
-apply/restart, an unchanged release-only bump does not stale activation. A write tool from the old
-release still rejects the new snapshot; use the matching tool for any new apply. Pending/corrupt
-storage is never absence and must be reviewed, not silently cleared.
+performed or the snapshot/registration binding is stale.
 
 ---
 
