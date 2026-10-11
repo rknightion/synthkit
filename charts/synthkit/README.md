@@ -143,7 +143,7 @@ limit lets the container be OOM-killed before the collector reacts.
 |---|---|---|
 | `image.repository` | `ghcr.io/rknightion/synthkit` | |
 | `image.tag` | `""` | Falls back to `Chart.appVersion`. Bare `X.Y.Z`; Git tags carry the `v`. |
-| `image.digest` | `""` | Preferred for standing deployments. Wins over `tag`. |
+| `image.digest` | `sha256:3bc29a33b7f17aeadf025b39493c082d2dee90e94475b72c4b3bfec3087118e6` | Verified published `1.6.0-rc.160` multi-platform index with HA/state support. Wins over `tag`; clear explicitly to use a tag. |
 | `image.pullPolicy` | `IfNotPresent` | |
 | `imagePullSecrets` | `[]` | |
 
@@ -219,25 +219,69 @@ the same hostname value in both paths fails the render.
 
 | Key | Default | Notes |
 |---|---|---|
-| `persistence.enabled` | `true` | `false` swaps in an emptyDir — lost on reschedule |
+| `persistence.enabled` | `true` | Non-HA: `false` uses an emptyDir, lost on reschedule. HA requires `false` and mounts no state volume. |
 | `persistence.existingClaim` | `""` | Bind an operator-managed claim |
 | `persistence.size` | `1Gi` | |
 | `persistence.retain` | `true` | `helm.sh/resource-policy: keep` |
 | `probes.startup` / `.readiness` | enabled | `synthkit -healthcheck`, delivery-aware |
 | `probes.liveness.enabled` | `false` | The same check as liveness crash-loops on a backend outage |
 | `resources` | see above | Derived from measurement |
-| `serviceAccount.automountServiceAccountToken` | `false` | synthkit calls no Kubernetes API |
+| `serviceAccount.automountServiceAccountToken` | `false` | Non-HA default. HA always mounts the token for named Lease and state access. |
 | `revisionHistoryLimit` | `2` | Superseded ReplicaSets kept; the Kubernetes default of 10 is nine nobody rolls back to |
 | `terminationGracePeriodSeconds` | `60` | Drain budget for the delivery queue |
 
-Replica count is deliberately not a value: two emitters produce the same series identities against
-the same backend. Setting `replicaCount` is rejected by the values schema rather than ignored,
-because it is the key every other chart uses and silently dropping it would leave you believing you
-had scaled out.
+With HA disabled, the chart deliberately runs one replica with `Recreate`: two independent
+emitters produce the same series identities against the same backend. The generic `replicaCount`
+key is rejected rather than silently ignored. Non-HA requires Kubernetes >=1.25 and has no PDB:
+`minAvailable: 1` for its only replica would block a node drain. A gap is a gap in synthetic data.
 
-**There is deliberately no PodDisruptionBudget, and adding one would be a bug.** This workload runs
-exactly one replica, so a PDB with `minAvailable: 1` can never be satisfied by evicting it and a
-node drain blocks forever. A gap during a drain is a gap in synthetic data, not an outage.
+### Opt-in HA
+
+The default digest and empty-digest/empty-tag fallback select the published `1.6.0-rc.160`
+release candidate (source `708afee1ab5b04af9483fc113be26fb9b3b9d2c5`), not the older
+HA-incapable 1.3.1 release. Put digests in `image.digest`, never in `image.tag`. Operators
+selecting a custom image must independently verify its HA and Kubernetes state capabilities.
+
+Migrating from file mode requires backups, validated state transfer and a planned outage:
+**stop and verify exit of the old ungated emitter before starting HA**. Preserve the old PVC,
+file state and image for rollback; later HA state is not mirrored back to disk. Follow the
+[migration procedure](../../docs/kubernetes.md#migrating-an-existing-file-mode-release);
+there is no automatic conversion tool and no safe overlapping rolling transition.
+
+HA requires Kubernetes >=1.31, `ha.enabled: true`, `ha.mode: lease`,
+`ha.stateBackend: kubernetes`, `ha.replicas: 2`, and `persistence.enabled: false` with no
+`existingClaim`. It uses RollingUpdate with maxSurge 1 / maxUnavailable 0, a PDB with
+minAvailable 1 / unhealthyPodEvictionPolicy AlwaysAllow, and hostname topology spread with
+maxSkew 1 / ScheduleAnyway. Probes retain their existing commands and budgets.
+
+`ha.leaseName`, `ha.controlConfigMap` and `ha.bootConfigMap` are required names;
+`ha.gitSourceConfigMaps` maps stable source IDs to distinct ConfigMap names. It is an explicit
+inventory of available slots, including unused slots, not a list of currently configured sources.
+Source IDs start with a lowercase letter or digit, then accept lowercase letters, digits,
+underscores and hyphens, but not consecutive underscores. Runtime source configuration needs a
+mapped slot; the chart does not invent source membership.
+
+An operator must precreate the named Lease and every state ConfigMap outside Helm before starting
+the workload, including unused source slots. The chart never looks up, creates or manages mutable
+state, as either hooks or release resources, on install, upgrade or rollback. There is no automatic
+bootstrap mode; `ha.createResources` is not a supported value. Keeping these objects out of the
+release protects their documents, unrelated metadata and Lease holder from hook deletion and stored
+manifest replay. A `keep` annotation is not the safety mechanism.
+
+Precreate new slots before changing the mapping. Missing objects fail runtime startup; the workload
+cannot create them. Keep names stable across revisions and retain old mappings and objects for any
+intended rollback. Only roll back to revisions that also keep mutable state outside Helm ownership.
+Backup, retention and eventual cleanup belong to the operator, independently of Helm uninstall.
+See the operator guide below for initial-object examples, which must not be added to chart templates.
+
+The mounted ServiceAccount receives only named get/update/patch on these resources. The chart's
+ingress-only NetworkPolicy does not guess API-server addresses; separately enforced egress policy
+must permit the real API endpoint. HA rejects automatic SM provisioning and uploads. Handoff
+restarts in-memory counters and queues; it is local admission fencing, not distributed exclusivity
+or a promise of zero loss/duplication. HA-off binary deployments with Kubernetes state still use
+local disk for uploads and need retained disk for upload continuity; that backend does not make
+uploads shared. See the [HA operator guide](../../docs/kubernetes.md#optional-stateless-ha-chart)
+for configuration and handoff limits.
 
 ### Synthetic Monitoring provisioner
 

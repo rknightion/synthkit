@@ -1,0 +1,13 @@
+# Stateless HA requires the named Kubernetes state backend, not shared file state.
+ha:
+  enabled: true
+  mode: lease
+  stateBackend: kubernetes
+  replicas: 2
+  leaseName: synthkit-election
+  controlConfigMap: synthkit-control
+  bootConfigMap: synthkit-boot
+  gitSourceConfigMaps:
+    sample_source: synthkit-source
+persistence:
+  enabled: false

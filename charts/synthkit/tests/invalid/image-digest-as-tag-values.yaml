@@ -1,0 +1,3 @@
+# A digest belongs in image.digest; tag syntax must reject a colon-before-digest image.
+image:
+  tag: "@sha256:5f0ee7b33e8542afc432703b5f4477c6a54abbabc8cce20c798a2798b6128bff"

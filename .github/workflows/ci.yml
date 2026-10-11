@@ -176,8 +176,8 @@ jobs:
       - run: just helm-test
       - run: just lab-check
 
-  # Schema-validates every ci/*-values.yaml fixture against the API schemas.
-  # Pinned to 1.25.0 because Chart.yaml claims kubeVersion ">=1.25.0-0" and
+  # Disjoint fixture groups validate every positive fixture at its API floor.
+  # Non-HA stays at 1.25.0 because Chart.yaml claims kubeVersion ">=1.25.0-0" and
   # validating only against newer schemas passes manifests the oldest supported
   # cluster would reject. -ignore-missing-schemas stays off, per this repo's own
   # long-standing argument that the flag can pass while validating nothing.
@@ -193,6 +193,21 @@ jobs:
       schema-locations: >-
         default https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
 
+  # HA requires the stable AlwaysAllow PDB behavior introduced in Kubernetes 1.31.
+  # Serialize calls: the reusable shares a concurrency group and cancels siblings.
+  helm-validate-ha:
+    needs: [helm-validate]
+    permissions:
+      contents: read
+    uses: rknightion/.github/.github/workflows/helm-validate.yml@c36bf7ded21407b0a5169ecb2502d6a3a385be30 # v1.25.5
+    with:
+      chart-path: charts/synthkit
+      release-name: synthkit
+      kubernetes-versions: "1.31.0"
+      values-glob: charts/synthkit/ci-ha/*-values.yaml
+      schema-locations: >-
+        default https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
+
   # Single aggregator the branch ruleset gates on (`ci-success` required status check). Keeping the
   # ruleset pinned to one check means the job list above can change without touching branch
   # protection. GitHub-only — not mirrored to .forgejo (no fleet ruleset there; documented divergence).
@@ -200,7 +215,7 @@ jobs:
     name: ci-success
     runs-on: ubuntu-latest
     if: always()
-    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm, helm-validate]
+    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm, helm-validate, helm-validate-ha]
     steps:
       - name: Fail if any required job did not pass
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}

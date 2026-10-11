@@ -4,7 +4,7 @@
 # Rendering permutations is branching logic with real room to be wrong, so the credential and
 # exposure permutations are asserted rather than eyeballed. Two halves:
 #
-#   POSITIVE  charts/synthkit/ci/*-values.yaml must render, and the assertions below check that
+#   POSITIVE  charts/synthkit/{ci,ci-ha}/*-values.yaml must render, and assertions check that
 #             what came out is what the values asked for.
 #   NEGATIVE  charts/synthkit/tests/invalid/*-values.yaml must FAIL to render. A chart that
 #             silently accepts a self-obs credential from the synthetic-data Secret, or puts the
@@ -16,6 +16,7 @@ set -uo pipefail
 
 CHART_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CI_DIR="$CHART_DIR/ci"
+HA_CI_DIR="$CHART_DIR/ci-ha"
 INVALID_DIR="$CHART_DIR/tests/invalid"
 
 if ! command -v helm >/dev/null 2>&1; then
@@ -29,7 +30,17 @@ fail=0
 ok()   { pass=$((pass+1)); printf '  ok   %s\n' "$1"; }
 bad()  { fail=$((fail+1)); printf '  FAIL %s\n' "$1" >&2; }
 
-render() { helm template synthkit-test "$CHART_DIR" "$@" 2>&1; }
+render() {
+  # Helm's compiled-in Kubernetes version is not the chart's compatibility floor.
+  # HA fixtures require stable AlwaysAllow; every non-HA fixture retains 1.25.
+  local version=1.25.0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      "$HA_CI_DIR"/*-values.yaml|"$INVALID_DIR"/ha-*-values.yaml) version=1.31.0 ;;
+    esac
+  done
+  helm template synthkit-test "$CHART_DIR" --kube-version "$version" "$@" 2>&1
+}
 
 # assert_contains <label> <rendered> <pattern...>
 assert_contains() {
@@ -89,12 +100,19 @@ assert_secret_key() {
   fi
 }
 
+echo "== HA lifecycle and runtime contract =="
+if (cd "$CHART_DIR/../.." && go test ./charts/synthkit/tests -run '^TestHA' -count=1); then
+  ok "HA render contract"
+else
+  bad "HA render contract"
+fi
+
 echo "== helm lint =="
 if helm lint "$CHART_DIR" >/dev/null 2>&1; then ok "helm lint"; else bad "helm lint"; helm lint "$CHART_DIR"; fi
 
 echo
 echo "== positive permutations render =="
-for f in "$CI_DIR"/*-values.yaml; do
+for f in "$CI_DIR"/*-values.yaml "$HA_CI_DIR"/*-values.yaml; do
   if out=$(render -f "$f") && [ -n "$out" ]; then
     ok "renders $(basename "$f")"
   else
@@ -122,7 +140,8 @@ assert_absent_kind "default" "$OUT" Service Ingress Job
 assert_absent "default" "$OUT" \
   'CONTROL_EXPOSURE_ACK' \
   'secretKeyRef' \
-  'livenessProbe'
+  'livenessProbe' \
+  'unhealthyPodEvictionPolicy'
 
 echo
 echo "== credential separation: self-obs never shares the data path =="
@@ -231,7 +250,7 @@ echo "== rendered manifests validate against the Kubernetes API schemas =="
 # KUBE_VERSION pins the schema set. Without it kubeconform validates against the newest schemas
 # it can fetch, which passes a manifest that would be rejected by the oldest cluster the chart
 # claims to support in Chart.yaml's kubeVersion.
-KUBE_VERSION="${KUBE_VERSION:-1.25.0}"
+KUBE_VERSION="1.25.0"
 # NO -ignore-missing-schemas. That flag skips any resource kubeconform has no schema for, so a leg
 # carrying it can pass while validating nothing — the exact failure this suite already had, one
 # level down. Built-in resources use kubeconform's default schema; the current HTTPRoute CRD uses
@@ -247,12 +266,16 @@ KUBECONFORM_ARGS=(
   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 )
 if command -v kubeconform >/dev/null 2>&1; then
-  for f in "$CI_DIR"/*-values.yaml; do
-    if render -f "$f" | kubeconform "${KUBECONFORM_ARGS[@]}" -summary - >/dev/null 2>&1; then
-      ok "kubeconform $(basename "$f") against $KUBE_VERSION"
+  for f in "$CI_DIR"/*-values.yaml "$HA_CI_DIR"/*-values.yaml; do
+    # Disjoint groups mirror the reusable CI inputs; no fixture is skipped.
+    version="$KUBE_VERSION"
+    case "$f" in "$HA_CI_DIR"/*) version=1.31.0 ;; esac
+    KUBECONFORM_ARGS[2]="$version"
+    if render -f "$f" --kube-version "$version" | kubeconform "${KUBECONFORM_ARGS[@]}" -summary - >/dev/null 2>&1; then
+      ok "kubeconform $(basename "$f") against $version"
     else
-      bad "kubeconform $(basename "$f") against $KUBE_VERSION"
-      render -f "$f" | kubeconform "${KUBECONFORM_ARGS[@]}" - 2>&1 | tail -5 >&2
+      bad "kubeconform $(basename "$f") against $version"
+      render -f "$f" --kube-version "$version" | kubeconform "${KUBECONFORM_ARGS[@]}" - 2>&1 | tail -5 >&2
     fi
   done
 elif [ -n "${REQUIRE_KUBECONFORM:-}" ]; then
