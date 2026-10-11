@@ -42,6 +42,9 @@ _ui-build:
     npm run build
 
 [private]
+_ui-embed: _ui-install _ui-build
+
+[private]
 [working-directory('dashboards/internal')]
 _selfobs-build:
     python3 build_selfobs_dashboard.py
@@ -344,7 +347,7 @@ proto-drift-check:
 
 # pre-commit gate: every CI validation that runs without a Docker daemon or service container
 [group('check')]
-check: fmt-check lint gen-check env-check docs-check test race hygiene ui-check compose-check helm-test lab-check signal-fidelity troubleshooting-check
+check: _ui-embed fmt-check lint gen-check env-check docs-check test race hygiene ui-check compose-check helm-test lab-check signal-fidelity troubleshooting-check
 
 # CI superset: `check` plus the Docker-daemon legs marked above
 [group('check')]
