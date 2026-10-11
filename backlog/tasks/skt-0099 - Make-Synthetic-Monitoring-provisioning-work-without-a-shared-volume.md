@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 19:44'
+updated_date: '2026-10-11 19:50'
 labels:
   - feature
   - ha
@@ -53,4 +53,6 @@ Full independent security review BLOCK on treeb6c51fac: major torn file activati
 Retry preflight stopped before edits because narrowed repair brief omitted cmd/sm-provision/lease.go file-mode lock composition. Root inspected and added that branch only for positively acquired store/release composition, preserving all Kubernetes Lease behavior and frozen APIs. Candidate remains exact prior tree, real index empty, no gate or CodeRabbit run; zero additional cycles consumed. Third counted cycle continues on same retry route.
 
 Third counted cycle repaired the torn file read with positively acquired O_EXCL store lifetime and post-release refusal; actual concurrent apply/handoff regression failed before and passed after. Expanded runtime persisted-evidence matrix90cases green; bound-spec matrix39cases observed no failures in prior focused invocation, but whole invocation red for two new fixture-index errors later corrected. CodeRabbit exact seven-file delta completed0findings. Final fullgate exit1 before tests/race: ignored .go evidence copies under scratch became a Go package and redeclared symbols. Candidate treed0f02189e64c743b78e2241db0bc09af3851c7d2, patch81683d810e4ae34414a1500b40554e775e965b871132dee1fb4d7ba6d10744e2, source bytes unchanged after gate and root verified. Fourth/final rescue cycle owns artifact preservation/rename and overlay-map update only, then one fullgate; delta security and native pinned history/candidate scans run independently. No fifth cycle permitted.
+
+Scoped delta security CONDITIONAL PASS: F1 resolved by positively owned consistent read, actual concurrent apply/handoff proof accepted, new runtime negative source matrix complete; finalfullgate remains external. Minor inherited PublishSnapshot lifecycle caveat recorded separately as SKT-0126 (fence snapshot publication on acquired provisioner stores): no production call or lock bypass, left unchanged. Native pinnedgitleaks8.30.1 history and exact1727file materialized candidate scans both exit0/no leaks, existing config unchanged. Count reconciled883reachable=15no-diff merges+1empty+1deleted-file-only+866fragment-eligible, consistent with tagged scanner/parser semantics; no unexplained text coverage gap or scan rerun. Final artifact-only fullgate still running.
 <!-- SECTION:NOTES:END -->
