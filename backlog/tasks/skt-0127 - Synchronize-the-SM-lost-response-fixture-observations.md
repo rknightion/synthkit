@@ -1,10 +1,11 @@
 ---
 id: SKT-0127
 title: Synchronize the SM lost-response fixture observations
-status: Parked
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-11 20:14'
-updated_date: '2026-10-11 20:15'
+updated_date: '2026-10-11 21:34'
 labels: []
 dependencies: []
 references:
@@ -33,6 +34,12 @@ The exact composed gate of SM provision/activation candidate d850591d71efcdcbca8
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+One owner-raised lineage cycle, five total: verified retained candidate on current main, bounded fail-first race reproduction, synchronize every analogous HTTP-fixture observation without sleeps or assertion weakening; full gate and guarded delta reviews, composed-gated publication and exact CI.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 

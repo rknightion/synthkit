@@ -1,11 +1,11 @@
 ---
 id: SKT-0099
 title: Make Synthetic Monitoring provisioning work without a shared volume
-status: Parked
+status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 20:40'
+updated_date: '2026-10-11 21:35'
 labels:
   - feature
   - ha
@@ -39,6 +39,8 @@ SM provisioning is a separate two-boot handoff: cmd/sm-provision takes an O_EXCL
 
 <!-- SECTION:PLAN:BEGIN -->
 Implement approved dedicated provisioner Lease, aggregate CAS sm-state key, v2 release-independent activation with strict tool/snapshot version compatibility and explicit format migration. Refresh consumer census against current main before changing. Prove local CLI with fake named Kubernetes and SM HTTP plus actual emission/restart behavior; preserve private file evidence, compare inventory before/after, regenerate config/skills outputs, full local gate and pre-land guarded reviews. Chart wiring is a separate unadmitted follow-up.
+
+One owner-raised lineage cycle via SKT-0127 (synchronize lost-response fixture observations), five total. Resume exact retained feature; no chart wiring or independent fresh budget.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

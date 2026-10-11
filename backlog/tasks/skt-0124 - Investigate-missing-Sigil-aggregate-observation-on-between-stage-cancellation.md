@@ -1,10 +1,11 @@
 ---
 id: SKT-0124
 title: Investigate missing Sigil aggregate observation on between-stage cancellation
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-11 15:20'
-updated_date: '2026-10-11 18:20'
+updated_date: '2026-10-11 21:34'
 labels: []
 dependencies: []
 priority: medium
@@ -31,6 +32,12 @@ Read-only review of current Sigil delivery finds bare context-error returns betw
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Convert retained cancellation reproduction into a fail-first real test; repair exactly one terminal aggregate for admitted nonempty writes, preserve deadline/join/admission and queue-loss contracts; compare inventory and gate/review before exact CI.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 

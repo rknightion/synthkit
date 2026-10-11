@@ -1,9 +1,11 @@
 ---
 id: SKT-0125
 title: Keep operator-owned-state chart proof compatible with current Helm
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-11 19:11'
+updated_date: '2026-10-11 21:34'
 labels: []
 dependencies: []
 references:
@@ -32,3 +34,9 @@ The unchanged HA chart proof combines --dry-run=server and --validate at charts/
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Reproduce installed Helm flag rejection, preserve actual fixture discovery/precreation safety proof under current and prior Helm, update prerequisite documentation, then local gate, review and exact composed-gated CI.
+<!-- SECTION:PLAN:END -->
