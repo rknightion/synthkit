@@ -4,6 +4,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -55,14 +56,23 @@ func (g *observedAdmission) Do(ctx context.Context, op ha.Operation, fn func(con
 }
 
 func TestHALossSubprocessRealHTTP(t *testing.T) {
-	for _, scenario := range []string{"retry", "partial", "drain", "preparation", "sigterm", "unjoined"} {
+	for _, scenario := range []string{"retry", "partial", "drain", "preparation", "sigterm", "unjoined", "drain-delayed"} {
 		t.Run(scenario, func(t *testing.T) {
 			var mu sync.Mutex
 			var requests []string
+			pushObserved := make(chan struct{})
+			var observedOnce sync.Once
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if scenario == "drain-delayed" && r.URL.Path == "/push" {
+					// Delay parent observation past the old sender-entry/exit window.
+					time.Sleep(1100 * time.Millisecond)
+				}
 				mu.Lock()
 				requests = append(requests, r.URL.Path)
 				mu.Unlock()
+				if r.URL.Path == "/push" {
+					observedOnce.Do(func() { close(pushObserved) })
+				}
 				w.WriteHeader(503)
 			}))
 			defer srv.Close()
@@ -75,7 +85,27 @@ func TestHALossSubprocessRealHTTP(t *testing.T) {
 			defer cancel()
 			cmd := exec.CommandContext(ctx, exe, "-test.run=^TestHALossSubprocessHelper$")
 			cmd.Env = append(os.Environ(), "SYNTHKIT_HA_LOSS_SCENARIO="+scenario, "SYNTHKIT_HA_LOSS_URL="+srv.URL, "SYNTHKIT_HA_LOSS_DIR="+dir)
+			stdin, err := cmd.StdinPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			processDone, ackDone := make(chan struct{}), make(chan struct{})
+			stopClose := context.AfterFunc(ctx, func() { _ = stdin.Close() })
+			defer stopClose()
+			go func() {
+				defer close(ackDone)
+				defer stdin.Close()
+				select {
+				case <-pushObserved:
+					// One byte, only after the real handler records /push.
+					_, _ = stdin.Write([]byte{1})
+				case <-processDone:
+				case <-ctx.Done():
+				}
+			}()
 			output, err := cmd.CombinedOutput()
+			close(processDone)
+			<-ackDone
 			var exit *exec.ExitError
 			if !errors.As(err, &exit) || exit.ExitCode() != 1 || ctx.Err() != nil {
 				t.Fatalf("hard-loss subprocess did not exit 1: %v %s", err, output)
@@ -169,10 +199,12 @@ func TestHALossSubprocessHelper(t *testing.T) {
 		})
 		t.Fatal("unjoined sender treated as completed")
 	}
-	s := promrw.New(os.Getenv("SYNTHKIT_HA_LOSS_URL")+"/push", "user", "token", false, nil)
+	var auth [32]byte
+	if _, err := rand.Read(auth[:]); err != nil {
+		t.Fatal(err)
+	}
+	s := promrw.New(os.Getenv("SYNTHKIT_HA_LOSS_URL")+"/push", "user", fmt.Sprintf("%x", auth), false, nil)
 	s.SetDelivery(httpretry.Delivery{Gate: observed, HTTPTimeout: time.Second, RetryMaxElapsed: time.Second})
-	entered := make(chan struct{})
-	var once sync.Once
 	batch := []promrw.Series{{Name: "up", Labels: map[string]string{"job": "test"}, Value: 1}}
 	opts := queue.Options{Shards: 1, BatchMax: 1, Capacity: 2, Deadline: time.Hour}
 	if scenario == "partial" {
@@ -180,7 +212,6 @@ func TestHALossSubprocessHelper(t *testing.T) {
 		opts.Deadline = 100 * time.Millisecond
 	}
 	q := queue.New[promrw.Series](opts, func(ctx context.Context, b []promrw.Series) error {
-		once.Do(func() { close(entered) })
 		return s.Write(ctx, b)
 	}, func(promrw.Series) uint64 { return 0 }, nil)
 	q.Start()
@@ -189,10 +220,17 @@ func TestHALossSubprocessHelper(t *testing.T) {
 		stopped()
 		return
 	}
-	<-entered
-	// Ensure the first attempt finishes and the real retry loop is sleeping.
+	// Bound the acknowledgement wait independently of the parent's command bound.
+	ackTimeout := time.AfterFunc(3*time.Second, func() { _ = os.Stdin.Close() })
+	var ack [1]byte
+	_, err := io.ReadFull(os.Stdin, ack[:])
+	ackTimeout.Stop()
+	if err != nil || ack[0] != 1 {
+		t.Fatalf("parent HTTP observation acknowledgement failed: %v", err)
+	}
+	// Allow settling after actual observation; this does not prove retry-sleep entry.
 	time.Sleep(40 * time.Millisecond)
-	if scenario == "drain" || scenario == "sigterm" {
+	if scenario == "drain" || scenario == "drain-delayed" || scenario == "sigterm" {
 		if scenario == "sigterm" {
 			gate.Quiesce()
 		}
