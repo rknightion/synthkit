@@ -56,6 +56,21 @@ function renderRail(store: ControlStore) {
   ));
 }
 
+test("managed reset is disabled and explains why without a mutation", () => {
+  const fetch = stubFetchOK();
+  const meta = document.createElement("meta");
+  meta.name = "control-managed-features";
+  meta.content = JSON.stringify({ reset: "Managed by operator" });
+  document.head.append(meta);
+  try {
+    const { getByTestId, getByText } = renderRail(fakeStore({ state: defaultState() }));
+    expect(getByTestId("rail-reset")).toBeDisabled();
+    expect(getByText("Managed by operator")).toBeInTheDocument();
+    fireEvent.click(getByTestId("rail-reset"));
+    expect(fetch).not.toHaveBeenCalled();
+  } finally { meta.remove(); }
+});
+
 test("Reset posts to /control/reset (body null) after confirm", async () => {
   const fn = stubFetchOK();
   const { getByTestId, getByRole } = renderRail(fakeStore({ state: defaultState({ disabled_blueprints: ["a"] }) }));

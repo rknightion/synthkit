@@ -7,6 +7,7 @@ import type { State } from "../api/types";
 import { ConfirmButton } from "./ConfirmDialog";
 import { Icon } from "./Icon";
 import { ThemeToggle } from "./ThemeToggle";
+import { managedReason } from "../utils/managedFeatures";
 
 function deviationCount(state: State | undefined): number {
   if (!state) return 0;
@@ -42,9 +43,10 @@ export function TopBar(): JSX.Element {
       <span class="polled">polled {store.state.loading ? "now" : "recently"}</span>
       <button class="icon-btn" type="button" aria-label="Refresh control state" onClick={() => void store.refresh()}><Icon name="arrows-clockwise" /></button>
       <ThemeToggle />
-      <ConfirmButton class="destructive" testid="rail-reset" label="Reset all" confirmLabel="Reset all" message={resetMsg()} onConfirm={reset} />
+      <ConfirmButton disabled={!!managedReason("reset")} class="destructive" testid="rail-reset" label="Reset all" confirmLabel="Reset all" message={resetMsg()} onConfirm={reset} />
       <button class="primary-action" type="button" onClick={() => window.dispatchEvent(new Event("synthkit:open-search"))}>Search</button>
     </div>
+    {managedReason("reset") && <span role="note">{managedReason("reset")}</span>}
     {resetErr() && <span class="topbar-error" data-testid="rail-reset-err" role="alert">Reset failed: {resetErr()}</span>}
   </header>;
 }

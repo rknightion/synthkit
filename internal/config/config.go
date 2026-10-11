@@ -73,6 +73,8 @@ type Config struct {
 	ControlToken     string        // CONTROL_TOKEN — HTTP Basic password (user: control) for sensitive reads and mutations (empty = auth disabled)
 	ControlExposure  string        // CONTROL_EXPOSURE_ACK — trusted-network | tls-proxy for non-loopback exposure
 
+	ControlManagedFeatures map[string]string // CONTROL_MANAGED_FEATURES — presentation-only feature reasons
+
 	// External/custom blueprint sources (git + local).
 	GitPollInterval        int    // GIT_POLL_INTERVAL — seconds between "update available" polls (0 = off)
 	GitTokenDefault        string // GIT_TOKEN — default HTTPS PAT for private git blueprint repos (fallback when a source's token_env_var is empty)
@@ -357,6 +359,11 @@ func Load(envPath string) (*Config, error) {
 	}
 	cfg.SendDrainDeadline = sdd
 
+	managed, err := ParseControlManagedFeatures(get("CONTROL_MANAGED_FEATURES", ""))
+	if err != nil {
+		return nil, err
+	}
+	cfg.ControlManagedFeatures = managed
 	if err := ValidateControlBasePath(cfg.ControlBasePath); err != nil {
 		return nil, err
 	}
@@ -364,6 +371,29 @@ func Load(envPath string) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// ParseControlManagedFeatures reads a JSON object of presentation-only feature reasons.
+// This does not add an authorization or server mutation barrier.
+func ParseControlManagedFeatures(raw string) (map[string]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var features map[string]string
+	if err := json.Unmarshal([]byte(raw), &features); err != nil || features == nil {
+		return nil, fmt.Errorf("CONTROL_MANAGED_FEATURES must be a JSON object of feature reasons")
+	}
+	for key, reason := range features {
+		switch key {
+		case "blueprint_sources", "custom_uploads", "reset":
+		default:
+			return nil, fmt.Errorf("CONTROL_MANAGED_FEATURES has unknown feature %q", key)
+		}
+		if strings.TrimSpace(reason) == "" {
+			return nil, fmt.Errorf("CONTROL_MANAGED_FEATURES feature %q requires a nonempty reason", key)
+		}
+	}
+	return features, nil
 }
 
 // ValidateControlBasePath accepts only canonical, origin-relative prefixes.

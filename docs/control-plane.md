@@ -42,6 +42,22 @@ lists staged custom/git blueprints.
 
 Open `http://127.0.0.1:8088/control/ui` (or the host's address if exposed).
 
+### Managed console features
+
+`CONTROL_MANAGED_FEATURES` optionally contains a JSON object such as
+`{"blueprint_sources":"Managed by operator","custom_uploads":"Use the approved blueprint process","reset":"Contact the operator to reset"}`.
+The only admitted keys are `blueprint_sources`, `custom_uploads`, and `reset`;
+each value must be a nonempty reason. Unknown keys and malformed objects fail startup.
+An empty variable or `{}` preserves the existing index response bytes.
+
+The console disables remote-source add/fetch/delete controls, custom-upload
+validate/save/delete controls, and reset respectively, and displays the configured
+reason as text. Runtime metadata beside the base-path tags is HTML-escaped before
+injection. Built assets are shared unchanged across configurations. This is
+**presentation only**, not authorization: direct API reads and mutations remain
+available under the existing authentication/exposure policy. Do not use these locks
+as a security boundary. Compose passes the variable through its selected env file.
+
 ### Reverse-proxy prefix
 
 Set `CONTROL_BASE_PATH=/x/y` for the external console URL `/x/y/control/ui/`.

@@ -46,6 +46,19 @@ EMPTY=
 	}
 }
 
+func TestManagedFeaturesStartup(t *testing.T) {
+	for _, value := range []string{`{"unknown":"managed"}`, `{"reset":null}`, `{"reset":""}`, `[]`, `{"reset":1}`} {
+		t.Setenv("CONTROL_MANAGED_FEATURES", value)
+		if _, err := Load(writeEnv(t, "")); err == nil {
+			t.Errorf("accepted invalid managed features %s", value)
+		}
+	}
+	t.Setenv("CONTROL_MANAGED_FEATURES", `{"reset":"Managed by operator"}`)
+	if _, err := Load(writeEnv(t, "")); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestLoadDefaultsAndOverrides(t *testing.T) {
 	p := writeEnv(t, "GC_TOKEN=filetoken\nSERIES_CAP=5000\n")
 	t.Setenv("GC_TOKEN", "envtoken") // process env wins over file

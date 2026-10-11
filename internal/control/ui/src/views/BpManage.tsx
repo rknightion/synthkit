@@ -3,6 +3,7 @@ import { useStore } from "../store/store";
 import { postJSON, delJSON, ApiError } from "../api/client";
 import { ConfirmButton } from "../shell/ConfirmDialog";
 import { ActionError } from "../shell/ActionError";
+import { ManagedControls, managedReason } from "../utils/managedFeatures";
 import type {
   PendingChanges,
   StagedBlueprint,
@@ -177,6 +178,7 @@ export function BpManage(): JSX.Element {
                       </span>
                       <Show when={isDeletable(bp.provenance || "upload")}>
                         <ConfirmButton
+                          disabled={!!managedReason("custom_uploads")}
                           class="bpm-btn danger bpm-del-staged"
                           label="✕ Delete"
                           confirmLabel="Delete"
@@ -194,9 +196,12 @@ export function BpManage(): JSX.Element {
         </section>
 
         {/* ── upload editor ─────────────────────────────────────────────────── */}
-        <UploadEditor onSaved={() => void store.refresh()} />
+        <ManagedControls feature="custom_uploads">
+          <UploadEditor onSaved={() => void store.refresh()} />
+        </ManagedControls>
 
         {/* ── remote sources panel ──────────────────────────────────────────── */}
+        <ManagedControls feature="blueprint_sources">
         <section class="sec" id="bpm-git-source">
           <div class="sec-label">
             Remote sources
@@ -312,6 +317,7 @@ export function BpManage(): JSX.Element {
             <AddSourceForm onAdded={() => void store.refresh()} />
           </div>
         </section>
+        </ManagedControls>
       </Show>
     </section>
   );

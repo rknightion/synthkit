@@ -45,6 +45,8 @@ type Handler struct {
 	bounded  ha.Bounded
 	haMode   bool
 	serial   chan struct{}
+
+	managedFeatures map[string]string
 }
 
 // ServeHTTP dispatches to the assembled router.
@@ -57,6 +59,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.URL.RawPath = ""
 	}
 	h.mux.ServeHTTP(w, r)
+}
+
+// SetManagedFeatures installs presentation-only feature reasons before serving requests.
+// It does not restrict API endpoints. Copy input so callers cannot mutate runtime metadata.
+func (h *Handler) SetManagedFeatures(features map[string]string) *Handler {
+	h.managedFeatures = make(map[string]string, len(features))
+	for key, reason := range features {
+		h.managedFeatures[key] = reason
+	}
+	return h
 }
 
 // SetBasePath installs the trusted external prefix before serving requests.
@@ -290,7 +302,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	mux.HandleFunc("GET /control/ui", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, h.basePath+"/control/ui/", http.StatusFound)
 	})
-	mux.Handle("GET /control/ui/", spaHandlerWithBase(func() string { return h.basePath }))
+	mux.Handle("GET /control/ui/", spaHandlerWithBase(func() string { return h.basePath }, func() map[string]string { return h.managedFeatures }))
 	// GET /control/status — sink readiness + persist health (protected when configured,
 	// I26). Status is read off h.status at request time so the source can be attached after
 	// construction via SetStatus.

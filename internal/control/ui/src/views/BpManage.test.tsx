@@ -430,6 +430,27 @@ test("a source delete is ConfirmButton-gated and DELETEs blueprints/sources?id="
   expect(f.methodFor("blueprints/sources?id=src-1")).toBe("DELETE");
 });
 
+test("managed metadata disables rendered upload and source controls with escaped reasons", () => {
+  const meta = document.createElement("meta");
+  meta.name = "control-managed-features";
+  const reason = '<script>unsafe</script> & "managed"';
+  meta.content = JSON.stringify({ blueprint_sources: reason, custom_uploads: reason });
+  document.head.append(meta);
+  try {
+    const { getByTestId, getAllByText, container } = renderBpManage(fakeStore({ loading: false, pending: pending(), staged: [staged()], sources: [source()] }));
+    expect(getByTestId("bpm-source-fetch-src-1")).toBeDisabled();
+    expect(getByTestId("bpm-source-del-src-1")).toBeDisabled();
+    expect(getByTestId("bpm-validate")).toBeDisabled();
+    expect(getByTestId("bpm-save")).toBeDisabled();
+    for (const element of container.querySelectorAll('#bpm-git-source button, #bpm-git-source input')) {
+      expect(element).toBeDisabled();
+    }
+    expect(container.querySelector('.bpm-del-staged')).toBeDisabled();
+    expect(getAllByText(reason).length).toBeGreaterThan(0);
+    expect(container.querySelector("script")).toBeNull();
+  } finally { meta.remove(); }
+});
+
 test("a source Fetch-now POSTs blueprints/sources/fetch?id=", async () => {
   const f = stubFetch({ status: "fetched" });
   const store = fakeStore({

@@ -5,6 +5,7 @@ package control
 import (
 	"encoding/json"
 	"github.com/rknightion/synthkit/internal/config"
+	"html"
 	"io"
 	"net/url"
 	"os"
@@ -129,6 +130,44 @@ func TestRuntimeBasePath(t *testing.T) {
 			t.Fatalf("API shape changed: %s", data)
 		}
 		srv.Close()
+	}
+}
+
+func TestRuntimeManagedFeatures(t *testing.T) {
+	h := NewHandler(NewStore(""), nil, "").SetBasePath("/x/y")
+	setter, ok := any(h).(interface {
+		SetManagedFeatures(map[string]string) *Handler
+	})
+	if !ok {
+		t.Fatal("handler lacks managed features configuration")
+	}
+	get := func() string {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", "/x/y/control/ui/", nil))
+		return w.Body.String()
+	}
+	original := get()
+	setter.SetManagedFeatures(map[string]string{})
+	if get() != original {
+		t.Fatal("empty configuration changed response bytes")
+	}
+	reason := `Managed <script>alert("x")</script> & 'quoted'`
+	setter.SetManagedFeatures(map[string]string{"reset": reason})
+	page := get()
+	if strings.Contains(page, "<script>alert") || !strings.Contains(page, `name="control-managed-features"`) || !strings.Contains(page, "&lt;script&gt;") {
+		t.Fatalf("unsafe or missing metadata: %s", page)
+	}
+	match := regexp.MustCompile(`<meta name="control-managed-features" content="([^"]*)">`).FindStringSubmatch(page)
+	var decoded map[string]string
+	if len(match) != 2 {
+		t.Fatal("missing feature list")
+	}
+	if err := json.Unmarshal([]byte(html.UnescapeString(match[1])), &decoded); err != nil || decoded["reset"] != reason {
+		t.Fatalf("metadata did not round-trip reason: %v %v", decoded, err)
+	}
+	setter.SetManagedFeatures(nil)
+	if get() != original {
+		t.Fatal("unset configuration changed response bytes")
 	}
 }
 

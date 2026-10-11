@@ -27,6 +27,8 @@ services:
     # HA_KUBE_REQUEST_TIMEOUT flow unchanged through this file. Do not shadow them
     # with empty Compose environment values. Kubernetes mode requires in-cluster auth;
     # the ordinary Compose deployment retains file-backed state and uploads.
+    # CONTROL_MANAGED_FEATURES also flows through env_file without an empty override.
+    # These console feature reasons are presentation-only, not API access restrictions.
     env_file: ${SYNTHKIT_ENV_FILE:-.env}
     environment:
       BLUEPRINTS: /app/blueprints

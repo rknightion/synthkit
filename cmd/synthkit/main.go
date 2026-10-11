@@ -663,6 +663,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	}
 	handler := control.NewHandler(store, r.ApplyControl, cfg.ControlToken, r).
 		SetBasePath(cfg.ControlBasePath).
+		SetManagedFeatures(cfg.ControlManagedFeatures).
 		SetStatus(control.StatusSources{
 			Sinks:       ps.Snapshot,
 			Queues:      func() []pushstatus.QueueStat { return ps.SnapshotQueues(r.QueueDepths()) },

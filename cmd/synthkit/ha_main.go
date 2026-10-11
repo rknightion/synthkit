@@ -376,6 +376,7 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	mutationBound := ha.Bounded{Gate: gate, Timeout: 2 * time.Second, Margin: cfg.HAFenceMargin, Crash: bound.Crash}
 	handler := control.NewHandler(store, v.runner.ApplyControl, cfg.ControlToken, v.runner).SetHA(gate, mutationBound).
 		SetBasePath(cfg.ControlBasePath).
+		SetManagedFeatures(cfg.ControlManagedFeatures).
 		SetStatus(control.StatusSources{Sinks: ps.Snapshot, Queues: func() []pushstatus.QueueStat { return ps.SnapshotQueues(v.runner.QueueDepths()) }, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, DryRun: cfg.DryRun, Readiness: readiness}).
 		SetBlueprintAdmin(&haBlueprintAdmin{blueprintAdminAdapter: &blueprintAdminAdapter{mgr: mgr, sc: sc}}).SetInventory(v.runner).SetConfig(toControlConfigView(cfg.RedactedHA())).SetHealth(func() any { return healthReport(hs.Snapshot()) }).
 		SetChangeObserver(func(s control.State) {
