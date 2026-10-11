@@ -4,7 +4,10 @@ package runner
 
 import (
 	"context"
+	"reflect"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
@@ -173,4 +176,131 @@ type otlpMetricWriterFunc func(context.Context, []otlp.MetricResource) error
 
 func (f otlpMetricWriterFunc) Write(ctx context.Context, rs []otlp.MetricResource) error {
 	return f(ctx, rs)
+}
+
+// Cached identity must never cache samples or hide a changed source map. A sink
+// retaining an old snapshot must still see its original labels and values.
+func TestStampedMetricsCachedSnapshotsAndInventory(t *testing.T) {
+	var snapshots [][]promrw.Series
+	inv := newConstructInv("test", "app", "svc", nil, nil)
+	w := &stampedMetrics{label: "selected", producer: producerPromRW, inv: inv,
+		budget: newSeriesBudget(0), sink: metricWriterFunc(func(_ context.Context, b []promrw.Series) error {
+			snapshots = append(snapshots, b)
+			return nil
+		})}
+	labels := map[string]string{"job": "service", "status": "200", BlueprintLabel: "source"}
+	sample := []promrw.Series{{Name: "requests_total", Labels: labels, Value: 1, T: time.Unix(1, 0)}}
+	for i := 0; i < 2; i++ {
+		sample[0].Value = float64(i + 1)
+		sample[0].T = time.Unix(int64(i+1), 0)
+		if err := w.Write(context.Background(), sample); err != nil {
+			t.Fatal(err)
+		}
+	}
+	labels["status"] = "500"
+	labels[BlueprintLabel] = "different source"
+	if err := w.Write(context.Background(), sample); err != nil {
+		t.Fatal(err)
+	}
+	if labels[BlueprintLabel] != "different source" || sample[0].Producer != "" {
+		t.Fatal("writer mutated source")
+	}
+	for i, b := range snapshots {
+		wantStatus := "200"
+		if i == 2 {
+			wantStatus = "500"
+		}
+		if b[0].Labels["status"] != wantStatus || b[0].Labels[BlueprintLabel] != "selected" {
+			t.Fatalf("snapshot %d labels changed: %v", i, b[0].Labels)
+		}
+		wantValue := float64(i + 1)
+		if i == 2 {
+			wantValue = 2
+		}
+		if b[0].Value != wantValue || b[0].T != time.Unix(int64(wantValue), 0) {
+			t.Fatalf("snapshot %d cached sample: %+v", i, b[0])
+		}
+	}
+	if len(inv.sigs) != 2 {
+		t.Fatalf("inventory distinct source identities=%d, want 2", len(inv.sigs))
+	}
+	// Rejected series still contribute their unstamped identities to inventory.
+	w.budget = newSeriesBudget(1)
+	if err := w.Write(context.Background(), []promrw.Series{
+		{Name: "admitted", Labels: map[string]string{"first": "a"}},
+		{Name: "rejected", Labels: map[string]string{"second": "b"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshots[3]) != 1 || len(inv.sigs) != 4 {
+		t.Fatalf("budget/inventory: delivered=%d distinct=%d", len(snapshots[3]), len(inv.sigs))
+	}
+	if _, ok := inv.metricLabels["second"]; !ok {
+		t.Fatal("rejected source label missing from inventory")
+	}
+}
+
+func TestMetricLabelCacheCollisionAndFallback(t *testing.T) {
+	var cache metricLabelCache
+	a := cache.resolve(7, map[string]string{"key": "first", BlueprintLabel: "source"}, "selected")
+	b := cache.resolve(7, map[string]string{"other": "", BlueprintLabel: "source"}, "selected")
+	if a.labels["key"] != "first" || b.labels["other"] != "" || len(b.labels) != 2 {
+		t.Fatalf("collision merged or mutated identities: %v %v", a.labels, b.labels)
+	}
+	if _, ok := b.labels["key"]; ok {
+		t.Fatal("collision retained old label")
+	}
+	if !sameMetricLabelPairs(b.pairs, map[string]string{"other": "", BlueprintLabel: "source"}) {
+		t.Fatal("unstamped identity lost")
+	}
+	// Source blueprint values are overwritten on the wire but distinct in inventory.
+	c := cache.resolve(7, map[string]string{"other": "", BlueprintLabel: "changed"}, "selected")
+	if !sameMetricLabelPairs(c.pairs, map[string]string{"other": "", BlueprintLabel: "changed"}) {
+		t.Fatal("source blueprint change hidden")
+	}
+	cache.bytes = maxMetricLabelCacheBytes
+	d := cache.resolve(8, map[string]string{"uncached": "value"}, "selected")
+	if d.labels["uncached"] != "value" || len(cache.sets) != 1 {
+		t.Fatal("byte-budget fallback dropped data or retained entry")
+	}
+	wide := map[string]string{}
+	for i := 0; i <= maxCachedMetricLabels; i++ {
+		wide[strconv.Itoa(i)] = "v"
+	}
+	e := cache.resolve(9, wide, "selected")
+	if len(e.labels) != len(wide)+1 || len(cache.sets) != 1 {
+		t.Fatal("wide-map fallback narrowed labels")
+	}
+	// Entry-count saturation, independently of the byte allowance.
+	cache = metricLabelCache{sets: make(map[uint64]cachedMetricLabels)}
+	for i := 0; i < maxMetricLabelSets; i++ {
+		cache.sets[uint64(i)] = cachedMetricLabels{}
+	}
+	f := cache.resolve(uint64(maxMetricLabelSets), map[string]string{"last": "v"}, "selected")
+	if f.labels["last"] != "v" || len(cache.sets) != maxMetricLabelSets {
+		t.Fatal("entry-limit fallback changed data or grew cache")
+	}
+}
+
+func TestMetricLabelCacheLookupOrderAndChangedLabels(t *testing.T) {
+	first := map[string]string{"a": "1", "b": "2"}
+	second := map[string]string{"b": "2", "a": "1"}
+	if metricLabelsHash(first) != metricLabelsHash(second) {
+		t.Fatal("map iteration changed cache identity")
+	}
+	var cache metricLabelCache
+	x := cache.resolve(metricLabelsHash(first), first, "bp")
+	y := cache.resolve(metricLabelsHash(second), second, "bp")
+	if !reflect.DeepEqual(x.pairs, y.pairs) || len(cache.sets) != 1 {
+		t.Fatal("equal labels did not resolve equally")
+	}
+	delete(second, "a")
+	second["c"] = "3"
+	z := cache.resolve(metricLabelsHash(second), second, "bp")
+	if !reflect.DeepEqual(z.labels, map[string]string{"b": "2", "c": "3", BlueprintLabel: "bp"}) {
+		t.Fatal("changed keys reused stale labels")
+	}
+	if !reflect.DeepEqual(x.labels, map[string]string{"a": "1", "b": "2", BlueprintLabel: "bp"}) {
+		t.Fatal("old snapshot mutated")
+	}
 }
