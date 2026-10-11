@@ -35,7 +35,9 @@ type Sink struct {
 	policy   httpretry.Policy
 	dryRun   bool
 
-	// Observe, when non-nil, receives one sanitized aggregate outcome per non-empty Write.
+	// Observe receives one sanitized terminal aggregate per admitted non-empty Write.
+	// Already-canceled calls and empty writes are silent. Items counts confirmed
+	// logical items, independently of queue-envelope loss.
 	Observe pushhook.Observer
 
 	invGenerations   atomic.Int64
@@ -78,10 +80,13 @@ func New(endpoint, tenantID, token string, dryRun bool) (*Sink, error) {
 // SetDelivery installs HA policy before use.
 func (s *Sink) SetDelivery(d httpretry.Delivery) { s.delivery = d; d.ConfigureClient(s.hc) }
 
-func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
+func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) (terminalErr error) {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// Admission precedes conversion. Keep the caller's absolute whole-write
+	// deadline across every stage, rather than restarting it per endpoint.
+	start := time.Now()
 	var (
 		allGens   []*sigilv1.Generation
 		allSteps  []*sigilv1.WorkflowStep
@@ -98,6 +103,11 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 		return nil
 	}
 
+	status, delivered := 0, 0
+	defer func() {
+		s.observe(ctx, delivered, status, time.Since(start), s.dryRun, terminalErr)
+	}()
+
 	if s.dryRun {
 		s.invGenerations.Add(int64(len(allGens)))
 		s.invWorkflowSteps.Add(int64(len(allSteps)))
@@ -111,12 +121,9 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 			}
 			s.invOpMu.Unlock()
 		}
-		s.observe(ctx, items, 0, 0, true, nil)
+		delivered = items
 		return nil
 	}
-	start := time.Now()
-	status := 0
-	delivered := 0
 
 	if err := ctx.Err(); err != nil {
 		return err
@@ -124,9 +131,12 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 	if len(allGens) > 0 {
 		req := &sigilv1.ExportGenerationsRequest{Generations: allGens}
 		var err error
-		status, _, err = s.postProto(ctx, "/api/v1/generations:export", req)
+		var stageStatus int
+		stageStatus, _, err = s.postProto(ctx, "/api/v1/generations:export", req)
+		if stageStatus != 0 {
+			status = stageStatus
+		}
 		if err != nil {
-			s.observe(ctx, delivered, status, time.Since(start), false, err)
 			return httpretry.Preserve(err, operationalerr.New(operationalerr.Classify(status, err)))
 		}
 		delivered += len(allGens)
@@ -137,9 +147,12 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 	if len(allSteps) > 0 {
 		req := &sigilv1.ExportWorkflowStepsRequest{WorkflowSteps: allSteps}
 		var err error
-		status, _, err = s.postProto(ctx, "/api/v1/workflow-steps:export", req)
+		var stageStatus int
+		stageStatus, _, err = s.postProto(ctx, "/api/v1/workflow-steps:export", req)
+		if stageStatus != 0 {
+			status = stageStatus
+		}
 		if err != nil {
-			s.observe(ctx, delivered, status, time.Since(start), false, err)
 			return httpretry.Preserve(err, operationalerr.New(operationalerr.Classify(status, err)))
 		}
 		delivered += len(allSteps)
@@ -154,19 +167,21 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) error {
 		var body []byte
 		body, err = marshalScoreRequest(req)
 		if err == nil {
-			status, response, err = s.postBody(ctx, "/api/v1/scores:export", body)
+			var stageStatus int
+			stageStatus, response, err = s.postBody(ctx, "/api/v1/scores:export", body)
+			if stageStatus != 0 {
+				status = stageStatus
+			}
 		}
 		if err == nil && !scoresAccepted(response, allScores) {
 			err = operationalerr.New(operationalerr.CodeRejected)
 		}
 		if err != nil {
-			s.observe(ctx, delivered, status, time.Since(start), false, err)
 			return httpretry.Preserve(err, operationalerr.New(operationalerr.Classify(status, err)))
 		}
 		delivered += len(allScores)
 	}
 
-	s.observe(ctx, delivered, status, time.Since(start), false, nil)
 	return nil
 }
 
