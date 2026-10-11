@@ -1,11 +1,11 @@
 ---
 id: SKT-0100
 title: Add Fleet Management cleanup for handoffs and teardown
-status: Parked
+status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 09:56'
+updated_date: '2026-10-11 16:31'
 labels:
   - feature
   - ha
@@ -23,16 +23,16 @@ The FM controller exits without unregistering (StartDynamic, internal/fleet/cont
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 New leader unregisters IDs in the persisted set that its roster lacks
-- [ ] #2 -fleet-unregister removes all collectors for the selected set and exits 0
-- [ ] #3 Restart without teardown still leaves collectors registered
+- [x] #1 New leader unregisters IDs in the persisted set that its roster lacks
+- [x] #2 -fleet-unregister removes all collectors for the selected set and exits 0
+- [x] #3 Restart without teardown still leaves collectors registered
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -47,4 +47,12 @@ Use one aggregate selected-roster FM controller with empty-roster reconciliation
 
 <!-- SECTION:NOTES:BEGIN -->
 Three change/verify cycles total (two workers plus one high retry), historical counts preserved. Destination-bound intent and explicit teardown completion majors repaired fail-first; full17file CodeRabbit+sevenfiledelta0findings, independent full/delta securityPASS. Final localcandidatecheck0 and exactlandedf493ff84292c117f01c16f1d8bb110af8a61ab66 composedcheck0. ExactCI38128447237allotherjobsgreen but secret-scan1finding/ci-successred. MatchingmainancestryGitleaks8.30.1redactedscanidentifies ordinary docs/fleet-management.md line46 prose, not a credential. Fullhistorycontract means forwardedit/revert cannot remove prior finding; scanner not weakened. Parkdependency on SKT-0122 (resolve generic-api-key false positive on teardown documentation) for owner-approved scanner-contract resolution and exactCIgreen. Runtime keptlanded; no criteria checked/Done. Optional Kubernetes chart wiring remains deferred behind accepted general named-state/HA chart seam; no old image feature claim.
+
+loop14: new implementation attempts0, historical three cycles unchanged. Runtime remains landedf493ff84292c117f01c16f1d8bb110af8a61ab66. Approved scanner correction removes prior historical-prose CI blocker; exact scanner-corrected38149789601 and final38153340011 CIgreen, final compositiongreen. Final code SHA c573c89f65d206f3e274d1904d8db85425a367d2, exact CI38153340011 all11jobs success; clean composed just check0 (946.402s). just dump0 (22.224s), unchanged runtime/renderer inputs and same-SHA catalogue/corpus producer ratchet225/225; no new inventory delta. just gen not applicable: no blueprint/construct/workload/skill config changed; gen-check passed. Tracker-only final-tip CI identity will also be verified in the run report.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Finalized previously landed Fleet cleanup: persisted handoff reconciliation, exact one-shot unregister and restart preservation accepted after scanner CI resolution and integrated green gate. No new runtime source or live calls.
+<!-- SECTION:FINAL_SUMMARY:END -->

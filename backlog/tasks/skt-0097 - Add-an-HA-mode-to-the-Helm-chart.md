@@ -1,11 +1,11 @@
 ---
 id: SKT-0097
 title: Add an HA mode to the Helm chart
-status: In Progress
+status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 15:32'
+updated_date: '2026-10-11 16:31'
 labels:
   - feature
   - ha
@@ -25,16 +25,16 @@ Allow replicas: 2 only when lease HA and the kubernetes state backend are both e
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Render tests cover HA on, HA off, and the invalid combinations
-- [ ] #2 PDB uses AlwaysAllow; Role has no create/list/watch
-- [ ] #3 docs/kubernetes.md documents HA mode and its handoff semantics
+- [x] #1 Render tests cover HA on, HA off, and the invalid combinations
+- [x] #2 PDB uses AlwaysAllow; Role has no create/list/watch
+- [x] #3 docs/kubernetes.md documents HA mode and its handoff semantics
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -83,4 +83,12 @@ This run: one additional worker plus one rescue cycle spent, six historical cycl
 Final new-base read-only gate on1200cefd6a16e61a0c11d535b626502c16fce171 failed plain control-dash shipped-scenario test at600.890s (812.044s total), cause UNKNOWN; later race/schema legs not executed. Helm3.22/UI prerequisite passed, exact18file patch and source hashes unchanged; retained old/generated embeds both verified. Park remains added-cycle ceiling and reusable concurrency major; local full acceptance also unproved on integrated base. No unchanged retry, land or CItrial.
 
 One added coordination-only cycle used, seven total historical cycles. Required reusable schema invocations now serialized by needs dependency; fail-first regression caught absent serialization. Corrected native-path base and candidate just check0 with isolated official Helm3.22. All10nonHA fixtures validated against1.25 and1HAfixture against1.31, no missing-schema skip. Rendered20key frozen seam/current runtime reads and fixed defaults/downward API verified. Original image provenance/migration/old-emitter barriers retained. Exact2file CodeRabbit delta complete0findings and independent security deltaPASS. Serial root publication/exact CI still pending; no live chart deployment.
+
+loop14: one owner-raised coordination-only cycle, seven total historical cycles preserved. Landedc573c89; exact CI38153340011 all11jobs success, every Helm/schema job successful, none skipped/cancelled. Non-HA validation completed15:56:20Z before HA began15:56:23Z. No revert owed. Helm3.22 local gates/schema/env proofs and two-file CodeRabbit/security deltas passed; no live deployment. Final code SHA c573c89f65d206f3e274d1904d8db85425a367d2, exact CI38153340011 all11jobs success; clean composed just check0 (946.402s). just dump0 (22.224s), unchanged runtime/renderer inputs and same-SHA catalogue/corpus producer ratchet225/225; no new inventory delta. just gen not applicable: no blueprint/construct/workload/skill config changed; gen-check passed. Tracker-only final-tip CI identity will also be verified in the run report.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Stateless HA chart accepted with both schema floors preserved and reusable calls serialized; image provenance, migration and old-emitter barriers retained. Exact CI and composed gate green.
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -1,11 +1,11 @@
 ---
 id: SKT-0112
 title: Keep the control-dash race package inside the test timeout
-status: Parked
+status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-11 15:27'
+updated_date: '2026-10-11 16:31'
 labels: []
 dependencies: []
 type: bug
@@ -20,16 +20,16 @@ Under `just race`, cmd/synthkit-control-dash took 363s (CI 37810460433), 437s (3
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The exact final main CI go job Run just race log reports cmd/synthkit-control-dash ok in under 600 seconds; unchanged package timeout retained.
-- [ ] #2 TestShippedScenarioImpactQueriesUseDerivedFamilies covers every shipped scenario with every assertion; no skip under race and no timeout increase.
-- [ ] #3 just check exits 0 on the exact final main SHA.
+- [x] #1 The exact final main CI go job Run just race log reports cmd/synthkit-control-dash ok in under 600 seconds; unchanged package timeout retained.
+- [x] #2 TestShippedScenarioImpactQueriesUseDerivedFamilies covers every shipped scenario with every assertion; no skip under race and no timeout increase.
+- [x] #3 just check exits 0 on the exact final main SHA.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -78,4 +78,12 @@ Exact revert67d3605942608089d96c83d0812f7bbe79ac9d4f recovery composedjustcheck 
 Owner regrade: final-main CI race threshold is under600seconds, not300seconds. No new code cycle; retained performance candidate stays unlanded. At or above600seconds park for owner decision; no rerun hunt.
 
 Current scanner-corrected main376696d747d4bde69eea1fdd3bb26fac733266a6 composed just check failed unchanged control-dash race at600.953s, TestShippedScenarioImpactQueriesUseDerivedFamilies default10minute timeout. CauseUNKNOWN; later gate legs unexecuted, not passes. This is local evidence, not final-main CI600second verdict. No unchanged rerun, new code cycle or timeout regrade. Root owns remaining local-gate blocker and will read final planned main CI; further runtime repair remains outside current no-code grant.
+
+loop14: new implementation attempts0; historical counts unchanged and retained performance candidate not re-landed. Approved600second CI regrade met atc573c89f65d206f3e274d1904d8db85425a367d2, run38153340011 go Run just race: ok github.com/rknightion/synthkit/cmd/synthkit-control-dash 355.518s. Scenario/assertion/package timeout source unchanged. Earlier local376 composed timeout600.953s remains UNKNOWN, not a proved runtime cause; final genuinely changed integrated SHA composedgreen, no unchanged rerun. Final code SHA c573c89f65d206f3e274d1904d8db85425a367d2, exact CI38153340011 all11jobs success; clean composed just check0 (946.402s). just dump0 (22.224s), unchanged runtime/renderer inputs and same-SHA catalogue/corpus producer ratchet225/225; no new inventory delta. just gen not applicable: no blueprint/construct/workload/skill config changed; gen-check passed. Tracker-only final-tip CI identity will also be verified in the run report.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Completed by approved CI criterion regrade, not performance code: exact code-final race355.518s under600 and composed checkgreen; all shipped-scenario assertions and original timeout retained.
+<!-- SECTION:FINAL_SUMMARY:END -->

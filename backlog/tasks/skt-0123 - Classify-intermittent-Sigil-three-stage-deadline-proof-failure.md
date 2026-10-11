@@ -1,11 +1,11 @@
 ---
 id: SKT-0123
 title: Classify intermittent Sigil three-stage deadline proof failure
-status: In Progress
+status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 14:34'
-updated_date: '2026-10-11 15:30'
+updated_date: '2026-10-11 16:31'
 labels: []
 dependencies: []
 priority: medium
@@ -21,16 +21,16 @@ Clean main678ba23bfa249e11cf17731caab4a7e6fa965a7a just check failed TestHAActua
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Classify the failure from bounded exact-source and actual HTTP boundary evidence; distinguish product defect from scheduling-dependent test premise.
-- [ ] #2 Any authorized correction preserves one absolute three-stage deadline, actual partial-delivery accounting, no later-stage admission after cancellation, and joined workers; no timeout increase or assertion weakening.
-- [ ] #3 Prove corrected behavior with fail-first evidence and exact candidate just check plus unaffected delivery and HA regressions.
+- [x] #1 Classify the failure from bounded exact-source and actual HTTP boundary evidence; distinguish product defect from scheduling-dependent test premise.
+- [x] #2 Any authorized correction preserves one absolute three-stage deadline, actual partial-delivery accounting, no later-stage admission after cancellation, and joined workers; no timeout increase or assertion weakening.
+- [x] #3 Prove corrected behavior with fail-first evidence and exact candidate just check plus unaffected delivery and HA regressions.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -45,4 +45,12 @@ Bounded test-only proof correction: replace unguaranteed first-response scheduli
 
 <!-- SECTION:NOTES:BEGIN -->
 One test-only cycle: unchanged deadline100ms/margin100ms/Flush220ms bounds, actual workflow HTTP receipt cancellation, exact inherited deadlines, one confirmed generation/no score, positive attempts/queue/server joins, separate actual expiry. Base/candidate just check0; four scratch faults fail correct assertions. Full1file CodeRabbit complete0major1validminor: finite100ms receipt/cancellation scheduling can still flake, left without timeout increase. Independent guarded equivalence PASS. Historical timeout causeUNKNOWN; pre-existing between-stage aggregate-observation gap outside scope, recorded separately as SKT-0124 (investigate missing aggregate observation on cancellation). Root landing/exact CI/composed proof pending.
+
+loop14: one test-only implementation cycle. Actual HTTP receipt cancellation, exact inherited deadlines, partialcount1/no score and positive joins preserved; separate actual expiry retains100ms/100ms/220ms. Four fault controls fail as intended. CodeRabbit0major1validminor, independently accepted with residual finite-deadline timing risk; no timeout increase or historical-cause claim. Landeda2ccdac CI38151561255 all10jobs success; final integrated proof green. Final code SHA c573c89f65d206f3e274d1904d8db85425a367d2, exact CI38153340011 all11jobs success; clean composed just check0 (946.402s). just dump0 (22.224s), unchanged runtime/renderer inputs and same-SHA catalogue/corpus producer ratchet225/225; no new inventory delta. just gen not applicable: no blueprint/construct/workload/skill config changed; gen-check passed. Tracker-only final-tip CI identity will also be verified in the run report.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Improved Sigil test proof without runtime changes: removed70ms stage sleeps, observed real workflow receipt and exact deadlines, joined clients/queues/handlers. Historical failure cause remains unknown; between-stage observation gap is outside scope.
+<!-- SECTION:FINAL_SUMMARY:END -->
