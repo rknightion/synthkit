@@ -39,6 +39,7 @@ import (
 	"github.com/rknightion/synthkit/internal/healthstatus"
 	"github.com/rknightion/synthkit/internal/inventory"
 	"github.com/rknightion/synthkit/internal/jsondata"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/optionallane"
 	"github.com/rknightion/synthkit/internal/preflight"
 	"github.com/rknightion/synthkit/internal/profiling"
@@ -85,6 +86,7 @@ func (f queueObserverFan) FlushObserved(ev queue.FlushEvent) {
 }
 
 func main() {
+	fleetUnregister := flag.Bool("fleet-unregister", false, "unregister the selected Fleet Management collector roster and exit")
 	once := flag.Bool("once", false, "run one full cycle and exit")
 	dump := flag.Bool("dump", false, "with -once: print the full series/label inventory (diff vs signals/)")
 	inventoryJSON := flag.Bool("inventory-json", false, "with -once in dry-run mode: write the canonical telemetry inventory as JSON")
@@ -94,6 +96,19 @@ func main() {
 	showVersion := flag.Bool("version", false, "print the release version and source revision as JSON, then exit")
 	envPath := flag.String("env", ".env", "path to .env file (optional)")
 	flag.Parse()
+	if *fleetUnregister {
+		if *once || *dump || *inventoryJSON || *preflightCheck || *validateCheck || *healthcheck || *showVersion {
+			log.Fatal("synthkit: -fleet-unregister cannot be combined with another mode")
+		}
+		cfg, err := config.Load(*envPath)
+		if err == nil {
+			err = runFleetUnregister(context.Background(), cfg)
+		}
+		if err != nil {
+			log.Fatalf("synthkit: Fleet teardown failed: %s", fleet.LifecycleErrorMessage(err))
+		}
+		return
+	}
 	if *validateCheck {
 		cfg, err := config.Load(*envPath)
 		if err != nil {
@@ -141,6 +156,67 @@ func main() {
 	if err := runMode(*once, *dump, *inventoryJSON, *envPath); err != nil {
 		log.Fatalf("synthkit: %v", err)
 	}
+}
+
+// runFleetUnregister resolves the same selected sources and live control scaling without
+// starting telemetry, heartbeat loops, profiling or Synthetic Monitoring handoff writes.
+func runFleetUnregister(ctx context.Context, cfg *config.Config) error {
+	if cfg.DryRun {
+		return operationalerr.New(operationalerr.CodeRejected)
+	}
+	if cfg.HAMode == "lease" {
+		cfg.FleetUnregister = true
+		return runLeaseMode(cfg, true, false, false)
+	}
+	gate := ha.AlwaysLeader{}
+	store, backend, err := openConfiguredState(ctx, cfg, gate)
+	if err != nil {
+		return err
+	}
+	fleetStore, err := configuredFleetStore(cfg, backend, gate)
+	if err != nil {
+		return err
+	}
+	policy, err := bpsource.NewSourcePolicy(cfg.GitSourceHostAllowlist)
+	if err != nil {
+		return err
+	}
+	reg := runner.Catalog()
+	mgr := bpsource.NewManager(bpsource.Options{Backend: backend, CASAttempts: cfg.StateCASMaxAttempts, MaxDocumentBytes: cfg.StateGitSourceMaxBytes, Gate: gate, ReadOnly: true, BakedDir: cfg.BlueprintsDir, BlueprintNames: cfg.BlueprintNames, DataDir: cfg.BlueprintDataDir, Registry: reg, RuntimeLimits: blueprint.RuntimeLimits{MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries}, Config: bpsource.NewStoreSourceConfig(store), SourcePolicy: policy, Git: bpsource.NewNanogitClientWithPolicy(func(name string) string {
+		if name == "" || name == "GIT_TOKEN" {
+			return cfg.GitTokenDefault
+		}
+		return os.Getenv(name)
+	}, policy)})
+	if err := mgr.LoadBackend(ctx); err != nil {
+		return err
+	}
+	loaded, _, diags := mgr.Resolve(ctx)
+	if err := mgr.SelectionError(); err != nil {
+		return err
+	}
+	for _, d := range diags {
+		if d.Severity == "error" {
+			return fmt.Errorf("Fleet teardown selection failed")
+		}
+	}
+	accepted, err, skipped := foldValidated(loaded)
+	if err != nil {
+		return err
+	}
+	if len(skipped) != 0 {
+		return fmt.Errorf("Fleet teardown selection failed validation")
+	}
+	r := runner.New(runner.Sinks{}, reg, runner.Options{Fleet: fleet.Config{Store: fleetStore, FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun}, MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries})
+	for _, res := range accepted {
+		if err := r.AddBlueprint(res); err != nil {
+			return err
+		}
+	}
+	r.ApplyControl(store.Snapshot())
+	ctx, cancel := context.WithTimeout(ctx, cfg.SendDrainDeadline)
+	defer cancel()
+	return r.UnregisterFleet(ctx)
 }
 
 func readinessEndpoint(bindAddr string) (string, error) {
@@ -455,11 +531,16 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	if err != nil {
 		return err
 	}
+	fleetStore, err := configuredFleetStore(cfg, backend, ha.AlwaysLeader{})
+	if err != nil {
+		return err
+	}
 	r := runner.New(sinks, reg, runner.Options{
 		MasterTick:      cfg.MasterTick,
 		MaxDPMPerSeries: cfg.MaxDPMPerSeries,
 		TickTimeout:     cfg.TickTimeout,
 		Fleet: fleet.Config{
+			Store: fleetStore,
 			FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun,
 		},
 		SendShards: cfg.SendShards, SendBatchMax: cfg.SendBatchMax, SendDeadline: cfg.SendDeadline,

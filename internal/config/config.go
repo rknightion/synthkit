@@ -24,8 +24,11 @@ type Config struct {
 	HAHTTPTimeout, HARetryMaxElapsed, HAFlushTimeout, HAFenceMargin, HAReleaseTimeout time.Duration
 	StateBackend                                                                      string
 	StateControlConfigMap, StateBootConfigMap                                         string
-	StateGitSourceConfigMaps                                                          map[string]string
-	StateGitSourceMaxBytes, StateCASMaxAttempts                                       int
+	StateFleetConfigMap                                                               string
+	// FleetUnregister is a CLI-only teardown request, never an environment switch.
+	FleetUnregister                             bool
+	StateGitSourceConfigMaps                    map[string]string
+	StateGitSourceMaxBytes, StateCASMaxAttempts int
 	// Sinks (one CAP token covers metrics/logs/traces; RUM has its own pair).
 	PromRWURL     string // GC_PROM_RW
 	PromUser      string // GC_PROM_USER
@@ -157,6 +160,7 @@ func Load(envPath string) (*Config, error) {
 		StateBackend:           get("STATE_BACKEND", "file"),
 		StateControlConfigMap:  get("STATE_CONTROL_CONFIGMAP", ""),
 		StateBootConfigMap:     get("STATE_BOOT_CONFIGMAP", ""),
+		StateFleetConfigMap:    get("STATE_FLEET_CONFIGMAP", ""),
 		PromRWURL:              get("GC_PROM_RW", ""),
 		PromUser:               get("GC_PROM_USER", ""),
 		OTLPEndpoint:           get("GC_OTLP_ENDPOINT", ""),
@@ -485,6 +489,20 @@ func (c *Config) ValidateHA() error {
 			names[name] = true
 		}
 	}
+	if c.StateBackend == "kubernetes" {
+		if c.StateFleetConfigMap != "" {
+			if !stateDNSName(c.StateFleetConfigMap) || c.StateFleetConfigMap == c.StateControlConfigMap || c.StateFleetConfigMap == c.StateBootConfigMap {
+				return fmt.Errorf("config: invalid or duplicate Fleet state mapping")
+			}
+			for _, name := range c.StateGitSourceConfigMaps {
+				if name == c.StateFleetConfigMap {
+					return fmt.Errorf("config: duplicate Fleet state mapping")
+				}
+			}
+		} else if c.FMURL != "" && !c.DryRun {
+			return fmt.Errorf("config: Fleet registration with Kubernetes state requires STATE_FLEET_CONFIGMAP")
+		}
+	}
 	if c.HAMode == "off" {
 		return nil
 	}
@@ -518,7 +536,7 @@ func (c *Config) RedactedState() RedactedConfig {
 	if c.StateBackend == "kubernetes" {
 		mapping, _ := json.Marshal(c.StateGitSourceConfigMaps)
 		view.Groups = append(view.Groups, RedactedGroup{Title: "State backend", Fields: []RedactedField{
-			safe("STATE_BACKEND", c.StateBackend), safe("STATE_CONTROL_CONFIGMAP", c.StateControlConfigMap), safe("STATE_BOOT_CONFIGMAP", c.StateBootConfigMap), safe("STATE_GIT_SOURCE_CONFIGMAPS", string(mapping)), safe("STATE_GIT_SOURCE_MAX_BYTES", strconv.Itoa(c.StateGitSourceMaxBytes)), safe("STATE_CAS_MAX_ATTEMPTS", strconv.Itoa(c.StateCASMaxAttempts)), safe("HA_NAMESPACE", c.HANamespace), safe("HA_KUBE_REQUEST_TIMEOUT", c.HAKubeRequestTimeout.String()),
+			safe("STATE_BACKEND", c.StateBackend), safe("STATE_CONTROL_CONFIGMAP", c.StateControlConfigMap), safe("STATE_BOOT_CONFIGMAP", c.StateBootConfigMap), safe("STATE_FLEET_CONFIGMAP", c.StateFleetConfigMap), safe("STATE_GIT_SOURCE_CONFIGMAPS", string(mapping)), safe("STATE_GIT_SOURCE_MAX_BYTES", strconv.Itoa(c.StateGitSourceMaxBytes)), safe("STATE_CAS_MAX_ATTEMPTS", strconv.Itoa(c.StateCASMaxAttempts)), safe("HA_NAMESPACE", c.HANamespace), safe("HA_KUBE_REQUEST_TIMEOUT", c.HAKubeRequestTimeout.String()),
 		}})
 	}
 	return view

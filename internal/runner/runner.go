@@ -936,7 +936,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	return ctx.Err()
 }
 
-// startFleetControllers launches one fleet.Controller per blueprint that declared a non-empty
+// startFleetControllers launches one aggregate fleet.Controller for the selected
 // fleet_management roster, registering its fake collectors with the FM API and heartbeating them
 // until ctx is cancelled (each Start then unregisters and returns). Each controller runs on the
 // same waitgroup as the blueprint loops so Run blocks until they have all cleanly shut down.
@@ -988,19 +988,43 @@ func (r *Runner) startFleetControllers(ctx context.Context, wg *sync.WaitGroup) 
 		}
 		return
 	}
+	// One owner of the persisted set: a blueprint-local diff must never retire a sibling.
+	// Even an empty selected roster reconciles IDs left by removed blueprints.
+	controller := fleet.NewController(r.opts.Fleet)
+	r.fleetControllers = append(r.fleetControllers, controller)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		controller.StartDynamic(ctx, r.selectedFleetProvider())
+	}()
+}
+
+func (r *Runner) selectedFleetProvider() fleet.RosterProvider {
+	var providers []fleet.RosterProvider
 	for _, bp := range r.bps {
-		provider := bp.fleetProvider()
-		if provider == nil {
-			continue
+		if provider := bp.fleetProvider(); provider != nil {
+			providers = append(providers, provider)
 		}
-		controller := fleet.NewController(r.opts.Fleet)
-		r.fleetControllers = append(r.fleetControllers, controller)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			controller.StartDynamic(ctx, provider)
-		}()
 	}
+	return func() []fleet.Collector {
+		var out []fleet.Collector
+		seen := map[string]bool{}
+		for _, provider := range providers {
+			for _, col := range provider() {
+				if !seen[col.ID] {
+					out = append(out, col)
+					seen[col.ID] = true
+				}
+			}
+		}
+		return out
+	}
+}
+
+// UnregisterFleet tears down exactly the selected roster, including dynamic mirror collectors.
+// It does not register, heartbeat, emit telemetry, or delete unselected persisted IDs.
+func (r *Runner) UnregisterFleet(ctx context.Context) error {
+	return fleet.NewController(r.opts.Fleet).Unregister(ctx, r.selectedFleetProvider()())
 }
 
 // blueprintLoop is the goroutine body for one blueprint. It owns bp exclusively for the lifetime of

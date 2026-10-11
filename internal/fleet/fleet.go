@@ -14,10 +14,12 @@ package fleet
 
 import (
 	"context"
+	"errors"
 
 	"github.com/rknightion/synthkit/internal/construct/fleetmgmt"
 	"github.com/rknightion/synthkit/internal/fleethook"
 	"github.com/rknightion/synthkit/internal/ha"
+	"github.com/rknightion/synthkit/internal/operationalerr"
 	"github.com/rknightion/synthkit/internal/sink/httpretry"
 )
 
@@ -49,12 +51,35 @@ type Receipt struct {
 // observer. It exists so configuration delivery remains distinct from heartbeat liveness.
 type ReceiptObserver func(ctx context.Context, collector string, receipt Receipt)
 
+var ErrLedgerDestinationMismatch = errors.New("Fleet ledger destination mismatch; cleanup intent retained")
+var ErrLedgerUnbound = errors.New("Fleet ledger has unbound cleanup intent; explicit ownership recovery required")
+
+// LifecycleErrorMessage exposes only known safe ledger diagnostics, never upstream errors.
+func LifecycleErrorMessage(err error) string {
+	for _, safe := range []error{ErrLedgerDestinationMismatch, ErrLedgerUnbound} {
+		if errors.Is(err, safe) {
+			return safe.Error()
+		}
+	}
+	return operationalerr.Message(operationalerr.CodeOf(err))
+}
+
+// RegisteredStore is the durable cleanup ledger. Set(present=true) commits before registration;
+// Set(present=false) commits only after successful unregistration. Implementations fence writes
+// and reject destination mismatches before returning IDs or changing intent. The document binds
+// IDs to a non-secret destination identity, never credentials or returned configuration.
+type RegisteredStore interface {
+	Load(context.Context) ([]string, error)
+	Set(context.Context, string, bool) error
+}
+
 // Config is the runtime configuration for the fleet controller.
 type Config struct {
+	Store    RegisteredStore
 	Delivery httpretry.Delivery
 	Bounded  ha.Bounded
 	// FMURL is the Fleet Management API base URL,
-	// e.g. "https://fleet-management-prod-006.grafana.net".
+	// e.g. "https://fm.example".
 	FMURL string
 	// StackID is the FM stack identifier, used as the Basic-auth username.
 	StackID string

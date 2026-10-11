@@ -14,6 +14,7 @@ package fleet
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
@@ -29,6 +30,7 @@ type Controller struct {
 	cfg        Config
 	heartbeat  time.Duration
 	registered map[string]bool
+	confirmed  map[string]bool
 	client     *Client // built once in NewController; reused across heartbeats (conn-pool churn fix, L4)
 }
 
@@ -47,6 +49,7 @@ func NewController(cfg Config) *Controller {
 		cfg:        cfg,
 		heartbeat:  d,
 		registered: map[string]bool{},
+		confirmed:  map[string]bool{},
 	}
 	// Build the FM client (and its HTTP connection pool) ONCE and reuse it across every
 	// heartbeat; the previous code allocated a fresh *http.Client per tick, churning the pool.
@@ -71,7 +74,9 @@ func (c *Controller) StartDynamic(ctx context.Context, provider RosterProvider) 
 	if ctx.Err() != nil {
 		return
 	}
-	c.reconcile(ctx, provider()) // initial register
+	if err := c.reconcile(ctx, provider()); err != nil {
+		log.Printf("fleet: reconciliation failed: %s", LifecycleErrorMessage(err))
+	}
 
 	t := time.NewTicker(c.heartbeat)
 	defer t.Stop()
@@ -80,9 +85,58 @@ func (c *Controller) StartDynamic(ctx context.Context, provider RosterProvider) 
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			c.reconcile(ctx, provider())
+			if err := c.reconcile(ctx, provider()); err != nil {
+				log.Printf("fleet: reconciliation failed: %s", LifecycleErrorMessage(err))
+			}
 		}
 	}
+}
+
+// Reconcile performs one selected-roster reconciliation.
+func (c *Controller) Reconcile(ctx context.Context, want []Collector) error {
+	return c.reconcile(ctx, want)
+}
+
+// Unregister explicitly tears down the selected roster without registering it.
+func (c *Controller) Unregister(ctx context.Context, roster []Collector) error {
+	if c.authMissing() {
+		return errors.New("fleet: registration credentials unavailable")
+	}
+	return c.cfg.Bounded.Run(ctx, ha.Delivery, func(ctx context.Context) error {
+		if err := c.load(ctx); err != nil {
+			return err
+		}
+		selected := map[string]bool{}
+		for _, col := range roster {
+			selected[col.ID] = true
+		}
+		return c.unregister(ctx, selected)
+	})
+}
+
+func (c *Controller) load(ctx context.Context) error {
+	if c.cfg.Store == nil || c.cfg.DryRun {
+		return ctx.Err()
+	}
+	ids, err := c.cfg.Store.Load(ctx)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		c.registered[id] = true
+	}
+	return nil
+}
+
+func (c *Controller) persist(ctx context.Context, id string, present bool) error {
+	if c.cfg.Store == nil || c.cfg.DryRun {
+		return ctx.Err()
+	}
+	bound := c.cfg.Bounded
+	if bound.Timeout > 0 {
+		bound.Timeout = 2 * time.Second
+	}
+	return bound.Run(ctx, ha.Mutation, func(ctx context.Context) error { return c.cfg.Store.Set(ctx, id, present) })
 }
 
 // authMissing reports the token-less non-dry-run state where registration never happens, so the
@@ -93,44 +147,53 @@ func (c *Controller) authMissing() bool {
 
 // reconcile registers any id in want not yet registered, unregisters any registered id no longer
 // in want, then heartbeats every id in want.
-func (c *Controller) reconcile(ctx context.Context, want []Collector) {
+func (c *Controller) reconcile(ctx context.Context, want []Collector) error {
 	if ctx.Err() != nil {
-		return
+		return ctx.Err()
+	}
+	if c.authMissing() {
+		return nil
+	}
+	if err := c.load(ctx); err != nil {
+		return err
 	}
 	client := c.client
+	var errs []error
 	wantSet := make(map[string]bool, len(want))
 	for _, col := range want {
 		wantSet[col.ID] = true
 	}
-	// Unregister departed (skip entirely when auth is missing — nothing was registered).
-	if !c.authMissing() {
-		for id := range c.registered {
-			if !wantSet[id] {
-				err := client.UnregisterCollector(ctx, id)
-				code := operationalerr.CodeOf(err)
-				c.observe(ctx, fleethook.OpUnregister, id, 0, code)
-				if err != nil {
-					log.Printf("fleet: departed unregister failed: %s", operationalerr.Message(code))
-					continue
-				}
-				delete(c.registered, id)
-			}
+	departed := map[string]bool{}
+	for id := range c.registered {
+		if !wantSet[id] {
+			departed[id] = true
 		}
+	}
+	if err := c.unregister(ctx, departed); err != nil {
+		return err
 	}
 	// Register new + heartbeat current.
 	for _, col := range want {
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
-		if !c.registered[col.ID] {
+		if !c.confirmed[col.ID] {
+			// Record intent BEFORE HTTP: a lost response or crash must not orphan an ID.
+			if !c.registered[col.ID] {
+				if err := c.persist(ctx, col.ID, true); err != nil {
+					return err
+				}
+				c.registered[col.ID] = true
+			}
 			err := client.RegisterCollector(ctx, col)
 			code := operationalerr.CodeOf(err)
 			c.observe(ctx, fleethook.OpRegister, col.ID, 0, code)
 			if err != nil {
 				log.Printf("fleet: register failed: %s", operationalerr.Message(code))
+				errs = append(errs, err)
 				continue
 			}
-			c.registered[col.ID] = true
+			c.confirmed[col.ID] = true
 		}
 		start := time.Now()
 		receipt, err := client.GetConfig(ctx, col)
@@ -139,36 +202,48 @@ func (c *Controller) reconcile(ctx context.Context, want []Collector) {
 		c.observeReceipt(ctx, col.ID, receipt)
 		if err != nil {
 			log.Printf("fleet: heartbeat failed: %s", operationalerr.Message(code))
+			errs = append(errs, err)
 		}
 	}
+	return errors.Join(errs...)
 }
 
 // unregisterRegistered unwinds every still-registered id (shutdown path).
 // Cleanup is called only after the producer/reconcile goroutine has positively
 // joined. The aggregate inherits the coordinator's global drain deadline.
 func (c *Controller) Cleanup(ctx context.Context) error {
-	return c.cfg.Bounded.Run(ctx, ha.Delivery, func(ctx context.Context) error { c.unregisterRegistered(ctx); return ctx.Err() })
+	return c.cfg.Bounded.Run(ctx, ha.Delivery, func(ctx context.Context) error { return c.unregisterRegistered(ctx) })
 }
 
-func (c *Controller) unregisterRegistered(ctx context.Context) {
+func (c *Controller) unregisterRegistered(ctx context.Context) error {
 	if c.authMissing() {
-		c.registered = map[string]bool{}
-		return
+		return nil
 	}
+	return c.unregister(ctx, c.registered)
+}
+
+func (c *Controller) unregister(ctx context.Context, ids map[string]bool) error {
+	var errs []error
 	client := c.client
-	for id := range c.registered {
+	for id := range ids {
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		err := client.UnregisterCollector(ctx, id)
 		code := operationalerr.CodeOf(err)
 		c.observe(ctx, fleethook.OpUnregister, id, 0, code)
 		if err != nil {
 			log.Printf("fleet: unregister failed: %s", operationalerr.Message(code))
+			errs = append(errs, err)
 			continue
 		}
+		if err := c.persist(ctx, id, false); err != nil {
+			return err
+		}
 		delete(c.registered, id)
+		delete(c.confirmed, id)
 	}
+	return errors.Join(errs...)
 }
 
 // observe fires the fleethook seam (no-op when unset), stamping the controller's dry-run mode.

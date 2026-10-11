@@ -20,6 +20,7 @@ loads the complete catalog.
 | Flag | Default | Description |
 |---|---|---|
 | `-once` | false | Run one full cycle and exit. |
+| `-fleet-unregister` | false | Explicit teardown: unregister exactly the collectors the selected resolved roster would register, including Kubernetes mirrors and persisted scaling. No telemetry or registration is started. Exit zero only on successful teardown; requires `DRY_RUN=false` and cannot combine with other modes. Lease mode acquires leadership through the existing lifecycle before teardown; interruption before leadership or successful completion exits nonzero. |
 | `-dump` | false | With `-once`: print the full series/label inventory to stdout (diff against `signals/`). |
 | `-validate` | false | Offline validation of the selected local blueprint set; print JSON cardinality projections and diagnostics, then exit non-zero on errors. |
 | `-preflight` | false | Validate and probe mandatory live Grafana endpoints, then exit with redacted lane/reason output. |

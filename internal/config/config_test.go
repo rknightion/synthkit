@@ -20,6 +20,16 @@ func writeEnv(t *testing.T, content string) string {
 	return p
 }
 
+func TestLoadFleetStateSlot(t *testing.T) {
+	cfg, err := Load(writeEnv(t, "STATE_FLEET_CONFIGMAP=fleet-state\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.StateFleetConfigMap != "fleet-state" {
+		t.Fatalf("Fleet state mapping = %q", cfg.StateFleetConfigMap)
+	}
+}
+
 func TestParseEnvFileStripsInlineComments(t *testing.T) {
 	p := writeEnv(t, `
 # full-line comment

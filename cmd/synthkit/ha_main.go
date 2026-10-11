@@ -2,13 +2,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -58,6 +65,9 @@ func openConfiguredState(ctx context.Context, cfg *config.Config, gate ha.Leader
 		}
 		objects[key] = name
 	}
+	if cfg.StateFleetConfigMap != "" {
+		objects[control.FleetRegistered] = cfg.StateFleetConfigMap
+	}
 	backend, err := control.NewKubernetesBackend(control.KubernetesBackendOptions{Gate: gate, Namespace: cfg.HANamespace, Objects: objects, RequestTimeout: cfg.HAKubeRequestTimeout, MaxDocumentBytes: control.MaxStateDocumentBytes})
 	if err != nil {
 		return nil, nil, err
@@ -70,6 +80,138 @@ func openConfiguredState(ctx context.Context, cfg *config.Config, gate ha.Leader
 	}
 	store, err := control.NewBackendStore(ctx, backend, gate, cfg.StateCASMaxAttempts)
 	return store, backend, err
+}
+
+// fleetStateAdapter keeps fleet independent of control while reusing its gated CAS backend.
+// The document is a cleanup ledger, including registration intents with unknown HTTP outcomes.
+type fleetStateAdapter struct {
+	backend     control.StateBackend
+	attempts    int
+	destination string
+}
+type fleetStateDocument struct {
+	Version     int      `json:"version"`
+	Destination string   `json:"destination,omitempty"`
+	IDs         []string `json:"ids"`
+}
+
+// Match the client's trailing-slash handling; token rotation never changes ownership.
+// Encode the pair unambiguously and persist only its non-secret destination digest.
+func fleetDestination(fmURL, stackID string) string {
+	data, _ := json.Marshal([2]string{strings.TrimRight(fmURL, "/"), stackID})
+	sum := sha256.Sum256(data)
+	return fmt.Sprintf("%x", sum)
+}
+
+func decodeFleetState(data []byte, destination string) ([]string, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	if len(data) > control.MaxStateDocumentBytes {
+		return nil, errors.New("fleet state exceeds byte cap")
+	}
+	var doc fleetStateDocument
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&doc); err != nil {
+		return nil, errors.New("invalid fleet state")
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF || (doc.Version != 1 && doc.Version != 2) {
+		return nil, errors.New("invalid fleet state version or trailing data")
+	}
+	if doc.Version == 1 {
+		// No safe automatic ownership assignment exists for old nonempty intent.
+		if len(doc.IDs) != 0 || doc.Destination != "" {
+			return nil, fleet.ErrLedgerUnbound
+		}
+	} else if destination == "" || doc.Destination != destination {
+		return nil, fleet.ErrLedgerDestinationMismatch
+	}
+	seen := map[string]bool{}
+	for _, id := range doc.IDs {
+		if id == "" || len(id) > 256 || strings.IndexFunc(id, func(r rune) bool { return r <= 32 || r == 127 }) >= 0 || seen[id] {
+			return nil, errors.New("invalid fleet state IDs")
+		}
+		seen[id] = true
+	}
+	return doc.IDs, nil
+}
+func (s *fleetStateAdapter) Load(ctx context.Context) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	snap, err := s.backend.Load(ctx, control.FleetRegistered)
+	if err != nil {
+		return nil, err
+	}
+	return decodeFleetState(snap.Data, s.destination)
+}
+func (s *fleetStateAdapter) Set(ctx context.Context, id string, present bool) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	for attempt := 0; attempt < s.attempts; attempt++ {
+		snap, err := s.backend.Load(ctx, control.FleetRegistered)
+		if err != nil {
+			return err
+		}
+		ids, err := decodeFleetState(snap.Data, s.destination)
+		if err != nil {
+			return err
+		}
+		set := map[string]bool{}
+		for _, old := range ids {
+			set[old] = true
+		}
+		if set[id] == present {
+			return ctx.Err()
+		}
+		if present {
+			set[id] = true
+		} else {
+			delete(set, id)
+		}
+		ids = make([]string, 0, len(set))
+		for old := range set {
+			ids = append(ids, old)
+		}
+		sort.Strings(ids)
+		data, err := json.Marshal(fleetStateDocument{Version: 2, Destination: s.destination, IDs: ids})
+		if err != nil {
+			return err
+		}
+		if _, err := decodeFleetState(data, s.destination); err != nil {
+			return err
+		}
+		_, err = s.backend.CompareAndSwap(ctx, control.FleetRegistered, snap.Revision, data)
+		if errors.Is(err, control.ErrConflict) {
+			continue
+		}
+		return err
+	}
+	return control.ErrConflict
+}
+func configuredFleetStore(cfg *config.Config, backend control.StateBackend, gate ha.LeaderGate) (fleet.RegisteredStore, error) {
+	if cfg.FMURL == "" || cfg.DryRun {
+		return nil, nil
+	}
+	if cfg.StateBackend == "kubernetes" {
+		if cfg.StateFleetConfigMap == "" || backend == nil {
+			return nil, errors.New("Fleet registration requires STATE_FLEET_CONFIGMAP with Kubernetes state")
+		}
+	} else {
+		var err error
+		backend, err = control.NewFileBackend(control.FileBackendOptions{Gate: gate, Paths: map[control.Key]string{control.FleetRegistered: filepath.Clean(cfg.SnapshotPath) + ".fleet.json"}})
+		if err != nil {
+			return nil, err
+		}
+	}
+	attempts := cfg.StateCASMaxAttempts
+	if attempts < 1 {
+		attempts = 5
+	}
+	if attempts > 5 {
+		return nil, errors.New("invalid fleet CAS budget")
+	}
+	return &fleetStateAdapter{backend: backend, attempts: attempts, destination: fleetDestination(cfg.FMURL, cfg.FMStackID)}, nil
 }
 
 // haCrash is the sole loss/watchdog path: no drain, unregister, release or log.
@@ -131,6 +273,7 @@ type haLifecycle struct {
 	current                 atomic.Pointer[haView]
 	operational             haOperational
 	producerError           error
+	teardownCompleted       bool // true only after explicit unregister actually succeeds
 }
 
 func (l *haLifecycle) terminate() {
@@ -278,7 +421,11 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 		s.SetDelivery(delivery)
 		sinks.Sigil = s
 	}
-	v.runner = runner.New(sinks, reg, runner.Options{Gate: gate, Delivery: bound, MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries, TickTimeout: cfg.TickTimeout, Fleet: fleet.Config{FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun, Delivery: delivery, Bounded: bound}, SendShards: cfg.SendShards, SendBatchMax: cfg.SendBatchMax, SendDeadline: cfg.SendDeadline, SendCapacity: cfg.SendCapacity, SendDrainDeadline: cfg.SendDrainDeadline})
+	fleetStore, err := configuredFleetStore(cfg, backend, gate)
+	if err != nil {
+		return nil, err
+	}
+	v.runner = runner.New(sinks, reg, runner.Options{Gate: gate, Delivery: bound, MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries, TickTimeout: cfg.TickTimeout, Fleet: fleet.Config{Store: fleetStore, FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun, Delivery: delivery, Bounded: bound}, SendShards: cfg.SendShards, SendBatchMax: cfg.SendBatchMax, SendDeadline: cfg.SendDeadline, SendCapacity: cfg.SendCapacity, SendDrainDeadline: cfg.SendDrainDeadline})
 	for _, bp := range accepted {
 		if err := v.runner.AddBlueprint(bp); err != nil {
 			return nil, err
@@ -601,9 +748,15 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 		go func() {
 			defer close(l.producerDone)
 			if once {
-				err := leader.runner.RunOnce(prodCtx, time.Now())
+				var err error
+				if cfg.FleetUnregister {
+					err = leader.runner.UnregisterFleet(prodCtx)
+				} else {
+					err = leader.runner.RunOnce(prodCtx, time.Now())
+				}
 				l.mu.Lock()
 				l.producerError = err
+				l.teardownCompleted = cfg.FleetUnregister && err == nil
 				l.mu.Unlock()
 				l.terminate()
 				return
@@ -671,7 +824,11 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 		if deps.BeforeHandoff != nil {
 			deps.BeforeHandoff("standby-exit")
 		}
-		terminal.finish(0)
+		code := 0
+		if cfg.FleetUnregister {
+			code = 1 // interruption before leadership is not successful teardown
+		}
+		terminal.finish(code)
 	}
 	select {
 	case <-l.producerDone:
@@ -694,7 +851,7 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 		}()
 	}
 	cleanup(current.runner.JoinQueues)
-	cleanup(current.runner.CleanupFleet)
+	// Planned restart preserves FM registration; only -fleet-unregister is teardown.
 	cleanup(gate.Wait)
 	cleanup(func(ctx context.Context) error { return httpDrain.shutdown(ctx, srv) })
 	wg.Wait()
@@ -732,9 +889,10 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 	// No defer, unregister, HTTP shutdown, exporter flush or state write follows release.
 	l.mu.Lock()
 	producerError := l.producerError
+	teardownCompleted := l.teardownCompleted
 	l.mu.Unlock()
 	code := 0
-	if producerError != nil {
+	if producerError != nil || (cfg.FleetUnregister && !teardownCompleted) {
 		code = 1
 	}
 	if deps.BeforeHandoff != nil {

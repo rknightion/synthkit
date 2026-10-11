@@ -37,6 +37,7 @@ in-cluster authentication only, never `KUBECONFIG`, discovery, create, list, wat
 | `STATE_BACKEND` | `file` | `file` or `kubernetes`. Kubernetes with HA off is valid for one emitter. |
 | `STATE_CONTROL_CONFIGMAP` | empty | Required Kubernetes control-document object name. |
 | `STATE_BOOT_CONFIGMAP` | empty | Required Kubernetes manifest object name, distinct from control. |
+| `STATE_FLEET_CONFIGMAP` | empty | Required for live Fleet registration with Kubernetes state: distinct pre-created ConfigMap holding the aggregate registered-ID cleanup ledger. Needs named get/update permissions. File mode uses `CONFIG_SNAPSHOT_PATH` plus `.fleet.json`; dry-run never writes this ledger. |
 | `STATE_GIT_SOURCE_CONFIGMAPS` | `{}` | JSON object mapping source IDs to distinct pre-created ConfigMap names. Every configured source needs a slot. |
 | `STATE_GIT_SOURCE_MAX_BYTES` | `786432` | Encoded git document cap including files, metadata and receipts. Integer 1..786432. No truncation. |
 | `STATE_CAS_MAX_ATTEMPTS` | `5` | Integer 1..5; retries share a 2s state-operation deadline. |

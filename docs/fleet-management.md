@@ -11,11 +11,45 @@ synthkit's Fleet Management integration registers fake Alloy collectors with the
 
 ## What it does
 
-At startup, a background controller goroutine owns all FM API side effects:
+At startup, one aggregate selected-roster controller goroutine owns all FM API side effects:
 
 1. **Register** — each fake collector calls `RegisterCollector` with its deterministic ID, OS type, collector version, and `local_attributes` (including `collector.os` and `collector.version`, which drive the FM UI's "Operating System" and "Alloy version" columns).
 2. **Heartbeat** — every 45 seconds, each collector calls `GetConfig` with `local_attributes` set. FM tracks liveness by heartbeat recency; omitting `local_attributes` causes collectors to go inactive.
-3. **Unregister** — on shutdown, collectors are cleanly unregistered.
+3. **Reconcile** — collectors absent from the complete selected roster are unregistered, including persisted IDs left by a previous leader or removed blueprint. Ordinary shutdown/restart preserves registration; only explicit teardown removes the selected current roster.
+
+### Restart, handoff, and teardown
+
+Live registration records collector-ID intent in the existing gated state backend **before** the
+HTTP registration request. An ambiguous response or crash therefore cannot lose the cleanup ID.
+Successful unregistration removes the ID through compare-and-swap; failures retain it for retry.
+One controller owns the aggregate ledger, so a blueprint-local diff cannot delete sibling collectors.
+An empty selected roster still reconciles persisted departed IDs. The version-2 ledger binds these
+IDs to a SHA-256 destination identity derived from `GC_FM_URL` (with trailing slashes removed) and
+`GC_FM_STACK_ID`, never the token. Token rotation at the same destination preserves cleanup ownership.
+A changed URL or stack is visibly rejected before any Fleet request or ledger mutation, even for an
+empty roster. Retain the old ledger and restore its original destination to clean up its collectors;
+use a separate state slot for a new destination. Nonempty legacy version-1 ledgers have no destination
+binding and are rejected rather than silently relabelled; they require explicit ownership recovery.
+Only missing state or an empty legacy ledger can initialize a new binding. No credentials, collector
+attributes, or returned configuration are persisted in this document. Dry-run does not write it.
+
+File mode retains the ledger beside `CONFIG_SNAPSHOT_PATH` with a `.fleet.json` suffix. Keep this
+file across restarts. Kubernetes mode requires `STATE_FLEET_CONFIGMAP`, a distinct pre-created
+ConfigMap in `HA_NAMESPACE`, with named get/update permissions; runtime never creates it.
+Chart provisioning and RBAC wiring are prerequisites for using this slot in a chart deployment.
+
+For intentional teardown, stop the ordinary emitter first, select the same blueprint/source set,
+and run `DRY_RUN=false ./synthkit -fleet-unregister`. The command rejects dry-run rather than
+crediting planned requests as successful teardown. This removes exactly the collectors the resolved selected
+roster would register (including mirror collectors and current persisted scaling), without registering
+or heartbeating them; unselected persisted IDs remain. A successful command exits zero. Missing
+authentication, unavailable/corrupt state or an unregister failure exits nonzero. The HA-off teardown
+shares `SEND_DRAIN_DEADLINE` across the whole unregister batch, not a fresh budget per collector. In lease mode the
+command waits for leadership and uses the existing gate and bounded handoff lifecycle. Interruption
+before leadership or before successful unregister completion exits nonzero; a never-led standby
+neither deletes collectors nor releases another process's lease. Ordinary lease handoff does not
+unregister collectors. Teardown and another emitter must not run concurrently
+with HA off, because file state is not a distributed lock.
 
 The emitter reads the controller's roster and pushes Alloy self-metrics to Mimir each tick. Stale-series cleanup ensures that when the roster shrinks (or when collector scaling changes), departed collectors' `up=1` series do not persist after unregistration.
 
