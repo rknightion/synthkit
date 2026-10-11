@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 18:16'
+updated_date: '2026-10-11 18:19'
 labels:
   - feature
   - ha
@@ -40,3 +40,9 @@ SM provisioning is a separate two-boot handoff: cmd/sm-provision takes an O_EXCL
 <!-- SECTION:PLAN:BEGIN -->
 Implement approved dedicated provisioner Lease, aggregate CAS sm-state key, v2 release-independent activation with strict tool/snapshot version compatibility and explicit format migration. Refresh consumer census against current main before changing. Prove local CLI with fake named Kubernetes and SM HTTP plus actual emission/restart behavior; preserve private file evidence, compare inventory before/after, regenerate config/skills outputs, full local gate and pre-land guarded reviews. Chart wiring is a separate unadmitted follow-up.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implementation preflight found no decision-changing engine drift. Chart named-state HA wiring has landed, while SM Job remains file-only; follow-up will extend that existing seam. Zero implementation attempts: required CLI HTTP proof needs an explicit backend client injection seam. Root grants backend_kubernetes.go solely for additive explicit injection using the existing validated gated backend, matching the Lease adapter precedent. Production credential discovery and accepted backend/gate/CAS contracts stay unchanged.
+<!-- SECTION:NOTES:END -->
