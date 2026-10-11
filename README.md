@@ -94,6 +94,11 @@ SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provis
 docker compose restart synthkit
 ```
 
+The first v2 activation-format upgrade also needs this explicit apply/restart. Later release-only
+bumps retain activation when specification, target and schema match; the write tool must still match
+the current snapshot version. The standalone in-cluster tool supports a dedicated named SM Lease and
+ConfigMap without shared disk; current Helm SM Job wiring remains file-only.
+
 Preview is the default and makes no remote mutation. `DRY_RUN` does not authorise the provisioner.
 Foreign collisions and ambiguous/pending operations fail closed; resources are never deleted.
 The probe name, region, and Frankfurt coordinates are shared constants in `internal/construct/sm`

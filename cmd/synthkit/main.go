@@ -527,7 +527,11 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	}
 	// The SM handoff is resolved before runner construction. It always writes the exact current
 	// snapshot for a selected SM lane and removes SM constructs unless registration matches it.
-	smState, err := prepareSMHandoff(accepted, cfg, version, time.Now())
+	smStore, err := configuredSMStore(cfg, backend)
+	if err != nil {
+		return err
+	}
+	smState, err := prepareSMHandoff(context.Background(), accepted, cfg, version, time.Now(), smStore, true)
 	if err != nil {
 		return err
 	}

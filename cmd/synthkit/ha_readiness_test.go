@@ -38,7 +38,7 @@ func readinessHAView(t *testing.T, gate *ha.Gate) (*haView, string) {
 	cfg.SnapshotPath = filepath.Join(root, "unwritten", "state.json")
 	cfg.DryRun, cfg.SelfObsEnabled = false, false
 	cfg.FMURL, cfg.ControlToken, cfg.SigilEndpoint, cfg.FaroCollector, cfg.ProfilesURL = "", "", "", "", ""
-	v, err := newHAView(context.Background(), cfg, gate, ha.Bounded{Gate: gate})
+	v, err := newHAView(context.Background(), cfg, gate, ha.Bounded{Gate: gate}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

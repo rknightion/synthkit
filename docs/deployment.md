@@ -162,7 +162,12 @@ SM emission suppressed. Preview and apply the opt-in one-shot job from the same 
 
 The job receives only `GC_SM_URL`, `GC_SM_TOKEN`, its three explicit control flags, and `/data`; it
 does not inherit the emitter's other credentials. It has no port, restart policy, host Go toolchain,
-or long-running role. The restart validates the matching registration and activates the lane. If a
+or long-running role. The restart validates the matching registration and activates the lane.
+The first v2 activation-format upgrade requires explicit apply/restart and preserves all v1 ownership,
+preview, pending and lock evidence. Subsequent release-only image changes retain activation when
+specification/target/schema match; the write tool must still equal the current snapshot version.
+Compose remains file-mode. The standalone in-cluster command can use a dedicated named SM Lease and
+aggregate ConfigMap without shared disk; current Helm SM Job wiring is not that extension. If a
 collision, stale binding, or pending/ambiguous journal is reported, leave the emitter suppressed
 and inspect ownership before retrying. The provisioner never deletes remote resources.
 

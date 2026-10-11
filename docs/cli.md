@@ -115,7 +115,9 @@ See [Deployment](deployment.md#reproducible-upgrade) for the ordered upgrade and
 ## sm-provision — Synthetic Monitoring provisioner
 
 One-shot snapshot-bound provisioner for Synthetic Monitoring. The published image contains both
-the emitter and provisioner at the same source version. Preview is always the default.
+the emitter and provisioner at the same source version. The tool must match the current snapshot
+version, but v2 activation survives release-only bumps with unchanged specs/target/schema. The first
+v2 format upgrade requires explicit apply/restart. Preview is always the default.
 
 ```bash
 docker compose --profile sm-provision run --rm sm-provision
@@ -127,7 +129,11 @@ docker compose restart synthkit
 |---|---|---|
 | `GC_SM_URL` | yes | SM API base URL |
 | `GC_SM_TOKEN` | yes | SM API bearer token |
-| `CONFIG_SNAPSHOT_PATH` | no | Emitter control-state path; Compose sets `/data/control-state.json` |
+| `CONFIG_SNAPSHOT_PATH` | no | File-mode emitter state path; Compose sets `/data/control-state.json`. Ignored by diskless Kubernetes SM storage. |
+| `STATE_BACKEND` | no | `file` default or `kubernetes`; the latter uses in-cluster credentials only. |
+| `STATE_SM_CONFIGMAP` | Kubernetes | Distinct precreated SM state slot. |
+| `SM_PROVISION_LEASE_NAME` | Kubernetes | Precreated provisioning Lease distinct from `HA_LEASE_NAME`, shared by all writers to that SM slot. |
+| `HA_NAMESPACE`, `POD_UID` | Kubernetes | Installation namespace and downward-API process identity. |
 | `SM_PROVISION_APPLY` | no | Exact `true` enables mutations; absent/`false` previews |
 | `SM_PROVISION_ADOPT_LEGACY` | no | Exact `true` records the exact-match plan during preview and allows only that same plan during apply |
 | `SM_PROVISION_MIGRATE_TARGET` | no | Exact `true` previews or applies a credential/endpoint target migration; apply also requires `SM_PROVISION_APPLY=true` and a matching preview no older than 15 minutes |
@@ -135,6 +141,10 @@ docker compose restart synthkit
 `DRY_RUN` does not control this command. Source checkouts may use `go run ./cmd/sm-provision`, but
 the Compose profile is the supported Docker-only deployment route. See
 [synthetic-monitoring.md](synthetic-monitoring.md) for ownership and crash-recovery rules.
+The in-cluster tool acquires its separate Lease before any SM request/state update and reuses the
+HA request/operation/fence budgets. Acquisition is capped at two minutes; the invocation at ten.
+There is no environment-selected API endpoint, KUBECONFIG fallback or automatic provisioning.
+Current Helm SM Job wiring remains file-only; binary Kubernetes capability does not change it.
 
 ## blueprint-schema — schema artifact generator
 

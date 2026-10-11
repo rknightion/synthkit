@@ -46,7 +46,7 @@ func TestSnapshotAndRegistrationRoundTrip(t *testing.T) {
 		t.Fatalf("hash = %q, want %q", read.SnapshotHash, snapshot.SnapshotHash)
 	}
 	registration := Registration{
-		SchemaVersion: SchemaVersion, SnapshotHash: snapshot.SnapshotHash,
+		SchemaVersion: ActivationSchemaVersion, SnapshotHash: snapshot.SnapshotHash,
 		TargetFingerprint: snapshot.TargetFingerprint, SourceVersion: snapshot.SourceVersion,
 		Resources: []Resource{
 			{Kind: "probe", Key: snapshot.Probes[0].Key, ID: 4, Modified: 123, Ownership: Owned},
@@ -72,7 +72,7 @@ func TestSnapshotAndRegistrationRoundTrip(t *testing.T) {
 
 func TestRegistrationRejectsStaleIncompleteAndModifiedMismatch(t *testing.T) {
 	snapshot := testSnapshot(t)
-	base := Registration{SchemaVersion: SchemaVersion, SnapshotHash: snapshot.SnapshotHash, TargetFingerprint: snapshot.TargetFingerprint, SourceVersion: snapshot.SourceVersion, Resources: []Resource{
+	base := Registration{SchemaVersion: ActivationSchemaVersion, SnapshotHash: snapshot.SnapshotHash, TargetFingerprint: snapshot.TargetFingerprint, SourceVersion: snapshot.SourceVersion, Resources: []Resource{
 		{Kind: "probe", Key: snapshot.Probes[0].Key, ID: 4, Modified: 9, Ownership: Owned},
 		{Kind: "check", Key: snapshot.Checks[0].Key, ID: 5, Modified: 10, ConfigVersion: ConfigVersion(10), Ownership: Owned},
 	}}
@@ -208,7 +208,7 @@ func TestOwnershipLedgerIsSnapshotIndependentButTargetBound(t *testing.T) {
 }
 
 func TestOwnershipImportRejectsMismatchedRegistrationSchema(t *testing.T) {
-	for name, schema := range map[string]int{"older": SchemaVersion - 1, "newer": SchemaVersion + 1} {
+	for name, schema := range map[string]int{"older": ActivationSchemaVersion - 1, "newer": ActivationSchemaVersion + 1} {
 		t.Run(name, func(t *testing.T) {
 			dir := privateTempDir(t)
 			registration := Registration{
@@ -255,6 +255,76 @@ func TestMigrationPreviewIsPrivateAndBindsBothTargetsAndResources(t *testing.T) 
 func TestConfigVersionUsesModifiedSecondsTimesOneBillion(t *testing.T) {
 	if got, want := ConfigVersion(1_725_000_000.123456), "1725000000123456000"; got != want {
 		t.Fatalf("ConfigVersion = %s, want %s", got, want)
+	}
+}
+
+func TestActivationHashIgnoresReleaseAndCreationTimeButBindsEverySpecField(t *testing.T) {
+	a := testSnapshot(t)
+	b, err := NewSnapshot(a.Probes, a.Checks, "https://sm.example", "token", "new-release", time.Unix(200, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.SnapshotHash != b.SnapshotHash || a.SourceVersion == b.SourceVersion {
+		t.Fatal("release/creation time still bound activation")
+	}
+	nilChecks := append([]CheckSpec(nil), a.Checks...)
+	nilChecks[0].Labels = nil
+	emptyChecks := append([]CheckSpec(nil), a.Checks...)
+	emptyChecks[0].Labels = []Label{}
+	n, _ := NewSnapshot(a.Probes, nilChecks, "https://sm.example", "token", "a", time.Now())
+	e, _ := NewSnapshot(a.Probes, emptyChecks, "https://sm.example", "token", "b", time.Now())
+	if n.SnapshotHash != e.SnapshotHash {
+		t.Fatal("nil/empty labels hash differently")
+	}
+	mutations := map[string]func(*Snapshot){
+		"frequency": func(s *Snapshot) { s.Checks[0].FrequencyMS++ }, "timeout": func(s *Snapshot) { s.Checks[0].TimeoutMS++ },
+		"labels": func(s *Snapshot) { s.Checks[0].Labels = []Label{{Name: "team", Value: "changed"}} },
+		"source": func(s *Snapshot) { s.Checks[0].Source = "other" }, "latitude": func(s *Snapshot) { s.Probes[0].Latitude++ }, "longitude": func(s *Snapshot) { s.Probes[0].Longitude++ },
+		"region-and-binding": func(s *Snapshot) {
+			s.Probes[0].Region = "AMER"
+			s.Probes[0].Key = ProbeKey(s.Probes[0].Name, "AMER")
+			s.Checks[0].ProbeKey = s.Probes[0].Key
+		},
+		"probe-name-and-binding": func(s *Snapshot) {
+			s.Probes[0].Name = "other"
+			s.Probes[0].Key = ProbeKey("other", s.Probes[0].Region)
+			s.Checks[0].ProbeKey = s.Probes[0].Key
+		},
+		"target": func(s *Snapshot) { s.TargetFingerprint = "other" }, "schema": func(s *Snapshot) { s.SchemaVersion++ },
+	}
+	for name, mutate := range mutations {
+		t.Run(name, func(t *testing.T) {
+			s := testSnapshot(t)
+			mutate(&s)
+			h, err := snapshotHash(s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if h == a.SnapshotHash {
+				t.Fatal("bound field omitted from hash")
+			}
+		})
+	}
+}
+func TestFirstActivationFormatRequiresExplicitApplyAndPreservesLegacyOwnership(t *testing.T) {
+	dir := privateTempDir(t)
+	s := testSnapshot(t)
+	legacy := Registration{SchemaVersion: SchemaVersion, TargetFingerprint: s.TargetFingerprint, Resources: []Resource{{Kind: "probe", Key: s.Probes[0].Key, ID: 7, Modified: 10, Ownership: Owned}}}
+	if err := writeJSON(filepath.Join(dir, LegacyRegistrationFile), legacy); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteSnapshot(dir, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadRegistration(dir, s); !os.IsNotExist(err) {
+		t.Fatal("legacy v1 unexpectedly activated", err)
+	}
+	ledger, err := OwnershipFromRegistration(dir, s.TargetFingerprint)
+	if err != nil || ledger.Resources[0].ID != 7 {
+		t.Fatal("legacy ownership import lost", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, LegacyRegistrationFile)); err != nil {
+		t.Fatal("legacy evidence erased", err)
 	}
 }
 

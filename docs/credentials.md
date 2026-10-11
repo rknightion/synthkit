@@ -45,8 +45,11 @@ Needed only for blueprints with `rum: true` on a workload, or `app` workload nod
 ### Synthetic Monitoring (optional)
 
 Used by the version-matched Docker provisioner (`sm-provision` Compose profile; a source checkout
-may run the binary directly), not as a synthetic sink. The SM token is a separate bearer token —
-not `GC_TOKEN`. Provisioning is snapshot-bound and requires a subsequent emitter restart; see
+may run the binary directly, and separately configured in-cluster Jobs use the dedicated named
+SM state/Lease without shared disk), not as a synthetic sink. The SM token is a separate bearer token —
+not `GC_TOKEN`. The tool must match the current snapshot version. Provisioning and first v2-format
+activation require explicit apply/restart; later unchanged-spec/target/schema release bumps retain
+activation. Adoption/migration approval versions remain strict. See
 [Synthetic Monitoring](synthetic-monitoring.md).
 
 | Env var | Value |

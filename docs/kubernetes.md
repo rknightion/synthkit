@@ -193,7 +193,8 @@ Handoff is restart semantics: counters/histograms and in-memory shape/queue stat
 unfinished traces/RUM sessions and queued data may truncate, and fixture identities stay
 stable. Crash takeover may take the 30s Lease duration plus acquisition/preparation. Do
 not promise zero gaps, duplication or data loss. HA uploads and automatic SM provisioning
-remain unavailable; the binary suppresses unsupported SM emission without artifact I/O.
+remain unavailable. File Lease HA suppresses SM without artifact I/O; Kubernetes SM can instead
+consume an explicitly provisioned registration through its separate named state/Lease mapping.
 Process telemetry/profiles carry immutable `ha.role` tags, including standby exports.
 
 ## Optional named ConfigMap state
@@ -217,6 +218,15 @@ configuration by stable ID and fingerprint. Removed/reconfigured sources ignore 
 Kubernetes control/manifest/git state does not need a PVC or disk materialization. HA-off custom
 uploads still use the existing local upload directory and require retained disk for continuity;
 Kubernetes mode does not make them shared. HA upload and automatic SM exclusions are unchanged.
+The standalone binary supports manual diskless SM provisioning with `STATE_SM_CONFIGMAP` and
+`SM_PROVISION_LEASE_NAME`, a separate precreated provisioning Lease distinct from the emitter Lease.
+All writers to that SM slot must use the same lock identity. The tool needs only named get/update on
+its Lease and SM ConfigMap, in-cluster API authentication and downward-API `POD_UID`; it neither
+creates resources nor uses a shared volume. Kubernetes HA activation rereads registration on
+acquisition before its first production tick; standby writes nothing. The current chart does **not**
+wire this SM extension: its existing SM Job remains file-only and rejects HA. Do not add mutable
+state as Helm-managed resources or infer automatic ownership transfer from file state. See
+[Synthetic Monitoring](synthetic-monitoring.md#in-cluster-one-shot-mode-no-shared-volume).
 With HA off, Kubernetes state is still one emitter, not permission to scale replicas. This remains
 a standalone binary capability; the chart selects Kubernetes state only for its explicit HA mode.
 

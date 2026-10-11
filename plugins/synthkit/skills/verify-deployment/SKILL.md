@@ -188,9 +188,12 @@ failure.
 - Fleet metrics require the declaration and normal metrics landing; they do not require FM API
   credentials. Registration separately requires the complete `GC_FM_*` triplet and fresh
   registration/heartbeat evidence. Never call the FM API for metrics-only mode.
-- Synthetic Monitoring requires a selected declaration, a matching private registration, and the
-  post-provision restart before status can be enabled/verified. Query only after its declared
-  interval plus delivery deadline.
+- Synthetic Monitoring requires a selected declaration, a matching complete registration with no
+  pending journal, and the post-provision restart/acquisition before status can be enabled/verified.
+  Query only after its declared interval plus delivery deadline. First v2 format activation requires
+  explicit apply/restart; subsequent release-only bumps preserve activation when specs/target/schema
+  match. The write tool still must equal the current snapshot version. Kubernetes standby never
+  produces data; current Helm SM Job wiring remains file-only.
 - An SM credential or endpoint change requires an explicit `SM_PROVISION_MIGRATE_TARGET=true`
   preview and matching apply within 15 minutes before the restart; never treat a new snapshot alone
   as migrated ownership.

@@ -224,6 +224,11 @@ docker compose restart synthkit
 
 Require `optional_lanes[synthetic_monitoring]` to be enabled/verified after the restart. Then wait
 the declared interval plus delivery deadline and query `probe_*`; no real probe execution occurs.
+The first v2 activation-format upgrade also requires explicit apply/restart while retaining old
+ownership and pending evidence. Subsequent release-only upgrades preserve registration when
+specification/target/schema are unchanged; new applies still require a tool matching the current
+snapshot version. In-cluster binary provisioning uses its own named SM Lease/ConfigMap, never the
+emitter Lease or shared disk. Current Helm SM Job wiring remains file-only.
 
 When rotating the SM credential or endpoint, first recreate synthkit with the new value so it writes
 a new suppressed snapshot. Run the provisioner preview with `SM_PROVISION_MIGRATE_TARGET=true`, then

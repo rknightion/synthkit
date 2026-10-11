@@ -31,6 +31,7 @@ import (
 	"github.com/rknightion/synthkit/internal/ha"
 	lease "github.com/rknightion/synthkit/internal/ha/kubernetes"
 	"github.com/rknightion/synthkit/internal/healthstatus"
+	"github.com/rknightion/synthkit/internal/optionallane"
 	"github.com/rknightion/synthkit/internal/preflight"
 	"github.com/rknightion/synthkit/internal/profiling"
 	"github.com/rknightion/synthkit/internal/pushhook"
@@ -67,6 +68,9 @@ func openConfiguredState(ctx context.Context, cfg *config.Config, gate ha.Leader
 	}
 	if cfg.StateFleetConfigMap != "" {
 		objects[control.FleetRegistered] = cfg.StateFleetConfigMap
+	}
+	if cfg.StateSMConfigMap != "" {
+		objects[control.SMState] = cfg.StateSMConfigMap
 	}
 	backend, err := control.NewKubernetesBackend(control.KubernetesBackendOptions{Gate: gate, Namespace: cfg.HANamespace, Objects: objects, RequestTimeout: cfg.HAKubeRequestTimeout, MaxDocumentBytes: control.MaxStateDocumentBytes})
 	if err != nil {
@@ -334,11 +338,12 @@ type haView struct {
 	logs               *otlp.LogsSink
 	profiles           *pyroscope.Sink
 	sigil              *sigil.Sink
+	smState            smHandoff
 }
 
-// newHAView is read-only even during acquisition; writes are committed separately
-// using Activate's preparation context. A fresh view rebuilds topology, not merely knobs.
-func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, bound ha.Bounded, injected ...control.StateBackend) (*haView, error) {
+// newHAView is read-only in standby. Acquisition explicitly publishes SM through
+// Activate's preparation context before building the production runner.
+func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, bound ha.Bounded, publishSM bool, injected ...control.StateBackend) (*haView, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -386,10 +391,25 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	if len(skipped) > 0 {
 		return nil, fmt.Errorf("HA selected blueprint set failed validation")
 	}
-	if _, err := prepareSMHandoff(accepted, cfg, version, time.Now()); err != nil {
+	smStore, err := configuredSMStore(cfg, backend)
+	if err != nil {
 		return nil, err
 	}
-	v := &haView{store: store, manager: mgr, loaded: loaded, manifest: manifest, diagnostics: diags, observabilityReady: make(chan struct{})}
+	var smState smHandoff
+	smPrepare := func(ctx context.Context) error {
+		var err error
+		smState, err = prepareSMHandoff(ctx, accepted, cfg, version, time.Now(), smStore, publishSM)
+		return err
+	}
+	if publishSM && cfg.StateBackend == "kubernetes" {
+		smBound := ha.Bounded{Gate: gate, Timeout: 2 * time.Second, Margin: cfg.HAFenceMargin, Crash: bound.Crash}
+		if err := smBound.Run(ctx, ha.Mutation, smPrepare); err != nil {
+			return nil, err
+		}
+	} else if err := smPrepare(ctx); err != nil {
+		return nil, err
+	}
+	v := &haView{store: store, manager: mgr, loaded: loaded, manifest: manifest, diagnostics: diags, observabilityReady: make(chan struct{}), smState: smState}
 	delivery := httpretry.Delivery{Gate: gate, HTTPTimeout: cfg.HAHTTPTimeout, RetryMaxElapsed: cfg.HARetryMaxElapsed}
 	v.prom = promrw.New(cfg.PromRWURL, cfg.PromUser, cfg.Token, cfg.DryRun, func() int { return cfg.SeriesCap })
 	v.prom.SetDelivery(delivery)
@@ -524,7 +544,13 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	handler := control.NewHandler(store, v.runner.ApplyControl, cfg.ControlToken, v.runner).SetHA(gate, mutationBound).
 		SetBasePath(cfg.ControlBasePath).
 		SetManagedFeatures(cfg.ControlManagedFeatures).
-		SetStatus(control.StatusSources{Sinks: ps.Snapshot, Queues: func() []pushstatus.QueueStat { return ps.SnapshotQueues(v.runner.QueueDepths()) }, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, DryRun: cfg.DryRun, Readiness: readiness}).
+		SetStatus(control.StatusSources{Sinks: ps.Snapshot, Queues: func() []pushstatus.QueueStat { return ps.SnapshotQueues(v.runner.QueueDepths()) }, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, DryRun: cfg.DryRun, Readiness: readiness, Optional: func() []optionallane.Disposition {
+			facts := collectOptionalRuntimeFacts(accepted, mgr.Sources(), cfg, v.smState)
+			if gate.Role() != ha.RoleLeader {
+				facts.smRegistered = false
+			}
+			return optionalRuntimeDispositions(cfg, facts, ps.SnapshotLanes(), fs.Snapshot(), v.runner.FleetRosterCount(), cfg.SelfObsEnabled, cfg.SelfObsEnabled && cfg.PyroscopeURL != "")
+		}}).
 		SetBlueprintAdmin(&haBlueprintAdmin{blueprintAdminAdapter: &blueprintAdminAdapter{mgr: mgr, sc: sc}}).SetInventory(v.runner).SetConfig(toControlConfigView(cfg.RedactedHA())).SetHealth(func() any { return healthReport(hs.Snapshot()) }).
 		SetChangeObserver(func(s control.State) {
 			configure()
@@ -631,7 +657,7 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 	if deps.StateBackend != nil {
 		injectedBackend = deps.StateBackend(gate)
 	}
-	standby, err := newHAView(prodCtx, cfg, gate, bound, injectedBackend)
+	standby, err := newHAView(prodCtx, cfg, gate, bound, false, injectedBackend)
 	if err != nil {
 		prodCancel()
 		return err
@@ -695,7 +721,7 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 		var leader *haView
 		err := gate.Activate(leadCtx, func(prepCtx context.Context) error {
 			var err error
-			leader, err = newHAView(prepCtx, cfg, gate, bound, injectedBackend)
+			leader, err = newHAView(prepCtx, cfg, gate, bound, !cfg.FleetUnregister, injectedBackend)
 			if err != nil {
 				return err
 			}

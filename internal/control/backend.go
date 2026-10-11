@@ -18,6 +18,7 @@ const (
 	Control               Key = "control"
 	BootManifest          Key = "boot-manifest"
 	FleetRegistered       Key = "fleet-registered"
+	SMState               Key = "sm-state"
 	MaxStateDocumentBytes     = 786432
 )
 
@@ -55,7 +56,7 @@ type KubernetesBackendOptions struct {
 }
 
 func validKey(key Key) bool {
-	if key == Control || key == BootManifest || key == FleetRegistered {
+	if key == Control || key == BootManifest || key == FleetRegistered || key == SMState {
 		return true
 	}
 	s := string(key)

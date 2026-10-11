@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/ha"
+	"github.com/rknightion/synthkit/internal/smstore/smstoretest"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -303,6 +304,44 @@ func TestKubernetesHTTPCommittedResponseLost(t *testing.T) {
 	appliedIncidents, _ := json.Marshal(applied[0].RuntimeIncidents)
 	if string(want) != string(got) || string(want) != string(appliedIncidents) || out.RuntimeIncidents[0].ID == "" {
 		t.Fatal("committed, returned and applied incident differ")
+	}
+}
+
+func TestSMNamedStateHTTPConstructorPreservesGateAndKeyCaps(t *testing.T) {
+	a := smstoretest.New(t, "sm")
+	defer a.Close()
+	g := ha.NewGate()
+	opts := KubernetesBackendOptions{Gate: g, Namespace: "test", Objects: map[Key]string{SMState: "sm"}, RequestTimeout: time.Second, MaxDocumentBytes: MaxStateDocumentBytes}
+	b, err := NewKubernetesBackendForClient(opts, a.Server.URL, a.Server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := b.Load(context.Background(), SMState)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.CompareAndSwap(context.Background(), SMState, before.Revision, []byte(`{}`)); !errors.Is(err, ha.ErrNotLeader) {
+		t.Fatal("standby CAS admitted", err)
+	}
+	a.Mu.Lock()
+	if a.StateWrites != 0 {
+		t.Error("standby issued PUT")
+	}
+	a.Mu.Unlock()
+	if err := g.Activate(context.Background(), func(context.Context) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.CompareAndSwap(context.Background(), SMState, before.Revision, []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	opts.Gate = nil
+	if _, err := NewKubernetesBackendForClient(opts, a.Server.URL, a.Server.Client()); err == nil {
+		t.Fatal("injected constructor bypassed nil gate validation")
+	}
+	opts.Gate = g
+	opts.Objects[Control] = "sm"
+	if _, err := NewKubernetesBackendForClient(opts, a.Server.URL, a.Server.Client()); err == nil {
+		t.Fatal("injected constructor bypassed duplicate mapping validation")
 	}
 }
 
