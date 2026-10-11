@@ -1,11 +1,11 @@
 ---
 id: SKT-0112
 title: Keep the control-dash race package inside the test timeout
-status: Parked
+status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-09 11:19'
-updated_date: '2026-10-10 21:37'
+updated_date: '2026-10-11 00:14'
 labels: []
 dependencies: []
 type: bug
@@ -44,6 +44,8 @@ Generic profiled hot-path optimization preserving retained output golden and shi
 Apply exact retained reviewed patch, green local gate, root land and exact-SHA CI timing under300s; revert on red or slow verdict. No new implementation attempt.
 
 Profile unchanged package before any edit; use cause-backed structural test reduction preserving all scenarios and assertions. Two authorized implementation cycles. Exact commit CI below300s or immediate revert.
+
+Resume exact retained eight-file performance candidate unchanged after UI-ordering land; regenerate actual embed through supported check, full gate, root review, serial exact-SHA GitHub race timing under300s or immediate revert. Last authorized implementation cycle only, no test/timeout/workflow changes.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
