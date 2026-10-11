@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 14:34'
-updated_date: '2026-10-11 14:34'
+updated_date: '2026-10-11 14:36'
 labels: []
 dependencies: []
 priority: medium
@@ -37,4 +37,6 @@ Clean main678ba23bfa249e11cf17731caab4a7e6fa965a7a just check failed TestHAActua
 
 <!-- SECTION:PLAN:BEGIN -->
 Read the existing failed exact-base log and delivery/queue/sink code without rerunning unchanged checks. Determine proved cause versus uncertainty; recommend narrowly scoped repair only if needed for the final composed gate.
+
+Bounded test-only proof correction: replace unguaranteed first-response scheduling premise with direct inherited deadline identity, real handler-synchronised cancellation and explicit client/queue/server joins; separately retain actual absolute expiry proof. Preserve exact partial count/two stages/no score assertions. No runtime or timeout changes. Guarded proof review and local full base/candidate gate before serial root landing.
 <!-- SECTION:PLAN:END -->
