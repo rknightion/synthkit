@@ -1,11 +1,11 @@
 ---
 id: SKT-0100
 title: Add Fleet Management cleanup for handoffs and teardown
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-10 23:45'
+updated_date: '2026-10-11 09:56'
 labels:
   - feature
   - ha
@@ -42,3 +42,9 @@ Persist registered collector set through existing gated backend adapter; handoff
 
 Use one aggregate selected-roster FM controller with empty-roster reconciliation so a persisted registered set never lets sibling controllers remove each other. Keep existing state-backend signatures and HA gating unchanged; narrowly adapt FM restart cleanup wiring and runner fleet proof.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Three change/verify cycles total (two workers plus one high retry), historical counts preserved. Destination-bound intent and explicit teardown completion majors repaired fail-first; full17file CodeRabbit+sevenfiledelta0findings, independent full/delta securityPASS. Final localcandidatecheck0 and exactlandedf493ff84292c117f01c16f1d8bb110af8a61ab66 composedcheck0. ExactCI38128447237allotherjobsgreen but secret-scan1finding/ci-successred. MatchingmainancestryGitleaks8.30.1redactedscanidentifies ordinary docs/fleet-management.md line46 prose, not a credential. Fullhistorycontract means forwardedit/revert cannot remove prior finding; scanner not weakened. Parkdependency on SKT-0122 (resolve generic-api-key false positive on teardown documentation) for owner-approved scanner-contract resolution and exactCIgreen. Runtime keptlanded; no criteria checked/Done. Optional Kubernetes chart wiring remains deferred behind accepted general named-state/HA chart seam; no old image feature claim.
+<!-- SECTION:NOTES:END -->
