@@ -3,11 +3,9 @@
 package runner
 
 import (
-	"cmp"
 	"context"
 	"log"
 	"maps"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -73,190 +71,37 @@ type stampedMetrics struct {
 	allowListVersion  string
 	allowListVariant  string
 	recordSuppression func(MetricSuppression)
-	labels            metricLabelCache
-}
-
-// These are cache admission limits, never telemetry limits. Each scoped writer
-// retains at most 16K immutable label maps and 16 MiB of charged storage. Wide or
-// oversized maps and a full cache use ordinary, uncached clones.
-const (
-	maxMetricLabelSets       = 16_384
-	maxMetricLabelCacheBytes = 16 << 20
-	maxCachedMetricLabels    = 128
-)
-
-type cachedMetricLabels struct {
-	pairs  [][2]string       // immutable, sorted UNSTAMPED identity
-	labels map[string]string // immutable stamped clone
-	bytes  int
-}
-
-// The cache is scoped to a writer and bounded independently of emitted volume.
-// A hash is only a hint: every hit compares the complete source identity. No
-// pointer identity, sample value, timestamp or exemplar participates in lookup.
-// Published clones are never cleared or repurposed, including on collision.
-type metricLabelCache struct {
-	mu    sync.Mutex
-	sets  map[uint64]cachedMetricLabels
-	bytes int
-}
-
-// Order-independent lookup avoids sorting the same label set on every tick.
-// Pair boundaries need not be injective here because hits require exact equality.
-func metricLabelsHash(source map[string]string) uint64 {
-	h := uint64(len(source))
-	for k, v := range source {
-		pair := hashShardString(shardOffset64, k) * shardPrime64
-		h += hashShardString(pair, v)
-	}
-	return h
-}
-
-func sameMetricLabelPairs(pairs [][2]string, source map[string]string) bool {
-	if len(pairs) != len(source) {
-		return false
-	}
-	for _, pair := range pairs {
-		if v, ok := source[pair[0]]; !ok || v != pair[1] {
-			return false
-		}
-	}
-	return true
-}
-
-// Admission charges map slots, pair storage, allocation rounding and retained
-// strings. Clone strings so a short substring cannot retain a large backing
-// buffer. This is a conservative storage budget, not a heap/RSS measurement.
-func metricLabelCharge(source map[string]string, label string) int {
-	if len(source) > maxCachedMetricLabels {
-		return 0
-	}
-	size := 512
-	if len(label) > maxMetricLabelCacheBytes-size {
-		return 0
-	}
-	size += len(label)
-	for k, v := range source {
-		if 160 > maxMetricLabelCacheBytes-size {
-			return 0
-		}
-		size += 160
-		if len(k) > maxMetricLabelCacheBytes-size {
-			return 0
-		}
-		size += len(k)
-		if len(v) > maxMetricLabelCacheBytes-size {
-			return 0
-		}
-		size += len(v)
-	}
-	return size
-}
-
-// resolve requires c.mu. On a hit, reuse BOTH the sorted inventory identity and
-// its stamped clone; the earlier cache still re-sorted and re-hashed every series.
-// Fallback preserves all labels even after admission stops.
-func (c *metricLabelCache) resolve(hash uint64, source map[string]string, label string) cachedMetricLabels {
-	old, found := c.sets[hash]
-	if found && sameMetricLabelPairs(old.pairs, source) && (label == "" || sameStampedMetricLabels(old.labels, source, label)) {
-		return old
-	}
-	charge := metricLabelCharge(source, label)
-	retain := charge > 0 && (found || len(c.sets) < maxMetricLabelSets) && charge <= maxMetricLabelCacheBytes-c.bytes+old.bytes
-	entry := cachedMetricLabels{pairs: make([][2]string, 0, len(source))}
-	for k, v := range source {
-		if retain {
-			k, v = strings.Clone(k), strings.Clone(v)
-		}
-		entry.pairs = append(entry.pairs, [2]string{k, v})
-	}
-	slices.SortFunc(entry.pairs, func(a, b [2]string) int { return cmp.Compare(a[0], b[0]) })
-	if label != "" {
-		entry.labels = make(map[string]string, len(source)+1)
-		for _, pair := range entry.pairs {
-			entry.labels[pair[0]] = pair[1]
-		}
-		if retain {
-			label = strings.Clone(label)
-		}
-		entry.labels[BlueprintLabel] = label
-	}
-	if retain {
-		if c.sets == nil {
-			c.sets = make(map[uint64]cachedMetricLabels)
-		}
-		entry.bytes = charge
-		c.sets[hash] = entry
-		c.bytes += charge - old.bytes
-	}
-	return entry
 }
 
 func (w *stampedMetrics) Write(ctx context.Context, batch []promrw.Series) error {
-	allowed := w.budget.take(len(batch))
-	if allowed < len(batch) {
-		log.Printf("runner: blueprint %q over series budget — dropping %d of %d series this window", w.bp, len(batch)-allowed, len(batch))
+	// Record inventory from the UNSTAMPED source (before blueprint label is added) so the
+	// blueprint label this writer adds is not counted as part of the construct's own labels.
+	for _, s := range batch {
+		w.inv.recordMetric(s.Name, sortedLabelPairs(s.Labels))
 	}
-	stamped := make([]promrw.Series, allowed)
-	w.labels.mu.Lock()
-	// Inventory still observes EVERY attempted series before stamping, including
-	// rejected samples. A cache hit only removes redundant identity construction.
-	producers := make(map[string]string)
-	for i := range batch {
-		s := &batch[i]
-		var identity cachedMetricLabels
-		if w.inv != nil || w.label != "" {
-			identity = w.labels.resolve(metricLabelsHash(s.Labels), s.Labels, w.label)
-			w.inv.recordMetric(s.Name, identity.pairs)
-		}
-		if i >= allowed {
-			continue
-		}
-		stamped[i] = *s
-		job := s.Labels["job"]
-		producer, ok := producers[job]
-		if !ok {
-			producer = metricProducer(w.producer, job)
-			if len(producers) < maxMetricLabelSets {
-				producers[job] = producer
-			}
-		}
-		stamped[i].Producer = producer
-		stamped[i].ProducerAllowListVersion = w.allowListVersion
-		stamped[i].ProducerAllowListVariant = w.allowListVariant
+	stamped := make([]promrw.Series, len(batch))
+	for i, s := range batch {
+		s.Producer = metricProducer(w.producer, s.Labels["job"])
+		s.ProducerAllowListVersion = w.allowListVersion
+		s.ProducerAllowListVariant = w.allowListVariant
 		if w.label != "" {
-			stamped[i].Labels = identity.labels
+			lbls := make(map[string]string, len(s.Labels)+1)
+			maps.Copy(lbls, s.Labels)
+			lbls[BlueprintLabel] = w.label
+			s.Labels = lbls
 		}
+		// Exemplars pass through unstamped — never aliased; no blueprint label on exemplars.
+		stamped[i] = s
 	}
-	w.labels.mu.Unlock()
-	if allowed == 0 {
+	batch = stamped
+	if allowed := w.budget.take(len(batch)); allowed < len(batch) {
+		log.Printf("runner: blueprint %q over series budget — dropping %d of %d series this window", w.bp, len(batch)-allowed, len(batch))
+		batch = batch[:allowed]
+	}
+	if len(batch) == 0 {
 		return nil
 	}
-	// No downstream I/O or callbacks under the cache mutex. Values, timestamps,
-	// native histograms and exemplars always come from the current snapshot.
-	return w.sink.Write(ctx, stamped)
-}
-
-func sameStampedMetricLabels(stamped, source map[string]string, label string) bool {
-	if stamped == nil || stamped[BlueprintLabel] != label {
-		return false
-	}
-	count := len(source)
-	if _, ok := source[BlueprintLabel]; !ok {
-		count++
-	}
-	if len(stamped) != count {
-		return false
-	}
-	for k, v := range source {
-		if k == BlueprintLabel {
-			continue
-		}
-		if got, ok := stamped[k]; !ok || got != v {
-			return false
-		}
-	}
-	return true
+	return w.sink.Write(ctx, batch)
 }
 
 // metricProducer uses the synthetic series' declared job, which is already

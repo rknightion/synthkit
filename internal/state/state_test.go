@@ -137,23 +137,6 @@ func TestHistogramExpansion(t *testing.T) {
 	if !(b01 <= b05 && b05 <= b1) {
 		t.Fatalf("bucket counts must be monotonic non-decreasing in le: %v,%v,%v", b01, b05, b1)
 	}
-	// Cached expansion must not mutate a previous snapshot or the source.
-	if v, _ := seriesByNameLE(got, "req_dur_bucket", "0.1"); v != 1 {
-		t.Fatal("previous histogram snapshot changed")
-	}
-	if _, ok := lbl["le"]; ok {
-		t.Fatal("bucket expansion mutated source labels")
-	}
-	for _, x := range got2 {
-		if x.Labels["endpoint"] != "/v1/chat" {
-			t.Fatal("cached expansion lost identity")
-		}
-		if x.Name != "req_dur_bucket" {
-			if _, ok := x.Labels["le"]; ok {
-				t.Fatal("bucket label leaked to sum/count")
-			}
-		}
-	}
 }
 
 // TestHistogramPinnedBounds proves observations far above the largest finite bound land

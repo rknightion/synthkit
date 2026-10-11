@@ -14,7 +14,6 @@ import (
 	"log"
 	"maps"
 	"net/http"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -122,19 +121,12 @@ func (s *Sink) DistinctSeries() int {
 
 // seriesSig is a stable signature: metric name + labels sorted by key. Deterministic per series.
 func seriesSig(m Series) string {
-	var scratch [32]string
-	keys := scratch[:0]
-	if len(m.Labels) > len(scratch) {
-		keys = make([]string, 0, len(m.Labels))
-	}
-	size := len(m.Name)
-	for k, v := range m.Labels {
+	keys := make([]string, 0, len(m.Labels))
+	for k := range m.Labels {
 		keys = append(keys, k)
-		size += len(k) + len(v) + 2 // '|' and '='
 	}
-	slices.Sort(keys)
+	sort.Strings(keys)
 	var b strings.Builder
-	b.Grow(size)
 	b.WriteString(m.Name)
 	for _, k := range keys {
 		b.WriteByte('|')

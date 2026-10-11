@@ -9,12 +9,9 @@ import (
 	nativesigil "github.com/rknightion/synthkit/internal/sigil"
 	"github.com/rknightion/synthkit/internal/sink/httpretry"
 	sigilsink "github.com/rknightion/synthkit/internal/sink/sigil"
-	"hash/fnv"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"sort"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -319,41 +316,5 @@ func TestQueueDepthsNoFaroKeyWhenRUMAbsent(t *testing.T) {
 	depths := r.QueueDepths()
 	if _, ok := depths["faro"]; ok {
 		t.Fatal("QueueDepths contains 'faro' key when no RUM sink is present")
-	}
-}
-
-// The optimized route must match the historical FNV wire identity byte for byte,
-// including empty values, separators and label maps wider than stack scratch.
-func TestMetricAndStreamShardIdentityReference(t *testing.T) {
-	wide := map[string]string{}
-	for i := 0; i < 40; i++ {
-		wide[strconv.Itoa(i)] = "value"
-	}
-	for _, labels := range []map[string]string{nil, {"job": "svc", "empty": "", "nul": "a\x00b"}, wide} {
-		keys := make([]string, 0, len(labels))
-		for k := range labels {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, name := range []string{"", "requests_total"} {
-			h := fnv.New64a()
-			if name != "" {
-				_, _ = h.Write([]byte(name))
-				_, _ = h.Write([]byte{0})
-			}
-			for _, k := range keys {
-				_, _ = h.Write([]byte(k))
-				_, _ = h.Write([]byte{0})
-				_, _ = h.Write([]byte(labels[k]))
-				_, _ = h.Write([]byte{0})
-			}
-			if name == "" {
-				if got := hashStringMap(shardOffset64, labels); got != h.Sum64() {
-					t.Fatalf("stream shard=%d reference=%d", got, h.Sum64())
-				}
-			} else if got := shardSeries(promrw.Series{Name: name, Labels: labels}); got != h.Sum64() {
-				t.Fatalf("metric shard=%d reference=%d", got, h.Sum64())
-			}
-		}
 	}
 }

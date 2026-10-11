@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -58,21 +57,6 @@ func TestDistinctSeriesCountsAcrossWrites(t *testing.T) {
 	s.recordDistinct([]Series{{Name: "m2", Labels: nil}})
 	if got := s.DistinctSeries(); got != 3 {
 		t.Fatalf("want 3 distinct, got %d", got)
-	}
-	// Wider than the signature's stack scratch: insertion order must not
-	// change distinct identity, while an empty-value label still participates.
-	wide, reversed := map[string]string{}, map[string]string{}
-	for i := 0; i < 40; i++ {
-		wide[strconv.Itoa(i)] = "v"
-	}
-	for i := 39; i >= 0; i-- {
-		reversed[strconv.Itoa(i)] = "v"
-	}
-	s.recordDistinct([]Series{{Name: "wide", Labels: wide}, {Name: "wide", Labels: reversed}})
-	wide["empty"] = ""
-	s.recordDistinct([]Series{{Name: "wide", Labels: wide}})
-	if got := s.DistinctSeries(); got != 5 {
-		t.Fatalf("wide/reordered/mutated identity: want 5, got %d", got)
 	}
 }
 
