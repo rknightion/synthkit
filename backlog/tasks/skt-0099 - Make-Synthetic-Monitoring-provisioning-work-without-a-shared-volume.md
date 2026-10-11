@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 18:19'
+updated_date: '2026-10-11 19:09'
 labels:
   - feature
   - ha
@@ -45,4 +45,6 @@ Implement approved dedicated provisioner Lease, aggregate CAS sm-state key, v2 r
 
 <!-- SECTION:NOTES:BEGIN -->
 Implementation preflight found no decision-changing engine drift. Chart named-state HA wiring has landed, while SM Job remains file-only; follow-up will extend that existing seam. Zero implementation attempts: required CLI HTTP proof needs an explicit backend client injection seam. Root grants backend_kubernetes.go solely for additive explicit injection using the existing validated gated backend, matching the Lease adapter precedent. Production credential discovery and accepted backend/gate/CAS contracts stay unchanged.
+
+Candidate partial after two change-and-verify cycles (implementation/full gate, then owned architecture repair/focused race); initial ownership inspection consumed zero. Baseb8a0ef1da85ed9b0942be2398d35083ce90561f5, treeb6c51fac54a9b98f98dea061a5bd03d8a650ca59, complete39file patchd9b91adf56df730fffd8c9f1c3b904f75ede725287e5e94651b7be92238d4e91 verified and retained by root. Dedicated Lease/CAS/v2 activation/file evidence implemented with actual fake HTTP CLI and runner release-bump/restart positives, inventory byte-identical, focused race green. Full gate ran before final architecture correction and was red; unchanged chart test combines Helm mutually exclusive flags and fails before fixture API calls on available4.3.0/3.20.0. No assertion changed, no final fullgate pass claimed. Full composed-runner negative matrix still misses removal, target/schema mutation and all incomplete/duplicate/bad-Modified evidence cases. Root dispatched compatible-tool prerequisite mapping and independent full-candidate security review before next rescue. Initial CodeRabbit39files had2contract-conflicting majors under review; post-architecture checkpoint review emitted all39files0findings, a disclosed second-full-review cadence defect. Nothing accepted or landed; no CI.
 <!-- SECTION:NOTES:END -->
