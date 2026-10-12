@@ -130,8 +130,10 @@ continues, then seals and releases; unexpected loss hard-exits without release.
 Kubernetes HA standby performs zero writes; acquisition publishes/revalidates the current snapshot
 before building the production runner and its first tick. File Lease HA remains suppressed without
 artifact I/O. There is no automatic file-to-Kubernetes ownership migration or dual writing: moving
-existing ownership needs a separately approved offline procedure. Current Helm SM Job wiring remains
-file-only and rejects HA provisioning; this binary capability does not make that Job diskless.
+existing ownership needs a separately approved offline procedure. The chart supports a
+[standalone Kubernetes-state SM Job](kubernetes.md#diskless-one-shot-job); emitter SM named-state
+environment and RBAC still require separate ownership/configuration, and the combined chart HA+SM
+exclusion remains. The default file-mode Job retains its shared-volume behavior.
 
 ## Phase 2 — run the emitter
 

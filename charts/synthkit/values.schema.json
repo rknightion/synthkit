@@ -485,6 +485,10 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "stateBackend": {"type": "string", "enum": ["file", "kubernetes"], "description": "File preserves shared-PVC behavior. Kubernetes requires externally precreated aggregate SM state and a dedicated provisioning Lease; Helm never owns them."},
+        "stateConfigMap": {"type": "string", "maxLength": 253, "description": "External aggregate SM slot; all writers must use leaseName."},
+        "leaseName": {"type": "string", "maxLength": 253, "description": "External provisioning Lease, distinct from emitterLeaseName."},
+        "emitterLeaseName": {"type": "string", "maxLength": 253, "description": "Explicit emitter Lease identity, even when emitter HA is off; no job authority on this Lease."},
         "enabled": {
           "type": "boolean"
         },

@@ -320,12 +320,15 @@ The standalone binary supports manual diskless SM provisioning with `STATE_SM_CO
 All writers to that SM slot must use the same lock identity. The tool needs only named get/update on
 its Lease and SM ConfigMap, in-cluster API authentication and downward-API `POD_UID`; it neither
 creates resources nor uses a shared volume. Kubernetes HA activation rereads registration on
-acquisition before its first production tick; standby writes nothing. The current chart does **not**
-wire this SM extension: its existing SM Job remains file-only and rejects HA. Do not add mutable
-state as Helm-managed resources or infer automatic ownership transfer from file state. See
+acquisition before its first production tick; standby writes nothing. The chart supports a
+[standalone Kubernetes-state SM Job](#diskless-one-shot-job); emitter SM named-state environment
+and RBAC still require separate ownership/configuration, and the combined chart HA+SM exclusion
+remains. Do not add mutable state as Helm-managed resources or infer automatic ownership transfer
+from file state. See
 [Synthetic Monitoring](synthetic-monitoring.md#in-cluster-one-shot-mode-no-shared-volume).
-With HA off, Kubernetes state is still one emitter, not permission to scale replicas. This remains
-a standalone binary capability; the chart selects Kubernetes state only for its explicit HA mode.
+With HA off, Kubernetes state is still one emitter, not permission to scale replicas. For the emitter,
+this remains a standalone binary capability; the chart selects emitter Kubernetes state only for
+its explicit HA mode.
 
 ## Install
 
@@ -600,11 +603,72 @@ kubectl -n synthkit rollout restart deploy/synthkit
 ```
 
 It is not a Helm hook. Hooks run automatically on install, which would destroy the preview-then-apply
-sequence the provisioner is built around. Because it writes to the emitter's ReadWriteOnce claim it
-is co-scheduled onto the emitter's node with a pod affinity.
+sequence the provisioner is built around. The default `smProvision.stateBackend: file` preserves the
+shared ReadWriteOnce claim, on-node pod affinity and file-mode behavior described above.
 
-See [Synthetic Monitoring](synthetic-monitoring.md) for what the two phases actually do, and treat
-collisions or a pending journal as a hard stop for operator review.
+### Diskless one-shot Job
+
+`smProvision.stateBackend: kubernetes` selects the accepted named-state engine independently of
+emitter HA. This is a **Job-only extension**, not automatic emitter HA/SM wiring: the chart's existing
+HA exclusion for automatic SM provisioning remains in place. The emitter must already be configured
+by its owner to publish/read the same SM aggregate slot and provisioning Lease identity before this
+Job can be used to activate a lane. The Job cannot grant itself emitter authority or configure an
+emitter by writing another state slot.
+
+```yaml
+smProvision:
+  enabled: true
+  stateBackend: kubernetes
+  stateConfigMap: synthkit-sm-state
+  leaseName: synthkit-sm-provisioning
+  emitterLeaseName: synthkit-emission
+  apply: false
+  runId: "1"
+credentials:
+  sm:
+    existingSecret: synthkit-sm
+    keys:
+      GC_SM_URL: GC_SM_URL
+      GC_SM_TOKEN: GC_SM_TOKEN
+```
+
+All three names are explicit operator inputs in the release namespace, including the emitter Lease
+name when emitter HA is off. The aggregate ConfigMap must be separate from runtime, control, boot and
+git-source ConfigMaps. The provisioning Lease must differ from the emitter Lease. **Precreate the SM
+ConfigMap and provisioning Lease outside Helm, before running the Job**; Helm neither looks them up
+nor creates, owns, restores or deletes them. Do not attach Helm release ownership metadata to them.
+Use a separate provisioning principal for initial creation. A new ConfigMap may start with no
+`binaryData.document`; the version-matched emitter must publish its validated snapshot before
+preview. Never replace a populated document with an empty one. The engine owns the aggregate document
+in `binaryData.document`, including snapshot, ownership, registration and pending-failure evidence.
+All writers to that slot must use the same immutable provisioning Lease identity.
+
+The Job has a dedicated ServiceAccount, Role and RoleBinding with exactly named `get`/`update` on
+that one ConfigMap and that one provisioning Lease. It has no emitter Lease, Secret, create, list,
+watch or patch API authority. Kubernetes projects only that account's API token/CA/namespace; the
+Job receives downward-API namespace and Pod UID and the two explicit SM Secret keys, never emitter
+`envFrom`, `extraEnv` or unrelated credentials. It mounts no state volume and has no forced
+co-location. The emitter's persistence settings remain independent. `backoffLimit: 0` prevents an
+uncertain mutation being replayed by a Job retry; the engine's two-minute acquisition/ten-minute
+invocation caps, bounded HTTP/CAS operations and joined shutdown remain intact. The Job has a 660s
+outer deadline and 30s termination grace; these are not permission to weaken the engine budgets.
+
+Before either phase, explicitly select a verified image containing the diskless engine via
+`image.digest` (or clear it and set `image.tag`). The existing chart image default may predate this
+capability. The Job and the snapshot-producing emitter **must run the same source version and
+image**; a source-version mismatch is a hard stop, not a reason to edit snapshot evidence. Follow
+[the reproducible upgrade procedure](deployment.md#reproducible-upgrade) for the image you select.
+Preview using the named-state values above, inspect the Job log, then explicitly apply with a new
+`smProvision.runId`. Only after a successful apply, restart the already-configured, version-matched
+emitter (or explicitly reacquire its emission authority). A successful Job exit alone does not
+activate a running emitter. Require authenticated SM disposition `enabled`/`verified` before treating
+emission as activated. Neither install nor upgrade automatically approves remote writes.
+
+See [Synthetic Monitoring](synthetic-monitoring.md#in-cluster-one-shot-mode-no-shared-volume) for the
+engine contract and both phases. Treat collisions, ambiguous responses and a retained pending
+journal as a hard stop for operator review: preserve the aggregate state, inspect the evidence, and
+use only explicit approved recovery. There is no automatic file-to-Kubernetes ownership migration,
+dual writing, remote SM fencing or exactly-once guarantee.
 
 ---
 

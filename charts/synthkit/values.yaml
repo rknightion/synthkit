@@ -391,10 +391,19 @@ probes:
 
 # ── Synthetic Monitoring provisioner (opt-in one-shot Job) ───────────────────────────────────
 # Mirrors the Compose sm-provision profile: the same image, no synthetic-sink credentials, and a
-# preview-by-default apply flag. It writes to the same /data claim as the emitter, so it is
-# co-scheduled onto the emitter's node. Bump runId to re-run it on a later `helm upgrade`.
+# preview-by-default apply flag. File mode retains the shared claim and co-location. Kubernetes
+# mode uses only operator-precreated named state and a dedicated Lease, without a state volume.
+# Bump runId to re-run it on a later `helm upgrade`; this is never an automatic hook.
 smProvision:
   enabled: false
+  # Independent of emitter HA. Kubernetes mode requires all three explicit names below.
+  stateBackend: file
+  # External aggregate SM document, including snapshot, ownership, registration and pending evidence.
+  stateConfigMap: ""
+  # Every writer to the aggregate SM slot must use this precreated provisioning Lease.
+  leaseName: ""
+  # Explicit emitter Lease identity, even with emitter HA off; must differ from leaseName.
+  emitterLeaseName: ""
   runId: "1"
   # Preview by default. Review the Job's log, then set true and upgrade to write.
   apply: false

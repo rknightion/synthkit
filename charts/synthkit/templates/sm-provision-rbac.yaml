@@ -1,0 +1,46 @@
+{{/* Dedicated principal: never borrow the emitter's Lease/state authority. */}}
+{{- define "synthkit.smProvisionPrincipal" -}}
+{{- printf "%s-sm-provision" (include "synthkit.fullname" . | trunc 50 | trimSuffix "-") -}}
+{{- end -}}
+{{- if and .Values.smProvision.enabled (eq .Values.smProvision.stateBackend "kubernetes") -}}
+{{- include "synthkit.validate" . -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "synthkit.smProvisionPrincipal" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sm-provision
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "synthkit.smProvisionPrincipal" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ .Values.smProvision.stateConfigMap | quote }}]
+    verbs: ["get", "update"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    resourceNames: [{{ .Values.smProvision.leaseName | quote }}]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "synthkit.smProvisionPrincipal" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "synthkit.smProvisionPrincipal" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "synthkit.smProvisionPrincipal" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

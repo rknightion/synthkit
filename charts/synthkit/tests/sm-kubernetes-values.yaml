@@ -1,0 +1,16 @@
+# Local diskless Job fixture; credentials name an operator-created Secret, never values.
+# Emitter HA resources and policy remain unchanged by this Job-only extension.
+persistence:
+  enabled: false
+credentials:
+  sm:
+    existingSecret: synthkit-sm
+    keys:
+      GC_SM_URL: GC_SM_URL
+      GC_SM_TOKEN: GC_SM_TOKEN
+smProvision:
+  enabled: true
+  stateBackend: kubernetes
+  stateConfigMap: sm
+  leaseName: provision
+  emitterLeaseName: emitter

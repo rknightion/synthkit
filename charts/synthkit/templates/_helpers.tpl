@@ -144,6 +144,8 @@ with the ownership table above these form the reserved surface that extraEnv may
 - SM_PROVISION_APPLY
 - SM_PROVISION_ADOPT_LEGACY
 - SM_PROVISION_MIGRATE_TARGET
+- STATE_SM_CONFIGMAP
+- SM_PROVISION_LEASE_NAME
 - HA_MODE
 - HA_LEASE_NAME
 - HA_NAMESPACE
@@ -429,8 +431,37 @@ misbehaves once it is running.
   {{- if not $creds.sm.existingSecret -}}
     {{- fail "smProvision.enabled is true but credentials.sm.existingSecret is empty. The provisioner needs GC_SM_URL and GC_SM_TOKEN, and it receives no other credential." -}}
   {{- end -}}
-  {{- if not .Values.persistence.enabled -}}
-    {{- fail "smProvision.enabled requires persistence.enabled: the ownership ledger it writes must survive a reschedule." -}}
+  {{- if eq .Values.smProvision.stateBackend "file" -}}
+    {{- if not .Values.persistence.enabled -}}
+      {{- fail "smProvision.enabled requires persistence.enabled: the ownership ledger it writes must survive a reschedule." -}}
+    {{- end -}}
+    {{- if or .Values.smProvision.stateConfigMap .Values.smProvision.leaseName .Values.smProvision.emitterLeaseName -}}
+      {{- fail "file SM provisioning must not specify Kubernetes state or Lease names" -}}
+    {{- end -}}
+  {{- else -}}
+    {{- $sm := .Values.smProvision -}}
+    {{- if eq (include "synthkit.smProvisionPrincipal" .) (include "synthkit.serviceAccountName" .) -}}
+      {{- fail "SM provisioning must use a dedicated principal distinct from the emitter ServiceAccount" -}}
+    {{- end -}}
+    {{- range $key := (list "GC_SM_URL" "GC_SM_TOKEN") -}}
+      {{- if not (hasKey ($creds.sm.keys | default dict) $key) -}}
+        {{- fail (printf "Kubernetes SM provisioning requires credentials.sm.keys.%s" $key) -}}
+      {{- end -}}
+    {{- end -}}
+    {{- range $name := (list $sm.stateConfigMap $sm.leaseName $sm.emitterLeaseName) -}}
+      {{- if not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name) -}}
+        {{- fail "Kubernetes SM provisioning requires explicit valid state and Lease names" -}}
+      {{- end -}}
+      {{- range $part := splitList "." $name -}}
+        {{- if gt (len $part) 63 -}}{{- fail "SM object DNS labels must not exceed 63 characters" -}}{{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- if or (eq $sm.leaseName $sm.emitterLeaseName) (eq $sm.leaseName .Values.ha.leaseName) -}}
+      {{- fail "SM provisioning Lease must differ from the emitter Lease" -}}
+    {{- end -}}
+    {{- if has $sm.stateConfigMap (concat (list (include "synthkit.fullname" .) .Values.ha.controlConfigMap .Values.ha.bootConfigMap) (values .Values.ha.gitSourceConfigMaps)) -}}
+      {{- fail "SM state must be separate from runtime/control/boot/source ConfigMaps" -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- end -}}
