@@ -81,6 +81,8 @@ func TestSMInvalidNamedChart(t *testing.T) {
 		"smProvision.stateConfigMap=", "smProvision.leaseName=", "smProvision.emitterLeaseName=",
 		"smProvision.leaseName=emitter", "ha.leaseName=provision", "smProvision.stateConfigMap=synthkit-test",
 		"ha.controlConfigMap=sm", "ha.bootConfigMap=sm", "ha.gitSourceConfigMaps.example=sm",
+		"blueprintSources.enabled=true,smProvision.stateConfigMap=synthkit-test-git-sources",
+		"blueprintSources.enabled=true,blueprintSources.existingConfigMap=sm",
 		"smProvision.stateConfigMap=invalid!", "smProvision.stateConfigMap=" + strings.Repeat("a", 64),
 		"smProvision.stateBackend=other", "smProvision.createResources=true", "serviceAccount.name=synthkit-test-sm-provision",
 		"credentials.sm.keys.GC_SM_TOKEN=null", "credentials.sm.keys.GC_SM_URL=null",
@@ -97,6 +99,8 @@ func TestSMInvalidNamedChart(t *testing.T) {
 			}
 		})
 	}
+	// Independent declaration input and SM state remain a valid composition.
+	renderHA(t, "-f", smFixture(t), "--set", "blueprintSources.enabled=true")
 }
 
 func TestSMFileJobUnchanged(t *testing.T) {

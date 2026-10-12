@@ -459,6 +459,9 @@ misbehaves once it is running.
     {{- if or (eq $sm.leaseName $sm.emitterLeaseName) (eq $sm.leaseName .Values.ha.leaseName) -}}
       {{- fail "SM provisioning Lease must differ from the emitter Lease" -}}
     {{- end -}}
+    {{- if and .Values.blueprintSources.enabled (eq $sm.stateConfigMap (include "synthkit.sourceInputName" .)) -}}
+      {{- fail "SM state must be separate from the declarative blueprint source input ConfigMap" -}}
+    {{- end -}}
     {{- if has $sm.stateConfigMap (concat (list (include "synthkit.fullname" .) .Values.ha.controlConfigMap .Values.ha.bootConfigMap) (values .Values.ha.gitSourceConfigMaps)) -}}
       {{- fail "SM state must be separate from runtime/control/boot/source ConfigMaps" -}}
     {{- end -}}
