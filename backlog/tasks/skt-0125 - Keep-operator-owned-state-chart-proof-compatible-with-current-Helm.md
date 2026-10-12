@@ -1,11 +1,11 @@
 ---
 id: SKT-0125
 title: Keep operator-owned-state chart proof compatible with current Helm
-status: In Progress
+status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 19:11'
-updated_date: '2026-10-12 13:05'
+updated_date: '2026-10-12 15:38'
 labels: []
 dependencies: []
 references:
@@ -23,14 +23,14 @@ The unchanged HA chart proof combines --dry-run=server and --validate at charts/
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The supported current Helm toolchain runs the unchanged safety contract with actual local fixture discovery and precreation observations in install and upgrade cases.
-- [ ] #2 Operator-owned ConfigMaps and Lease remain byte-identical and unaccessed by Helm release rendering; no assertion, fixture or API-call proof is weakened to obtain compatibility.
-- [ ] #3 The documented local tool prerequisite and CI behavior agree; just check passes without a private run-local binary.
+- [x] #1 The supported current Helm toolchain runs the unchanged safety contract with actual local fixture discovery and precreation observations in install and upgrade cases.
+- [x] #2 Operator-owned ConfigMaps and Lease remain byte-identical and unaccessed by Helm release rendering; no assertion, fixture or API-call proof is weakened to obtain compatibility.
+- [x] #3 The documented local tool prerequisite and CI behavior agree; just check passes without a private run-local binary.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -49,4 +49,12 @@ loop16: implementation1 plus bounded review-repairround1 (documentation/source e
 loop17: zero new cycles; unchanged reviewed three-file patch matches frozen sha256 c6c8c3cf9494df58368d4bcabf3133fca02032497a26c941d22c5eeb8e591719 on current main. Root commit blocked before execution by auto-mode publication permission boundary; no commit/push/composed gate/CI claimed. Resume after owner clears permission; do not reset reviewed lineage.
 
 Current main CI verified green; resume reviewed land-only candidate under recorded host-load precondition with installed Helm 4.3.0. No new source cycle authorized.
+
+loop18: zero new source cycles, frozen three-file reviewed patch preserved on serial root publication258011cbc766e465c440274a47167e8ce70e3eee. Owner amended upstream composed proof to exact-SHA CI instead of load-bound local gate. CI38268552086 attempt1 completed success, all11required jobs success including go/race, Helm and both schema legs, none skipped/cancelled. Prior local fail-first and three-version actual discovery/precreation proof retained; routine reviewerPASS and approved CodeRabbit exemption. No private Helm binary in CI; accepted and Done.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Reviewed current-Helm safety proof landed at258011cbc766e465c440274a47167e8ce70e3eee; exact CI38268552086 all required jobs green under owner CI-first amendment.
+<!-- SECTION:FINAL_SUMMARY:END -->
