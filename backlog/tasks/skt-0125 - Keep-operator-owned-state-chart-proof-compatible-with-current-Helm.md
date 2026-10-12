@@ -1,11 +1,11 @@
 ---
 id: SKT-0125
 title: Keep operator-owned-state chart proof compatible with current Helm
-status: Parked
+status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 19:11'
-updated_date: '2026-10-12 11:19'
+updated_date: '2026-10-12 13:05'
 labels: []
 dependencies: []
 references:
@@ -47,4 +47,6 @@ Reproduce installed Helm flag rejection, preserve actual fixture discovery/precr
 loop16: implementation1 plus bounded review-repairround1 (documentation/source evidence), focused real discovery/precreation/operator-state proofs green under official3.19.0,3.20.0,installed4.3.0. Inherited3.20 rejection invalidated by checksum-verified binary/taggedsource; original4.3 fail-first genuine. R125deltaPASS, full laneG1250. First detachedcompositionef9aa7e failed unchangedFleet100ms initialLease fixture; causeunknown recorded SKT-0128 (classify Fleet fixture initial Lease timeout), no assertion/timing weakening or unchangedrerun. LegitimateSigilbase6751899 composed0. During root providercontinuationfailure, foreignRenovate UIlockfile advancedmain60d3847, preserved; newestunpublished exactcompositionc7782df1deb1b11210aa8d04fb64b42656925f31/baseb93a3bc47830c5e3be1cf4dfa65583f73b3f4880 cannot run requiredgate: gate-runner launcher nopush missing from activeconfig, launchrejected beforework. Parkdefect/runtime, notownerbudget; restore runtime, reconcilecurrentmain and exactcomposedgate before publication/exactCI. No chartcodepublished, allcandidate/review/proofs retained privately; routineCodeRabbit skipped as granted.
 
 loop17: zero new cycles; unchanged reviewed three-file patch matches frozen sha256 c6c8c3cf9494df58368d4bcabf3133fca02032497a26c941d22c5eeb8e591719 on current main. Root commit blocked before execution by auto-mode publication permission boundary; no commit/push/composed gate/CI claimed. Resume after owner clears permission; do not reset reviewed lineage.
+
+Current main CI verified green; resume reviewed land-only candidate under recorded host-load precondition with installed Helm 4.3.0. No new source cycle authorized.
 <!-- SECTION:NOTES:END -->

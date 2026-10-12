@@ -3,9 +3,11 @@ id: SKT-0129
 title: >-
   Project declarative git blueprint sources without overwriting instance-owned
   state
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop-root'
 created_date: '2026-10-12 12:21'
+updated_date: '2026-10-12 13:05'
 labels:
   - kubernetes
   - control
@@ -34,3 +36,9 @@ An external controller that manages a Kubernetes-backed instance needs to declar
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Reproduce missing declarative projection through the public boundary; implement independent desired-set ownership reconciliation preserving runtime state; prove file and fake Kubernetes backends, API refusal and schema/render contract; guarded review and exact composed gate before publication.
+<!-- SECTION:PLAN:END -->
