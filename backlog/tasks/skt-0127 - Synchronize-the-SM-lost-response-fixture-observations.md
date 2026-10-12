@@ -5,7 +5,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 20:14'
-updated_date: '2026-10-12 07:59'
+updated_date: '2026-10-12 11:19'
 labels: []
 dependencies: []
 references:
@@ -47,4 +47,6 @@ One owner-raised lineage cycle, five total: verified retained candidate on curre
 loop15: zero new implementation attempts; SKT-0099 (diskless SM provisioning) lineage four cycles already spent. Root restored main by exact inverse revert, not a fixture repair. Park defect until owner raises that lineage ceiling; a new tracker ID never supplies additional cycle authority. No test/assertion/gate weakened or rerun unchanged.
 
 loop16: one owner-raised lineage repair cycle used, five total, no fresh budget. Exact race reproduced10iterations then same repaired10iteration/focusedpackagesrace0; synchronized two testfiles,37retainedfeaturefiles byte-identical. SecuritydeltaPASS and CodeRabbit exacttwofiledelta complete0findings. Root transported39filepatch onto genuinely publishedSigilbase58ebd188; full laneG1270, all39files/HEAD/index unchanged, tree48be0cff74f46bd1d21e92a2811a8e6e55fee8e9 completepatchf2a91e5e998eedb45ef39124e63c6915304459c0f57b049a854ccd0da21ef04a. No SMcodepublished. Parkdefect: current gate-runner nopush launcher absent, required finalcomposed unavailable and precedingHelmpublication held. Restore runtime, reconcile precedingmain, merge both legitimate documentation paragraphs, full exactcomposed+CI before acceptance. Original owner-raised cycle remains spent; no rescue/reset.
+
+loop17: zero new cycles, never admitted; held behind SKT-0125 (current Helm chart proof) blocked publication permission. Resume reviewed unchanged candidate only after preceding land and exact CI; five-cycle lineage remains spent.
 <!-- SECTION:NOTES:END -->
