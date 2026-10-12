@@ -38,7 +38,7 @@ func TestHADeclaredSourcesReadOnlyViewAndPreparation(t *testing.T) {
 		t.Fatal(err)
 	}
 	bound := ha.Bounded{Gate: gate, Timeout: 2 * time.Second, Margin: time.Second, Crash: func() { t.Error("unexpected fence crash") }}
-	standby, err := newHAView(ctx, cfg, gate, bound, backend)
+	standby, err := newHAView(ctx, cfg, gate, bound, false, backend)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestHADeclaredSourcesReadOnlyViewAndPreparation(t *testing.T) {
 	var leader *haView
 	if err := gate.Activate(ctx, func(prep context.Context) error {
 		var err error
-		leader, err = newHAView(prep, cfg, gate, bound, backend)
+		leader, err = newHAView(prep, cfg, gate, bound, true, backend)
 		if err != nil {
 			return err
 		}
