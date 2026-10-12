@@ -1,11 +1,11 @@
 ---
 id: SKT-0127
 title: Synchronize the SM lost-response fixture observations
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 20:14'
-updated_date: '2026-10-11 21:34'
+updated_date: '2026-10-12 07:59'
 labels: []
 dependencies: []
 references:
@@ -45,4 +45,6 @@ One owner-raised lineage cycle, five total: verified retained candidate on curre
 
 <!-- SECTION:NOTES:BEGIN -->
 loop15: zero new implementation attempts; SKT-0099 (diskless SM provisioning) lineage four cycles already spent. Root restored main by exact inverse revert, not a fixture repair. Park defect until owner raises that lineage ceiling; a new tracker ID never supplies additional cycle authority. No test/assertion/gate weakened or rerun unchanged.
+
+loop16: one owner-raised lineage repair cycle used, five total, no fresh budget. Exact race reproduced10iterations then same repaired10iteration/focusedpackagesrace0; synchronized two testfiles,37retainedfeaturefiles byte-identical. SecuritydeltaPASS and CodeRabbit exacttwofiledelta complete0findings. Root transported39filepatch onto genuinely publishedSigilbase58ebd188; full laneG1270, all39files/HEAD/index unchanged, tree48be0cff74f46bd1d21e92a2811a8e6e55fee8e9 completepatchf2a91e5e998eedb45ef39124e63c6915304459c0f57b049a854ccd0da21ef04a. No SMcodepublished. Parkdefect: current gate-runner nopush launcher absent, required finalcomposed unavailable and precedingHelmpublication held. Restore runtime, reconcile precedingmain, merge both legitimate documentation paragraphs, full exactcomposed+CI before acceptance. Original owner-raised cycle remains spent; no rescue/reset.
 <!-- SECTION:NOTES:END -->

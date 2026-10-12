@@ -1,11 +1,11 @@
 ---
 id: SKT-0099
 title: Make Synthetic Monitoring provisioning work without a shared volume
-status: In Progress
+status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-11 21:35'
+updated_date: '2026-10-12 07:59'
 labels:
   - feature
   - ha
@@ -63,4 +63,6 @@ Four-cycle ceiling reached. Code provisionally landed as d850591d71efcdcbca80df2
 Original pushed d850591 CI38170368433 terminal overallcancelled; required ci-success114564142236 failed because go race and e2e jobs were cancelled by superseding revert push. This is not a CIpass or infrastructure-rerun authorization; no rerun requested. Root reverted immediately on proven composed fixture race before original CIterminal, a disclosed never-cut-land-mid-CI timing deviation. Restoration has its own exactSHA watcher and composedgate. Source defect remains independently reproduced locally; original CI cancellation is not substituted as code-failure proof.
 
 Restoration verified: exactc4c61fb437e05bfc4841e289ff79abe94679906a full composed just check exit0, clean detached source, plus exact CI38171230322/ci-success114569308907 success. This proves restored baseline only; feature stays reverted, Parked and all criteria unchecked. Complete code candidate, fail-first proofs, clean localgate/reviews/scans and failing composed race are retained. Chart wiring SKT-0099.01 (extend existing named-state chart) is To Do/unadmitted; fixture repair SKT-0127 (synchronize lost-response observations) is Parked at original lineage budget. Resume only with owner-raised cycle authority. Root finalpublication contains tracker receipts only; no engine implementation survives this run.
+
+loop16: one additional owner-raised cycle through SKT-0127 (synchronize lost-response fixture observations), five total lineage. Two fixturetestfiles synchronized after genuine count10racefailfirst; all37otherretainedfeaturefiles unchanged. Focusedrace0, twofileCodeRabbit0, securitydeltaPASS, rebasedfull laneG1270. Feature still notpublished: finalcurrentmaincomposed/CI blocked by harness missing nopush launcher; no toolmodefallback, rescue or freshbudget. Resume exact retainedcandidate through SKT-0127 after runtimerestored and precedingHelmpublication; SKT-0099.01 (chart wiring) staysToDo and unadmitted, SKT-0126 (fence snapshot publication) deferredminor unchanged. Allcriteria remainunchecked.
 <!-- SECTION:NOTES:END -->
