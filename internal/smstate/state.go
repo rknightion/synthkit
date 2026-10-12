@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package smstate owns the private, version-bound handoff between the synthkit process and the
+// Package smstate owns the private, specification-bound activation handoff between the synthkit process and the
 // one-shot Synthetic Monitoring provisioner. It contains no API client and no construct imports.
 package smstate
 
@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,14 +21,16 @@ import (
 )
 
 const (
-	SchemaVersion    = 1
-	SnapshotFilename = "sm-snapshot-v1.json"
-	RegistrationFile = "sm-registration-v1.json"
-	OwnershipFile    = "sm-ownership-v1.json"
-	AdoptionFile     = "sm-adoption-preview-v1.json"
-	MigrationFile    = "sm-target-migration-preview-v1.json"
-	JournalFilename  = "sm-pending-v1.json"
-	LockFilename     = "sm-provision-v1.lock"
+	SchemaVersion           = 1 // durable ownership, previews, pending and lock stay v1
+	ActivationSchemaVersion = 2
+	SnapshotFilename        = "sm-snapshot-v2.json"
+	RegistrationFile        = "sm-registration-v2.json"
+	LegacyRegistrationFile  = "sm-registration-v1.json"
+	OwnershipFile           = "sm-ownership-v1.json"
+	AdoptionFile            = "sm-adoption-preview-v1.json"
+	MigrationFile           = "sm-target-migration-preview-v1.json"
+	JournalFilename         = "sm-pending-v1.json"
+	LockFilename            = "sm-provision-v1.lock"
 )
 
 type Label struct {
@@ -158,7 +162,7 @@ func TargetFingerprint(target, credential string) string {
 
 func NewSnapshot(probes []ProbeSpec, checks []CheckSpec, target, credential, sourceVersion string, now time.Time) (Snapshot, error) {
 	s := Snapshot{
-		SchemaVersion: SchemaVersion, CreatedUnixMS: now.UnixMilli(),
+		SchemaVersion: ActivationSchemaVersion, CreatedUnixMS: now.UnixMilli(),
 		TargetFingerprint: TargetFingerprint(target, credential), SourceVersion: sourceVersion,
 		Probes: append([]ProbeSpec(nil), probes...), Checks: append([]CheckSpec(nil), checks...),
 	}
@@ -204,8 +208,8 @@ func ReadSnapshot(dir string) (Snapshot, error) {
 
 func WriteRegistration(dir string, registration Registration) error {
 	sortResources(registration.Resources)
-	if registration.SchemaVersion != SchemaVersion {
-		return fmt.Errorf("smstate: registration schema mismatch")
+	if err := ValidateRegistrationState(registration); err != nil {
+		return err
 	}
 	return writeJSON(filepath.Join(dir, RegistrationFile), registration)
 }
@@ -246,10 +250,16 @@ func ReadOwnershipState(dir string) (OwnershipLedger, error) {
 // weakening the current snapshot activation check. It is used only when no durable ledger exists.
 func OwnershipFromRegistration(dir, targetFingerprint string) (OwnershipLedger, error) {
 	var registration Registration
-	if err := readJSON(filepath.Join(dir, RegistrationFile), &registration); err != nil {
+	err := readJSON(filepath.Join(dir, RegistrationFile), &registration)
+	expectedSchema := ActivationSchemaVersion
+	if errors.Is(err, os.ErrNotExist) {
+		err = readJSON(filepath.Join(dir, LegacyRegistrationFile), &registration)
+		expectedSchema = SchemaVersion
+	}
+	if err != nil {
 		return OwnershipLedger{}, err
 	}
-	if registration.SchemaVersion != SchemaVersion {
+	if registration.SchemaVersion != expectedSchema {
 		return OwnershipLedger{}, fmt.Errorf("smstate: registration schema mismatch")
 	}
 	ledger := OwnershipLedger{
@@ -272,7 +282,7 @@ func validateOwnership(ledger OwnershipLedger) error {
 	seen := make(map[string]struct{}, len(ledger.Resources))
 	for _, resource := range ledger.Resources {
 		key := resource.Kind + "\x00" + resource.Key
-		if (resource.Kind != "probe" && resource.Kind != "check") || resource.Key == "" || resource.ID <= 0 || resource.Modified <= 0 ||
+		if (resource.Kind != "probe" && resource.Kind != "check") || resource.Key == "" || resource.ID <= 0 || !positiveModified(resource.Modified) ||
 			(resource.Ownership != Owned && resource.Ownership != Adopted) {
 			return fmt.Errorf("smstate: invalid ownership resource")
 		}
@@ -402,8 +412,11 @@ func ValidateRegistration(snapshot Snapshot, registration Registration) error {
 }
 
 func validateRegistrationResources(snapshot Snapshot, registration Registration, requireComplete bool) error {
-	if registration.SchemaVersion != SchemaVersion || registration.SnapshotHash != snapshot.SnapshotHash ||
-		registration.TargetFingerprint != snapshot.TargetFingerprint || registration.SourceVersion != snapshot.SourceVersion {
+	if err := ValidateSnapshot(snapshot); err != nil {
+		return err
+	}
+	if registration.SchemaVersion != ActivationSchemaVersion || registration.SnapshotHash != snapshot.SnapshotHash ||
+		registration.TargetFingerprint != snapshot.TargetFingerprint || registration.SourceVersion == "" {
 		return fmt.Errorf("smstate: stale or incompatible registration")
 	}
 	expected := make(map[string]string, len(snapshot.Probes)+len(snapshot.Checks))
@@ -423,7 +436,7 @@ func validateRegistrationResources(snapshot Snapshot, registration Registration,
 			return fmt.Errorf("smstate: duplicate registration resource")
 		}
 		seen[key] = struct{}{}
-		if resource.Modified <= 0 {
+		if !positiveModified(resource.Modified) {
 			return fmt.Errorf("smstate: invalid resource modified value")
 		}
 		if resource.Kind == "check" {
@@ -513,6 +526,51 @@ func AcquireLock(dir string) (func() error, error) {
 	return func() error { return os.Remove(path) }, nil
 }
 
+// Export pure shape validation for storage adapters, without coupling the model
+// to a backend. RegistrationState admits incomplete/stale evidence, not activation.
+func ValidateSnapshot(s Snapshot) error          { return validateSnapshot(s) }
+func ValidateOwnership(s OwnershipLedger) error  { return validateOwnership(s) }
+func ValidateAdoption(s AdoptionPreview) error   { return validateAdoptionPreview(s) }
+func ValidateMigration(s MigrationPreview) error { return validateMigrationPreview(s) }
+func ValidateJournal(s Journal) error {
+	if !validJournal(s) {
+		return fmt.Errorf("smstate: invalid pending journal")
+	}
+	return nil
+}
+func positiveModified(v float64) bool { return v > 0 && !math.IsNaN(v) && !math.IsInf(v, 0) }
+func ValidateRegistrationState(r Registration) error {
+	if r.SchemaVersion != ActivationSchemaVersion {
+		return fmt.Errorf("smstate: registration schema mismatch")
+	}
+	if r.SnapshotHash == "" || r.SourceVersion == "" {
+		return fmt.Errorf("smstate: invalid registration provenance")
+	}
+	if err := validateOwnership(OwnershipLedger{SchemaVersion: SchemaVersion, TargetFingerprint: r.TargetFingerprint, Resources: r.Resources}); err != nil {
+		return err
+	}
+	for _, v := range r.Resources {
+		if v.Kind == "check" && v.ConfigVersion != ConfigVersion(v.Modified) {
+			return fmt.Errorf("smstate: invalid check modified/config-version binding")
+		}
+	}
+	return nil
+}
+func ReadRegistrationEvidence(dir string) (Registration, error) {
+	var r Registration
+	if err := readJSON(filepath.Join(dir, RegistrationFile), &r); err != nil {
+		return r, err
+	}
+	return r, ValidateRegistrationState(r)
+}
+func RemoveRegistration(dir string) error {
+	err := os.Remove(filepath.Join(dir, RegistrationFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
 func SpecHash(value any) string {
 	b, err := json.Marshal(value)
 	if err != nil {
@@ -538,7 +596,10 @@ func RuntimeDir(snapshotPath string) string {
 }
 
 func normalizeSnapshot(snapshot *Snapshot) {
+	snapshot.Probes = append([]ProbeSpec{}, snapshot.Probes...)
+	snapshot.Checks = append([]CheckSpec{}, snapshot.Checks...)
 	for i := range snapshot.Checks {
+		snapshot.Checks[i].Labels = append([]Label{}, snapshot.Checks[i].Labels...)
 		sort.Slice(snapshot.Checks[i].Labels, func(a, b int) bool {
 			if snapshot.Checks[i].Labels[a].Name == snapshot.Checks[i].Labels[b].Name {
 				return snapshot.Checks[i].Labels[a].Value < snapshot.Checks[i].Labels[b].Value
@@ -565,7 +626,7 @@ func validateSnapshot(snapshot Snapshot) error {
 }
 
 func validateSnapshotShape(snapshot Snapshot) error {
-	if snapshot.SchemaVersion != SchemaVersion || snapshot.TargetFingerprint == "" || snapshot.SourceVersion == "" || len(snapshot.Checks) == 0 || len(snapshot.Probes) == 0 {
+	if snapshot.SchemaVersion != ActivationSchemaVersion || snapshot.TargetFingerprint == "" || snapshot.SourceVersion == "" || len(snapshot.Checks) == 0 || len(snapshot.Probes) == 0 {
 		return fmt.Errorf("smstate: incomplete snapshot")
 	}
 	probes := make(map[string]struct{}, len(snapshot.Probes))
@@ -595,10 +656,14 @@ func validateSnapshotShape(snapshot Snapshot) error {
 }
 
 func snapshotHash(snapshot Snapshot) (string, error) {
-	copy := snapshot
-	copy.CreatedUnixMS = 0
-	copy.SnapshotHash = ""
-	b, err := json.Marshal(copy)
+	normalizeSnapshot(&snapshot)
+	projection := struct {
+		SchemaVersion     int         `json:"schema_version"`
+		TargetFingerprint string      `json:"target_fingerprint"`
+		Probes            []ProbeSpec `json:"probes"`
+		Checks            []CheckSpec `json:"checks"`
+	}{snapshot.SchemaVersion, snapshot.TargetFingerprint, snapshot.Probes, snapshot.Checks}
+	b, err := json.Marshal(projection)
 	if err != nil {
 		return "", err
 	}
@@ -622,6 +687,9 @@ func readJSON(path string, out any) error {
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(out); err != nil {
 		return fmt.Errorf("smstate: decode %q: %w", filepath.Base(path), err)
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		return fmt.Errorf("smstate: trailing data")
 	}
 	return nil
 }

@@ -199,6 +199,12 @@ SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provis
 docker compose restart synthkit
 ```
 
+The first v2 activation-format upgrade requires explicit apply/restart, preserving all v1 ownership,
+preview, pending and lock evidence. Later release-only bumps retain activation when specs, target and
+schema are unchanged; the tool must still match the current snapshot version. The standalone
+in-cluster command supports a dedicated named SM state/Lease without shared disk. Current Helm SM
+Job wiring remains file-only; do not claim diskless chart support or automatic file-state migration.
+
 `DRY_RUN=false` does not authorise the provisioner. Do not enable legacy adoption unless preview
 shows exactly one complete match and the operator explicitly confirms ownership.
 
