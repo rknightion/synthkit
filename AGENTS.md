@@ -149,10 +149,7 @@ an `env_file` value.
   unbound legacy state; never silently relabel it. Explicit teardown requires actual completion,
   while the binary's ordinary restart leaves collectors registered. Chart-managed Kubernetes Fleet wiring
   remains separate from the runtime adapter and requires the generic named-state chart seam.
-- The operator-owned-state chart proof currently needs Helm 3.19.0: Helm 3.20.0 and 4.3.0 reject
-  its combined `--dry-run=server` and `--validate` before fixture API calls. Use a checksum-verified
-  compatible binary on local PATH; do not remove discovery/precreation assertions. Current-Helm
-  portability is tracked by SKT-0125 (keep the chart safety proof compatible with current Helm).
+- Chart checks require `helm` on PATH, as in CI's unpinned preinstalled toolchain; locally verified versions are 3.19.0, 3.20.0 and 4.3.0. The operator-owned-state proof uses combined server dry-run/validate flags for the verified Helm 3 versions and server dry-run alone for 4.3.0, preserving discovery/precreation assertions; other versions remain unverified.
 - Secret scanning covers Git history. A forward prose edit does not clear a historical finding;
   preserve credential canaries and history scope rather than adding a blanket file exception.
 

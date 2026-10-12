@@ -390,9 +390,25 @@ func verifyOperatorOwnedState(t *testing.T, race, upgrade bool) {
 	// the output against real 1.31 schemas. Dry-run does not execute hooks: safety
 	// requires their complete absence as well as unchanged API state, not merely
 	// observing no writes from a dry-run command.
-	// Helm 3 template sets ClientOnly unless --validate is supplied, even with
-	// --dry-run=server. Require discovery so the precreation race is observed.
-	args := []string{"-f", fixture, "--kubeconfig", config, "--dry-run=server", "--validate", "--disable-openapi-validation"}
+	// Verified Helm 3.19.0 and 3.20.0 template implementations set ClientOnly
+	// unless --validate is supplied, even with --dry-run=server.
+	// Helm 4.3.0 makes those flags mutually exclusive and server
+	// dry-run itself enables discovery. Keep server lookup semantics in both.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	version, err := exec.CommandContext(ctx, "helm", "version", "--template", "{{.Version}}").CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm version: %v\n%s", err, version)
+	}
+	args := []string{"-f", fixture, "--kubeconfig", config, "--dry-run=server", "--disable-openapi-validation"}
+	switch v := strings.TrimSpace(string(version)); {
+	case strings.HasPrefix(v, "v3."):
+		args = append(args, "--validate")
+	case strings.HasPrefix(v, "v4."):
+		// Server dry-run alone enables the real fixture API path.
+	default:
+		t.Fatalf("operator-owned state proof requires Helm 3 or Helm 4; got %q", v)
+	}
 	if upgrade {
 		args = append(args, "--is-upgrade")
 	}

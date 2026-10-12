@@ -21,6 +21,8 @@ exception; estates still come from blueprints, never from the surrounding cluste
 
 ## Optional stateless HA chart
 
+Chart development checks require `helm` on PATH, as in CI's preinstalled Helm toolchain. Locally verified versions are **3.19.0, 3.20.0 and 4.3.0**; other versions have not been verified here, and CI does not pin its preinstalled version. The operator-owned-state safety proof uses both `--dry-run=server` and `--validate` with Helm 3.19.0 and 3.20.0 to enable discovery, while Helm 4.3.0 uses `--dry-run=server` alone because those flags are mutually exclusive. Each verified version uses a bounded local API fixture, requires actual discovery and operator precreation, and verifies that operator-owned ConfigMaps and the Lease remain unaccessed by Helm and byte-identical; it never contacts a live cluster.
+
 HA is opt-in and requires Kubernetes **1.31 or newer**. HA off retains Kubernetes 1.25 support,
 one replica/Recreate and the existing persistent-volume defaults. The HA chart uses exactly two
 replicas with lease election and Kubernetes state, RollingUpdate `maxSurge: 1` / `maxUnavailable: 0`,
