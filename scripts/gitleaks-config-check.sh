@@ -15,6 +15,8 @@
 #      under `condition = "AND"`, so scoping by file rather than by value hides everything in it.
 #   4. The exact teardown prose is suppressed, but replacing its apparent value with synthetic
 #      keys still fires, including lowercase slash-separated keys of the same lengths.
+#   5. The actual chart subprocess runtime option is suppressed, but an altered value and
+#      generic/dedicated credential shapes in that same source context still fire.
 #
 # The fixture values are synthetic and are DERIVED AT RUN TIME from the plain seeds below rather
 # than written out as literals. A literal here would be a real finding in this tracked file and
@@ -124,6 +126,31 @@ fixture.joinpath("cmd", "synthkit", "teardown_prose.md").write_text(
 )
 PY
 
+# Preserve the actual source line's API-bearing context and file path. Exercise both source
+# and added patch lines; derive replacements at runtime, never embed credential-shaped literals.
+python3 - "$repo_root" "$fixture" "$generic_value" "$grafana_value" <<'PY'
+import pathlib
+import re
+import sys
+
+repo, fixture = map(pathlib.Path, sys.argv[1:3])
+relative = pathlib.Path("charts/synthkit/tests/sm_chart_test.go")
+lines = [line for line in repo.joinpath(relative).read_text().splitlines()
+         if "cmd.Env =" in line and '"GORACE=' in line]
+assert len(lines) == 1, "expected exactly one chart subprocess runtime-option source line"
+source = lines[0]
+match = re.search(r'"(GORACE=[^"]+)"', source)
+assert match, "runtime option must remain a quoted environment entry"
+value = match.group(1)
+assert value.split("=", 1)[1] == "atexit_sleep_ms=0", "source runtime option changed"
+replacements = [value, value[:-1] + str(int(value[-1]) + 1), *sys.argv[3:]]
+controls = [source[:match.start(1)] + replacement + source[match.end(1):]
+            for replacement in replacements]
+target = fixture.joinpath(relative)
+target.parent.mkdir(parents=True, exist_ok=True)
+target.write_text("\n".join(controls + ["+" + line for line in controls]) + "\n")
+PY
+
 docker run --rm -v "$fixture:/scan" -w /scan "$image" \
 	dir --redact --no-banner --exit-code 0 --report-format json --report-path /scan/report.json . >/dev/null
 
@@ -169,8 +196,18 @@ for line in 2 3 4 5 7 8 9 10; do
 	expect_detected "generic-api-key	cmd/synthkit/teardown_prose.md	${line}"
 done
 
+for line in 1 5; do
+	expect_absent "generic-api-key	charts/synthkit/tests/sm_chart_test.go	${line}"
+done
+for line in 2 3 6 7; do
+	expect_detected "generic-api-key	charts/synthkit/tests/sm_chart_test.go	${line}"
+done
+for line in 4 8; do
+	expect_detected "grafana-cloud-api-token	charts/synthkit/tests/sm_chart_test.go	${line}"
+done
+
 if [[ "$fail" -ne 0 ]]; then
 	echo "gitleaks-config-check: FAILED"
 	exit 1
 fi
-echo "gitleaks-config-check: OK — rule active, exact prose suppressed, synthetic replacements detected, unrelated rules unaffected"
+echo "gitleaks-config-check: OK — rule active, exact prose/runtime option suppressed, synthetic replacements detected, unrelated rules unaffected"

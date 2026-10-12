@@ -58,6 +58,14 @@ id = "generic-api-key"
     '''(?m)^\+?authentica[t]ion, unavailabl[e]/corrup[t] state or an unregister failure exits nonzero\. The HA-off teardown$''',
   ]
 
+  # The chart subprocess sets one numeric Go race-runtime option, not a credential.
+  # Match only the complete extracted value, independent of path or surrounding API context.
+  # The character class avoids embedding the scanner-matched literal in this configuration.
+  [[rules.allowlists]]
+  description = "exact Go race-runtime exit-sleep option, not a credential"
+  regexTarget = "secret"
+  regexes = ['''^GORAC[E]=atexit_sleep_ms=0$''']
+
   # The native Datadog envelope records these observed attribute NAMES, never values.
   # Leading underscores exclude them from the ordinary lowercase metric-name rule above.
   # Match only these two exact values; no path or broader underscore vocabulary is exempt.
