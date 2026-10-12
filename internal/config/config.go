@@ -80,6 +80,7 @@ type Config struct {
 	ControlManagedFeatures map[string]string // CONTROL_MANAGED_FEATURES — presentation-only feature reasons
 
 	// External/custom blueprint sources (git + local).
+	GitSourcesFile         string // GIT_SOURCES_FILE — optional watched JSON desired source definitions
 	GitPollInterval        int    // GIT_POLL_INTERVAL — seconds between "update available" polls (0 = off)
 	GitTokenDefault        string // GIT_TOKEN — default HTTPS PAT for private git blueprint repos (fallback when a source's token_env_var is empty)
 	GitSourceHostAllowlist string // GIT_SOURCE_HOST_ALLOWLIST — optional comma-separated exact hosts, parsed by bpsource.NewSourcePolicy
@@ -190,6 +191,7 @@ func Load(envPath string) (*Config, error) {
 		ControlBasePath:        get("CONTROL_BASE_PATH", ""),
 		ControlToken:           get("CONTROL_TOKEN", ""),
 		ControlExposure:        get("CONTROL_EXPOSURE_ACK", ""),
+		GitSourcesFile:         get("GIT_SOURCES_FILE", ""),
 		GitTokenDefault:        get("GIT_TOKEN", ""),
 		GitSourceHostAllowlist: get("GIT_SOURCE_HOST_ALLOWLIST", ""),
 

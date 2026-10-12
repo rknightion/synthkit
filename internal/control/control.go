@@ -45,16 +45,17 @@ type RuntimeIncident struct {
 
 // State is the complete persisted knob state. NO omitempty — ever (I24).
 type State struct {
-	VolumeMultiplier      float64                   `json:"volume_multiplier"`
-	DisabledBlueprints    []string                  `json:"disabled_blueprints"`
-	Failures              map[string]FailureSetting `json:"failures"`
-	ActiveScenarios       []string                  `json:"active_scenarios"`        // "blueprint/name" ids
-	Scaling               map[string]int            `json:"scaling"`                 // target → live count
-	DisabledConstructs    []string                  `json:"disabled_constructs"`     // "blueprint/kind:name" keys
-	DisabledKinds         []string                  `json:"disabled_kinds"`          // bare construct kinds
-	SpanMetricsBlueprints []string                  `json:"span_metrics_blueprints"` // opt-IN: blueprints that emit synthkit's own spanmetrics/service-graph
-	RuntimeIncidents      []RuntimeIncident         `json:"runtime_incidents"`
-	BlueprintSources      []SourceView              `json:"blueprint_sources"` // configured git sources (Task 14)
+	VolumeMultiplier         float64                   `json:"volume_multiplier"`
+	DisabledBlueprints       []string                  `json:"disabled_blueprints"`
+	Failures                 map[string]FailureSetting `json:"failures"`
+	ActiveScenarios          []string                  `json:"active_scenarios"`        // "blueprint/name" ids
+	Scaling                  map[string]int            `json:"scaling"`                 // target → live count
+	DisabledConstructs       []string                  `json:"disabled_constructs"`     // "blueprint/kind:name" keys
+	DisabledKinds            []string                  `json:"disabled_kinds"`          // bare construct kinds
+	SpanMetricsBlueprints    []string                  `json:"span_metrics_blueprints"` // opt-IN: blueprints that emit synthkit's own spanmetrics/service-graph
+	RuntimeIncidents         []RuntimeIncident         `json:"runtime_incidents"`
+	BlueprintSources         []SourceView              `json:"blueprint_sources"`          // instance-owned configuration and lifecycle records
+	DeclaredBlueprintSources []DeclaredSource          `json:"declared_blueprint_sources"` // last accepted desired definitions, independent of lifecycle records
 }
 
 // SpanMetricsEnabled reports whether synthkit should emit its OWN backend spanmetrics +
@@ -77,16 +78,17 @@ func (s *State) SetFailure(mode string, f FailureSetting) {
 // state — a bare State{} would zero VolumeMultiplier and emit nothing.
 func DefaultState() State {
 	return State{
-		VolumeMultiplier:      1.0,
-		DisabledBlueprints:    []string{},
-		Failures:              map[string]FailureSetting{},
-		ActiveScenarios:       []string{},
-		Scaling:               map[string]int{},
-		DisabledConstructs:    []string{},
-		DisabledKinds:         []string{},
-		SpanMetricsBlueprints: []string{},
-		RuntimeIncidents:      []RuntimeIncident{},
-		BlueprintSources:      []SourceView{},
+		VolumeMultiplier:         1.0,
+		DisabledBlueprints:       []string{},
+		Failures:                 map[string]FailureSetting{},
+		ActiveScenarios:          []string{},
+		Scaling:                  map[string]int{},
+		DisabledConstructs:       []string{},
+		DisabledKinds:            []string{},
+		SpanMetricsBlueprints:    []string{},
+		RuntimeIncidents:         []RuntimeIncident{},
+		BlueprintSources:         []SourceView{},
+		DeclaredBlueprintSources: []DeclaredSource{},
 	}
 }
 
@@ -249,9 +251,9 @@ func setMember(values []string, value string, present bool) []string {
 }
 
 // Reset returns the state to defaults (persisted atomically under the lock).
-func (s *Store) Reset() State { return s.Update(func(st *State) { *st = DefaultState() }) }
+func (s *Store) Reset() State { return s.Update(resetOwnedState) }
 func (s *Store) ResetContext(ctx context.Context) (State, error) {
-	return s.UpdateContext(ctx, func(st *State) { *st = DefaultState() })
+	return s.UpdateContext(ctx, resetOwnedState)
 }
 
 // recordPersist folds a persist outcome into the runtime health fields. Caller holds s.mu.
@@ -359,11 +361,18 @@ func cloneState(s State) State {
 	out.DisabledKinds = append([]string{}, s.DisabledKinds...)
 	out.SpanMetricsBlueprints = append([]string{}, s.SpanMetricsBlueprints...)
 	out.RuntimeIncidents = append([]RuntimeIncident{}, s.RuntimeIncidents...)
+	out.DeclaredBlueprintSources = append([]DeclaredSource{}, s.DeclaredBlueprintSources...)
 	out.BlueprintSources = make([]SourceView, len(s.BlueprintSources))
 	for i, source := range s.BlueprintSources {
-		source.EffectiveNames = append([]string{}, source.EffectiveNames...)
-		source.LoadedNames = append([]string{}, source.LoadedNames...)
-		source.Skipped = append([]string{}, source.Skipped...)
+		if source.EffectiveNames != nil {
+			source.EffectiveNames = append([]string{}, source.EffectiveNames...)
+		}
+		if source.LoadedNames != nil {
+			source.LoadedNames = append([]string{}, source.LoadedNames...)
+		}
+		if source.Skipped != nil {
+			source.Skipped = append([]string{}, source.Skipped...)
+		}
 		out.BlueprintSources[i] = source
 	}
 	return out

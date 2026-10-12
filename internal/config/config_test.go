@@ -77,6 +77,22 @@ func TestSMProvisionKubernetesIdentityAndBudgets(t *testing.T) {
 		t.Fatal("unbounded CAS attempts accepted")
 	}
 }
+
+func TestLoadDeclaredSourcesFile(t *testing.T) {
+	cfg, err := Load(writeEnv(t, "GIT_SOURCES_FILE=/mounted/sources.json\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.GitSourcesFile != "/mounted/sources.json" {
+		t.Fatalf("source input path = %q", cfg.GitSourcesFile)
+	}
+	t.Setenv("GIT_SOURCES_FILE", "")
+	cfg, err = Load(writeEnv(t, "GIT_SOURCES_FILE=/mounted/sources.json\n"))
+	if err != nil || cfg.GitSourcesFile != "" {
+		t.Fatalf("empty override changed file mode: %+v %v", cfg, err)
+	}
+}
+
 func TestLoadFleetStateSlot(t *testing.T) {
 	cfg, err := Load(writeEnv(t, "STATE_FLEET_CONFIGMAP=fleet-state\n"))
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -372,6 +373,9 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	sc := bpsource.NewStoreSourceConfig(store)
 	reg := runner.Catalog()
 	mgr := bpsource.NewManager(bpsource.Options{Backend: backend, CASAttempts: cfg.StateCASMaxAttempts, MaxDocumentBytes: cfg.StateGitSourceMaxBytes, BackendError: store.ObserveBackendError, Gate: gate, ReadOnly: true, BakedDir: cfg.BlueprintsDir, BlueprintNames: cfg.BlueprintNames, DataDir: cfg.BlueprintDataDir, Registry: reg, RuntimeLimits: blueprint.RuntimeLimits{MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries}, Git: bpsource.NewNanogitClientWithPolicy(tokenLookup, policy), SourcePolicy: policy, Config: sc})
+	if err := mgr.PreviewDeclaredFile(ctx, cfg.GitSourcesFile); err != nil {
+		return nil, err
+	}
 	if err := mgr.LoadBackend(ctx); err != nil {
 		return nil, err
 	}
@@ -734,6 +738,9 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 				if err := leader.store.ProbeWriteContext(ctx); err != nil {
 					return err
 				}
+				if err := leader.manager.CommitDeclared(ctx); err != nil {
+					return err
+				}
 				if err := leader.manager.CommitResolved(ctx, leader.manifest, leader.loaded, leader.diagnostics); err != nil {
 					return err
 				}
@@ -788,6 +795,15 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 				return
 			}
 			var wg sync.WaitGroup
+			if cfg.GitSourcesFile != "" {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					leader.manager.WatchDeclared(prodCtx, cfg.GitSourcesFile, func(c context.Context, fn func(context.Context) error) error {
+						return mutationBound.Run(c, ha.Mutation, fn)
+					}, func(err error) { log.Printf("declarative git sources: %v", err) })
+				}()
+			}
 			if cfg.GitPollInterval > 0 {
 				wg.Add(1)
 				go func() {

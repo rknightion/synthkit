@@ -45,6 +45,24 @@ ha:
   # Explicit predeclared source ID -> ConfigMap slots. Unused slots are allowed.
   gitSourceConfigMaps: {}
 
+# Desired git source definitions, separate from instance-owned control/sync state.
+# Enabled with sources: [] explicitly removes declarations. Changes project without a restart;
+# fetching/staging and restarting to load blueprints remain separate operations.
+blueprintSources:
+  enabled: false
+  # An external controller can instead own this input ConfigMap. Mount the whole directory
+  # (never subPath) so kubelet projected-volume updates are observed. No runtime API RBAC needed.
+  existingConfigMap: ""
+  key: sources.json
+  sources: []
+  # - id: example
+  #   name: Example
+  #   namespace: example
+  #   url: https://example.invalid/repository
+  #   ref: refs/heads/main
+  #   subpath: blueprints
+  #   token_env_var: GIT_TOKEN_EXAMPLE
+
 # ── Runtime behaviour (non-secret; rendered into a ConfigMap) ────────────────────────────────
 # Every key below maps to an environment variable that internal/config reads with a literal key.
 config:

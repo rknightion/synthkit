@@ -128,6 +128,12 @@ func mutationError(w http.ResponseWriter, err error) bool {
 	if err == nil {
 		return false
 	}
+	if errors.Is(err, ErrDeclaredSource) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		writeJSON(w, map[string]string{"code": "declared_source", "reason": ErrDeclaredSource.Error()})
+		return true
+	}
 	code := "state_persist_failed"
 	if errors.Is(err, ErrOutcomeUnknown) {
 		code = "state_outcome_unknown"
@@ -778,7 +784,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	})
 
 	mux.HandleFunc("POST /control/reset", guard(func(w http.ResponseWriter, r *http.Request) {
-		out, ok := update(w, r, func(s *State) { *s = DefaultState() })
+		out, ok := update(w, r, resetOwnedState)
 		if !ok {
 			return
 		}
@@ -890,6 +896,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		if !decodeStrict(w, r, &sv) {
 			return
 		}
+		if sv.Declared || DeclaredSourceID(store.Snapshot(), sv.ID) {
+			mutationError(w, ErrDeclaredSource)
+			return
+		}
 		upsert := func() error { return h.bpadmin.UpsertSource(sv) }
 		if contextual, ok := h.bpadmin.(interface {
 			UpsertSourceContext(context.Context, SourceView) error
@@ -897,6 +907,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			upsert = func() error { return contextual.UpsertSourceContext(r.Context(), sv) }
 		}
 		if err := upsert(); err != nil {
+			if errors.Is(err, ErrDeclaredSource) {
+				mutationError(w, err)
+				return
+			}
 			if errors.Is(err, ErrOutcomeUnknown) || errors.Is(err, ErrConflict) || errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				mutationError(w, err)
 				return
@@ -915,6 +929,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			return
 		}
 		id := r.URL.Query().Get("id")
+		if DeclaredSourceID(store.Snapshot(), id) {
+			mutationError(w, ErrDeclaredSource)
+			return
+		}
 		remove := func() error { return h.bpadmin.RemoveSource(id) }
 		if contextual, ok := h.bpadmin.(interface {
 			RemoveSourceContext(context.Context, string) error
@@ -922,6 +940,10 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			remove = func() error { return contextual.RemoveSourceContext(r.Context(), id) }
 		}
 		if err := remove(); err != nil {
+			if errors.Is(err, ErrDeclaredSource) {
+				mutationError(w, err)
+				return
+			}
 			if errors.Is(err, ErrOutcomeUnknown) || errors.Is(err, ErrConflict) || errors.Is(err, ha.ErrNotLeader) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				mutationError(w, err)
 				return

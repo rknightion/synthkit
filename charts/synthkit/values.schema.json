@@ -5,6 +5,31 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "blueprintSources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type":"boolean"},
+        "existingConfigMap": {"type":"string","maxLength":253,"pattern":"^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"},
+        "key": {"type":"string","minLength":1,"maxLength":253,"pattern":"^[A-Za-z0-9_-][A-Za-z0-9_.-]*$"},
+        "sources": {
+          "type":"array","maxItems":128,
+          "items": {
+            "type":"object","additionalProperties":false,
+            "required":["id","name","namespace","url","ref"],
+            "properties": {
+              "id":{"type":"string","pattern":"^[a-z0-9][a-z0-9_-]*$"},
+              "name":{"type":"string","minLength":1},
+              "namespace":{"type":"string","pattern":"^[a-z0-9][a-z0-9_-]*$"},
+              "url":{"type":"string","pattern":"^https://[^/@?#]+(/[^#]*)?$"},
+              "ref":{"type":"string","minLength":1},
+              "subpath":{"type":"string"},
+              "token_env_var":{"type":"string","pattern":"^$|^GIT_TOKEN$|^GIT_TOKEN_[A-Za-z0-9_]+$"}
+            }
+          }
+        }
+      }
+    },
     "ha": {
       "type": "object",
       "additionalProperties": false,

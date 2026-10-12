@@ -63,6 +63,7 @@ type PendingChanges struct {
 // INVARIANT: no raw token ever appears here — only the name of the env var that holds it
 // (TokenEnvVar). NO omitempty (I24: persisted into control.State in Task 14; must round-trip).
 type SourceView struct {
+	Declared         bool     `json:"declared"`           // externally owned definition; API edits/deletes are refused
 	ID               string   `json:"id"`                 // stable slug, also the on-disk dir name
 	Name             string   `json:"name"`               // human label
 	Namespace        string   `json:"namespace"`          // prefix applied to its blueprints

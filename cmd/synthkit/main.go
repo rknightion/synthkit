@@ -188,6 +188,12 @@ func runFleetUnregister(ctx context.Context, cfg *config.Config) error {
 		}
 		return os.Getenv(name)
 	}, policy)})
+	if err := mgr.PreviewDeclaredFile(ctx, cfg.GitSourcesFile); err != nil {
+		return err
+	}
+	if err := mgr.CommitDeclared(ctx); err != nil {
+		return err
+	}
 	if err := mgr.LoadBackend(ctx); err != nil {
 		return err
 	}
@@ -475,6 +481,12 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		Now:            func() int64 { return time.Now().UnixMilli() },
 	})
 
+	if err := mgr.PreviewDeclaredFile(context.Background(), cfg.GitSourcesFile); err != nil {
+		return err
+	}
+	if err := mgr.CommitDeclared(context.Background()); err != nil {
+		return err
+	}
 	if err := mgr.LoadBackend(context.Background()); err != nil {
 		return err
 	}
@@ -791,6 +803,14 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	if cfg.GitSourcesFile != "" {
+		go mgr.WatchDeclared(ctx, cfg.GitSourcesFile, func(c context.Context, fn func(context.Context) error) error {
+			bounded, cancel := context.WithTimeout(c, 2*time.Second)
+			defer cancel()
+			return fn(bounded)
+		}, func(err error) { log.Printf("declarative git sources: %v", err) })
+	}
 
 	// Background git poll: refreshes latestSHAs so /control/blueprints/pending can show
 	// "update available" without inline git I/O on the request path. Off by default (0).

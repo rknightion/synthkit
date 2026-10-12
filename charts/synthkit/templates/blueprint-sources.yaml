@@ -1,0 +1,10 @@
+{{- if and .Values.blueprintSources.enabled (not .Values.blueprintSources.existingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "synthkit.sourceInputName" . }}
+  labels:
+    {{- include "synthkit.labels" . | nindent 4 }}
+data:
+  {{ .Values.blueprintSources.key | quote }}: {{ toJson .Values.blueprintSources.sources | quote }}
+{{- end }}

@@ -406,6 +406,16 @@ test("a staged-blueprint delete is ConfirmButton-gated and DELETEs blueprints/cu
   expect(store.refresh).toHaveBeenCalled();
 });
 
+test("declared sources display the refusal reason and disable deletion without disabling fetch or console sources", () => {
+  const { getByTestId } = renderBpManage(fakeStore({
+    sources: [source({ id: "declared", declared: true, url: "https://example.invalid/repo" }), source({ id: "console", url: "https://example.invalid/repo" })],
+  }));
+  expect(getByTestId("bpm-source-owner-declared")).toHaveTextContent("Declared by GIT_SOURCES_FILE — edit or remove its declaration instead of using the console.");
+  expect(getByTestId("bpm-source-del-declared")).toBeDisabled();
+  expect(getByTestId("bpm-source-fetch-declared")).not.toBeDisabled();
+  expect(getByTestId("bpm-source-del-console")).not.toBeDisabled();
+});
+
 test("a source delete is ConfirmButton-gated and DELETEs blueprints/sources?id=", async () => {
   const f = stubFetch({ status: "removed" });
   const store = fakeStore({

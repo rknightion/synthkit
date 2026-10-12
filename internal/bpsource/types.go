@@ -23,6 +23,7 @@ const (
 
 // Source is one configured git source. Persisted in control.State (non-secret).
 type Source struct {
+	Declared         bool     `json:"declared"`
 	ID               string   `json:"id"`                 // stable slug, also the on-disk dir name
 	Name             string   `json:"name"`               // human label
 	Namespace        string   `json:"namespace"`          // prefix applied to its blueprints

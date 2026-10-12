@@ -253,12 +253,16 @@ export function BpManage(): JSX.Element {
                             label="✕ Delete"
                             confirmLabel="Delete"
                             testid={"bpm-source-del-" + src.id}
+                            disabled={src.declared}
                             message={'Delete source "' + (src.name || src.id) + '"?'}
                             onConfirm={() => deleteSource(src.id)}
                           />
                         </div>
                       </div>
                       <div class="bpm-source-meta">
+                        <Show when={src.declared}>
+                          <span data-testid={"bpm-source-owner-" + src.id}>Declared by GIT_SOURCES_FILE — edit or remove its declaration instead of using the console.</span>
+                        </Show>
                         <Show when={src.url}>
                           <span>url: {src.url}</span>
                         </Show>

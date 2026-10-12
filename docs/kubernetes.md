@@ -199,6 +199,101 @@ remain unavailable. File Lease HA suppresses SM without artifact I/O; Kubernetes
 consume an explicitly provisioned registration through its separate named state/Lease mapping.
 Process telemetry/profiles carry immutable `ha.role` tags, including standby exports.
 
+## Declarative git source projection
+
+`GIT_SOURCES_FILE` is an optional **local mounted JSON file**, separate from every mutable state
+object. It declares the desired git source set, not storage ConfigMap names or fetched YAML. Any
+operator can replace this input without writing the instance's control state. It works with file
+state and Kubernetes state, with or without Lease mode; absent configuration preserves the existing
+console-managed workflow. Use a binary built from source containing this feature: the older pinned
+chart image described above does not establish support for this new input.
+
+```json
+[
+  {
+    "id": "example",
+    "name": "Example",
+    "namespace": "example",
+    "url": "https://example.invalid/repository",
+    "ref": "refs/heads/main",
+    "subpath": "blueprints",
+    "token_env_var": "GIT_TOKEN_EXAMPLE"
+  }
+]
+```
+
+Required fields are `id`, `name`, `namespace`, `url` and `ref`. Optional `subpath` defaults to the
+repository root; optional `token_env_var` names an existing `GIT_TOKEN` or `GIT_TOKEN_…` variable,
+never its value. The ordinary HTTPS/ref/namespace/path validation and `GIT_SOURCE_HOST_ALLOWLIST`
+apply. Unknown fields (including fetched/applied status and ownership flags), duplicate keys/IDs,
+null input, trailing data, more than 128 sources or input larger than 256 KiB are rejected. With
+Kubernetes state, **precreate and map all desired source slots** in `STATE_GIT_SOURCE_CONFIGMAPS`
+before changing the input. Missing, corrupt or unmapped slots reject the complete desired set.
+
+At startup the engine inspects the input before resolving sources. A Lease standby/acquisition
+only previews it; the selected leader commits the captured desired definitions through Activate's
+existing bounded preparation capability. During production the leader reopens the file every
+second, within the existing mutation fence; revocation or shutdown stops the watcher. Directory
+mounts observe Kubernetes projected-volume symlink swaps without relying on the old inode. Kubelet
+projection latency still applies: this is not an API-server watch and adds no list/watch RBAC.
+Ordinary atomic file replacement is also supported. Invalid, unreadable or missing updates keep the
+last accepted set and log an error; startup fails instead. Write an explicit `[]` to remove all
+declarations. Unsetting the path stops reading input but retains the last accepted ownership set;
+clear it explicitly before reverting to console management.
+
+### Ownership and instance state
+
+Accepted definitions live separately as `declared_blueprint_sources`. They overlay effective
+source configuration without rewriting `blueprint_sources` lifecycle records, fetched source
+ConfigMap bytes, the boot manifest/applied revisions or console-managed sources. Changed fetch
+configuration hides an obsolete staged snapshot in the effective view until a new explicit fetch;
+it does not relabel the old snapshot or erase its stored status. Removed definitions leave dormant
+instance-owned status/cache records intact and do not fetch or load them. Retention/cleanup remains
+an operator responsibility. A declared ID colliding with a console-managed ID rejects the entire
+set; there is no implicit adoption. A removed declared ID can subsequently be created through the
+console, intentionally replacing that dormant record.
+
+Declared sources carry `declared: true` in the source API. API edits and deletes return HTTP 403
+`declared_source` with a reason directing the operator to edit the declaration; the console displays
+that reason and disables source deletion. Manual fetch remains available. Reset preserves declared
+definitions and their instance status while resetting ordinary knobs and console sources; without
+any declaration the legacy reset behavior is unchanged. Declaration updates reconcile the **source
+set**, not a running blueprint graph: fetch/staging, `BLUEPRINT_NAMES` selection and restart-to-load
+behavior remain separate and unchanged. No remote git fetch occurs during projection or startup.
+
+### Helm input
+
+The chart can own the declarative input (never mutable state):
+
+```yaml
+blueprintSources:
+  enabled: true
+  sources:
+    - id: example
+      name: Example
+      namespace: example
+      url: https://example.invalid/repository
+      ref: refs/heads/main
+```
+
+Or an external controller can own a ConfigMap with a `data["sources.json"]` JSON array:
+
+```yaml
+blueprintSources:
+  enabled: true
+  existingConfigMap: example-input
+  key: sources.json
+```
+
+`existingConfigMap` and nonempty `sources` are mutually exclusive. Enabled with `sources: []`
+declares an empty set; disabled is the default and adds no mount/env to file mode. The chart schema
+rejects unknown fields, wrong types, embedded URL credentials and lifecycle/secret fields. Runtime
+validation is authoritative for the complete source contract. In HA, inline source IDs require
+predeclared state slots. The input must not use any mutable state ConfigMap name. The input volume
+mount is read-only and covers the whole directory (no `subPath`), and source-only value changes do
+not change the Deployment checksum or restart pods. Helm does not create or claim an external input
+ConfigMap. Its existing operator-owned mutable-state lifecycle, RBAC and SM Job are unchanged.
+
 ## Optional named ConfigMap state
 
 The binary also accepts `STATE_BACKEND=kubernetes` with either lease mode or HA off. Supply

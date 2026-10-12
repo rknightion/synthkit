@@ -4,14 +4,18 @@ package bpsource
 
 import (
 	"context"
+	"fmt"
 	"github.com/rknightion/synthkit/internal/control"
+	"sync"
 )
 
 // storeSourceConfig adapts a *control.Store to the SourceConfig interface, storing configured
 // git sources in control.State.BlueprintSources. bpsource may import control (composition
 // layer); control must never import bpsource (I24 isolation).
 type storeSourceConfig struct {
-	store *control.Store
+	store   *control.Store
+	mu      sync.Mutex
+	preview []control.DeclaredSource // immutable prospective definitions during read-only acquisition
 }
 
 // NewStoreSourceConfig returns a SourceConfig backed by the given control.Store.
@@ -21,7 +25,13 @@ func NewStoreSourceConfig(store *control.Store) SourceConfig {
 
 // Sources returns the current list of configured git sources, mapped SourceView→Source.
 func (s *storeSourceConfig) Sources() []Source {
-	views := s.store.Snapshot().BlueprintSources
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st := s.store.Snapshot()
+	if s.preview != nil {
+		st.DeclaredBlueprintSources = s.preview
+	}
+	views := control.ProjectSources(st)
 	out := make([]Source, len(views))
 	for i, v := range views {
 		out[i] = viewToSource(v)
@@ -34,10 +44,25 @@ func (s *storeSourceConfig) UpsertSource(src Source) error {
 	return s.UpsertSourceContext(context.Background(), src)
 }
 func (s *storeSourceConfig) UpsertSourceContext(ctx context.Context, src Source) error {
+	var refused error
 	_, err := s.store.UpdateContext(ctx, func(st *control.State) {
+		refused = nil
+		declared := control.DeclaredSourceID(*st, src.ID)
+		if declared != src.Declared {
+			refused = control.ErrDeclaredSource
+			return
+		}
+		if declared {
+			for _, definition := range st.DeclaredBlueprintSources {
+				if definition.ID == src.ID && definition != control.SourceDefinition(sourceToView(src)) {
+					refused = fmt.Errorf("source declaration changed during status update")
+					return
+				}
+			}
+		}
 		v := sourceToView(src)
 		if s.store.UsesBackend() {
-			v = control.SourceView{ID: src.ID, Name: src.Name, Namespace: src.Namespace, URL: src.URL, Ref: src.Ref, Subpath: src.Subpath, TokenEnvVar: src.TokenEnvVar}
+			v = control.SourceView{Declared: src.Declared, ID: src.ID, Name: src.Name, Namespace: src.Namespace, URL: src.URL, Ref: src.Ref, Subpath: src.Subpath, TokenEnvVar: src.TokenEnvVar}
 		}
 		for i, existing := range st.BlueprintSources {
 			if existing.ID == src.ID {
@@ -47,6 +72,9 @@ func (s *storeSourceConfig) UpsertSourceContext(ctx context.Context, src Source)
 		}
 		st.BlueprintSources = append(st.BlueprintSources, v)
 	})
+	if refused != nil {
+		return refused
+	}
 	if s.store.HAEnabled() {
 		return err
 	}
@@ -58,7 +86,13 @@ func (s *storeSourceConfig) RemoveSource(id string) error {
 	return s.RemoveSourceContext(context.Background(), id)
 }
 func (s *storeSourceConfig) RemoveSourceContext(ctx context.Context, id string) error {
+	var refused error
 	_, err := s.store.UpdateContext(ctx, func(st *control.State) {
+		refused = nil
+		if control.DeclaredSourceID(*st, id) {
+			refused = control.ErrDeclaredSource
+			return
+		}
 		filtered := st.BlueprintSources[:0]
 		for _, v := range st.BlueprintSources {
 			if v.ID != id {
@@ -71,6 +105,9 @@ func (s *storeSourceConfig) RemoveSourceContext(ctx context.Context, id string) 
 		}
 		st.BlueprintSources = filtered
 	})
+	if refused != nil {
+		return refused
+	}
 	if s.store.HAEnabled() {
 		return err
 	}
@@ -90,6 +127,7 @@ func upsertSourceContext(ctx context.Context, cfg SourceConfig, src Source) erro
 // JSON tags on both structs are identical so this is a trivial field-for-field copy.
 func sourceToView(s Source) control.SourceView {
 	return control.SourceView{
+		Declared:         s.Declared,
 		ID:               s.ID,
 		Name:             s.Name,
 		Namespace:        s.Namespace,
@@ -113,6 +151,7 @@ func sourceToView(s Source) control.SourceView {
 // viewToSource maps control.SourceView → bpsource.Source field-for-field.
 func viewToSource(v control.SourceView) Source {
 	return Source{
+		Declared:         v.Declared,
 		ID:               v.ID,
 		Name:             v.Name,
 		Namespace:        v.Namespace,

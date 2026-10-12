@@ -76,6 +76,7 @@ func (a *blueprintAdminAdapter) Sources() []control.SourceView {
 	out := make([]control.SourceView, len(srcs))
 	for i, s := range srcs {
 		out[i] = control.SourceView{
+			Declared:         s.Declared,
 			ID:               s.ID,
 			Name:             s.Name,
 			Namespace:        s.Namespace,
@@ -100,6 +101,9 @@ func (a *blueprintAdminAdapter) Sources() []control.SourceView {
 
 // UpsertSource adds or replaces a git source configuration.
 func (a *blueprintAdminAdapter) UpsertSource(sv control.SourceView) error {
+	if sv.Declared {
+		return control.ErrDeclaredSource
+	}
 	return a.mgr.UpsertSource(bpsource.Source{
 		ID:          sv.ID,
 		Name:        sv.Name,

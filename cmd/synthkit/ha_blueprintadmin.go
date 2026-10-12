@@ -13,6 +13,9 @@ import (
 type haBlueprintAdmin struct{ *blueprintAdminAdapter }
 
 func (a *haBlueprintAdmin) UpsertSourceContext(ctx context.Context, sv control.SourceView) error {
+	if sv.Declared {
+		return control.ErrDeclaredSource
+	}
 	return a.mgr.UpsertSourceContext(ctx, bpsource.Source{ID: sv.ID, Name: sv.Name, Namespace: sv.Namespace, URL: sv.URL, Ref: sv.Ref, Subpath: sv.Subpath, TokenEnvVar: sv.TokenEnvVar})
 }
 func (a *haBlueprintAdmin) RemoveSourceContext(ctx context.Context, id string) error {

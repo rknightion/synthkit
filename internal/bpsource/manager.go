@@ -142,10 +142,16 @@ func (m *Manager) upsertSource(ctx context.Context, source Source) error {
 	}
 	m.sourceMu.Lock()
 	defer m.sourceMu.Unlock()
+	if source.Declared {
+		return control.ErrDeclaredSource
+	}
 	found := false
 	for _, old := range m.cfg.Sources() {
 		if old.ID != source.ID {
 			continue
+		}
+		if old.Declared {
+			return control.ErrDeclaredSource
 		}
 		found = true
 		if source.URL != old.URL || source.Ref != old.Ref || source.Subpath != old.Subpath || source.Namespace != old.Namespace {

@@ -1,4 +1,5 @@
 {{- include "synthkit.validate" . -}}
+{{- include "synthkit.validateBlueprintSources" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -70,6 +71,10 @@ spec:
               value: /app/blueprints
             - name: BLUEPRINT_NAMES
               value: {{ .Values.config.blueprintNames | quote }}
+            {{- if .Values.blueprintSources.enabled }}
+            - name: GIT_SOURCES_FILE
+              value: {{ printf "/etc/synthkit/git-sources/%s" .Values.blueprintSources.key | quote }}
+            {{- end }}
             # State lives on the mounted volume. The image's rootfs is read-only, so the relative
             # ./control-state.json default would fail every save.
             {{- if not .Values.ha.enabled }}
@@ -138,6 +143,11 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            {{- if .Values.blueprintSources.enabled }}
+            - name: git-source-input
+              mountPath: /etc/synthkit/git-sources
+              readOnly: true
+            {{- end }}
             {{- if not .Values.ha.enabled }}
             - name: data
               mountPath: /data
@@ -150,6 +160,14 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
+        {{- if .Values.blueprintSources.enabled }}
+        - name: git-source-input
+          configMap:
+            name: {{ include "synthkit.sourceInputName" . }}
+            items:
+              - key: {{ .Values.blueprintSources.key | quote }}
+                path: {{ .Values.blueprintSources.key | quote }}
+        {{- end }}
         {{- if not .Values.ha.enabled }}
         - name: data
           {{- if .Values.persistence.enabled }}

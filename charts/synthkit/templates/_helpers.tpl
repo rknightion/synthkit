@@ -129,6 +129,7 @@ with the ownership table above these form the reserved surface that extraEnv may
 - SYNTHKIT_IN_CONTAINER
 - CONTROL_EXPOSURE_ACK
 - GIT_POLL_INTERVAL
+- GIT_SOURCES_FILE
 - SEND_SHARDS
 - SEND_BATCH_MAX
 - SEND_BATCH_DEADLINE

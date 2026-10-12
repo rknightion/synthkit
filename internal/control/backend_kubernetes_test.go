@@ -430,6 +430,29 @@ func TestNamedBackendCapsAndCorruption(t *testing.T) {
 	}
 }
 
+// projectionObjects keeps independent named state objects behind the real Kubernetes adapter.
+type projectionObjects map[string]*namedMemory
+
+func (m projectionObjects) Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error) {
+	return m[name].Get(ctx, name, opts)
+}
+func (m projectionObjects) Update(ctx context.Context, obj *corev1.ConfigMap, opts metav1.UpdateOptions) (*corev1.ConfigMap, error) {
+	return m[obj.Name].Update(ctx, obj, opts)
+}
+func testProjectionBackend(t *testing.T) StateBackend {
+	t.Helper()
+	objects := map[Key]string{Control: "control", BootManifest: "boot", Key("git-source/declared"): "source"}
+	memory := projectionObjects{}
+	for _, name := range objects {
+		memory[name] = &namedMemory{object: &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, ResourceVersion: "1"}, Data: map[string]string{"unrelated": "retained"}}}
+	}
+	backend, err := newKubernetesBackend(KubernetesBackendOptions{Gate: ha.AlwaysLeader{}, Namespace: "test", Objects: objects, RequestTimeout: time.Second, MaxDocumentBytes: MaxStateDocumentBytes}, memory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return backend
+}
+
 func TestBackendControlLostResponseAndDisjointWriters(t *testing.T) {
 	ctx := context.Background()
 	b, m := testNamedBackend(t, ha.AlwaysLeader{})

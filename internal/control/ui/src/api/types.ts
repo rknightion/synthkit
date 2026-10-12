@@ -388,6 +388,7 @@ export interface StagedBlueprint {
   source_id: string;
 }
 export interface SourceView {
+  declared?: boolean;     // externally owned; console edits/deletes are refused
   id: string;             // stable slug, also the on-disk dir name
   name: string;           // human label
   namespace: string;      // prefix applied to its blueprints
