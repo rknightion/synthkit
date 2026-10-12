@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@loop-root'
 created_date: '2026-10-12 12:21'
-updated_date: '2026-10-12 13:05'
+updated_date: '2026-10-12 13:09'
 labels:
   - kubernetes
   - control
@@ -41,4 +41,6 @@ An external controller that manages a Kubernetes-backed instance needs to declar
 
 <!-- SECTION:PLAN:BEGIN -->
 Reproduce missing declarative projection through the public boundary; implement independent desired-set ownership reconciliation preserving runtime state; prove file and fake Kubernetes backends, API refusal and schema/render contract; guarded review and exact composed gate before publication.
+
+Runtime wiring ownership gap resolved: include ha_main.go declarative setup and leader-fenced start/change wiring, blueprintadmin.go and ha_blueprintadmin.go ownership DTO/refusal plumbing, plus focused tests. Preserve read-only standby/acquisition and Activate preparation-gated mutations; no core HA seam change.
 <!-- SECTION:PLAN:END -->
