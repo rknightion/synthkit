@@ -1,11 +1,11 @@
 ---
 id: SKT-0127
 title: Synchronize the SM lost-response fixture observations
-status: In Progress
+status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 20:14'
-updated_date: '2026-10-12 15:38'
+updated_date: '2026-10-12 16:06'
 labels: []
 dependencies: []
 references:
@@ -23,14 +23,14 @@ The exact composed gate of SM provision/activation candidate d850591d71efcdcbca8
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A bounded fail-first race run reproduces the real fixture observation conflict, then synchronized or positively joined real HTTP observations make it race-clean without sleeps or weakened assertions.
-- [ ] #2 Lost SM response still records one authoritative mutation, retains pending evidence, rejects activation and blocks the next process without replay.
-- [ ] #3 The exact repaired candidate passes full local/composed gate, guarded delta review and exact-SHA CI before engine task acceptance.
+- [x] #1 A bounded fail-first race run reproduces the real fixture observation conflict, then synchronized or positively joined real HTTP observations make it race-clean without sleeps or weakened assertions.
+- [x] #2 Lost SM response still records one authoritative mutation, retains pending evidence, rejects activation and blocks the next process without replay.
+- [x] #3 The exact repaired candidate passes full local/composed gate, guarded delta review and exact-SHA CI before engine task acceptance.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -51,4 +51,12 @@ loop16: one owner-raised lineage repair cycle used, five total, no fresh budget.
 loop17: zero new cycles, never admitted; held behind SKT-0125 (current Helm chart proof) blocked publication permission. Resume reviewed unchanged candidate only after preceding land and exact CI; five-cycle lineage remains spent.
 
 loop18: admitted after reviewed Helm prerequisite landed at258011c and exact CI38268552086 all required jobs green. Resume frozen reviewed land-only SM candidate; no fresh source cycle. Owner CI-first composed proof applies.
+
+loop18: zero new cycles, five-cycle lineage unchanged. Frozen39file prepared source byte-identical on root landb676b0dfb548fabb6763c19e6485f09e405d0ed1. Prior fail-first/focused/local/security/full-and-delta-CodeRabbit proof retained; owner CI-first composed amendment used. CI38271867692 attempt1 all11required jobs completed success, none skipped/cancelled; exact integrated proof green. Accepted and Done.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Retained synchronized SM candidate re-landedb676b0dfb548fabb6763c19e6485f09e405d0ed1; all required exact-SHA CI38271867692 green, no new source cycle.
+<!-- SECTION:FINAL_SUMMARY:END -->

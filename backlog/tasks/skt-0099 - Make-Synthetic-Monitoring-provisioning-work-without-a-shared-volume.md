@@ -1,11 +1,11 @@
 ---
 id: SKT-0099
 title: Make Synthetic Monitoring provisioning work without a shared volume
-status: Parked
+status: Done
 assignee:
   - '@loop-root'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-12 07:59'
+updated_date: '2026-10-12 16:06'
 labels:
   - feature
   - ha
@@ -23,14 +23,14 @@ SM provisioning is a separate two-boot handoff: cmd/sm-provision takes an O_EXCL
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Diskless one-shot: real CLI with injected local named Kubernetes and SM HTTP proves dedicated provisioning Lease only, named GET/PUT only, zero writes or SM calls before lock acquisition, serialized jobs, durable pending before mutation, fail-closed ambiguity/lease loss and planned join-before-release; file mode and privacy proofs remain green.
-- [ ] #2 Release-only bump: already complete v2 registration stays active with identical specs/target/schema at a newer emitter release without provisioning; actual runner tick emits authoritative SM metrics/logs with unchanged config_version and inventory across file HA-off, Kubernetes HA-off and Lease acquisition. Older tool rejects newer snapshot before remote work; standby writes nothing.
-- [ ] #3 Same-key changed specs: each bound spec/target/schema change suppresses actual SM emission while unrelated constructs emit; missing, partial, corrupt or pending evidence never activates. Explicit matching-version apply and restart/acquisition restores authoritative emission without hot activation or foreign adoption. Concurrent snapshot CAS preserves evidence; explicit v1-to-v2 reprovision/restart preserves legacy ownership, previews, journal and lock.
+- [x] #1 Diskless one-shot: real CLI with injected local named Kubernetes and SM HTTP proves dedicated provisioning Lease only, named GET/PUT only, zero writes or SM calls before lock acquisition, serialized jobs, durable pending before mutation, fail-closed ambiguity/lease loss and planned join-before-release; file mode and privacy proofs remain green.
+- [x] #2 Release-only bump: already complete v2 registration stays active with identical specs/target/schema at a newer emitter release without provisioning; actual runner tick emits authoritative SM metrics/logs with unchanged config_version and inventory across file HA-off, Kubernetes HA-off and Lease acquisition. Older tool rejects newer snapshot before remote work; standby writes nothing.
+- [x] #3 Same-key changed specs: each bound spec/target/schema change suppresses actual SM emission while unrelated constructs emit; missing, partial, corrupt or pending evidence never activates. Explicit matching-version apply and restart/acquisition restores authoritative emission without hot activation or foreign adoption. Concurrent snapshot CAS preserves evidence; explicit v1-to-v2 reprovision/restart preserves legacy ownership, previews, journal and lock.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -65,4 +65,12 @@ Original pushed d850591 CI38170368433 terminal overallcancelled; required ci-suc
 Restoration verified: exactc4c61fb437e05bfc4841e289ff79abe94679906a full composed just check exit0, clean detached source, plus exact CI38171230322/ci-success114569308907 success. This proves restored baseline only; feature stays reverted, Parked and all criteria unchecked. Complete code candidate, fail-first proofs, clean localgate/reviews/scans and failing composed race are retained. Chart wiring SKT-0099.01 (extend existing named-state chart) is To Do/unadmitted; fixture repair SKT-0127 (synchronize lost-response observations) is Parked at original lineage budget. Resume only with owner-raised cycle authority. Root finalpublication contains tracker receipts only; no engine implementation survives this run.
 
 loop16: one additional owner-raised cycle through SKT-0127 (synchronize lost-response fixture observations), five total lineage. Two fixturetestfiles synchronized after genuine count10racefailfirst; all37otherretainedfeaturefiles unchanged. Focusedrace0, twofileCodeRabbit0, securitydeltaPASS, rebasedfull laneG1270. Feature still notpublished: finalcurrentmaincomposed/CI blocked by harness missing nopush launcher; no toolmodefallback, rescue or freshbudget. Resume exact retainedcandidate through SKT-0127 after runtimerestored and precedingHelmpublication; SKT-0099.01 (chart wiring) staysToDo and unadmitted, SKT-0126 (fence snapshot publication) deferredminor unchanged. Allcriteria remainunchecked.
+
+loop18: completed through SKT-0127 (synchronize SM lost-response fixture observations), no fresh implementation cycles. Reviewed39file diskless provision/activation source re-landedb676b0dfb548fabb6763c19e6485f09e405d0ed1; exact CI38271867692 all11required jobs green. Prior pending-evidence, no-replay/activation, file ownership and named-state/fencing proofs retained. Chart job extension remains SKT-0099.01 (wire diskless SM provisioning into named-state chart).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Engine provision/activation accepted atb676b0dfb548fabb6763c19e6485f09e405d0ed1 after retained reviews and all-required exact CI38271867692.
+<!-- SECTION:FINAL_SUMMARY:END -->
