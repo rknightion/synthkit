@@ -64,8 +64,17 @@ rejects a configured source with a missing or unknown slot before accepting its 
 Source IDs may contain single underscores. There is no invented configured-source-ID environment
 variable or discovery/list API.
 
+For Fleet registration, also set `ha.fleetConfigMap: sample-fleet` and configure
+`credentials.fm.existingSecret` with `GC_FM_URL`, `GC_FM_STACK_ID` and `GC_FM_TOKEN` key
+projections. The chart requires this distinct slot whenever the Fleet credential group is
+configured with HA, even in dry-run, and maps it to `STATE_FLEET_CONFIGMAP`. A predeclared
+unused Fleet slot is allowed. It must differ from the Lease, runtime/control/boot/source
+ConfigMaps and declarative blueprint-source input. Choose an image whose runtime supports this
+mapping and the destination-bound Fleet ledger; the HA-only image capability receipt above
+does not prove Fleet continuity. See [Fleet lifecycle](fleet-management.md#restart-handoff-and-teardown).
+
 **The operator must precreate all named state outside Helm.** This includes the Lease, control and
-boot ConfigMaps, and every declared source ConfigMap, even unused slots. The chart never looks up,
+boot ConfigMaps, every declared source ConfigMap and the Fleet ConfigMap when named, even unused slots. The chart never looks up,
 creates or manages these objects, either as hooks or managed release resources. There is no automatic
 bootstrap mode; `ha.createResources` is rejected. Missing objects fail runtime startup, never trigger
 workload creation. Helm's installing principal needs no access to the named mutable state; the
@@ -102,6 +111,12 @@ metadata:
   name: sample-source
 binaryData: {}
 ```
+
+When Fleet is configured, additionally precreate `sample-fleet` as a ConfigMap with an empty
+`binaryData` map only if it does not exist. The runtime owns `binaryData.document`: it keeps
+collector-ID intent and a non-secret destination digest there. Retain populated data through
+restart/handoff. Never reapply the empty initializer over an existing Fleet ledger. With HA off,
+`ha.fleetConfigMap` has no effect and Fleet uses its existing file-state path.
 
 State is absent from both rendered hooks and stored release manifests, so chart install, upgrade,
 rollback and uninstall have no state-object operations to replay. This is not a `keep`-annotation
@@ -156,8 +171,8 @@ ConfigMaps and Lease for recovery; Helm uninstall is not a state cleanup procedu
 
 HA mounts a ServiceAccount token and injects `HA_NAMESPACE` from `metadata.namespace` and `POD_UID`
 from `metadata.uid`; process identity also includes a random nonce. Runtime Role access is limited
-to `get/update/patch` over exact `resourceNames` for the Lease and control/boot/source ConfigMaps.
-No create/list/watch/delete/Event permission is granted. The chart's ingress-only NetworkPolicy
+to `get/update/patch` over exact `resourceNames` for the Lease and control/boot/source/Fleet ConfigMaps.
+No create/list/watch/delete/Event or Secret API permission is granted. The chart's ingress-only NetworkPolicy
 does not restrict API-server egress. If another policy restricts egress, the operator must supply
 working API connectivity; this chart does not invent API-server CIDRs or endpoint discovery.
 

@@ -25,7 +25,7 @@
 {{- end -}}
 {{- if and $input.enabled .Values.ha.enabled -}}
 {{- $name := include "synthkit.sourceInputName" . -}}
-{{- if or (eq $name .Values.ha.controlConfigMap) (eq $name .Values.ha.bootConfigMap) -}}
+{{- if or (eq $name .Values.ha.controlConfigMap) (eq $name .Values.ha.bootConfigMap) (eq $name .Values.ha.fleetConfigMap) -}}
 {{- fail "blueprintSources input must be separate from mutable state ConfigMaps" -}}
 {{- end -}}
 {{- range $slot := .Values.ha.gitSourceConfigMaps -}}

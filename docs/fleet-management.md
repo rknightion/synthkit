@@ -30,13 +30,28 @@ A changed URL or stack is visibly rejected before any Fleet request or ledger mu
 empty roster. Retain the old ledger and restore its original destination to clean up its collectors;
 use a separate state slot for a new destination. Nonempty legacy version-1 ledgers have no destination
 binding and are rejected rather than silently relabelled; they require explicit ownership recovery.
-Only missing state or an empty legacy ledger can initialize a new binding. No credentials, collector
+Only an empty document in existing state or an empty legacy ledger can initialize a new binding. No credentials, collector
 attributes, or returned configuration are persisted in this document. Dry-run does not write it.
 
 File mode retains the ledger beside `CONFIG_SNAPSHOT_PATH` with a `.fleet.json` suffix. Keep this
 file across restarts. Kubernetes mode requires `STATE_FLEET_CONFIGMAP`, a distinct pre-created
 ConfigMap in `HA_NAMESPACE`, with named get/update permissions; runtime never creates it.
-Chart provisioning and RBAC wiring are prerequisites for using this slot in a chart deployment.
+For the HA chart, set `ha.fleetConfigMap` and configure the existing Fleet credential group
+(`credentials.fm.existingSecret` plus `GC_FM_URL`, `GC_FM_STACK_ID`, `GC_FM_TOKEN` key mappings).
+The chart maps the slot to `STATE_FLEET_CONFIGMAP` and grants only named get/update/patch;
+it grants no create/list/watch/delete or Secret API access. A configured Fleet credential group
+requires the slot even in dry-run. It may be predeclared before enabling registration and must
+remain separate from every other HA state object, runtime configuration and blueprint-source input.
+Use a runtime image supporting the mapping and destination-bound ledger.
+
+Precreate the ConfigMap in the workload namespace outside Helm, preserving an existing object.
+Only a new object starts with empty `binaryData`; the runtime writes `binaryData.document` through
+resource-version compare-and-swap. Helm never renders, looks up or owns this mutable object,
+so install/upgrade/rollback/uninstall cannot reapply an empty initializer. Retain the same slot
+across leadership handoff and ordinary restart; backups and eventual cleanup belong to the
+operator. Missing objects fail startup instead of triggering creation. With HA off, the chart
+ignores `ha.fleetConfigMap` and retains the existing file ledger and volume defaults.
+See [Kubernetes state provisioning](kubernetes.md#optional-stateless-ha-chart).
 
 For intentional teardown, stop the ordinary emitter first, select the same blueprint/source set,
 and run `DRY_RUN=false ./synthkit -fleet-unregister`. The command rejects dry-run rather than

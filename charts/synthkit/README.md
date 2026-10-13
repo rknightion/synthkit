@@ -261,8 +261,17 @@ Source IDs start with a lowercase letter or digit, then accept lowercase letters
 underscores and hyphens, but not consecutive underscores. Runtime source configuration needs a
 mapped slot; the chart does not invent source membership.
 
+`ha.fleetConfigMap` names the external Fleet registration ledger and renders
+`STATE_FLEET_CONFIGMAP`. It is required with HA when `credentials.fm.existingSecret` is
+configured, including dry-run; it may also be predeclared before enabling those credentials.
+The name must differ from every other HA object, the runtime ConfigMap and the declarative
+blueprint-source input. The slot grants only named get/update/patch, with no Secret API access.
+Select a runtime image supporting `STATE_FLEET_CONFIGMAP` and the destination-bound Fleet ledger;
+HA/state capability alone does not establish Fleet continuity. With HA off, this value is ignored
+and Fleet retains its existing file ledger on the state volume.
+
 An operator must precreate the named Lease and every state ConfigMap outside Helm before starting
-the workload, including unused source slots. The chart never looks up, creates or manages mutable
+the workload, including unused source and Fleet slots. The chart never looks up, creates or manages mutable
 state, as either hooks or release resources, on install, upgrade or rollback. There is no automatic
 bootstrap mode; `ha.createResources` is not a supported value. Keeping these objects out of the
 release protects their documents, unrelated metadata and Lease holder from hook deletion and stored

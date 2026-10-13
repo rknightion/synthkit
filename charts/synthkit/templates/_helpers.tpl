@@ -162,6 +162,7 @@ with the ownership table above these form the reserved surface that extraEnv may
 - STATE_BACKEND
 - STATE_CONTROL_CONFIGMAP
 - STATE_BOOT_CONFIGMAP
+- STATE_FLEET_CONFIGMAP
 - STATE_GIT_SOURCE_CONFIGMAPS
 - STATE_GIT_SOURCE_MAX_BYTES
 - STATE_CAS_MAX_ATTEMPTS
@@ -256,10 +257,15 @@ misbehaves once it is running.
   {{- if or (gt (len .Values.extraVolumes) 0) (gt (len .Values.extraVolumeMounts) 0) -}}
     {{- fail "HA does not support extra state volumes or mounts" -}}
   {{- end -}}
+  {{- if and .Values.credentials.fm.existingSecret (not .Values.ha.fleetConfigMap) -}}
+    {{- fail "HA Fleet credentials require an externally precreated ha.fleetConfigMap" -}}
+  {{- end -}}
   {{- $names := dict (include "synthkit.fullname" .) true -}}
-  {{- range $name := (list .Values.ha.leaseName .Values.ha.controlConfigMap .Values.ha.bootConfigMap) -}}
+  {{- $stateNames := list .Values.ha.leaseName .Values.ha.controlConfigMap .Values.ha.bootConfigMap -}}
+  {{- if .Values.ha.fleetConfigMap -}}{{- $stateNames = append $stateNames .Values.ha.fleetConfigMap -}}{{- end -}}
+  {{- range $name := $stateNames -}}
     {{- if or (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) (hasKey $names $name) -}}
-      {{- fail "HA requires valid distinct named Lease/control/boot objects, separate from the runtime ConfigMap" -}}
+      {{- fail "HA requires valid distinct named Lease/control/boot/Fleet objects, separate from the runtime ConfigMap" -}}
     {{- end -}}
     {{- range $part := splitList "." $name -}}
       {{- if gt (len $part) 63 -}}{{- fail "HA object DNS labels must not exceed 63 characters" -}}{{- end -}}

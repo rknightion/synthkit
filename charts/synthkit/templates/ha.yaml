@@ -29,6 +29,9 @@ rules:
     resourceNames:
       - {{ .Values.ha.controlConfigMap | quote }}
       - {{ .Values.ha.bootConfigMap | quote }}
+      {{- with .Values.ha.fleetConfigMap }}
+      - {{ . | quote }}
+      {{- end }}
       {{- range $id, $name := .Values.ha.gitSourceConfigMaps }}
       - {{ $name | quote }}
       {{- end }}

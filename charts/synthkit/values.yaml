@@ -42,6 +42,9 @@ ha:
   leaseName: ""
   controlConfigMap: ""
   bootConfigMap: ""
+  # External Fleet registration ledger. Required when credentials.fm is configured.
+  # May be predeclared before enabling registration; ignored with HA off.
+  fleetConfigMap: ""
   # Explicit predeclared source ID -> ConfigMap slots. Unused slots are allowed.
   gitSourceConfigMaps: {}
 

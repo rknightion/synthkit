@@ -37,6 +37,9 @@ data:
   STATE_BACKEND: {{ .Values.ha.stateBackend | quote }}
   STATE_CONTROL_CONFIGMAP: {{ .Values.ha.controlConfigMap | quote }}
   STATE_BOOT_CONFIGMAP: {{ .Values.ha.bootConfigMap | quote }}
+  {{- with .Values.ha.fleetConfigMap }}
+  STATE_FLEET_CONFIGMAP: {{ . | quote }}
+  {{- end }}
   STATE_GIT_SOURCE_CONFIGMAPS: {{ .Values.ha.gitSourceConfigMaps | toJson | quote }}
   STATE_GIT_SOURCE_MAX_BYTES: "786432"
   STATE_CAS_MAX_ATTEMPTS: "5"

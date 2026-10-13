@@ -41,6 +41,7 @@
         "leaseName": {"type": "string", "maxLength": 253},
         "controlConfigMap": {"type": "string", "maxLength": 253},
         "bootConfigMap": {"type": "string", "maxLength": 253},
+        "fleetConfigMap": {"type": "string", "maxLength": 253},
         "gitSourceConfigMaps": {
           "type": "object",
           "propertyNames": {"pattern": "^[a-z0-9][a-z0-9_-]*$"},

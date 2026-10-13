@@ -351,6 +351,7 @@ spec:
 const chartE2EValues = `image:
   repository: synthkit-chart-e2e
   tag: local
+  digest: ""
   pullPolicy: Never
 config:
   dryRun: false

@@ -204,7 +204,7 @@ func TestHAChart(t *testing.T) {
 
 func TestHAInvalidChart(t *testing.T) {
 	fixture := filepath.Join(chartPath(t), "ci-ha", "11-ha-values.yaml")
-	cases := [][]string{{"--set", "ha.createResources=true"}, {"--kube-version", "1.30.0"}, {"--set", "ha.mode=off"}, {"--set", "ha.stateBackend=file"}, {"--set", "ha.replicas=3"}, {"--set", "persistence.enabled=true"}, {"--set", "persistence.existingClaim=state"}, {"--set", "ha.bootConfigMap=synthkit-control"}, {"--set", "ha.gitSourceConfigMaps.other=synthkit-source"}, {"--set", "ha.gitSourceConfigMaps.bad__id=source"}, {"--set", "ha.controlConfigMap="}, {"--set", "ha.unknownField=true"}, {"--set", "smProvision.enabled=true"}, {"--set", "extraEnv[0].name=HA_MODE,extraEnv[0].value=off"}, {"--set", "extraEnv[0].name=STATE_BACKEND,extraEnv[0].value=file"}}
+	cases := [][]string{{"--set", "ha.createResources=true"}, {"--kube-version", "1.30.0"}, {"--set", "ha.mode=off"}, {"--set", "ha.stateBackend=file"}, {"--set", "ha.replicas=3"}, {"--set", "persistence.enabled=true"}, {"--set", "persistence.existingClaim=state"}, {"--set", "ha.bootConfigMap=synthkit-control"}, {"--set", "ha.gitSourceConfigMaps.other=synthkit-source"}, {"--set", "ha.gitSourceConfigMaps.bad__id=source"}, {"--set", "ha.controlConfigMap="}, {"--set", "ha.unknownField=true"}, {"--set", "smProvision.enabled=true"}, {"--set", "extraEnv[0].name=HA_MODE,extraEnv[0].value=off"}, {"--set", "extraEnv[0].name=STATE_BACKEND,extraEnv[0].value=file"}, {"-f", filepath.Join(chartPath(t), "ci-ha", "12-ha-fleet-values.yaml"), "--set", "extraEnv[0].name=STATE_FLEET_CONFIGMAP,extraEnv[0].value=ungranted-fleet"}}
 	for _, args := range cases {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -235,14 +235,16 @@ func TestHAInvalidChart(t *testing.T) {
 func TestHAOperatorOwnedState(t *testing.T) {
 	for _, race := range []bool{false, true} {
 		for _, upgrade := range []bool{false, true} {
-			t.Run(fmt.Sprintf("precreation-race=%t/upgrade=%t", race, upgrade), func(t *testing.T) {
-				verifyOperatorOwnedState(t, race, upgrade)
-			})
+			for _, fleet := range []bool{false, true} {
+				t.Run(fmt.Sprintf("precreation-race=%t/upgrade=%t/fleet=%t", race, upgrade, fleet), func(t *testing.T) {
+					verifyOperatorOwnedState(t, race, upgrade, fleet)
+				})
+			}
 		}
 	}
 }
 
-func verifyOperatorOwnedState(t *testing.T, race, upgrade bool) {
+func verifyOperatorOwnedState(t *testing.T, race, upgrade, fleet bool) {
 	t.Helper()
 	// Real Helm server dry-run against a bounded local API, not a live cluster.
 	// For the race, state starts absent. An old chart lookup receives NotFound
@@ -254,6 +256,9 @@ func verifyOperatorOwnedState(t *testing.T, race, upgrade bool) {
 	objects := map[string]map[string]any{}
 	for _, name := range []string{"synthkit-control", "synthkit-boot", "synthkit-source"} {
 		objects["/api/v1/namespaces/default/configmaps/"+name] = map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": name, "namespace": "default", "resourceVersion": "17"}, "binaryData": map[string]any{"document": document}, "data": map[string]any{"unrelated": "retain"}}
+	}
+	if fleet {
+		objects["/api/v1/namespaces/default/configmaps/synthkit-fleet"] = map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "synthkit-fleet", "namespace": "default", "resourceVersion": "31"}, "binaryData": map[string]any{"document": base64.StdEncoding.EncodeToString([]byte(`{"version":2,"destination":"retained-destination","ids":["existing-collector"]}`))}, "data": map[string]any{"unrelated": "retain"}}
 	}
 	objects["/apis/coordination.k8s.io/v1/namespaces/default/leases/synthkit-election"] = map[string]any{"apiVersion": "coordination.k8s.io/v1", "kind": "Lease", "metadata": map[string]any{"name": "synthkit-election", "namespace": "default", "resourceVersion": "23"}, "spec": map[string]any{"holderIdentity": "pod/process", "leaseTransitions": 9, "leaseDurationSeconds": 30}}
 	// Discovery must describe every rendered kind: server dry-run builds the entire
@@ -386,6 +391,9 @@ func verifyOperatorOwnedState(t *testing.T, race, upgrade bool) {
 		t.Fatal(err)
 	}
 	fixture := filepath.Join(chartPath(t), "ci-ha", "11-ha-values.yaml")
+	if fleet {
+		fixture = filepath.Join(chartPath(t), "ci-ha", "12-ha-fleet-values.yaml")
+	}
 	// Discovery only, not an OpenAPI service. render_test.sh independently validates
 	// the output against real 1.31 schemas. Dry-run does not execute hooks: safety
 	// requires their complete absence as well as unchanged API state, not merely

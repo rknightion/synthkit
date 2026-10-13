@@ -1,0 +1,18 @@
+# Named state is externally precreated; credentials remain Secret projections.
+ha:
+  enabled: true
+  leaseName: synthkit-election
+  controlConfigMap: synthkit-control
+  bootConfigMap: synthkit-boot
+  fleetConfigMap: synthkit-fleet
+  gitSourceConfigMaps:
+    sample_source: synthkit-source
+persistence:
+  enabled: false
+credentials:
+  fm:
+    existingSecret: synthkit-fm
+    keys:
+      GC_FM_URL: GC_FM_URL
+      GC_FM_STACK_ID: GC_FM_STACK_ID
+      GC_FM_TOKEN: GC_FM_TOKEN
