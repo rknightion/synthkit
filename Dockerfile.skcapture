@@ -12,7 +12,7 @@
 #     skcapture:dev --plain --out /out/capture.json
 
 # ─── Stage 1: builder ────────────────────────────────────────────────────────
-FROM golang:1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c AS builder
+FROM golang:1.27.2@sha256:007a316059246276cb214df93950be77837545dc78007a73e0291a4963d5d3bf AS builder
 
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
 # CVE-2026-78667 and CVE-2026-97031. Rebuild the checksum-pinned official
 # source with Go 1.27.2 and an alternate module graph fixing x/net.
 # The upstream source logic and vendor tree remain untouched; vendor is unused.
-FROM golang:1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c AS kubectl-builder
+FROM golang:1.27.2@sha256:007a316059246276cb214df93950be77837545dc78007a73e0291a4963d5d3bf AS kubectl-builder
 
 # Keep kubectl within ±1 minor of the cluster API server. Version and source
 # checksum must be updated together; checksum from the sibling .sha256 URL.
