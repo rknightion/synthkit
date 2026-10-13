@@ -1,11 +1,11 @@
 ---
 id: SKT-0131
 title: Wire named Fleet state into the Kubernetes HA chart
-status: Parked
+status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-10-13 10:31'
-updated_date: '2026-10-13 11:43'
+updated_date: '2026-10-13 13:17'
 labels:
   - ha
   - chart
@@ -39,10 +39,14 @@ The released runtime requires STATE_FLEET_CONFIGMAP when Fleet registration uses
 
 <!-- SECTION:PLAN:BEGIN -->
 Loop21: isolated named Fleet chart mapping/RBAC with fail-first rendered-runtime proof; preserve mutable state and HA-off defaults; root owns review/gate coordination, landing and automated release provenance.
+
+Continue retained Fleet chart candidate: security correction delta review, CodeRabbit, reconcile main, exact gate and CI, then automated chart/image release provenance. Preserve cumulative loop21 counts.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 loop21: implementation attempts 1, review-repair rounds 1; no ceiling exhausted. Uncommitted tree568e2aaf46d8ab692af8fe44cca068ef63230750 retained at /Users/rob/repos/skt-loop21-fleet-chart. Fail-first named Fleet render/runtime, state preservation/RBAC and explicit env-override repair observed. Exact full native GOMAXPROCS2 just check on mbp14 passed after Python/Compose prerequisite repair; full-history Gitleaks scanned841commits with859reachable, no leaks. Independent original security review major repaired; delta-security and CodeRabbit not dispatched. Root procedural execution failure left acceptance incomplete, not an evidenced tool outage. Resume same root with actual direct delta-review dispatch, CodeRabbit and exact source landing/CI/release/image provenance. No AC checked.
+
+Named Fleet state source landed at87a2b36a212d1036ecc8f1e461b5396909025138. All14 reviewed source blobs match integrated native-gated treec69a2dbf; source/real rendered-runtime proof, independent security delta and complete CodeRabbit14/14 zero findings passed. Full task acceptance remains pending exact commit CI, automated chart/image provenance and composed gate. No live Fleet tenant or engine production changes.
 <!-- SECTION:NOTES:END -->
