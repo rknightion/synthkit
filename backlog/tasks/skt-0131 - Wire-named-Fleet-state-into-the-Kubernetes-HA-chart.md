@@ -1,9 +1,11 @@
 ---
 id: SKT-0131
 title: Wire named Fleet state into the Kubernetes HA chart
-status: To Do
-assignee: []
+status: Parked
+assignee:
+  - '@codex'
 created_date: '2026-10-13 10:31'
+updated_date: '2026-10-13 11:43'
 labels:
   - ha
   - chart
@@ -32,3 +34,15 @@ The released runtime requires STATE_FLEET_CONFIGMAP when Fleet registration uses
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Loop21: isolated named Fleet chart mapping/RBAC with fail-first rendered-runtime proof; preserve mutable state and HA-off defaults; root owns review/gate coordination, landing and automated release provenance.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop21: implementation attempts 1, review-repair rounds 1; no ceiling exhausted. Uncommitted tree568e2aaf46d8ab692af8fe44cca068ef63230750 retained at /Users/rob/repos/skt-loop21-fleet-chart. Fail-first named Fleet render/runtime, state preservation/RBAC and explicit env-override repair observed. Exact full native GOMAXPROCS2 just check on mbp14 passed after Python/Compose prerequisite repair; full-history Gitleaks scanned841commits with859reachable, no leaks. Independent original security review major repaired; delta-security and CodeRabbit not dispatched. Root procedural execution failure left acceptance incomplete, not an evidenced tool outage. Resume same root with actual direct delta-review dispatch, CodeRabbit and exact source landing/CI/release/image provenance. No AC checked.
+<!-- SECTION:NOTES:END -->
