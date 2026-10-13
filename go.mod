@@ -14,7 +14,7 @@ require (
 	filippo.io/age v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.20
-	github.com/grafana/nanogit v1.7.2
+	github.com/grafana/nanogit v1.7.3
 	github.com/grafana/pyroscope-go v1.4.3
 	github.com/moby/moby/api v1.56.1
 	github.com/testcontainers/testcontainers-go v0.44.0
@@ -113,12 +113,12 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.47.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/term v0.46.0 // indirect
+	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
