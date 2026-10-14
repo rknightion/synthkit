@@ -3,10 +3,11 @@ id: SKT-0130
 title: >-
   Let the chart run Synthetic Monitoring emission with HA and named state
   together
-status: To Do
+status: In Progress
 assignee:
-  - '@loop-root'
+  - '@codex'
 created_date: '2026-10-12 19:10'
+updated_date: '2026-10-14 20:15'
 labels: []
 dependencies:
   - SKT-0099.01
@@ -34,3 +35,9 @@ SKT-0099.01 (diskless SM provisioning Job in the named-state chart) shipped a st
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+First reconcile hosted consumer HA/named-state contract read-only. Add generic HA emitter named SM state environment and a separate named get/update RBAC rule, retaining distinct emitter/provisioner Leases and identities and operator-owned resources. Prove rendered permissions fail-first and real rendered-config runtime flow using fake APIs; preserve file and standalone modes. Update docs and establish existing minimum published engine contract. Independent security review, CodeRabbit and full gate before landing.
+<!-- SECTION:PLAN:END -->

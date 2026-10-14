@@ -1,9 +1,11 @@
 ---
 id: SKT-0089
 title: 'Model Synthetic Monitoring network check types (ping, DNS, TCP, traceroute)'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-10-05 11:57'
+updated_date: '2026-10-14 20:19'
 labels:
   - network
   - synthetic-monitoring
@@ -35,3 +37,9 @@ The sm construct emits only HTTP checks (check_name=http). Grafana Synthetic Mon
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Implement pinned agent v0.66.1 ping/DNS/TCP/traceroute contracts, preserving HTTP output and legacy snapshot hashes. Add typed YAML/config and optional snapshot type/settings with HTTP canonicalized to legacy omitted form; hash binds every non-HTTP setting. Type-aware provisioner reconciliation/ownership fingerprints reject conflicting or unknown settings. Real fake API and composed emission proofs, sourced inventory comparison and mutation controls. Isolated implementation based on accepted per-probe location candidate, root integration and security review/gates.
+<!-- SECTION:PLAN:END -->

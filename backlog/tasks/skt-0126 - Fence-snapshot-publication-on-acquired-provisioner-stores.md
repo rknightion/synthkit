@@ -1,10 +1,11 @@
 ---
 id: SKT-0126
 title: Fence snapshot publication on acquired provisioner stores
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-10-11 19:48'
-updated_date: '2026-10-11 20:40'
+updated_date: '2026-10-14 20:08'
 labels: []
 dependencies:
   - SKT-0099
@@ -34,3 +35,9 @@ Independent delta security review of diskless SM provisioning found a non-blocki
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Make acquired provisioner snapshot-publication capability explicit; fail-first private-file lifecycle proofs, preserve ordinary emitter lock behavior, then composed review/gate.
+<!-- SECTION:PLAN:END -->

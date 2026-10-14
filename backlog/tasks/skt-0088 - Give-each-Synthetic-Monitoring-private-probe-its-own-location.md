@@ -1,9 +1,11 @@
 ---
 id: SKT-0088
 title: Give each Synthetic Monitoring private probe its own location
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-10-05 11:57'
+updated_date: '2026-10-14 20:20'
 labels:
   - network
   - synthetic-monitoring
@@ -36,3 +38,15 @@ Every private probe registered by sm-provision gets the construct default coordi
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Add optional validated per-probe coordinates, preserve defaults, carry locations through registration and emitted geohash, update example with plausible locations; verify fake HTTP registration and emitter output, regenerate schema once, review and composed gate.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Fail-first YAML/default/zero, invalid-coordinate and fake HTTP registration proofs passed. Real handoff snapshot -> built sm-provision -> fake API -> composed runner geohash passes; conflicting shared probe locations preserve existing snapshot. Full gate exposed existing region mutation splitting a shared probe; adjusted that case to change the uniquely named secondary probe, retaining the same stale-registration/no-emission assertion. Focused bound-spec matrix passed. Full baseline/candidate signal-name and label-key dumps byte-identical.
+<!-- SECTION:NOTES:END -->

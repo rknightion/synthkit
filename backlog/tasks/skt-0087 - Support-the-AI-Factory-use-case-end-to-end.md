@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop48-root'
 created_date: '2026-10-02 14:15'
-updated_date: '2026-10-03 13:31'
+updated_date: '2026-10-14 20:11'
 labels:
   - ai-factory
 dependencies: []
@@ -42,4 +42,6 @@ loop47: admitted
 loop47 ending at exhausted source/acceptance envelope: shared fixture and CPU automation finalized Done, other implemented consumer candidates absent because vendor contracts or named dependencies block required ACs. No end-to-end completion or GPU/live acceptance. Root corrected shipped compute collection assumption: cluster.emitfalse preserves20nodes/80GPUs but suppresses10249unadaptedcomputeK8sseries; publicCLI total2379=pilot2369+apps10, no vendorGPUseries. Independent validation-bypass defect repaired with3publicred/green regressions; integratedjustcheck andCodeRabbit0findings passed exact001de3485e6e3815f7e7dada053dd01819141016, landingci37090183079SUCCESS. Resume with approved syslogAC3 contract/criterion, sourced DCGM hardware/health profile and I21all-inGPU sizing/partial-reference acceptance authority. I20/I22remainnameddependencyblocked; R15heldonfacilitysource. Questions batched in ignored loop report; no invented telemetry/rates or ungranted cloud writes.
 
 loop48 R0: admitted narrowed AI Factory research/design under Rob 2026-10-03 decisions; implementation dependency-gated; prior commission1 retained for syslog/DCGM.
+
+2026-10-14: reviewed newly available design alongside controlling corrections. It clarifies intended collection architecture but does not establish missing exporter field catalogues, device point maps or deployed-version support. Keep parked vendor consumers evidence-gated. The dependency-ready next step is the additive shared GPU clock/constraint model, followed by the already narrowed H100 HGX DCGM profile. Preserve PCI domains for future driver-log correlation; do not assume tray DCGM covers rack NVSwitch ASICs or infer a scheduler GPU UUID allocation join from an API lacking that field.
 <!-- SECTION:NOTES:END -->

@@ -1,9 +1,11 @@
 ---
 id: SKT-0091
 title: 'Make nettopo_spoke_down take down a subset of spokes, not all of them'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-10-05 12:29'
+updated_date: '2026-10-14 20:08'
 labels:
   - network
 dependencies: []
@@ -33,3 +35,9 @@ health.go evaluates spokeIsDown as spokeDownActive && unreachableSubset(sp, 1.0)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Implement deterministic intensity-selected spoke outage subset; demonstrate fail-first five-spoke public emission regression, then focused tests and composed review/gate.
+<!-- SECTION:PLAN:END -->
