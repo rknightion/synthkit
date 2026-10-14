@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-10-12 19:10'
-updated_date: '2026-10-14 20:15'
+updated_date: '2026-10-14 20:56'
 labels: []
 dependencies:
   - SKT-0099.01
@@ -41,3 +41,11 @@ SKT-0099.01 (diskless SM provisioning Job in the named-state chart) shipped a st
 <!-- SECTION:PLAN:BEGIN -->
 First reconcile hosted consumer HA/named-state contract read-only. Add generic HA emitter named SM state environment and a separate named get/update RBAC rule, retaining distinct emitter/provisioner Leases and identities and operator-owned resources. Prove rendered permissions fail-first and real rendered-config runtime flow using fake APIs; preserve file and standalone modes. Update docs and establish existing minimum published engine contract. Independent security review, CodeRabbit and full gate before landing.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Generic chart contract reconciled against consuming service read-only; no consumer repository changes. Separate emitter named SM ConfigMap get/update rule, distinct principals and Leases, source-input isolation, explicit preview/apply/restart. Real rendered config -> real HA publication -> provision CLI against fake APIs -> restarted HA RW2 receipt proved configuration version; operator-owned resources byte-identical. CodeRabbit complete0, full focused chart/runtime proofs green. Engine source floor rc.176 and published multiarchitecture index currently verified; no live HA qualification claimed. Final composed gate and exact CI pending.
+
+Final local composed gate did not pass: unchanged control-dashboard race proof reached the 600-second timeout under host load255.01. Ordinary tests, focused chart/runtime proof and final static/chart checks passed. Awaiting owner decision on CI-first landing; local full gate remains failed, not waived green.
+<!-- SECTION:NOTES:END -->
