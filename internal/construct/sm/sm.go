@@ -18,9 +18,13 @@ package sm
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"math"
+	"net"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -36,9 +40,8 @@ import (
 // Kind is the registry key for this construct.
 const Kind = "synthetic_monitoring"
 
-// smTimeoutSeconds is the registered check Timeout expressed in seconds. A check
-// that times out reports probe_duration_seconds ≈ this value. Single source so data-
-// plane and (future) control-plane provisioner cannot drift.
+// smTimeoutSeconds is the default HTTP/ping/DNS/TCP timeout in seconds.
+// Resolved per-check timeouts drive both registration and failure duration.
 const smTimeoutSeconds = 3.0
 
 // smBaseLatency is the healthy p50 probe latency in seconds.
@@ -54,6 +57,9 @@ const latencyAmp = 0.18
 // smProbeDurationBuckets are the le boundaries for probe_all_duration_seconds (LEBare).
 // Verified against the predecessor's SMProbeDurationBuckets.
 var smProbeDurationBuckets = []float64{0.1, 0.25, 0.5, 1, 2.5, 5, 10}
+
+// Pinned agent v0.66.1 uses Prometheus DefBuckets for the new network profiles.
+var smNetworkProbeDurationBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 
 // DefaultProbeName, DefaultProbeRegion, DefaultProbeGeohash, DefaultProbeLat, and
 // DefaultProbeLon are the canonical identity of the offline private probe registered
@@ -93,8 +99,24 @@ type Config struct {
 	RequireRegistration bool              `yaml:"-"`
 }
 
-// CheckConfig describes one synthetic HTTP check.
+// CheckConfig describes one synthetic check.
+type DNSSettings struct {
+	Server string `yaml:"server"`
+}
+type TCPSettings struct {
+	TLS bool `yaml:"tls"`
+}
+
 type CheckConfig struct {
+	// Type selects http (default), ping, dns, tcp or traceroute.
+	Type string `yaml:"type"`
+	// TimeoutMS is the check timeout in milliseconds; traceroute requires 30000.
+	TimeoutMS int `yaml:"timeout"`
+	// DNS configures the resolver for a DNS check; the target is the queried name.
+	DNS *DNSSettings `yaml:"dns"`
+	// TCP enables TLS for a TCP host:port check.
+	TCP *TCPSettings `yaml:"tcp"`
+
 	// Name is required. It becomes the Prometheus `job` label on all emitted series.
 	Name string `yaml:"name"`
 
@@ -128,6 +150,7 @@ type CheckConfig struct {
 
 // resolvedCheck is a fully-defaulted, ready-to-emit check instance.
 type resolvedCheck struct {
+	spec             RuntimeSpec
 	job              string
 	target           string
 	frequencyMs      int
@@ -142,6 +165,10 @@ type resolvedCheck struct {
 // RuntimeSpec is the fully defaulted identity the composition root snapshots for provisioning.
 // It deliberately contains no API client or registration-state type.
 type RuntimeSpec struct {
+	Type        string
+	TimeoutMS   int
+	DNS         *DNSSettings
+	TCP         *TCPSettings
 	Job         string
 	Target      string
 	FrequencyMs int
@@ -154,12 +181,43 @@ type RuntimeSpec struct {
 
 // ResolveSpec applies the data-plane defaults without constructing an emitter.
 func ResolveSpec(c CheckConfig) RuntimeSpec {
-	spec := RuntimeSpec{Job: c.Name, Target: c.Target, FrequencyMs: c.FrequencyMs, Probe: c.Probe, Region: c.Region}
+	spec := RuntimeSpec{Type: c.Type, TimeoutMS: c.TimeoutMS, DNS: c.DNS, TCP: c.TCP, Job: c.Name, Target: c.Target, FrequencyMs: c.FrequencyMs, Probe: c.Probe, Region: c.Region}
+	if c.DNS != nil {
+		copy := *c.DNS
+		spec.DNS = &copy
+	}
+	if c.TCP != nil {
+		copy := *c.TCP
+		spec.TCP = &copy
+	}
+	if spec.Type == "http" {
+		spec.Type = ""
+	}
 	if spec.Target == "" {
-		spec.Target = "https://" + strings.ToLower(c.Name) + ".example.com/health"
+		host := strings.ToLower(c.Name) + ".example.com"
+		switch spec.Type {
+		case "":
+			spec.Target = "https://" + host + "/health"
+		case "tcp":
+			spec.Target = host + ":443"
+		default:
+			spec.Target = host
+		}
+	}
+	if spec.TimeoutMS == 0 {
+		spec.TimeoutMS = int(smTimeoutSeconds * 1000)
+		if spec.Type == "traceroute" {
+			spec.TimeoutMS = 30000
+		}
+	}
+	if spec.Type == "tcp" && spec.TCP == nil {
+		spec.TCP = &TCPSettings{}
 	}
 	if spec.FrequencyMs == 0 {
 		spec.FrequencyMs = 60000
+		if spec.Type == "traceroute" {
+			spec.FrequencyMs = 120000
+		}
 	}
 	if spec.Probe == "" {
 		spec.Probe = DefaultProbeName
@@ -191,7 +249,7 @@ func resolveChecks(cfg []CheckConfig, seed string, registration map[string]strin
 	out := make([]resolvedCheck, 0, len(cfg))
 	probes := make(map[string]RuntimeSpec)
 	for _, c := range cfg {
-		if err := ValidateLocation(c); err != nil {
+		if err := ValidateCheck(c); err != nil {
 			return nil, err
 		}
 		spec := ResolveSpec(c)
@@ -208,6 +266,7 @@ func resolveChecks(cfg []CheckConfig, seed string, registration map[string]strin
 			}
 		}
 		rc := resolvedCheck{
+			spec:             spec,
 			job:              spec.Job,
 			target:           spec.Target,
 			frequencyMs:      spec.FrequencyMs,
@@ -346,7 +405,12 @@ func (c *Construct) build(now time.Time, eng *shape.Engine) ([]promrw.Series, []
 		// Failure decision: scheduled/live incident OR small probabilistic background rate.
 		// Uses eng.Float64() (delegates to global randv2.Float64) for engine-convention
 		// consistency — functionally identical to direct randv2.Float64().
-		failed := eng.Active(now, failureMode, "") || eng.Float64() < smFailureRate
+		failed := eng.Active(now, failureMode, "")
+		// Preserve legacy HTTP background failures. Network profiles use explicit
+		// incidents so their path/packet/certificate facts share one causal outcome.
+		if ch.spec.Type == "" {
+			failed = failed || eng.Float64() < smFailureRate
+		}
 
 		success := 1.0
 		// Healthy latency: diurnal scaling × per-check series variation so peer checks
@@ -355,7 +419,7 @@ func (c *Construct) build(now time.Time, eng *shape.Engine) ([]promrw.Series, []
 		dur := smBaseLatency * eng.BusinessFactor(now) * c.seriesVar(eng, now, "probe_duration|"+ch.job, latencyAmp)
 		if failed {
 			success = 0.0
-			dur = smTimeoutSeconds
+			dur = float64(ch.spec.TimeoutMS) / 1000
 		}
 
 		// ── metrics ──────────────────────────────────────────────────────────
@@ -367,7 +431,7 @@ func (c *Construct) build(now time.Time, eng *shape.Engine) ([]promrw.Series, []
 			"instance":          ch.target,
 			"probe":             ch.probe,
 			"config_version":    ch.configVersion,
-			"check_name":        "http",
+			"check_name":        checkType(ch.spec.Type),
 			"region":            ch.region,
 			"frequency":         fmt.Sprintf("%d", ch.frequencyMs),
 			"geohash":           ch.geohash,
@@ -387,7 +451,12 @@ func (c *Construct) build(now time.Time, eng *shape.Engine) ([]promrw.Series, []
 
 		// probe_all_duration_seconds: cumulative histogram (Observe emits
 		// _bucket/_sum/_count — do NOT also Add _sum/_count, that would double-count).
-		c.st.Observe("probe_all_duration_seconds", base, smProbeDurationBuckets, state.LEBare, dur)
+		buckets := smProbeDurationBuckets
+		if ch.spec.Type != "" {
+			buckets = smNetworkProbeDurationBuckets
+		}
+		c.st.Observe("probe_all_duration_seconds", base, buckets, state.LEBare, dur)
+		hopBodies := c.emitNetwork(ch, base, dur, failed, now)
 
 		// ── logs ─────────────────────────────────────────────────────────────
 
@@ -396,12 +465,12 @@ func (c *Construct) build(now time.Time, eng *shape.Engine) ([]promrw.Series, []
 			msg, ps = "Check failed", "0"
 		}
 		body := fmt.Sprintf(
-			"level=info target=%s probe=%s region=%s instance=%s job=%s check_name=http source=synthetic-monitoring-agent msg=%q duration_seconds=%.6f",
-			ch.target, ch.probe, ch.region, ch.target, ch.job, msg, dur,
+			"level=info target=%s probe=%s region=%s instance=%s job=%s check_name=%s source=synthetic-monitoring-agent msg=%q duration_seconds=%.6f",
+			ch.target, ch.probe, ch.region, ch.target, ch.job, checkType(ch.spec.Type), msg, dur,
 		)
 		streamLabels := map[string]string{
 			"source":        "synthetic-monitoring-agent",
-			"check_name":    "http",
+			"check_name":    checkType(ch.spec.Type),
 			"instance":      ch.target,
 			"job":           ch.job,
 			"probe":         ch.probe,
@@ -409,9 +478,13 @@ func (c *Construct) build(now time.Time, eng *shape.Engine) ([]promrw.Series, []
 			"probe_success": ps,
 		}
 		stampUserLabels(streamLabels, ch.labels)
+		lines := []loki.Line{{T: now, Body: body}}
+		for _, hop := range hopBodies {
+			lines = append(lines, loki.Line{T: now, Body: hop})
+		}
 		streams = append(streams, loki.Stream{
 			Labels: streamLabels,
-			Lines:  []loki.Line{{T: now, Body: body}},
+			Lines:  lines,
 		})
 	}
 
@@ -463,4 +536,209 @@ func probeGeohash(latitude, longitude float64) string {
 		out.WriteByte(alphabet[value])
 	}
 	return out.String()
+}
+
+func checkType(kind string) string {
+	if kind == "" {
+		return "http"
+	}
+	return kind
+}
+
+// ValidateCheck validates the admitted typed settings and actual target shape.
+func ValidateCheck(c CheckConfig) error {
+	if err := ValidateLocation(c); err != nil {
+		return err
+	}
+	spec := ResolveSpec(c)
+	if spec.Type != "" && spec.Type != "ping" && spec.Type != "dns" && spec.Type != "tcp" && spec.Type != "traceroute" {
+		return fmt.Errorf("sm: unknown check type %q", spec.Type)
+	}
+	if c.DNS != nil && spec.Type != "dns" || c.TCP != nil && spec.Type != "tcp" {
+		return fmt.Errorf("sm: settings do not match check type")
+	}
+	if spec.Type == "dns" && (spec.DNS == nil || !validHost(spec.DNS.Server)) {
+		return fmt.Errorf("sm: DNS resolver server requires a hostname or IPv4 address; IPv6 is not supported")
+	}
+	switch spec.Type {
+	case "":
+		u, err := url.Parse(spec.Target)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+			return fmt.Errorf("sm: invalid HTTP target")
+		}
+	case "tcp":
+		host, port, err := net.SplitHostPort(spec.Target)
+		if err != nil || !validHost(host) || port == "" {
+			return fmt.Errorf("sm: TCP target requires hostname:port or IPv4:port; IPv6 is not supported")
+		}
+		var n int
+		if _, err := fmt.Sscanf(port, "%d", &n); err != nil || fmt.Sprint(n) != port || n < 1 || n > 65535 {
+			return fmt.Errorf("sm: invalid TCP port")
+		}
+	default:
+		if !validHost(spec.Target) {
+			return fmt.Errorf("sm: target requires hostname or IPv4 address; IPv6 is not supported")
+		}
+	}
+	minFrequency := 1000
+	if spec.Type == "traceroute" {
+		minFrequency = 120000
+		if spec.TimeoutMS != 30000 {
+			return fmt.Errorf("sm: traceroute timeout must be 30000")
+		}
+	}
+	if spec.FrequencyMs < minFrequency || spec.FrequencyMs > 3600000 || spec.TimeoutMS < 1000 || spec.TimeoutMS > 60000 || spec.TimeoutMS > spec.FrequencyMs {
+		return fmt.Errorf("sm: invalid frequency or timeout")
+	}
+	return nil
+}
+func validHost(host string) bool {
+	if net.ParseIP(host) != nil {
+		return !strings.Contains(host, ":")
+	}
+	if host == "" || len(host) > 253 {
+		return false
+	}
+	for _, part := range strings.Split(strings.TrimSuffix(host, "."), ".") {
+		if part == "" || len(part) > 63 || part[0] == '-' || part[len(part)-1] == '-' {
+			return false
+		}
+		for _, r := range part {
+			if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// emitNetwork uses a bounded synthetic path: documentation-range IPv4 addresses,
+// three routers and five traceroute packets per hop. These are simulation
+// assumptions, never discovered topology or live network measurements.
+func (c *Construct) emitNetwork(ch resolvedCheck, base map[string]string, dur float64, failed bool, now time.Time) []string {
+	kind := ch.spec.Type
+	if kind == "" {
+		return nil
+	}
+	set := func(name string, value float64) { c.st.Set(name, base, value) }
+	phase := func(name, key string, value float64) {
+		labels := make(map[string]string, len(base)+1)
+		for k, v := range base {
+			labels[k] = v
+		}
+		labels["phase"] = key
+		c.st.Set(name, labels, value)
+	}
+	if kind != "traceroute" {
+		set("probe_dns_lookup_time_seconds", dur*.1)
+		set("probe_ip_protocol", 4)
+		h := fnv.New32a()
+		host := ch.target
+		if kind == "tcp" {
+			host, _, _ = net.SplitHostPort(host)
+		} else if kind == "dns" {
+			host = ch.spec.DNS.Server
+		}
+		ip := net.ParseIP(host).To4()
+		if ip == nil {
+			// Hostname resolution is simulated with a documentation address.
+			ip = net.ParseIP("203.0.113.1").To4()
+		}
+		_, _ = h.Write(ip)
+		set("probe_ip_addr_hash", float64(h.Sum32()))
+	}
+	switch kind {
+	case "ping":
+		rtt := dur * .8
+		minRTT, maxRTT, stddev, hopLimit := dur*.7, dur*.9, dur*.05, 64.0
+		if failed {
+			rtt, minRTT, maxRTT, stddev, hopLimit = 0, 0, 0, 0, 0
+		}
+		phase("probe_icmp_duration_seconds", "resolve", dur*.1)
+		phase("probe_icmp_duration_seconds", "setup", dur*.1)
+		phase("probe_icmp_duration_seconds", "rtt", rtt)
+		set("probe_icmp_duration_rtt_min_seconds", minRTT)
+		set("probe_icmp_duration_rtt_max_seconds", maxRTT)
+		set("probe_icmp_duration_rtt_stddev_seconds", stddev)
+		set("probe_icmp_packets_sent_count", 3)
+		received := 3.0
+		if failed {
+			received = 0
+		}
+		set("probe_icmp_packets_received_count", received)
+		set("probe_icmp_reply_hop_limit", hopLimit)
+	case "dns":
+		phase("probe_dns_duration_seconds", "resolve", dur*.1)
+		phase("probe_dns_duration_seconds", "connect", dur*.1)
+		phase("probe_dns_duration_seconds", "request", dur*.8)
+		answer := 1.0
+		if failed {
+			answer = 0
+		}
+		set("probe_dns_answer_rrs", answer)
+		set("probe_dns_authority_rrs", 0)
+		set("probe_dns_additional_rrs", 0)
+		set("probe_dns_query_succeeded", answer)
+	case "tcp":
+		set("probe_failed_due_to_regex", 0)
+		set("probe_failed_due_to_bytes", 0)
+		// Retire failed/renewed handshake metadata without resetting cumulative metrics.
+		c.st.DropWhere(func(name string, labels map[string]string) bool {
+			return (strings.HasPrefix(name, "probe_ssl_") || name == "probe_tls_version_info") &&
+				labels["job"] == ch.job && labels["instance"] == ch.target && labels["probe"] == ch.probe
+		})
+		if ch.spec.TCP.TLS && !failed {
+			// Synthetic CA policy: 90-day validity with renewal after 60 days.
+			// The overlap models automated renewal; a certificate's expiry stays fixed.
+			const renewalSeconds = int64(60 * 24 * 60 * 60)
+			epoch := now.Unix() / renewalSeconds
+			expiry := epoch*renewalSeconds + 90*24*60*60
+			set("probe_ssl_earliest_cert_expiry", float64(expiry))
+			set("probe_ssl_last_chain_expiry_timestamp_seconds", float64(expiry))
+			labels := make(map[string]string, len(base)+1)
+			for k, v := range base {
+				labels[k] = v
+			}
+			labels["version"] = "TLS 1.3"
+			c.st.Set("probe_tls_version_info", labels, 1)
+			cert := make(map[string]string, len(base)+5)
+			for k, v := range base {
+				cert[k] = v
+			}
+			fingerprint := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", ch.target, epoch)))
+			cert["fingerprint_sha256"] = fmt.Sprintf("%x", fingerprint)
+			host, _, _ := net.SplitHostPort(ch.target)
+			cert["subject"] = "CN=" + host
+			cert["issuer"] = "CN=Synthetic CA"
+			cert["subjectalternative"] = host
+			cert["serialnumber"] = fmt.Sprint(epoch + 1)
+			c.st.Set("probe_ssl_last_chain_info", cert, 1)
+		}
+	case "traceroute":
+		hosts := []string{"192.0.2.1", "198.51.100.1", "203.0.113.1"}
+		lost := 0.0
+		if failed {
+			lost = 1
+		}
+		set("probe_traceroute_total_hops", 3)
+		set("probe_traceroute_packet_loss_percent", lost)
+		h := fnv.New32()
+		_, _ = h.Write([]byte(strings.Join(hosts, "")))
+		set("probe_traceroute_route_hash", float64(h.Sum32()))
+		sum := sha256.Sum256([]byte(ch.job + "\x00" + ch.target + "\x00" + now.UTC().Format(time.RFC3339Nano)))
+		sum[6] = (sum[6] & 15) | 0x40
+		sum[8] = (sum[8] & 63) | 0x80
+		id := fmt.Sprintf("%x-%x-%x-%x-%x", sum[:4], sum[4:6], sum[6:8], sum[8:10], sum[10:16])
+		var bodies []string
+		for i, host := range hosts {
+			// MTR Avg is zero without replies; the agent truncates average milliseconds.
+			elapsed := time.Duration(dur*float64(i+1)/3*1000) * time.Millisecond
+			if failed {
+				elapsed = 0
+			}
+			bodies = append(bodies, fmt.Sprintf("Level=info Destination=%s Hosts=%s TTL=%d ElapsedTime=%s LossPercent=%g Sent=5 TracerouteID=%s", ch.target, host, i+1, elapsed, lost*100, id))
+		}
+		return bodies
+	}
+	return nil
 }

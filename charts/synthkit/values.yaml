@@ -399,13 +399,14 @@ probes:
 # Bump runId to re-run it on a later `helm upgrade`; this is never an automatic hook.
 smProvision:
   enabled: false
-  # Independent of emitter HA. Kubernetes mode requires all three explicit names below.
+  # Kubernetes mode supports HA emission and the standalone Job; requires all three names.
+  # HA+SM requires image >=1.6.0-rc.176; the chart default predates this engine contract.
   stateBackend: file
   # External aggregate SM document, including snapshot, ownership, registration and pending evidence.
   stateConfigMap: ""
   # Every writer to the aggregate SM slot must use this precreated provisioning Lease.
   leaseName: ""
-  # Explicit emitter Lease identity, even with emitter HA off; must differ from leaseName.
+  # Explicit emitter Lease identity; equals ha.leaseName when HA is on, differs from leaseName.
   emitterLeaseName: ""
   runId: "1"
   # Preview by default. Review the Job's log, then set true and upgrade to write.

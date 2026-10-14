@@ -101,11 +101,14 @@ and unsourced physical NVLink metadata nullable. Consumer profiles fail closed o
 GB is not driver usable/reserved memory; synthetic cooling deltas are not hardware throttle thresholds.
 See `cantfind.md` hardware/profile barriers and the pinned consumer contract before enabling collection.
 
-The current `GPUOperatingPoints` snapshot does not establish requested/achieved clocks or an active
-thermal/power limiter. Boundary temperature, equality to a power budget and `CoolingDerate` alone do
-not license vendor clock-event flags or violation-duration increments. A causal constraint model
-belongs in the shared pure seam with reviewed ownership; a consumer-local hardware toggle is not a
-collection failure.
+`GPUOperatingPoints` remains unchanged and does not establish active clock constraints.
+The additive `GPUConstraintPoints` API requires explicit requested clocks, unconstrained power
+demand and synthetic per-cause caps. Only H100 SXM with exact driver 595.91.07 has a sourced profile.
+Thermal slowdown requires temperature strictly above 89 C and a reducing cap; the 87 C operating
+reference, equality to a power budget and `CoolingDerate` alone never activate a limiter. Power
+requires demand strictly above the configured budget and a reducing cap; both causes may coexist.
+Unsupported/unavailable GPUs have no achieved clocks. Consumers must not infer vendor event labels,
+violation durations or a clock response curve from this seam alone.
 
 ## File ownership
 
@@ -147,6 +150,14 @@ an `env_file` value.
   identical region and coordinates across blueprints. The provisioner snapshot and emitted geohash
   use that resolved location. Acquired file provisioner stores never publish snapshots, even after
   release; emitter publication uses the ordinary file store and positive lock acquisition.
+- SM network profiles are pinned to agent v0.66.1: ping, DNS A/UDP/53, TCP with optional TLS,
+  and default traceroute. Traceroute requires 30-second timeout and at least 120-second frequency;
+  loss is a fraction in metrics and a percentage in hop logs. HTTP snapshot hashes stay compatible.
+  HA plus SM chart wiring uses named state, separate principals/Leases, and a separate emitter
+  ConfigMap rule granting only get/update. It grants no provisioner-Lease access or automatic apply.
+  The default chart image predates this engine contract; select matching image >=1.6.0-rc.176.
+- Go ignores nested modules, not Git ignore rules. Retained Go proof sources under `codex/` use
+  the ignored `codex/go.mod` boundary; preserve production package discovery and all proof artifacts.
 
 - HA-loss subprocess proofs synchronize on the real HTTP handler's recorded observation before
   revocation; sender entry or an elapsed sleep is not a delivery receipt. Keep the five-second

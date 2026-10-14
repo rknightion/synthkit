@@ -58,7 +58,7 @@ persistence:
 
 The slot map is the explicit inventory of predeclared source IDs and named ConfigMaps. Valid
 unused slots are allowed. Chart rendering rejects malformed IDs/names, duplicate object names,
-unknown values fields, HA file state, PVCs, automatic SM provisioning and `extraEnv` overrides of
+unknown values fields, HA file state, PVCs, file-mode SM provisioning and `extraEnv` overrides of
 any HA/state key. Mutable control-source configuration is not a chart inventory: the runtime
 rejects a configured source with a missing or unknown slot before accepting its persistence.
 Source IDs may contain single underscores. There is no invented configured-source-ID environment
@@ -209,8 +209,9 @@ renewal join + 2s release + 2s allowance; the chart's existing 60s remains uncha
 Handoff is restart semantics: counters/histograms and in-memory shape/queue state reset,
 unfinished traces/RUM sessions and queued data may truncate, and fixture identities stay
 stable. Crash takeover may take the 30s Lease duration plus acquisition/preparation. Do
-not promise zero gaps, duplication or data loss. HA uploads and automatic SM provisioning
-remain unavailable. File Lease HA suppresses SM without artifact I/O; Kubernetes SM can instead
+not promise zero gaps, duplication or data loss. HA uploads remain unavailable. SM remote writes
+require explicit preview/apply approval; the chart never provisions them automatically. File Lease
+HA suppresses SM without artifact I/O; Kubernetes SM can instead
 consume an explicitly provisioned registration through its separate named state/Lease mapping.
 Process telemetry/profiles carry immutable `ha.role` tags, including standby exports.
 
@@ -329,16 +330,17 @@ configuration by stable ID and fingerprint. Removed/reconfigured sources ignore 
 
 Kubernetes control/manifest/git state does not need a PVC or disk materialization. HA-off custom
 uploads still use the existing local upload directory and require retained disk for continuity;
-Kubernetes mode does not make them shared. HA upload and automatic SM exclusions are unchanged.
+Kubernetes mode does not make them shared. HA uploads remain unavailable; SM provisioning is an
+explicit one-shot operation.
 The standalone binary supports manual diskless SM provisioning with `STATE_SM_CONFIGMAP` and
 `SM_PROVISION_LEASE_NAME`, a separate precreated provisioning Lease distinct from the emitter Lease.
 All writers to that SM slot must use the same lock identity. The tool needs only named get/update on
 its Lease and SM ConfigMap, in-cluster API authentication and downward-API `POD_UID`; it neither
 creates resources nor uses a shared volume. Kubernetes HA activation rereads registration on
 acquisition before its first production tick; standby writes nothing. The chart supports a
-[standalone Kubernetes-state SM Job](#diskless-one-shot-job); emitter SM named-state environment
-and RBAC still require separate ownership/configuration, and the combined chart HA+SM exclusion
-remains. Do not add mutable state as Helm-managed resources or infer automatic ownership transfer
+[Kubernetes-state SM Job and HA emitters](#diskless-one-shot-job), wiring the same aggregate slot
+and provisioning lock identity while preserving separate identities and Lease authority. Do not add
+mutable state as Helm-managed resources or infer automatic ownership transfer
 from file state. See
 [Synthetic Monitoring](synthetic-monitoring.md#in-cluster-one-shot-mode-no-shared-volume).
 With HA off, Kubernetes state is still one emitter, not permission to scale replicas. For the emitter,
@@ -624,11 +626,11 @@ shared ReadWriteOnce claim, on-node pod affinity and file-mode behavior describe
 ### Diskless one-shot Job
 
 `smProvision.stateBackend: kubernetes` selects the accepted named-state engine independently of
-emitter HA. This is a **Job-only extension**, not automatic emitter HA/SM wiring: the chart's existing
-HA exclusion for automatic SM provisioning remains in place. The emitter must already be configured
-by its owner to publish/read the same SM aggregate slot and provisioning Lease identity before this
-Job can be used to activate a lane. The Job cannot grant itself emitter authority or configure an
-emitter by writing another state slot.
+emitter HA. With `ha.enabled: true`, the chart also supplies `STATE_SM_CONFIGMAP` and
+`SM_PROVISION_LEASE_NAME` to the emitters, with a separate named `get`/`update` rule on the SM
+aggregate ConfigMap. The emitter has no authority on the provisioning Lease; the Job has no
+authority on the emitter Lease or declarative source input. With HA off, this remains a standalone
+Job: its emitter must be configured separately to publish/read the same state and lock identity.
 
 ```yaml
 smProvision:
@@ -648,8 +650,9 @@ credentials:
 ```
 
 All three names are explicit operator inputs in the release namespace, including the emitter Lease
-name when emitter HA is off. The aggregate ConfigMap must be separate from runtime, control, boot and
-git-source ConfigMaps. The provisioning Lease must differ from the emitter Lease. **Precreate the SM
+name when emitter HA is off. With HA enabled, `smProvision.emitterLeaseName` must equal
+`ha.leaseName`, and persistence must remain disabled. The aggregate ConfigMap must be separate from
+runtime, control, boot, Fleet and git-source ConfigMaps. The provisioning Lease must differ from the emitter Lease. **Precreate the SM
 ConfigMap and provisioning Lease outside Helm, before running the Job**; Helm neither looks them up
 nor creates, owns, restores or deletes them. Do not attach Helm release ownership metadata to them.
 Use a separate provisioning principal for initial creation. A new ConfigMap may start with no
@@ -668,9 +671,11 @@ uncertain mutation being replayed by a Job retry; the engine's two-minute acquis
 invocation caps, bounded HTTP/CAS operations and joined shutdown remain intact. The Job has a 660s
 outer deadline and 30s termination grace; these are not permission to weaken the engine budgets.
 
-Before either phase, explicitly select a verified image containing the diskless engine via
-`image.digest` (or clear it and set `image.tag`). The existing chart image default may predate this
-capability. The Job and the snapshot-producing emitter **must run the same source version and
+The minimum published image carrying the matching named-SM engine is **[1.6.0-rc.176](https://github.com/rknightion/synthkit/releases/tag/v1.6.0-rc.176)**
+(source revision `b676b0dfb548fabb6763c19e6485f09e405d0ed1`). The chart default
+`1.6.0-rc.160` predates this contract. Before either phase, explicitly select this or a newer
+verified image containing the diskless engine via
+`image.digest` (or clear it and set `image.tag`). The Job and the snapshot-producing emitter **must run the same source version and
 image**; a source-version mismatch is a hard stop, not a reason to edit snapshot evidence. Follow
 [the reproducible upgrade procedure](deployment.md#reproducible-upgrade) for the image you select.
 Preview using the named-state values above, inspect the Job log, then explicitly apply with a new

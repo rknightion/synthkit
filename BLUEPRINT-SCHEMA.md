@@ -1053,6 +1053,12 @@ fake Synthetic Monitoring checks (metrics + logs)
 | key | type | optional | description |
 |---|---|---|---|
 | `checks[]` | object |  |  |
+| `checks[].type` | string |  | Type selects http (default), ping, dns, tcp or traceroute. |
+| `checks[].timeout` | int |  | TimeoutMS is the check timeout in milliseconds; traceroute requires 30000. |
+| `checks[].dns` | object | yes | DNS configures the resolver for a DNS check; the target is the queried name. |
+| `checks[].dns.server` | string |  |  |
+| `checks[].tcp` | object | yes | TCP enables TLS for a TCP host:port check. |
+| `checks[].tcp.tls` | bool |  |  |
 | `checks[].name` | string |  | Name is required. It becomes the Prometheus `job` label on all emitted series. |
 | `checks[].target` | string |  | Target is the HTTP URL probed. Defaults to "https://<name>.example.com/health" if empty. |
 | `checks[].frequency` | int |  | FrequencyMs is the check poll interval in milliseconds. Defaults to 60000 (60s). |

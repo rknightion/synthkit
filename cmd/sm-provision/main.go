@@ -331,9 +331,10 @@ func managedCheckEvidence(remote smCheck) any {
 		AlertSensitivity string            `json:"alert_sensitivity"`
 		BasicMetricsOnly bool              `json:"basic_metrics_only"`
 		HTTP             map[string]string `json:"http"`
+		Network          map[string]any    `json:"network,omitempty"`
 	}{
 		remote.Job, remote.Target, remote.Frequency, remote.Timeout, remote.Enabled, probes, labels,
-		remote.AlertSensitivity, remote.BasicMetricsOnly, managedHTTPSettings(remote.Settings),
+		remote.AlertSensitivity, remote.BasicMetricsOnly, managedHTTPSettings(remote.Settings), networkEvidence(remote.Settings),
 	}
 }
 
@@ -388,6 +389,9 @@ func (p *provisioner) buildPlan(remoteProbes []smProbe, remoteChecks []smCheck) 
 			remote, ok := checksByID[resource.ID]
 			if !ok || smstate.CheckKey(remote.Job, remote.Target) != spec.Key || probeID == 0 {
 				return plan{}, errors.New("owned remote check is missing or changed")
+			}
+			if _, ok := canonicalSettings(remote.Settings); !ok {
+				return plan{}, fmt.Errorf("owned remote check has unsupported settings")
 			}
 			act := actionUpdate
 			if sameCheck(remote, desiredCheck(spec, probeID)) {
@@ -564,7 +568,7 @@ func desiredCheck(spec smstate.CheckSpec, probeID int64) smCheck {
 	return smCheck{
 		Job: spec.Job, Target: spec.Target, Frequency: spec.FrequencyMS, Timeout: spec.TimeoutMS,
 		Enabled: true, Probes: []int64{probeID}, Labels: labels, AlertSensitivity: "none",
-		BasicMetricsOnly: true, Settings: map[string]any{"http": map[string]any{"method": "GET", "ipVersion": "V4"}},
+		BasicMetricsOnly: true, Settings: desiredSettings(spec),
 	}
 }
 
@@ -590,13 +594,13 @@ func sameCheck(remote, desired smCheck) bool {
 	})
 	sort.Slice(remote.Probes, func(i, j int) bool { return remote.Probes[i] < remote.Probes[j] })
 	sort.Slice(desired.Probes, func(i, j int) bool { return desired.Probes[i] < desired.Probes[j] })
-	remoteHTTP := managedHTTPSettings(remote.Settings)
-	desiredHTTP := managedHTTPSettings(desired.Settings)
+	remoteHTTP, remoteOK := canonicalSettings(remote.Settings)
+	desiredHTTP, desiredOK := canonicalSettings(desired.Settings)
 	return remote.Job == desired.Job && remote.Target == desired.Target && remote.Frequency == desired.Frequency &&
 		remote.Timeout == desired.Timeout && remote.Enabled == desired.Enabled &&
 		remote.AlertSensitivity == desired.AlertSensitivity && remote.BasicMetricsOnly == desired.BasicMetricsOnly &&
 		reflect.DeepEqual(remote.Labels, desired.Labels) && reflect.DeepEqual(remote.Probes, desired.Probes) &&
-		reflect.DeepEqual(remoteHTTP, desiredHTTP)
+		remoteOK && desiredOK && reflect.DeepEqual(remoteHTTP, desiredHTTP)
 }
 
 func managedHTTPSettings(settings map[string]any) map[string]string {
@@ -765,4 +769,139 @@ func envDefault(name, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func desiredSettings(spec smstate.CheckSpec) map[string]any {
+	switch spec.Type {
+	case "ping":
+		return map[string]any{"ping": map[string]any{"ipVersion": "V4", "dontFragment": false, "packetCount": 3}}
+	case "dns":
+		return map[string]any{"dns": map[string]any{"ipVersion": "V4", "server": spec.DNS.Server, "port": 53, "recordType": "A", "protocol": "UDP"}}
+	case "tcp":
+		tls := false
+		if spec.TCP != nil {
+			tls = spec.TCP.TLS
+		}
+		return map[string]any{"tcp": map[string]any{"ipVersion": "V4", "tls": tls}}
+	case "traceroute":
+		return map[string]any{"traceroute": map[string]any{"maxHops": 64, "maxUnknownHops": 15, "ptrLookup": false}}
+	default:
+		return map[string]any{"http": map[string]any{"method": "GET", "ipVersion": "V4"}}
+	}
+}
+func networkEvidence(settings map[string]any) map[string]any {
+	if _, ok := settings["http"]; ok {
+		return nil
+	}
+	canonical, ok := canonicalSettings(settings)
+	if !ok {
+		return nil
+	}
+	return canonical
+}
+
+// canonicalSettings preserves legacy HTTP projection and admits only the supported
+// fixed network profiles. Unknown/nondefault settings never grant adoption/update.
+func canonicalSettings(settings map[string]any) (map[string]any, bool) {
+	if _, ok := settings["http"]; ok {
+		for _, kind := range []string{"ping", "dns", "tcp", "traceroute", "scripted", "multihttp", "grpc", "browser"} {
+			if value, present := settings[kind]; present && value != nil {
+				return nil, false
+			}
+		}
+		return map[string]any{"http": managedHTTPSettings(settings)}, true
+	}
+	if len(settings) != 1 {
+		return nil, false
+	}
+	encoded, err := json.Marshal(settings)
+	if err != nil {
+		return nil, false
+	}
+	var raw map[string]map[string]any
+	if json.Unmarshal(encoded, &raw) != nil {
+		return nil, false
+	}
+	for kind, fields := range raw {
+		var spec smstate.CheckSpec
+		spec.Type = kind
+		switch kind {
+		case "ping":
+			allowed := map[string]bool{"ipVersion": true, "dontFragment": true, "packetCount": true, "payloadSize": true, "sourceIpAddress": true}
+			for k, v := range fields {
+				if !allowed[k] || (k == "payloadSize" && v != float64(0)) || (k == "sourceIpAddress" && v != "") {
+					return nil, false
+				}
+			}
+			if v, ok := fields["dontFragment"]; ok && v != false {
+				return nil, false
+			}
+			if v, ok := fields["packetCount"]; ok && v != float64(0) && v != float64(3) {
+				return nil, false
+			}
+		case "dns":
+			for k := range fields {
+				if k != "ipVersion" && k != "server" && k != "port" && k != "recordType" && k != "protocol" {
+					return nil, false
+				}
+			}
+			server, ok := fields["server"].(string)
+			if !ok || server == "" {
+				return nil, false
+			}
+			spec.DNS = &smstate.DNSSettings{Server: server}
+			if v, ok := fields["port"]; ok && v != float64(0) && v != float64(53) {
+				return nil, false
+			}
+			if fields["recordType"] != "A" || fields["protocol"] != "UDP" {
+				return nil, false
+			}
+		case "tcp":
+			for k := range fields {
+				if k != "ipVersion" && k != "tls" {
+					return nil, false
+				}
+			}
+			tls := false
+			if v, ok := fields["tls"]; ok {
+				var valid bool
+				tls, valid = v.(bool)
+				if !valid {
+					return nil, false
+				}
+			}
+			spec.TCP = &smstate.TCPSettings{TLS: tls}
+		case "traceroute":
+			for k := range fields {
+				if k != "maxHops" && k != "maxUnknownHops" && k != "ptrLookup" && k != "hopTimeout" {
+					return nil, false
+				}
+			}
+			if v, ok := fields["hopTimeout"]; ok && v != float64(0) {
+				return nil, false
+			}
+			if v, ok := fields["maxHops"]; ok && v != float64(0) && v != float64(64) {
+				return nil, false
+			}
+			if v, ok := fields["maxUnknownHops"]; ok && v != float64(0) && v != float64(15) {
+				return nil, false
+			}
+			if v, ok := fields["ptrLookup"]; ok && v != false {
+				return nil, false
+			}
+		default:
+			return nil, false
+		}
+		if kind != "traceroute" {
+			if fields["ipVersion"] != "V4" {
+				return nil, false
+			}
+		}
+		normalized := desiredSettings(spec)
+		b, _ := json.Marshal(normalized)
+		var result map[string]any
+		_ = json.Unmarshal(b, &result)
+		return result, true
+	}
+	return nil, false
 }

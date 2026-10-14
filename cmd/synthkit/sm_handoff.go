@@ -64,8 +64,8 @@ func prepareSMHandoff(ctx context.Context, resolved []*blueprint.Resolved, cfg *
 				return smHandoff{}, errors.New("synthetic monitoring configuration is invalid")
 			}
 			for _, declared := range smCfg.Checks {
-				if err := sm.ValidateLocation(declared); err != nil {
-					return smHandoff{}, fmt.Errorf("synthetic monitoring location in blueprint %q: %w", bp.Name, err)
+				if err := sm.ValidateCheck(declared); err != nil {
+					return smHandoff{}, fmt.Errorf("synthetic monitoring check in blueprint %q: %w", bp.Name, err)
 				}
 				spec := sm.ResolveSpec(declared)
 				probeKey := smstate.ProbeKey(spec.Probe, spec.Region)
@@ -86,10 +86,19 @@ func prepareSMHandoff(ctx context.Context, resolved []*blueprint.Resolved, cfg *
 					labels = append(labels, smstate.Label{Name: key, Value: value})
 				}
 				sort.Slice(labels, func(i, j int) bool { return labels[i].Name < labels[j].Name })
+				var dns *smstate.DNSSettings
+				var tcp *smstate.TCPSettings
+				if spec.DNS != nil {
+					dns = &smstate.DNSSettings{Server: spec.DNS.Server}
+				}
+				if spec.TCP != nil {
+					tcp = &smstate.TCPSettings{TLS: spec.TCP.TLS}
+				}
 				checks = append(checks, smstate.CheckSpec{
+					Type: spec.Type, DNS: dns, TCP: tcp,
 					Key: smstate.CheckKey(spec.Job, spec.Target), Source: bp.Name,
 					Job: spec.Job, Target: spec.Target, FrequencyMS: spec.FrequencyMs,
-					TimeoutMS: 3000, ProbeKey: probeKey, Labels: labels,
+					TimeoutMS: spec.TimeoutMS, ProbeKey: probeKey, Labels: labels,
 				})
 			}
 		}

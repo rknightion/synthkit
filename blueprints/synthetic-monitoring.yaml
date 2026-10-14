@@ -1,4 +1,4 @@
-# synthetic-monitoring — Grafana Synthetic Monitoring estate: HTTP probe checks
+# synthetic-monitoring — Grafana Synthetic Monitoring estate: HTTP and network checks
 # (probe_success / probe_duration families) + Fleet Management collector roster.
 # No cloud infrastructure: one minimal environment anchors the blueprint (required
 # by validateDecl), but all emitted telemetry flows from the features: block.
@@ -8,7 +8,7 @@ label: synmon
 shape: business_hours_plateau
 timezone: Europe/London
 metadata:
-  description: "Grafana Synthetic Monitoring estate: HTTP probe checks (probe_success/probe_duration) + Fleet Management collector roster across linux/windows/darwin."
+  description: "Grafana Synthetic Monitoring estate: HTTP, ping, DNS, TCP/TLS and traceroute checks plus Fleet Management collectors across linux/windows/darwin."
   owner: platform-observability
   category: reference
   tags: [synthetic-monitoring, blackbox, probes, uptime, sm, fleet-management, grafana-cloud]
@@ -75,7 +75,7 @@ features:
       - name: synmon-status-page
         target: "https://status.synmon.example.com"
         frequency: 60000
-        probe: synthkit-private
+        probe: synthkit-private-apac
         region: APAC
         # Singapore city centre: representative Southeast Asia probe location.
         latitude: 1.3521
@@ -83,6 +83,36 @@ features:
         labels:
           team: platform
           tier: infra
+
+      # Minute-by-minute reachability is a typical uptime-monitoring cadence.
+      # Documentation addresses model a private gateway/resolver; no real probes run.
+      - name: synmon-gateway-ping
+        type: ping
+        target: "192.0.2.1"
+        frequency: 60000
+        probe: synthkit-private-emea
+
+      - name: synmon-dns
+        type: dns
+        target: "api.synmon.example.com"
+        dns: {server: "192.0.2.53"}
+        frequency: 60000
+        probe: synthkit-private-emea
+
+      - name: synmon-tls
+        type: tcp
+        target: "api.synmon.example.com:443"
+        tcp: {tls: true}
+        frequency: 60000
+        probe: synthkit-private-emea
+
+      # Two minutes is the SM traceroute API minimum, suitable for path monitoring.
+      - name: synmon-path
+        type: traceroute
+        target: "api.synmon.example.com"
+        frequency: 120000
+        timeout: 30000
+        probe: synthkit-private-emea
 
   fleet_management:
     enabled: true

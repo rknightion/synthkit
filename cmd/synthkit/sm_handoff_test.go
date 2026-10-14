@@ -1250,3 +1250,81 @@ func TestSMHandoffConflictingProbeLocationsPreserveSnapshot(t *testing.T) {
 		}
 	}
 }
+
+func TestSMNetworkChecksRealProvisionerAndComposedEmitter(t *testing.T) {
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := smstoretest.NewRemote(t)
+	defer remote.Close()
+	cfg := &config.Config{StateBackend: "file", SnapshotPath: filepath.Join(dir, "control.json"), SMURL: remote.Server.URL, SMToken: smstoretest.Token(t)}
+	store := smstore.NewFileStore(smstate.RuntimeDir(cfg.SnapshotPath))
+	raw := `name: network-proof
+environments: [{name: prod}]
+features:
+  synthetic_monitoring:
+    enabled: true
+    checks:
+      - {name: ping, type: ping, target: ping.example.com}
+      - {name: dns, type: dns, target: query.example.com, dns: {server: resolver.example.com}}
+      - {name: tcp, type: tcp, target: tcp.example.com:80}
+      - {name: tls, type: tcp, target: tls.example.com:443, tcp: {tls: true}}
+      - {name: trace, type: traceroute, target: trace.example.com}
+`
+	prepare := func() (*blueprint.Resolved, smHandoff) {
+		t.Helper()
+		bp := mustLoad(t, []byte(raw))
+		h, err := prepareSMHandoff(context.Background(), []*blueprint.Resolved{bp}, cfg, "network-proof", time.Unix(100, 0), store, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bp, h
+	}
+	prepare()
+	runFixtureProvision(t, cfg, nil, "network-proof")(true, true)
+	remote.Mu.Lock()
+	checks := append([]map[string]any(nil), remote.Checks...)
+	remote.Mu.Unlock()
+	if len(checks) != 5 {
+		t.Fatalf("registered %d checks", len(checks))
+	}
+	for _, check := range checks {
+		settings := check["settings"].(map[string]any)
+		job := check["job"].(string)
+		kind := job
+		if job == "tls" {
+			kind = "tcp"
+		}
+		if job == "trace" {
+			kind = "traceroute"
+		}
+		if len(settings) != 1 || settings[kind] == nil {
+			t.Fatalf("%s settings=%v", job, settings)
+		}
+		if kind == "traceroute" && (check["frequency"] != float64(120000) || check["timeout"] != float64(30000)) {
+			t.Fatalf("traceroute timing=%v", check)
+		}
+		if kind == "dns" {
+			dns := settings["dns"].(map[string]any)
+			if check["target"] != "query.example.com" || dns["server"] != "resolver.example.com" || dns["recordType"] != "A" || dns["protocol"] != "UDP" {
+				t.Fatalf("DNS registration=%v", check)
+			}
+		}
+	}
+	bp, h := prepare()
+	if !h.Registered {
+		t.Fatal("not registered")
+	}
+	metrics, logs := composedSMTick(t, bp)
+	for _, name := range []string{"probe_icmp_packets_sent_count", "probe_dns_answer_rrs", "probe_failed_due_to_regex", "probe_tls_version_info", "probe_traceroute_total_hops"} {
+		if len(metrics.Find(name)) == 0 {
+			t.Fatalf("missing %s", name)
+		}
+	}
+	for _, stream := range logs.Streams {
+		if stream.Labels["job"] == "trace" && len(stream.Lines) != 4 {
+			t.Fatalf("hop count=%d", len(stream.Lines))
+		}
+	}
+}

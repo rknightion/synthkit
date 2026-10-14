@@ -486,10 +486,10 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "stateBackend": {"type": "string", "enum": ["file", "kubernetes"], "description": "File preserves shared-PVC behavior. Kubernetes requires externally precreated aggregate SM state and a dedicated provisioning Lease; Helm never owns them."},
-        "stateConfigMap": {"type": "string", "maxLength": 253, "description": "External aggregate SM slot; all writers must use leaseName."},
+        "stateBackend": {"type": "string", "enum": ["file", "kubernetes"], "description": "File preserves shared-PVC behavior. Kubernetes supports HA emission plus the standalone Job with image >=1.6.0-rc.176 and externally precreated aggregate SM state and a dedicated provisioning Lease; Helm never owns them."},
+        "stateConfigMap": {"type": "string", "maxLength": 253, "description": "External aggregate SM slot; HA emitters receive named get/update only. All writers must use leaseName."},
         "leaseName": {"type": "string", "maxLength": 253, "description": "External provisioning Lease, distinct from emitterLeaseName."},
-        "emitterLeaseName": {"type": "string", "maxLength": 253, "description": "Explicit emitter Lease identity, even when emitter HA is off; no job authority on this Lease."},
+        "emitterLeaseName": {"type": "string", "maxLength": 253, "description": "Explicit emitter Lease identity, even when emitter HA is off; must equal ha.leaseName when HA is enabled. No job authority on this Lease."},
         "enabled": {
           "type": "boolean"
         },

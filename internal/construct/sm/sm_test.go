@@ -4,6 +4,7 @@ package sm
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -850,5 +851,159 @@ func TestProbeLocationValidation(t *testing.T) {
 		if _, err := Build(&cfg, nil); err == nil {
 			t.Fatalf("accepted invalid locations: %s", raw)
 		}
+	}
+}
+
+func TestNetworkChecksTick(t *testing.T) {
+	cfg := &Config{Checks: []CheckConfig{
+		{Name: "ping", Type: "ping", Target: "ping.example.com"},
+		{Name: "dns", Type: "dns", Target: "query.example.com", DNS: &DNSSettings{Server: "resolver.example.com"}},
+		{Name: "tcp", Type: "tcp", Target: "tcp.example.com:80"},
+		{Name: "tls", Type: "tcp", Target: "tls.example.com:443", TCP: &TCPSettings{TLS: true}},
+		{Name: "trace", Type: "traceroute", Target: "trace.example.com"},
+	}}
+	cons, err := Build(cfg, &fixture.Set{Seed: "network"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mc := &coretest.MetricCapture{}
+	lc := &coretest.LogCapture{}
+	if err := cons.Tick(context.Background(), noon, worldWith(mc, lc)); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ job, name string }{{"ping", "probe_icmp_packets_sent_count"}, {"dns", "probe_dns_answer_rrs"}, {"tcp", "probe_failed_due_to_regex"}, {"tls", "probe_tls_version_info"}, {"trace", "probe_traceroute_total_hops"}} {
+		found := false
+		for _, s := range mc.Find(tc.name) {
+			if s.Labels["job"] == tc.job {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("missing %s for %s", tc.name, tc.job)
+		}
+	}
+	for _, s := range mc.Find("probe_tls_version_info") {
+		if s.Labels["job"] == "tcp" {
+			t.Fatal("plaintext TCP emitted TLS")
+		}
+	}
+	for _, s := range mc.Find("sm_check_info") {
+		want := s.Labels["job"]
+		if want == "tls" {
+			want = "tcp"
+		}
+		if want == "trace" {
+			want = "traceroute"
+		}
+		if s.Labels["check_name"] != want {
+			t.Fatalf("check_name=%s want=%s", s.Labels["check_name"], want)
+		}
+	}
+	for _, stream := range lc.Streams {
+		if stream.Labels["job"] != "trace" {
+			continue
+		}
+		if len(stream.Lines) != 4 {
+			t.Fatalf("traceroute lines=%d", len(stream.Lines))
+		}
+		for _, line := range stream.Lines[1:] {
+			for _, field := range []string{"TTL=", "Hosts=", "ElapsedTime=", "LossPercent=", "Sent=5", "TracerouteID="} {
+				if !strings.Contains(line.Body, field) {
+					t.Fatalf("hop missing %s: %s", field, line.Body)
+				}
+			}
+		}
+	}
+	failedMetrics := &coretest.MetricCapture{}
+	world := worldWith(failedMetrics, &coretest.LogCapture{})
+	world.Shape = shape.New("UTC", []string{"sm_probe_failure@2026-06-15T12:00:00Z/1h"})
+	if err := cons.Tick(context.Background(), noon, world); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"probe_tls_version_info", "probe_ssl_earliest_cert_expiry", "probe_ssl_last_chain_info"} {
+		if len(failedMetrics.Find(name)) != 0 {
+			t.Fatalf("failed TLS leaked prior %s", name)
+		}
+	}
+
+}
+
+func TestNetworkChecksRejectMalformedTargetsAndSettings(t *testing.T) {
+	for _, cfg := range []CheckConfig{
+		{Name: "bad", Type: "udp"}, {Name: "bad", Type: "ping", Target: "https://host.example"},
+		{Name: "bad", Type: "tcp", Target: "host.example"}, {Name: "bad", Type: "tcp", Target: "host.example:443junk"},
+		{Name: "bad", Type: "dns", Target: "query.example"}, {Name: "bad", DNS: &DNSSettings{Server: "resolver.example"}},
+		{Name: "bad", Type: "traceroute", FrequencyMs: 60000}, {Name: "bad", Type: "traceroute", TimeoutMS: 3000},
+	} {
+		if _, err := Build(&Config{Checks: []CheckConfig{cfg}}, nil); err == nil {
+			t.Fatalf("accepted %+v", cfg)
+		}
+	}
+}
+
+func TestTracerouteLossAndHopIdentity(t *testing.T) {
+	c := buildConstruct(t, &Config{Checks: []CheckConfig{{Name: "trace", Type: "traceroute", Target: "trace.example.com"}}})
+	series, streams := c.build(noon, shape.New("UTC", []string{"sm_probe_failure@2026-06-15T12:00:00Z/1h"}))
+	if loss := seriesValue(t, series, "probe_traceroute_packet_loss_percent", "trace"); loss != 1 {
+		t.Fatalf("aggregate loss=%g want fraction 1", loss)
+	}
+	var id string
+	for i, line := range streams[0].Lines[1:] {
+		values := map[string]string{}
+		for _, field := range strings.Fields(line.Body) {
+			pair := strings.SplitN(field, "=", 2)
+			if len(pair) == 2 {
+				values[pair[0]] = pair[1]
+			}
+		}
+		if values["TTL"] != fmt.Sprint(i+1) || values["LossPercent"] != "100" || values["Sent"] != "5" || values["ElapsedTime"] != "0s" {
+			t.Fatalf("inconsistent hop: %s", line.Body)
+		}
+		if i == 0 {
+			id = values["TracerouteID"]
+		}
+		if values["TracerouteID"] != id || len(id) != 36 {
+			t.Fatalf("execution UUID=%q want %q", values["TracerouteID"], id)
+		}
+	}
+	for _, s := range series {
+		if _, ok := s.Labels["TracerouteID"]; ok {
+			t.Fatal("execution identity became label")
+		}
+	}
+}
+
+func TestNetworkAddressAndCertificateConsistency(t *testing.T) {
+	c := buildConstruct(t, &Config{Checks: []CheckConfig{
+		{Name: "first", Type: "ping", Target: "192.0.2.10"},
+		{Name: "second", Type: "ping", Target: "192.0.2.11"},
+		{Name: "dns-first", Type: "dns", Target: "first.example.com", DNS: &DNSSettings{Server: "192.0.2.53"}},
+		{Name: "dns-second", Type: "dns", Target: "second.example.com", DNS: &DNSSettings{Server: "192.0.2.53"}},
+		{Name: "dns-other", Type: "dns", Target: "first.example.com", DNS: &DNSSettings{Server: "192.0.2.54"}},
+		{Name: "secure", Type: "tcp", Target: "secure.example.com:443", TCP: &TCPSettings{TLS: true}},
+	}})
+	a, _ := c.build(noon, shape.New("UTC", nil))
+	if seriesValue(t, a, "probe_ip_addr_hash", "first") == seriesValue(t, a, "probe_ip_addr_hash", "second") {
+		t.Error("distinct explicit IP targets share one resolved address")
+	}
+	if seriesValue(t, a, "probe_ip_addr_hash", "dns-first") != seriesValue(t, a, "probe_ip_addr_hash", "dns-second") ||
+		seriesValue(t, a, "probe_ip_addr_hash", "dns-first") == seriesValue(t, a, "probe_ip_addr_hash", "dns-other") {
+		t.Error("DNS address hash must track the resolver, not the queried name")
+	}
+	b, _ := c.build(noon.Add(time.Minute), shape.New("UTC", nil))
+	ia, ib := findSeries(a, "probe_ssl_last_chain_info"), findSeries(b, "probe_ssl_last_chain_info")
+	if len(ia) != 1 || len(ib) != 1 {
+		t.Fatal("TLS certificate metadata absent")
+	}
+	if ia[0].Labels["subjectalternative"] != "secure.example.com" {
+		t.Error("successful TLS certificate does not match target")
+	}
+	if ia[0].Labels["fingerprint_sha256"] == ib[0].Labels["fingerprint_sha256"] && seriesValue(t, a, "probe_ssl_earliest_cert_expiry", "secure") != seriesValue(t, b, "probe_ssl_earliest_cert_expiry", "secure") {
+		t.Error("same certificate changes expiry between ticks")
+	}
+	renewed, _ := c.build(noon.Add(100*24*time.Hour), shape.New("UTC", nil))
+	info := findSeries(renewed, "probe_ssl_last_chain_info")
+	if len(info) != 1 || info[0].Labels["fingerprint_sha256"] == ia[0].Labels["fingerprint_sha256"] {
+		t.Fatal("renewal retained the expired certificate identity")
 	}
 }

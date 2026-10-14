@@ -53,6 +53,7 @@ Home = "index.md"
 "AI Factory" = [
     { Overview = "ai-factory.md" },
     { "GPU Fixture" = "ai-factory/fixture.md" },
+    { "GPU Clock Constraints" = "ai-factory/gpu-constraints.md" },
     { Syslog = "ai-factory/syslog.md" },
     { SNMP = "ai-factory/snmpexporter.md" },
     { DCGM = "ai-factory/dcgm.md" },

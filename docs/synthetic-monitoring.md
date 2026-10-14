@@ -133,9 +133,16 @@ Kubernetes HA standby performs zero writes; acquisition publishes/revalidates th
 before building the production runner and its first tick. File Lease HA remains suppressed without
 artifact I/O. There is no automatic file-to-Kubernetes ownership migration or dual writing: moving
 existing ownership needs a separately approved offline procedure. The chart supports a
-[standalone Kubernetes-state SM Job](kubernetes.md#diskless-one-shot-job); emitter SM named-state
-environment and RBAC still require separate ownership/configuration, and the combined chart HA+SM
-exclusion remains. The default file-mode Job retains its shared-volume behavior.
+[Kubernetes-state SM Job with HA emission](kubernetes.md#diskless-one-shot-job). Enable
+`ha.enabled` and `smProvision.enabled`, select `smProvision.stateBackend: kubernetes`, and set
+`smProvision.emitterLeaseName` equal to `ha.leaseName`. The chart wires the named SM aggregate
+slot and provisioning lock identity into the emitters with named `get`/`update` only; each
+principal retains its own Lease authority. Both binaries must use the same verified image, at
+least **1.6.0-rc.176**, which carries the matching named-SM engine. The chart default
+`1.6.0-rc.160` predates it. Preview, explicit apply, then emitter restart/reacquisition remain
+required; there is no automatic activation or remote-write approval. With HA off, the
+Kubernetes-state Job remains standalone and its emitter is configured separately. The default
+file-mode Job retains its shared-volume behavior.
 
 ## Phase 2 — run the emitter
 
@@ -168,6 +175,25 @@ Base labels on every series: `job` (check job), `instance` (check target URL), `
 ---
 
 ## Blueprint configuration
+
+Checks accept `type: ping`, `type: dns`, `type: tcp` and `type: traceroute`;
+omitted `type` retains HTTP. Ping/traceroute targets are hostnames or IPv4 addresses.
+DNS targets are queried names and require `dns: {server: resolver.example.com}`;
+the supported profile uses A queries over UDP port 53. TCP targets use `host:port`
+and optionally `tcp: {tls: true}`. Network checks default to 60-second frequency
+and 3-second timeout, except traceroute, which defaults to 120 seconds and requires
+a 30-second timeout. Wrong-type settings and malformed targets are rejected.
+
+Traceroute emits one logfmt entry per simulated hop. Its aggregate packet-loss
+metric is a 0–1 fraction; hop `LossPercent` is 0–100. Network duration histograms use
+the pinned agent's full default buckets; the existing HTTP histogram remains unchanged.
+TLS certificates model a synthetic CA with 90-day validity and renewal every 60 days.
+Their identities and expiry remain fixed between renewals. These are simulated checks,
+not network observations or certificate verification against the declared endpoint.
+
+The sample blueprint includes all four network types. Existing HTTP-only snapshot
+hashes remain unchanged. Adding or changing a check type/settings changes its desired
+specification and requires the usual preview/apply/restart sequence.
 
 Enable SM by adding a `synthetic_monitoring` block under `features:`:
 

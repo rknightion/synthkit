@@ -42,7 +42,8 @@ buckets, separate `Add` calls — T3), `probe_all_duration_seconds_bucket{le}`/`
 `check_name`, `region`, `frequency` (decimal string), `geohash`, `alert_sensitivity` (the check's REAL
 value — ⚠ independent of the provisioner's registered `"none"`, T4), `label_*`.
 
-**Failure mode** `sm_probe_failure` (per-env): `probe_success→0`, `probe_duration_seconds→3.0s`, log
+**Failure mode** `sm_probe_failure` (per-env): `probe_success→0`, `probe_duration_seconds` equals
+the resolved check timeout (3.0s by default for HTTP/ping/DNS/TCP, 30s for traceroute), log
 `msg="Check failed"`, stream `probe_success="0"`.
 
 > ⚠ Provision-before-emit: the SM app clamps its native timeline to `check.created`; backfilled points
@@ -101,3 +102,80 @@ body_fields:
   msg: '"Check succeeded"|"Check failed"'
   duration_seconds: <float>
 ```
+
+## Network checks [slug: sm-network-checks]
+
+Provenance: Grafana synthetic-monitoring-agent v0.66.1
+[1046e6eeeb4f5b4ca7becc69a98325346e628c89](https://github.com/grafana/synthetic-monitoring-agent/tree/1046e6eeeb4f5b4ca7becc69a98325346e628c89).
+Its [basic fixtures](https://github.com/grafana/synthetic-monitoring-agent/tree/1046e6eeeb4f5b4ca7becc69a98325346e628c89/internal/scraper/testdata)
+source the following gauges and phase labels. These are source-validated, not a live capture.
+`type` selects ping, dns, tcp or traceroute; omitted remains HTTP. DNS target is the
+query hostname, while `dns.server` is the resolver. TCP target is host:port;
+`tcp.tls` enables certificate metadata. Ping uses three packets per execution;
+its packet-count gauges are not cumulative counters. Traceroute defaults to a
+120000 ms frequency and the API-required 30000 ms timeout. Other new types default
+60000/3000 ms. Network checks retain the common SM base/info/log labels and
+success summary; their duration histogram uses upstream DefBuckets
+[.005,.01,.025,.05,.1,.25,.5,1,2.5,5,10], leaving existing HTTP buckets unchanged.
+
+For DNS, `probe_ip_addr_hash` hashes the resolver address, not the query result:
+the [adapter passes the server to ProbeDNS](https://github.com/grafana/synthetic-monitoring-agent/blob/1046e6eeeb4f5b4ca7becc69a98325346e628c89/internal/prober/dns/dns.go#L81),
+whose [resolver lookup](https://github.com/grafana/synthetic-monitoring-agent/blob/1046e6eeeb4f5b4ca7becc69a98325346e628c89/internal/prober/dns/internal/bbe/prober/dns.go#L210)
+records that address through `chooseProtocol`.
+
+```yaml signals
+family: sm_network_checks
+scope: substrate
+sink: promrw
+labels:
+  job: <check-job>
+  instance: <original-target>
+  probe: <probe-name>
+  config_version: <modified-nanoseconds>
+  label_*: <user-labels>
+  phase: <resolve|setup|rtt|connect|request>
+  version: <TLS-version>
+  fingerprint_sha256: <leaf-fingerprint>
+  subject: <leaf-subject>
+  issuer: <leaf-issuer>
+  subjectalternative: <leaf-DNS-names>
+  serialnumber: <leaf-serial>
+metrics:
+  - {root: probe_dns_lookup_time_seconds, type: gauge, unit: seconds, v: ok, note: "ping/DNS/TCP resolver lookup"}
+  - {root: probe_ip_protocol, type: gauge, unit: info, v: ok, note: "V4 profile: value 4"}
+  - {root: probe_ip_addr_hash, type: gauge, unit: info, v: ok, note: "FNV-1a of resolved IP bytes"}
+  - {root: probe_icmp_duration_seconds, type: gauge, unit: seconds, v: ok, note: "phase=resolve|setup|rtt"}
+  - {root: probe_icmp_duration_rtt_min_seconds, type: gauge, unit: seconds, v: ok}
+  - {root: probe_icmp_duration_rtt_max_seconds, type: gauge, unit: seconds, v: ok}
+  - {root: probe_icmp_duration_rtt_stddev_seconds, type: gauge, unit: seconds, v: ok}
+  - {root: probe_icmp_packets_sent_count, type: gauge, unit: count, v: ok}
+  - {root: probe_icmp_packets_received_count, type: gauge, unit: count, v: ok}
+  - {root: probe_icmp_reply_hop_limit, type: gauge, unit: count, v: ok}
+  - {root: probe_dns_duration_seconds, type: gauge, unit: seconds, v: ok, note: "phase=resolve|connect|request"}
+  - {root: probe_dns_answer_rrs, type: gauge, unit: count, v: ok}
+  - {root: probe_dns_authority_rrs, type: gauge, unit: count, v: ok}
+  - {root: probe_dns_additional_rrs, type: gauge, unit: count, v: ok}
+  - {root: probe_dns_query_succeeded, type: gauge, unit: bool, v: ok}
+  - {root: probe_failed_due_to_regex, type: gauge, unit: bool, v: ok}
+  - {root: probe_failed_due_to_bytes, type: gauge, unit: bool, v: ok}
+  - {root: probe_tls_version_info, type: gauge, unit: info, v: ok, note: "successful TLS only; version=TLS 1.3"}
+  - {root: probe_ssl_earliest_cert_expiry, type: gauge, unit: timestamp, v: ok}
+  - {root: probe_ssl_last_chain_expiry_timestamp_seconds, type: gauge, unit: timestamp, v: ok}
+  - {root: probe_ssl_last_chain_info, type: gauge, unit: info, v: ok, note: "fingerprint_sha256,subject,issuer,subjectalternative,serialnumber"}
+  - {root: probe_traceroute_total_hops, type: gauge, unit: count, v: ok}
+  - {root: probe_traceroute_route_hash, type: gauge, unit: info, v: ok, note: "FNV-1 of Hosts concatenated in TTL order"}
+  - {root: probe_traceroute_packet_loss_percent, type: gauge, unit: ratio, v: ok, note: "SUM lost / SUM sent: 0-1 fraction despite name"}
+```
+
+[TCP TLS provenance](https://github.com/prometheus/blackbox_exporter/blob/5a059bee8d8ffa4e75947c5055fb0abeefc582e6/prober/query_response.go).
+Plaintext TCP omits TLS metadata; DNS A queries omit SOA serial. Synthetic profiles
+use documentation-range IPv4 addresses, three hops and five sends per hop; these
+are modelling assumptions, not claims about an actual network or hardware.
+
+Traceroute adds one logfmt body per hop:
+`Level=info Destination=<target> Hosts=<IP> TTL=<integer> ElapsedTime=<Go duration> LossPercent=<0-100> Sent=5 TracerouteID=<execution UUID>`.
+All hops share one body-only execution UUID; no host/hop/UUID metric or stream label.
+The [agent call](https://github.com/grafana/synthetic-monitoring-agent/blob/1046e6eeeb4f5b4ca7becc69a98325346e628c89/internal/prober/traceroute/traceroute.go#L128)
+and [MTR Loss](https://github.com/grafana/mtr/blob/a9806fdda16646e637ff216c23a24698dcaf2844/pkg/hop/hop.go#L99)
+confirm exact case and the hop percentage versus aggregate fraction distinction.
+Common terminal success/failure logs retain the selected check_name.

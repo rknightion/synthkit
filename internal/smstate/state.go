@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -46,15 +47,24 @@ type ProbeSpec struct {
 	Longitude float64 `json:"longitude"`
 }
 
+type DNSSettings struct {
+	Server string `json:"server"`
+}
+type TCPSettings struct {
+	TLS bool `json:"tls"`
+}
 type CheckSpec struct {
-	Key         string  `json:"key"`
-	Source      string  `json:"source"`
-	Job         string  `json:"job"`
-	Target      string  `json:"target"`
-	FrequencyMS int     `json:"frequency_ms"`
-	TimeoutMS   int     `json:"timeout_ms"`
-	ProbeKey    string  `json:"probe_key"`
-	Labels      []Label `json:"labels"`
+	Key         string       `json:"key"`
+	Source      string       `json:"source"`
+	Job         string       `json:"job"`
+	Target      string       `json:"target"`
+	FrequencyMS int          `json:"frequency_ms"`
+	TimeoutMS   int          `json:"timeout_ms"`
+	ProbeKey    string       `json:"probe_key"`
+	Labels      []Label      `json:"labels"`
+	Type        string       `json:"type,omitempty"`
+	DNS         *DNSSettings `json:"dns,omitempty"`
+	TCP         *TCPSettings `json:"tcp,omitempty"`
 }
 
 type Snapshot struct {
@@ -600,6 +610,14 @@ func normalizeSnapshot(snapshot *Snapshot) {
 	snapshot.Checks = append([]CheckSpec{}, snapshot.Checks...)
 	for i := range snapshot.Checks {
 		snapshot.Checks[i].Labels = append([]Label{}, snapshot.Checks[i].Labels...)
+		if snapshot.Checks[i].DNS != nil {
+			copy := *snapshot.Checks[i].DNS
+			snapshot.Checks[i].DNS = &copy
+		}
+		if snapshot.Checks[i].TCP != nil {
+			copy := *snapshot.Checks[i].TCP
+			snapshot.Checks[i].TCP = &copy
+		}
 		sort.Slice(snapshot.Checks[i].Labels, func(a, b int) bool {
 			if snapshot.Checks[i].Labels[a].Name == snapshot.Checks[i].Labels[b].Name {
 				return snapshot.Checks[i].Labels[a].Value < snapshot.Checks[i].Labels[b].Value
@@ -644,6 +662,32 @@ func validateSnapshotShape(snapshot Snapshot) error {
 	}
 	checks := make(map[string]struct{}, len(snapshot.Checks))
 	for _, check := range snapshot.Checks {
+		if check.Type != "" && check.Type != "ping" && check.Type != "dns" && check.Type != "tcp" && check.Type != "traceroute" {
+			return fmt.Errorf("smstate: invalid check type")
+		}
+		if check.DNS != nil && check.Type != "dns" || check.TCP != nil && check.Type != "tcp" || check.Type == "dns" && (check.DNS == nil || check.DNS.Server == "") {
+			return fmt.Errorf("smstate: invalid typed settings")
+		}
+		if check.Type == "traceroute" && (check.TimeoutMS != 30000 || check.FrequencyMS < 120000) {
+			return fmt.Errorf("smstate: invalid traceroute timing")
+		}
+		if check.Type != "" {
+			if check.FrequencyMS < 1000 || check.FrequencyMS > 3600000 || check.TimeoutMS < 1000 || check.TimeoutMS > 60000 || check.TimeoutMS > check.FrequencyMS {
+				return fmt.Errorf("smstate: invalid network timing")
+			}
+			target := check.Target
+			if check.Type == "tcp" {
+				host, port, err := net.SplitHostPort(target)
+				n, parseErr := strconv.Atoi(port)
+				if err != nil || parseErr != nil || n < 1 || n > 65535 {
+					return fmt.Errorf("smstate: invalid TCP target")
+				}
+				target = host
+			}
+			if !validNetworkHost(target) || check.DNS != nil && !validNetworkHost(check.DNS.Server) {
+				return fmt.Errorf("smstate: invalid network host")
+			}
+		}
 		if check.Key == "" || check.Job == "" || check.Target == "" || check.FrequencyMS <= 0 || check.TimeoutMS <= 0 || check.Key != CheckKey(check.Job, check.Target) {
 			return fmt.Errorf("smstate: invalid check specification")
 		}
@@ -787,4 +831,24 @@ func ensurePrivateDir(path string) error {
 		return fmt.Errorf("smstate: runtime path is not a real directory")
 	}
 	return os.Chmod(abs, 0o700)
+}
+
+func validNetworkHost(host string) bool {
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.To4() != nil
+	}
+	if host == "" || len(host) > 253 {
+		return false
+	}
+	for _, part := range strings.Split(strings.TrimSuffix(host, "."), ".") {
+		if part == "" || len(part) > 63 || part[0] == '-' || part[len(part)-1] == '-' {
+			return false
+		}
+		for _, r := range part {
+			if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-') {
+				return false
+			}
+		}
+	}
+	return true
 }

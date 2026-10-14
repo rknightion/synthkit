@@ -253,7 +253,7 @@ misbehaves once it is running.
   {{- if or .Values.persistence.enabled .Values.persistence.existingClaim -}}
     {{- fail "HA must not use a PVC; disable persistence and clear existingClaim" -}}
   {{- end -}}
-  {{- if .Values.smProvision.enabled -}}{{- fail "HA does not support automatic SM provisioning" -}}{{- end -}}
+  {{- if and .Values.smProvision.enabled (ne .Values.smProvision.stateBackend "kubernetes") -}}{{- fail "HA Synthetic Monitoring requires Kubernetes named state" -}}{{- end -}}
   {{- if or (gt (len .Values.extraVolumes) 0) (gt (len .Values.extraVolumeMounts) 0) -}}
     {{- fail "HA does not support extra state volumes or mounts" -}}
   {{- end -}}
@@ -462,13 +462,16 @@ misbehaves once it is running.
         {{- if gt (len $part) 63 -}}{{- fail "SM object DNS labels must not exceed 63 characters" -}}{{- end -}}
       {{- end -}}
     {{- end -}}
+    {{- if and .Values.ha.enabled (ne $sm.emitterLeaseName .Values.ha.leaseName) -}}
+      {{- fail "smProvision.emitterLeaseName must equal ha.leaseName when HA is enabled" -}}
+    {{- end -}}
     {{- if or (eq $sm.leaseName $sm.emitterLeaseName) (eq $sm.leaseName .Values.ha.leaseName) -}}
       {{- fail "SM provisioning Lease must differ from the emitter Lease" -}}
     {{- end -}}
     {{- if and .Values.blueprintSources.enabled (eq $sm.stateConfigMap (include "synthkit.sourceInputName" .)) -}}
       {{- fail "SM state must be separate from the declarative blueprint source input ConfigMap" -}}
     {{- end -}}
-    {{- if has $sm.stateConfigMap (concat (list (include "synthkit.fullname" .) .Values.ha.controlConfigMap .Values.ha.bootConfigMap) (values .Values.ha.gitSourceConfigMaps)) -}}
+    {{- if has $sm.stateConfigMap (concat (list (include "synthkit.fullname" .) .Values.ha.controlConfigMap .Values.ha.bootConfigMap .Values.ha.fleetConfigMap) (values .Values.ha.gitSourceConfigMaps)) -}}
       {{- fail "SM state must be separate from runtime/control/boot/source ConfigMaps" -}}
     {{- end -}}
   {{- end -}}

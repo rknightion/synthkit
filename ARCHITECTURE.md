@@ -165,6 +165,15 @@ choose independent utilization or GPU/node/rack power formulas. Shared fault
 coverage is mode-specific graph reachability; enabled consumer-local collection
 failures use exact selected-entity membership and never change shared physics.
 
+`GPUConstraintPoints` is a separate additive pure projection: it validates through
+`GPUOperatingPoints` without changing that snapshot, then applies explicit synthetic
+clock requests and per-cause caps. The H100 SXM/595.91.07 profile supplies captured
+bounds only; no vendor response curve is inferred. Thermal activation requires a
+strict crossing of the 89 C slowdown threshold and a reducing cap. Power activation
+requires unconstrained demand above the configured budget and a reducing cap.
+Both causes may coexist; unsupported profiles and unavailable GPUs omit achieved
+clocks. See [GPU clock constraints](docs/ai-factory/gpu-constraints.md).
+
 The fixture emits no telemetry. The additive `hgx` shape is exactly eight H100
 SXM GPUs in an ordinary operator-declared server, with four node-local switches
 and the 144 access edges of Fabric Manager `595.91.07-1ubuntu1`'s

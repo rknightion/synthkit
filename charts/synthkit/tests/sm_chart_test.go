@@ -85,7 +85,7 @@ func TestSMInvalidNamedChart(t *testing.T) {
 		"blueprintSources.enabled=true,blueprintSources.existingConfigMap=sm",
 		"smProvision.stateConfigMap=invalid!", "smProvision.stateConfigMap=" + strings.Repeat("a", 64),
 		"smProvision.stateBackend=other", "smProvision.createResources=true", "serviceAccount.name=synthkit-test-sm-provision",
-		"credentials.sm.keys.GC_SM_TOKEN=null", "credentials.sm.keys.GC_SM_URL=null",
+		"ha.fleetConfigMap=sm", "credentials.sm.keys.GC_SM_TOKEN=null", "credentials.sm.keys.GC_SM_URL=null",
 		"extraEnv[0].name=SM_PROVISION_LEASE_NAME,extraEnv[0].value=emitter",
 		"extraEnv[0].name=STATE_SM_CONFIGMAP,extraEnv[0].value=other",
 	}
@@ -322,145 +322,277 @@ func TestSMRenderedCLIUsesNamedState(t *testing.T) {
 // are read back from the API store and compared byte-for-byte, not source-grepped.
 func TestSMOperatorOwnedResourcesByteIdentical(t *testing.T) {
 	for _, upgrade := range []bool{false, true} {
-		t.Run(fmt.Sprintf("upgrade=%t", upgrade), func(t *testing.T) {
-			api := smstoretest.New(t, "sm")
-			defer api.Close()
-			api.Set("sm", []byte(`{"schema_version":1,"provision_lease_name":"provision","sentinel":"retain"}`))
-			cmBytes, _ := json.Marshal(api.Maps["sm"])
-			leaseBytes, _ := json.Marshal(api.Lease)
-			stored := map[string][]byte{
-				"/api/v1/namespaces/test/configmaps/sm":                         cmBytes,
-				"/apis/coordination.k8s.io/v1/namespaces/test/leases/provision": leaseBytes,
-				"/apis/coordination.k8s.io/v1/namespaces/test/leases/emitter":   []byte(`{"kind":"Lease","apiVersion":"coordination.k8s.io/v1","metadata":{"name":"emitter","namespace":"test","resourceVersion":"23","annotations":{"external":"retain"}},"spec":{"holderIdentity":"other/process","leaseTransitions":9,"leaseDurationSeconds":30}}`),
-			}
-			want := map[string][]byte{}
-			for path, body := range stored {
-				want[path] = bytes.Clone(body)
-			}
-			resources := map[string][]map[string]any{
-				"v1":                           {{"name": "configmaps", "kind": "ConfigMap", "namespaced": true, "verbs": []string{"get"}}, {"name": "serviceaccounts", "kind": "ServiceAccount", "namespaced": true, "verbs": []string{"get"}}},
-				"apps/v1":                      {{"name": "deployments", "kind": "Deployment", "namespaced": true, "verbs": []string{"get"}}},
-				"batch/v1":                     {{"name": "jobs", "kind": "Job", "namespaced": true, "verbs": []string{"get"}}},
-				"networking.k8s.io/v1":         {{"name": "networkpolicies", "kind": "NetworkPolicy", "namespaced": true, "verbs": []string{"get"}}},
-				"rbac.authorization.k8s.io/v1": {{"name": "roles", "kind": "Role", "namespaced": true, "verbs": []string{"get"}}, {"name": "rolebindings", "kind": "RoleBinding", "namespaced": true, "verbs": []string{"get"}}},
-				"coordination.k8s.io/v1":       {{"name": "leases", "kind": "Lease", "namespaced": true, "verbs": []string{"get"}}},
-			}
-			groups := []any{}
-			discovery := map[string]any{}
-			for gv, entries := range resources {
-				path := "/api/" + gv
-				if gv != "v1" {
-					group, version, _ := strings.Cut(gv, "/")
-					v := map[string]any{"groupVersion": gv, "version": version}
-					groups = append(groups, map[string]any{"name": group, "versions": []any{v}, "preferredVersion": v})
-					path = "/apis/" + gv
+		for _, combined := range []bool{false, true} {
+			t.Run(fmt.Sprintf("upgrade=%t,ha=%t", upgrade, combined), func(t *testing.T) {
+				api := smstoretest.New(t, "sm")
+				defer api.Close()
+				api.Set("sm", []byte(`{"schema_version":1,"provision_lease_name":"provision","sentinel":"retain"}`))
+				cmBytes, _ := json.Marshal(api.Maps["sm"])
+				leaseBytes, _ := json.Marshal(api.Lease)
+				stored := map[string][]byte{
+					"/api/v1/namespaces/test/configmaps/sm":                         cmBytes,
+					"/apis/coordination.k8s.io/v1/namespaces/test/leases/provision": leaseBytes,
+					"/apis/coordination.k8s.io/v1/namespaces/test/leases/emitter":   []byte(`{"kind":"Lease","apiVersion":"coordination.k8s.io/v1","metadata":{"name":"emitter","namespace":"test","resourceVersion":"23","annotations":{"external":"retain"}},"spec":{"holderIdentity":"other/process","leaseTransitions":9,"leaseDurationSeconds":30}}`),
 				}
-				discovery[path] = map[string]any{"kind": "APIResourceList", "apiVersion": "v1", "groupVersion": gv, "resources": entries}
-			}
-			discovery["/apis"] = map[string]any{"kind": "APIGroupList", "apiVersion": "v1", "groups": groups}
-			var mu sync.Mutex
-			calls := []string{}
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				mu.Lock()
-				defer mu.Unlock()
-				calls = append(calls, r.Method+" "+r.URL.Path)
-				w.Header().Set("Content-Type", "application/json")
-				if r.Method != "GET" {
-					t.Errorf("Helm attempted mutation %s %s", r.Method, r.URL.Path)
-					w.WriteHeader(405)
-					return
+				if combined {
+					for _, name := range []string{"control", "boot", "declarations"} {
+						stored["/api/v1/namespaces/test/configmaps/"+name] = []byte(fmt.Sprintf(`{"kind":"ConfigMap","apiVersion":"v1","metadata":{"name":%q,"resourceVersion":"71","annotations":{"operator":"retain"}},"binaryData":{"document":"cHJlc2VydmU="},"data":{"sentinel":"retain"}}`, name))
+					}
+					stored["/api/v1/namespaces/test/secrets/synthkit-sm"] = []byte(`{"kind":"Secret","apiVersion":"v1","metadata":{"name":"synthkit-sm","resourceVersion":"42"},"data":{"fixture":"cHJlc2VydmU="}}`)
 				}
-				if body, ok := stored[r.URL.Path]; ok {
-					w.Write(body)
-					return
+				want := map[string][]byte{}
+				for path, body := range stored {
+					want[path] = bytes.Clone(body)
 				}
-				switch r.URL.Path {
-				case "/version":
-					fmt.Fprint(w, `{"major":"1","minor":"31","gitVersion":"v1.31.0"}`)
-				case "/api":
-					fmt.Fprint(w, `{"kind":"APIVersions","apiVersion":"v1","versions":["v1"]}`)
-				default:
-					if response, ok := discovery[r.URL.Path]; ok {
-						json.NewEncoder(w).Encode(response)
+				resources := map[string][]map[string]any{
+					"v1":                           {{"name": "configmaps", "kind": "ConfigMap", "namespaced": true, "verbs": []string{"get"}}, {"name": "serviceaccounts", "kind": "ServiceAccount", "namespaced": true, "verbs": []string{"get"}}},
+					"apps/v1":                      {{"name": "deployments", "kind": "Deployment", "namespaced": true, "verbs": []string{"get"}}},
+					"batch/v1":                     {{"name": "jobs", "kind": "Job", "namespaced": true, "verbs": []string{"get"}}},
+					"networking.k8s.io/v1":         {{"name": "networkpolicies", "kind": "NetworkPolicy", "namespaced": true, "verbs": []string{"get"}}},
+					"rbac.authorization.k8s.io/v1": {{"name": "roles", "kind": "Role", "namespaced": true, "verbs": []string{"get"}}, {"name": "rolebindings", "kind": "RoleBinding", "namespaced": true, "verbs": []string{"get"}}},
+					"policy/v1":                    {{"name": "poddisruptionbudgets", "kind": "PodDisruptionBudget", "namespaced": true, "verbs": []string{"get"}}},
+					"coordination.k8s.io/v1":       {{"name": "leases", "kind": "Lease", "namespaced": true, "verbs": []string{"get"}}},
+				}
+				groups := []any{}
+				discovery := map[string]any{}
+				for gv, entries := range resources {
+					path := "/api/" + gv
+					if gv != "v1" {
+						group, version, _ := strings.Cut(gv, "/")
+						v := map[string]any{"groupVersion": gv, "version": version}
+						groups = append(groups, map[string]any{"name": group, "versions": []any{v}, "preferredVersion": v})
+						path = "/apis/" + gv
+					}
+					discovery[path] = map[string]any{"kind": "APIResourceList", "apiVersion": "v1", "groupVersion": gv, "resources": entries}
+				}
+				discovery["/apis"] = map[string]any{"kind": "APIGroupList", "apiVersion": "v1", "groups": groups}
+				var mu sync.Mutex
+				calls := []string{}
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					mu.Lock()
+					defer mu.Unlock()
+					calls = append(calls, r.Method+" "+r.URL.Path)
+					w.Header().Set("Content-Type", "application/json")
+					if r.Method != "GET" {
+						t.Errorf("Helm attempted mutation %s %s", r.Method, r.URL.Path)
+						w.WriteHeader(405)
 						return
 					}
-					known := false
-					for gv, entries := range resources {
-						prefix := "/apis/" + gv
-						if gv == "v1" {
-							prefix = "/api/v1"
+					if body, ok := stored[r.URL.Path]; ok {
+						w.Write(body)
+						return
+					}
+					switch r.URL.Path {
+					case "/version":
+						fmt.Fprint(w, `{"major":"1","minor":"31","gitVersion":"v1.31.0"}`)
+					case "/api":
+						fmt.Fprint(w, `{"kind":"APIVersions","apiVersion":"v1","versions":["v1"]}`)
+					default:
+						if response, ok := discovery[r.URL.Path]; ok {
+							json.NewEncoder(w).Encode(response)
+							return
 						}
-						for _, entry := range entries {
-							start := prefix + "/namespaces/test/" + entry["name"].(string) + "/"
-							if strings.HasPrefix(r.URL.Path, start) && !strings.Contains(strings.TrimPrefix(r.URL.Path, start), "/") {
-								known = true
+						known := false
+						for gv, entries := range resources {
+							prefix := "/apis/" + gv
+							if gv == "v1" {
+								prefix = "/api/v1"
+							}
+							for _, entry := range entries {
+								start := prefix + "/namespaces/test/" + entry["name"].(string) + "/"
+								if strings.HasPrefix(r.URL.Path, start) && !strings.Contains(strings.TrimPrefix(r.URL.Path, start), "/") {
+									known = true
+								}
 							}
 						}
+						if !known {
+							t.Errorf("unknown Helm API read %s", r.URL.Path)
+						}
+						w.WriteHeader(404)
+						fmt.Fprint(w, `{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","code":404}`)
 					}
-					if !known {
-						t.Errorf("unknown Helm API read %s", r.URL.Path)
-					}
-					w.WriteHeader(404)
-					fmt.Fprint(w, `{"kind":"Status","apiVersion":"v1","status":"Failure","reason":"NotFound","code":404}`)
+				}))
+				defer server.Close()
+				kubeconfig := filepath.Join(t.TempDir(), "kubeconfig")
+				text := fmt.Sprintf("apiVersion: v1\nkind: Config\nclusters:\n- name: fixture\n  cluster:\n    server: %s\ncontexts:\n- name: fixture\n  context:\n    cluster: fixture\n    user: fixture\n    namespace: test\ncurrent-context: fixture\nusers:\n- name: fixture\n  user: {}\n", server.URL)
+				if err := os.WriteFile(kubeconfig, []byte(text), 0600); err != nil {
+					t.Fatal(err)
 				}
-			}))
-			defer server.Close()
-			kubeconfig := filepath.Join(t.TempDir(), "kubeconfig")
-			text := fmt.Sprintf("apiVersion: v1\nkind: Config\nclusters:\n- name: fixture\n  cluster:\n    server: %s\ncontexts:\n- name: fixture\n  context:\n    cluster: fixture\n    user: fixture\n    namespace: test\ncurrent-context: fixture\nusers:\n- name: fixture\n  user: {}\n", server.URL)
-			if err := os.WriteFile(kubeconfig, []byte(text), 0600); err != nil {
-				t.Fatal(err)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				version, err := exec.CommandContext(ctx, "helm", "version", "--template", "{{.Version}}").CombinedOutput()
+				if err != nil {
+					t.Fatal(err)
+				}
+				args := []string{"-f", smFixture(t), "--namespace", "test", "--kubeconfig", kubeconfig, "--dry-run=server", "--disable-openapi-validation"}
+				if combined {
+					args = append(args, "--set", "ha.enabled=true,ha.leaseName=emitter,ha.controlConfigMap=control,ha.bootConfigMap=boot,blueprintSources.enabled=true,blueprintSources.existingConfigMap=declarations")
+				}
+				if strings.HasPrefix(string(version), "v3.") {
+					args = append(args, "--validate")
+				} else if !strings.HasPrefix(string(version), "v4.") {
+					t.Fatalf("unverified Helm %s", version)
+				}
+				if upgrade {
+					args = append(args, "--is-upgrade")
+				}
+				rendered := renderHA(t, args...)
+				for _, obj := range rendered {
+					meta := mapping(obj["metadata"])
+					if obj["kind"] == "Lease" || (obj["kind"] == "ConfigMap" && meta["name"] != "synthkit-test") || mapping(meta["annotations"])["helm.sh/hook"] != nil {
+						t.Errorf("operator state/hook in managed manifest: %s %v", obj["kind"], meta["name"])
+					}
+				}
+				mu.Lock()
+				transcript := append([]string(nil), calls...)
+				mu.Unlock()
+				if len(transcript) == 0 {
+					t.Fatal("no actual Helm discovery observation")
+				}
+				for _, call := range transcript {
+					for path := range want {
+						if strings.HasSuffix(call, " "+path) {
+							t.Errorf("Helm accessed external state: %s", call)
+						}
+					}
+				}
+				client := server.Client()
+				client.Timeout = 5 * time.Second
+				for path, expected := range want {
+					response, err := client.Get(server.URL + path)
+					if err != nil {
+						t.Fatal(err)
+					}
+					body, err := io.ReadAll(response.Body)
+					response.Body.Close()
+					if err != nil {
+						t.Fatal(err)
+					}
+					equal(t, "state readback status", response.StatusCode, http.StatusOK)
+					equal(t, "byte-identical API object "+path, body, expected)
+				}
+				t.Logf("actual Helm API transcript=%v; SM aggregate + provisioner Lease + emitter Lease byte-identical on readback", transcript)
+			})
+		}
+	}
+}
+
+func smHAObjects(t *testing.T) []map[string]any {
+	t.Helper()
+	return renderHA(t, "-f", smFixture(t), "--set", "ha.enabled=true,ha.leaseName=emitter,ha.controlConfigMap=control,ha.bootConfigMap=boot,blueprintSources.enabled=true,blueprintSources.existingConfigMap=declarations")
+}
+
+func namedObject(t *testing.T, objects []map[string]any, kind, name string) map[string]any {
+	t.Helper()
+	for _, o := range objects {
+		if o["kind"] == kind && mapping(o["metadata"])["name"] == name {
+			return o
+		}
+	}
+	t.Fatalf("missing %s %s", kind, name)
+	return nil
+}
+
+func chartAllows(objects []map[string]any, principal, resource, name, verb string) bool {
+	for _, binding := range objects {
+		if binding["kind"] != "RoleBinding" {
+			continue
+		}
+		subject := false
+		for _, v := range list(binding["subjects"]) {
+			s := mapping(v)
+			if s["kind"] == "ServiceAccount" && s["name"] == principal {
+				subject = true
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		}
+		if !subject {
+			continue
+		}
+		roleName := mapping(binding["roleRef"])["name"]
+		for _, role := range objects {
+			if role["kind"] != "Role" || mapping(role["metadata"])["name"] != roleName {
+				continue
+			}
+			for _, v := range list(role["rules"]) {
+				rule := mapping(v)
+				contains := func(values any, want string) bool {
+					for _, value := range list(values) {
+						if value == want || value == "*" {
+							return true
+						}
+					}
+					return false
+				}
+				if contains(rule["resources"], resource) && contains(rule["verbs"], verb) && (rule["resourceNames"] == nil || contains(rule["resourceNames"], name)) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func TestSMHAIsolatedNamedPermissions(t *testing.T) {
+	objects := smHAObjects(t)
+	emitter, provisioner := "synthkit-test", "synthkit-test-sm-provision"
+	equal(t, "combined emitter rules", namedObject(t, objects, "Role", "synthkit-test-ha")["rules"], []any{
+		map[string]any{"apiGroups": []any{"coordination.k8s.io"}, "resources": []any{"leases"}, "resourceNames": []any{"emitter"}, "verbs": []any{"get", "update", "patch"}},
+		map[string]any{"apiGroups": []any{""}, "resources": []any{"configmaps"}, "resourceNames": []any{"control", "boot"}, "verbs": []any{"get", "update", "patch"}},
+		map[string]any{"apiGroups": []any{""}, "resources": []any{"configmaps"}, "resourceNames": []any{"sm"}, "verbs": []any{"get", "update"}},
+	})
+
+	pod := mapping(mapping(mapping(object(t, objects, "Deployment")["spec"])["template"])["spec"])
+	env := map[string]any{}
+	for _, v := range list(mapping(list(pod["containers"])[0])["env"]) {
+		e := mapping(v)
+		env[e["name"].(string)] = e["value"]
+	}
+	equal(t, "emitter principal", pod["serviceAccountName"], emitter)
+	equal(t, "SM state identity", env["STATE_SM_CONFIGMAP"], "sm")
+	equal(t, "SM lock identity without Lease authority", env["SM_PROVISION_LEASE_NAME"], "provision")
+	equal(t, "separate Job principal", smJobPod(t, objects)["serviceAccountName"], provisioner)
+	for _, principal := range []string{emitter, provisioner} {
+		for _, verb := range []string{"get", "update"} {
+			if !chartAllows(objects, principal, "configmaps", "sm", verb) {
+				t.Errorf("%s lacks SM %s", principal, verb)
+			}
+		}
+		for _, verb := range []string{"create", "list", "watch", "patch", "delete"} {
+			if chartAllows(objects, principal, "configmaps", "sm", verb) {
+				t.Errorf("%s acquired SM %s", principal, verb)
+			}
+		}
+		for _, resource := range []string{"configmaps", "secrets"} {
+			for _, verb := range []string{"get", "update", "patch", "create", "delete"} {
+				if chartAllows(objects, principal, resource, "unrelated", verb) {
+					t.Errorf("foreign authority %s %s %s", principal, resource, verb)
+				}
+			}
+		}
+		for _, verb := range []string{"update", "patch", "create", "delete"} {
+			if chartAllows(objects, principal, "configmaps", "declarations", verb) {
+				t.Errorf("declarative input mutation %s %s", principal, verb)
+			}
+		}
+	}
+	for _, pair := range [][2]string{{emitter, "provision"}, {provisioner, "emitter"}} {
+		for _, verb := range []string{"get", "update", "patch", "create", "delete"} {
+			if chartAllows(objects, pair[0], "leases", pair[1], verb) {
+				t.Errorf("cross-Lease authority %v %s", pair, verb)
+			}
+		}
+	}
+}
+
+func TestSMHARejectsIdentityDrift(t *testing.T) {
+	for _, setting := range []string{"smProvision.emitterLeaseName=other", "smProvision.leaseName=emitter", "ha.fleetConfigMap=sm"} {
+		t.Run(setting, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			version, err := exec.CommandContext(ctx, "helm", "version", "--template", "{{.Version}}").CombinedOutput()
-			if err != nil {
-				t.Fatal(err)
+			out, err := exec.CommandContext(ctx, "helm", "template", "synthkit-test", chartPath(t), "--kube-version", "1.31.0", "-f", smFixture(t), "--set", "ha.enabled=true,ha.leaseName=emitter,ha.controlConfigMap=control,ha.bootConfigMap=boot", "--set", setting).CombinedOutput()
+			if err == nil || !bytes.Contains(out, []byte("execution error")) {
+				t.Fatalf("identity drift accepted or unrelated failure: %v %s", err, out)
 			}
-			args := []string{"-f", smFixture(t), "--namespace", "test", "--kubeconfig", kubeconfig, "--dry-run=server", "--disable-openapi-validation"}
-			if strings.HasPrefix(string(version), "v3.") {
-				args = append(args, "--validate")
-			} else if !strings.HasPrefix(string(version), "v4.") {
-				t.Fatalf("unverified Helm %s", version)
-			}
-			if upgrade {
-				args = append(args, "--is-upgrade")
-			}
-			rendered := renderHA(t, args...)
-			for _, obj := range rendered {
-				meta := mapping(obj["metadata"])
-				if obj["kind"] == "Lease" || (obj["kind"] == "ConfigMap" && meta["name"] != "synthkit-test") || mapping(meta["annotations"])["helm.sh/hook"] != nil {
-					t.Errorf("operator state/hook in managed manifest: %s %v", obj["kind"], meta["name"])
-				}
-			}
-			mu.Lock()
-			transcript := append([]string(nil), calls...)
-			mu.Unlock()
-			if len(transcript) == 0 {
-				t.Fatal("no actual Helm discovery observation")
-			}
-			for _, call := range transcript {
-				for path := range want {
-					if strings.HasSuffix(call, " "+path) {
-						t.Errorf("Helm accessed external state: %s", call)
-					}
-				}
-			}
-			client := server.Client()
-			client.Timeout = 5 * time.Second
-			for path, expected := range want {
-				response, err := client.Get(server.URL + path)
-				if err != nil {
-					t.Fatal(err)
-				}
-				body, err := io.ReadAll(response.Body)
-				response.Body.Close()
-				if err != nil {
-					t.Fatal(err)
-				}
-				equal(t, "state readback status", response.StatusCode, http.StatusOK)
-				equal(t, "byte-identical API object "+path, body, expected)
-			}
-			t.Logf("actual Helm API transcript=%v; SM aggregate + provisioner Lease + emitter Lease byte-identical on readback", transcript)
 		})
 	}
 }

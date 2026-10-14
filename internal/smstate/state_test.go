@@ -344,3 +344,25 @@ func TestSnapshotRejectsInvalidCoordinates(t *testing.T) {
 		t.Fatal("accepted latitude outside [-90,90]")
 	}
 }
+
+func TestLegacyHTTPSnapshotBytesAndHashRemainCompatible(t *testing.T) {
+	const legacy = `{"schema_version":2,"created_unix_ms":100000,"snapshot_hash":"471f929a810b2cce3e8eb03815793a63c7ad256d7a1adb18de1810b3692a8d8b","target_fingerprint":"9ba06c56150f4a7512459b0ac253f7c00a4f41e9deba78ebc8685f7f3ee4b9ae","source_version":"v1.2.3","probes":[{"key":"synthkit-private\u0000EMEA","name":"synthkit-private","region":"EMEA","latitude":50.1109,"longitude":8.6821}],"checks":[{"key":"api\u0000https://api.example/health","source":"test","job":"api","target":"https://api.example/health","frequency_ms":60000,"timeout_ms":3000,"probe_key":"synthkit-private\u0000EMEA","labels":[]}]}`
+	var snapshot Snapshot
+	if err := json.Unmarshal([]byte(legacy), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateSnapshot(snapshot); err != nil {
+		t.Fatal(err)
+	}
+	actual := testSnapshot(t)
+	if actual.SnapshotHash != snapshot.SnapshotHash {
+		t.Fatalf("legacy hash changed: %s != %s", actual.SnapshotHash, snapshot.SnapshotHash)
+	}
+	encoded, err := json.Marshal(actual.Checks[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), `"type"`) || strings.Contains(string(encoded), `"dns"`) || strings.Contains(string(encoded), `"tcp"`) {
+		t.Fatalf("HTTP acquired fields: %s", encoded)
+	}
+}

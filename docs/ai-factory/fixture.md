@@ -13,6 +13,11 @@ operator assumptions beside the declarations. It is a fixture, not a released
 vendor-consumer blueprint. Shipped blueprint rates must not be raised to force
 emission.
 
+The additive [GPU clock constraint API](gpu-constraints.md) combines validated
+physical snapshots with explicit synthetic clock requests and caps. Its only sourced
+profile is H100 SXM with driver 595.91.07; unsupported profiles remain absent. It
+does not enable any telemetry consumer or change the existing physical snapshot.
+
 ## Inventory and identity
 
 PCIe pools accept four to eight H100 PCIe GPUs per server. The NVL72 shape has

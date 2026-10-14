@@ -83,6 +83,12 @@ spec:
             - name: BLUEPRINT_DATA_DIR
               value: /data/blueprints
             {{- else }}
+            {{- if and .Values.smProvision.enabled (eq .Values.smProvision.stateBackend "kubernetes") }}
+            - name: STATE_SM_CONFIGMAP
+              value: {{ .Values.smProvision.stateConfigMap | quote }}
+            - name: SM_PROVISION_LEASE_NAME
+              value: {{ .Values.smProvision.leaseName | quote }}
+            {{- end }}
             - name: HA_NAMESPACE
               valueFrom:
                 fieldRef:

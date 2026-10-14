@@ -824,3 +824,68 @@ func TestApplyRegistersSnapshotCoordinates(t *testing.T) {
 		server.Close()
 	}
 }
+
+func TestNetworkTypeChangeUpdatesAndUnsupportedSettingsFailClosed(t *testing.T) {
+	fake := newFakeSM()
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir, snapshot := testSnapshot(t, server.URL, "token")
+	snapshot.Checks[0].Type = "ping"
+	snapshot.Checks[0].Target = "host.example.com"
+	snapshot.Checks[0].Key = smstate.CheckKey(snapshot.Checks[0].Job, snapshot.Checks[0].Target)
+	var err error
+	snapshot, err = smstate.NewSnapshot(snapshot.Probes, snapshot.Checks, server.URL, "token", version, time.Unix(100, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := smstate.WriteSnapshot(dir, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	p := testProvisioner(server, dir, snapshot, true, false)
+	if err := p.execute(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Checks[0].Type = "traceroute"
+	snapshot.Checks[0].FrequencyMS = 120000
+	snapshot.Checks[0].TimeoutMS = 30000
+	snapshot, err = smstate.NewSnapshot(snapshot.Probes, snapshot.Checks, server.URL, "token", version, time.Unix(100, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := smstate.WriteSnapshot(dir, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	next := testProvisioner(server, dir, snapshot, true, false)
+	next.ownership = p.ownership
+	if err := next.execute(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	fake.withState(func(f *fakeSM) {
+		if len(f.checks) != 1 || f.checks[0].Settings["traceroute"] == nil {
+			t.Fatalf("type did not update: %+v", f.checks)
+		}
+		f.checks[0].Settings = map[string]any{"tcp": map[string]any{"ipVersion": "V4", "tls": true, "tlsConfig": map[string]any{"insecureSkipVerify": true}}}
+	})
+	before := totalPosts(fake)
+	blocked := testProvisioner(server, dir, snapshot, true, false)
+	blocked.ownership = next.ownership
+	if err := blocked.execute(context.Background()); err == nil {
+		t.Fatal("unsupported owned settings accepted")
+	}
+	if totalPosts(fake) != before {
+		t.Fatal("unsupported settings were overwritten")
+	}
+}
+
+func TestTracerouteServerZeroHopTimeoutNormalizes(t *testing.T) {
+	desired := desiredCheck(smstate.CheckSpec{Job: "trace", Target: "host.example", Type: "traceroute", FrequencyMS: 120000, TimeoutMS: 30000}, 7)
+	remote := desired
+	remote.Settings = map[string]any{"traceroute": map[string]any{"maxHops": float64(64), "maxUnknownHops": float64(15), "ptrLookup": false, "hopTimeout": float64(0)}}
+	if !sameCheck(remote, desired) {
+		t.Fatal("upstream zero hopTimeout forced update")
+	}
+	remote.Settings["traceroute"].(map[string]any)["hopTimeout"] = float64(1)
+	if sameCheck(remote, desired) {
+		t.Fatal("unsupported nonzero hopTimeout adopted")
+	}
+}
