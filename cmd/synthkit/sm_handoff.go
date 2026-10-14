@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
@@ -52,7 +53,7 @@ func prepareSMHandoff(ctx context.Context, resolved []*blueprint.Resolved, cfg *
 	}
 	var probes []smstate.ProbeSpec
 	var checks []smstate.CheckSpec
-	probeSeen := map[string]bool{}
+	probeSeen := map[string]smstate.ProbeSpec{}
 	for _, bp := range resolved {
 		for _, instance := range bp.Constructs {
 			if instance.Kind != sm.Kind {
@@ -63,14 +64,22 @@ func prepareSMHandoff(ctx context.Context, resolved []*blueprint.Resolved, cfg *
 				return smHandoff{}, errors.New("synthetic monitoring configuration is invalid")
 			}
 			for _, declared := range smCfg.Checks {
+				if err := sm.ValidateLocation(declared); err != nil {
+					return smHandoff{}, fmt.Errorf("synthetic monitoring location in blueprint %q: %w", bp.Name, err)
+				}
 				spec := sm.ResolveSpec(declared)
 				probeKey := smstate.ProbeKey(spec.Probe, spec.Region)
-				if !probeSeen[probeKey] {
-					probes = append(probes, smstate.ProbeSpec{
-						Key: probeKey, Name: spec.Probe, Region: spec.Region,
-						Latitude: sm.DefaultProbeLat, Longitude: sm.DefaultProbeLon,
-					})
-					probeSeen[probeKey] = true
+				probe := smstate.ProbeSpec{
+					Key: probeKey, Name: spec.Probe, Region: spec.Region,
+					Latitude: spec.Latitude, Longitude: spec.Longitude,
+				}
+				if prior, seen := probeSeen[spec.Probe]; seen {
+					if prior != probe {
+						return smHandoff{}, fmt.Errorf("synthetic monitoring probe %q has conflicting region or location declarations", spec.Probe)
+					}
+				} else {
+					probes = append(probes, probe)
+					probeSeen[spec.Probe] = probe
 				}
 				labels := make([]smstate.Label, 0, len(spec.Labels))
 				for key, value := range spec.Labels {

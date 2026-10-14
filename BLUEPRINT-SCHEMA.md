@@ -1058,6 +1058,8 @@ fake Synthetic Monitoring checks (metrics + logs)
 | `checks[].frequency` | int |  | FrequencyMs is the check poll interval in milliseconds. Defaults to 60000 (60s). |
 | `checks[].probe` | string |  | Probe is the private probe name. Defaults to "synthkit-private". |
 | `checks[].region` | string |  | Region is the probe region. Defaults to defaultProbeRegion ("EMEA"). |
+| `checks[].latitude` | float | yes | Latitude declares the private probe latitude in degrees [-90,90]. Supply with longitude; omitted coordinates retain Frankfurt. Explicit zero is valid. |
+| `checks[].longitude` | float | yes | Longitude declares the private probe longitude in degrees [-180,180]. Supply with latitude; omitted coordinates retain Frankfurt. Explicit zero is valid. |
 | `checks[].labels` | map[string]string |  | Labels is an optional map of user-defined labels. Each entry is emitted as label_<k>=<v> on every probe_* metric series, on sm_check_info, and on the Loki stream labels. Keys are sorted for deterministic output. An absent or empty map produces no label_ keys (byte-identical to a check with no labels). |
 
 ## vpc_cni config

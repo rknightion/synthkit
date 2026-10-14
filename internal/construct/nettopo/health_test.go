@@ -891,6 +891,48 @@ func TestFault_SpokeDown_HubMarksSpoke(t *testing.T) {
 	}
 }
 
+func TestFault_SpokeDown_HubDeterministicSubset(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		intensity float64
+		down      int
+	}{
+		{"partial", 0.3, 1},
+		{"larger", 0.6, 3},
+		{"full", 1, 5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := makeHubConstruct()
+			c.rc.spokes = []string{"spoke-e", "spoke-c", "spoke-a", "spoke-d", "spoke-b"}
+			eng := shapeWithLiveFault("nettopo_spoke_down", c.rc.instance, tc.intensity)
+			for _, now := range []time.Time{healthNow, healthNow.Add(time.Minute)} {
+				series := runHealthOnce(c, now, eng)
+				for i, sp := range []string{"spoke-a", "spoke-b", "spoke-c", "spoke-d", "spoke-e"} {
+					wantUp, wantPush := 1.0, float64(now.Unix())
+					if i < tc.down {
+						wantUp, wantPush = 0, float64(now.Unix()-120)
+					}
+					up, ok := findLabeled(series, "network_topology_federation_spoke_up", "spoke_id", sp)
+					if !ok || up.Value != wantUp {
+						t.Errorf("%s up = %v (present %v); want %v", sp, up.Value, ok, wantUp)
+					}
+					push, ok := findLabeled(series, "network_topology_federation_spoke_last_push_timestamp_seconds", "spoke_id", sp)
+					if !ok || push.Value != wantPush {
+						t.Errorf("%s last push = %v (present %v); want %v", sp, push.Value, ok, wantPush)
+					}
+				}
+			}
+			series := runHealthOnce(c, healthNow.Add(2*time.Minute), nil)
+			for _, sp := range c.rc.spokes {
+				up, ok := findLabeled(series, "network_topology_federation_spoke_up", "spoke_id", sp)
+				if !ok || up.Value != 1 {
+					t.Errorf("%s did not recover after incident: up = %v (present %v)", sp, up.Value, ok)
+				}
+			}
+		})
+	}
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // TestFault_SpokeDown_SpokeSideEmitsFailures
 // ────────────────────────────────────────────────────────────────────────────

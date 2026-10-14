@@ -15,7 +15,9 @@ This requires a two-phase startup: a one-shot provisioner registers the offline 
 
 The Grafana Cloud SM app hard-guards on its own check registry: it clamps timelines to `check.created` and will not display injected metrics for checks it does not know about. Metric injection alone is not enough. The offline probe must be registered first, the checks must be created (or updated) in Grafana Cloud, and then the data-plane emitter can push forward-in-time data that populates the SM views.
 
-The probe name, region, and coordinates are shared constants in `internal/construct/sm`, so the provisioner and the emitter share a single source of truth and cannot drift.
+Probe name, region and coordinates resolve from the blueprint through `internal/construct/sm`, so the provisioner snapshot and emitter share the same location. Checks may declare `latitude` and `longitude` together; omission retains Frankfurt (50.1109, 8.6821). Explicit zero is valid. Latitude must be within -90 to 90 and longitude within -180 to 180, both finite. Every check using the same probe name must agree on region and coordinates, including across blueprints. The emitter derives the precision-12 `geohash` on `sm_check_info` from those coordinates.
+
+Changing a probe location changes its desired specification. Follow the preview/apply/restart sequence below to update the owned probe and activate the new snapshot.
 
 ---
 

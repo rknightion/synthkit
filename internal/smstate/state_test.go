@@ -336,3 +336,11 @@ func TestSpecHashRejectsUnsupportedValue(t *testing.T) {
 	}()
 	_ = SpecHash(make(chan int))
 }
+
+func TestSnapshotRejectsInvalidCoordinates(t *testing.T) {
+	snapshot := testSnapshot(t)
+	snapshot.Probes[0].Latitude = 91
+	if _, err := NewSnapshot(snapshot.Probes, snapshot.Checks, "https://sm.example", "token", "test", time.Now()); err == nil {
+		t.Fatal("accepted latitude outside [-90,90]")
+	}
+}

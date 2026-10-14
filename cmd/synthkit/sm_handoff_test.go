@@ -813,7 +813,9 @@ func TestSMRealRunnerBoundSpecMatrix(t *testing.T) {
 			return strings.Replace(s, "labels: {team: platform}", "probe: other, labels: {team: platform}", 1)
 		}, "", nil},
 		{"region", func(s string) string {
-			return strings.Replace(s, "labels: {team: platform}", "region: AMER, labels: {team: platform}", 1)
+			// Change the uniquely named probe. A shared probe must now have one
+			// consistent region; splitting it is rejected before hash comparison.
+			return strings.Replace(s, "probe: secondary, region: AMER", "probe: secondary, region: APAC", 1)
 		}, "", nil},
 		{"source", func(s string) string { return strings.Replace(s, "name: sm-test", "name: other-source", 1) }, "", nil},
 		{"addition", func(s string) string {
@@ -1162,5 +1164,89 @@ func TestSMHandoffInvalidatesPriorSnapshotWhenNoSMLaneIsSelected(t *testing.T) {
 	}
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		t.Fatalf("prior snapshot remained reusable: %v", err)
+	}
+}
+
+func TestSMHandoffDeclaredProbeLocationReachesProvisioner(t *testing.T) {
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := smstoretest.NewRemote(t)
+	defer remote.Close()
+	cfg := &config.Config{StateBackend: "file", SnapshotPath: filepath.Join(dir, "control.json"), SMURL: remote.Server.URL, SMToken: smstoretest.Token(t)}
+	store := smstore.NewFileStore(smstate.RuntimeDir(cfg.SnapshotPath))
+	yaml := strings.Replace(smRuntimeBlueprintYAML, "labels: {team: platform}", "latitude: 0, longitude: 0, labels: {team: platform}", 1)
+	prepare := func() (*blueprint.Resolved, smHandoff) {
+		t.Helper()
+		bp := mustLoad(t, []byte(yaml))
+		h, err := prepareSMHandoff(context.Background(), []*blueprint.Resolved{bp}, cfg, "location-proof", time.Unix(100, 0), store, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bp, h
+	}
+	prepare()
+	d, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Snapshot == nil || len(d.Snapshot.Probes) != 1 || d.Snapshot.Probes[0].Latitude != 0 || d.Snapshot.Probes[0].Longitude != 0 {
+		t.Fatalf("declared zero coordinates lost in handoff snapshot: %+v", d.Snapshot)
+	}
+	runFixtureProvision(t, cfg, nil, "location-proof")(true, true)
+	remote.Mu.Lock()
+	probes := append([]map[string]any(nil), remote.Probes...)
+	remote.Mu.Unlock()
+	if len(probes) != 1 || probes[0]["latitude"] != float64(0) || probes[0]["longitude"] != float64(0) {
+		t.Fatalf("real provisioner probe HTTP coordinates = %+v", probes)
+	}
+	bp, h := prepare()
+	metrics, _ := composedSMTick(t, bp)
+	info := metrics.Find("sm_check_info")
+	if !h.Registered || len(info) == 0 {
+		t.Fatal("registered location did not reach composed emitter")
+	}
+	for _, series := range info {
+		// The equator/prime-meridian intersection selects the upper longitude and
+		// latitude halves once, then the lower halves: geohash s followed by zeros.
+		if series.Labels["geohash"] != "s00000000000" {
+			t.Fatalf("zero-location geohash = %q", series.Labels["geohash"])
+		}
+	}
+}
+
+func TestSMHandoffConflictingProbeLocationsPreserveSnapshot(t *testing.T) {
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{SnapshotPath: filepath.Join(dir, "control.json"), SMURL: "https://sm.example"}
+	if _, err := fileSMHandoff([]*blueprint.Resolved{smBlueprint(t)}, cfg, "prior", time.Unix(100, 0)); err != nil {
+		t.Fatal(err)
+	}
+	snapshotPath := filepath.Join(smstate.RuntimeDir(cfg.SnapshotPath), smstate.SnapshotFilename)
+	before, err := os.ReadFile(snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherYAML := strings.Replace(smRuntimeBlueprintYAML, "name: sm-test", "name: sm-other", 1)
+	otherYAML = strings.Replace(otherYAML, "api-health", "other-health", 1)
+	otherYAML = strings.Replace(otherYAML, "labels: {team: platform}", "latitude: 0, longitude: 0, labels: {team: platform}", 1)
+	for _, reverse := range []bool{false, true} {
+		selected := []*blueprint.Resolved{smBlueprint(t), mustLoad(t, []byte(otherYAML))}
+		if reverse {
+			selected[0], selected[1] = selected[1], selected[0]
+		}
+		if _, err := fileSMHandoff(selected, cfg, "conflicting", time.Unix(200, 0)); err == nil {
+			t.Error("cross-blueprint probe location conflict accepted")
+		}
+		after, err := os.ReadFile(snapshotPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(before) != string(after) {
+			t.Error("conflicting probe declarations published a snapshot")
+		}
 	}
 }

@@ -16,8 +16,10 @@ type fileStore struct{ dir string }
 func NewFileStore(dir string) Store { return &fileStore{dir} }
 
 // AcquireFileStore positively acquires the private O_EXCL lock for a complete
-// provisioning operation. The returned store cannot read or write after release;
-// an existing lock file is never treated as evidence of ownership.
+// provisioning operation. The returned store supports Load and UpdateProvision
+// only while owned and never supports PublishSnapshot, including after release.
+// Use NewFileStore for emitter publication. An existing lock file is never
+// treated as evidence of ownership.
 func AcquireFileStore(dir string) (Store, func() error, error) {
 	release, err := smstate.AcquireLock(dir)
 	if err != nil {
@@ -39,6 +41,12 @@ type lockedFileStore struct {
 	*fileStore
 	mu     sync.Mutex
 	active bool
+}
+
+// PublishSnapshot is an emitter capability, unavailable on a provisioner handle.
+// Reject it without inspecting files or attempting to reacquire the lock.
+func (s *lockedFileStore) PublishSnapshot(context.Context, *smstate.Snapshot) error {
+	return errors.New("SM acquired provisioner file store cannot publish snapshots")
 }
 
 func (s *lockedFileStore) Load(ctx context.Context) (Document, error) {

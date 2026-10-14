@@ -29,6 +29,9 @@ features:
         frequency: 60000
         probe: synthkit-private-emea
         region: EMEA
+        # Frankfurt city centre, matching the existing default private probe.
+        latitude: 50.1109
+        longitude: 8.6821
         labels:
           team: platform
           tier: api
@@ -38,6 +41,9 @@ features:
         frequency: 60000
         probe: synthkit-private-emea
         region: EMEA
+        # Frankfurt city centre, matching the existing default private probe.
+        latitude: 50.1109
+        longitude: 8.6821
         labels:
           team: frontend
           tier: web
@@ -47,6 +53,9 @@ features:
         frequency: 120000
         probe: synthkit-private-us
         region: US
+        # New York city centre: representative US east-coast probe location.
+        latitude: 40.7128
+        longitude: -74.0060
         labels:
           team: commerce
           tier: web
@@ -56,6 +65,9 @@ features:
         frequency: 300000
         probe: synthkit-private-emea
         region: EMEA
+        # Frankfurt city centre, matching the existing default private probe.
+        latitude: 50.1109
+        longitude: 8.6821
         labels:
           team: platform
           tier: docs
@@ -65,6 +77,9 @@ features:
         frequency: 60000
         probe: synthkit-private
         region: APAC
+        # Singapore city centre: representative Southeast Asia probe location.
+        latitude: 1.3521
+        longitude: 103.8198
         labels:
           team: platform
           tier: infra

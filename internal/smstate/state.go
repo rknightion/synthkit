@@ -631,6 +631,9 @@ func validateSnapshotShape(snapshot Snapshot) error {
 	}
 	probes := make(map[string]struct{}, len(snapshot.Probes))
 	for _, probe := range snapshot.Probes {
+		if math.IsNaN(probe.Latitude) || math.IsInf(probe.Latitude, 0) || probe.Latitude < -90 || probe.Latitude > 90 || math.IsNaN(probe.Longitude) || math.IsInf(probe.Longitude, 0) || probe.Longitude < -180 || probe.Longitude > 180 {
+			return fmt.Errorf("smstate: invalid probe coordinates")
+		}
 		if probe.Key == "" || probe.Name == "" || probe.Region == "" || probe.Key != ProbeKey(probe.Name, probe.Region) {
 			return fmt.Errorf("smstate: invalid probe specification")
 		}

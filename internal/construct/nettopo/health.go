@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/shape"
@@ -95,7 +96,7 @@ func (c *Construct) buildHealth(now time.Time, eng *shape.Engine) {
 	walkerActive, walkerInten := evalFault(eng, now, "nettopo_walker_degraded", c.rc.instance)
 	authActive, authInten := evalFault(eng, now, "nettopo_auth_failures", c.rc.instance)
 	unreachActive, unreachInten := evalFault(eng, now, "nettopo_devices_unreachable", c.rc.instance)
-	spokeDownActive, _ := evalFault(eng, now, "nettopo_spoke_down", c.rc.instance)
+	spokeDownActive, spokeDownInten := evalFault(eng, now, "nettopo_spoke_down", c.rc.instance)
 
 	// ── discovery cycle health ─────────────────────────────────────────────────
 
@@ -395,12 +396,18 @@ func (c *Construct) buildHealth(now time.Time, eng *shape.Engine) {
 	// ── GATED: federation HUB ─────────────────────────────────────────────────
 
 	if c.rc.role == RoleHub {
-		// Under nettopo_spoke_down: determine which spokes are "down" (subset by hash+intensity).
-		// At intensity=1.0 the first spoke in the sorted list is always affected.
-		// Spoke-down subset uses the same deterministic hash as unreachableSubset, keyed on spoke_id.
+		// An active incident affects the first max(1, floor(intensity * count))
+		// spokes by ID, so a partial outage stays stable across ticks and declaration order.
+		// Sort a copy to preserve the declared configuration.
+		spokes := append([]string(nil), c.rc.spokes...)
+		sort.Strings(spokes)
+		downCount := 0
+		if spokeDownActive {
+			downCount = min(len(spokes), max(1, int(math.Floor(spokeDownInten*float64(len(spokes))))))
+		}
 		// Spoke liveness: spoke_up=1 normally, 0 for down spokes; stale last_push for down spokes.
-		for _, sp := range c.rc.spokes {
-			spokeIsDown := spokeDownActive && unreachableSubset(sp, 1.0) // at any intensity, first spoke is down
+		for i, sp := range spokes {
+			spokeIsDown := i < downCount
 			if spokeIsDown {
 				c.st.Set("network_topology_federation_spoke_up",
 					lbls(base, "spoke_id", sp), 0)

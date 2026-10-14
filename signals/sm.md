@@ -17,7 +17,10 @@ Two cleanly-separated halves over `canon/sm.go`: a **one-shot control-plane prov
 SM app hard-guards on an empty check list, so metric injection alone does not light it up), and a
 **per-tick data-plane** (`emit/sm.go`) that supplies ALL telemetry (no real probe ever runs).
 
-**Offline probe (canon):** name (config-driven), region, lat/lon, precomputed geohash (precision 12).
+**Offline probe (canon):** name (config-driven), region, lat/lon, derived geohash (precision 12).
+Blueprint checks can supply paired `latitude`/`longitude`; omission retains Frankfurt
+(50.1109, 8.6821). Registration and emission use the same resolved location. Checks sharing
+a probe name must share region and coordinates. This adds configuration, not a signal family.
 Registered private with no agent; never executes. The app shows it as `"<name> (offline)"`;
 `probesUp` still reads 1/1 (driven by recent metric presence, not connection state).
 
@@ -46,7 +49,7 @@ value — ⚠ independent of the provisioner's registered `"none"`, T4), `label_
 > before creation are hidden in SM's native views (raw metrics still in Explore). Always register
 > first, then push forward-in-time data. synthkit's provisioner is a standalone `cmd/sm-provision` CLI
 > (SK-21 resolved) reading config-driven check templates from blueprint YAML; the offline-probe identity
-> is single-sourced from exported `sm.DefaultProbe*` constants so provisioner and emitter cannot drift.
+> is single-sourced through `sm.ResolveSpec`, with exported `sm.DefaultProbe*` constants for omitted fields.
 
 ```yaml signals
 family: sm_checks

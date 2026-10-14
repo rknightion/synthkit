@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -208,6 +209,11 @@ func TestFileStoreReadsRequirePositiveLockOwnership(t *testing.T) {
 		if _, err := plain.Load(context.Background()); err == nil {
 			t.Fatal("stale lock guessed removable")
 		}
+		for _, candidate := range []*smstate.Snapshot{&snap, nil} {
+			if err := plain.PublishSnapshot(context.Background(), candidate); err == nil {
+				t.Fatal("publisher bypassed stale O_EXCL lock")
+			}
+		}
 		if _, err := os.Stat(filepath.Join(dir, smstate.LockFilename)); err != nil {
 			t.Fatal("stale lock erased", err)
 		}
@@ -243,5 +249,78 @@ func TestFileStoreSnapshotPublicationJoinsProvisionLockAndKeepsV1Evidence(t *tes
 	}
 	if _, err := os.Stat(filepath.Join(dir, smstate.JournalFilename)); err != nil {
 		t.Fatal("v1 pending erased", err)
+	}
+}
+
+func TestAcquiredFileStoreCannotPublishSnapshots(t *testing.T) {
+	for _, released := range []bool{false, true} {
+		name := "owned"
+		if released {
+			name = "released"
+		}
+		t.Run(name, func(t *testing.T) {
+			dir, err := filepath.EvalSymlinks(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx := context.Background()
+			original := snapshot(t, "original")
+			if err := NewFileStore(dir).PublishSnapshot(ctx, &original); err != nil {
+				t.Fatal(err)
+			}
+			owned, release, err := AcquireFileStore(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if !released {
+					_ = release()
+				}
+			})
+			pending := journal(original)
+			ownership := smstate.OwnershipLedger{SchemaVersion: smstate.SchemaVersion, TargetFingerprint: original.TargetFingerprint, WrittenUnixMS: 1,
+				Resources: []smstate.Resource{{Kind: "check", Key: original.Checks[0].Key, ID: 123, Modified: 1, Ownership: smstate.Owned}}}
+			if err := owned.UpdateProvision(ctx, Binding(original), func(p *ProvisionState) error {
+				p.Pending = &pending
+				p.Ownership = &ownership
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if released {
+				if err := release(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// Compare every real private file, including the lock when owned, so a
+			// denied call cannot quietly alter snapshot, pending or ownership evidence.
+			readFiles := func() map[string]string {
+				t.Helper()
+				entries, err := os.ReadDir(dir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				files := make(map[string]string)
+				for _, entry := range entries {
+					data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+					if err != nil {
+						t.Fatal(err)
+					}
+					files[entry.Name()] = string(data)
+				}
+				return files
+			}
+			before := readFiles()
+			replacement := snapshot(t, "replacement")
+			for _, candidate := range []*smstate.Snapshot{&replacement, nil} {
+				err := owned.PublishSnapshot(ctx, candidate)
+				if err == nil || err.Error() != "SM acquired provisioner file store cannot publish snapshots" {
+					t.Errorf("publication did not return capability denial: %v", err)
+				}
+				if !reflect.DeepEqual(before, readFiles()) {
+					t.Error("forbidden publication changed private files")
+				}
+			}
+		})
 	}
 }

@@ -3,9 +3,47 @@
 package fixture
 
 import (
+	"os"
+	"slices"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
+
+// Reachability through switches must not hide a missing direct domain-to-node parent.
+func TestHGXDomainNodeParent(t *testing.T) {
+	data, err := os.ReadFile("../../e2e/fixtures/ai-factory-hgx.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decl struct {
+		GPUCompute GPUTopologySpec `yaml:"gpu_compute"`
+	}
+	if err := yaml.Unmarshal(data, &decl); err != nil {
+		t.Fatal(err)
+	}
+	cluster := &Cluster{Name: "compute-cluster", Type: "baremetal", Seed: "hgx-parent"}
+	topology, err := BuildGPUTopology("hgx-parent", decl.GPUCompute, map[string]*Cluster{cluster.Name: cluster}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(topology.Domains) == 0 {
+		t.Fatal("HGX domain absent")
+	}
+	for _, domain := range topology.Domains {
+		if domain.NodeKey == "" {
+			t.Fatalf("HGX domain %s has no owning node", domain.Key)
+		}
+		i := slices.IndexFunc(topology.Targets, func(target GPUTarget) bool { return target.Key == domain.Key })
+		if i < 0 {
+			t.Fatalf("HGX domain target %s absent", domain.Key)
+		}
+		if !slices.Contains(topology.Targets[i].ParentKeys, domain.NodeKey) {
+			t.Fatalf("HGX domain %s direct node parent: got %v, want %s", domain.Key, topology.Targets[i].ParentKeys, domain.NodeKey)
+		}
+	}
+}
 
 // Catches an endpoint substitution that preserves every structural count.
 func TestHGXProjectionFidelity(t *testing.T) {

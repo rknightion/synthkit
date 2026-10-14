@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -110,6 +111,14 @@ type CheckConfig struct {
 	// Region is the probe region. Defaults to defaultProbeRegion ("EMEA").
 	Region string `yaml:"region"`
 
+	// Latitude declares the private probe latitude in degrees [-90,90].
+	// Supply with longitude; omitted coordinates retain Frankfurt. Explicit zero is valid.
+	Latitude *float64 `yaml:"latitude"`
+
+	// Longitude declares the private probe longitude in degrees [-180,180].
+	// Supply with latitude; omitted coordinates retain Frankfurt. Explicit zero is valid.
+	Longitude *float64 `yaml:"longitude"`
+
 	// Labels is an optional map of user-defined labels. Each entry is emitted as
 	// label_<k>=<v> on every probe_* metric series, on sm_check_info, and on the
 	// Loki stream labels. Keys are sorted for deterministic output. An absent or
@@ -138,6 +147,8 @@ type RuntimeSpec struct {
 	FrequencyMs int
 	Probe       string
 	Region      string
+	Latitude    float64
+	Longitude   float64
 	Labels      map[string]string
 }
 
@@ -156,6 +167,13 @@ func ResolveSpec(c CheckConfig) RuntimeSpec {
 	if spec.Region == "" {
 		spec.Region = DefaultProbeRegion
 	}
+	spec.Latitude, spec.Longitude = DefaultProbeLat, DefaultProbeLon
+	if c.Latitude != nil {
+		spec.Latitude = *c.Latitude
+	}
+	if c.Longitude != nil {
+		spec.Longitude = *c.Longitude
+	}
 	if len(c.Labels) > 0 {
 		spec.Labels = make(map[string]string, len(c.Labels))
 		for key, value := range c.Labels {
@@ -171,8 +189,16 @@ func CheckKey(job, target string) string { return job + "\x00" + target }
 // resolveChecks applies defaults and derives stable per-check constants.
 func resolveChecks(cfg []CheckConfig, seed string, registration map[string]string, requireRegistration bool) ([]resolvedCheck, error) {
 	out := make([]resolvedCheck, 0, len(cfg))
+	probes := make(map[string]RuntimeSpec)
 	for _, c := range cfg {
+		if err := ValidateLocation(c); err != nil {
+			return nil, err
+		}
 		spec := ResolveSpec(c)
+		if prior, ok := probes[spec.Probe]; ok && (prior.Region != spec.Region || prior.Latitude != spec.Latitude || prior.Longitude != spec.Longitude) {
+			return nil, fmt.Errorf("sm: probe %q has inconsistent region or coordinates", spec.Probe)
+		}
+		probes[spec.Probe] = spec
 		version := configVersion(seed, c.Name)
 		if requireRegistration {
 			var ok bool
@@ -187,7 +213,7 @@ func resolveChecks(cfg []CheckConfig, seed string, registration map[string]strin
 			frequencyMs:      spec.FrequencyMs,
 			probe:            spec.Probe,
 			region:           spec.Region,
-			geohash:          defaultProbeGeohash,
+			geohash:          probeGeohash(spec.Latitude, spec.Longitude),
 			alertSensitivity: "medium",
 			configVersion:    version,
 			labels:           spec.Labels,
@@ -390,4 +416,51 @@ func (c *Construct) build(now time.Time, eng *shape.Engine) ([]promrw.Series, []
 	}
 
 	return c.st.Collect(now), streams
+}
+
+// ValidateLocation rejects incomplete and invalid coordinate declarations before resolution.
+func ValidateLocation(c CheckConfig) error {
+	if (c.Latitude == nil) != (c.Longitude == nil) {
+		return fmt.Errorf("sm: check %q requires both latitude and longitude", c.Name)
+	}
+	if c.Latitude == nil {
+		return nil
+	}
+	if math.IsNaN(*c.Latitude) || math.IsInf(*c.Latitude, 0) || *c.Latitude < -90 || *c.Latitude > 90 || math.IsNaN(*c.Longitude) || math.IsInf(*c.Longitude, 0) || *c.Longitude < -180 || *c.Longitude > 180 {
+		return fmt.Errorf("sm: check %q has invalid probe coordinates", c.Name)
+	}
+	return nil
+}
+
+// probeGeohash encodes the catalogue's precision-12 base32 geohash, interleaving
+// longitude and latitude interval bits, beginning with longitude.
+func probeGeohash(latitude, longitude float64) string {
+	const alphabet = "0123456789bcdefghjkmnpqrstuvwxyz"
+	latMin, latMax, lonMin, lonMax := -90.0, 90.0, -180.0, 180.0
+	var out strings.Builder
+	for i := 0; i < 12; i++ {
+		value := 0
+		for bit := 0; bit < 5; bit++ {
+			value <<= 1
+			if (i*5+bit)%2 == 0 {
+				mid := (lonMin + lonMax) / 2
+				if longitude >= mid {
+					value |= 1
+					lonMin = mid
+				} else {
+					lonMax = mid
+				}
+			} else {
+				mid := (latMin + latMax) / 2
+				if latitude >= mid {
+					value |= 1
+					latMin = mid
+				} else {
+					latMax = mid
+				}
+			}
+		}
+		out.WriteByte(alphabet[value])
+	}
+	return out.String()
 }

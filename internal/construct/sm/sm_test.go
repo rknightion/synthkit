@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/core/coretest"
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -803,6 +805,50 @@ func TestStateLEBareStyle(t *testing.T) {
 		// "1" not "1.0", "5" not "5.0", "10" not "10.0"
 		if le == "1.0" || le == "5.0" || le == "10.0" {
 			t.Errorf("LEBare emitted LEDotZero format: le=%q", le)
+		}
+	}
+}
+
+func TestDeclaredProbeLocation(t *testing.T) {
+	for _, tc := range []struct{ name, yaml, want string }{
+		{"default", "name: location", "u0yjjd6j5sff"},
+		{"origin", "name: location\nlatitude: 0\nlongitude: 0", "s00000000000"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var check CheckConfig
+			if err := yaml.Unmarshal([]byte(tc.yaml), &check); err != nil {
+				t.Fatal(err)
+			}
+			c := buildConstruct(t, &Config{Checks: []CheckConfig{check}})
+			series, _ := c.build(noon, shape.New("", nil))
+			for _, s := range series {
+				if s.Name == "sm_check_info" {
+					if s.Labels["geohash"] != tc.want {
+						t.Fatalf("geohash = %q, want %q", s.Labels["geohash"], tc.want)
+					}
+					return
+				}
+			}
+			t.Fatal("no sm_check_info")
+		})
+	}
+}
+
+func TestProbeLocationValidation(t *testing.T) {
+	for _, raw := range []string{
+		"checks: [{name: a, latitude: 0}]",
+		"checks: [{name: a, latitude: 91, longitude: 0}]",
+		"checks: [{name: a, latitude: 0, longitude: -.inf}]",
+		"checks: [{name: a, latitude: .nan, longitude: 0}]",
+		"checks: [{name: a}, {name: b, latitude: 0, longitude: 0}]",
+		"checks: [{name: a}, {name: b, region: US}]",
+	} {
+		var cfg Config
+		if err := yaml.Unmarshal([]byte(raw), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Build(&cfg, nil); err == nil {
+			t.Fatalf("accepted invalid locations: %s", raw)
 		}
 	}
 }

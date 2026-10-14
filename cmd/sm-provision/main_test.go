@@ -797,3 +797,30 @@ func TestRunUsesExplicitApplyGateNotEmitterDryRun(t *testing.T) {
 		t.Fatalf("DRY_RUN=false caused %d remote writes", totalPosts(fake))
 	}
 }
+
+func TestApplyRegistersSnapshotCoordinates(t *testing.T) {
+	for _, location := range [][2]float64{{0, 0}, {40.7128, -74.0060}, {50.1109, 8.6821}} {
+		fake := newFakeSM()
+		server := httptest.NewServer(fake)
+		stateDir, snapshot := testSnapshot(t, server.URL, "token")
+		snapshot.Probes[0].Latitude, snapshot.Probes[0].Longitude = location[0], location[1]
+		var err error
+		snapshot, err = smstate.NewSnapshot(snapshot.Probes, snapshot.Checks, server.URL, "token", version, time.Unix(100, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := smstate.WriteSnapshot(stateDir, snapshot); err != nil {
+			t.Fatal(err)
+		}
+		p := testProvisioner(server, stateDir, snapshot, true, false)
+		if err := p.execute(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		fake.withState(func(f *fakeSM) {
+			if len(f.probes) != 1 || f.probes[0].Latitude != location[0] || f.probes[0].Longitude != location[1] {
+				t.Fatalf("registered probes = %+v, want coordinates %v", f.probes, location)
+			}
+		})
+		server.Close()
+	}
+}

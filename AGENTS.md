@@ -142,6 +142,12 @@ an `env_file` value.
 
 ## Verification
 
+- Synthetic Monitoring probe coordinates resolve once from paired blueprint latitude/longitude;
+  omitted coordinates retain Frankfurt and explicit zero is valid. Shared probe names require
+  identical region and coordinates across blueprints. The provisioner snapshot and emitted geohash
+  use that resolved location. Acquired file provisioner stores never publish snapshots, even after
+  release; emitter publication uses the ordinary file store and positive lock acquisition.
+
 - HA-loss subprocess proofs synchronize on the real HTTP handler's recorded observation before
   revocation; sender entry or an elapsed sleep is not a delivery receipt. Keep the five-second
   subprocess bound, partial-batch exclusion, admission fence and hard-exit assertions intact.
