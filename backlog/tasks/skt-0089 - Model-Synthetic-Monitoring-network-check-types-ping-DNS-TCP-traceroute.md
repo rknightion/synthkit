@@ -1,11 +1,11 @@
 ---
 id: SKT-0089
 title: 'Model Synthetic Monitoring network check types (ping, DNS, TCP, traceroute)'
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-10-05 11:57'
-updated_date: '2026-10-14 22:01'
+updated_date: '2026-10-14 22:28'
 labels:
   - network
   - synthetic-monitoring
@@ -26,16 +26,16 @@ The sm construct emits only HTTP checks (check_name=http). Grafana Synthetic Mon
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 signals/sm.md documents each new check type's metrics, labels and logs with source provenance
-- [ ] #2 A blueprint can declare ping, dns, tcp and traceroute checks and they emit the sourced series
-- [ ] #3 sm-provision registers those checks with the right type so the SM app renders them
+- [x] #1 signals/sm.md documents each new check type's metrics, labels and logs with source provenance
+- [x] #2 A blueprint can declare ping, dns, tcp and traceroute checks and they emit the sourced series
+- [x] #3 sm-provision registers those checks with the right type so the SM app renders them
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -55,3 +55,9 @@ Owner approved CI-first testing on 2026-10-14. The failed local full gate remain
 
 Final independent boundary review passed, including HTTP snapshot hash compatibility and pending/ownership retention. CI-first landing authorized; exact commit CI remains required.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Added sourced ping, DNS, TCP/TLS and traceroute profiles with typed provisioning, compatible legacy HTTP hashes and realistic example declarations. Real provisioner/fake API and registered just dump prove 32 sourced metric families and their label envelopes; mutation controls cover type, units, hash compatibility and resolver identity. Reviews completed and applicable minor findings were fixed. Landed in 0223ed4b97214684f337576c28498be61926ae0f; exact CI 38644699566 passed all 11 required jobs, including race and e2e. Local full-gate timeout remains failed evidence under the owner-approved CI-first exception; local DoD 1 is intentionally unchecked. No live Grafana tenant validation is claimed. Legacy HTTP bucket fidelity remains separately tracked.
+<!-- SECTION:FINAL_SUMMARY:END -->
