@@ -3,11 +3,11 @@ id: SKT-0079
 title: >-
   Add a selectable OTel-receiver pod-log resource shape and declare
   otel-receivers modelled
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-11 19:04'
-updated_date: '2026-10-15 11:49'
+updated_date: '2026-10-15 12:34'
 labels: []
 dependencies: []
 ordinal: 175000
@@ -23,7 +23,7 @@ Alloy and OTel receiver deployments have different observed pod-log resource sha
 <!-- AC:BEGIN -->
 - [x] #1 The default and k8s_monitoring collector choices preserve existing output byte-identically; invalid choices fail blueprint load.
 - [x] #2 The otel_collector shape retains nine shared keys, adds nine observed OTel keys and omits cluster and app_kubernetes_io_name.
-- [ ] #3 Declaring otel-receivers modelled produces zero new unexempted contradictions, without changing the sole exemption or its expected_matches.
+- [x] #3 Declaring otel-receivers modelled produces zero new unexempted contradictions, without changing the sole exemption or its expected_matches.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -58,4 +58,6 @@ Root integration added unknown-profile adversarial case: failed with unknown_col
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 Selectable profile landed; AC1/2 proven. AC3 remains unchecked and declaration parked on exactly one source-scoped pod-log key contradiction. Shape alone does not establish whole-permutation acceptance.
+
+Collector-profile inventory keeps the default 11-key and OTel 18-key shapes separate, retains unknown/unattributed evidence, and admits the OTel permutation only with accurate comparison. Actual public inventory and immutable-corpus comparison passed; wrong/missing/unknown-profile negatives failed correctly. Captures and sole exemption unchanged. Final corrected just check passed; just gen and docs validation passed; initial CodeRabbit and corrective-delta CodeRabbit completed with zero findings. Landed in 0ca33e28187f539f090a423326c63a05e8af501a; exact CI https://github.com/rknightion/synthkit/actions/runs/38732291551 passed every required job. Initial full gate was deliberately interrupted after the chunk-pressure finding and is not claimed green.
 <!-- SECTION:FINAL_SUMMARY:END -->

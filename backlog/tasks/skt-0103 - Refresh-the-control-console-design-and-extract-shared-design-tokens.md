@@ -1,11 +1,11 @@
 ---
 id: SKT-0103
 title: Refresh the control console design and extract shared design tokens
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-15 11:44'
+updated_date: '2026-10-15 12:34'
 labels:
   - ui
   - design
@@ -21,15 +21,15 @@ The console is due a design pass and should share design tokens with other front
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Tokens extracted and consumed by the console with no behaviour change
-- [ ] #2 Design pass reviewed and approved by the maintainer
+- [x] #1 Tokens extracted and consumed by the console with no behaviour change
+- [x] #2 Design pass reviewed and approved by the maintainer
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -47,3 +47,9 @@ Recovered maintainer-specified archive and verified published artifact 179140828
 
 Final focused gate after layout corrections: just ui-check passed again (22 test files, 178 tests, TypeScript and production Vite build), log /Users/rob/repos/synthkit/codex/console-design/ui-check-final.log. Final browser proof passed with 54/54 approved tokens in each theme, persistence/navigation, no page errors and no mobile horizontal overflow; screenshots visually inspected. git diff --check passed for UI changes.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Extracted the approved shared CSS token package and wired the console adapter; restored approved rail layout and mobile wrapping. All 54 tokens match the approved artifact in both themes; browser navigation/theme persistence/mobile checks and 178 UI tests passed. Final corrected just check passed; just gen and docs validation passed; initial CodeRabbit and corrective-delta CodeRabbit completed with zero findings. Landed in 0ca33e28187f539f090a423326c63a05e8af501a; exact CI https://github.com/rknightion/synthkit/actions/runs/38732291551 passed every required job. Initial full gate was deliberately interrupted after the chunk-pressure finding and is not claimed green.
+<!-- SECTION:FINAL_SUMMARY:END -->
