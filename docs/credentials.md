@@ -181,6 +181,14 @@ For a Compose deployment, run the same command through the image without startin
 docker compose run --rm --no-deps synthkit -preflight
 ```
 
+Bounded orchestrators may pass `-one-shot-deadline <RFC3339-expiry>` with exactly one of
+`-validate` or `-preflight`. The command refuses an elapsed deadline before loading configuration,
+and preflight HTTP probes share the remaining absolute budget. Validation rechecks the deadline
+before publishing its result; a deadline observed before final success produces a nonzero exit.
+Always check the command exit status rather than a partial output line. Omitting the flag preserves
+the ordinary one-shot behavior. This entry and request-context boundary does not retract requests
+already received by a remote service or roll back receiver-side processing.
+
 The preflight first validates configuration locally, then sends an empty authenticated request to each mandatory ingest lane. It does not emit telemetry. Each network request has a five-second timeout and the command exits non-zero unless all three lanes are ready. Output is deliberately redacted; it names only the lane, state, and a fixed reason code:
 
 ```text
