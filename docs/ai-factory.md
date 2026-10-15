@@ -10,10 +10,13 @@ hardware does not establish a collection adapter or vendor telemetry profile.
 - [Shared syslog mechanic](ai-factory/syslog.md): source-shaped decoded records and
   the real Alloy receiver-health surfaces. The library is not a raw network listener
   or parser. Receiver-health metrics do not imply that device logs are CLI-wired.
-- [GPU topology](../ARCHITECTURE.md): PCIe, NVL72 and additive eight-GPU H100 SXM HGX
+- [GPU topology](https://github.com/rknightion/synthkit/blob/main/ARCHITECTURE.md): PCIe, NVL72 and additive eight-GPU H100 SXM HGX
   inventory. The HGX switch/link map and qualified hardware limits are sourced;
   other product capabilities remain nullable where unconfirmed. Physical inventory
   alone does not establish DCGM or NVSwitch exporter support.
+- [GPU clock constraints](ai-factory/gpu-constraints.md): shared requested/achieved clocks and
+  active synthetic thermal/power causes for the exact H100 SXM/595.91.07 profile. Unsupported
+  profiles retain absent achieved clocks; this is not a vendor telemetry adapter.
 - [Gateway pools](ai-factory/alloyhealth.md): an optional declared Alloy process pool
   with role-specific receiver, queue, peer, scrape and remote-configuration health.
   The pilot uses a two-member HA pool. Queues retain synthetic requests for the
@@ -34,7 +37,7 @@ The following consumers are not enabled in this reference estate:
 
 | Consumer | Barrier and resume boundary |
 | --- | --- |
-| DCGM | Supported sustained thermal/power limiting needs a shared, reviewed model of requested/achieved clocks and active constraint causes. Temperature at its limit or power equal to its budget does not by itself establish a clock event or violation duration. |
+| DCGM | The shared H100 constraint model is available. The source-correct DCGM consumer still needs field/profile admission and validated mappings from those causes to exporter telemetry. The model alone establishes neither vendor event labels nor violation duration; unsupported profiles remain gaps. |
 | GPU driver logs | Resume after the source-correct DCGM consumer lands; topology alone does not prove Xid/SXid/NVRM log projection. |
 | GPU and Network Operator adapters | Resume after DCGM and the driver-log disposition, with actual GPU resource and pod-identity join evidence. Only that evidence can justify enabling compute-cluster collection. |
 | Full GPU reference blueprint | Its prerequisite DCGM landing is unmet. The current increment is not completion of the GPU reference estate. |

@@ -150,7 +150,7 @@ First run `just compose-check`. It requires Compose 2.24.4 or later and renders 
 `sm-provision` profile with `.env.example` fake inputs; never substitute the real credential file or
 run raw `docker compose config` against it.
 
-`DRY_RUN=true docker compose run --rm synthkit -once -dump`
+`docker compose run --rm --no-deps -e DRY_RUN=true -e SELFOBS_ENABLED=false synthkit -env /dev/null -once -dump`
 (`pull_policy: always` pulls the selected image automatically; the emitter uses `.env` by default or
 the service env file selected by `SYNTHKIT_ENV_FILE`, and appends `-once -dump` to the entrypoint).
 When an override is configured, retain the same `SYNTHKIT_ENV_FILE` value for this command and every
@@ -201,9 +201,10 @@ docker compose restart synthkit
 
 The first v2 activation-format upgrade requires explicit apply/restart, preserving all v1 ownership,
 preview, pending and lock evidence. Later release-only bumps retain activation when specs, target and
-schema are unchanged; the tool must still match the current snapshot version. The standalone
-in-cluster command supports a dedicated named SM state/Lease without shared disk. Current Helm SM
-Job wiring remains file-only; do not claim diskless chart support or automatic file-state migration.
+schema are unchanged; the tool must still match the current snapshot version. The in-cluster command and HA chart support dedicated named SM state and separate provisioning
+Lease authority without shared disk. Follow `docs/kubernetes.md` and `docs/synthetic-monitoring.md`
+for the required matching image and named-state configuration. The default file-mode Job still
+uses shared storage. There is no automatic file-state migration.
 
 `DRY_RUN=false` does not authorise the provisioner. Do not enable legacy adoption unless preview
 shows exactly one complete match and the operator explicitly confirms ownership.

@@ -15,34 +15,31 @@ changes.
 - **Realism direction.** When synthetic data diverges from observed reality, correct the synth to
   match reality — not the other way around.
 
-## Development setup
+## Development workflow
 
-Requires **Go 1.27+**. The single green-bar command is:
+Start with the [contributor guide](docs/contributing.md) for the complete tool prerequisites,
+setup, focused checks, generated artifacts, and the distinction between local and hosted CI gates.
+The `justfile` is the authoritative command surface; run `just` to list its recipes.
 
-```bash
-just check
-```
-
-Other useful targets:
-
-```bash
-just build
-just test
-just lint
-just dump     # series inventory — diff vs signals/
-```
-
-`just check` must pass before any change is merged. `just ci` adds the Docker-dependent CI checks.
+Agent-assisted contributions use the bundled
+[contribute skill](plugins/synthkit/skills/contribute/SKILL.md) and the repository
+[agent instructions](AGENTS.md). Humans follow the same contributor guide and validation commands.
+A skill helps select and run checks; it does not replace their evidence.
 
 ## Making a change
 
 1. Fork the repository and create a topic branch.
-2. **Write tests first** (TDD): a failing test, then the minimal code to make it pass. Table-driven
-   tests where they fit. Tests must not make live network calls.
+2. Read the relevant architecture and signal contracts. For a bug fix, reproduce the failure before
+   fixing it. Add proportionate behavioral coverage for code changes; documentation-only changes
+   need documentation validation and visual inspection where relevant, not artificial unit tests.
+   Tests use local fixtures or fake upstreams, not live tenants.
 3. Every new `.go` file must carry the license header on line 1:
    `// SPDX-License-Identifier: AGPL-3.0-only` (enforced by `just spdx-check`).
-4. Keep `just check` green.
-5. Open a pull request with a clear description of the change and its motivation.
+4. Run the focused checks during development and `just check` on the final candidate. Report a
+   missing tool or failed check explicitly; do not remove a gate to obtain a pass.
+5. Open a pull request with the problem, resulting behavior, validation evidence, and any remaining
+   limitations. Hosted CI must pass on the submitted revision. Maintainer-specific exceptions or
+   direct-to-main workflows do not automatically apply to external contributions.
 
 ## License agreement
 

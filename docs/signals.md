@@ -91,15 +91,17 @@ See [`signals/00-canon.md`](https://github.com/rknightion/synthkit/blob/main/sig
 
 ## Sinks
 
-synthkit routes signals to four delivery sinks, each with its own endpoint and credential:
+synthkit routes signals through the following delivery sinks. Most synthetic sinks share `GC_TOKEN`; Faro and Sigil have separate credentials:
 
 | Sink | Delivery target | What it carries |
 |---|---|---|
-| `promrw` | Mimir via Prometheus Remote-Write v2 | All metrics — Prometheus-native, CloudWatch-shaped, k8s, span-metrics, gen_ai, service-graph. Series names are **final pre-mangled** (OTLP-translation spellings already applied). The OTel metrics SDK is banned on the synthetic-data path. |
-| `otlp` | OTLP gateway → Tempo | Traces only — hand-encoded `ResourceSpans` protobuf, multi-Resource per export, explicit timestamps. Also carries native OTLP application metrics when the `otel:` lane is active. |
+| `promrw` | Mimir via Prometheus Remote-Write v2 | Prometheus-shaped metrics — Prometheus-native, CloudWatch-shaped, k8s, span-metrics, gen_ai, service-graph. Series names are **final pre-mangled** (OTLP-translation spellings already applied). The OTel metrics SDK is banned on the synthetic-data path. |
+| `otlp` | OTLP gateway → Tempo/Mimir/Loki | Hand-encoded `ResourceSpans`, `ResourceMetrics` and `ResourceLogs`, with explicit timestamps. Native metrics/logs require the corresponding emitter lane; traces do not imply either lane is enabled. |
 | `loki` | Loki push API | Logs — 3-tuple `[timestamp, line, {metadata}]`. The sink asserts that no high-cardinality key ever appears in `Stream.Labels`. |
 | `faro` | Faro collector | RUM beacons — POSTed to the Faro collector with the app key. The collector (not direct Loki/Tempo push) writes the FEO app-registration lifecycle. |
 | `pyroscope` | Pyroscope push API | Continuous profiling — eBPF, pprof-scrape, Java, and SDK-push emitter shapes. |
+
+The optional `sigil` sink separately carries AI generation, workflow-step and evaluation ingest, using `GC_SIGIL_*` credentials.
 
 The sink identifiers used in `yaml signals` blocks (`promrw`, `loki`, `otlp`, `faro`, `pyroscope`) map directly to the sinks listed above. A family can appear under more than one sink (e.g. `dbo11y` emits to both `promrw` and `loki`).
 
@@ -113,7 +115,11 @@ The sink identifiers used in `yaml signals` blocks (`promrw`, `loki`, `otlp`, `f
 
 **Absent dimension rule.** If a dimension or label is not applicable in a given context, it is **omitted** from the emitted series — never emitted as `""` or `"NA"`. Queries must use `label_values()` or `absent()` guards accordingly.
 
-**Content strip.** No prompt, completion, query result, row content, or user-identifiable payload ever reaches Grafana. DB spans carry schema/statement shape only; logs carry counts and event names. Two sentinel metrics in the Fleet Management area prove the strip processor is running and nothing is leaking (`synthkit_content_dropped_total`, `synthkit_content_leak_test`).
+**Content handling.** The generic gen_ai path strips content attributes. The `ai_agent` profile has
+an explicit modeled-content exception documented in the [Sigil contract](https://github.com/rknightion/synthkit/blob/main/signals/sigil.md),
+including capture-mode-controlled trace content. Use synthetic fixtures, never private prompts or
+credentials. Alloy health content sentinels are simulated signals; a zero leak gauge does not prove
+that arbitrary outgoing payloads have been inspected.
 
 **Environment label key variance.** The same environment value (`prod`, `dev1`, …) appears under a **different label key** depending on the signal family. synthkit's own native promrw emit uses `deployment_environment_name` (OTel semconv `_name` form) on span-metrics, service-graph, gen_ai metrics, and `target_info`. Cloudflare tunnel metrics, dbo11y, and Fleet Management use `env`. Querying across families requires accounting for this variance.
 
@@ -128,7 +134,7 @@ The sink identifiers used in `yaml signals` blocks (`promrw`, `loki`, `otlp`, `f
 Run synthkit in dry-run mode with `-once -dump` to print the full series/label inventory to stdout without pushing anything to Grafana Cloud:
 
 ```bash
-DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -dump
+SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -env /dev/null -once -dump
 ```
 
 The output is a structured inventory of every series that would be emitted in one tick, with full label sets. Diff it against the `yaml signals` blocks in the relevant area files to verify a new construct, check for label drift, or confirm that a signals/ change is reflected in the emit path.
@@ -143,7 +149,9 @@ The `signals/` catalogue is meant to grow. When you discover a real signal via a
 
 1. Add or update the family's `yaml signals` block in the right area file, with prose provenance and a capture date.
 2. If the discovery resolves a `cantfind.md` SK-N item, move it out of that file and into the area file.
-3. Verify the complete catalog with `DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -dump` and diff the output.
+3. Compare the selected catalog's emitted inventory with `SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -env /dev/null -once -dump` and diff the output.
+   This does not activate registration-gated SM or prove every optional lane: those need their
+   matching provisioned fixtures and source-specific checks.
 4. Correct the synth to match observed reality — never the reverse.
 
 Never invent a metric, label, or field name. If a name cannot be sourced, add a PENDING SK-N entry to [`cantfind.md`](https://github.com/rknightion/synthkit/blob/main/cantfind.md) and flag it rather than emitting an assumed name.

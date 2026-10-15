@@ -5,19 +5,19 @@ description: Get Grafana-visible synthetic telemetry from a YAML model — reali
 
 # synthkit
 
-synthkit gives you a Grafana-visible synthetic environment: run a bundled blueprint and see realistic metrics, traces, and logs arrive in your stack. It models the infrastructure and applications you declare; it does **not** deploy them. From that YAML **blueprint**, synthkit emits structurally-correct synthetic metrics (Prometheus Remote-Write v2), traces (OTLP), logs (Loki), and optional RUM (Faro) using the **real** technology-native metric/label/field names of each technology it models. No invented names, no placeholder shapes. Every signal is sourced from production-validated contracts in the [`signals/`](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md) catalogue.
+synthkit gives you a Grafana-visible synthetic environment: run a bundled blueprint and see realistic metrics, traces, and logs arrive in your stack. It models the infrastructure and applications you declare; it does **not** deploy them. From that YAML **blueprint**, synthkit emits structurally-correct synthetic metrics (Prometheus Remote-Write v2), traces (OTLP), logs (Loki), and optional RUM (Faro) using the **real** technology-native metric/label/field names of each technology it models. No invented names, no placeholder shapes. Signal contracts and their verification status are recorded in the [`signals/`](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md) catalogue.
 
 Use synthkit to build and validate dashboards and alerts against realistic data, generate demo environments, or run observability training without touching a production system.
 
 <div class="grid cards" markdown>
 
--   :material-rocket-launch: **Getting started**
+-   :material-rocket-launch: **Try synthkit**
 
     ---
 
-    Mental model, vocabulary, and concepts before you install.
+    Start without credentials, then opt into live delivery and verify it.
 
-    [:octicons-arrow-right-24: Getting started](getting-started.md)
+    [:octicons-arrow-right-24: Quick Start](quickstart.md)
 
 -   :material-file-document-edit: **Writing blueprints**
 
@@ -31,7 +31,7 @@ Use synthkit to build and validate dashboards and alerts against realistic data,
 
     ---
 
-    Every metric family, label set, and field name — sourced from real stacks.
+    Metric families, label sets and fields, with source provenance and verification status.
 
     [:octicons-arrow-right-24: Reading the catalogue](signals.md)
 
@@ -45,59 +45,34 @@ Use synthkit to build and validate dashboards and alerts against realistic data,
 
 </div>
 
-## Quickstart
+## Start with one blueprint
 
-The dry run needs no credentials at all — it prints the full series and label
-inventory it would emit, and pushes nothing:
+The [Quick Start](quickstart.md) is the canonical first-run walkthrough. It builds the binary and
+operator UI, previews the `otlp-native` blueprint without synthetic delivery, then takes you through
+credentials, preflight and live read-back. No Grafana credentials are needed for the preview.
 
-```bash
-go build ./cmd/synthkit
+<div class="diagram-scroll" markdown>
 
-DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
-```
+![A blueprint becomes synthetic telemetry delivered to the configured observability destinations](assets/diagrams/telemetry-flow.svg)
 
-To push for real, create a private environment file, select a blueprint, fill in `GC_TOKEN` and the
-endpoints, and explicitly change `DRY_RUN=false` before starting:
+</div>
 
-```bash
-if test -e .env; then
-  printf '%s\n' '.env already exists; review it before changing live-mode settings.' >&2
-else
-  install -m 600 .env.example .env
-  ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh BLUEPRINT_NAMES otlp-native .env
-  ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
-fi
-# Edit .env and fill in the required Grafana Cloud values without printing them.
-./synthkit
-```
+[Open the diagram at full size](assets/diagrams/telemetry-flow.html).
 
-For an existing `.env`, review its credentials first, then run the same `set-env.sh DRY_RUN false
-.env` command when you are ready to opt into live delivery.
-
-From another terminal, confirm the status endpoint reports `dry_run=false`:
-
-The `-u control` form prompts for `CONTROL_TOKEN` without echoing it; press Enter only for an
-intentionally token-free loopback run.
-
-```bash
-curl -fsS -u control http://localhost:8088/control/status | jq -e '.dry_run == false'
-```
-
-The command prints `true`; it exits nonzero if live mode is not active. `jq` is optional: without
-it, inspect the same JSON with `curl -fsS -u control http://localhost:8088/control/status` and look for
-`"dry_run":false`.
+Choose [Installation](installation.md) for a prebuilt container, [Getting Started](getting-started.md)
+for the concepts, or [Contributing](contributing.md) to change the project.
 
 ## What synthkit emits
 
 | Signal type | Protocol | Destination |
 |---|---|---|
-| Metrics | Prometheus Remote-Write v2 | Grafana Cloud Mimir |
+| Metrics | Prometheus Remote-Write v2 or native OTLP | Grafana Cloud Mimir |
 | Traces | OTLP (hand-encoded ResourceSpans) | Grafana Cloud Tempo |
-| Logs | Loki push | Grafana Cloud Loki |
+| Logs | Loki push or native OTLP | Grafana Cloud Loki |
 | RUM (optional) | Faro collector | Grafana Cloud Frontend Observability |
 | Profiles (optional) | Pyroscope | Grafana Cloud Profiles |
 
-Each signal type uses its own credential triplet. A single Cloud Access Policy token with `metrics:write`, `logs:write`, `traces:write`, and `profiles:write` scopes covers all four synthetic sinks — see [Credentials](credentials.md).
+Metrics, traces, logs and synthetic profiles can share a Cloud Access Policy token, with destination-specific endpoints and user IDs. Faro uses its own collector/application-key pair. Optional Sigil generation ingest and the generator’s own self-observability have separate credentials. See [Credentials](credentials.md).
 
 ## The blueprint model
 
@@ -108,7 +83,7 @@ blueprint set are both explicit opt-ins; use `BLUEPRINT_NAMES=*` only for the co
 
 ## Principles
 
-- **No invented names.** Every metric, label, and field name is sourced from the `signals/` catalogue, which is lifted from production-validated stacks with provenance citations.
+- **No invented names.** Every metric, label, and field name is sourced from the `signals/` catalogue, which records vendor evidence, observed captures and explicit modeling assumptions.
 - **Isolated constructs.** Constructs and workloads never import each other, the blueprint package, or any OTel SDK. Zero coupling flows backward.
 - **One blueprint = one file.** Config lives in the blueprint; constructs are unconditional. Add a scenario, remove an environment, or delete the whole blueprint — nothing else changes.
 - **Deterministic.** The same blueprint produces the same identities (pod names, node IDs, instance keys) on every run. Fixtures are seeded from the blueprint name and path, not from process time.

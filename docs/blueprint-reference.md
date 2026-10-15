@@ -140,14 +140,14 @@ This reference is generated from the live Go types via `just gen` and reflects t
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `workloads[].type` | string | yes | Workload kind registry key (e.g. `web_service`, `app`). |
+| `workloads[].type` | string | yes | Workload kind registry key (`web_service`, `app`, `ai_agent`). |
 | `workloads[].name` | string | yes | Unique workload instance name. |
 | `workloads[].runs_on` | string | yes | Cluster name this workload runs on. Resolved at load or fails. |
 | `workloads[].replicas` | int | no | Pod count (default 2). |
 | `workloads[].calls[]` | object | no | Downstream DB/cache hops. |
 | `workloads[].calls[].db` | string | — | Name of a declared database this workload calls. |
 | `workloads[].calls[].cache` | string | — | Name of a declared cache this workload calls. |
-| `workloads[].<kind config>` | varies | — | Workload kind's own config. See [web_service config](#web_service-workload-config) and [app config](#app-workload-config) below. |
+| `workloads[].<kind config>` | varies | — | Workload kind's own config. See [web_service config](#web_service-workload-config) and [app config](#app-workload-config) below; `ai_agent` fields are in the [generated schema](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md). |
 | `for_each_env` | bool | no | Fan this workload into one instance per environment. |
 | `envs[]` | string | no | Subset of environment names to fan into (used with `for_each_env: true`). |
 

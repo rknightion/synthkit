@@ -297,13 +297,12 @@ metrics:
 ## Content sentinel [slug: fm-content-sentinel]
 
 - **`synthkit_content_dropped_total`** (Counter, accumulates; labels `cluster`, `k8s_cluster_name`,
-  `namespace="infra"`, `job="integrations/alloy"`, `pipeline`, `field_class`). Proves the strip is
-  running. Always at least a trickle per series per tick. ⚠ `pipeline` and `field_class` values are
+  `namespace="infra"`, `job="integrations/alloy"`, `pipeline`, `field_class`). Models the strip activity. Always at least a trickle per series per tick. ⚠ `pipeline` and `field_class` values are
   **workload-derived in v1** (e.g. `pipeline="app_otlp"`, generic `field_class` such as `app_output`);
   the predecessor's gen_ai/LLM-specific pipelines and field-classes (`gen_ai_body`, `langsmith_io`,
   `bedrock_body`, etc.) are NOT carried into synthkit.
 - **`synthkit_content_leak_test`** (Gauge = exactly **0.0**, one series per pipeline; same base labels
-  minus `field_class`). Proves nothing leaks — a non-zero value is a test failure (T11). Single alert:
+  minus `field_class`). Models a zero-leak sentinel; a non-zero value is a fixture test failure (T11), not a measurement of real payload inspection. Single alert:
   `synthkit_content_leak_test > 0`.
 
 ```yaml signals
@@ -318,7 +317,7 @@ labels:
   pipeline: <workload-derived, e.g. app_otlp>
   field_class: <workload-derived, e.g. app_output>   # dropped_total only
 metrics:
-  - {root: synthkit_content_dropped_total, type: counter, unit: count, v: ok, note: "accumulates; trickle per series per tick; proves strip is running"}
+  - {root: synthkit_content_dropped_total, type: counter, unit: count, v: ok, note: "accumulates; trickle per series per tick; models strip activity"}
   - {root: synthkit_content_leak_test, type: gauge, unit: float, v: ok, note: "ALWAYS exactly 0.0; alert >0 (T11); one series per pipeline; field_class label absent"}
 ```
 

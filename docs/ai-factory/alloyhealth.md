@@ -2,7 +2,7 @@
 
 The existing `alloy_health` cluster addon optionally declares a bounded gateway
 pool. It emits a selected Alloy v1.20.1 / Collector v0.161.0 self-health subset,
-not a full collector endpoint. See [signal provenance](../../signals/fm.md)
+not a full collector endpoint. See [signal provenance](https://github.com/rknightion/synthkit/blob/main/signals/fm.md)
 `[slug: fm-gateway]` and the local fixture
 `e2e/fixtures/ai-factory-gateway.yaml`.
 

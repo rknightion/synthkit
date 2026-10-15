@@ -13,6 +13,8 @@ synthkit ships as a single self-contained binary. Build from source with Go, or 
 
     - **Go 1.27.0 or later** — synthkit's `go.mod` specifies `go 1.27.0`. Earlier toolchain versions will be rejected.
     - Git (to clone the repo).
+    - For the operator UI: Node.js **24** with npm, Bash **5+**, and `just` **1.58.0+**.
+      Build the UI before Go so the assets are embedded in the binary.
 
     No CGO. The binary is fully static and cross-compiles cleanly.
 
@@ -27,12 +29,24 @@ synthkit ships as a single self-contained binary. Build from source with Go, or 
 `gcx` **1.2.0 or later** is needed only for the optional remote Grafana verification commands in
 the [runbook](RUNBOOK.md); it is not needed to start Compose or inspect the local control plane.
 
+## Platform choices
+
+- **Linux:** use the source path below, or Docker Engine with the Compose plugin. The clean-container
+  recipe uses a Debian-family root shell; it is not an unprivileged package-install command.
+- **macOS:** the source path uses the same commands once the prerequisites are installed. Ensure
+  Bash 5+ is on `PATH` (`/bin/bash` is older). For containers, use a running Docker-compatible
+  engine with Compose and check its versions before following the Compose steps. The clean Linux
+  container regression does not establish macOS container-runtime compatibility.
+
+Choose the [Quick Start](quickstart.md) for a complete source-build walkthrough. Published images
+already contain the operator UI; their host does not need Go or Node.
+
 ## Clean public clone to healthy Compose
 
-This is the one supported Linux path from a clean public clone to a healthy Compose deployment.
-It is also the path exercised by the clean-container regression. The supported clean-container
-baseline is Go 1.27 with Git, Docker Engine 24+, and Docker Compose 2.24.4+ available; the
-commands below install the remaining required host tools without assuming `sudo`.
+This Linux path is exercised by the clean-container regression. Start with Git, Docker Engine 24+
+and Docker Compose 2.24.4+ available. The fixture also contains Go, but the prebuilt-image path
+below does not use it. Run the package installation commands as root in a Debian-family environment;
+on an existing host, install the listed prerequisites using your normal administrative process.
 
 ```bash
 apt-get update
@@ -63,7 +77,16 @@ add the required secret through the hidden-prompt helper, and select the intende
 starting Compose.
 
 ```bash
-install -m 600 .env.example .env
+if [ -L .env ] || { [ -e .env ] && [ ! -f .env ]; }; then
+  echo "refusing symlink or non-file .env" >&2
+  exit 1
+fi
+if [ ! -e .env ]; then
+  install -m 600 .env.example .env
+else
+  echo "Keeping existing .env; review it before continuing."
+fi
+chmod 600 .env
 ```
 
 Prepare the bind-mounted state directory before Compose starts. This uses a pinned public helper
@@ -87,8 +110,9 @@ Validate the committed Compose artifact with fake inputs, prove the selected inv
 then start it and wait for its healthcheck:
 
 ```bash
-just compose-check
-BLUEPRINT_NAMES=otlp-native docker compose run --rm --no-deps synthkit -once -dump
+just compose-check </dev/null
+BLUEPRINT_NAMES=otlp-native docker compose run --rm --no-deps \
+  -e DRY_RUN=true -e SELFOBS_ENABLED=false synthkit -once -dump
 docker compose up -d --wait
 curl -fsS http://127.0.0.1:8088/control/readiness
 ```
@@ -107,10 +131,13 @@ Do not run raw `docker compose config` with a real `.env`.
 ```bash
 git clone https://github.com/rknightion/synthkit.git
 cd synthkit
+just ui </dev/null
 go build ./cmd/synthkit
 ```
 
-This produces a `synthkit` binary in the current directory.
+This produces a `synthkit` binary with the operator UI in the current directory. `just ui` uses
+the npm lockfile. A Go-only build is useful for CLI-only work, but without built frontend assets
+its `/control/ui` route reports that the UI is not built.
 
 !!! tip "Full gate"
     Before shipping changes, run `just check` — the pre-commit gate. Use `just ci` on a Docker-capable host for its CI-only Docker checks. For a quick sanity check, `just test` is sufficient.
@@ -131,7 +158,7 @@ The image is distroless (based on `gcr.io/distroless/static-debian12:nonroot`) a
 ```bash
 # Dry run — prints the series inventory, pushes nothing
 docker run --rm \
-  -e DRY_RUN=true \
+  -e DRY_RUN=true -e SELFOBS_ENABLED=false \
   -e BLUEPRINT_NAMES=otlp-native \
   ghcr.io/rknightion/synthkit@sha256:<verified-index> -once -dump
 ```
@@ -149,7 +176,7 @@ The repository ships a `docker-compose.yml` that reads all configuration from a 
 ```bash
 # Follow the literal public-clone path above first. For a live deployment, add the required
 # credentials with the hidden-prompt helper, set DRY_RUN=false, then rerun these final commands:
-just compose-check
+just compose-check </dev/null
 docker compose up -d --wait
 ```
 
@@ -176,6 +203,8 @@ To build from source instead of pulling the published image (e.g. to test local 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
+
+The local-source override builds both the UI and Go binary inside Docker.
 
 For the full production deployment guide — including the persistent volume setup, live credential rotation, and upgrade path — see [Deployment](deployment.md).
 

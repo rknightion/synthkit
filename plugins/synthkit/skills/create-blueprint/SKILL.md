@@ -56,9 +56,10 @@ return the missing contract rather than adding a guessed field or name.
 
    ```bash
    BLUEPRINT_RUNTIME_NAME="<exact runtime identity>"
-   DRY_RUN=true BLUEPRINT_NAMES="$BLUEPRINT_RUNTIME_NAME" go run ./cmd/synthkit -once -dump
+   SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES="$BLUEPRINT_RUNTIME_NAME" go run ./cmd/synthkit -env /dev/null -once -dump
    # Or, without a local Go toolchain:
-   BLUEPRINT_NAMES="$BLUEPRINT_RUNTIME_NAME" DRY_RUN=true docker compose run --rm synthkit -once -dump
+   docker compose run --rm --no-deps -e SELFOBS_ENABLED=false -e DRY_RUN=true \
+     -e BLUEPRINT_NAMES="$BLUEPRINT_RUNTIME_NAME" synthkit -env /dev/null -once -dump
    ```
 
    Compare the dumped series inventory with the selected `signals/` contracts; do not make the

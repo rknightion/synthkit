@@ -333,7 +333,7 @@ and commit the reviewed per-area files.
    temporary merged result and classify every difference using the reviewer
    table below. Then run the fidelity comparison against the
    synthetic inventory. Inspect the value-bearing canonical inventory with
-   `DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -once -inventory-json`.
+   `SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES='*' go run ./cmd/synthkit -env /dev/null -once -inventory-json`.
    The `-dump` path is label-key-only structural output and can help inspect
    names and keys, but it is not a substitute when values are under review. The
    corpus comparison is scoped to the families covered by each corpus document.

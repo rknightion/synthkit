@@ -104,7 +104,7 @@ The catalogue is organised into groups below. The **Scope** column is `blueprint
 
 | Area file | What it models | Scope | Sink(s) |
 |---|---|---|---|
-| [`signals/fm.md`](https://github.com/rknightion/synthkit/blob/main/signals/fm.md) | Grafana Fleet Management + Alloy meta-health + content sentinel. Three families: `fm-fleet` (fake collector-agent inventory metrics, `fleet_*`), `fm-alloy-health` (in-cluster Alloy pod health metrics), `fm-content-sentinel` (`synthkit_content_dropped_total` + `synthkit_content_leak_test` — proves the content strip is running and nothing is leaking). Substrate-scoped; disambiguated by `cluster` + `collector_id`. | substrate | promrw |
+| [`signals/fm.md`](https://github.com/rknightion/synthkit/blob/main/signals/fm.md) | Grafana Fleet Management + Alloy meta-health + content sentinel. Three families: `fm-fleet` (fake collector-agent inventory metrics, `fleet_*`), `fm-alloy-health` (in-cluster Alloy pod health metrics), `fm-content-sentinel` (`synthkit_content_dropped_total` + `synthkit_content_leak_test` — modeled collector sentinels, not proof of real content inspection). Substrate-scoped; disambiguated by `cluster` + `collector_id`. | substrate | promrw |
 
 ---
 

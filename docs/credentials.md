@@ -22,16 +22,23 @@ Keep these separate. Using `GC_TOKEN` for self-observability would intermingle t
 
 ### Synthetic data sinks
 
-A single Cloud Access Policy (CAP) token with `metrics:write`, `logs:write`, `traces:write`, and `profiles:write` scopes covers all four synthetic-data sinks.
+A single Cloud Access Policy (CAP) token with `metrics:write`, `logs:write`, `traces:write`, and `profiles:write` scopes covers the Remote-Write, OTLP, Loki and Pyroscope synthetic-data endpoints. Faro and Sigil use separate credentials.
 
 | Purpose | Env vars | Notes |
 |---|---|---|
 | Metrics (Mimir, Remote-Write v2) | `GC_TOKEN`, `GC_PROM_RW`, `GC_PROM_USER` | `GC_PROM_RW` = push URL; `GC_PROM_USER` = Mimir instance ID |
-| Traces (Tempo, OTLP) | `GC_TOKEN`, `GC_OTLP_ENDPOINT`, `GC_OTLP_USER` | `GC_OTLP_ENDPOINT` = base OTLP gateway URL (`…/otlp`); `GC_OTLP_USER` = stack ID |
+| Traces and selected native metrics/logs (OTLP) | `GC_TOKEN`, `GC_OTLP_ENDPOINT`, `GC_OTLP_USER` | `GC_OTLP_ENDPOINT` = base OTLP gateway URL (`…/otlp`); `GC_OTLP_USER` = stack ID |
 | Logs (Loki) | `GC_TOKEN`, `GC_LOKI`, `GC_LOKI_USER` | `GC_LOKI` = Loki push URL; `GC_LOKI_USER` = Loki instance ID |
 | Profiles (Pyroscope) | `GC_TOKEN`, `GC_PROFILES_URL`, `GC_PROFILES_USER` | Optional; absent = profiles disabled |
 
 `GC_TOKEN` is the password for all four sinks. The user ID for each sink differs (Mimir ID vs stack ID vs Loki ID — they are different numbers).
+
+### AI generation ingest / Sigil (optional)
+
+The `ai_agent` workload can export generations, workflow steps and evaluations with
+`GC_SIGIL_ENDPOINT`, `GC_SIGIL_TENANT_ID` and `GC_SIGIL_TOKEN`. Use the Sigil tenant ID
+and its ingest credential, not `GC_PROM_USER` or `GC_TOKEN`. All three values are needed
+to configure this lane; ordinary workload traces and metrics remain separate.
 
 ### RUM / Faro (optional)
 
@@ -193,7 +200,7 @@ Mandatory live values have these static requirements:
 |---|---|
 | `GC_PROM_RW` | HTTPS URL ending exactly in `/api/prom/push` |
 | `GC_LOKI` | HTTPS URL ending exactly in `/loki/api/v1/push` |
-| `GC_OTLP_ENDPOINT` | HTTPS base URL ending exactly in `/otlp`; synthkit appends `/v1/traces` or `/v1/metrics` |
+| `GC_OTLP_ENDPOINT` | HTTPS base URL ending exactly in `/otlp`; synthkit appends `/v1/traces`, `/v1/metrics` or `/v1/logs` |
 | `GC_PROM_USER`, `GC_LOKI_USER`, `GC_OTLP_USER` | Positive decimal instance or stack ID |
 
 Normal dry-run commands remain credential-free and offline. They do not execute preflight probes; network/auth checks occur only when `-preflight` is supplied. Live startup (`DRY_RUN=false`) always performs the static checks before constructing sinks, so malformed or transposed endpoints fail synchronously rather than during background delivery.

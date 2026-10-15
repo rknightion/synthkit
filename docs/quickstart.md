@@ -5,19 +5,36 @@ description: From binary to live synthetic telemetry in Grafana Cloud — build,
 
 # Quick Start
 
-Five steps from a fresh clone to verified synthetic telemetry in Grafana Cloud.
+This is the canonical first-run walkthrough: preview one blueprint without credentials, then
+explicitly opt into live delivery. The preview is useful on its own; stop after step 2 if you
+only want to explore the output.
+
+<div class="diagram-scroll" markdown>
+
+![First-run workflow from building through offline preview, credentials, preflight and verified live delivery](assets/diagrams/onboarding.svg)
+
+</div>
+
+[Open the diagram at full size](assets/diagrams/onboarding.html).
 
 ---
 
 ## Step 1: Build
 
+For this source path, install Git, Go 1.27.0+, Node.js 24 with npm, Bash 5+, and `just` 1.58.0+.
+These commands work from a Bash shell on Linux or macOS with those tools on `PATH`.
+See [Installation](installation.md) for platform notes or the prebuilt Docker path.
+
 ```bash
 git clone https://github.com/rknightion/synthkit.git
 cd synthkit
+just ui </dev/null
 go build ./cmd/synthkit
 ```
 
-Requires Go 1.27.0 or later. See [Installation](installation.md) for the Docker path.
+`just ui` installs the locked frontend dependencies and builds the assets embedded by Go.
+Without that step a clean `go build` succeeds, but the operator UI displays a “not built” page.
+Go and npm may download dependencies during this build.
 
 ---
 
@@ -27,7 +44,7 @@ Before touching credentials, select the bundled `otlp-native` reference blueprin
 full selected series inventory:
 
 ```bash
-DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
+DRY_RUN=true SELFOBS_ENABLED=false BLUEPRINT_NAMES=otlp-native ./synthkit -env /dev/null -once -dump
 ```
 
 `BLUEPRINT_NAMES` is the runtime selector. An empty or absent value starts setup mode and emits no
@@ -35,7 +52,9 @@ synthetic telemetry; comma-separated exact names select only those blueprints; `
 opt-in for the complete available catalog. An unknown name stops startup and lists the names that
 are available. `-once` runs a single tick and exits. `-dump` prints the
 complete series/label inventory to stdout — every metric name, label set, and example value that
-would be pushed. No network calls are made.
+would be pushed. No synthetic telemetry is sent. `SELFOBS_ENABLED=false` also disables the
+generator’s own telemetry, which otherwise operates independently of dry-run. Use a fresh checkout
+for this walkthrough; existing custom/git sources or process environment settings may change startup.
 
 Expected output includes `selected blueprints: 1 [otlp-native]` before any sink can push, a
 `loaded blueprint "otlp-native"` line, `synthkit up: 1 blueprints [otlp-native]`, and `[dry-run
@@ -49,18 +68,9 @@ The focused runtime identities are:
 - Loki stream selector for the enriched service:
   `{source="app",service_name="otlp-api-enriched",cluster="otlp-native-prod-euw1"}`
 
-To prove the Docker path is using your authored checkout rather than a cached published image,
-build with the local-source Compose override and then run the same isolated dry run:
-
-```bash
-test -e .env || install -m 600 .env.example .env
-docker compose -f docker-compose.yml -f docker-compose.build.yml build synthkit
-docker compose -f docker-compose.yml -f docker-compose.build.yml run --rm --no-deps \
-  -e DRY_RUN=true -e BLUEPRINT_NAMES=otlp-native synthkit -once -dump
-```
-
-The build override tags the result `synthkit:local` and disables registry pulling, so this command
-uses the current checkout's `Dockerfile`, binary, and `blueprints/` directory.
+For a prebuilt container or a build from the current checkout, follow the corresponding
+[installation path](installation.md). The source-build Docker override includes the same frontend
+build; it requires neither Go nor Node on the host.
 
 !!! tip "Use -dump to verify signal contracts"
     Spot-check a few metric names against the [`signals/`](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md) catalogue. synthkit never invents names — anything unexpected is a bug, not a configuration choice.
@@ -70,7 +80,16 @@ uses the current checkout's `Dockerfile`, binary, and `blueprints/` directory.
 ## Step 3: Configure credentials
 
 ```bash
-test -e .env || install -m 600 .env.example .env
+if [ -L .env ] || { [ -e .env ] && [ ! -f .env ]; }; then
+  echo "refusing symlink or non-file .env" >&2
+  exit 1
+fi
+if [ ! -e .env ]; then
+  install -m 600 .env.example .env
+else
+  echo "Keeping existing .env; review its settings before continuing."
+fi
+chmod 600 .env
 ```
 
 This creates `.env` with mode `0600` without replacing an existing file. Keep `DRY_RUN=true` while
@@ -91,7 +110,9 @@ DRY_RUN=true
 A single Cloud Access Policy token with `metrics:write`, `logs:write`, `traces:write` scopes covers all three sinks. See [Credentials](credentials.md) for the full table including optional RUM, Synthetic Monitoring, Fleet Management, and self-observability destinations.
 
 !!! warning "DRY_RUN defaults to true"
-    The shipped `.env.example` has `DRY_RUN=true`. You must explicitly set `DRY_RUN=false` to push live. This is intentional — a dry run can never accidentally write to a production stack.
+    The shipped `.env.example` has `DRY_RUN=true`. Synthetic delivery requires `DRY_RUN=false`.
+    Self-observability and explicit provisioning commands have separate controls; dry-run is not
+    an authorisation switch for those operations.
 
 ---
 
@@ -99,14 +120,20 @@ A single Cloud Access Policy token with `metrics:write`, `logs:write`, `traces:w
 
 ```bash
 ./synthkit -preflight
+```
+
+Continue only if preflight succeeds for every required lane. Then start live delivery:
+
+```bash
 ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
 ./synthkit
 ```
 
-The preflight sends empty authenticated requests and must report `ready` for Prometheus, Loki, and
+Preflight makes network calls: it sends empty authenticated requests and must report `ready` for Prometheus, Loki, and
 OTLP before you disable dry-run. It prints only redacted lane states and reason codes.
 
-synthkit loads the `.env` file automatically on startup. It runs the emit loop continuously (default tick: every 5 seconds). Let it run for a few ticks so cumulative counter series accumulate before querying.
+synthkit loads `.env` automatically; exported process variables override file values. Remove any
+previously exported `DRY_RUN` or `BLUEPRINT_NAMES` override if it conflicts with your file. It runs the emit loop continuously (default tick: every 5 seconds). Let it run for a few ticks so cumulative counter series accumulate before querying.
 
 To run a single tick and exit:
 
@@ -139,6 +166,9 @@ response contains `"dry_run":false`:
 ```bash
 curl -fsS -u control http://localhost:8088/control/status
 ```
+
+A successful push is the local delivery result. Complete the remote read-back below before calling
+the deployment verified. Stop the foreground process with Ctrl-C when finished.
 
 **In Grafana:**
 
@@ -179,4 +209,5 @@ curl -fsS -u control http://localhost:8088/control/status
 - [RUNBOOK.md](RUNBOOK.md) — deep verification walkthrough (sink readiness, gcx queries, end-to-end trace correlation check, log correlation, SM/FM verification)
 - [Deployment](deployment.md) — standing production deploy with docker-compose, the persistent state volume, and the host bind setup
 - [Blueprints overview](blueprints.md) — write your own blueprint
+- [Contributing](contributing.md) — developer and agent workflows
 - [Incidents & Scenarios](incidents.md) — declare and activate failure scenarios

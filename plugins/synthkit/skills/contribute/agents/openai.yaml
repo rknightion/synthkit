@@ -1,0 +1,3 @@
+interface:
+  display_name: "Contribute to synthkit"
+  short_description: "Implement synthkit changes with shared contributor gates."

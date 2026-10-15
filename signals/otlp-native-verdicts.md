@@ -9,10 +9,13 @@ This file asserts no emitted family and contains no `yaml signals` block. It is 
 `signals/otlp-metrics.md`, which is where an OTel-native family's contract is recorded once a lane
 is actually built.
 
-Study performed 2026-08-27 for SKT-0007.01. The measured baseline it starts from: of the 45 catalog
-packages (42 under `internal/construct/`, 3 under `internal/workload/`), 44 declare `core.Metrics`
-(promrw) and exactly one — `web_service` under `otel.metrics: true` — declares `core.OTLPMetrics`.
-`k8s_profiling` declares no metrics class at all.
+The admission study was performed on 2026-08-27 for SKT-0007.01 (source native OTLP metric forms).
+Its **historical baseline** had 45 catalog packages, with only `web_service` declaring native OTLP
+metrics. Those counts and implementation observations are not a current capability inventory.
+Native lanes subsequently landed for `app`, `ai_agent` and several constructs. Use
+[the native metric contract](otlp-metrics.md), current registrations and the generated blueprint
+schema for implemented profiles; the dated vendor evidence below determines admission, not whether
+a lane has shipped.
 
 ---
 
@@ -52,10 +55,10 @@ target only, must NOT gain an OTLP metrics lane · **UNRESOLVED** = evidence not
 | `datadog_receiver` | `construct/datadogreceiver` | OTEL-NATIVE | The committed 2026-09-08 Datadog Agent to Alloy native egress capture establishes receiver OTLP envelopes. The selectable Kubernetes subset and boundaries are in `signals/otlp-metrics.md`. | 2026-09-08 |
 | `k8s_cluster` | `construct/k8scluster` | OTEL-NATIVE | `k8sclusterreceiver/metadata.yaml` defines `k8s.pod.phase`, `k8s.deployment.available`, `k8s.container.cpu_limit`, `k8s.statefulset.ready_pods` … as OTel instruments built from the API server, not from KSM text; `kubeletstatsreceiver` supplies the container/pod/node CPU + memory groups (`k8s.container.cpu.node.utilization`, `k8s.pod.memory.node.utilization`, node/pod/container metric groups). Vendor docs via ctx7 `/open-telemetry/opentelemetry-collector-contrib`. | 2026-08-27 |
 | `host` | `construct/host` | OTEL-NATIVE | `hostmetricsreceiver` scrapers emit `system.cpu.time` (8 Linux `state` values), `system.memory.usage`, `system.filesystem.usage`, `system.network.io`/`.packets`/`.errors`/`.dropped`/`.connections` — OTel names, not `node_exporter` names. Vendor docs via ctx7 `/open-telemetry/opentelemetry-collector-contrib`. | 2026-08-27 |
-| `web_service` | `workload/webservice` | OTEL-NATIVE — **built** | `signals/otlp-metrics.md`, live-validated 2026-06-18: `http.server.request.duration`, `http.server.active_requests`. The only kind declaring `core.OTLPMetrics` today. | 2026-06-18 |
+| `web_service` | `workload/webservice` | OTEL-NATIVE — **built** | `signals/otlp-metrics.md`, live-validated 2026-06-18: `http.server.request.duration`, `http.server.active_requests`. This was the only implemented native lane at the original study baseline; it is no longer the only one. | 2026-06-18 |
 | `app` | `workload/app` | OTEL-NATIVE | The modelled producer is an instrumented service graph. `signals/genai.md` records the `app` LangGraph backend as an **app-emitted OTel** producer captured live 2026-06-16; its custom DSL instruments are SDK instruments, so their OTLP form is the same names the blueprint declares. | 2026-06-16 |
 | `ai_agent` | `workload/aiagent` | OTEL-NATIVE | `signals/genai.md` states outright that the `gen_ai_client_*` promrw families are the **OTLP→Prom translation** of gen_ai semconv instruments (`.`→`_`, unit `s`→`_seconds`, annotation units dropped), validated 2026-06-15 against `open-telemetry/semantic-conventions` and live-captured. The OTel-native names are therefore already known. | 2026-06-15 |
-| `beyla_agent` | `construct/beylaagent` | OTEL-NATIVE | `grafana/beyla` `configure/internal-metrics-reporter.md`: the internal metrics reporter's `exporter` setting takes `disabled` \| `prometheus` \| `otel`; `otel` ships Beyla's own internal metrics over OTLP via `otel_metrics_export`. The construct currently models only the `prometheus` branch (`/internal/metrics`). Vendor docs via ctx7 `/grafana/beyla`. | 2026-08-27 |
+| `beyla_agent` | `construct/beylaagent` | OTEL-NATIVE | `grafana/beyla` `configure/internal-metrics-reporter.md`: the internal metrics reporter's `exporter` setting takes `disabled` \| `prometheus` \| `otel`; `otel` ships Beyla's own internal metrics over OTLP via `otel_metrics_export`. At the original study baseline the construct modeled only the `prometheus` branch (`/internal/metrics`); its native lane has since landed. Vendor docs via ctx7 `/grafana/beyla`. | 2026-08-27 |
 | `envoy_gateway` | `construct/envoygateway` | OTEL-NATIVE | `gateway.envoyproxy.io/docs/tasks/observability/proxy-metric` and `…/gateway-observability`: both the `EnvoyProxy` data plane and the `EnvoyGateway` control plane accept `telemetry.metrics.sinks: [{type: OpenTelemetry, openTelemetry: {host, port, protocol: grpc}}]`, and `telemetry.metrics.prometheus.disable: true` turns the scrape endpoint off entirely — so an OTLP-only deployment is a supported, documented configuration. Vendor docs via ctx7 `/websites/gateway_envoyproxy_io`. | 2026-08-27 |
 | `cw_infra` | `construct/cwinfra` | OTEL-NATIVE (different namespace) | `awscloudwatchreceiver/README.md`: "All metrics collected by the receiver follow the CloudWatch Metric Streams OpenTelemetry 1.0.0 format. The metric name is structured as `amazonaws.com/{Namespace}/{MetricName}`", resource attrs `cloud.provider=aws`, `cloud.region`, datapoint attrs `Namespace`/`MetricName`/`Dimensions`. Vendor docs via ctx7 `/open-telemetry/opentelemetry-collector-contrib`. | 2026-08-27 |
 | `ec2` | `construct/ec2` | OTEL-NATIVE (different namespace) | As `cw_infra` — CloudWatch-sourced, `amazonaws.com/AWS/EC2/{MetricName}`. | 2026-08-27 |

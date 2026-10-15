@@ -131,6 +131,24 @@ covers the declared Go-read, example, Compose and project-`.env` surfaces, not a
 override values. Put `.env` comments on their own lines - Docker does not strip an inline comment from
 an `env_file` value.
 
+## Contributor workflow
+
+Before editing repository code, configuration, blueprints or documentation, agents must read and
+follow `plugins/synthkit/skills/contribute/SKILL.md`. Humans use `CONTRIBUTING.md` and
+`docs/contributing.md`; both routes use the same canonical `justfile` task surface. Operational
+skills remain scoped to deployment and authoring jobs and do not replace contribution validation.
+Use the relevant operational skill as well when the change falls within its scope.
+
+Record the commands actually run and their outcomes. A skill invocation, unavailable tool, skipped
+check or owner waiver is not passing evidence. CI checks the resulting change; it cannot prove that
+an agent read a skill. Public contributors need no maintainer-local paths or private review service
+credentials. Maintainer CodeRabbit review requirements remain applicable to code changes.
+
+When behavior changes, reconcile its canonical contract, user guide and relevant skill together.
+Prefer links to canonical instructions over copied command sequences. Keep generated schema and
+skill links synchronized. Documentation validation checks structural integrity, not semantic truth;
+verify runtime claims against code and examples against the public entry point.
+
 ## Operational entrypoints
 
 `plugins/synthkit/skills/` holds the operational procedures; `just skills-sync` regenerates the
@@ -138,6 +156,7 @@ an `env_file` value.
 
 | Job | Skill | Documentation fallback |
 |---|---|---|
+| Contribute a repository change | `contribute` | `CONTRIBUTING.md`, `docs/contributing.md` |
 | Create or edit a blueprint | `create-blueprint` | `docs/blueprints.md`, `docs/blueprint-reference.md`, `docs/tools.md` |
 | First deployment | `initial-setup` | `docs/getting-started.md`, `docs/deployment.md`, `docs/credentials.md` |
 | Verify a deployment | `verify-deployment` | `docs/control-plane.md`, `docs/troubleshooting.md`, `docs/RUNBOOK.md` |
@@ -199,8 +218,9 @@ imported or renumbered.
   seam.
 - `SIGNALS.md` and `signals/<area>.md` - read before adding or renaming any metric, label or field.
 - `BLUEPRINT-SCHEMA.md` - generated; read for the current blueprint field surface, never hand-edit.
-- `~/repos/agent-docs/sources/loop/contract.md` (the loop contract) and backlog doc `doc-0002`
-  (Wave operating model) - read both before designing a multi-lane campaign here.
+- Maintainer multi-lane campaigns additionally follow backlog doc `doc-0002` (Wave operating
+  model) and the maintainer-provided loop contract. These are not prerequisites for an ordinary
+  public contribution; never assume a contributor has a maintainer checkout.
 - `dashboards/AGENTS.md` - read before touching anything under `dashboards/`.
 
 Slow tier: `just lab` (disposable k3d collector-egress fidelity capture) took about 35 minutes in CI; run it once on the final candidate when that capture surface changes, not in the inner loop.

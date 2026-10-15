@@ -1,8 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 # Tooling pins. Overridable from the environment and Renovate-managed from this file.
-# renovate: datasource=github-releases depName=golangci/golangci-lint
-golangci_version := env('GOLANGCI_LINT_VERSION', 'v2.14.0')
 # renovate: datasource=github-releases depName=google/go-licenses
 go_licenses_version := env('GO_LICENSES_VERSION', 'v2.0.1')
 # renovate: datasource=github-releases depName=anchore/syft
@@ -21,10 +19,9 @@ dump_blueprints := env('DUMP_BLUEPRINTS', '*')
 default:
     @just --list
 
-# install Go modules, the control-UI node_modules, and the pinned linter
+# install Go modules and the control-UI dependencies
 setup: _ui-install
     go mod download
-    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{ golangci_version }}
 
 [private]
 [working-directory('internal/control/ui')]
@@ -349,7 +346,7 @@ proto-drift-check:
 [group('check')]
 check: _ui-embed fmt-check lint gen-check env-check docs-check test race hygiene ui-check compose-check helm-test lab-check signal-fidelity troubleshooting-check
 
-# CI superset: `check` plus the Docker-daemon legs marked above
+# local Docker validation superset; hosted CI also owns schema validation via shared workflows
 [group('check')]
 ci: check image e2e secret-scan secret-scan-config clean-container
 

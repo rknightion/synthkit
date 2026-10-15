@@ -16,28 +16,33 @@ predecessor) · Ⓐ = assumed/synthetic frozen value (pending confirmation) · �
 sourced from `internal/genai` (the gen_ai semconv vocabulary mechanic lib). A `workflow`→`agent`→
 `gateway`→`model` chain nests via `via:` exactly like any other hop. gen_ai metrics
 (`gen_ai_client_*`/`gen_ai_server_*`) and the LLM-gateway / eval-platform metric families are
-ordinary emitted series. Content is NEVER emitted (prompt/completion/messages keys are strip-listed
-in `internal/genai`). Customer identity stays blueprint-only.
+ordinary emitted series. The generic gen_ai path strips prompt/completion/messages keys in
+`internal/genai`. The `ai_agent` exception is documented in [Sigil](sigil.md), including capture-mode
+controlled span content. Customer identity stays blueprint-only.
 
 ---
 
 ## Push topology (generic) [slug: push-topology]
 
-Every construct routes its signals to one of four sinks. Exact endpoint URLs, stack ids, usernames,
+Constructs and workloads declare their signal classes; the runner wires the corresponding sinks. Exact endpoint URLs, stack ids, usernames,
 and tokens are deployment configuration (env/credentials), never baked into the catalog or this
 contract. See ARCHITECTURE §6 (sinks) for mechanics.
 
 | Signal class | Sink | What it carries | Key contract |
 |---|---|---|---|
-| **Metrics** | `sink/promrw` → Mimir `remote_write` | ALL metrics — Prometheus-native, CloudWatch-shaped, k8s, span-metrics | FINAL pre-mangled series names (post-OTLP-translation spellings already applied). The OTel metrics SDK is **banned** (I1). Per-push + per-blueprint series budget + kill switch (I7). |
+| **Metrics** | `sink/promrw` → Mimir `remote_write` | Prometheus-shaped metrics — exporter, CloudWatch, k8s and span-metric families | FINAL pre-mangled series names (post-OTLP-translation spellings already applied). The OTel metrics SDK is **banned** (I1). Per-push + per-blueprint series budget + kill switch (I7). |
 | **Traces** | `sink/otlp` → OTLP gateway → Tempo | traces ONLY | hand-encoded `ResourceSpans` protobuf, multi-Resource per export, explicit timestamps (I2). Never the OTel SDK; never the collector trace import. |
+| **OTLP metrics** | `sink/otlp` → OTLP gateway → Mimir | Native `ResourceMetrics` for declared OTLP profiles | Hand-encoded types, resource attributes and cumulative temporality; gateway translation produces the final backend names. No OTel metrics SDK. |
+| **OTLP logs** | `sink/otlp` → OTLP gateway → Loki | Native `ResourceLogs` for declared receiver profiles | Resource attributes and log bodies preserve the selected source profile. |
+| **Profiles** | `sink/pyroscope` → Pyroscope | Synthetic pprof profiles | Opt-in profiles with the sourced labels and push protocol in `signals/profiles.md`. |
 | **Logs** | `sink/loki` → Loki push | logs | 3-tuple `[ts, line, {meta}]`; the sink ASSERTS no high-card key in `Stream.Labels` (I14/I15). |
 | **RUM** | `sink/faro` → Faro collector | RUM beacons | POST to the Faro collector with the app key (4th credential surface; optional). The collector — not direct Loki/Tempo push — is the sole writer of the FEO app-registration lifecycle timestamps; an app fed by direct push never registers (§4). |
 
 > **⚠ Metric-routing rule (I1).** The OTel Go *metrics* SDK stamps export-time timestamps, defaults
 > to cumulative-only quirks, and hides bucket control behind Views — wrong tool for a fabricator.
-> synthkit emits ALL metrics via Mimir `remote_write` with the final names pre-applied. OTLP is used
-> for **traces only** (spans accept explicit timestamps).
+> Prometheus-shaped profiles use `remote_write` with final names pre-applied. Declared native
+> OTLP profiles use hand-encoded `ResourceMetrics` or `ResourceLogs`; trace exports use
+> hand-encoded `ResourceSpans`. No synthetic path uses the OTel SDK.
 
 > **⚠ Cumulative-state rule (I3).** Counters/histograms are cumulative across ticks (`internal/state`):
 > push running totals, never deltas. Container/gateway restarts reset counters = clean `rate()`
@@ -74,7 +79,7 @@ identity) on substrate families — all blueprint-declared and collision-checked
 | Synthetic Monitoring (SM) | **ScopeSubstrate** | check identity (`job`, `instance`, `probe`, `config_version`, `check_name`). Decided substrate (SK-22 resolved): the SM app disambiguates by check identity, never by a blueprint label. |
 | Fleet Management + Alloy self-metrics | **ScopeSubstrate** | `cluster` + `collector_id` |
 
-> ⚠ A test asserts no substrate series EVER carries `blueprint`; the de-Rochification test asserts no
+> ⚠ A test asserts no substrate series EVER carries `blueprint`; the catalog-isolation test asserts no
 > construct source mentions any blueprint name (I18). Fanning substrate families per blueprint would
 > break vendor-app conformance panels (`count by(cluster,…)`).
 
@@ -116,13 +121,19 @@ Faro/RUM and app logs (§3, §4).
 
 ### Content-strip rule + sentinel (I23) [slug: content-strip]
 
-No content-bearing field ever reaches Grafana — not on any span attribute, log field, or metric. DB
-spans carry schema/statement shape only, never row content; logs carry counts and event names, never
-payloads. The strip is proven by **two** sentinel signals (§6 of the Alloy meta-health construct):
+The generic gen_ai path removes content-bearing attributes through its strip list. The explicit
+`ai_agent` exception in [Sigil](sigil.md) carries modeled prompt/completion parts and, for the
+configured capture mode, tool and agent content on traces. Use synthetic fixtures; never place
+private prompts, credentials or customer payloads in committed blueprints.
 
-- `synthkit_content_dropped_total` (Counter, accumulates) — proves the strip processor is *running*.
-- `synthkit_content_leak_test` (Gauge, **always exactly 0.0**) — proves nothing is *leaking*. A
-  single alert `synthkit_content_leak_test > 0` fires on any data-egress violation.
+The Alloy health construct emits two **modeled** sentinel signals:
+
+- `synthkit_content_dropped_total` is a synthetic cumulative counter.
+- `synthkit_content_leak_test` is a synthetic gauge fixed at zero.
+
+These signals model a collector's health surface. They do not inspect arbitrary outgoing payloads
+and cannot prove that no private content has escaped. Validation of each content-bearing path and
+its configured capture mode is separate evidence.
 
 > ⚠ The original names (`<prefix>_content_*`) are normalised to `synthkit_content_*` — prefix is the
 > only change; the shape and label contract are identical.

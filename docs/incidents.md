@@ -172,7 +172,7 @@ same-process `remotecfg` data families before the public writer, while target `u
 independent healthy controller observations and the other member remain present.
 
 See [gateway configuration and limits](ai-factory/alloyhealth.md) and
-[`signals/fm.md`, `fm-gateway`](../signals/fm.md) for cadence, scope, absence queries
+[`signals/fm.md`, `fm-gateway`](https://github.com/rknightion/synthkit/blob/main/signals/fm.md) for cadence, scope, absence queries
 and the source catalogue. Local absence proof does not establish backend alert timing.
 
 ## Definition vs activation

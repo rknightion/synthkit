@@ -2,6 +2,8 @@
 """Focused fixture tests for validate-docs.py."""
 
 import importlib.util
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -73,6 +75,83 @@ class DocsValidationTest(unittest.TestCase):
         root = self.fixture()
         (root / "docs/page.md").write_text("[missing][unknown]\n", encoding="utf-8")
         self.assertTrue(any("undefined Markdown reference: unknown" in error for error in MODULE.validate(root)))
+
+    def test_maintained_surfaces_and_images_are_checked(self):
+        root = self.fixture()
+        for name in ("README.md", "charts/synthkit/README.md", "plugins/synthkit/skills/demo/SKILL.md", "signals/demo.md"):
+            source = root / name
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("![missing image](absent.svg)\n", encoding="utf-8")
+        errors = MODULE.validate(root)
+        for name in ("README.md", "charts/synthkit/README.md", "plugins/synthkit/skills/demo/SKILL.md", "signals/demo.md"):
+            self.assertIn(f"{name}: broken relative link: absent.svg", errors)
+
+    def test_local_fragments_and_duplicate_heading_ids(self):
+        root = self.fixture()
+        source = root / "docs/page.md"
+        source.write_text("# A `code` heading\n# A `code` heading\n"
+                          "[ok](#a-code-heading-1) [bad](#absent)\n", encoding="utf-8")
+        self.assertEqual(MODULE.validate(root), ["docs/page.md: missing Markdown anchor: #absent"])
+
+    def test_assets_are_checked_relative_to_docs(self):
+        root = self.fixture()
+        with (root / "docs.toml").open("a", encoding="utf-8") as config:
+            config.write('\n[assets]\nsocial_image = "assets/missing.png"\n'
+                         'extra_css = ["stylesheets/missing.css"]\n')
+        errors = MODULE.validate(root)
+        self.assertIn("docs.toml: missing asset: assets/missing.png", errors)
+        self.assertIn("docs.toml: missing asset: stylesheets/missing.css", errors)
+
+    def test_fences_and_historical_private_trees_do_not_create_links(self):
+        root = self.fixture()
+        (root / "docs/page.md").write_text("~~~markdown\n[example](absent.md)\n~~~\n"
+                                           "````markdown\n```\n[example](absent.md)\n```\n````\n", encoding="utf-8")
+        for name in ("backlog/tasks/task.md", "codex/private.md"):
+            source = root / name
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("[example](absent.md)\n", encoding="utf-8")
+        self.assertEqual(MODULE.validate(root), [])
+
+    def test_hub_assets_are_narrowly_exempt_but_project_assets_must_exist(self):
+        root = self.fixture()
+        (root / "docs/stylesheets").mkdir()
+        (root / "docs/stylesheets/project.css").write_text("body {}", encoding="utf-8")
+        with (root / "docs.toml").open("a", encoding="utf-8") as config:
+            config.write('\n[assets]\nsocial_image = "assets/social-card.png"\n'
+                         'extra_css = ["stylesheets/brand.css", "stylesheets/project.css"]\n')
+        self.assertEqual(MODULE.validate(root), [])
+        # An adjacent filename is not a hub-owned asset.
+        with (root / "docs.toml").open("a", encoding="utf-8") as config:
+            config.write('extra_javascript = ["../private.js"]\n')
+        self.assertIn("docs.toml: asset escapes docs directory: ../private.js", MODULE.validate(root))
+
+    def test_cli_exit_and_diagnostics_follow_maintained_document_links(self):
+        root = self.fixture()
+        source = root / "README.md"
+        source.write_text("[page](docs/page.md#missing)\n", encoding="utf-8")
+        result = subprocess.run([sys.executable, str(SCRIPT), "--root", str(root)],
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("README.md: missing Markdown anchor: docs/page.md#missing", result.stderr)
+        source.write_text("[page](docs/page.md#page)\n", encoding="utf-8")
+        result = subprocess.run([sys.executable, str(SCRIPT), "--root", str(root)],
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("docs-check: OK", result.stdout)
+
+    def test_docs_links_cannot_point_outside_published_site(self):
+        root = self.fixture()
+        (root / "CONTRIBUTING.md").write_text("# Contribute\n", encoding="utf-8")
+        (root / "docs/page.md").write_text("[contribute](../CONTRIBUTING.md)\n", encoding="utf-8")
+        self.assertIn("docs/page.md: link escapes published docs directory: ../CONTRIBUTING.md; use an external repository URL",
+                      MODULE.validate(root))
+        (root / "docs/page.md").write_text("[contribute](https://github.com/example/project/blob/main/CONTRIBUTING.md)\n", encoding="utf-8")
+        for name in ("README.md", "charts/demo/README.md", "plugins/synthkit/README.md"):
+            source = root / name
+            source.parent.mkdir(parents=True, exist_ok=True)
+            prefix = "../../" if "/" in name else ""
+            source.write_text(f"[contribute]({prefix}CONTRIBUTING.md#contribute)\n", encoding="utf-8")
+        self.assertEqual(MODULE.validate(root), [])
 
 
 if __name__ == "__main__":

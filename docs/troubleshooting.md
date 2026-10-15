@@ -10,8 +10,8 @@ This page covers the most common operational problems. For a structured end-to-e
 ## Executable symptom matrix
 
 The ten source symptoms on this page are marked with `troubleshooting-symptom` comments and have
-one row in the maintained [machine-readable matrix](../e2e/acceptance/troubleshooting/matrix.json).
-The [clean-environment check](../e2e/acceptance/troubleshooting/check.py) executes every local,
+one row in the maintained [machine-readable matrix](https://github.com/rknightion/synthkit/blob/main/e2e/acceptance/troubleshooting/matrix.json).
+The [clean-environment check](https://github.com/rknightion/synthkit/blob/main/e2e/acceptance/troubleshooting/check.py) executes every local,
 non-destructive precondition, remedy, and post-remedy assertion without Docker, Compose, a live
 stack query, or an external-product write. Run it through the repository's `troubleshooting-check`
 recipe when that root-owned wiring is present.
@@ -196,7 +196,7 @@ count means delivery recovered after historical loss; it does not mean the lost 
 Before debugging live connectivity, always confirm blueprints load and series look correct offline:
 
 ```bash
-DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump 2>&1 | less
+SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -env /dev/null -once -dump 2>&1 | less
 ```
 
 Expected output per blueprint:
@@ -222,7 +222,7 @@ emits nothing. Set `BLUEPRINT_NAMES` to exact names and restart; use `*` only fo
 | Per-construct tick errors | `GET /control/health` |
 | Load-time blueprint problems | `GET /control/diagnostics` |
 | Generator throughput, queue depth/loss, dropped ticks | [self-observability.md](self-observability.md) |
-| Series inventory vs. signal contracts | `DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump` |
+| Series inventory vs. signal contracts | `SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -env /dev/null -once -dump` |
 
 ## Matrix rows
 

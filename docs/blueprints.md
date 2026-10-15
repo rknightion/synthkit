@@ -70,7 +70,7 @@ Within an environment:
 
 ### Workloads
 
-`workloads` is a list of application workloads that emit request traffic (metrics, traces, logs, optional RUM). Each entry has a `type` (workload kind), a `name`, a `runs_on` reference that binds it to a cluster, and kind-specific config. The two built-in kinds are `web_service` (a single service) and `app` (a declared multi-service graph with a custom-telemetry DSL).
+`workloads` is a list of application workloads that emit request traffic (metrics, traces, logs, optional RUM). Each entry has a `type` (workload kind), a `name`, a `runs_on` reference that binds it to a cluster, and kind-specific config. The built-in kinds are `web_service` (a single service), `app` (a declared multi-service graph with a custom-telemetry DSL), and `ai_agent` (correlated agent sessions and model calls).
 
 See [workloads.md](workloads.md) for the per-kind detail.
 
@@ -173,7 +173,7 @@ The `/create-blueprint` skill (see [tools.md](tools.md)) walks you through an in
 
 - **[Blueprint reference](blueprint-reference.md)** — every key documented, grouped by section
 - **[Infrastructure](infrastructure.md)** — environments, clusters, databases, caches, and how identity joins work
-- **[Workloads](workloads.md)** — `web_service` and `app` workload config
+- **[Workloads](workloads.md)** — `web_service`, `app` and `ai_agent` workload config
 - **[Emission switches](emission-switches.md)** — which constructs each declaration gates
 - **[Incidents](incidents.md)** — scenarios, failure modes, scheduling, and live activation
 - **[Blueprint examples](blueprint-examples.md)** — annotated example blueprints from the catalog

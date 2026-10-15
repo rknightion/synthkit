@@ -1,0 +1,18 @@
+{
+  "source": "m7kni-net-site/shared/stylesheets/brand.css",
+  "preset": "fit",
+  "width": 640,
+  "paper": "#ffffff",
+  "accent": "#1d6a8a",
+  "ink": "#172b35",
+  "font": "Hanken Grotesk when locally available; Arial/sans-serif fallback; system monospace for technical labels",
+  "fontFallback": "Arial/sans-serif is the verified standalone fallback; no fonts bundled",
+  "decision": "Match docs hub petrol accent; prefer its sans-serif family with an explicit system fallback. No remote font requests. Static light diagrams remain legible in dark docs via explicit white canvas. User delegated style decisions.",
+  "types": {
+    "telemetry-flow": "architecture",
+    "architecture": "architecture",
+    "onboarding": "flowchart",
+    "sm-activation": "flowchart",
+    "contributor-checks": "flowchart"
+  }
+}

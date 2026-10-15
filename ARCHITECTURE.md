@@ -33,14 +33,14 @@ CONSTRUCTS ⊥ WORKLOADS      isolated modules. Constructs render infra telemetr
                             ledger. Neither knows blueprints or each other exist.
 ```
 
-## 2. Frozen seams (exact signatures — `internal/core`, `internal/ledger`, `internal/fixture`)
+## 2. Frozen seams (selected interfaces — `internal/core`, `internal/ledger`, `internal/fixture`)
 
 ### Construct
 
 ```go
 type Construct interface {
     Kind() string                  // registry key, snake_case ("coredns", "rds")
-    Signals() []SignalClass        // Metrics | Traces | Logs | RUM | PyroscopeProfiles — framework only asks for these
+    Signals() []SignalClass        // Metrics | Traces | Logs | RUM | PyroscopeProfiles | OTLPMetrics | OTLPLogs | Sigil — framework only asks for these
     Interval() time.Duration       // default cadence; metric lanes use the 60s floor unless high_dpm opts in
     Tick(ctx context.Context, now time.Time, w *World) error
 }
@@ -75,7 +75,7 @@ type WorkloadReg struct {
 }
 ```
 
-**Two workload kinds — when to use which:**
+**Workload kinds — when to use which:**
 - **`web_service`** — a SINGLE service: a browser→backend→DB hop tree with the gen_ai / RUM / Beyla
   lanes. The simple, common case.
 - **`app`** — a blueprint-declared service GRAPH of typed nodes (`services:`), each emitting its OWN
@@ -85,6 +85,8 @@ type WorkloadReg struct {
   with their own (possibly custom) metrics/logs/spans, per-service incident targeting, or per-service
   scaling; use `web_service` otherwise. The two kinds may COEXIST in one blueprint (the core
   correlated flow as an `app`; simpler/peripheral services as standalone `web_service`).
+- **`ai_agent`** — correlated coding-agent sessions, turns, model calls and evaluations, with
+  optional Sigil generation ingest. See [workloads](docs/workloads.md).
 
 The `app` service-node + the custom-telemetry DSL are mechanic-lib seams (`internal/telemetryspec`,
 a peer of `internal/cw`/`internal/genai`; NO OTel SDK — metrics via promrw final names, spans via
@@ -115,7 +117,10 @@ type World struct {
     Shape   *shape.Engine    // diurnal plateau × weekly × noise × incidents
     Metrics MetricWriter     // pre-scoped: stamps the blueprint label iff ScopeBlueprint (clone-before-stamp)
     Logs    LogWriter        // Loki 3-tuple; sink ASSERTS no high-card stream label
-    Traces  TraceWriter      // OTLP ResourceSpans — TRACES ONLY
+    Traces  TraceWriter      // OTLP ResourceSpans
+    OTLPMetrics OTLPMetricWriter // optional native ResourceMetrics
+    OTLPLogs OTLPLogWriter       // optional native ResourceLogs
+    Sigil SigilWriter           // optional AI generation ingest
     Pyroscope PyroscopeWriter // Pyroscope profile series (hand-built pprof); span profiles via ActiveFor (workload-lane only)
     Ledger  *ledger.Ledger   // workloads only; constructs receive nil and never read it
 }
@@ -492,16 +497,17 @@ EBS↔node is the natural next assertion as that fixture link is exercised.
 
 | Sink | Carries | Key contracts |
 |---|---|---|
-| `sink/promrw` | ALL metrics (final pre-mangled names) | Prometheus **Remote-Write v2** wire format (`io.prometheus.write.v2.Request`); proto types vendored under `internal/sink/promrw/writev2` (provenance-tracked, regenerated via `just proto`); marshalled with `google.golang.org/protobuf` + snappy block compression; raw `http.Client`; symbols-table string interning (egress reduction); per-series `Metadata` stamped from `Series.Kind`; optional `Exemplars` field on the `Series` seam; per-push series budget + kill switch; per-blueprint budget in the scoped writer; dry-run inventory |
-| `sink/otlp` | traces ONLY | hand-encoded ResourceSpans protobuf (multi-Resource per export, explicit timestamps); never the OTel SDK; never the collector/trace/v1 import |
+| `sink/promrw` | Prometheus-shaped metrics (final pre-mangled names) | Prometheus **Remote-Write v2** wire format (`io.prometheus.write.v2.Request`); proto types vendored under `internal/sink/promrw/writev2` (provenance-tracked, regenerated via `just proto`); marshalled with `google.golang.org/protobuf` + snappy block compression; raw `http.Client`; symbols-table string interning (egress reduction); per-series `Metadata` stamped from `Series.Kind`; optional `Exemplars` field on the `Series` seam; per-push series budget + kill switch; per-blueprint budget in the scoped writer; dry-run inventory |
+| `sink/otlp` | traces and explicit native metrics/logs | hand-encoded ResourceSpans, ResourceMetrics and ResourceLogs protobufs (multi-Resource per export, explicit timestamps); never the OTel SDK; never the collector/trace/v1 import |
 | `sink/loki` | logs | 3-tuple `[ts, line, {meta}]`; ASSERTS no high-card key in Stream.Labels (per-sink forbidden sets — `model` legal in Mimir, forbidden as Loki stream label) |
-| `sink/faro` | RUM beacons | POST to Faro collector with app key (4th credential surface; optional) |
-| `sink/pyroscope` | Pyroscope profiles (hand-built pprof) | Pyroscope **push.v1 connect-unary** (`POST /push.v1.PusherService/Push`, `Content-Type: application/proto`, `Connect-Protocol-Version: 1`, basic auth — NO `X-Scope-OrgID`); proto types vendored under `internal/sink/pyroscope/pushv1` + `internal/pyroscope/pprofpb` (provenance-tracked, regen via `just pyroscope-proto`); inner pprof gzipped into `RawSample.raw_profile` (NOT the HTTP body); deterministic-per-tick `RawSample.ID` (retry-dedup); raw `http.Client` + `httpretry.EmitOncePolicy`; dry-run inventory; 5th credential surface `GC_PROFILES_*` (optional). The `internal/pyroscope` mechanic lib (peer of `state`/`cw`) builds the pprof `Profile` protos + per-runtime flamegraph vocab from `signals/profiles.md` |
+| `sink/sigil` | AI generation, workflow-step and evaluation exports | Optional separate `GC_SIGIL_*` credential triplet; stage writes share the enclosing delivery deadline. |
+| `sink/faro` | RUM beacons | POST to Faro collector with app key (separate optional credential surface) |
+| `sink/pyroscope` | Pyroscope profiles (hand-built pprof) | Pyroscope **push.v1 connect-unary** (`POST /push.v1.PusherService/Push`, `Content-Type: application/proto`, `Connect-Protocol-Version: 1`, basic auth — NO `X-Scope-OrgID`); proto types vendored under `internal/sink/pyroscope/pushv1` + `internal/pyroscope/pprofpb` (provenance-tracked, regen via `just pyroscope-proto`); inner pprof gzipped into `RawSample.raw_profile` (NOT the HTTP body); deterministic-per-tick `RawSample.ID` (retry-dedup); raw `http.Client` + `httpretry.EmitOncePolicy`; dry-run inventory; optional endpoint settings `GC_PROFILES_*` (optional). The `internal/pyroscope` mechanic lib (peer of `state`/`cw`) builds the pprof `Profile` protos + per-runtime flamegraph vocab from `signals/profiles.md` |
 
 **Delivery is decoupled from the tick (I41).** Every sink above is fronted by an in-memory delivery
 queue (`internal/sink/queue`) wired in `runner.buildWorld`: the scoped writer's `Write` enqueues and
 background senders batch (size-or-deadline) before calling the sink's real `Write`. This keeps the
-synchronous push off the tick's critical path (a slow remote no longer stalls cadence) and collapses
+synchronous push off the tick's critical path while capacity remains and collapses
 many small per-construct round-trips into a few large batched ones. Per-identity sharding preserves
 the cumulative-counter ordering (I3); the existing `pushhook` outcome seam still fires per real push
 (now per batch). See I41 for the full contract (no WAL, backpressure, RunOnce flush, self-obs).
@@ -618,10 +624,11 @@ additionally asserts that `internal/sink/*` and `internal/runner` import neither
 ## 7. Invariants (each enforced by types/asserts/tests — never comments alone)
 
 Metric mechanics
-- **I1** ALL metrics via remote_write with final pre-mangled names; OTel metrics SDK banned **on the
-  synthetic-data path** (the sole exception is `internal/selfobs` for the generator's own telemetry —
-  I34).
-- **I2** OTLP carries traces only; hand-encoded protos; multi-Resource exports.
+- **I1** Prometheus-shaped metrics use remote_write with final pre-mangled names. Explicit native
+  OTLP metric lanes use ResourceMetrics with native instrument names. The OTel metrics SDK is banned
+  **on the synthetic-data path** (`internal/selfobs` instruments only the generator itself — I34).
+- **I2** Synthetic OTLP traces, metrics and logs use hand-encoded protos and multi-Resource exports;
+  enabled signal classes determine which writers are wired. No synthetic lane uses the OTel SDK.
 - **I2b** Pyroscope profiles go via `sink/pyroscope` (push.v1 connect-unary, vendored pprof/push protos,
   hand-built — never the pyroscope-go SDK on the synthetic path). Profile↔trace **span profiles** ride the
   I10 `ledger.ActiveFor` bridge and are **workload-lane only** — constructs never tag `span_id` (I9). The
@@ -667,8 +674,10 @@ Conformance & content
 - **I22** Vendor-app conformance = exact discovery/join series (build_info with "v"-prefixed Alloy
   version, helm/agent build_info, cluster+job labels on logs, OpenCost/Kepler). Constructs own
   version canonicalization.
-- **I23** Content/PII strip is first-class: no content-bearing fields, ever; emit the proof
-  sentinel (`synthkit_content_leak_test` 0-gauge / `synthkit_content_dropped_total`).
+- **I23** The generic gen_ai path strips content-bearing fields. The `ai_agent` Sigil/profile
+  exception is defined in `signals/sigil.md`, including capture-mode-controlled trace content.
+  The Alloy health content counters and zero-valued leak gauge are synthetic modeled signals,
+  not independent evidence that arbitrary payloads have been inspected or stripped.
 
 Ops
 - **I24** Control-plane JSON round-trips zero/false — NO `omitempty` on knobs; regression test.
@@ -729,8 +738,8 @@ Custom-telemetry DSL (`app` workload — §2)
 - **I41** Sink DELIVERY is decoupled from EMISSION. Each signal's scoped writer feeds a bounded
   in-memory queue (`internal/sink/queue`, a `core.{Metric,Log,Trace,Pyroscope}Writer` decorator):
   a construct's `Write` enqueues (non-blocking under capacity) and background senders batch by
-  size-or-deadline before calling the real sink — so a slow remote can never stall the tick cadence
-  (the cause of the multi-minute cycles / bursty DPM this replaced). Items are sharded by IDENTITY
+  size-or-deadline before calling the real sink. Slow delivery is absorbed only while queue
+  capacity remains; a full shard applies backpressure to its producers. Items are sharded by IDENTITY
   (metric name+labels, stream labels, profile labels; traces round-robin since Tempo is order-free),
   so successive snapshots of one series always reach the same ordered sender — preserving the
   timestamp order cumulative counters (I3) require. There is NO disk WAL (synthetic data regenerates
@@ -786,10 +795,11 @@ customer identity stays blueprint-only.
 
 ## 9. Verification
 
-1. `go build ./... && go vet ./... && go test ./...` green at every wiring checkpoint and commit.
+1. `just check` is the final pre-commit gate; use focused package checks during development.
 2. `DRY_RUN=true synthkit -once -dump` → series/label inventory diffed against signals/.
 3. De-Rochification gate: grep test (no customer names / customer-specific strings in the catalog) + substrate
    no-blueprint-label test + construct-imports test (no construct imports another construct).
-4. Per-construct adversarial review (fresh-context Opus) of emitted data vs signals/.
-5. Live push smoke test (validated): metrics/traces/logs + Fleet collector registration confirmed in
-   Grafana Cloud via gcx. Runbook: [docs/RUNBOOK.md](./docs/RUNBOOK.md).
+4. Independently review changed signal shapes against signals/ and follow the contributor review gate.
+5. For authorized live verification, record the exact source/image and backend readback separately
+   from local proof. Historical smoke tests do not certify a current deployment.
+   Runbook: [docs/RUNBOOK.md](./docs/RUNBOOK.md).

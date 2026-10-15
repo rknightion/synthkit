@@ -38,29 +38,24 @@ cardinality per construct.
 
 ![X-ray view: per-construct emission inventory showing series counts, metric names and label keys](docs/assets/screenshots/emission-xray.png)
 
-## Quick start
+## Start here
 
-```bash
-go build ./cmd/synthkit
+Follow the **[Quick Start](docs/quickstart.md)** for one focused blueprint: inspect its inventory
+without credentials, configure your destination, run preflight, then verify metrics, logs and traces.
+The [installation guide](docs/installation.md) covers source builds and prebuilt containers.
 
-# Dry run: select one bundled blueprint and print its series/label inventory, push nothing
-DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
+![First-run workflow: build, inspect offline, configure credentials, preflight, run live and verify delivery](docs/assets/diagrams/onboarding.svg)
 
-# Live: create a private env file, fill the required Grafana Cloud values,
-# and explicitly set DRY_RUN=false before starting
-if test -e .env; then
-  printf '%s\n' '.env already exists; review it before changing live-mode settings.' >&2
-else
-  install -m 600 .env.example .env
-  ./plugins/synthkit/skills/initial-setup/scripts/set-env.sh DRY_RUN false .env
-fi
-# Edit .env and fill the required Grafana Cloud values plus an exact BLUEPRINT_NAMES selection
-# without printing secrets.
-./synthkit
+[Open the diagram at full size](docs/assets/diagrams/onboarding.html).
 
-# From another terminal; this must print true
-curl -fsS http://localhost:8088/control/status | jq -e '.dry_run == false'
-```
+A source build needs the frontend assets built before the Go binary to include the operator UI.
+The Quick Start includes both steps; published containers already include the UI.
+
+For other starting points:
+
+- [Understand the model](docs/getting-started.md) — blueprints, workloads and signal destinations.
+- [Write a blueprint](docs/blueprints.md) — adapt an existing example.
+- [Contribute](docs/contributing.md) — developer setup, agent workflows and required checks.
 
 ## LLM-assisted setup (Claude Code / Codex / OpenCode)
 
@@ -97,12 +92,13 @@ docker compose restart synthkit
 The first v2 activation-format upgrade also needs this explicit apply/restart. Later release-only
 bumps retain activation when specification, target and schema match; the write tool must still match
 the current snapshot version. The standalone in-cluster tool supports a dedicated named SM Lease and
-ConfigMap without shared disk; current Helm SM Job wiring remains file-only.
+ConfigMap without shared disk. Helm also supports named SM state with HA; select a matching
+engine image (at least `1.6.0-rc.176`). See [Synthetic Monitoring](docs/synthetic-monitoring.md).
 
 Preview is the default and makes no remote mutation. `DRY_RUN` does not authorise the provisioner.
 Foreign collisions and ambiguous/pending operations fail closed; resources are never deleted.
-The probe name, region, and Frankfurt coordinates are shared constants in `internal/construct/sm`
-so data-plane and control-plane cannot drift.
+Probe name, region and paired optional latitude/longitude resolve once for both planes. Omitted
+coordinates retain Frankfurt; all checks sharing a probe name must agree on its location.
 
 ## Authoring a blueprint
 
@@ -201,15 +197,15 @@ curl -fsS "${control_auth[@]}" -X POST http://localhost:8088/control/scaling \
 # Scale-down retires old pod/node series automatically (state.DropWhere).
 ```
 
-## Status
+## Capabilities and support
 
-v1 catalog + composition + platform complete and green (`go build ./... && go vet ./... && go test ./...`):
-21 construct kinds + the `web_service` and `app` workloads, the blueprint loader/resolver, the two-cadence runner,
-the control plane + operator UI, the Infinity JSON host, and the SM provisioner. The signal contracts are
-lifted from a proven production-shaped generator with full provenance citations ([SIGNALS.md](./SIGNALS.md)).
-Open items are tracked in [cantfind.md](./cantfind.md). The live-push end-to-end path is validated
-(metrics, traces, logs, and Fleet collectors confirmed in Grafana Cloud) — see
-[docs/RUNBOOK.md](./docs/RUNBOOK.md) for the credentials→telemetry runbook.
+See the [construct catalogue](docs/constructs.md), [workloads](docs/workloads.md) and
+[signal contracts](SIGNALS.md) for supported telemetry. Vendor-specific gaps are recorded in
+[cantfind.md](cantfind.md); implementation work is tracked in [Backlog](backlog/tasks/).
+A modelled topology does not imply that every vendor telemetry profile is available.
+
+The [verification runbook](docs/RUNBOOK.md) explains how to prove delivery in your own stack.
+Passing a local dry run or a historical deployment test does not establish current live delivery.
 
 ## License
 

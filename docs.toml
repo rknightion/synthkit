@@ -111,6 +111,9 @@ Reference = [
 ]
 
 [[site.nav]]
+Contributing = "contributing.md"
+
+[[site.nav]]
 FAQ = "faq.md"
 
 [[site.nav]]

@@ -12,9 +12,10 @@ detail — treat those linked pages as the source of truth.
 
 ### Does synthkit send data to my real production Grafana Cloud stack?
 
-Only if you configure it to and only synthetic data — it never reads from or writes to your
-production systems. `DRY_RUN` defaults to `true`, so a fresh checkout produces no network traffic
-at all until you explicitly set `DRY_RUN=false` and fill in credentials. Empty `BLUEPRINT_NAMES`
+Synthetic telemetry goes to the destinations you configure. The modeled applications and
+infrastructure are not deployed or contacted. `DRY_RUN` defaults to `true`, suppressing synthetic
+delivery; self-observability, git-source fetching and explicit provisioning have separate controls.
+Use the isolated preview command in the Quick Start before configuring live delivery. Empty `BLUEPRINT_NAMES`
 also selects no blueprints, so even live mode emits no synthetic telemetry until you choose exact
 runtime names. See [Getting
 Started](getting-started.md) and [Credentials](credentials.md).
@@ -23,7 +24,7 @@ Started](getting-started.md) and [Credentials](credentials.md).
 
 No. synthkit doesn't touch real infrastructure — it generates telemetry that *looks like* it came
 from an EKS cluster, RDS database, or Cloudflare account, entirely from a YAML blueprint. Run
-`DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump` to see a focused series inventory
+`SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -env /dev/null -once -dump` to see a focused series inventory
 with no credentials and no cloud account at all. See [Quick Start](quickstart.md).
 
 ### What's the smallest thing I need to get real data into Grafana Cloud?

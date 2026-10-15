@@ -35,7 +35,7 @@ loads the complete catalog.
 BLUEPRINT_NAMES=otlp-native ./synthkit -validate
 
 # Print the full inventory of distinct series names + label keys — push nothing.
-DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
+SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -env /dev/null -once -dump
 
 # One live cycle (DRY_RUN=false to push real data).
 DRY_RUN=false BLUEPRINT_NAMES=otlp-native ./synthkit -once
@@ -144,7 +144,9 @@ the Compose profile is the supported Docker-only deployment route. See
 The in-cluster tool acquires its separate Lease before any SM request/state update and reuses the
 HA request/operation/fence budgets. Acquisition is capped at two minutes; the invocation at ten.
 There is no environment-selected API endpoint, KUBECONFIG fallback or automatic provisioning.
-Current Helm SM Job wiring remains file-only; binary Kubernetes capability does not change it.
+The [Kubernetes-state Helm Job](kubernetes.md#diskless-one-shot-job) supports HA emitters with
+separate named state and Lease authority. Use matching emitter/tool images at least 1.6.0-rc.176;
+preview, explicit apply and emitter restart/reacquisition remain required. File mode is still available.
 
 ## blueprint-schema — schema artifact generator
 

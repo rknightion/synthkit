@@ -61,8 +61,9 @@ before production starts. `CONFIG_SNAPSHOT_PATH` is ignored for Kubernetes contr
 uploads remain file-backed in that directory: they still need retained local disk and do not
 follow a lease or gain shared-upload durability. HA uploads and automatic SM provisioning remain
 excluded. Manual diskless SM provisioning and acquisition-time activation are supported with the
-named SM mapping; file Lease HA still suppresses SM. The HA chart's SM Job remains file-only;
-see [Kubernetes](kubernetes.md) for the separately wired stateless emitter chart.
+named SM mapping; file Lease HA still suppresses SM. The chart supports HA plus a Kubernetes-state
+SM Job with separate principals and Leases, using a matching engine image at least 1.6.0-rc.176.
+See [Kubernetes](kubernetes.md#diskless-one-shot-job) for settings and explicit preview/apply/restart.
 
 ## Synthetic data sinks
 
@@ -73,7 +74,7 @@ One Grafana Cloud Access Policy (CAP) token with `metrics:write`, `logs:write`, 
 | `GC_TOKEN` | _(empty)_ | Shared CAP token for metrics, logs, traces, and profiles pushes. Required for live mode. |
 | `GC_PROM_RW` | _(empty)_ | Mimir Remote-Write v2 push URL, e.g. `https://prometheus-prod-XX-<region>.grafana.net/api/prom/push` |
 | `GC_PROM_USER` | _(empty)_ | Mimir instance ID (HTTP Basic username for `GC_PROM_RW`). |
-| `GC_OTLP_ENDPOINT` | _(empty)_ | OTLP gateway base URL, e.g. `https://otlp-gateway-<region>.grafana.net/otlp`. Traces only; `/v1/traces` is appended automatically. |
+| `GC_OTLP_ENDPOINT` | _(empty)_ | OTLP gateway base URL, e.g. `https://otlp-gateway-<region>.grafana.net/otlp`. Appends `/v1/traces`, `/v1/metrics` or `/v1/logs` for the corresponding enabled signal lane. |
 | `GC_OTLP_USER` | _(empty)_ | Stack ID (HTTP Basic username for `GC_OTLP_ENDPOINT`). |
 | `GC_LOKI` | _(empty)_ | Loki push URL, e.g. `https://logs-prod-XXX.grafana.net/loki/api/v1/push` |
 | `GC_LOKI_USER` | _(empty)_ | Loki instance ID (HTTP Basic username for `GC_LOKI`). |
@@ -246,6 +247,18 @@ These variables configure continuous profiling of the **synthkit process itself*
 | `PYROSCOPE_BLOCK_RATE` | `5` | `runtime.SetBlockProfileRate` in nanoseconds. `0` = off. |
 
 ---
+
+## AI generation ingest (optional)
+
+The `ai_agent` workload's Sigil lane uses a separate credential triplet. All three
+values must be nonempty for this lane to be configured. Its absence does not disable
+that workload's traces or metrics.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `GC_SIGIL_ENDPOINT` | _(empty)_ | Base Sigil ingest URL; the sink appends its export paths. |
+| `GC_SIGIL_TENANT_ID` | _(empty)_ | Sigil stack/tenant ID, not the Mimir instance ID. |
+| `GC_SIGIL_TOKEN` | _(empty)_ | Sigil ingest credential, separate from `GC_TOKEN`. |
 
 ## Self-observability (OTLP)
 

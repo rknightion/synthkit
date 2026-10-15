@@ -13,8 +13,8 @@ implementation or physical device inventory is added here.
 
 The source contract is Alloy **v1.20.1**, its Contrib **v0.161.0** parser and
 Collector receiverhelper **v1.67.0**. Names, fields and URLs are catalogued in
-[syslog log shapes](../../signals/logs.md#shared-received-syslog-renderer-slug-logs-syslog)
-and [receiver health](../../signals/fm.md#opt-in-syslog-receiver-health-slug-fm-syslog-health).
+[syslog log shapes](https://github.com/rknightion/synthkit/blob/main/signals/logs.md#shared-received-syslog-renderer-slug-logs-syslog)
+and [receiver health](https://github.com/rknightion/synthkit/blob/main/signals/fm.md#opt-in-syslog-receiver-health-slug-fm-syslog-health).
 
 ## Blueprint selection and health
 

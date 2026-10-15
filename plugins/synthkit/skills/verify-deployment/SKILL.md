@@ -70,12 +70,14 @@ and call the public readiness probe without credentials:
 
 ```bash
 curl -fsS "http://<bind>:8088/control/readiness"
-curl -fsS -u "control:${CONTROL_TOKEN}" "http://<bind>:8088/control/status"
-curl -fsS -u "control:${CONTROL_TOKEN}" -o /dev/null -w '%{http_code}\n' "http://<bind>:8088/control/ui"
+curl -fsS -u control "http://<bind>:8088/control/status"
+curl -fsS -u control -o /dev/null -w '%{http_code}\n' "http://<bind>:8088/control/ui"
 docker compose ps
 docker compose logs --tail=50 synthkit
 ```
 
+`-u control` prompts for the token without exposing it in process arguments. For unattended
+verification use an operator-owned mode-0600 netrc file; never expand a token into argv.
 Omit `-u` only when `CONTROL_TOKEN` is absent on a loopback-only deployment. Expect UI status
 `200`, a running container, and ready sinks in the authenticated status result. Treat a
 connection refusal from another machine as a likely loopback bind; query on the host or use an SSH
@@ -193,7 +195,9 @@ failure.
   Query only after its declared interval plus delivery deadline. First v2 format activation requires
   explicit apply/restart; subsequent release-only bumps preserve activation when specs/target/schema
   match. The write tool still must equal the current snapshot version. Kubernetes standby never
-  produces data; current Helm SM Job wiring remains file-only.
+  produces data. HA chart deployments can use named Kubernetes state with separate emitter and
+  provisioner Lease authority; verify the matching image and configuration against
+  `docs/synthetic-monitoring.md`. The default file-mode Job still requires shared storage.
 - An SM credential or endpoint change requires an explicit `SM_PROVISION_MIGRATE_TARGET=true`
   preview and matching apply within 15 minutes before the restart; never treat a new snapshot alone
   as migrated ownership.

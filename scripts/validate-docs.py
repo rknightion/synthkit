@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import html
+import unicodedata
 import re
 import sys
 from pathlib import Path
@@ -32,11 +34,81 @@ def nav_pages(value: object) -> list[str]:
     return pages
 
 
+# These exact files are injected by the documentation hub, not repository assets.
+# Keep in sync with the documented hub-output exclusions in .gitignore.
+HUB_ASSETS = frozenset({"assets/social-card.png", "assets/social-card.svg",
+                        "assets/project-icon.svg", "assets/project-icon-solid.svg",
+                        "stylesheets/brand.css"})
+
+
+def without_fences(markdown: str) -> str:
+    lines = []
+    fence = None
+    for line in markdown.splitlines():
+        match = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+        if fence:
+            if match and match[1][0] == fence[0] and len(match[1]) >= len(fence) and not match[2].strip():
+                fence = None
+            lines.append("")
+        elif match:
+            fence = match[1]
+            lines.append("")
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def without_code(markdown: str) -> str:
-    # Fenced examples are not document links; rendering semantics belong to the hub.
-    markdown = re.sub(r"(?ms)^```.*?^```\s*$", "", markdown)
-    # Inline code is likewise literal text, not a rendered link.
-    return re.sub(r"`+[^`\n]*`+", "", markdown)
+    # Examples are literal text, not links. Retain heading text separately for IDs.
+    markdown = without_fences(markdown)
+    return re.sub(r"(`+)(?!`)(.+?)(?<!`)\1(?!`)", "", markdown)
+
+
+def markdown_anchors(markdown: str) -> set[str]:
+    """Common GitHub and MkDocs heading IDs plus explicit HTML/attribute IDs.
+
+    This is intentionally not a Markdown renderer: dynamic includes and external
+    URLs are outside the local contract. Accept both renderers' punctuation and
+    duplicate-heading conventions for docs shared between GitHub and the hub.
+    """
+    markdown = without_fences(markdown)
+    anchors = set(re.findall(r"\b(?:id|name)=[\"']([^\"']+)", markdown))
+    counts: dict[str, int] = {}
+    lines = markdown.splitlines()
+    for index, line in enumerate(lines):
+        match = re.match(r"^ {0,3}#{1,6}\s+(.+?)(?:\s+#+)?\s*$", line)
+        heading = match[1] if match else None
+        if heading is None and index + 1 < len(lines) and line.strip() and re.fullmatch(r" {0,3}(?:=+|-+)\s*", lines[index + 1]):
+            heading = line.strip()
+        if heading is None:
+            continue
+        explicit = re.search(r"\{#([^ }]+)[^}]*}\s*$", heading)
+        if explicit:
+            anchors.add(explicit[1])
+            heading = heading[:explicit.start()]
+        heading = re.sub(r"<[^>]+>", "", heading)
+        heading = re.sub(r"!?\[([^]]+)\]\([^)]*\)", r"\1", heading)
+        heading = html.unescape(heading).lower().replace("`", "")
+        # GitHub strips punctuation; MkDocs also normalizes Unicode and spaces.
+        github = re.sub(r"[^\w\- ]", "", heading).replace(" ", "-")
+        ascii_heading = unicodedata.normalize("NFKD", heading).encode("ascii", "ignore").decode()
+        mkdocs = re.sub(r"[-\s]+", "-", re.sub(r"[^\w\s-]", "", ascii_heading)).strip("-")
+        for slug in {github, mkdocs}:
+            count = counts.get(slug, 0)
+            anchors.add(slug if not count else f"{slug}-{count}")
+            if count:
+                anchors.add(f"{slug}_{count}")
+            counts[slug] = count + 1
+    return anchors
+
+
+def maintained_markdown(root: Path) -> list[Path]:
+    # Never walk arbitrary repository trees: backlog, captures and private scratch
+    # are historical evidence, not published documentation. Preserve all docs/ checks.
+    sources = set(root.glob("*.md"))
+    for directory in ("docs", "charts", "plugins/synthkit", "signals"):
+        sources.update((root / directory).rglob("*.md"))
+    return sorted(sources)
 
 
 def normalize_reference_label(label: str) -> str:
@@ -111,30 +183,60 @@ def validate(root: Path) -> list[str]:
         for page in sorted(authored - set(pages))
     )
 
+    assets = config.get("assets", {})
+    if not isinstance(assets, dict):
+        errors.append("docs.toml assets must be a table")
+        assets = {}
+    for key in ("social_image", "extra_css", "extra_javascript"):
+        value = assets.get(key, [] if key != "social_image" else "")
+        values = value if isinstance(value, list) else [value]
+        for target in values:
+            if not isinstance(target, str):
+                errors.append(f"docs.toml: invalid asset in {key}: expected a string")
+                continue
+            if not target:
+                continue
+            parsed = urlsplit(target)
+            if parsed.scheme or parsed.netloc:
+                continue
+            relative = unquote(parsed.path)
+            destination = (docs / relative).resolve()
+            if not destination.is_relative_to(docs_resolved):
+                errors.append(f"docs.toml: asset escapes docs directory: {target}")
+            elif relative not in HUB_ASSETS and not destination.is_file():
+                errors.append(f"docs.toml: missing asset: {target}")
+
     root_resolved = root.resolve()
-    for source in sorted(docs.rglob("*.md")):
+    anchor_cache: dict[Path, set[str]] = {}
+    for source in maintained_markdown(root):
         markdown = source.read_text(encoding="utf-8")
         defined_references = reference_definitions(markdown)
         for label in reference_uses(markdown):
             if normalize_reference_label(label) not in defined_references:
                 errors.append(f"{source.relative_to(root)}: undefined Markdown reference: {label}")
         for target in link_targets(markdown):
-            if not target or target.startswith("#"):
+            if not target:
                 continue
             parsed = urlsplit(target)
             if parsed.scheme or parsed.netloc:
                 continue
             relative = unquote(parsed.path)
-            if not relative:
-                continue
-            destination = (source.parent / relative).resolve()
+            destination = (source.parent / relative).resolve() if relative else source.resolve()
             try:
                 destination.relative_to(root_resolved)
             except ValueError:
                 errors.append(f"{source.relative_to(root)}: link escapes repository: {target}")
                 continue
+            if source.resolve().is_relative_to(docs_resolved) and not destination.is_relative_to(docs_resolved):
+                errors.append(f"{source.relative_to(root)}: link escapes published docs directory: {target}; use an external repository URL")
+                continue
             if not destination.exists():
                 errors.append(f"{source.relative_to(root)}: broken relative link: {target}")
+            elif parsed.fragment and destination.suffix.lower() == ".md" and destination.is_file():
+                if destination not in anchor_cache:
+                    anchor_cache[destination] = markdown_anchors(destination.read_text(encoding="utf-8"))
+                if unquote(parsed.fragment) not in anchor_cache[destination]:
+                    errors.append(f"{source.relative_to(root)}: missing Markdown anchor: {target}")
     return errors
 
 
@@ -151,7 +253,7 @@ def main() -> int:
         for error in errors:
             print(f"docs-check: ERROR: {error}", file=sys.stderr)
         return 1
-    print("docs-check: OK — docs.toml navigation, Markdown links, and docs/404.md validated")
+    print("docs-check: OK — navigation, maintained Markdown links/anchors, assets, and docs/404.md validated")
     return 0
 
 

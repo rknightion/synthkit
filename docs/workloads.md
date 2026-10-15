@@ -1,18 +1,19 @@
 ---
 title: Workloads
-description: The two workload kinds — web_service (single-service trace tree) and app (declared service graph with custom telemetry).
+description: Web services, application graphs and AI-agent sessions with correlated telemetry.
 ---
 
 # Workloads
 
 A workload is the request-generating layer of a blueprint. Where constructs emit infrastructure telemetry on a fixed tick, a workload mints correlated request samples per master tick and projects them across traces, logs, and optionally RUM — threading one correlation key-set through every signal class so a trace ID in a span matches the same ID in the application log and the browser beacon.
 
-Two workload kinds exist:
+Three workload kinds are registered:
 
 - **`web_service`** — a single service: a browser→backend→DB hop tree with optional gen_ai/LLM hops, RUM, Beyla, and profiling. Simple and common.
 - **`app`** — a blueprint-declared service graph of typed nodes, each with its own custom metrics/logs/spans via the telemetry DSL, and one end-to-end correlated trace across the whole graph. Use when you need multiple backend services each with distinct telemetry, per-service incident targeting, or per-service scaling.
+- **`ai_agent`** — coding-agent sessions with correlated turns, model calls, evaluations and optional Sigil generation ingest. The shipped `grafana-ai-o11y` blueprint demonstrates this workload; its complete field surface is in the [generated schema](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md). Sigil uses `GC_SIGIL_*`, separately from OTLP traces and metrics.
 
-The two kinds may coexist in one blueprint: model the core correlated flow as an `app`, and simpler peripheral services as standalone `web_service` workloads.
+These kinds may coexist in one blueprint: model the core correlated flow as an `app`, and simpler peripheral services as standalone `web_service` workloads.
 
 ## web_service
 

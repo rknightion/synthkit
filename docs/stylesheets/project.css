@@ -352,3 +352,15 @@
     display: none;
   }
 }
+
+/* Keep technical labels readable on narrow screens without overflowing the page. */
+.diagram-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.diagram-scroll img {
+  width: 640px;
+  min-width: 640px;
+  max-width: none;
+  height: auto;
+}

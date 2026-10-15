@@ -11,6 +11,14 @@ This requires a two-phase startup: a one-shot provisioner registers the offline 
 
 ---
 
+<div class="diagram-scroll" markdown>
+
+![Synthetic Monitoring activation: publish a snapshot, preview and explicitly apply it, then restart or reacquire before verifying emission.](assets/diagrams/sm-activation.svg)
+
+</div>
+
+[Open the diagram at full size](assets/diagrams/sm-activation.html).
+
 ## Why two phases
 
 The Grafana Cloud SM app hard-guards on its own check registry: it clamps timelines to `check.created` and will not display injected metrics for checks it does not know about. Metric injection alone is not enough. The offline probe must be registered first, the checks must be created (or updated) in Grafana Cloud, and then the data-plane emitter can push forward-in-time data that populates the SM views.

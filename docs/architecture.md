@@ -7,6 +7,14 @@ description: How synthkit works — the three-tier design, frozen seams, schedul
 
 synthkit is built around a strict three-tier design: isolated construct/workload modules that know nothing about blueprints, a declarative YAML blueprint layer that is the only home for blueprint-specific config and wiring, and a composition root (`internal/runner`) that instantiates everything via an explicit registry. The full invariant text lives in [ARCHITECTURE.md on GitHub](https://github.com/rknightion/synthkit/blob/main/ARCHITECTURE.md).
 
+<div class="diagram-scroll" markdown>
+
+![Blueprints feed a composition root which wires isolated constructs and workloads.](assets/diagrams/architecture.svg)
+
+</div>
+
+[Open the diagram at full size](assets/diagrams/architecture.html).
+
 ## The three tiers
 
 ```text
@@ -37,7 +45,7 @@ The interfaces that constructs and workloads implement are frozen. Changes to th
 ```go
 type Construct interface {
     Kind() string                 // registry key, snake_case
-    Signals() []SignalClass       // Metrics | Traces | Logs | RUM | PyroscopeProfiles
+    Signals() []SignalClass       // Metrics | Traces | Logs | RUM | PyroscopeProfiles | OTLPMetrics | OTLPLogs | Sigil
     Interval() time.Duration      // default cadence; metric lanes use the 60s floor unless high_dpm opts in
     Tick(ctx context.Context, now time.Time, w *World) error
 }
@@ -66,7 +74,10 @@ type World struct {
     Shape    *shape.Engine   // diurnal plateau × weekly × noise × incidents
     Metrics  MetricWriter    // pre-scoped: stamps blueprint label iff ScopeBlueprint
     Logs     LogWriter       // Loki 3-tuple; sink asserts no high-card stream label
-    Traces   TraceWriter     // OTLP ResourceSpans — traces only
+    Traces   TraceWriter     // OTLP ResourceSpans
+    OTLPMetrics OTLPMetricWriter // optional native ResourceMetrics
+    OTLPLogs OTLPLogWriter       // optional native ResourceLogs
+    Sigil SigilWriter           // optional AI generation ingest
     Pyroscope PyroscopeWriter
     Ledger   *ledger.Ledger  // workloads only; constructs receive nil
 }
@@ -94,7 +105,7 @@ Each blueprint runs on its own goroutine. Two cadences run per blueprint:
 - **Metric lanes (60 s by default)**: every construct and workload calls its own `Tick` on its declared `Interval()`. A blueprint may explicitly declare `high_dpm.metric_interval`; the runner applies it only to that blueprint's metric-bearing instances, subject to `MAX_DPM_PER_SERIES` (default 6 DPM, or 10 s) and `TICK_DEFAULT`. Workload metric lanes call `Ledger.ActiveFor(name, now, interval)` to read the window of recently-minted requests.
 - **Declarable series churn**: the `network_topology` integration can set `series_churn_per_minute`, rotating stable declared `edge_info` identities out of and back into the active set. The construct deletes retired gauges, keeps the active set bounded, and rejects rates its declared graph cannot support. Kubernetes identity is intentionally unsupported because pod, node, and storage identities are deterministic cross-signal joins.
 
-Blueprint goroutines share nothing but the concurrency-safe sinks. A slow or hung push on one blueprint cannot delay another's cadence.
+Blueprints have independent scheduling loops but share bounded delivery queues. A slow destination can fill a queue shard and block producers using that shard, including more than one blueprint.
 
 ## Scoping: blueprint vs substrate
 
@@ -130,15 +141,16 @@ flowchart LR
     SK --> GC
 ```
 
-Delivery is **decoupled from emission**. Each scoped writer enqueues to an in-memory delivery queue (`internal/sink/queue`). Background senders batch by size or deadline before calling the real sink. A slow remote never stalls the tick cadence.
+Delivery is **decoupled from emission**. Each scoped writer enqueues to an in-memory delivery queue (`internal/sink/queue`). Background senders batch by size or deadline before calling the real sink. Enqueue is non-blocking while capacity remains. Full shards apply backpressure and can delay ticks; sender failures and drain deadlines can lose queued synthetic data. There is no disk WAL.
 
 ## Sinks
 
 | Sink | Carries | Wire format |
 |---|---|---|
-| `sink/promrw` | All metrics | Prometheus Remote-Write v2 (`io.prometheus.write.v2.Request`), proto vendored under `internal/sink/promrw/writev2`, snappy-compressed. Final pre-mangled names. OTel metrics SDK banned on the synthetic path. |
-| `sink/otlp` | Traces only | Hand-encoded ResourceSpans protobuf. Never the OTel SDK. |
+| `sink/promrw` | Prometheus-shaped metrics | Prometheus Remote-Write v2 (`io.prometheus.write.v2.Request`), proto vendored under `internal/sink/promrw/writev2`, snappy-compressed. Final pre-mangled names. OTel metrics SDK banned on the synthetic path. |
+| `sink/otlp` | Traces and explicitly selected native metrics/logs | Hand-encoded ResourceSpans, ResourceMetrics and ResourceLogs protobufs at `/v1/traces`, `/v1/metrics` and `/v1/logs`. Never the OTel SDK. |
 | `sink/loki` | Logs | 3-tuple `[ts, line, {meta}]`; asserts no high-card key in stream labels. |
+| `sink/sigil` | AI generation ingest | Optional generation, workflow-step and evaluation exports using the separate Sigil credential triplet. |
 | `sink/faro` | RUM beacons | POST to Faro collector with app key (optional — requires `GC_FARO_*`). |
 | `sink/pyroscope` | Synthetic profiles | push.v1 connect-unary, hand-built pprof protos, no pyroscope-go SDK. |
 
@@ -156,7 +168,7 @@ The full invariant text (I1–I41) is in [ARCHITECTURE.md on GitHub](https://git
 
 | Group | Key rules |
 |---|---|
-| **Metrics** | All metrics via Remote-Write v2 with final pre-mangled names (I1). OTel metrics SDK banned on the synthetic path. OTLP carries traces only (I2). Counters/histograms are cumulative (I3). CloudWatch `_sum` series are gauges, never `rate()` (I5). |
+| **Metrics** | Prometheus-shaped metrics use Remote-Write v2 with final names; explicit native metric lanes retain OTLP instrument names (I1). Synthetic OTLP traces, metrics and logs are hand-encoded, without the OTel SDK (I2). Counters/histograms are cumulative (I3). CloudWatch `_sum` series are gauges, never `rate()` (I5). |
 | **Identity** | Request-scoped IDs minted only by the ledger (I9). Two cadences: fast master mint, and a default ≥60 s metric tick with an explicit per-blueprint, ceiling-bounded `high_dpm` override (I10). Fixtures are deterministic from stable seeds (I12). Absent dimensions are omitted — never `""` or `"NA"` (I13). |
 | **Cardinality** | UUID-class keys are never Mimir labels or Loki stream labels (I14). Blueprint selector stamped in exactly one place, clone-before-stamp (I17). |
 | **Composition** | Constructs contain zero blueprint-name references (I18). Nothing derived from a blueprint's positional index (I19). Scope is explicit per construct kind (I21). |

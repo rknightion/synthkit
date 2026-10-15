@@ -1,11 +1,21 @@
 ---
 title: Getting Started
-description: Mental model and vocabulary for synthkit — blueprints, constructs, workloads, sinks, and the emit loop — before you install.
+description: Mental model and vocabulary for synthkit — blueprints, constructs, workloads, sinks, and the emit loop.
 ---
 
 # Getting Started
 
-Before installing synthkit, read this page. It defines the vocabulary used everywhere else in the documentation so you can read a blueprint YAML, understand what gets emitted and why, and diagnose problems without guessing.
+Start with the [Quick Start](quickstart.md) to run one blueprint. This page explains the vocabulary
+when you want to understand or customise that example. synthkit models systems and emits their
+telemetry; it does not deploy the systems it models.
+
+<div class="diagram-scroll" markdown>
+
+![Blueprint declarations are composed into synthetic signals and sent to configured destinations](assets/diagrams/telemetry-flow.svg)
+
+</div>
+
+[Open the diagram at full size](assets/diagrams/telemetry-flow.html).
 
 ## Core concepts
 
@@ -36,44 +46,55 @@ Constructs are categorised by **scope**:
 
 ### Workload
 
-A workload generates correlated request traffic: metrics, traces, logs, and optionally RUM, sharing one end-to-end correlation ID per request. Two kinds:
+A workload generates correlated request traffic: metrics, traces, logs, and optionally RUM, sharing one end-to-end correlation ID per request. The registered kinds are:
 
 - **`web_service`** — a single service with a browser→backend→DB hop tree. The simple, common case.
 - **`app`** — a blueprint-declared multi-service graph whose nodes each emit their own custom telemetry via a DSL. Use `app` when you need multiple backend services with their own metrics/logs/spans, per-service incident targeting, or per-service scaling.
 
-Both kinds can coexist in one blueprint.
+- **`ai_agent`** — conversational agent sessions, tool calls and model generations with correlated
+  signals. See [Workloads](workloads.md).
+
+These kinds can coexist in one blueprint.
 
 ### Signal family
 
-A signal family is a named group of metrics (or logs, or spans) that a construct emits together. The complete list of families, their metric names, label sets, and example values lives in the `signals/` catalogue — see [Reading the Catalogue](signals.md). synthkit never invents a name: every metric name, label key, and label value is sourced from a real stack with provenance citations.
+A signal family is a named group of metrics (or logs, or spans) that a construct emits together. The complete list of families, their metric names, label sets, and example values lives in the `signals/` catalogue — see [Reading the Catalogue](signals.md). synthkit never invents a name: signal names and label keys follow sourced contracts; synthetic identities and values come from the blueprint and model.
 
 ### Sinks
 
-Sinks are where data goes. synthkit has four signal-type sinks:
+Sinks deliver the generated signals:
 
 | Sink | Protocol | Destination |
 |---|---|---|
 | `promrw` | Prometheus Remote-Write v2 | Grafana Cloud Mimir (metrics) |
-| `otlp` | OTLP ResourceSpans | Grafana Cloud Tempo (traces) |
+| `otlp` | OTLP traces, native metrics and logs | Grafana Cloud OTLP gateway |
 | `loki` | Loki push | Grafana Cloud Loki (logs) |
 | `faro` | Faro collector | Grafana Cloud Frontend Observability (RUM) |
+| `pyroscope` | Profile ingest | Grafana Cloud Profiles (optional synthetic profiles) |
+| `sigil` | Generation ingest | Grafana Cloud AI Observability (optional) |
 
-Each sink has its own credential triplet. See [Credentials](credentials.md).
+Metrics, logs, traces and synthetic profiles share `GC_TOKEN`, with destination-specific endpoints
+and user IDs. Faro uses a collector/application-key pair; Sigil uses its own credentials. The
+generator’s self-observability is separately configured. See [Credentials](credentials.md).
 
 ### DRY_RUN
 
 `DRY_RUN` defaults to `true`. Empty or unset `BLUEPRINT_NAMES` also selects no blueprints, so a
 fresh process runs in setup mode and emits nothing. Select one or more exact names (for example,
 `BLUEPRINT_NAMES=otlp-native`) before using `-once -dump`; use `BLUEPRINT_NAMES=*` only when you
-intentionally want the complete catalog. Dry-run builds the selected inventory without network calls.
+intentionally want the complete catalog. Dry-run suppresses synthetic delivery. Independently enabled self-observability can still export;
+the Quick Start disables it explicitly for the preview.
 Live pushing additionally requires the explicit opt-in `DRY_RUN=false`.
 
 ## The emit loop
 
 synthkit runs a two-cadence scheduler:
 
-1. **On each tick** (default every 5 seconds, controlled by `TICK_DEFAULT`): the runner calls every registered construct and workload in parallel, each producing its batch of time-series, log streams, and/or spans for that tick.
-2. **Delivery queue** (`internal/sink/queue`): the batches are enqueued and flushed to the sinks asynchronously, decoupled from tick timing. This prevents a slow network push from blocking the next tick.
+1. **On each master tick** (default every 5 seconds, controlled by `TICK_DEFAULT`): the runner mints
+   request batches and projects workload traces, logs and RUM. Metric lanes run at their own
+   intervals, normally at least 60 seconds; declared `high_dpm` settings can lower that interval
+   within the configured ceiling.
+2. **Delivery queue** (`internal/sink/queue`): the batches are enqueued and flushed to the sinks asynchronously, decoupled from tick timing. Delivery is decoupled while queue capacity remains; full shards apply backpressure, and failed sends can lose queued data.
 3. **Cumulative state** (`internal/state`): counters and histograms accumulate across ticks. The sink always receives running totals, not per-tick deltas — matching how real Prometheus exporters work.
 
 The full cycle: declare in YAML → synthkit loads and validates at startup → each tick produces signals → sinks push to Grafana Cloud.

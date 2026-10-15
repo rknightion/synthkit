@@ -28,18 +28,19 @@ prefer to remain anonymous.
 structurally-correct synthetic metrics, traces, and logs to Grafana Cloud. The following are
 especially in scope:
 
-- **Credential handling** — the `GC_TOKEN`, `GC_TRACES_TOKEN`, `GC_LOGS_TOKEN`, and `GC_SM_TOKEN`
-  environment variables that carry egress write keys; any path that could leak those to a log,
+- **Credential handling** — the synthetic `GC_TOKEN`, optional product credentials, self-observability
+  credentials and git-source tokens; any path that could leak those to a log,
   metric label, or trace attribute.
-- **Egress sinks** — the Prometheus Remote-Write v2 sink (`internal/sink/promrw`), the OTLP trace
+- **Egress sinks** — the Prometheus Remote-Write v2 sink (`internal/sink/promrw`), the OTLP metrics/logs/trace
   sink (`internal/sink/otlp`), and the Loki log sink (`internal/sink/loki`): any path that could
   cause unintended data exfiltration or SSRF.
 - **Capture tooling** — `skcapture` runs inside a Kubernetes cluster (kubectl-shell container)
-  and handles service-account tokens and cluster secrets. `skforge` decrypts age-encrypted
+  and uses service-account credentials to read inventory. Secret and arbitrary ConfigMap values
+  are not collected; a narrow optional grant reads the cluster identity from a named ConfigMap. `skforge` decrypts age-encrypted
   inventory bundles. Vulnerabilities in their RBAC handling, secret exposure, or encryption are
   in scope.
 - **Admin HTTP surface** — the `/control` HTTP API and embedded admin UI: authentication bypass,
   arbitrary file read, or command injection.
 
-Out of scope: the content of emitted synthetic data itself (it is intentionally fictional and
-carries no real user data).
+Out of scope: the realism of deliberately fictional fixture content. Unintended disclosure of
+credentials, private supplied content or captured identifiers remains in scope.

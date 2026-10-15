@@ -82,7 +82,7 @@ empty, those collectors still emit metrics — they just are not registered with
 Confirm the blueprints load and the series inventory is what you expect, with **no network push**:
 
 ```bash
-DRY_RUN=true BLUEPRINT_NAMES=otlp-native go run ./cmd/synthkit -once -dump 2>&1 | less
+SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES=otlp-native go run ./cmd/synthkit -env /dev/null -once -dump 2>&1 | less
 ```
 
 Expected: a `selected blueprints: 1 [otlp-native]` line, its `loaded blueprint` line, a
@@ -228,7 +228,9 @@ The first v2 activation-format upgrade also requires explicit apply/restart whil
 ownership and pending evidence. Subsequent release-only upgrades preserve registration when
 specification/target/schema are unchanged; new applies still require a tool matching the current
 snapshot version. In-cluster binary provisioning uses its own named SM Lease/ConfigMap, never the
-emitter Lease or shared disk. Current Helm SM Job wiring remains file-only.
+emitter Lease or shared disk. The [Kubernetes-state Helm Job](kubernetes.md#diskless-one-shot-job)
+wires this into HA emitters with separate principals and named state. Select matching images at
+least 1.6.0-rc.176 and retain the explicit preview/apply/restart sequence; Compose remains file-mode.
 
 When rotating the SM credential or endpoint, first recreate synthkit with the new value so it writes
 a new suppressed snapshot. Run the provisioner preview with `SM_PROVISION_MIGRATE_TARGET=true`, then

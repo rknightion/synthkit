@@ -11,21 +11,22 @@ properties of the control plane. For the formal disclosure process, see
 
 ## What data synthkit handles
 
-synthkit is a **synthetic telemetry generator**. It reads blueprint YAML files you author and
-emits structurally-correct but entirely fictional metrics, traces, logs, and optional RUM/profiles
-to Grafana Cloud. It has no inbound integration with a real production system and nothing to steal
-from one:
+synthkit reads blueprint YAML and emits modeled metrics, traces, logs and optional RUM, profiles
+and AI generation records. It does not deploy or scrape the infrastructure represented by those
+blueprints. Many identities are derived from stable seeds, while others are supplied directly by
+the blueprint or a capture-derived draft. Configuration can therefore contain real identifiers;
+review it before publishing or sending telemetry.
 
-- Every identity it emits — pod names, node IDs, instance keys, database names — is derived
-  deterministically from the blueprint's own name and path via a seeded hash. None of it is read
-  from, or corresponds to, a real fleet.
-- Metric and label **names** are sourced from the `signals/` catalogue (real, production-validated
-  contracts), but the **values** attached to them are synthetic. synthkit never invents a name and
-  never emits real captured values.
-- The content of emitted synthetic data is explicitly **out of scope** for vulnerability reports —
-  it carries no real user data by construction.
+Signal names and shapes follow the catalogue. Values and content are modeled fixtures, but that
+does not sanitize arbitrary user-supplied values. The `ai_agent` profile permits modeled content
+under its documented capture modes. Use synthetic examples, not private prompts or credentials.
+Credential exposure and unintended disclosure remain security concerns even in a synthetic generator.
 
-The one path where synthkit does touch something real is `skcapture`, which reads live Kubernetes
+Synthetic delivery writes to real configured backends. Optional SM provisioning and Fleet
+registration also use real control-plane APIs, and git blueprint sources contact their configured
+repositories. These operations are distinct from the modeled infrastructure.
+
+`skcapture` reads live Kubernetes
 inventory (deployments, services, node metadata) to seed a blueprint draft. It never captures Secret
 or arbitrary ConfigMap data values; its narrow optional cluster-identity grant reads only the `cluster` key
 from one named collector release-info ConfigMap. Prefer the encrypted output mode
@@ -34,9 +35,10 @@ Tooling](tools.md).
 
 ## Credentials and minimum scope
 
-Each signal type synthkit can emit uses its own credential, scoped to only the write permission it
-needs. Fill in only what you use — every credential is optional except the four synthetic-sink
-variables required for a live push.
+Synthetic metrics, logs, traces and profiles share `GC_TOKEN`, with destination-specific endpoints
+and usernames. Live startup requires the core metrics/logs/traces configuration; optional products
+have their own gates. Use the exact variable checklist in [Credentials](credentials.md), and grant
+only the scopes needed by the selected lanes.
 
 | Purpose | Credential | Minimum scope |
 |---|---|---|
@@ -46,9 +48,9 @@ variables required for a live push.
 | Self-observability (synthkit's own process telemetry) | `GC_SELF_OTLP_PASSWORD` / `GC_PYROSCOPE_PASSWORD` | A CAP token on a **separate** stack — never `GC_TOKEN` |
 | Private git blueprint sources | `GIT_TOKEN` or a per-source `token_env_var` | An HTTPS PAT scoped to read the blueprint repo only |
 
-All of these are write-only or read-only credentials scoped to a single Grafana Cloud stack and,
-for Fleet Management and self-observability, kept deliberately isolated from the synthetic-data
-stack so a leak of one cannot be used against the other. See [Credentials](credentials.md) for the
+Scope each credential to its intended service and permissions. Self-observability uses a separate
+stack and credential set; Fleet Management uses its explicitly selected stack and dedicated token.
+Git credentials are repository credentials, not Grafana stack credentials. See [Credentials](credentials.md) for the
 full reference and where to generate each one.
 
 Git source credentials are limited to `GIT_TOKEN` (also the empty-name default) and
@@ -99,27 +101,19 @@ Two secondary places also need attention:
   `trusted-network` or `tls-proxy`. Do not send Basic credentials over untrusted plaintext HTTP;
   use an SSH tunnel or a browser-trusted TLS proxy such as `tailscale serve`.
 
-## What a compromised instance could and could not reach
+## Exposure boundaries
 
-**Could:**
+A compromised process can use the credentials, files and network access available to it. Synthetic
+modeling does not remove that risk: supplied blueprint content, git-source access and optional
+product APIs are real inputs and destinations.
 
-- Push synthetic-looking data to whichever Grafana Cloud sinks its configured `GC_TOKEN` (or
-  self-obs / FM / SM credentials) can write to, within that token's granted scopes.
-- On the intentionally compatible loopback/no-token setup, mutate live state: inject
-  failures, scale workloads to zero, disable blueprints or constructs, or replace active
-  scenarios — all without authentication.
-- Read a configured git blueprint source's PAT only if it can read the source's named process
-  environment variable; the resolved value is never serialized into `control-state.json`.
-
-**Could not:**
-
-- Access any real production data — synthkit has no code path that reads from, or forwards, a real
-  customer system. The synthetic data path and the credentials it uses are entirely separate from
-  anything synthkit's own telemetry might describe.
-- Read back the plaintext of `GC_TOKEN` or any other credential through the control plane API —
-  `GET /control/config` redacts every secret value.
-- Escalate beyond its container: the official image is distroless (no shell, no package manager),
-  runs as non-root uid 65532, and the root filesystem is read-only outside the `/data` volume.
+- A token-free loopback control plane permits local callers to change modeled state. Configure
+  authentication and deliberate exposure before making it reachable beyond a trusted local host.
+- `GET /control/config` redacts secret values. This API behavior does not protect process memory
+  or environment variables from an attacker who already controls the process.
+- The official image is distroless and runs as non-root uid 65532. The deployment's read-only root
+  filesystem and writable-state mount reduce exposure; they are not proof against container escape.
+- Limit network reachability, filesystem mounts and credential scopes to the declared purpose.
 
 ## Reporting a vulnerability
 
@@ -132,10 +126,9 @@ release notes unless the reporter prefers to stay anonymous.
 Especially in scope: credential handling paths that could leak `GC_TOKEN` or the other write keys
 into a log, metric label, or trace attribute; the egress sinks (`promrw`, `otlp`, `loki`) for
 unintended data exfiltration or SSRF; `skcapture`'s and `skforge`'s handling of Kubernetes
-service-account tokens, cluster secrets, and age-encrypted inventory bundles; and the `/control`
-admin HTTP surface for authentication bypass, arbitrary file read, or command injection. The
-content of emitted synthetic data itself is explicitly out of scope — it is intentionally
-fictional and carries no real user data.
+service-account credentials and age-encrypted inventory bundles; and the `/control`
+admin HTTP surface for authentication bypass, arbitrary file read, or command injection. The realism of deliberately fictional fixture content is out of scope. Unintended disclosure
+of credentials, private supplied content or captured identifiers remains in scope.
 
 Security fixes are applied to the latest released `1.x` minor and shipped in a new patch release;
 older majors are not maintained.

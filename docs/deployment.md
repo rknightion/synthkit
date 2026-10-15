@@ -76,7 +76,7 @@ from outside the process.
     go build ./cmd/synthkit
 
     # Dry run (offline, no push):
-    DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -once -dump
+    SELFOBS_ENABLED=false DRY_RUN=true BLUEPRINT_NAMES=otlp-native ./synthkit -env /dev/null -once -dump
 
     # Live run:
     install -m 600 .env.example .env   # fill credentials
@@ -167,7 +167,9 @@ The first v2 activation-format upgrade requires explicit apply/restart and prese
 preview, pending and lock evidence. Subsequent release-only image changes retain activation when
 specification/target/schema match; the write tool must still equal the current snapshot version.
 Compose remains file-mode. The standalone in-cluster command can use a dedicated named SM Lease and
-aggregate ConfigMap without shared disk; current Helm SM Job wiring is not that extension. If a
+aggregate ConfigMap without shared disk. The [Kubernetes-state Helm Job](kubernetes.md#diskless-one-shot-job)
+also wires named SM state into HA emitters using matching images at least 1.6.0-rc.176, separate
+principals and Leases, and explicit preview/apply/restart. If a
 collision, stale binding, or pending/ambiguous journal is reported, leave the emitter suppressed
 and inspect ownership before retrying. The provisioner never deletes remote resources.
 

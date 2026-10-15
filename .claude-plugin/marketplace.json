@@ -7,7 +7,7 @@
     {
       "name": "synthkit",
       "source": "./plugins/synthkit",
-      "description": "Guide setup, verification, blueprint authoring, and Fleet Management for an existing synthkit checkout.",
+      "description": "Guide setup, verification, blueprint authoring, Fleet Management and contributions in an existing synthkit checkout.",
       "version": "0.1.0",
       "keywords": ["grafana", "observability", "synthetic-telemetry", "onboarding", "deployment"]
     }
