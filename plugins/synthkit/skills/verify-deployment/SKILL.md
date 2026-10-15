@@ -185,6 +185,10 @@ failure.
 
 - Self-observability is expected only with `SELFOBS_ENABLED=true` and the complete self-OTLP
   triplet, independently of synthetic `DRY_RUN`; query the staff context, never the customer context.
+- In lease mode, inspect operational logs from both standby and leader after the five-minute
+  heartbeat plus delivery deadline. Use their actual process identity and `ha.role` resource;
+  metrics/traces alone do not prove the standard-log bridge. A source fix is not live evidence
+  until its exact image is deployed and receiver logs are observed.
 - Process profiling is expected only when self-obs is on and the complete
   `GC_PYROSCOPE_*` triplet is present. There is no standalone profiling switch.
 - Fleet metrics require the declaration and normal metrics landing; they do not require FM API

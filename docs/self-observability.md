@@ -40,6 +40,11 @@ Delivery-queue metrics use only the bounded `sink` label:
 Loss metrics do not imply replay. A transition of `current_loss` back to `0` records recovery for
 new delivery; `dropped.items` remains cumulative until the process restarts.
 
+In lease mode, both standby and leader forward standard operational logs and the five-minute
+heartbeat to their current role-scoped OTLP provider. A role transition detaches the old log
+destination before provider shutdown, so new log records are attributed to the current role.
+Standard stderr output remains available; disabled self-observability leaves logging unchanged.
+
 ### Continuous profiles (Pyroscope)
 
 When `GC_PYROSCOPE_*` credentials are set, the generator's own process is profiled continuously and sent to a Grafana Cloud Profiles (Pyroscope) instance via its own `GC_PYROSCOPE_*` credential triplet — independent of the OTLP self-obs triplet, though both are typically the same staff stack. Profile types: CPU, heap allocation/inuse (objects + bytes), goroutines, and optionally mutex and block profiles. Application name is `synthkit`.

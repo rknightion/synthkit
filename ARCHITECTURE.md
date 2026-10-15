@@ -581,7 +581,10 @@ Distinct from everything above (which is SYNTHETIC data the generator emits), `i
 and `internal/profiling` instrument the synthkit PROCESS itself and ship to a SEPARATE Grafana Cloud
 stack over their OWN credential triplets (`GC_SELF_OTLP_*`, `GC_PYROSCOPE_*` — NEVER `GC_TOKEN`).
 Both are default-off and decoupled from `DRY_RUN` (profiling the process is unrelated to whether
-synthetic data is being pushed). Wired only in `cmd/synthkit/main.go`.
+synthetic data is being pushed). Wired only in the `cmd/synthkit` composition root.
+Lease mode binds standard operational logs to the current role-scoped provider; it restores the
+previous standard-log writer before retiring that provider and starting the next role. Buffered
+events retain their original resource, and disabled self-observability leaves standard logging intact.
 
 > **Do NOT confuse `GC_PYROSCOPE_*` with `GC_PROFILES_*`.** `GC_PYROSCOPE_*` (here) profiles the
 > synthkit PROCESS via the pyroscope-go SDK → a SEPARATE staff stack. `GC_PROFILES_*` (§6,

@@ -580,8 +580,9 @@ func haRoleTags(tags map[string]string, role ha.Role) map[string]string {
 }
 
 type haOperational struct {
-	so   *selfobs.SelfObs
-	prof interface{ Stop() error }
+	so         *selfobs.SelfObs
+	prof       interface{ Stop() error }
+	restoreLog func()
 }
 
 func startHAOperational(cfg *config.Config, v *haView, role ha.Role) (haOperational, error) {
@@ -606,9 +607,28 @@ func startHAOperational(cfg *config.Config, v *haView, role ha.Role) (haOperatio
 	if prof != nil {
 		ops.prof = prof
 	}
+	// Role providers are retired before the next one starts. Capture the original
+	// writer once per provider, and detach before shutdown so SDK shutdown errors
+	// cannot be sent back into the provider being closed. Copies share one restore.
+	if err == nil && so.Enabled() {
+		previous := log.Writer()
+		writer := so.LogWriter()
+		log.SetOutput(writer)
+		var restored sync.Once
+		ops.restoreLog = func() {
+			restored.Do(func() {
+				if log.Writer() == writer {
+					log.SetOutput(previous)
+				}
+			})
+		}
+	}
 	return ops, err
 }
 func (o haOperational) stop(ctx context.Context) error {
+	if o.restoreLog != nil {
+		o.restoreLog()
+	}
 	if o.so != nil {
 		o.so.Shutdown(ctx)
 	}
