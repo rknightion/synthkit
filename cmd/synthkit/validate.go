@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,6 +42,12 @@ type validateReport struct {
 // provisioning, profiling and control persistence. Sources are already-fetched local
 // snapshots only; even DRY_RUN=false cannot enable a network sink here.
 func runValidate(envPath string, out io.Writer) error {
+	return runValidateContext(context.Background(), envPath, out)
+}
+func runValidateContext(ctx context.Context, envPath string, out io.Writer) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	report := validateReport{OK: true, Blueprints: []validateBlueprint{}, Diagnostics: []validateDiagnostic{}}
 	addError := func(source, stage string, err error) {
 		report.OK = false
@@ -95,8 +102,14 @@ func runValidate(envPath string, out io.Writer) error {
 		}
 		sort.Slice(report.Blueprints, func(i, j int) bool { return report.Blueprints[i].Name < report.Blueprints[j].Name })
 	}
+	if err := ctx.Err(); err != nil {
+		addError("command", "deadline", err)
+	}
 	if err := json.NewEncoder(out).Encode(report); err != nil {
 		return fmt.Errorf("validate: write JSON: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	if !report.OK {
 		return fmt.Errorf("validate: blueprint set failed (see JSON diagnostics)")

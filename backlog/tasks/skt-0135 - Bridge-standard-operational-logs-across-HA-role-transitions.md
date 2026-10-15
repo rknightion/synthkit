@@ -1,11 +1,11 @@
 ---
 id: SKT-0135
 title: Bridge standard operational logs across HA role transitions
-status: In Progress
+status: Done
 assignee:
   - codex
 created_date: '2026-10-15 13:08'
-updated_date: '2026-10-15 13:25'
+updated_date: '2026-10-15 13:55'
 labels: []
 dependencies: []
 priority: high
@@ -44,4 +44,12 @@ Extend the existing real OTLP receiver integration test to require standard logg
 Tracked independently from deployment integration. Exact pinned release v1.6.0-rc.179 and current main both omit the standard logger binding from startHAOperational, while ordinary mode calls LogWriter. Existing real HTTP OTLP integration test extended to require actual log.Print records for standby and leader: observed red with empty standard-record map. Candidate binds enabled standard logger to role provider, captures original writer with shared once-only restoration before shutdown; disabled path unchanged. Focused real OTLP + race green, docs/canonical contract/verification skill updated and justgen0. Final justcheck and CodeRabbit active in isolated tree based1bb6cac; preserve unrelated staged GPU work in main.
 
 Final candidate full justcheck passed with Node24.18.0, including full plain and race suites, generated/skills/docs, source hygiene, UI, Compose, Helm, lab scaffolding, signal-fidelity ratchet225/225 and executable troubleshooting rows. Final six candidate file hashes unchanged before/after. Complete CodeRabbit6files0findings. Explicit otlp-native justdump inventory is byte-identical to clean base1bb6cac (156988bytes), with no rendered signal change. Real local OTLP test observes standard logs from both roles, late duplicate old-provider teardown does not detach leader logging, disabled path preserves writer. Exact source CI and release adoption remain separate; no deployed engine changed.
+
+Exact627829ec1f708796dd11542c124f1b9969535bb1 CI38742770039 completed success, including Linux plaincoverage/race and Docker-backed end-to-end. Sourcepublication38742769873 and CodeQL38742769843 also succeeded. Local full gate/CodeRabbit/realOTLP proof remain bound to same code. No deployed image adoption or real receiver logs claimed from this source result.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Lease mode now tees standard operational logs to its current immutable role provider and restores the previous writer before shutdown. Actual local OTLP records, late teardown, disabled behavior, full contributor gate, byte-identical selected inventory, complete CodeRabbit and exact Linux/Docker CI passed. Live image adoption remains separate.
+<!-- SECTION:FINAL_SUMMARY:END -->

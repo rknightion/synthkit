@@ -94,8 +94,21 @@ func main() {
 	validateCheck := flag.Bool("validate", false, "validate the selected local blueprint set and print JSON series projections, then exit")
 	healthcheck := flag.Bool("healthcheck", false, "exit successfully only when the local control plane is delivery-ready")
 	showVersion := flag.Bool("version", false, "print the release version and source revision as JSON, then exit")
+	oneShotDeadline := flag.String("one-shot-deadline", "", "absolute RFC3339 deadline for -validate or -preflight")
 	envPath := flag.String("env", ".env", "path to .env file (optional)")
 	flag.Parse()
+	deadlinePresent := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "one-shot-deadline" {
+			deadlinePresent = true
+		}
+	})
+	allowedDeadline := (*validateCheck != *preflightCheck) && !*once && !*dump && !*inventoryJSON && !*healthcheck && !*showVersion && !*fleetUnregister
+	operationCtx, operationCancel, deadlineErr := oneShotContext(*oneShotDeadline, deadlinePresent, allowedDeadline)
+	if deadlineErr != nil {
+		log.Fatalf("synthkit: %v", deadlineErr)
+	}
+	defer operationCancel()
 	if *fleetUnregister {
 		if *once || *dump || *inventoryJSON || *preflightCheck || *validateCheck || *healthcheck || *showVersion {
 			log.Fatal("synthkit: -fleet-unregister cannot be combined with another mode")
@@ -117,8 +130,14 @@ func main() {
 		if cfg.HAMode == "lease" {
 			log.Fatal("synthkit: offline validation requires HA_MODE=off")
 		}
-		if err := runValidate(*envPath, os.Stdout); err != nil {
+		if err := operationCtx.Err(); err != nil {
+			log.Fatal("synthkit: one-shot deadline exceeded")
+		}
+		if err := runValidateContext(operationCtx, *envPath, os.Stdout); err != nil {
 			log.Fatalf("synthkit: %v", err)
+		}
+		if err := operationCtx.Err(); err != nil {
+			log.Fatal("synthkit: one-shot deadline exceeded")
 		}
 		return
 	}
@@ -145,11 +164,16 @@ func main() {
 	}
 
 	if *preflightCheck {
-		if err := runPreflight(context.Background(), *envPath, os.Stdout, preflight.Options{}); err != nil {
+		err := runPreflight(operationCtx, *envPath, os.Stdout, preflight.Options{})
+		if operationCtx.Err() != nil {
+			log.Fatal("synthkit: one-shot deadline exceeded")
+		}
+		if err != nil {
 			log.Fatalf("synthkit: %v", err)
 		}
 		return
 	}
+
 	if *inventoryJSON && (!*once || *dump) {
 		log.Fatal("synthkit: -inventory-json requires -once and cannot be combined with -dump")
 	}
@@ -257,6 +281,9 @@ func checkReadiness(ctx context.Context, client *http.Client, endpoint string) e
 }
 
 func runPreflight(ctx context.Context, envPath string, out io.Writer, opts preflight.Options) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	cfg, err := config.Load(envPath)
 	if err != nil {
 		return err

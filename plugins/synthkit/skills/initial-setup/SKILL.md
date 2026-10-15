@@ -160,7 +160,11 @@ no-toolchain path. With exact names, require a non-empty selected inventory. Wit
 mode, require the actionable `no blueprints selected` warning and an empty inventory; do not claim
 signal verification. Only then set `DRY_RUN false` via `set-env.sh` when live delivery was requested.
 
-Also run `docker compose run --rm synthkit -preflight` and inspect every `optional <lane>` line.
+Also run `docker compose run --rm synthkit -preflight` and inspect every `optional <lane>` line. For a
+bounded one-shot job, pass `-one-shot-deadline <RFC3339-expiry>` to exactly one of `-validate` or
+`-preflight`, and require a successful exit before proceeding. Expired entry is refused before
+configuration loading; live probes inherit the absolute context budget. Output printed before a
+later failure is not a successful check. This does not roll back receiver-side processing.
 Resolve requested `partial` dispositions before deployment; `unsupported` is a hard stop. Disabled
 Fleet registration is valid when the operator chose metrics-only mode.
 
