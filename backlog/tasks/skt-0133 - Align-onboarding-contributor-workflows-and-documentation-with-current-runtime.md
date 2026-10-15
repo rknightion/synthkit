@@ -1,11 +1,11 @@
 ---
 id: SKT-0133
 title: 'Align onboarding, contributor workflows and documentation with current runtime'
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-10-14 23:52'
-updated_date: '2026-10-15 00:13'
+updated_date: '2026-10-15 00:34'
 labels: []
 dependencies: []
 ordinal: 256000
@@ -49,3 +49,9 @@ Final delta CodeRabbit review completed with zero findings (both validator files
 
 Full local just check passed, including ordinary Go, race (dashboard package 496.093s), chart/schema validation, signal fidelity and all 10 executable troubleshooting rows. Final 16-test documentation suite passed after the published-link guard addition. All implementation acceptance is satisfied; awaiting exact committed-SHA CI before final tracker closeout.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Shipped in 32a6257d7634e65c2396b085209a6af945ae4cc4: canonical safe first-run guide, portable contributor guide and bundled contribute skill, agent routing, corrected runtime/SM/GPU/content-handling references, five accessible responsive diagrams, and maintained-document link/anchor/asset validation. Full local just check passed, generation had no schema drift, 16 documentation tests passed, clean-source UI/binary/offline/HTTP proof passed, inventory matched its baseline, and independent plus CodeRabbit review left no actionable findings. All 11 CI jobs passed: https://github.com/rknightion/synthkit/actions/runs/38658806818 . Documentation hub publication 38658841435 succeeded and live quickstart, contributor page and onboarding SVG content were verified. No live telemetry tenant changes were made.
+<!-- SECTION:FINAL_SUMMARY:END -->
