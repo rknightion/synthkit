@@ -172,7 +172,7 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 		if !s.Quiet {
 			log.Printf("[dry-run promrw] %d series e.g. %s%v=%.3f", len(batch), batch[0].Name, sortedLabels(batch[0].Labels), batch[0].Value)
 		}
-		s.observe(ctx, batch, 0, 0, time.Duration(0), true, nil)
+		s.observe(ctx, batch, 0, 0, time.Duration(0), true, nil, pushhook.Acknowledgement{})
 		return nil
 	}
 	req := encodeRequest(batch)
@@ -187,6 +187,7 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 		start = time.Now()
 	}
 	var lastStatus int
+	var ack pushhook.Acknowledgement
 	retryErr := s.delivery.Policy(httpretry.MetricsPolicy()).Do(ctx, func(rctx context.Context) (int, error) {
 		httpReq, rerr := http.NewRequestWithContext(rctx, http.MethodPost, s.url, bytes.NewReader(compressed))
 		if rerr != nil {
@@ -197,17 +198,20 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 		httpReq.Header.Set("X-Prometheus-Remote-Write-Version", RemoteWriteVersion)
 		httpReq.Header.Set("Authorization", s.auth)
 		httpReq.Header.Set("User-Agent", "synthkit-promrw/2")
+		ack = pushhook.Acknowledgement{Status: pushhook.AckUnknown}
 		return s.delivery.Send(rctx, s.hc, httpReq, func(resp *http.Response) (int, error) {
 			_, _ = io.Copy(io.Discard, resp.Body)
 			lastStatus = resp.StatusCode
+			var ackErr error
+			ack, ackErr = rw2Acknowledgement(resp, req)
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				return resp.StatusCode, nil
+				return resp.StatusCode, ackErr
 			}
 			// 415/406 ⇒ receiver rejects RW2 — permanent, surfaced (MetricsPolicy retries only 429/5xx).
 			return resp.StatusCode, fmt.Errorf("promrw: remote_write status %d", resp.StatusCode)
 		})
 	})
-	s.observe(ctx, batch, lastStatus, len(compressed), time.Since(start), false, retryErr)
+	s.observe(ctx, batch, lastStatus, len(compressed), time.Since(start), false, retryErr, ack)
 	if retryErr != nil {
 		return httpretry.Preserve(retryErr, operationalerr.New(operationalerr.Classify(lastStatus, retryErr)))
 	}
@@ -216,7 +220,7 @@ func (s *Sink) Write(ctx context.Context, batch []Series) error {
 
 // observe fires the self-observability hook (no-op when unset). blueprint is recovered from the
 // stamped "blueprint" label; direct Write callers without a blueprint label leave it empty.
-func (s *Sink) observe(ctx context.Context, batch []Series, status, bytesOut int, dur time.Duration, dryRun bool, err error) {
+func (s *Sink) observe(ctx context.Context, batch []Series, status, bytesOut int, dur time.Duration, dryRun bool, err error, ack pushhook.Acknowledgement) {
 	if s.Observe == nil {
 		return
 	}
@@ -227,7 +231,8 @@ func (s *Sink) observe(ctx context.Context, batch []Series, status, bytesOut int
 	s.Observe(ctx, pushhook.Event{
 		Sink: "promrw", Blueprint: blueprint, Items: len(batch),
 		Bytes: bytesOut, Status: status, Duration: dur, DryRun: dryRun,
-		ErrorCode: operationalerr.Classify(status, err),
+		ErrorCode:       operationalerr.Classify(status, err),
+		Acknowledgement: ack,
 	})
 }
 

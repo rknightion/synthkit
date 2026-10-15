@@ -286,10 +286,14 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/failures \
 ### Check sink readiness
 
 ```bash
-curl -fsS "${control_auth[@]}" http://127.0.0.1:8088/control/status | jq '.sinks[] | {name, last_success_ms, failures}'
+curl -fsS "${control_auth[@]}" http://127.0.0.1:8088/control/status | jq '.sinks[] | {sink, last_success_ms, failures, last_acknowledgement}'
 ```
 
 `dry_run: true` in the response means no live push is happening regardless of sink health — re-check `DRY_RUN` in your `.env`.
+
+`last_acknowledgement` distinguishes protocol acceptance, partial rejection and unverified or
+deferred outcomes. HTTP transport success alone is not a durable checkpoint receipt or backend
+readback. See [checkpoint foundations](checkpoint-foundations.md) for units and current limits.
 
 ### Boost volume temporarily
 

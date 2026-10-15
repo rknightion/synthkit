@@ -26,14 +26,73 @@ import (
 // cheaply determine are left zero (documented per-sink — e.g. promrw cannot surface Bytes/Status
 // because its remote_write client owns marshalling and the HTTP round-trip).
 type Event struct {
-	Sink      string              // sink name: "promrw" | "loki" | "otlp" | "faro" | "pyroscope"
-	Blueprint string              // blueprint selector label stamped on the batch ("" when substrate/unscoped)
-	Items     int                 // logical items pushed: series | (streams+lines) | spans | beacons
-	Bytes     int                 // wire bytes of the request body (0 when the sink doesn't build it itself)
-	Status    int                 // HTTP status code (0 = transport/marshal error before any response)
-	Duration  time.Duration       // wall-clock of the push call
-	DryRun    bool                // true = dry-run (no network push happened; Status/Bytes not meaningful)
-	ErrorCode operationalerr.Code // closed failure classification; never carries raw error text
+	Sink            string              // sink name: "promrw" | "loki" | "otlp" | "faro" | "pyroscope"
+	Blueprint       string              // blueprint selector label stamped on the batch ("" when substrate/unscoped)
+	Items           int                 // logical items pushed: series | (streams+lines) | spans | beacons
+	Bytes           int                 // wire bytes of the request body (0 when the sink doesn't build it itself)
+	Status          int                 // HTTP status code (0 = transport/marshal error before any response)
+	Duration        time.Duration       // wall-clock of the push call
+	DryRun          bool                // true = dry-run (no network push happened; Status/Bytes not meaningful)
+	ErrorCode       operationalerr.Code // closed failure classification; never carries raw error text
+	Acknowledgement Acknowledgement     // Protocol-level acceptance only; not final backend readback or a durable checkpoint receipt.
+}
+
+type AckStatus string
+
+const (
+	AckUnknown  AckStatus = "unverified" // Missing/ambiguous evidence; never infer acceptance from zero counts.
+	AckAccepted AckStatus = "accepted"
+	AckPartial  AckStatus = "partial"
+	AckRejected AckStatus = "rejected"
+	AckDeferred AckStatus = "deferred" // Asynchronous acceptance without complete written counts.
+)
+
+// Acknowledgement contains only bounded counts and a closed status. Unit is
+// spans, data_points, log_records, or rw2_elements (samples+histograms+exemplars).
+// It has no receiver diagnostic text, credential, transaction ID or durable epoch.
+type Acknowledgement struct {
+	Status   AckStatus `json:"status"`
+	Unit     string    `json:"unit"`
+	Expected int64     `json:"expected"`
+	Accepted int64     `json:"accepted"`
+	Rejected int64     `json:"rejected"`
+}
+
+// Sanitized rejects inconsistent counts and arbitrary text before status exposure.
+func (a Acknowledgement) Sanitized() Acknowledgement {
+	unknown := Acknowledgement{Status: AckUnknown}
+	if a.Status == "" {
+		a.Status = AckUnknown
+	}
+	switch a.Unit {
+	case "spans", "data_points", "log_records", "rw2_elements":
+	default:
+		return unknown
+	}
+	if a.Expected < 0 || a.Accepted < 0 || a.Rejected < 0 || a.Accepted > a.Expected || a.Rejected > a.Expected-a.Accepted {
+		return unknown
+	}
+	switch a.Status {
+	case AckAccepted:
+		if a.Accepted != a.Expected || a.Rejected != 0 {
+			return unknown
+		}
+	case AckPartial:
+		if a.Accepted == 0 || a.Rejected == 0 || a.Rejected != a.Expected-a.Accepted {
+			return unknown
+		}
+	case AckRejected:
+		if a.Accepted != 0 || a.Rejected != a.Expected {
+			return unknown
+		}
+	case AckDeferred, AckUnknown:
+		if a.Rejected != 0 {
+			return unknown
+		}
+	default:
+		return unknown
+	}
+	return a
 }
 
 // Observer receives one push Event. ctx carries any active trace span (the tick span the runner's

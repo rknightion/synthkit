@@ -96,6 +96,12 @@ lanes and report each state/reason/verification. Stop before claiming an optiona
 values. An SM partial state is a successful diagnostic boundary: report that snapshot provisioning
 and/or the required emitter restart remains. This read-only skill does not run the provisioner.
 
+Inspect each sink-history `last_acknowledgement` in `/control/status`. `accepted` is
+protocol-level receiver acceptance; `partial`/`rejected` indicates explicit loss, while
+`unverified`/`deferred` is not complete acceptance evidence. Counts use the declared unit,
+which differs between logical series and RW2 wire elements. Continue with backend readback;
+no receipt or readiness field proves checkpoint takeover/backfill. See `docs/checkpoint-foundations.md`.
+
 ## 4. Wait for declared cadence, then query
 
 The master cadence is not a promise that every series appears every master tick: metric-producing

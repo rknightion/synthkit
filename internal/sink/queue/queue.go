@@ -74,9 +74,10 @@ type Queue[T any] struct {
 	shard func(T) uint64
 	obs   Observer // may be nil
 
-	chans    []chan *T
-	flushReq []chan chan error // per-shard synchronous-flush barrier (used by Flush)
-	pending  int64             // atomic: enqueued-but-not-yet-flushed, for Depth()
+	chans       []chan *T
+	flushReq    []chan chan error // per-shard synchronous-flush barrier (used by Flush)
+	flushSerial chan struct{}     // context-bounded serialization of reporting barriers
+	pending     int64             // atomic: enqueued-but-not-yet-flushed, for Depth()
 
 	startOnce  sync.Once
 	started    atomic.Bool
@@ -96,7 +97,7 @@ type Queue[T any] struct {
 // routing key (same identity → same ordered sender). obs may be nil.
 func New[T any](opts Options, flush func(context.Context, []T) error, shard func(T) uint64, obs Observer) *Queue[T] {
 	opts = opts.withDefaults()
-	q := &Queue[T]{opts: opts, flush: flush, shard: shard, obs: obs, stop: make(chan struct{}), done: make(chan struct{})}
+	q := &Queue[T]{opts: opts, flush: flush, shard: shard, obs: obs, stop: make(chan struct{}), done: make(chan struct{}), flushSerial: make(chan struct{}, 1)}
 	perShard := opts.Capacity / opts.Shards
 	if perShard < 1 {
 		perShard = 1
@@ -197,6 +198,16 @@ func (q *Queue[T]) StartContext(ctx context.Context) {
 func (q *Queue[T]) sender(shard int) {
 	ch := q.chans[shard]
 	pending := make([]T, 0, q.opts.BatchMax)
+	// A successful later flush cannot erase a failed background batch. Report
+	// the first closed failure code at the next explicit barrier, then start a
+	// new reporting interval. This is not a durable receipt or a retry buffer.
+	var unreported error
+	flush := func() error {
+		if err := q.flushPending(shard, &pending); err != nil && unreported == nil {
+			unreported = err
+		}
+		return unreported
+	}
 	timer := time.NewTimer(q.opts.Deadline)
 	defer timer.Stop()
 
@@ -219,7 +230,7 @@ func (q *Queue[T]) sender(shard int) {
 			case item := <-ch:
 				pending = append(pending, *item)
 			default:
-				return q.flushPending(shard, &pending)
+				return flush()
 			}
 		}
 	}
@@ -229,14 +240,15 @@ func (q *Queue[T]) sender(shard int) {
 		case item := <-ch:
 			pending = append(pending, *item)
 			if len(pending) >= q.opts.BatchMax {
-				_ = q.flushPending(shard, &pending)
+				_ = flush()
 				resetTimer()
 			}
 		case <-timer.C:
-			_ = q.flushPending(shard, &pending)
+			_ = flush()
 			timer.Reset(q.opts.Deadline)
 		case ack := <-q.flushReq[shard]:
 			ack <- drainAndFlush() // synchronous barrier: report errors back to Flush
+			unreported = nil
 			resetTimer()
 		case <-q.stop:
 			_ = drainAndFlush() // final flush on shutdown; errors already logged
@@ -341,10 +353,17 @@ func (q *Queue[T]) Run(ctx context.Context, drainDeadline time.Duration) {
 }
 
 // Flush synchronously ships everything currently buffered and returns the joined flush
-// error, WITHOUT stopping the senders — so the queue stays reusable (RunOnce can be called
+// error, including background failures since the prior barrier, WITHOUT stopping
+// the senders — so the queue stays reusable (RunOnce can be called
 // again). Callers must ensure no Write is concurrently in flight (RunOnce ticks
 // synchronously before calling Flush). Bounded by ctx.
 func (q *Queue[T]) Flush(ctx context.Context) error {
+	select {
+	case q.flushSerial <- struct{}{}:
+		defer func() { <-q.flushSerial }()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 	q.Start() // idempotent: senders must run to service the barrier
 	acks := make([]chan error, len(q.flushReq))
 	for i := range q.flushReq {

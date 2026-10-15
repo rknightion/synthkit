@@ -24,20 +24,21 @@ const maxSamples = 30
 // "last N items" reading near-meaningless, so the panel reads cumulative totals, a rolling
 // rate, and a short sparkline of recent per-push item counts instead.
 type SinkStat struct {
-	Sink          string              `json:"sink"`
-	LastAttemptMs int64               `json:"last_attempt_ms"`
-	LastSuccessMs int64               `json:"last_success_ms"`
-	LastErrorMs   int64               `json:"last_error_ms"`
-	LastError     string              `json:"last_error"`
-	LastErrorCode operationalerr.Code `json:"last_error_code"`
-	Pushes        int64               `json:"pushes"`
-	Failures      int64               `json:"failures"`
-	LastItems     int                 `json:"last_items"`
-	LastStatus    int                 `json:"last_status"`
-	TotalItems    int64               `json:"total_items"`  // cumulative items over real (non-dry-run) pushes
-	RatePerMin    float64             `json:"rate_per_min"` // rolling items/min over the sample ring (0 when <2 samples)
-	Spark         []int               `json:"spark"`        // recent per-push item counts, oldest→newest (cap maxSamples)
-	DryRun        bool                `json:"dry_run"`
+	Sink                string                   `json:"sink"`
+	LastAttemptMs       int64                    `json:"last_attempt_ms"`
+	LastSuccessMs       int64                    `json:"last_success_ms"`
+	LastErrorMs         int64                    `json:"last_error_ms"`
+	LastError           string                   `json:"last_error"`
+	LastErrorCode       operationalerr.Code      `json:"last_error_code"`
+	Pushes              int64                    `json:"pushes"`
+	Failures            int64                    `json:"failures"`
+	LastItems           int                      `json:"last_items"`
+	LastStatus          int                      `json:"last_status"`
+	TotalItems          int64                    `json:"total_items"`  // cumulative items over real (non-dry-run) pushes
+	RatePerMin          float64                  `json:"rate_per_min"` // rolling items/min over the sample ring (0 when <2 samples)
+	Spark               []int                    `json:"spark"`        // recent per-push item counts, oldest→newest (cap maxSamples)
+	DryRun              bool                     `json:"dry_run"`
+	LastAcknowledgement pushhook.Acknowledgement `json:"last_acknowledgement"`
 }
 
 // sample is one real push's item count stamped with its wall-clock millis, kept in the ring
@@ -56,6 +57,8 @@ type sinkAgg struct {
 
 // QueueStat is authoritative delivery-queue loss and pressure state for one sink. It is
 // deliberately separate from failed push attempts: retries can recover before a queue drops data.
+// DroppedItems counts queue removals after failed sends, not exact remote loss when
+// acceptance was partial or ambiguous; per-push protocol counts are separate.
 type QueueStat struct {
 	Sink            string              `json:"sink"`
 	Depth           int                 `json:"depth"`
@@ -173,7 +176,7 @@ func (s *Store) Observer() pushhook.Observer {
 		defer s.mu.Unlock()
 		a := s.bySink[ev.Sink]
 		if a == nil {
-			a = &sinkAgg{stat: SinkStat{Sink: ev.Sink}}
+			a = &sinkAgg{stat: SinkStat{Sink: ev.Sink, LastAcknowledgement: pushhook.Acknowledgement{Status: pushhook.AckUnknown}}}
 			s.bySink[ev.Sink] = a
 		}
 		st := &a.stat
@@ -183,6 +186,7 @@ func (s *Store) Observer() pushhook.Observer {
 		if ev.DryRun {
 			return // dry-run is not a real push; don't count, stamp, or sample
 		}
+		st.LastAcknowledgement = ev.Acknowledgement.Sanitized()
 		st.Pushes++
 		st.TotalItems += int64(ev.Items)
 		ms := s.now().UnixMilli()

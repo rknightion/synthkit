@@ -201,6 +201,14 @@ evidence. Provenance never reaches the wire; captured reality and the sole exemp
 - Go ignores nested modules, not Git ignore rules. Retained Go proof sources under `codex/` use
   the ignored `codex/go.mod` boundary; preserve production package discovery and all proof artifacts.
 
+- Sink acknowledgement is protocol acceptance, not backend readback or a durable checkpoint watermark.
+  OTLP partial rejection and contradictory RW2 written counts fail without whole-request retries;
+  unknown/deferred acknowledgements cannot certify continuity. Queue Flush reports background
+  failures since the previous barrier; it is not a durable outbox. The optional checkpoint package
+  stores opaque payloads only, requires actual leadership authority for writes, and leaves runtime
+  snapshot/restore, takeover and backfill disabled. Cancelled publications retain evidence and may
+  require explicit recovery; do not silently reinitialize unbound storage.
+
 - HA-loss subprocess proofs synchronize on the real HTTP handler's recorded observation before
   revocation; sender entry or an elapsed sleep is not a delivery receipt. Keep the five-second
   subprocess bound, partial-batch exclusion, admission fence and hard-exit assertions intact.

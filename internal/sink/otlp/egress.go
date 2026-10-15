@@ -60,6 +60,7 @@ func (e egress) post(ctx context.Context, body []byte, items int, blueprint stri
 		start = time.Now()
 	}
 	var lastStatus int
+	ack := pushhook.Acknowledgement{Status: pushhook.AckUnknown}
 	retryErr := e.delivery.Policy(httpretry.OTLPPolicy()).Do(ctx, func(rctx context.Context) (int, error) {
 		httpReq, err := http.NewRequestWithContext(rctx, http.MethodPost, e.url, bytes.NewReader(gz))
 		if err != nil {
@@ -68,21 +69,25 @@ func (e egress) post(ctx context.Context, body []byte, items int, blueprint stri
 		httpReq.Header.Set("Content-Type", "application/x-protobuf")
 		httpReq.Header.Set("Content-Encoding", "gzip")
 		httpReq.Header.Set("Authorization", e.auth)
+		ack = pushhook.Acknowledgement{Status: pushhook.AckUnknown}
 		return e.delivery.Send(rctx, e.hc, httpReq, func(resp *http.Response) (int, error) {
 			if resp.StatusCode/100 != 2 {
-				b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+				_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 512))
 				lastStatus = resp.StatusCode
-				return resp.StatusCode, fmt.Errorf("otlp %s: HTTP %d: %s", e.sinkName, resp.StatusCode, b)
+				return resp.StatusCode, fmt.Errorf("otlp %s: HTTP %d", e.sinkName, resp.StatusCode)
 			}
 			lastStatus = resp.StatusCode
-			return resp.StatusCode, nil
+			var err error
+			ack, err = otlpAcknowledgement(resp, e.sinkName, items)
+			return resp.StatusCode, err
 		})
 	})
 	if obs != nil {
 		obs(ctx, pushhook.Event{
 			Sink: e.sinkName, Blueprint: blueprint, Items: items,
 			Bytes: len(gz), Status: lastStatus, Duration: time.Since(start), DryRun: false,
-			ErrorCode: operationalerr.Classify(lastStatus, retryErr),
+			ErrorCode:       operationalerr.Classify(lastStatus, retryErr),
+			Acknowledgement: ack,
 		})
 	}
 	return httpretry.Preserve(retryErr, operationalerr.New(operationalerr.Classify(lastStatus, retryErr)))

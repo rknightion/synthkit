@@ -520,6 +520,13 @@ many small per-construct round-trips into a few large batched ones. Per-identity
 the cumulative-counter ordering (I3); the existing `pushhook` outcome seam still fires per real push
 (now per batch). See I41 for the full contract (no WAL, backpressure, RunOnce flush, self-obs).
 
+Protocol acceptance is explicit in `pushhook.Event.Acknowledgement` and the sanitized
+sink-history API. OTLP partial rejection and contradictory RW2 written counts fail without
+retrying an already accepted subset. Missing/async evidence remains unverified/deferred;
+HTTP success is not a durable delivery watermark. Queue `Flush` reports background failures
+since the preceding barrier rather than losing them when the pending batch is empty.
+`DrainJoined` remains a quiescence proof only. These changes do not add a queue WAL.
+
 **`sink/promrw` — RW2 implementation notes.** Final pre-mangled metric names are unchanged: the name is simply the `__name__` symbol in the RW2 symbols table. The OTel metrics SDK is **banned** on the synthetic-data path — the promrw sink uses `google.golang.org/protobuf` (the protobuf runtime), not the metrics SDK. Per-series `Metadata.Type` is stamped from `Series.Kind`; classic-histogram component series (`_bucket`/`_sum`/`_count`) all carry `METRIC_TYPE_HISTOGRAM` because `state.Collect` stamps them `KindHistogram` — this is **deliberate**: RW2 per-series metadata is advisory and Mimir tolerates it, so do not "fix" it. `just proto-drift-check` detects upstream RW2-proto drift (network; run it before re-vendoring or cutting a release — it is not part of `just check`).
 
 `internal/state` is the sink-correctness layer (per-instance, no sharing, no mutex): cumulative
@@ -631,6 +638,17 @@ only by `cmd/synthkit/main.go`, the sinks import only `pushhook`). `archtest.Tes
 additionally asserts that `internal/sink/*` and `internal/runner` import neither the OTel SDK
 (`go.opentelemetry.io/otel`), Pyroscope, `selfobs`, nor `profiling` — the OTel *proto* package the
 `sink/otlp` hand-encodes with is a distinct module and stays allowed.
+
+### 6.2 Checkpoint storage foundations (not runtime-enabled)
+
+`internal/checkpoint` stores opaque version-bound payloads on an explicitly selected private
+filesystem. Immutable payload hashes and a checksummed atomic manifest bind deployment,
+destination, configuration, epoch and revision. The actual HA gate authorizes mutations;
+a store instance cannot refresh itself into another leader's epoch. Cross-process file locks,
+file/directory fsync and explicit byte/file caps are required. There is no automatic pruning,
+ConfigMap repurposing, runtime restore/replay wiring or Docker-default change. Actual shared
+filesystem semantics still require validation before HA use. See
+[checkpoint foundations](docs/checkpoint-foundations.md) for the admitted and missing behavior.
 
 ## 7. Invariants (each enforced by types/asserts/tests — never comments alone)
 
