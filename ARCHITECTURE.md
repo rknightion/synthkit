@@ -179,6 +179,14 @@ requires unconstrained demand above the configured budget and a reducing cap.
 Both causes may coexist; unsupported profiles and unavailable GPUs omit achieved
 clocks. See [GPU clock constraints](docs/ai-factory/gpu-constraints.md).
 
+Optional pool operating constraints are shared physical-model inputs, not per-collector
+hardware toggles. `GPUConstraintDemands` projects allocation demand and the additive
+GPU/node power incident; the legacy mode inventory and physics remain unchanged.
+`RequireGPUFaultProfile` admits exact-driver HGX fault scenarios below shutdown while
+preserving the ordinary thermal capability. The DCGM consumer separately tracks sampled
+field windows, rising event edges and elapsed violation durations.
+
+
 The fixture emits no telemetry. The additive `hgx` shape is exactly eight H100
 SXM GPUs in an ordinary operator-declared server, with four node-local switches
 and the 144 access edges of Fabric Manager `595.91.07-1ubuntu1`'s

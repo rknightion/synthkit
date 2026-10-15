@@ -59,6 +59,7 @@ var otlpNativeAllowed = map[string]bool{
 // would fabricate a shape no real deployment produces. Must NEVER declare
 // core.OTLPMetrics.
 var otlpScrapeOnlyForbidden = map[string]bool{
+	"dcgm":               true,
 	"alloy_health":       true,
 	"fleet_management":   true,
 	"argocd":             true,
@@ -228,10 +229,10 @@ func TestOTLPVerdictCoverageIsComplete(t *testing.T) {
 	checkStale("otlpScrapeOnlyForbidden", otlpScrapeOnlyForbidden)
 	checkStale("otlpUnresolved", otlpUnresolved)
 
-	const wantTotal = 46
+	const wantTotal = 47
 	if got := len(allKinds); got != wantTotal {
 		t.Errorf("runner.Catalog() registers %d kinds, want %d (signals/otlp-native-verdicts.md "+
-			"includes the 2026-09-08 Datadog receiver addition to the 45-package baseline — if the catalog has genuinely "+
+			"includes the Datadog receiver and 2026-10-15 DCGM exporter additions to the 45-package baseline — if the catalog has genuinely "+
 			"grown or shrunk, re-run the SKT-0007.01 study and update both files)", got, wantTotal)
 	}
 }

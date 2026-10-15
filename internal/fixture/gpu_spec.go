@@ -77,18 +77,19 @@ type GPUNodeHardwareSpec struct {
 }
 
 type GPUOperatingSpec struct {
-	PowerLimitW           *float64 `yaml:"power_limit_w"`
-	IdlePowerFraction     float64  `yaml:"idle_power_fraction"`
-	AmbientTempC          float64  `yaml:"ambient_temp_c"`
-	FullPowerRiseC        float64  `yaml:"full_power_rise_c"`
-	CoolingFaultRiseC     float64  `yaml:"cooling_fault_rise_c"`
-	CoolingPerfLoss       float64  `yaml:"cooling_perf_loss"`
-	CongestionPerfLoss    float64  `yaml:"congestion_perf_loss"`
-	StoragePerfLoss       float64  `yaml:"storage_perf_loss"`
-	NodeBasePowerW        float64  `yaml:"node_base_power_w"`
-	NodeDynamicPerCoreW   float64  `yaml:"node_dynamic_per_core_w"`
-	NodeDynamicPerNICW    float64  `yaml:"node_dynamic_per_nic_w"`
-	NVLinkErrorsPerSecond float64  `yaml:"nvlink_errors_per_second"`
+	Constraints           *GPUConstraintOperatingSpec `yaml:"constraints,omitempty" json:",omitempty"`
+	PowerLimitW           *float64                    `yaml:"power_limit_w"`
+	IdlePowerFraction     float64                     `yaml:"idle_power_fraction"`
+	AmbientTempC          float64                     `yaml:"ambient_temp_c"`
+	FullPowerRiseC        float64                     `yaml:"full_power_rise_c"`
+	CoolingFaultRiseC     float64                     `yaml:"cooling_fault_rise_c"`
+	CoolingPerfLoss       float64                     `yaml:"cooling_perf_loss"`
+	CongestionPerfLoss    float64                     `yaml:"congestion_perf_loss"`
+	StoragePerfLoss       float64                     `yaml:"storage_perf_loss"`
+	NodeBasePowerW        float64                     `yaml:"node_base_power_w"`
+	NodeDynamicPerCoreW   float64                     `yaml:"node_dynamic_per_core_w"`
+	NodeDynamicPerNICW    float64                     `yaml:"node_dynamic_per_nic_w"`
+	NVLinkErrorsPerSecond float64                     `yaml:"nvlink_errors_per_second"`
 }
 
 type GPUBMCTemplateSpec struct {

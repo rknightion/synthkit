@@ -1,7 +1,7 @@
 # NVIDIA DCGM GPU exporter: pinned H100 HGX profile
 
 This is the admitted signal contract for dcgm-exporter 4.8.4 with DCGM 4.6.1,
-H100 SXM and driver 595.91.07. Catalogue admission is not implementation acceptance.
+H100 SXM and driver 595.91.07. The `dcgm` construct implements this narrowly admitted profile.
 No other product or driver inherits this profile. Global naming and cardinality
 rules are in [the signal canon](00-canon.md).
 
@@ -110,8 +110,9 @@ covers unsupported, missing and unavailable values. Omitted values are not zero.
 Clock `COUNT` samples carry `window_size_in_ms` and, when an observed reason
 exists, `clock_event`. The reason vocabulary is `gpu_idle`, `clocks_setting`,
 `power_cap`, `hw_slowdown`, `sync_boost`, `sw_thermal`, `hw_thermal`,
-`hw_power_brake`, `display_clocks`. An empty window produces one zero sample
-without a reason. Window count reflects collected field samples, not necessarily
+`hw_power_brake`, `display_clocks`. A window with no valid source values produces one zero sample without a reason.
+Pinned exporter 4.8.4 creates an empty per-entity map for valid zero-mask values
+and then emits no COUNT row for that entity; this differs from missing source values. Window count reflects collected field samples, not necessarily
 rising transitions. Source: [clock window collector](https://github.com/NVIDIA/dcgm-exporter/blob/4.8.4/internal/pkg/collector/clock_events_collector.go).
 
 Clock `TOTAL` counts only observed inactive-to-active transitions per reason.
@@ -142,9 +143,9 @@ metadata is `DCGM_FR_OK`, `NONE`, `NONE`. Sources:
 | DCGM_FR_SBE_VIOLATION | ISOLATE | HARDWARE_MEMORY |
 | DCGM_FR_DBE_VIOLATION | ISOLATE | HARDWARE_MEMORY |
 | DCGM_FR_ROW_REMAP_FAILURE | RESET | HARDWARE_MEMORY |
-| DCGM_FR_CLOCKS_EVENT_THERMAL | MONITOR | HARDWARE_THERMAL |
+| DCGM_FR_CLOCK_THROTTLE_THERMAL | MONITOR | HARDWARE_THERMAL |
 | DCGM_FR_THERMAL_VIOLATIONS | MONITOR | HARDWARE_THERMAL |
-| DCGM_FR_CLOCKS_EVENT_POWER | MONITOR | HARDWARE_POWER |
+| DCGM_FR_CLOCK_THROTTLE_POWER | MONITOR | HARDWARE_POWER |
 | DCGM_FR_NVLINK_ERROR_THRESHOLD | ISOLATE | HARDWARE_NVLINK |
 | DCGM_FR_NVLINK_DOWN | TRIAGE | HARDWARE_NVLINK |
 | DCGM_FR_FALLEN_OFF_BUS | ISOLATE | HARDWARE_OTHER |
@@ -171,3 +172,135 @@ NVSwitch exporter exposition and Grace CPU profiles remain pending. Host dcgmi
 switch observations do not establish exporter samples or CSV selection. MIG is
 explicitly deferred. Unsupported profiles must fail closed, never borrow H100
 bounds. No physical endpoint mapping may be invented from exporter labels.
+
+## Implemented model [slug: dcgm-h100]
+
+The integration selects `gpu_pools` and supports `stock`, `dcp` and `fault-detection`.
+Only selected eight-GPU HGX nodes with H100 SXM and declared driver 595.91.07 are
+admitted. Usable framebuffer must be the explicitly sourced 81,081 MiB declaration;
+reserved framebuffer is the captured 478 MiB. Unsupported pools fail construction
+rather than producing guessed samples. P2P, MIG, NVSwitch and Grace emission is absent.
+
+Pool `operating.constraints` declares requested clocks, full-load unconstrained power,
+a stronger power-incident demand and software-thermal/power caps. Shared allocation
+utilization interpolates the demand from the declared idle floor to the full-load
+request. Existing budget-bounded actual power and temperature remain the shared
+operating model, not a vendor transfer curve. `gpu_power_constraint` is a shared
+GPU/node demand incident. `gpu_cooling_fault` is the existing rack/device cause.
+The separate fault admission requires baseline worst-case core temperature <=87 C
+and fault worst-case <95 C; it does not weaken the legacy thermal capability.
+
+The renderer uses an explicit synthetic HBM/core temperature offset and declared
+engine-activity/traffic fractions. These are operator modeling inputs, not hardware
+limits or measured throughput. Rates are zero when no such activity is declared.
+No shipped blueprint enables this consumer or increases rates to force activity.
+The focused HGX verification fixture is outside the shipped blueprint directory.
+
+Cumulative energy (mJ), violation time (ns) and NVLink CRC observations integrate the
+previous observed state over elapsed time. The first sample primes with no invented
+past duration. This is a piecewise-constant synthetic device model; it does not infer
+unobserved real transitions. Exporter observation spacing defaults to the captured
+5 seconds and the event window to 300 seconds. Emission remains once per minute.
+The captured baseline has no observed clock reason and keeps the zero-count envelope.
+After a modeled reason has established valid source values, inactive zero-mask samples
+remain valid: when active samples expire, the pinned exporter omits COUNT instead of
+creating a zero row. Window clock counts count field observations; totals count rising transitions, and a
+startup-active cause primes without creating a transition. Both causes are independent.
+
+`gpu_xid_burst` creates the configured count of the selected sourced Xid at each active
+observation. The nonfatal burst selector admits codes 48, 63, 64 and 74, not
+GPU-wide fatal code 95. The raw gauge retains the last value; window counts expire independently
+of cumulative totals. `dcgm_ecc_error_growth` produces explicitly declared DBE and
+uncorrectable-remap collection events, with no claimed universal DBE-to-row ratio.
+No driver-reload/reset scenario is implemented: volatile and aggregate ECC remain
+separate instruments, and generator restart retains the documented new-run counter
+reset behavior. `dcgm_health_failure` selects the sourced memory health failure.
+Shared physical NVLink error rates are projected as the declared CRC-error scenario;
+recovery/replay stay at their supported healthy zero. Bus loss omits all affected GPU
+series. Other GPUs and unavailable-GPU clocks are never filled with placeholders.
+
+Health values are PASS=0, WARN=10 and FAIL=20 from the pinned DCGM header. The pinned
+exporter renders the older `CLOCK_THROTTLE_*` error labels, despite newer aliases in
+DCGM headers. The all-rows capture itself includes a POWER warning with that label;
+its profile arithmetic is not a claim that every captured watch was healthy.
+
+Kubernetes mode attaches `pod`, `namespace`, `container` only to held allocations,
+using the shared worker identity; public runner checks join it to actual KSM pod
+output and prove omission after release. This is not admission of all GPU compute
+collection adapters: the shipped reference compute cluster stays disabled until
+its remaining capacity/platform/network/operator contracts are verified.
+
+```yaml signals
+family: dcgm_h100_stock
+scope: substrate
+sink: promrw
+labels:
+  gpu: <gpu-index>
+  UUID: <declared-gpu-uuid>
+  pci_bus_id: <declared-pci-bus-id>
+  device: <nvidia-device>
+  modelName: NVIDIA H100 80GB HBM3
+  hostname: <declared-node>
+  DCGM_FI_DRIVER_VERSION: 595.91.07
+  pod: <allocated-pod; kubernetes mode only, omitted when unheld>
+  namespace: <allocated-namespace; kubernetes mode only, omitted when unheld>
+  container: <allocated-container; kubernetes mode only, omitted when unheld>
+metrics:
+  - {root: DCGM_FI_DEV_CORRECTABLE_REMAPPED_ROWS, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_DEC_UTIL, type: gauge, unit: percent, v: ok}
+  - {root: DCGM_FI_DEV_ENC_UTIL, type: gauge, unit: percent, v: ok}
+  - {root: DCGM_FI_DEV_FB_FREE, type: gauge, unit: mebibytes, v: ok}
+  - {root: DCGM_FI_DEV_FB_RESERVED, type: gauge, unit: mebibytes, v: ok}
+  - {root: DCGM_FI_DEV_FB_USED, type: gauge, unit: mebibytes, v: ok}
+  - {root: DCGM_FI_DEV_GPU_TEMP, type: gauge, unit: celsius, v: ok}
+  - {root: DCGM_FI_DEV_GPU_UTIL, type: gauge, unit: percent, v: ok}
+  - {root: DCGM_FI_DEV_MEMORY_TEMP, type: gauge, unit: celsius, v: ok}
+  - {root: DCGM_FI_DEV_MEM_CLOCK, type: gauge, unit: megahertz, v: ok}
+  - {root: DCGM_FI_DEV_MEM_COPY_UTIL, type: gauge, unit: percent, v: ok}
+  - {root: DCGM_FI_DEV_NVLINK_BANDWIDTH_TOTAL, type: gauge, unit: megabytes_per_second, v: ok}
+  - {root: DCGM_FI_DEV_PCIE_REPLAY_COUNTER, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_POWER_USAGE, type: gauge, unit: watts, v: ok}
+  - {root: DCGM_FI_DEV_ROW_REMAP_FAILURE, type: gauge, unit: boolean, v: ok}
+  - {root: DCGM_FI_DEV_SM_CLOCK, type: gauge, unit: megahertz, v: ok}
+  - {root: DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION, type: counter, unit: millijoules, v: ok}
+  - {root: DCGM_FI_DEV_UNCORRECTABLE_REMAPPED_ROWS, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_VGPU_LICENSE_STATUS, type: gauge, unit: status, v: ok}
+  - {root: DCGM_FI_DEV_XID_ERRORS, type: gauge, unit: code, v: ok, note: "Absent before an event; err_code and err_msg labels."}
+  - {root: DCGM_FI_PROF_DRAM_ACTIVE, type: gauge, unit: ratio, v: ok}
+  - {root: DCGM_FI_PROF_GR_ENGINE_ACTIVE, type: gauge, unit: ratio, v: ok}
+  - {root: DCGM_FI_PROF_PCIE_RX_BYTES, type: gauge, unit: bytes_per_second, v: ok}
+  - {root: DCGM_FI_PROF_PCIE_TX_BYTES, type: gauge, unit: bytes_per_second, v: ok}
+  - {root: DCGM_FI_PROF_PIPE_TENSOR_ACTIVE, type: gauge, unit: ratio, v: ok}
+```
+
+```yaml signals
+family: dcgm_h100_fault
+scope: substrate
+sink: promrw
+labels:
+  gpu: <gpu-index>
+  UUID: <declared-gpu-uuid>
+  pci_bus_id: <declared-pci-bus-id>
+  device: <nvidia-device>
+  modelName: NVIDIA H100 80GB HBM3
+  hostname: <declared-node>
+  DCGM_FI_DRIVER_VERSION: 595.91.07
+  pod: <allocated-pod; kubernetes mode only, omitted when unheld>
+  namespace: <allocated-namespace; kubernetes mode only, omitted when unheld>
+  container: <allocated-container; kubernetes mode only, omitted when unheld>
+metrics:
+  - {root: DCGM_EXP_CLOCK_EVENTS_COUNT, type: gauge, unit: count, v: ok, note: "Optional clock_event; COUNT adds window_size_in_ms; TOTAL exists only after a transition."}
+  - {root: DCGM_EXP_CLOCK_EVENTS_TOTAL, type: counter, unit: count, v: ok, note: "Optional clock_event; COUNT adds window_size_in_ms; TOTAL exists only after a transition."}
+  - {root: DCGM_EXP_GPU_HEALTH_STATUS, type: gauge, unit: status, v: ok, note: "Eleven watches; health_watch, health_error_code, health_error_severity and health_error_category labels; values 0/10/20."}
+  - {root: DCGM_EXP_XID_ERRORS_COUNT, type: gauge, unit: count, v: ok, note: "Optional xid; COUNT adds window_size_in_ms; TOTAL exists only after an event."}
+  - {root: DCGM_EXP_XID_ERRORS_TOTAL, type: counter, unit: count, v: ok, note: "Optional xid; COUNT adds window_size_in_ms; TOTAL exists only after an event."}
+  - {root: DCGM_FI_DEV_ECC_DBE_AGG_TOTAL, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_ECC_DBE_VOL_TOTAL, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_ECC_SBE_AGG_TOTAL, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_ECC_SBE_VOL_TOTAL, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_NVLINK_CRC_ERROR_TOTAL, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_NVLINK_RECOVERY_TOTAL, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_NVLINK_REPLAY_TOTAL, type: counter, unit: count, v: ok}
+  - {root: DCGM_FI_DEV_POWER_VIOLATION, type: counter, unit: nanoseconds, v: ok}
+  - {root: DCGM_FI_DEV_THERMAL_VIOLATION, type: counter, unit: nanoseconds, v: ok}
+```

@@ -17,6 +17,8 @@ hardware does not establish a collection adapter or vendor telemetry profile.
 - [GPU clock constraints](ai-factory/gpu-constraints.md): shared requested/achieved clocks and
   active synthetic thermal/power causes for the exact H100 SXM/595.91.07 profile. Unsupported
   profiles retain absent achieved clocks; this is not a vendor telemetry adapter.
+- [H100 HGX DCGM](ai-factory/dcgm.md): pinned stock/DCP/fault profiles, shared clock constraints,
+  allocation-safe pod labels and source-supported collection events. Other products remain unsupported.
 - [Gateway pools](ai-factory/alloyhealth.md): an optional declared Alloy process pool
   with role-specific receiver, queue, peer, scrape and remote-configuration health.
   The pilot uses a two-member HA pool. Queues retain synthetic requests for the
@@ -37,10 +39,10 @@ The following consumers are not enabled in this reference estate:
 
 | Consumer | Barrier and resume boundary |
 | --- | --- |
-| DCGM | The shared H100 constraint model is available. The source-correct DCGM consumer still needs field/profile admission and validated mappings from those causes to exporter telemetry. The model alone establishes neither vendor event labels nor violation duration; unsupported profiles remain gaps. |
+| DCGM | The narrowed H100 HGX consumer is available, but it is not enabled in the shipped reference estate. NVSwitch, Grace, MIG and other product profiles remain deferred. |
 | GPU driver logs | Resume after the source-correct DCGM consumer lands; topology alone does not prove Xid/SXid/NVRM log projection. |
 | GPU and Network Operator adapters | Resume after DCGM and the driver-log disposition, with actual GPU resource and pod-identity join evidence. Only that evidence can justify enabling compute-cluster collection. |
-| Full GPU reference blueprint | Its prerequisite DCGM landing is unmet. The current increment is not completion of the GPU reference estate. |
+| Full GPU reference blueprint | Its remaining vendor consumers and compute collection adapters are not admitted. The current increment is not completion of the GPU reference estate. |
 
 Unconfirmed NVSwitch exposition, Grace profiles and absolute HBM thermal limits remain
 explicit source barriers. No unsupported metric or hardware envelope is emitted to

@@ -9,7 +9,10 @@ import (
 )
 
 // GPUClocks are MHz. Caps are explicit synthetic scenario inputs, not a vendor curve.
-type GPUClocks struct{ SM, Memory float64 }
+type GPUClocks struct {
+	SM     float64 `yaml:"sm"`     // Requested or capped SM clock in MHz.
+	Memory float64 `yaml:"memory"` // Requested or capped memory clock in MHz.
+}
 
 // GPUConstraintDemand must cover every GPU, including unavailable GPUs.
 type GPUConstraintDemand struct {

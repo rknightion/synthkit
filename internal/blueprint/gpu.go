@@ -51,7 +51,7 @@ func validateGPUIntegerInput(data []byte) error {
 				}
 				for i := 0; i < t.NumField(); i++ {
 					key := strings.Split(t.Field(i).Tag.Get("yaml"), ",")[0]
-					if key != "power_limit_w" && !present[key] {
+					if key != "power_limit_w" && key != "constraints" && !present[key] {
 						return fmt.Errorf("%s.%s: explicit operating assumption is required", path, key)
 					}
 				}
@@ -401,7 +401,7 @@ func validateResolvedEffect(r *Resolved, reg *core.Registry, e EffectDecl, axes 
 	if r.GPU == nil {
 		return nil
 	}
-	shared := false
+	shared := e.Mode == fixture.GPUPowerConstraintMode
 	for _, c := range fixture.GPUFailureContracts() {
 		if c.Name == e.Mode {
 			shared = true
@@ -441,7 +441,7 @@ func validateResolvedEffect(r *Resolved, reg *core.Registry, e EffectDecl, axes 
 				continue
 			}
 			if shared {
-				if ci.Fixtures.GPU.CoversTarget(ci.Kind, e.Mode, key) && gpuInstanceOwnsTarget(ci, key) {
+				if (ci.Fixtures.GPU.CoversTarget(ci.Kind, e.Mode, key) || (ci.Kind == "dcgm" && ci.Fixtures.GPU.CoversConstraintTarget(e.Mode, key))) && gpuInstanceOwnsTarget(ci, key) {
 					covered = true
 				}
 			} else if gpuLocalMembership(ci.Fixtures.GPU, key) {

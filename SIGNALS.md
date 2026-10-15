@@ -67,7 +67,7 @@ Cross-cutting rules that span ALL families (area files reference these by slug, 
 | [`signals/apm.md`](./signals/apm.md) | APM span-metrics / service-graph | blueprint | promrw | `apm-calls`, `apm-latency`, `apm-size`, `apm-service-graph`, `apm-service-graph-latency`, `apm-target-info` |
 | [`signals/traces.md`](./signals/traces.md) | Traces (v1 span tree → OTLP → Tempo) | blueprint | otlp | `traces-span-tree`, `traces-resource-attrs`, `traces-correlation`, `traces-timing` |
 | [`signals/logs.md`](./signals/logs.md) | Logs, Faro/RUM, user-actions, browser spans, k8s-addon logs | blueprint + substrate | loki / faro / otlp | `logs-app`, `logs-sm`, `logs-dbo11y-csp`, `logs-faro-rum`, `logs-user-actions`, `logs-browser-spans`, `logs-derived-cloud`, `logs-k8s-addons`, `logs-syslog` |
-| [`signals/dcgm.md`](./signals/dcgm.md) | Pinned H100 HGX DCGM exporter source contract; emitter implementation remains pending | substrate | promrw (pending) | source contract only |
+| [`signals/dcgm.md`](./signals/dcgm.md) | Pinned H100 HGX DCGM stock/DCP/fault profiles, clocks, event windows and health | substrate | promrw | dcgm-h100 |
 | [`signals/sm.md`](./signals/sm.md) | Synthetic Monitoring (fake SM checks) | substrate | promrw + loki | `sm-checks`, `sm-logs` |
 | [`signals/fm.md`](./signals/fm.md) | Fleet Management + Alloy meta-health + optional gateway pool + content sentinel | substrate | promrw | `fm-fleet`, `fm-alloy-health`, `fm-content-sentinel`, `fm-syslog-health`, `fm-gateway` |
 | [`signals/genai.md`](./signals/genai.md) | gen_ai semconv attrs + `gen_ai_client_*`/`gen_ai_server_*` metrics (workload-emitted) | blueprint | promrw + otlp | `genai-spans`, `genai-metrics` |

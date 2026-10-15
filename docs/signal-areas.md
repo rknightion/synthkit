@@ -146,8 +146,9 @@ The global rules that apply to every area above — push topology, blueprint sel
 
 For how to read and verify the catalogue, see [Reading the Catalogue](signals.md). For open / unverified items, see [`cantfind.md`](https://github.com/rknightion/synthkit/blob/main/cantfind.md).
 
-## Sourced contracts awaiting emission
+## GPU telemetry
 
 The [H100 HGX DCGM contract](https://github.com/rknightion/synthkit/blob/main/signals/dcgm.md)
-records pinned exporter fields, observed profile counts and physical limits. The exporter
-construct is not yet implemented; this catalogue entry does not enable GPU telemetry.
+records the pinned H100 SXM HGX exporter profiles, event semantics and physical limits.
+The [DCGM guide](ai-factory/dcgm.md) describes explicit pool admission and configuration.
+Other products, NVSwitch, Grace and MIG remain unsupported.

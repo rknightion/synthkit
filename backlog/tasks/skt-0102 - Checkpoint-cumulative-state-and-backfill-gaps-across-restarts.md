@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-15 11:54'
+updated_date: '2026-10-15 12:41'
 labels:
   - feature
   - ha
@@ -51,4 +51,6 @@ Design revision1 retained at /Users/rob/repos/synthkit/codex/backlog-pickup-2026
 Independent design challenge required epoch-bound CAS, immutable serialized wire bytes and complete chronological master-tick replay, not only emitter due positions. Proposal revision2 corrects these and explicitly rejects checkpoint mode for any unsupported selected runtime path. Store/stack/scope decisions remain pending.
 
 Independent re-review accepted design revision2 with no remaining design blockers. Revision3 clarifies explicit gaps and leadership-authorized epoch acquisition. Store/provider and live-stack selections remain pending; no checkpoint runtime or live verification is claimed.
+
+Owner 2026-10-15 clarified existing ConfigMap expectation, approved shared filesystem mounts as the checkpoint direction, selected rkaidev for bounded verification, and explicitly approved delivery-acknowledgement/checkpoint foundations as increments while retaining this task open until takeover/backfill is proved. Standalone Docker defaults remain unchanged; no S3 dependency. Existing ConfigMaps remain small control-state stores, not per-series payload storage.
 <!-- SECTION:NOTES:END -->

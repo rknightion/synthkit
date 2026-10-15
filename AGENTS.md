@@ -110,6 +110,16 @@ requires demand strictly above the configured budget and a reducing cap; both ca
 Unsupported/unavailable GPUs have no achieved clocks. Consumers must not infer vendor event labels,
 violation durations or a clock response curve from this seam alone.
 
+The `dcgm` consumer admits only the sourced eight-GPU H100 SXM HGX/595.91.07 profile.
+Shared optional pool `operating.constraints` supplies allocation-derived uncapped demand
+and explicit caps; the additive power incident has separate mode/selection APIs so legacy
+fixture output stays byte-identical. Fault-profile admission preserves the <=87 C baseline
+and requires worst-case fault temperature strictly below 95 C. Source field windows, rising
+clock edges and elapsed ns are distinct; initial observations do not invent prior duration.
+The pinned exporter uses `CLOCK_THROTTLE_*` health labels and omits clock COUNT for a window
+of valid zero masks, unlike its zero fallback for absent source values. Keep other compute
+collection adapters and the shipped reference cluster disabled until separately verified.
+
 ## File ownership
 
 Single-owner wiring files, serialised rather than worked around: `internal/runner/`, `go.mod`,

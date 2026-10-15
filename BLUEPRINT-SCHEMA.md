@@ -154,6 +154,18 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `gpu_compute.pools[].hardware.memory_gib` | float |  |  |
 | `gpu_compute.pools[].hardware.arch` | string |  |  |
 | `gpu_compute.pools[].operating` | object |  |  |
+| `gpu_compute.pools[].operating.constraints` | object | yes |  |
+| `gpu_compute.pools[].operating.constraints.driver_version` | string |  |  |
+| `gpu_compute.pools[].operating.constraints.requested_sm_clock_mhz` | float |  |  |
+| `gpu_compute.pools[].operating.constraints.requested_memory_clock_mhz` | float |  |  |
+| `gpu_compute.pools[].operating.constraints.full_demand_power_w` | float |  |  |
+| `gpu_compute.pools[].operating.constraints.power_fault_demand_w` | float |  |  |
+| `gpu_compute.pools[].operating.constraints.software_thermal_clock_cap` | object | yes |  |
+| `gpu_compute.pools[].operating.constraints.software_thermal_clock_cap.sm` | float |  |  |
+| `gpu_compute.pools[].operating.constraints.software_thermal_clock_cap.memory` | float |  |  |
+| `gpu_compute.pools[].operating.constraints.power_clock_cap` | object | yes |  |
+| `gpu_compute.pools[].operating.constraints.power_clock_cap.sm` | float |  |  |
+| `gpu_compute.pools[].operating.constraints.power_clock_cap.memory` | float |  |  |
 | `gpu_compute.pools[].operating.power_limit_w` | float | yes |  |
 | `gpu_compute.pools[].operating.idle_power_fraction` | float |  |  |
 | `gpu_compute.pools[].operating.ambient_temp_c` | float |  |  |
@@ -748,6 +760,31 @@ Database Observability Postgres lane (metrics + log ops)
 
 _(no configurable fields)_
 
+## dcgm config
+
+**Location:** `integrations.dcgm`  ·  **group:** integration
+
+Pinned H100 SXM HGX DCGM exporter telemetry
+
+| key | type | optional | description |
+|---|---|---|---|
+| `profile` | string |  | stock (default), dcp, or fault-detection; H100 HGX only. |
+| `mode` | string |  | host (default) or kubernetes; allocation labels are conditional. |
+| `memory_temperature_offset_c` | float | yes | Explicit synthetic HBM/core offset, not a vendor temperature limit. |
+| `tensor_activity_fraction` | float |  | Workload fraction using tensor pipes, 0..1. |
+| `memory_copy_activity_fraction` | float |  | Workload fraction exercising device-memory copies, 0..1. |
+| `encoder_activity_fraction` | float |  | Workload fraction exercising encoder engines, 0..1. |
+| `decoder_activity_fraction` | float |  | Workload fraction exercising decoder engines, 0..1. |
+| `pcie_rx_bytes_per_second` | float |  | Declared traffic at full workload utilization; not a hardware bandwidth claim. |
+| `pcie_tx_bytes_per_second` | float |  | Declared traffic at full workload utilization. |
+| `nvlink_mb_per_second` | float |  | Declared aggregate MB/s at full workload utilization. |
+| `window_seconds` | int |  | Exporter event window; default 300 seconds from the pinned capture. |
+| `collection_interval_ms` | int |  | Modeled field sampling interval; default 5000 ms from the pinned capture. |
+| `xid_code` | int |  | Explicit sourced nonfatal event code used by gpu_xid_burst; default 48. |
+| `xid_events_per_observation` | int |  | Explicit burst size per active emitter observation; default 1. |
+| `ecc_errors_per_observation` | int |  | Synthetic DBE events during dcgm_ecc_error_growth; default 1. |
+| `remapped_rows_per_observation` | int |  | Synthetic uncorrectable remapped rows during that event; default 1, not a vendor conversion ratio. |
+
 ## docdb config
 
 **Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
@@ -1294,6 +1331,8 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `cpu_hotspot` | axis: cluster |  | elevated CPU concentrated in a hot frame on the cluster's profiled pods |
 | `cpu_hotspot` | axis: workload |  | elevated CPU concentrated in a hot frame (visible in process_cpu flamegraph) |
 | `cpu_hotspot` | axis: service |  | elevated CPU concentrated in a hot frame on the targeted service node |
+| `dcgm_ecc_error_growth` | axis: gpu |  | Declared ECC and row-remap collection events |
+| `dcgm_health_failure` | axis: gpu |  | Source-supported memory health failure |
 | `error_burst` | axis: workload |  | elevated 5xx error rate |
 | `error_spike` | axis: service |  | elevated 5xx error rate on the targeted service node |
 | `eval_quality_degraded` | axis: cloud |  | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb |
@@ -1305,8 +1344,39 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `gateway_queue_overflow` | axis: cluster |  | Unavailable egress fills bounded queues; excess requests rejected |
 | `gateway_source_gap` | axis: cluster |  | Omit configured member's same-process remotecfg data, retain healthy component observations |
 | `gateway_wan_outage` | axis: cluster |  | Send attempts fail; retained request queues grow and later drain |
-| `goroutine_leak` | axis: workload |  | goroutine accumulation — raises goroutines/goroutine profile sample values |
 | `goroutine_leak` | axis: service |  | goroutine accumulation on the targeted service node |
+| `goroutine_leak` | axis: workload |  | goroutine accumulation — raises goroutines/goroutine profile sample values |
+| `gpu_backend_congestion` | axis: gpu_fabric |  | slowdown |
+| `gpu_backend_congestion` | axis: gpu_switch |  | slowdown |
+| `gpu_backend_congestion` | axis: gpu_port |  | slowdown |
+| `gpu_cooling_fault` | axis: gpu_rack |  | cooling |
+| `gpu_cooling_fault` | axis: gpu_device |  | cooling |
+| `gpu_fallen_off_bus` | axis: gpu_tray |  | unavailable |
+| `gpu_fallen_off_bus` | axis: gpu |  | unavailable |
+| `gpu_fallen_off_bus` | axis: gpu_node |  | unavailable |
+| `gpu_node_drain` | axis: gpu_rack |  | unavailable |
+| `gpu_node_drain` | axis: gpu_tray |  | unavailable |
+| `gpu_node_drain` | axis: gpu_node |  | unavailable |
+| `gpu_nvlink_degraded` | axis: nvlink_partition |  | slowdown |
+| `gpu_nvlink_degraded` | axis: nvlink_domain |  | slowdown |
+| `gpu_nvlink_error_burst` | axis: nvlink_domain |  | confirmed edge errors |
+| `gpu_nvlink_error_burst` | axis: gpu |  | confirmed edge errors |
+| `gpu_nvlink_error_burst` | axis: nvlink_partition |  | confirmed edge errors |
+| `gpu_nvlink_error_burst` | axis: nvlink_switch |  | confirmed edge errors |
+| `gpu_nvlink_error_burst` | axis: nvlink_port |  | confirmed edge errors |
+| `gpu_nvswitch_tray_failure` | axis: gpu_tray |  | slowdown |
+| `gpu_operand_unavailable` | axis: gpu_node |  | unavailable |
+| `gpu_power_constraint` | axis: gpu |  | Declared workload demand exceeds the configured GPU power budget |
+| `gpu_power_constraint` | axis: gpu_node |  | Declared workload demand exceeds the configured GPU power budget |
+| `gpu_preemption_storm` | axis: gpu_project |  | preemption |
+| `gpu_preemption_storm` | axis: gpu_workload |  | preemption |
+| `gpu_preemption_storm` | axis: gpu_scheduler |  | preemption |
+| `gpu_quota_exhaustion` | axis: gpu_project |  | quota |
+| `gpu_storage_latency` | axis: gpu_storage |  | slowdown |
+| `gpu_xid_burst` | axis: gpu |  | nonfatal event |
+| `gpu_xid_burst` | axis: gpu_tray |  | nonfatal event |
+| `gpu_xid_burst` | axis: gpu_node |  | nonfatal event |
+| `gpu_xid_burst` | axis: gpu_rack |  | nonfatal event |
 | `latency_spike` | axis: workload |  | elevated request latency (up to 4× at full intensity) |
 | `latency_storm` | axis: service |  | elevated request latency on the targeted service node |
 | `lock_contention` | axis: database |  | lock waits climb |

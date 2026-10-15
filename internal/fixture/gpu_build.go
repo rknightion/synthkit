@@ -68,6 +68,9 @@ func gpuAddress(block *GPUAddressBlockSpec, ordinal int, override string) (strin
 	return netip.AddrFrom4([4]byte{byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)}).String(), nil
 }
 func gpuOperatingValid(o GPUOperatingSpec, m GPUModelSpec) error {
+	if err := validateGPUConstraintOperating(o, m.Key); err != nil {
+		return err
+	}
 	if !gpuFraction(o.IdlePowerFraction, o.CoolingPerfLoss, o.CongestionPerfLoss, o.StoragePerfLoss) || !gpuFinite(o.AmbientTempC, o.FullPowerRiseC, o.CoolingFaultRiseC, o.NodeBasePowerW, o.NodeDynamicPerCoreW, o.NodeDynamicPerNICW, o.NVLinkErrorsPerSecond) || o.FullPowerRiseC < 0 || o.CoolingFaultRiseC < 0 || o.NodeBasePowerW <= 0 || o.NodeDynamicPerCoreW < 0 || o.NodeDynamicPerNICW < 0 || o.NVLinkErrorsPerSecond < 0 {
 		return fmt.Errorf("nonfinite or invalid operating parameter")
 	}

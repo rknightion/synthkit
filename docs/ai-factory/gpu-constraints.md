@@ -53,3 +53,20 @@ envelope. Field meanings are recorded in the
 and the [exporter 4.8.4 counter catalogue](https://github.com/NVIDIA/dcgm-exporter/blob/4.8.4/etc/default-counters.csv).
 Synthetic requested clocks and caps are operator scenario assumptions, not
 captured vendor responses. Unsupported products and drivers remain gaps.
+
+## Shared runtime demand and fault admission
+
+Optional pool `operating.constraints` supplies the runtime demand projection.
+`GPUConstraintDemands` derives each request from the same shared allocation,
+interpolating between the declared idle-power floor and `full_demand_power_w`.
+The additive `gpu_power_constraint` GPU/node incident raises that full-demand
+request toward `power_fault_demand_w` using its bounded intensity. Actual draw
+remains the existing budget-bounded operating model. A cooling/congestion loss
+can reduce actual draw below uncapped demand; no vendor transfer curve is inferred.
+
+`RequireGPUFaultProfile` is a separate exact-driver HGX admission path. It retains
+the ordinary <=87 C baseline and allows declared fault worst cases strictly below
+95 C, including temperatures above 89 C. The original `ThermalEnvelope` capability
+is unchanged. Legacy declarations omit `constraints` and retain byte-identical
+fixture/physics output. Consumer clock-event reason attribution and duration state
+belong to the [DCGM contract](dcgm.md), not to the pure constraint snapshot alone.

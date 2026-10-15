@@ -242,3 +242,23 @@ incidents:
     for: 12m
     intensity: 0.5
 ```
+
+## H100 HGX DCGM failures
+
+The [DCGM integration](ai-factory/dcgm.md) uses the shared GPU topology and constraint
+inputs. These are synthetic scenario controls, not claims of live fault induction.
+
+| Mode | Target | Observable |
+|---|---|---|
+| `gpu_cooling_fault` | GPU rack / supported cooling device | Shared temperature; declared software thermal cap activates only above 89 C, with elapsed ns and separate clock window/edge counters. |
+| `gpu_power_constraint` | GPU or GPU node | Shared uncapped demand increases; a reducing power cap activates only above configured budget. |
+| `gpu_xid_burst` | Selected shared GPU targets | Sourced configured last-Xid gauge, window count and cumulative total; no generic thermal/power Xid is invented. |
+| `dcgm_ecc_error_growth` | GPU | Declared DBE and uncorrectable-row-remap events accumulate; their ratio is a scenario input. |
+| `dcgm_health_failure` | GPU | Source-supported memory health failure with code/severity/category metadata. |
+| `gpu_nvlink_error_burst` | Selected GPU or sourced NVLink target | Shared physical edge-error rates accumulate as the declared CRC scenario, with NVLINK health metadata. |
+| `gpu_fallen_off_bus` | GPU, GPU node or supported tray | All affected GPU series disappear; no zero-valued unavailable clocks. |
+
+Window expiration does not reset totals. First observations prime event edges and elapsed
+durations. The model holds the previously observed state between observations; it does not
+claim to reconstruct unobserved physical transitions. Default healthy PCIe, retired-page,
+and unsupported platform behavior must not be fabricated into additional incidents.

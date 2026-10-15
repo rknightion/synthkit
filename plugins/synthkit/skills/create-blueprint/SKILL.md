@@ -71,6 +71,12 @@ when modelling the captured OTel Collector shape. Inspect `collector_profile` in
 `docs/reality-corpus.md#comparing-pod-log-collectors`. Attribution is inventory-only
 and does not change wire keys.
 
+For DCGM, use only the documented H100 SXM HGX profile and declare shared pool
+`operating.constraints` plus sourced usable framebuffer. Follow `docs/ai-factory/dcgm.md`
+for supported profiles, explicit workload assumptions and conditional Kubernetes labels.
+The stress fixture is under `e2e/fixtures/`; do not copy its fault inputs into a shipped
+blueprint to force emission. Other compute collection adapters remain separately gated.
+
 ## Identity and collision rules
 
 - A cluster name, cloud account ID, database name, and cache name must not collide across enabled
