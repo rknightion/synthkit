@@ -6,10 +6,10 @@ label: k8s-otel-native
 shape: business_hours_plateau
 timezone: America/Los_Angeles
 metadata:
-  description: "Minimum Kubernetes footprint with the observed k8sclusterreceiver and default kubeletstatsreceiver OTLP metrics."
+  description: "Minimum Kubernetes footprint with the observed k8sclusterreceiver and default kubeletstatsreceiver OTLP metrics and captured OTel-collector pod logs."
   owner: platform-observability
   category: reference
-  tags: [kubernetes, otlp, native-receivers, metrics-only, cost-controlled]
+  tags: [kubernetes, otlp, native-receivers, pod-logs, cost-controlled]
   links:
     signals: ./signals/otlp-metrics.md
 
@@ -33,5 +33,8 @@ environments:
       k8s_monitoring:
         enabled: true
         alloy: true
+        pod_logs_method: opentelemetry
+        pod_logs_collector: otel_collector
         features:
           cluster_metrics: true
+          pod_logs: true

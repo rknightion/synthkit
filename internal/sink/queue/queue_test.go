@@ -140,15 +140,23 @@ func TestPerShardOrderPreserved(t *testing.T) {
 	flush := func(_ context.Context, b []int) error { mu.Lock(); got = append(got, b...); mu.Unlock(); return nil }
 	// single shard so all items share one ordered sender
 	q := New[int](Options{Shards: 1, BatchMax: 10, Deadline: 20 * time.Millisecond, Capacity: 1000, Sink: "t"}, flush, func(int) uint64 { return 0 }, nil)
-	q.Start()
-	in := make([]int, 100)
+	in := make([]int, 1000)
 	for i := range in {
 		in[i] = i
 	}
 	_ = q.Write(context.Background(), in)
+	// Reuse the caller's value storage before any sender can consume it.
+	// Every queued item must retain its original value and order.
+	for i := range in {
+		in[i] = -1
+	}
+	q.Start()
 	q.Drain(context.Background())
 	mu.Lock()
 	defer mu.Unlock()
+	if len(got) != len(in) {
+		t.Fatalf("delivered %d items, want %d", len(got), len(in))
+	}
 	for i := range got {
 		if got[i] != i {
 			t.Fatalf("order broken at %d: %v", i, got[:i+1])

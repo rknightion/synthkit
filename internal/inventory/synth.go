@@ -57,7 +57,7 @@ func FromSinks(prom *promrw.Sink, lokiSink *loki.Sink, traceSink *otlp.Sink, met
 			}
 			// Resource attributes are the destination's promotion candidates (they become stream
 			// labels); record attributes always land as structured metadata.
-			out.AddLog(ClassifyLogSource(attrs), TransportOTLPLogs, attrs, keys)
+			out.AddLogProfile(ClassifyLogSource(attrs), TransportOTLPLogs, resource.CollectorProfile, attrs, keys)
 		}
 	}
 	if traceSink != nil {

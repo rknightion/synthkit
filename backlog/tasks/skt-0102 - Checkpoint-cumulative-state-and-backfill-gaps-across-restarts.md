@@ -1,9 +1,11 @@
 ---
 id: SKT-0102
 title: Checkpoint cumulative state and backfill gaps across restarts
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-10-07 20:31'
+updated_date: '2026-10-15 11:54'
 labels:
   - feature
   - ha
@@ -32,3 +34,21 @@ Phase 2 of HA. Even with lease handoff, a takeover resets cumulative counters (I
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+2026-10-15 authorized backlog pickup: inspect cumulative state, delivery acknowledgement and HA ownership seams; select durable store/cadence with an independently challenged design before implementation; preserve exact delivery and out-of-order-window evidence.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-15 source assessment: periodic generic-state snapshots alone cannot meet acceptance. Queue background failures are discarded and later Flush is not a durable delivery receipt; emitters also own lifecycle/native-OTLP/minter state beyond state.State, and RNG/ledger replay is not deterministic. Correct design requires versioned per-instance restoration, durable exact payload plus post-cycle-state transactions before delivery, per-fragment acknowledgement, destination/configuration binding and stale-writer CAS. Owner store/stack decisions pending via async prompt. No runtime change or continuity claim.
+
+Design revision1 retained at /Users/rob/repos/synthkit/codex/backlog-pickup-20261015/checkpoint-design.md. Explicit transaction/outbox, state coverage, conditional store fencing, protocol acceptance and timestamp cutoff requirements; store and validation-stack decisions remain pending. Current source alone does not establish counter continuity.
+
+Independent design challenge required epoch-bound CAS, immutable serialized wire bytes and complete chronological master-tick replay, not only emitter due positions. Proposal revision2 corrects these and explicitly rejects checkpoint mode for any unsupported selected runtime path. Store/stack/scope decisions remain pending.
+
+Independent re-review accepted design revision2 with no remaining design blockers. Revision3 clarifies explicit gaps and leadership-authorized epoch acquisition. Store/provider and live-stack selections remain pending; no checkpoint runtime or live verification is claimed.
+<!-- SECTION:NOTES:END -->

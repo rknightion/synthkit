@@ -362,51 +362,73 @@ func indexSigil(sigil []Sigil) map[string]sigilView {
 }
 
 func diffLogs(out *[]Finding, synthLogs, realityLogs []Log) {
-	synthIndex := indexLogs(synthLogs)
-	realityIndex := indexLogs(realityLogs)
-	keys := sortedLogIdentities(realityIndex)
-	for _, key := range keys {
-		reality := realityIndex[key]
-		synth, ok := synthIndex[key]
-		if !ok {
-			appendFamilyCoverage(out, KindExtraLog, reality.signal, "transport")
-			continue
-		}
-		diffLogAttributes(out, reality.signal, synth, reality)
-		// Presence in a captured member does not prove every member must carry the key.
-		// Optionality is therefore absent evidence in the synth-only direction, while a
-		// real optional variant missing from synth remains a visible coverage gap.
-		appendDirectional(
-			out,
-			KindUnexpectedLabelKey,
-			reality.signal,
-			"optional_stream_label_keys",
-			sortedStrings(synth.optionalStreamLabels),
-			sortedStrings(reality.optionalStreamLabels),
-			false,
-			true,
-		)
-		appendDirectional(
-			out,
-			KindUnexpectedLabelKey,
-			reality.signal,
-			"optional_structured_metadata_keys",
-			sortedStrings(synth.optionalMetadata),
-			sortedStrings(reality.optionalMetadata),
-			false,
-			true,
-		)
-		appendDirectional(
-			out,
-			KindUnexpectedLabelKey,
-			reality.signal,
-			"structured_metadata_keys",
-			sortedStrings(synth.metadata),
-			sortedStrings(reality.metadata),
-			true,
-			true,
-		)
+	// Do not turn keys from an unattributed or differently attributed collector
+	// into optional keys by unioning it with a correct profile. Each producer's
+	// family must stand on its own; owner variants within that profile still join.
+	groups := map[string][]Log{}
+	for _, log := range synthLogs {
+		groups[log.CollectorProfile] = append(groups[log.CollectorProfile], log)
 	}
+	profiles := make([]string, 0, len(groups))
+	for profile := range groups {
+		profiles = append(profiles, profile)
+	}
+	sort.Strings(profiles)
+	indexes := make([]map[logIdentity]logView, 0, len(profiles))
+	for _, profile := range profiles {
+		indexes = append(indexes, indexLogs(groups[profile]))
+	}
+	realityIndex := indexLogs(realityLogs)
+	for _, key := range sortedLogIdentities(realityIndex) {
+		reality := realityIndex[key]
+		found := false
+		for _, synthIndex := range indexes {
+			if synth, ok := synthIndex[key]; ok {
+				found = true
+				diffLogView(out, synth, reality)
+			}
+		}
+		if !found {
+			appendFamilyCoverage(out, KindExtraLog, reality.signal, "transport")
+		}
+	}
+}
+
+func diffLogView(out *[]Finding, synth, reality logView) {
+	diffLogAttributes(out, reality.signal, synth, reality)
+	// Presence in a captured member does not prove every member must carry the key.
+	// Optionality is therefore absent evidence in the synth-only direction, while a
+	// real optional variant missing from synth remains a visible coverage gap.
+	appendDirectional(
+		out,
+		KindUnexpectedLabelKey,
+		reality.signal,
+		"optional_stream_label_keys",
+		sortedStrings(synth.optionalStreamLabels),
+		sortedStrings(reality.optionalStreamLabels),
+		false,
+		true,
+	)
+	appendDirectional(
+		out,
+		KindUnexpectedLabelKey,
+		reality.signal,
+		"optional_structured_metadata_keys",
+		sortedStrings(synth.optionalMetadata),
+		sortedStrings(reality.optionalMetadata),
+		false,
+		true,
+	)
+	appendDirectional(
+		out,
+		KindUnexpectedLabelKey,
+		reality.signal,
+		"structured_metadata_keys",
+		sortedStrings(synth.metadata),
+		sortedStrings(reality.metadata),
+		true,
+		true,
+	)
 }
 
 func diffTraces(out *[]Finding, synthTraces, realityTraces []Trace) {

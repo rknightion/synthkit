@@ -94,11 +94,28 @@ every corpus file written before permutations existed is.
 **A document naming a permutation declared by the synth inventory compares with
 contradictions live.** The inventory's optional `modelled_permutations` set
 declares the collector configurations synthkit models; the shipped export declares
-only `alloy-default`. Findings from other tagged permutations are demoted to
+`alloy-default`, `alloy-otlp-podlogs` and `otel-receivers`. Findings from other tagged permutations are demoted to
 coverage gaps because their shape differences do not establish drift in a modelled
 configuration. An absent or empty declaration retains that demotion for every
 tagged document. Untagged documents compare as before. See `dispositionAgainstPermutation` in
 [`internal/inventory/corpus.go`](../internal/inventory/corpus.go).
+
+### Collector-specific pod-log inventory
+
+Synthetic OTLP pod-log entries carry optional `collector_profile` provenance:
+`k8s_monitoring` or `otel_collector`. This is inventory evidence copied from the
+selected emitter, never a wire resource attribute and never inferred from label
+keys. Inventory aggregation keeps profiles separate, including optional keys
+within each profile. Real capture documents remain unchanged.
+
+For `alloy-default` and `alloy-otlp-podlogs`, comparison selects directly observed
+`k8s_monitoring` pod logs; `otel-receivers` selects `otel_collector`. Only OTLP pod
+logs are selected this way. Other log families and transports keep their ordinary
+comparison. Unattributed entries always remain visible. If the required profile
+is absent, comparison retains the unsliced inventory, so a wrong collector's keys
+still contradict rather than disappearing into a coverage gap. Unknown permutations
+and legacy inventories retain their existing comparisons. Selecting a profile does
+not suppress any keys or broaden the contradiction exemptions.
 
 ### `source.instrument_type_source` — optional
 

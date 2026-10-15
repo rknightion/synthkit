@@ -1,0 +1,16 @@
+{
+  "name": "@synthkit/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "exports": {
+    "./tokens.css": "./tokens.css"
+  },
+  "files": [
+    "tokens.css",
+    "README.md"
+  ],
+  "sideEffects": [
+    "*.css"
+  ]
+}

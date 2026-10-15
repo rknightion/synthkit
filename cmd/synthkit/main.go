@@ -717,7 +717,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			schema := inventory.FromSinks(prom, lokiSink, otlpSink, otlpMetricsSink, otlpLogsSink, profSink, sigilSink)
 			schema = withMetricSuppressions(schema, r.MetricSuppressions())
 			schema = withSynthProvenance(schema)
-			schema.ModelledPermutations = []string{"alloy-default", "alloy-otlp-podlogs"}
+			schema.ModelledPermutations = []string{"alloy-default", "alloy-otlp-podlogs", "otel-receivers"}
 			if err := schema.WriteJSON(os.Stdout); err != nil {
 				return fmt.Errorf("inventory JSON: %w", err)
 			}

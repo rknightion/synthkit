@@ -55,11 +55,9 @@ const smFailureRate = 0.02
 const latencyAmp = 0.18
 
 // smProbeDurationBuckets are the le boundaries for probe_all_duration_seconds (LEBare).
-// Verified against the predecessor's SMProbeDurationBuckets.
-var smProbeDurationBuckets = []float64{0.1, 0.25, 0.5, 1, 2.5, 5, 10}
-
-// Pinned agent v0.66.1 uses Prometheus DefBuckets for the new network profiles.
-var smNetworkProbeDurationBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+// Agent v0.66.1 uses client_golang v1.24.1 DefBuckets for all check types.
+// Provenance and predecessor difference: signals/sm.md [slug: sm-checks].
+var smProbeDurationBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 
 // DefaultProbeName, DefaultProbeRegion, DefaultProbeGeohash, DefaultProbeLat, and
 // DefaultProbeLon are the canonical identity of the offline private probe registered
@@ -451,11 +449,7 @@ func (c *Construct) build(now time.Time, eng *shape.Engine) ([]promrw.Series, []
 
 		// probe_all_duration_seconds: cumulative histogram (Observe emits
 		// _bucket/_sum/_count — do NOT also Add _sum/_count, that would double-count).
-		buckets := smProbeDurationBuckets
-		if ch.spec.Type != "" {
-			buckets = smNetworkProbeDurationBuckets
-		}
-		c.st.Observe("probe_all_duration_seconds", base, buckets, state.LEBare, dur)
+		c.st.Observe("probe_all_duration_seconds", base, smProbeDurationBuckets, state.LEBare, dur)
 		hopBodies := c.emitNetwork(ch, base, dur, failed, now)
 
 		// ── logs ─────────────────────────────────────────────────────────────

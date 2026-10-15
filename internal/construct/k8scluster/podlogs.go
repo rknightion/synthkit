@@ -259,7 +259,8 @@ func buildPodLogResources(now time.Time, cluster string, cl *fixture.Cluster) []
 		}
 
 		out = append(out, otlp.LogResource{
-			Attrs: attrs,
+			CollectorProfile: podLogsCollectorK8sMonitoring,
+			Attrs:            attrs,
 			Records: []otlp.LogRecord{{
 				Time:         e.Time,
 				ObservedTime: e.Time,
@@ -315,7 +316,8 @@ func buildOTelCollectorPodLogResources(entries []podLogEntry, cluster string) []
 			attrs["k8s.replicaset.uid"] = podUID(cluster, e.Namespace, replicaSet)
 		}
 		out = append(out, otlp.LogResource{
-			Attrs: attrs,
+			CollectorProfile: podLogsCollectorOTel,
+			Attrs:            attrs,
 			Records: []otlp.LogRecord{{
 				Time:         e.Time,
 				ObservedTime: e.Time,

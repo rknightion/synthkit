@@ -580,6 +580,24 @@ four-blueprint case: the request sits above its measured peak RSS so the pod is 
 request and first in line for eviction, and the limit is about twice its peak heap. For `*`, budget
 `requests {cpu: 500m, memory: 3584Mi}` and `limits {memory: 5Gi}`.
 
+The table above predates the delivery queue's lazy payload allocation. A bounded Linux/arm64
+comparison on 2026-10-15 ran `otlp-native` at `TICK_DEFAULT=5s` for 90 seconds with
+`DRY_RUN=false`, default queue settings, and actual Prometheus Remote Write, Loki and OTLP HTTP
+requests to a local TLS receiver. Post-GC live heap fell from **224.2 MiB to 49.1 MiB (78%)**.
+The baseline heap profile attributed about 195 MiB to eagerly allocated queue value slots.
+Queues now preallocate pointer slots and independently copy each payload as writes arrive; shard
+capacity, ordering and backpressure are unchanged. Each item has its own allocation so a stalled
+shard cannot retain already-consumed payloads from another shard through shared backing storage.
+
+This saves idle memory at the cost of allocation/copy work during delivery: a local arm64 benchmark
+with `-cpu=2`, 1,000 256-byte items and a no-op sink measured median batch time of 160 µs before
+and 221 µs after, with about 250 KiB and 1,000 additional temporary allocations per batch.
+Those are isolated queue
+measurements, not end-to-end throughput. The Linux windows exercised delivery, but neither their
+short duration nor their local receiver establishes Grafana ingestion or production peak RSS.
+Keep the chart resource defaults above until a representative steady-state sizing run supports
+changing them.
+
 Estate cost is not linear in blueprint count. One blueprint to four moved the floor by 36 MiB; all
 26 moved it by a factor of six. Measure your own selection rather than interpolating.
 

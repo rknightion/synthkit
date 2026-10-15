@@ -319,10 +319,14 @@ func seriesValue(t *testing.T, batch []promrw.Series, name, job string) float64 
 }
 
 // TestHistogramLEStyle verifies that bucket le labels use LEBare format (minimal
-// decimals, no forced ".0" on integer bounds — matching the predecessor's SMProbeDurationBuckets).
+// decimals, no forced ".0" on integer bounds — matching agent v0.66.1).
 func TestHistogramLEStyle(t *testing.T) {
 	c := buildConstruct(t, &Config{Checks: []CheckConfig{{Name: "api-health"}}})
-	series, _ := c.build(noon, shape.New("", nil))
+	mc := &coretest.MetricCapture{}
+	if err := c.Tick(context.Background(), noon, worldWith(mc, &coretest.LogCapture{})); err != nil {
+		t.Fatal(err)
+	}
+	series := mc.Find("probe_all_duration_seconds_bucket")
 
 	// Collect all `le` values from probe_all_duration_seconds_bucket.
 	var les []string
@@ -337,9 +341,8 @@ func TestHistogramLEStyle(t *testing.T) {
 		t.Fatal("no probe_all_duration_seconds_bucket series found")
 	}
 
-	// Expected LEBare rendering of smProbeDurationBuckets + +Inf:
-	// [0.1, 0.25, 0.5, 1, 2.5, 5, 10] → "0.1","0.25","0.5","1","2.5","5","10","+Inf"
-	wantContains := []string{"0.1", "0.25", "0.5", "1", "2.5", "5", "10", "+Inf"}
+	// Agent v0.66.1 uses client_golang v1.24.1 DefBuckets; include +Inf.
+	wantContains := []string{"0.005", "0.01", "0.025", "0.05", "0.1", "0.25", "0.5", "1", "2.5", "5", "10", "+Inf"}
 	leSet := make(map[string]bool, len(les))
 	for _, l := range les {
 		leSet[l] = true
@@ -361,8 +364,8 @@ func TestHistogramLEStyle(t *testing.T) {
 	}
 
 	// Verify the count matches expected boundaries + +Inf.
-	if len(les) != len(smProbeDurationBuckets)+1 {
-		t.Errorf("bucket count = %d, want %d", len(les), len(smProbeDurationBuckets)+1)
+	if len(les) != len(wantContains) {
+		t.Errorf("bucket count = %d, want %d", len(les), len(wantContains))
 	}
 }
 

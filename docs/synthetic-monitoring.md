@@ -170,7 +170,7 @@ The SM emitter pushes per-tick:
 - `probe_success` (gauge, 0/1)
 - `probe_duration_seconds` (gauge)
 - `probe_all_success_sum` / `_count` (summary counters)
-- `probe_all_duration_seconds_bucket` / `_sum` / `_count` (histogram, buckets `[0.1, 0.25, 0.5, 1, 2.5, 5, 10]`)
+- `probe_all_duration_seconds_bucket` / `_sum` / `_count` (histogram, buckets `[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]`)
 - `sm_check_info` (info gauge, carries `check_name`, `region`, `frequency`, `geohash`, `alert_sensitivity`, user labels)
 
 Each check also emits a Loki log line per tick with stream labels `{source="synthetic-monitoring-agent", check_name, instance, job, probe, region, probe_success}` and a logfmt body (`msg="Check succeeded"` or `"Check failed"`, `duration_seconds`).
@@ -193,8 +193,10 @@ and 3-second timeout, except traceroute, which defaults to 120 seconds and requi
 a 30-second timeout. Wrong-type settings and malformed targets are rejected.
 
 Traceroute emits one logfmt entry per simulated hop. Its aggregate packet-loss
-metric is a 0–1 fraction; hop `LossPercent` is 0–100. Network duration histograms use
-the pinned agent's full default buckets; the existing HTTP histogram remains unchanged.
+metric is a 0–1 fraction; hop `LossPercent` is 0–100. HTTP and network duration histograms use
+the pinned agent v0.66.1 default buckets, including the four sub-100ms bounds.
+The [signal contract](https://github.com/rknightion/synthkit/blob/main/signals/sm.md#synthetic-monitoring-fake-sm-checks-slug-sm-checks)
+records the predecessor subset and source provenance.
 TLS certificates model a synthetic CA with 90-day validity and renewal every 60 days.
 Their identities and expiry remain fixed between renewals. These are simulated checks,
 not network observations or certificate verification against the declared endpoint.

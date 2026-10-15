@@ -65,6 +65,12 @@ return the missing contract rather than adding a guessed field or name.
    Compare the dumped series inventory with the selected `signals/` contracts; do not make the
    catalogue match a new dump.
 
+For native OTLP pod logs, select `k8s_monitoring.pod_logs_collector: otel_collector`
+when modelling the captured OTel Collector shape. Inspect `collector_profile` in
+`-inventory-json` and follow the collector comparison procedure in
+`docs/reality-corpus.md#comparing-pod-log-collectors`. Attribution is inventory-only
+and does not change wire keys.
+
 ## Identity and collision rules
 
 - A cluster name, cloud account ID, database name, and cache name must not collide across enabled

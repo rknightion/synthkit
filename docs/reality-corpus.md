@@ -29,6 +29,20 @@ The contract is deliberately narrow:
 - Explicit contradiction decisions live in a separate versioned exemption
   document. They are review records, not changes to captured reality.
 
+## Comparing pod-log collectors
+
+The synthetic inventory retains `collector_profile` separately for Kubernetes
+Monitoring and OTel Collector OTLP pod logs. The comparator uses each capture's
+collector permutation to select the corresponding observed synthetic shape.
+It keeps unattributed evidence visible and retains the full comparison when no
+matching profile exists. Wrong-profile keys therefore remain actionable; changing
+an exemption or editing a capture is not a way to reconcile collector differences.
+The [corpus contract](https://github.com/rknightion/synthkit/blob/main/reality-corpus/README.md#collector-specific-pod-log-inventory)
+defines the mapping. The `k8s-otel-native` blueprint exercises OTel Collector pod
+logs alongside receiver-native metrics; the default pod-log profile stays Kubernetes
+Monitoring. An inventory declaration enables contradiction checking for a permutation;
+it does not assert that every coverage gap in that permutation is implemented.
+
 ## Report-size standard
 
 The human-readability budget for the signal-fidelity report is **27,212 lines

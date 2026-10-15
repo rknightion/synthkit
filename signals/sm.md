@@ -38,9 +38,22 @@ series + `sm_check_info` on `(instance,job,probe,config_version)` — any check 
 = `SMTimeoutSeconds` under failure), `probe_all_success_sum`/`_count` (Counters — a SUMMARY, no
 buckets, separate `Add` calls — T3), `probe_all_duration_seconds_bucket{le}`/`_sum`/`_count`
 (Histogram via `Observe` — ⚠ do NOT also `Add` `_sum`/`_count`, T2; buckets
-`[0.1,0.25,0.5,1,2.5,5,10]`), `sm_check_info` (G=1; metadata anchor). `sm_check_info` extra labels:
+`[0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10]`), `sm_check_info` (G=1; metadata anchor). `sm_check_info` extra labels:
 `check_name`, `region`, `frequency` (decimal string), `geohash`, `alert_sensitivity` (the check's REAL
 value — ⚠ independent of the provisioner's registered `"none"`, T4), `label_*`.
+
+**Duration histogram profile:** HTTP and network checks target agent v0.66.1
+([commit 1046e6ee](https://github.com/grafana/synthetic-monitoring-agent/blob/1046e6eeeb4f5b4ca7becc69a98325346e628c89/internal/scraper/scraper.go#L1455)).
+Its shared `updateHistogramFromMetric` sets `Buckets: prometheus.DefBuckets` for all check types.
+The [pinned dependency](https://github.com/grafana/synthetic-monitoring-agent/blob/1046e6eeeb4f5b4ca7becc69a98325346e628c89/go.mod)
+is client_golang v1.24.1, whose [DefBuckets](https://github.com/prometheus/client_golang/blob/v1.24.1/prometheus/histogram.go#L271)
+are `[0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10]` seconds, plus the cumulative `+Inf` bucket.
+The predecessor contract recorded only `[0.1,0.25,0.5,1,2.5,5,10]`. That historical subset is
+retained here as evidence of the previous synthetic contract, not established as an older agent
+profile: no versioned upstream source or raw capture establishes why those four bounds were absent.
+The corrected HTTP inventory adds `le="0.005"`, `"0.01"`, `"0.025"`, `"0.05"`; existing bounds,
+labels, cumulative sum/count and registration hashes retain their meaning. This correction is
+source-validated, not a new live capture, and does not rewrite historical capture data.
 
 **Failure mode** `sm_probe_failure` (per-env): `probe_success→0`, `probe_duration_seconds` equals
 the resolved check timeout (3.0s by default for HTTP/ping/DNS/TCP, 30s for traceroute), log
@@ -67,7 +80,7 @@ metrics:
   - {root: probe_duration_seconds, type: gauge, unit: seconds, v: ok, note: "= SMTimeoutSeconds (3.0s) under failure"}
   - {root: probe_all_success_sum, type: counter, unit: count, v: ok, note: "SUMMARY — separate Add call (T3); no buckets"}
   - {root: probe_all_success_count, type: counter, unit: count, v: ok}
-  - {root: probe_all_duration_seconds_bucket, type: histogram, unit: seconds, v: ok, note: "Observe only — do NOT also Add _sum/_count (T2); le buckets [0.1,0.25,0.5,1,2.5,5,10]"}
+  - {root: probe_all_duration_seconds_bucket, type: histogram, unit: seconds, v: ok, note: "Observe only — do NOT also Add _sum/_count (T2); le buckets [0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10]"}
   - {root: probe_all_duration_seconds_sum, type: histogram, unit: seconds, v: ok}
   - {root: probe_all_duration_seconds_count, type: histogram, unit: count, v: ok}
   - {root: sm_check_info, type: gauge, unit: info, v: ok, note: "G=1; metadata anchor; extra labels below"}
@@ -115,8 +128,7 @@ query hostname, while `dns.server` is the resolver. TCP target is host:port;
 its packet-count gauges are not cumulative counters. Traceroute defaults to a
 120000 ms frequency and the API-required 30000 ms timeout. Other new types default
 60000/3000 ms. Network checks retain the common SM base/info/log labels and
-success summary; their duration histogram uses upstream DefBuckets
-[.005,.01,.025,.05,.1,.25,.5,1,2.5,5,10], leaving existing HTTP buckets unchanged.
+success summary and the common agent v0.66.1 duration histogram profile documented above.
 
 For DNS, `probe_ip_addr_hash` hashes the resolver address, not the query result:
 the [adapter passes the server to ProbeDNS](https://github.com/grafana/synthetic-monitoring-agent/blob/1046e6eeeb4f5b4ca7becc69a98325346e628c89/internal/prober/dns/dns.go#L81),

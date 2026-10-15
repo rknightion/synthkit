@@ -1,12 +1,18 @@
 ---
 id: SKT-0101
 title: Profile and reduce the per-process memory baseline
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-07 20:31'
+updated_date: '2026-10-15 11:55'
 labels:
   - performance
 dependencies: []
+references:
+  - /Users/rob/repos/synthkit/codex/memory-profile-20261015/baseline.heap
+  - /Users/rob/repos/synthkit/codex/memory-profile-20261015/candidate.heap
+  - /Users/rob/repos/synthkit/codex/memory-profile-20261015/method.txt
+  - /Users/rob/repos/synthkit/codex/memory-profile-20261015/final-per-item.heap
 ordinal: 223000
 ---
 
@@ -28,3 +34,15 @@ A single small blueprint has a heap floor of about 250 MiB (docs/kubernetes.md m
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Authorized 2026-10-15. Profiling one otlp-native blueprint on Linux under non-DRY_RUN delivery to a local TLS HTTP receiver; no external stack, credentials or .env mutation. Queue capacity currently eagerly allocates full value slots. Baseline measurement precedes a bounded queue-only reduction and before/after comparison.
+
+2026-10-15 candidate: pointer channel slots plus value-owned chunks (up to 256 items) reduce idle queue allocation while preserving capacity/sharding/backpressure. Linux arm64 non-DRY_RUN otlp-native 90s local-TLS receiver proof: retained heap 235061168 -> 51474528 bytes (78.1% reduction), four signal paths received real bodies. Profiles and receiver counts retained under /Users/rob/repos/synthkit/codex/memory-profile-20261015. No Grafana ingestion claim or resource-limit change. Microbenchmark median 1000-item batch 260us -> 374us, ~262KiB additional temporary allocation, four additional allocations. Chunk retention under skewed backpressure documented. Fail-first memory regression: 25626112 allocated for 100000 empty 256-byte slots; candidate passes <=4MiB. Alias fault injection fails ownership/order assertion; corrected code passes focused race. Queue, runner/Sigil delivery checks pass; otlp-native just dump 1201-line inventories are byte-identical. Baseline/candidate windows differ in tick phase; concurrent additive podlog LogResource field is present in candidate. Root owns final review, gates and integration.
+
+Root review found and reproduced cross-shard chunk retention: 1000 stalled values retained 65.4 MB after 255000 fast-shard values drained. Independent per-item ownership overlay retains 244 KB, with similar median batch time (380us versus 374us). Initial CodeRabbit completed with zero findings, but root pressure finding remains material. Initial composed gate passed plain tests then was deliberately interrupted before completing race; no full-gate pass claimed. Correct candidate and Linux remeasurement required before landing.
+
+Final correction 2026-10-15: root review identified cross-shard chunk retention. Reproduced 65,447,208 bytes retained by 1000 stalled items after 255000 fast items drained; independent per-item ownership reduced this to 244,192 bytes. Replaced shared chunks with one owned value per queued item, allocating after cancellation/stop guards; permanent skew regression and focused queue race pass. Final Linux arm64 90s real TLS delivery profile: HeapAlloc 51,482,040 bytes (49.1 MiB), 78.1% below original 235,061,168 bytes. Receiver consumed 44 RW2, 68 Loki, 7 OTLP metric and 34 OTLP trace requests. Final profiles/binary/hash/inventory retained with final-per-item prefix under /Users/rob/repos/synthkit/codex/memory-profile-20261015. Inventory byte-identical; focused runner/Sigil delivery tests pass. Paired local arm64 -cpu=2 benchmark median per 1000 256-byte items: original 160us/19 allocations, final 221us/1019 allocations; +250KiB temporary allocation. This supersedes the earlier chunk implementation and its tradeoff figures, whose evidence remains retained. Root owns final delta review/full gate; no local commit.
+<!-- SECTION:NOTES:END -->

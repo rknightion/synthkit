@@ -120,6 +120,8 @@ type Histogram struct {
 }
 
 type Log struct {
+	// CollectorProfile is synth-side attribution, never a telemetry attribute.
+	CollectorProfile       string      `json:"collector_profile,omitempty"`
 	Source                 string      `json:"source"`
 	Transport              string      `json:"transport"`
 	StreamLabels           []Attribute `json:"stream_labels"`
@@ -299,9 +301,16 @@ func (s *Schema) AddMetricProducer(name string, producer Producer) {
 // AddLog merges one log-source observation. A source transported through Loki and OTLP is
 // represented by two entries because their label and metadata contracts differ.
 func (s *Schema) AddLog(source, transport string, streamLabels map[string]string, metadataKeys []string) {
-	i := slices.IndexFunc(s.Logs, func(l Log) bool { return l.Source == source && l.Transport == transport })
+	s.AddLogProfile(source, transport, "", streamLabels, metadataKeys)
+}
+
+// AddLogProfile preserves direct collector attribution before merging resource keys.
+func (s *Schema) AddLogProfile(source, transport, profile string, streamLabels map[string]string, metadataKeys []string) {
+	i := slices.IndexFunc(s.Logs, func(l Log) bool {
+		return l.Source == source && l.Transport == transport && l.CollectorProfile == profile
+	})
 	if i < 0 {
-		s.Logs = append(s.Logs, Log{Source: source, Transport: transport, StreamLabels: []Attribute{}, StructuredMetadataKeys: []string{}})
+		s.Logs = append(s.Logs, Log{Source: source, Transport: transport, CollectorProfile: profile, StreamLabels: []Attribute{}, StructuredMetadataKeys: []string{}})
 		i = len(s.Logs) - 1
 	}
 	l := &s.Logs[i]
@@ -341,6 +350,9 @@ func (s *Schema) AddLog(source, transport string, streamLabels map[string]string
 	l.observations++
 	sort.Slice(s.Logs, func(i, j int) bool {
 		if s.Logs[i].Transport == s.Logs[j].Transport {
+			if s.Logs[i].Source == s.Logs[j].Source {
+				return s.Logs[i].CollectorProfile < s.Logs[j].CollectorProfile
+			}
 			return s.Logs[i].Source < s.Logs[j].Source
 		}
 		return s.Logs[i].Transport < s.Logs[j].Transport
@@ -494,6 +506,9 @@ func (s *Schema) Normalize() {
 	})
 	sort.Slice(s.Logs, func(i, j int) bool {
 		if s.Logs[i].Transport == s.Logs[j].Transport {
+			if s.Logs[i].Source == s.Logs[j].Source {
+				return s.Logs[i].CollectorProfile < s.Logs[j].CollectorProfile
+			}
 			return s.Logs[i].Source < s.Logs[j].Source
 		}
 		return s.Logs[i].Transport < s.Logs[j].Transport

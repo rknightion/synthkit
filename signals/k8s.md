@@ -1037,7 +1037,12 @@ Identities join the existing native pod and ReplicaSet helpers. Image/tag/versio
 pod start time follow existing native fixture conventions; restart count uses the
 existing steady-state zero baseline and does not represent accumulated incident restarts.
 All added attributes remain OTLP resource metadata. Selecting this profile does not
-itself declare the whole `otel-receivers` permutation modelled.
+itself declare the whole `otel-receivers` permutation modelled. The inventory exporter
+now declares that permutation and preserves each emitted collector profile separately
+for source-scoped comparison. `k8s-otel-native` exercises the OTel Collector profile;
+ordinary blueprints retain the Kubernetes Monitoring default. Collector attribution is
+internal inventory provenance and adds no wire attribute. See the
+[collector comparison contract](../reality-corpus/README.md#collector-specific-pod-log-inventory).
 
 **Instrumentation scope.** EMPTY. A non-empty scope name would surface as a `scope_name`
 structured-metadata key at Loki, and the capture has none — so the synth does NOT apply the

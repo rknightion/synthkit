@@ -121,7 +121,7 @@ type Config struct {
 	SendShards        int           // SEND_SHARDS (default 8) — parallel shard workers per sink
 	SendBatchMax      int           // SEND_BATCH_MAX (default 5000) — max series per flush batch
 	SendDeadline      time.Duration // SEND_BATCH_DEADLINE (default 5s) — max age before partial batch flushes
-	SendCapacity      int           // SEND_QUEUE_CAPACITY (default 500000) — ring-buffer depth (series slots; memory consumed only when filled under backpressure)
+	SendCapacity      int           // SEND_QUEUE_CAPACITY (default 500000) — buffered items; pointer slots preallocated, payload storage allocated on writes
 	SendDrainDeadline time.Duration // SEND_DRAIN_DEADLINE (default 30s) — graceful-shutdown drain budget
 }
 

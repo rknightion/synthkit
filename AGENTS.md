@@ -149,6 +149,12 @@ Prefer links to canonical instructions over copied command sequences. Keep gener
 skill links synchronized. Documentation validation checks structural integrity, not semantic truth;
 verify runtime claims against code and examples against the public entry point.
 
+## Console design contract
+
+Shared CSS values live in `internal/control/ui/design-tokens/tokens.css`; the console theme
+file is a compatibility and layout adapter. Tokens follow the approved design-board artifact
+version `1791408283-0027`; preserve its light/dark contract when adding consumers.
+
 ## Operational entrypoints
 
 `plugins/synthkit/skills/` holds the operational procedures; `just skills-sync` regenerates the
@@ -164,6 +170,11 @@ verify runtime claims against code and examples against the public entry point.
 
 ## Verification
 
+OTLP pod-log inventory retains emitter-selected `collector_profile` provenance separately.
+Corpus comparison scopes known profiles to their matching captured collector; unknown and
+unattributed evidence remains independently compared. Missing matching profiles retain wrong-profile
+evidence. Provenance never reaches the wire; captured reality and the sole exemption stay unchanged.
+
 - Synthetic Monitoring probe coordinates resolve once from paired blueprint latitude/longitude;
   omitted coordinates retain Frankfurt and explicit zero is valid. Shared probe names require
   identical region and coordinates across blueprints. The provisioner snapshot and emitted geohash
@@ -171,7 +182,9 @@ verify runtime claims against code and examples against the public entry point.
   release; emitter publication uses the ordinary file store and positive lock acquisition.
 - SM network profiles are pinned to agent v0.66.1: ping, DNS A/UDP/53, TCP with optional TLS,
   and default traceroute. Traceroute requires 30-second timeout and at least 120-second frequency;
-  loss is a fraction in metrics and a percentage in hop logs. HTTP snapshot hashes stay compatible.
+  loss is a fraction in metrics and a percentage in hop logs. HTTP and network derived duration
+  histograms use the pinned agent Prometheus DefBuckets, including the four sub-100ms HTTP buckets.
+  HTTP snapshot hashes stay compatible.
   HA plus SM chart wiring uses named state, separate principals/Leases, and a separate emitter
   ConfigMap rule granting only get/update. It grants no provisioner-Lease access or automatic apply.
   The default chart image predates this engine contract; select matching image >=1.6.0-rc.176.

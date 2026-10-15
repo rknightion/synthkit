@@ -145,3 +145,9 @@ The catalogue is organised into groups below. The **Scope** column is `blueprint
 The global rules that apply to every area above — push topology, blueprint selector stamping, scope invariants, environment-label-key variance, the correlation key-set, the cardinality hard limit, the content-strip rule, and the realistic-shape model — live in [`signals/00-canon.md`](https://github.com/rknightion/synthkit/blob/main/signals/00-canon.md). Area files reference these by slug (`[slug: cardinality]`, `[slug: scoping]`, etc.) and never restate them.
 
 For how to read and verify the catalogue, see [Reading the Catalogue](signals.md). For open / unverified items, see [`cantfind.md`](https://github.com/rknightion/synthkit/blob/main/cantfind.md).
+
+## Sourced contracts awaiting emission
+
+The [H100 HGX DCGM contract](https://github.com/rknightion/synthkit/blob/main/signals/dcgm.md)
+records pinned exporter fields, observed profile counts and physical limits. The exporter
+construct is not yet implemented; this catalogue entry does not enable GPU telemetry.

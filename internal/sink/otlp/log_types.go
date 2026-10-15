@@ -74,7 +74,9 @@ type LogRecord struct {
 // set the destination's promotion allowlist selects Loki stream labels from. Multiple
 // LogResources in one Write form one ExportLogsServiceRequest.
 type LogResource struct {
-	Attrs   map[string]any
-	Scope   Scope
-	Records []LogRecord
+	// CollectorProfile is internal inventory provenance; encoders never put it on the wire.
+	CollectorProfile string `json:"-"`
+	Attrs            map[string]any
+	Scope            Scope
+	Records          []LogRecord
 }

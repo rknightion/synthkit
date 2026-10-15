@@ -267,6 +267,11 @@ func TestPodLogsDefaultMethodIsOTLPNative(t *testing.T) {
 func TestPodLogsCollectorProfiles(t *testing.T) {
 	legacy := clusterWithPodLogs("opentelemetry", true)
 	_, legacyResources := tickBothLanes(t, legacy)
+	for _, resource := range legacyResources {
+		if resource.CollectorProfile != "k8s_monitoring" {
+			t.Fatalf("lost default collector provenance: %q", resource.CollectorProfile)
+		}
+	}
 	legacyBytes, err := json.Marshal(legacyResources)
 	if err != nil {
 		t.Fatalf("marshal legacy pod-log resources: %v", err)
@@ -292,6 +297,11 @@ func TestPodLogsCollectorProfiles(t *testing.T) {
 	_, resources := tickBothLanes(t, otelCollector)
 	if len(resources) == 0 {
 		t.Fatal("otel_collector profile: no OTLP pod-log resources")
+	}
+	for _, resource := range resources {
+		if resource.CollectorProfile != "otel_collector" {
+			t.Fatalf("lost OTel collector provenance: %q", resource.CollectorProfile)
+		}
 	}
 	wantAttrs := []string{
 		"container.image.name", "container.image.tag", "k8s.cluster.name", "k8s.cluster.uid",

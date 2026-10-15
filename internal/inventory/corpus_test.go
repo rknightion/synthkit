@@ -3,11 +3,14 @@
 package inventory
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/rknightion/synthkit/internal/sink/otlp"
 )
 
 func TestLoadCorpusDirValidatesEnvelopeAndOrdersDocuments(t *testing.T) {
@@ -1131,5 +1134,72 @@ func TestLiteralStorageCountPairsWithoutInventingHistogramFamily(t *testing.T) {
 	}
 	if !sawUnknownEvidence {
 		t.Fatal("unknown capture instrument evidence was hidden instead of reported as a coverage gap")
+	}
+}
+
+// The independent committed captures must compare against their own collector's
+// emitted shape, while misattribution and unattributed contamination still fail.
+func TestCompareCorpusPodLogCollectorProfiles(t *testing.T) {
+	read := func(path, profile string) (CorpusDocument, Log) {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc CorpusDocument
+		if err := json.Unmarshal(data, &doc); err != nil {
+			t.Fatal(err)
+		}
+		for _, log := range doc.Inventory.Logs {
+			if family, ok := ShapeLogFamily(log); ok && family == LogFamilyPodLogs && log.Transport == TransportOTLPLogs {
+				log.CollectorProfile = profile
+				doc.Inventory = New()
+				doc.Inventory.Logs = []Log{log}
+				return doc, log
+			}
+		}
+		t.Fatal("capture has no OTLP pod logs")
+		return CorpusDocument{}, Log{}
+	}
+	alloy, alloyLog := read("../../reality-corpus/k8s/k3d-lab-alloy-otlp-podlogs-4.5.0.json", "k8s_monitoring")
+	otel, otelLog := read("../../reality-corpus/logs/k3d-lab-otel-receivers.json", "otel_collector")
+	sink := otlp.NewLogs("", "", "", true)
+	sink.Capture, sink.Quiet = true, true
+	for _, log := range []Log{alloyLog, otelLog} {
+		attrs, metadata := map[string]any{}, map[string]any{}
+		for _, attr := range log.StreamLabels {
+			attrs[attr.Key] = "fixture"
+		}
+		for _, key := range log.StructuredMetadataKeys {
+			metadata[key] = "fixture"
+		}
+		if err := sink.Write(context.Background(), []otlp.LogResource{{CollectorProfile: log.CollectorProfile, Attrs: attrs, Records: []otlp.LogRecord{{Attrs: metadata}}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	synth := FromSinks(nil, nil, nil, nil, sink, nil, nil)
+	synth.ModelledPermutations = []string{"alloy-default", "alloy-otlp-podlogs", "otel-receivers"}
+	if len(synth.Logs) != 2 {
+		t.Fatalf("collector shapes flattened in sink inventory: %+v", synth.Logs)
+	}
+	if findings := CompareCorpus(synth, []CorpusDocument{alloy, otel}); CountUnexemptedContradictions(findings) != 0 {
+		t.Fatalf("matching collector profiles contradict immutable captures: %v", findings)
+	}
+	// An unrelated collector must not mask contamination in selected or unattributed logs.
+	for _, profile := range []string{"otel_collector", "", "unknown_collector"} {
+		contaminated := cloneLog(alloyLog)
+		contaminated.CollectorProfile = profile
+		synth.Logs = []Log{alloyLog, contaminated}
+		if profile != "otel_collector" {
+			synth.Logs = append(synth.Logs, otelLog)
+		}
+		if findings := CompareCorpus(synth, []CorpusDocument{otel}); CountUnexemptedContradictions(findings) == 0 {
+			t.Fatalf("incorrect keys attributed to %q falsely passed", profile)
+		}
+	}
+	// Missing the selected profile must not filter the wrong profile away.
+	synth.Logs = []Log{alloyLog}
+	if findings := CompareCorpus(synth, []CorpusDocument{otel}); CountUnexemptedContradictions(findings) == 0 {
+		t.Fatal("wrong collector profile falsely passed")
 	}
 }

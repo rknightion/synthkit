@@ -89,6 +89,7 @@ func postLogs(t *testing.T, resources []LogResource) []*logspb.ResourceLogs {
 // log.iostream/logtag on the record.
 func podLogResource(ts time.Time) LogResource {
 	return LogResource{
+		CollectorProfile: "k8s_monitoring",
 		Attrs: map[string]any{
 			"cluster":                "lab",
 			"k8s.cluster.name":       "lab",

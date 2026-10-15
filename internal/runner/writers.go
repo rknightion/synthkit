@@ -281,7 +281,7 @@ func (w *stampedOTLPLogs) Write(ctx context.Context, resources []otlp.LogResourc
 			attrs := make(map[string]any, len(r.Attrs)+1)
 			maps.Copy(attrs, r.Attrs)
 			attrs[BlueprintLabel] = w.label
-			stamped[i] = otlp.LogResource{Attrs: attrs, Scope: r.Scope, Records: r.Records}
+			stamped[i] = otlp.LogResource{Attrs: attrs, Scope: r.Scope, Records: r.Records, CollectorProfile: r.CollectorProfile}
 		}
 		resources = stamped
 	}

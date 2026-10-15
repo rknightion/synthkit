@@ -74,7 +74,7 @@ type Queue[T any] struct {
 	shard func(T) uint64
 	obs   Observer // may be nil
 
-	chans    []chan T
+	chans    []chan *T
 	flushReq []chan chan error // per-shard synchronous-flush barrier (used by Flush)
 	pending  int64             // atomic: enqueued-but-not-yet-flushed, for Depth()
 
@@ -101,10 +101,10 @@ func New[T any](opts Options, flush func(context.Context, []T) error, shard func
 	if perShard < 1 {
 		perShard = 1
 	}
-	q.chans = make([]chan T, opts.Shards)
+	q.chans = make([]chan *T, opts.Shards)
 	q.flushReq = make([]chan chan error, opts.Shards)
 	for i := range q.chans {
-		q.chans[i] = make(chan T, perShard)
+		q.chans[i] = make(chan *T, perShard)
 		q.flushReq[i] = make(chan chan error) // unbuffered: a Flush barrier rendezvous
 	}
 	return q
@@ -113,7 +113,9 @@ func New[T any](opts Options, flush func(context.Context, []T) error, shard func
 // Write routes each item to shard(item) % Shards, blocking only when a shard is at
 // capacity (backpressure). Satisfies core.{Metric,Log,Trace,Pyroscope}Writer.
 func (q *Queue[T]) Write(ctx context.Context, batch []T) error {
-	for _, item := range batch {
+	// Each slot owns an independent value copy. Sharing backing arrays across
+	// shards would let one stalled item retain already-consumed neighbours.
+	for _, value := range batch {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -122,7 +124,9 @@ func (q *Queue[T]) Write(ctx context.Context, batch []T) error {
 			return context.Canceled
 		default:
 		}
-		ch := q.chans[int(q.shard(item)%uint64(q.opts.Shards))]
+		item := new(T)
+		*item = value
+		ch := q.chans[int(q.shard(*item)%uint64(q.opts.Shards))]
 		// Increment BEFORE the send so a sender can never decrement (on flush) an item the
 		// producer hasn't counted yet — Depth() would otherwise transiently read negative.
 		// Rolled back below only if the enqueue never happens (ctx cancelled while blocked).
@@ -213,7 +217,7 @@ func (q *Queue[T]) sender(shard int) {
 		for {
 			select {
 			case item := <-ch:
-				pending = append(pending, item)
+				pending = append(pending, *item)
 			default:
 				return q.flushPending(shard, &pending)
 			}
@@ -223,7 +227,7 @@ func (q *Queue[T]) sender(shard int) {
 	for {
 		select {
 		case item := <-ch:
-			pending = append(pending, item)
+			pending = append(pending, *item)
 			if len(pending) >= q.opts.BatchMax {
 				_ = q.flushPending(shard, &pending)
 				resetTimer()

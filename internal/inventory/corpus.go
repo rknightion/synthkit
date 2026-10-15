@@ -1146,7 +1146,7 @@ func logShapeKey(log Log) string {
 	}
 	keys = sortedUniqueStrings(keys)
 	metadata := sortedUniqueStrings(log.StructuredMetadataKeys)
-	return log.Transport + "\x00" + strings.Join(keys, "\x00") + "\x00" + strings.Join(metadata, "\x00")
+	return log.Transport + "\x00" + log.CollectorProfile + "\x00" + strings.Join(keys, "\x00") + "\x00" + strings.Join(metadata, "\x00")
 }
 
 func documentsEqual(a, b CorpusDocument) bool {
@@ -1300,7 +1300,7 @@ func CompareCorpus(synth Schema, documents []CorpusDocument) []ScopedFinding {
 		}
 		observed := withoutEnrichmentLabels(document.Inventory, document.Source.EnrichmentLabels)
 		reality := producerScopedReality(synthCopy, observed)
-		comparison := scopedSynthSchema(withoutSelectorLabels(producerShapeSynth(synthCopy, reality)), reality)
+		comparison := scopedSynthSchema(withoutSelectorLabels(collectorProfileSynth(producerShapeSynth(synthCopy, reality), document.Source.Permutation)), reality)
 		findings := Diff(comparison, reality)
 		findings = append(findings, producerMismatchFindings(synthCopy, observed)...)
 		findings = classifyAllowListAbsences(findings, synthCopy, reality)
