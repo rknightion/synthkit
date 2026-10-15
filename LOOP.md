@@ -4,7 +4,6 @@ gate: just check
 ci-required: ci-success
 release-on-push: yes
 deploy-on-push: no
-receiver: https://loopwatch.m7kni.com
 grafana-stack: none
 
 ## Credentials
@@ -23,7 +22,18 @@ grafana-stack: none
   a lane that must fire inside one tick belongs in `e2e/fixtures/`. Anything under `blueprints/` is
   deployable by an operator.
 - Constructs and workloads never import each other, the blueprint package, OTel, selfobs or profiling.
-  `internal/archtest` enforces it.
+  `internal/archtest` enforces it (`TestCatalogImportIsolation`), and a lane needing a cross-construct
+  import stops and returns the question; never widen the allowlist to go green.
+- Derive values from a seed unit (generation ID, entity identity), never the wall clock or a global
+  RNG: the inventory gate compares two `-once -dump` runs. Counters and histograms are cumulative via
+  `internal/state` (push totals); CloudWatch `_sum` series are per-period gauges, never `rate()`d, and
+  `internal/cw` owns that. Request-scoped IDs never become labels; an absent dimension is omitted,
+  never `""` or `"NA"`. Metrics go out by `sink/promrw` Remote-Write v2; OTLP carries traces only.
+- When synthetic output diverges from observed reality, correct the synth, never the captured data.
+  Record new observed signals in `signals/<area>.md` with provenance in the same run, and resolve a
+  PENDING out of `cantfind.md`. Do not import `SK-N` items into the tracker or renumber them.
+- Every environment read in `internal/config` uses `get("LIT")` or `getInt("LIT")` with a string-literal
+  key (`TestEnvSurfaceAligned` parses for them); put `.env` comments on their own line.
 - Renderer changes are verified by inventory diff (`just dump` against `signals/`), not unit test.
 - A new blueprint field or config struct needs `just gen`; `just gen-check` fails on drift. A new `.go`
   file needs the AGPL SPDX header (`just spdx-check`).
@@ -50,4 +60,16 @@ grafana-stack: none
   state and ledger types, each `blueprints/*.yaml`, `signals/<area>.md`, generated
   `BLUEPRINT-SCHEMA.md` and `fielddocs.json`, `cantfind.md`, `.env`, `.env.example`,
   `internal/archtest/arch_test.go`.
-- Docker and live stacks are exclusive resources; live captures are read-only findings.
+- `cantfind.md` appends are serialised so two lanes cannot claim the same `SK-N`;
+  `internal/archtest/arch_test.go` allowlist changes are an architecture decision, not a lane action.
+- Docker (`just e2e`, `just secret-scan`), the live Grafana stacks (the charter names which; never
+  assume) and the reference EKS and Windows capture clusters (treat as absent unless just confirmed)
+  are exclusive resources. A live capture is read-only and returns findings; the root applies the
+  resulting `signals/` edits. Stack names and tenant IDs never enter a task, doc or commit message.
+
+## Lane brief
+
+- A lane runs `go build ./... && go vet ./... && go test ./...` scoped to its own packages. The full
+  `just check` (race leg, SPDX sweep, forbidden-words guard) runs once on the integrated tree.
+- One construct kind per lane under `internal/construct/<kind>/` and one workload kind per lane under
+  `internal/workload/<kind>/` are disjoint by the isolation rule.

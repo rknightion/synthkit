@@ -249,9 +249,7 @@ imported or renumbered.
   seam.
 - `SIGNALS.md` and `signals/<area>.md` - read before adding or renaming any metric, label or field.
 - `BLUEPRINT-SCHEMA.md` - generated; read for the current blueprint field surface, never hand-edit.
-- Maintainer multi-lane campaigns additionally follow backlog doc `doc-0002` (Wave operating
-  model) and the maintainer-provided loop contract. These are not prerequisites for an ordinary
-  public contribution; never assume a contributor has a maintainer checkout.
+- Loops: the protocol lives in `~/repos/agent-docs/sources/loop/` (this board's "Loop protocol pointer" doc points there); this repository's loop facts are in `LOOP.md`. These are not prerequisites for an ordinary public contribution; never assume a contributor has a maintainer checkout.
 - `dashboards/AGENTS.md` - read before touching anything under `dashboards/`.
 
 Slow tier: `just lab` (disposable k3d collector-egress fidelity capture) took about 35 minutes in CI; run it once on the final candidate when that capture surface changes, not in the inner loop.
