@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-10-07 20:31'
-updated_date: '2026-10-15 14:27'
+updated_date: '2026-10-15 14:31'
 labels:
   - feature
   - ha
@@ -23,7 +23,7 @@ Phase 2 of HA. Even with lease handoff, a takeover resets cumulative counters (I
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Design note choosing the checkpoint store and cadence
+- [x] #1 Design note choosing the checkpoint store and cadence
 - [ ] #2 Takeover in a test resumes counters without a reset and backfills missed ticks
 - [ ] #3 Backfill never exceeds the configured out-of-order window
 <!-- AC:END -->
@@ -39,6 +39,8 @@ Phase 2 of HA. Even with lease handoff, a takeover resets cumulative counters (I
 
 <!-- SECTION:PLAN:BEGIN -->
 2026-10-15 authorized backlog pickup: inspect cumulative state, delivery acknowledgement and HA ownership seams; select durable store/cadence with an independently challenged design before implementation; preserve exact delivery and out-of-order-window evidence.
+
+Selected opt-in shared-filesystem backend; existing ConfigMaps retain only small control state. Commit an immutable exact-payload plus complete post-cycle-state transaction before delivery for every emitted cycle. Compact snapshots by bounded byte/count thresholds after measuring write volume; no arbitrary periodic snapshot interval can certify continuity. Runtime mode remains disabled until full state admission, genuine lease epochs, provider durability and timestamp-bounded replay are proven.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -55,4 +57,6 @@ Independent re-review accepted design revision2 with no remaining design blocker
 Owner 2026-10-15 clarified existing ConfigMap expectation, approved shared filesystem mounts as the checkpoint direction, selected the isolated staff stack for bounded verification, and explicitly approved delivery-acknowledgement/checkpoint foundations as increments while retaining this task open until takeover/backfill is proved. Standalone Docker defaults remain unchanged; no S3 dependency. Existing ConfigMaps remain small control-state stores, not per-series payload storage.
 
 Public tracker wording redacts the deployment identifier; the exact owner-selected verification destination remains in machine-local evidence. No scan exception or history rewrite.
+
+Foundation increment implements bounded OTLP/RW2 acceptance classification, sanitized status counts, queue background-failure reporting and an optional binding-aware filesystem store with checksummed atomic manifests, immutable payloads, exclusive locks and epoch/revision CAS. Actual HTTP and cross-process filesystem tests include fail-first and negative proofs; affected race packages pass. CodeRabbit completed all 20 files with one minor suggestion to delete cancelled temporary writes, deliberately retained under the evidence-preserving fail-closed contract and documented recovery limits. Root found and corrected malformed OTLP diagnostic JSON acceptance; delta review and composed final gate pending. No runtime snapshots, durable outbox, takeover, backfill or live deployment claimed; acceptance criteria 2 and 3 remain open.
 <!-- SECTION:NOTES:END -->
