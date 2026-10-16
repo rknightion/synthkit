@@ -234,6 +234,8 @@ evidence. Provenance never reaches the wire; captured reality and the sole exemp
 `just check` is the pre-commit gate. Three recipes mutate a live Grafana stack and are marked
 `[confirm(...)]` (`selfobs-dashboard`, `corpus-gcx`, `provision`): stop and ask before running one,
 and never pass `--yes` or `JUST_YES=1`. Run `just` with stdin from `/dev/null`.
+Run `just check` and `just ci` off the Mac with `gaterun -- just check` when the remote gate runner is
+installed (`which gaterun`); `.gaterunner.yaml` is its contract. Run one test or package locally.
 
 ## Tracker
 

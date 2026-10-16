@@ -46,7 +46,10 @@ func TestDeclarativeSourcesProcessBoundary(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, binary, "-env", filepath.Join(root, "absent.env"))
-	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "DRY_RUN=true", "JSON_HTTP_ADDR=" + addr, "BLUEPRINTS=" + root, "BLUEPRINT_NAMES=", "BLUEPRINT_DATA_DIR=" + filepath.Join(root, "blueprints"), "CONFIG_SNAPSHOT_PATH=" + filepath.Join(root, "state.json"), "GIT_SOURCES_FILE=" + desired}
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "DRY_RUN=true", "JSON_HTTP_ADDR=" + addr,
+		// Inside a container (a containerised CI runner or gate host) the exposure check requires the
+		// host bind; the listener is loopback, so declare a loopback bind and the test runs anywhere.
+		"SYNTHKIT_BIND=127.0.0.1", "BLUEPRINTS=" + root, "BLUEPRINT_NAMES=", "BLUEPRINT_DATA_DIR=" + filepath.Join(root, "blueprints"), "CONFIG_SNAPSHOT_PATH=" + filepath.Join(root, "state.json"), "GIT_SOURCES_FILE=" + desired}
 	logFile, err := os.Create(filepath.Join(root, "process.log"))
 	if err != nil {
 		t.Fatal(err)

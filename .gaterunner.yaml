@@ -1,0 +1,5 @@
+# Remote gate runner contract (m7kni/gate-runner): see that repo's README.
+env:
+  # kubeconform is in the gate image; make helm-test fail rather than skip without it.
+  REQUIRE_KUBECONFORM: "1"
+artifacts: [coverage.out]
