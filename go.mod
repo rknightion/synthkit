@@ -13,7 +13,7 @@ go 1.27.0
 require (
 	filippo.io/age v1.3.2
 	github.com/golang/snappy v1.0.0
-	github.com/grafana/grafana-foundation-sdk/go v0.0.20
+	github.com/grafana/grafana-foundation-sdk/go v0.0.21
 	github.com/grafana/nanogit v1.7.3
 	github.com/grafana/pyroscope-go v1.4.3
 	github.com/moby/moby/api v1.56.1
