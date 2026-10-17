@@ -125,6 +125,24 @@ SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provis
 docker compose restart synthkit
 ```
 
+Explicit ownership-bound cleanup is a separate subcommand. Preview it, then apply exactly the
+previewed plan:
+
+```bash
+docker compose --profile sm-provision run --rm sm-provision cleanup
+SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision cleanup -confirm=<plan>
+docker compose --profile sm-provision run --rm sm-provision help
+```
+
+Cleanup deletes only resources the ledger records as owned for the configured target, by recorded
+ID, after rechecking each one's revision and specification. Every delete first stores a pending
+intent; a delete counts as done only when an inventory read shows the ID gone. Every run that
+reaches a plan prints a secret-free receipt line; a refused run prints none. Cleanup needs the
+emitter's current SM snapshot, so run it before deselecting SM or setting
+`STARTUP_DISABLED_KINDS=synthetic_monitoring`. The Helm chart's SM Job runs apply only; cleanup is
+not packaged there yet. Any other argument is rejected before configuration is read. See
+[synthetic-monitoring.md](synthetic-monitoring.md#remove-provisioned-resources-explicit-cleanup).
+
 | Environment variable | Required | Description |
 |---|---|---|
 | `GC_SM_URL` | yes | SM API base URL |

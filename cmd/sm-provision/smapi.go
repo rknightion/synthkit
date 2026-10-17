@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/operationalerr"
@@ -24,6 +25,7 @@ type smClient struct {
 type apiError struct {
 	code      operationalerr.Code
 	ambiguous bool
+	status    int // HTTP status of a received non-2xx response; never its body
 }
 
 func (e apiError) Error() string                        { return operationalerr.Message(e.code) }
@@ -67,6 +69,7 @@ func (c *smClient) rawDo(ctx context.Context, method, path string, body, out any
 		return apiError{
 			code:      operationalerr.Classify(resp.StatusCode, nil),
 			ambiguous: method != http.MethodGet && resp.StatusCode >= 500,
+			status:    resp.StatusCode,
 		}
 	}
 	if out != nil && (len(response) == 0 || json.Unmarshal(response, out) != nil) {
@@ -168,4 +171,42 @@ func (c *smClient) updateCheck(ctx context.Context, check smCheck) (smCheck, err
 		return smCheck{}, apiError{code: operationalerr.CodeInternal, ambiguous: true}
 	}
 	return out, nil
+}
+
+// Delete endpoints follow the upstream Synthetic Monitoring API client
+// (grafana/synthetic-monitoring-api-go-client smapi.go DeleteCheck/DeleteProbe): DELETE
+// /api/v1/{check,probe}/delete/{id}, answered by {"msg":...,"checkId"|"probeId":id}. A success
+// response is never treated as proof of absence; the caller confirms by inventory.
+type deleteResponse struct {
+	Msg     string `json:"msg"`
+	CheckID int64  `json:"checkId"`
+	ProbeID int64  `json:"probeId"`
+}
+
+func (c *smClient) deleteResource(ctx context.Context, kind string, id int64) error {
+	if (kind != "check" && kind != "probe") || id <= 0 {
+		return apiError{code: operationalerr.CodeInternal}
+	}
+	var out deleteResponse
+	if err := c.do(ctx, http.MethodDelete, "/api/v1/"+kind+"/delete/"+strconv.FormatInt(id, 10), nil, &out); err != nil {
+		return err
+	}
+	echoed := out.CheckID
+	if kind == "probe" {
+		echoed = out.ProbeID
+	}
+	if echoed != id {
+		return apiError{code: operationalerr.CodeInternal, ambiguous: true}
+	}
+	return nil
+}
+
+// definiteRejection returns the HTTP status of a received 4xx answer. A 4xx is a definite refusal
+// of the request, unlike a transport failure, a 5xx or an unreadable success.
+func definiteRejection(err error) int {
+	var target apiError
+	if errors.As(err, &target) && !target.ambiguous && target.status >= 400 && target.status < 500 {
+		return target.status
+	}
+	return 0
 }

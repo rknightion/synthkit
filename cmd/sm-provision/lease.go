@@ -36,6 +36,8 @@ type provisionDependencies struct {
 	Exit       func(int)
 	Clock      func() time.Time
 	client     *smClient
+	// cleanup selects explicit ownership-bound cleanup instead of reconciliation.
+	cleanup *cleanupRequest
 }
 
 func productionProvisionDependencies() provisionDependencies {
@@ -43,6 +45,9 @@ func productionProvisionDependencies() provisionDependencies {
 }
 func runWithDependencies(ctx context.Context, cfg config.SMProvisionConfig, deps provisionDependencies) (err error) {
 	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if err := validateCleanupMode(cfg, deps.cleanup); err != nil {
 		return err
 	}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)

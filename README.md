@@ -96,7 +96,8 @@ ConfigMap without shared disk. Helm also supports named SM state with HA; select
 engine image (at least `1.6.0-rc.176`). See [Synthetic Monitoring](docs/synthetic-monitoring.md).
 
 Preview is the default and makes no remote mutation. `DRY_RUN` does not authorise the provisioner.
-Foreign collisions and ambiguous/pending operations fail closed; resources are never deleted.
+Foreign collisions and ambiguous/pending operations fail closed; ordinary apply never deletes.
+Removal is the separate, previewed `sm-provision cleanup` (see [Synthetic Monitoring](docs/synthetic-monitoring.md)).
 Probe name, region and paired optional latitude/longitude resolve once for both planes. Omitted
 coordinates retain Frankfurt; all checks sharing a probe name must agree on its location.
 

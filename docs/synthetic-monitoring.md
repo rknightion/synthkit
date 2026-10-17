@@ -111,7 +111,8 @@ provisioner records a private hash of that exact adoption plan. A later apply ac
 snapshot and plan, and only one exact complete-spec match may be adopted. A pending journal stores
 the expected specification as well as its hash. An ambiguous create is never reconciled by
 name/spec: inspect it and establish ownership before explicitly clearing the journal and choosing
-whether to adopt. Resources are never deleted.
+whether to adopt. Ordinary preview and apply never delete anything; removal is the separate,
+explicit [cleanup](#remove-provisioned-resources-explicit-cleanup).
 
 `alertSensitivity` is always registered as `"none"` at the API level (the real value is stamped on the `sm_check_info` metric by the data-plane emitter independently of the provisioner).
 
@@ -151,6 +152,78 @@ least **1.6.0-rc.176**, which carries the matching named-SM engine. The chart de
 required; there is no automatic activation or remote-write approval. With HA off, the
 Kubernetes-state Job remains standalone and its emitter is configured separately. The default
 file-mode Job retains its shared-volume behavior.
+
+## Remove provisioned resources — explicit cleanup
+
+Cleanup is a separate subcommand with its own preview and confirmation. It acts only on resources
+the ownership ledger records as **owned** (created by synthkit) for the configured target, and only
+by recorded API ID. It never searches by name, specification or folder, and never deletes
+tenant-wide. Run it while the emitter still publishes the SM snapshot: the snapshot binds every
+durable cleanup write, and cleanup refuses when it is absent. Deselecting the SM blueprint, or
+starting the emitter with `STARTUP_DISABLED_KINDS=synthetic_monitoring`, removes that snapshot, so
+run cleanup **before** disabling or deselecting SM. The Helm chart's SM Job runs apply only;
+Kubernetes-state cleanup is supported by the binary but is not yet packaged as a chart route.
+
+```bash
+docker compose --profile sm-provision run --rm sm-provision cleanup
+SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision cleanup -confirm=<plan>
+docker compose restart synthkit
+```
+
+The preview lists each recorded resource and prints a plan hash. It makes no remote or state
+change. The plan hash covers the target, the snapshot and, for each resource, its ID, revision,
+managed specification hash and planned action. Apply needs `SM_PROVISION_APPLY=true` and that exact
+hash. If anything changed since the preview, apply refuses before any write. Cleanup cannot be
+combined with `SM_PROVISION_ADOPT_LEGACY` or `SM_PROVISION_MIGRATE_TARGET`.
+
+Before every delete, cleanup lists the inventory again and checks that the resource's ID, key,
+revision (`modified`) and managed specification still match the ledger. A probe still referenced
+by any check that is not being deleted is kept. This check is the only concurrency guard: the SM
+delete API (`DELETE /api/v1/{check,probe}/delete/{id}`) has no revision precondition, so a change
+made between that last inventory and the delete cannot be detected. Checks are deleted before the
+probes they use.
+
+Cleanup refuses the whole operation, with no writes, when custody is foreign, changed, legacy or
+incomplete:
+
+- an owned resource's revision, specification or key changed remotely
+- the ledger is bound to another target, or the configured credential does not match the snapshot.
+  Credentials are never substituted.
+- legacy ownership has no recorded specification hash, or only a legacy registration exists. Run
+  an ordinary apply first to bind custody.
+- no ledger exists
+- a target migration is incomplete
+- a create or update journal is pending
+
+Resources recorded as adopted are never deleted. They stay in the ledger and the receipt reports
+them as `retained`.
+
+Each delete first stores a pending delete intent: the exact target, ID, revision and specification
+hash. In the same state write it removes activation, so the emitter stays suppressed after its next
+restart. Only an inventory read showing the ID gone counts as absence; a successful delete response
+alone does not. Absence removes the resource from the ledger and clears the intent in one state
+write. A lost response, timeout, termination or crash leaves the intent in place, and ordinary
+preview and apply refuse while it remains. The next `cleanup` run resolves it first. If the ID is
+gone, it records the absence. If the resource is unchanged, the delete is planned again. If it
+changed, cleanup refuses for operator review. A killed file-mode run leaves the private lock, which
+is never guessed stale: remove it only after confirming no provisioner is running.
+
+Every run that reaches a plan prints one secret-free JSON receipt line (`cleanup receipt: {...}`):
+kind, API ID, `config_version`, outcome, reason and, for a rejection, the HTTP status only. It never
+includes keys, check targets, response bodies, credentials or the target fingerprint. A refused run
+prints no receipt, only the refusal. Apply outcomes are `confirmed_absent`, `unknown` (the intent is
+retained), `rejected`, `not_attempted` and `retained`. The status is `complete`, `remaining` (only
+retained resources are left; exit 0), `unknown`, `rejected` or `stopped` (all exit non-zero, with
+custody retained).
+
+`rejected` means the API answered the delete with a definite 4xx (for example 403 when the token
+lacks delete permission) and the next inventory still shows the resource. The pending intent is
+kept and there is no abandon path. Fix the SM token's permission, then preview and apply cleanup
+again; the unchanged identity is planned for deletion once more. Until cleanup completes, ordinary
+preview and apply stay blocked by the pending intent. An emitter that
+is already running is not deactivated in place; restart it, or remove the SM selection, after
+cleanup. In Kubernetes mode cleanup runs under the same provisioning Lease as apply and makes no SM
+request or state update before acquiring it.
 
 ## Phase 2 — run the emitter
 

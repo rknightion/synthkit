@@ -3,6 +3,8 @@
 // Command sm-provision reconciles the exact Synthetic Monitoring snapshot written by the
 // version-matched synthkit emitter. It previews by default. Remote mutations require the explicit
 // SM_PROVISION_APPLY=true gate; emitter DRY_RUN has no effect on this command.
+// The separate `cleanup` subcommand previews and, with the same gate plus -confirm, deletes only
+// recorded owned resource identities; ordinary reconciliation never deletes.
 package main
 
 import (
@@ -70,21 +72,37 @@ type provisioner struct {
 }
 
 func main() {
-	if err := run(); err != nil {
+	if err := runArgs(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "sm-provision:", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+// run is the ordinary no-argument invocation.
+func run() error { return runArgs(nil) }
+
+func runArgs(args []string) error {
+	inv, err := parseInvocation(args)
+	if err != nil {
+		return err
+	}
+	if inv.help {
+		fmt.Print(usageText)
+		return nil
+	}
 	cfg, err := config.LoadSMProvision()
 	if err != nil {
 		return err
 	}
-	return runWithDependencies(context.Background(), *cfg, productionProvisionDependencies())
+	deps := productionProvisionDependencies()
+	deps.cleanup = inv.cleanup
+	return runWithDependencies(context.Background(), *cfg, deps)
 }
 
 func executeStored(ctx context.Context, cfg config.SMProvisionConfig, store smstore.Store, stateDir string, deps provisionDependencies) error {
+	if deps.cleanup != nil {
+		return executeCleanup(ctx, cfg, store, stateDir, deps)
+	}
 	doc, err := store.Load(ctx)
 	if err != nil {
 		return errors.New("SM state is unavailable or invalid")

@@ -852,3 +852,66 @@ func validNetworkHost(host string) bool {
 	}
 	return true
 }
+
+// DeleteOperation is the pending-journal operation for an explicit ownership-bound cleanup.
+const DeleteOperation = "delete"
+
+// DeleteIntent is the exact remote identity an explicit cleanup may remove. It binds the target,
+// the recorded API ID, the authoritative remote revision (config-version form) and the managed
+// specification hash observed immediately before the mutation. It holds no credential.
+type DeleteIntent struct {
+	SchemaVersion     int    `json:"schema_version"`
+	TargetFingerprint string `json:"target_fingerprint"`
+	Kind              string `json:"kind"`
+	Key               string `json:"key"`
+	ID                int64  `json:"id"`
+	Modified          string `json:"modified"`
+	SpecHash          string `json:"spec_hash"`
+}
+
+func validDeleteIntent(intent DeleteIntent) bool {
+	return intent.SchemaVersion == SchemaVersion && intent.TargetFingerprint != "" &&
+		(intent.Kind == "probe" || intent.Kind == "check") && intent.Key != "" && intent.ID > 0 &&
+		intent.Modified != "" && intent.Modified != "0" && intent.SpecHash != ""
+}
+
+// NewDeleteJournal encodes a cleanup intent into the generic pending journal, so every store and
+// every older reader that refuses on any pending journal keeps recovery custody unchanged.
+func NewDeleteJournal(intent DeleteIntent, snapshotHash string, now time.Time) (Journal, error) {
+	if !validDeleteIntent(intent) || snapshotHash == "" {
+		return Journal{}, fmt.Errorf("smstate: invalid delete intent")
+	}
+	expected, err := json.Marshal(intent)
+	if err != nil {
+		return Journal{}, err
+	}
+	journal := Journal{
+		SchemaVersion: SchemaVersion, Operation: DeleteOperation, Kind: intent.Kind, Key: intent.Key,
+		SnapshotHash: snapshotHash, ExpectedHash: SpecHash(intent), ExpectedSpec: expected, StartedUnixMS: now.UnixMilli(),
+	}
+	if !validJournal(journal) {
+		return Journal{}, fmt.Errorf("smstate: invalid delete intent")
+	}
+	return journal, nil
+}
+
+// DeleteIntentFromJournal returns the exact cleanup identity bound by a pending delete journal. Any
+// other operation, an unknown field, or a kind/key disagreement is rejected.
+func DeleteIntentFromJournal(journal Journal) (DeleteIntent, error) {
+	if !validJournal(journal) || journal.Operation != DeleteOperation {
+		return DeleteIntent{}, fmt.Errorf("smstate: pending journal is not a delete intent")
+	}
+	var intent DeleteIntent
+	decoder := json.NewDecoder(strings.NewReader(string(journal.ExpectedSpec)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&intent); err != nil {
+		return DeleteIntent{}, fmt.Errorf("smstate: invalid delete intent")
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		return DeleteIntent{}, fmt.Errorf("smstate: invalid delete intent")
+	}
+	if !validDeleteIntent(intent) || intent.Kind != journal.Kind || intent.Key != journal.Key || SpecHash(intent) != journal.ExpectedHash {
+		return DeleteIntent{}, fmt.Errorf("smstate: invalid delete intent")
+	}
+	return intent, nil
+}
