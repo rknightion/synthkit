@@ -70,8 +70,11 @@ func cliBinary(t *testing.T) string {
 
 const (
 	platformBlueprint = "../../blueprints/acme-ai-platform.yaml"
-	evalBlueprint     = "../../blueprints/acme-ai-eval.yaml"
-	uidPattern        = `^[A-Za-z0-9_-]{1,40}$`
+	// netobsBlueprint is the cheap blueprint: its dry cycle takes well under a second, against
+	// tens of CPU-seconds for the platform estate, so assertions that do not need the platform's
+	// templates (cross-links, rules) run on it.
+	netobsBlueprint = "../../blueprints/netobs-global.yaml"
+	uidPattern      = `^[A-Za-z0-9_-]{1,40}$`
 )
 
 type cliResult struct {
@@ -287,15 +290,24 @@ func (e emitted) dashboardTags() map[string]bool {
 
 var dashLinkPattern = regexp.MustCompile(`/d/([A-Za-z0-9_-]+)`)
 
-// legacyTokenLeft reports files in which a legacy identity still appears as a whole token.
+// legacyTokenLeft reports files in which a legacy identity still appears as a whole token (a
+// maximal run of UID characters). One tokenising pass per file keeps this cheap under -race.
 func legacyTokenLeft(tree map[string][]byte, legacy []string) []string {
-	var left []string
+	want := make(map[string]bool, len(legacy))
 	for _, id := range legacy {
-		re := regexp.MustCompile(`(^|[^A-Za-z0-9_-])` + regexp.QuoteMeta(id) + `($|[^A-Za-z0-9_-])`)
-		for name, raw := range tree {
-			if re.Match(raw) {
-				left = append(left, name+": "+id)
+		want[id] = true
+	}
+	tokens := regexp.MustCompile(`[A-Za-z0-9_-]+`)
+	var left []string
+	for name, raw := range tree {
+		found := map[string]bool{}
+		for _, tok := range tokens.FindAll(raw, -1) {
+			if want[string(tok)] {
+				found[string(tok)] = true
 			}
+		}
+		for id := range found {
+			left = append(left, name+": "+id)
 		}
 	}
 	sort.Strings(left)
@@ -304,7 +316,7 @@ func legacyTokenLeft(tree map[string][]byte, legacy []string) []string {
 
 func TestLegacyOutputIsByteIdentical(t *testing.T) {
 	t.Parallel()
-	tree := readTree(t, generated(t, platformBlueprint))
+	tree := readTree(t, generated(t, trimmedPlatformBlueprint(t)))
 	names := make([]string, 0, len(tree))
 	for name := range tree {
 		names = append(names, name)
@@ -315,7 +327,7 @@ func TestLegacyOutputIsByteIdentical(t *testing.T) {
 		sum := sha256.Sum256(tree[name])
 		fmt.Fprintf(&got, "%s  %s\n", hex.EncodeToString(sum[:]), name)
 	}
-	golden := filepath.Join("testdata", "legacy-acme-ai-platform.sha256")
+	golden := filepath.Join("testdata", "legacy-acme-ai-platform-2env.sha256")
 	if os.Getenv("UPDATE_GOLDEN") == "1" {
 		if err := os.MkdirAll("testdata", 0o755); err != nil {
 			t.Fatal(err)
@@ -336,8 +348,8 @@ func TestLegacyOutputIsByteIdentical(t *testing.T) {
 func TestNamespaceRepeatedRunsAreByteIdentical(t *testing.T) {
 	t.Parallel()
 	// "-namespace=alpha" and "-namespace alpha" are the same request, run as two separate processes.
-	a := readTree(t, generated(t, platformBlueprint, "-namespace", "alpha"))
-	b := readTree(t, generated(t, platformBlueprint, "-namespace=alpha"))
+	a := readTree(t, generated(t, netobsBlueprint, "-namespace", "alpha"))
+	b := readTree(t, generated(t, netobsBlueprint, "-namespace=alpha"))
 	if len(a) == 0 || len(a) != len(b) {
 		t.Fatalf("file counts differ: %d vs %d", len(a), len(b))
 	}
@@ -350,9 +362,9 @@ func TestNamespaceRepeatedRunsAreByteIdentical(t *testing.T) {
 
 func TestNamespacesDoNotCollide(t *testing.T) {
 	t.Parallel()
-	legacy := load(t, generated(t, platformBlueprint))
-	alpha := load(t, generated(t, platformBlueprint, "-namespace", "alpha"))
-	beta := load(t, generated(t, platformBlueprint, "-namespace", "beta"))
+	legacy := load(t, generated(t, netobsBlueprint))
+	alpha := load(t, generated(t, netobsBlueprint, "-namespace", "alpha"))
+	beta := load(t, generated(t, netobsBlueprint, "-namespace", "beta"))
 	seen := map[string]string{}
 	claim := func(kind, id, owner string) {
 		t.Helper()
@@ -387,8 +399,8 @@ func TestNamespacesDoNotCollide(t *testing.T) {
 
 func TestNamespaceInternalLinksResolveInsideTheNamespace(t *testing.T) {
 	t.Parallel()
-	legacy := load(t, generated(t, platformBlueprint))
-	alpha := load(t, generated(t, platformBlueprint, "-namespace", "alpha"))
+	legacy := load(t, generated(t, trimmedPlatformBlueprint(t)))
+	alpha := load(t, generated(t, trimmedPlatformBlueprint(t), "-namespace", "alpha"))
 
 	// The legacy output really does carry internal cross-links and nav tags (otherwise this
 	// test would assert nothing).
@@ -451,8 +463,8 @@ func TestNamespaceInternalLinksResolveInsideTheNamespace(t *testing.T) {
 
 func TestNamespaceInventoryAndVerificationCarryEffectiveUIDs(t *testing.T) {
 	t.Parallel()
-	legacy := load(t, generated(t, platformBlueprint))
-	alphaDir := generated(t, platformBlueprint, "-namespace", "alpha")
+	legacy := load(t, generated(t, trimmedPlatformBlueprint(t)))
+	alphaDir := generated(t, trimmedPlatformBlueprint(t), "-namespace", "alpha")
 	alpha := load(t, alphaDir)
 
 	inInventory := map[string]bool{}
@@ -536,8 +548,8 @@ func keys(m map[string][]byte) []string {
 
 func TestNamespaceRulesCarryEffectiveIdentities(t *testing.T) {
 	t.Parallel()
-	legacy := load(t, generated(t, platformBlueprint))
-	alpha := load(t, generated(t, platformBlueprint, "-namespace", "alpha"))
+	legacy := load(t, generated(t, trimmedPlatformBlueprint(t)))
+	alpha := load(t, generated(t, trimmedPlatformBlueprint(t), "-namespace", "alpha"))
 	if legacy.rulesFile != "acme-ai-platform-rules.json" || alpha.rulesFile != "acme-ai-platform-alpha-rules.json" {
 		t.Fatalf("rules files: legacy %q, alpha %q", legacy.rulesFile, alpha.rulesFile)
 	}
@@ -556,9 +568,10 @@ func TestNamespaceRulesCarryEffectiveIdentities(t *testing.T) {
 func TestMaximumNamespaceStaysWithinGrafanaUIDLimit(t *testing.T) {
 	// Grafana UIDs are at most 40 characters of [A-Za-z0-9_-]
 	// (https://grafana.com/docs/grafana/latest/whatsnew/whats-new-in-v10-1/). A maximum-length
-	// namespace pushes the longer legacy UIDs past that, which forces the shortened (hashed) form.
+	// namespace on a long folder UID pushes it past that, which forces the shortened (hashed) form.
 	t.Parallel()
-	e := load(t, generated(t, evalBlueprint, "-namespace", "abcdefghijkl"))
+	const longFolder = "netobs-global-dashboards-extra-long"
+	e := load(t, generated(t, netobsBlueprint, "-namespace", "abcdefghijkl", "-folder", longFolder))
 	valid := regexp.MustCompile(uidPattern)
 	all := append(e.dashboardUIDs(), e.folderUID)
 	distinct := map[string]bool{}
@@ -571,12 +584,12 @@ func TestMaximumNamespaceStaysWithinGrafanaUIDLimit(t *testing.T) {
 			t.Errorf("duplicate UID %q", uid)
 		}
 		distinct[uid] = true
-		if len(uid) == 40 {
+		if uid == e.folderUID && len(uid) == 40 {
 			shortened++
 		}
 	}
-	if shortened == 0 {
-		t.Errorf("expected at least one UID to need the shortened form: %v", all)
+	if shortened != 1 {
+		t.Errorf("the long folder UID should have taken the shortened 40-character form: %q", e.folderUID)
 	}
 	for _, p := range e.inventory {
 		if !distinct[p.Dashboard] {
@@ -584,7 +597,7 @@ func TestMaximumNamespaceStaysWithinGrafanaUIDLimit(t *testing.T) {
 		}
 	}
 	// The shortened form is deterministic too.
-	again := readTree(t, generated(t, evalBlueprint, "-namespace=abcdefghijkl"))
+	again := readTree(t, generated(t, netobsBlueprint, "-namespace=abcdefghijkl", "-folder="+longFolder))
 	for name, raw := range e.tree {
 		if !bytes.Equal(raw, again[name]) {
 			t.Errorf("%s differs between identical runs", name)
@@ -592,11 +605,41 @@ func TestMaximumNamespaceStaysWithinGrafanaUIDLimit(t *testing.T) {
 	}
 }
 
+// The shortened form is a pure function of (namespace, legacy UID): dashboard-sized inputs
+// exercise it in-process, since the shipped blueprints' dashboard UIDs rarely need it.
+func TestDeriveShortensDeterministicallyWithinTheLimit(t *testing.T) {
+	ns, err := newNamespace("abcdefghijkl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid := regexp.MustCompile(uidPattern)
+	seen := map[string]string{}
+	for _, legacy := range []string{"acme-ai-eval-langsmith-platform", "acme-ai-eval-langsmith-platforn", "short", strings.Repeat("a-", 20), strings.Repeat("a", 40)} {
+		first, err := ns.derive(legacy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if again, _ := ns.derive(legacy); again != first {
+			t.Errorf("derive(%q) is not stable: %q then %q", legacy, first, again)
+		}
+		if !valid.MatchString(first) {
+			t.Errorf("derive(%q) = %q is not a valid UID", legacy, first)
+		}
+		if other, dup := seen[first]; dup {
+			t.Errorf("derive(%q) and derive(%q) both give %q", legacy, other, first)
+		}
+		seen[first] = legacy
+	}
+	if got, _ := ns.derive("short"); got != "abcdefghijkl-short" {
+		t.Errorf("a UID that fits keeps the readable form, got %q", got)
+	}
+}
+
 func TestMalformedNamespaceIsRefusedBeforeAnyOutput(t *testing.T) {
 	for _, ns := range []string{"Alpha", "has-hyphen", "abcdefghijklm", "a b", "-lead", "_lead", "naïve", "a/b", "a.b", "", "x\ny"} {
 		t.Run(fmt.Sprintf("%q", ns), func(t *testing.T) {
 			out := filepath.Join(t.TempDir(), "out")
-			res := runCLI(t, dashArgs(platformBlueprint, out, "-namespace="+ns)...)
+			res := runCLI(t, dashArgs(netobsBlueprint, out, "-namespace="+ns)...)
 			if res.code == 0 {
 				t.Fatalf("namespace %q was accepted", ns)
 			}
@@ -617,13 +660,13 @@ func TestNamespaceRefusalsLeaveNoPartialOutput(t *testing.T) {
 	}
 	cases := map[string]refusal{
 		"missing datasource mapping": {func(out string) []string {
-			return []string{"-blueprint", "../../blueprints/netobs-global.yaml", "-out", out, "-datasource", "prometheus=p", "-namespace", "alpha"}
+			return []string{"-blueprint", netobsBlueprint, "-out", out, "-datasource", "prometheus=p", "-namespace", "alpha"}
 		}, "missing explicit datasource mapping"},
 		"folder with invalid chars": {func(out string) []string {
-			return dashArgs("../../blueprints/netobs-global.yaml", out, "-namespace", "alpha", "-folder", "not a uid!")
+			return dashArgs(netobsBlueprint, out, "-namespace", "alpha", "-folder", "not a uid!")
 		}, "-folder:"},
 		"folder with a path separator": {func(out string) []string {
-			return dashArgs("../../blueprints/netobs-global.yaml", out, "-namespace", "alpha", "-folder", "team/folder")
+			return dashArgs(netobsBlueprint, out, "-namespace", "alpha", "-folder", "team/folder")
 		}, "-folder:"},
 		"verify mode": {func(out string) []string {
 			return []string{"-verify-inventory", "x.json", "-observations", "y.json", "-namespace", "alpha"}
