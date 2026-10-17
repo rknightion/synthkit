@@ -1,9 +1,10 @@
 ---
 id: SKT-0150
 title: Fix the dashboards example push loop and the synthkit-dash flag docs drift
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-17 21:07'
+updated_date: '2026-10-17 23:26'
 labels:
   - dashboards
   - docs
@@ -20,13 +21,19 @@ dashboards/examples/README.md's push loop skips only *-dashboards-folder.json, s
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The documented push loop pushes only dashboard JSON: folder, rules and inventory files are skipped for both legacy and namespaced output
-- [ ] #2 docs/tools.md lists only flags synthkit-dash defines; just docs-check passes
+- [x] #1 The documented push loop pushes only dashboard JSON: folder, rules and inventory files are skipped for both legacy and namespaced output
+- [x] #2 docs/tools.md lists only flags synthkit-dash defines; just docs-check passes
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed 6d8304a (loop50 BATCH5). Main CI green on 1d627bf.
+<!-- SECTION:NOTES:END -->

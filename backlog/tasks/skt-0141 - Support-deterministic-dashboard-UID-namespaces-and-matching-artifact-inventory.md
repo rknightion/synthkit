@@ -1,9 +1,10 @@
 ---
 id: SKT-0141
 title: Support deterministic dashboard UID namespaces and matching artifact inventory
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-16 13:54'
+updated_date: '2026-10-17 23:26'
 labels: []
 dependencies: []
 references:
@@ -22,14 +23,20 @@ The dashboard generator accepts a folder UID, but that changes placement rather 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An explicit optional bounded namespace deterministically isolates all generated folder and dashboard resource identities and internal references for the same blueprint, with legacy default output preserved
-- [ ] #2 Panel inventory and verification inputs carry the same effective identities as emitted resources; distinct namespaces do not collide, and malformed or overlong namespace inputs refuse without partial output
-- [ ] #3 Actual generator CLI artifact tests cover repeated deterministic output, two namespaces, internal links and inventory verification without copying templates into consumers or requiring tenant credentials
+- [x] #1 An explicit optional bounded namespace deterministically isolates all generated folder and dashboard resource identities and internal references for the same blueprint, with legacy default output preserved
+- [x] #2 Panel inventory and verification inputs carry the same effective identities as emitted resources; distinct namespaces do not collide, and malformed or overlong namespace inputs refuse without partial output
+- [x] #3 Actual generator CLI artifact tests cover repeated deterministic output, two namespaces, internal links and inventory verification without copying templates into consumers or requiring tenant credentials
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed 9d5a31f plus test-cost fix-forward f77969f (loop50). Main CI green on 1d627bf (rc v1.6.0-rc.202).
+<!-- SECTION:NOTES:END -->
