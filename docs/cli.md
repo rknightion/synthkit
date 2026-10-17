@@ -218,6 +218,7 @@ just dashgen -blueprint <path> -out <dir> -datasource <group=name> [flags]
 | `-out <dir>` | yes | Output directory for generated JSON files. |
 | `-integrations <path>` | no | Optional integrations config YAML for deep-link index. |
 | `-folder <uid>` | no | UID for the generated Folder resource (defaults to `<blueprint>-dashboards`). |
+| `-namespace <name>` | no | Derive every generated folder, dashboard and rule identity, internal `/d/` link, dropdown tag and inventory UID from `(namespace, legacy UID)` so independent installs of one blueprint do not collide. 1 to 12 characters of `a-z`, `0-9` and `_`, starting with a letter or digit; refused with no output if malformed. Absent: legacy UIDs, byte-identical output. See [tools.md](tools.md#namespacing-dashboard-uids). |
 | `-datasource <group=name>` | yes, repeated | Explicit datasource binding for every rendered query group. |
 
 Always emits a Folder resource, a thin index dashboard, a metrics dashboard, and a panel inventory. Per-blueprint templates produce additional dashboards when registered. Use `-verify-inventory` and `-observations` to classify every panel as rendered, empty, or errored from normalized read-only observations. Push and validate with `gcx`. See [tools.md](tools.md).

@@ -193,6 +193,7 @@ just dashgen \
 | `-out <dir>` | yes | Output directory for generated dashboard JSON files. |
 | `-integrations <path>` | no | Optional integrations config YAML for thin-index deep-links. |
 | `-folder <uid>` | no | UID for the generated Folder resource (defaults to `<blueprint>-dashboards`). |
+| `-namespace <name>` | no | Derive every generated identity from `(namespace, legacy UID)` so independent installs of one blueprint do not collide. 1 to 12 characters of `a-z`, `0-9` and `_`, starting with a letter or digit. See [Namespacing dashboard UIDs](#namespacing-dashboard-uids). |
 | `-datasource <group=name>` | yes, repeated | Explicit datasource name for every rendered query group. Generation fails if any group is unmapped. |
 
 `synthkit-dash` emits a Folder resource, a thin index dashboard, a metrics dashboard, and a panel inventory. Additional per-blueprint dashboards are generated when templates are registered for that blueprint. Files are written to the explicit output directory (never stdout). Every inventory row records its dashboard, panel, datasource, ref ID, and rendered query.
@@ -204,6 +205,44 @@ Push generated dashboards to Grafana with `gcx`:
 ```bash
 gcx resources push -p dashboards/my-service/
 ```
+
+### Namespacing dashboard UIDs
+
+`-folder` only changes where dashboards are placed. Two installs of the same blueprint in one Grafana
+organisation still share every dashboard UID, so the second push overwrites the first. Pass
+`-namespace <name>` to give each install its own identities instead of rewriting the generated JSON:
+
+```bash
+just dashgen -blueprint blueprints/my-service.yaml -out dashboards/team-a/ -namespace team_a \
+  -datasource metrics=grafanacloud-prom -datasource logs=grafanacloud-logs
+```
+
+Without `-namespace` the output is byte-identical to earlier releases. With it, one pure function of
+`(namespace, legacy UID)` produces every effective identity:
+
+- `<namespace>-<legacy UID>` when that is at most 40 characters (Grafana's limit for dashboard and folder UIDs,
+  which may use `A-Z`, `a-z`, `0-9`, `-` and `_`; see
+  [Grafana v10.1 what's new](https://grafana.com/docs/grafana/latest/whatsnew/whats-new-in-v10-1/)).
+- Otherwise `<namespace>-<legacy UID prefix>-<hash>`, at most 40 characters (a trailing `-` or `_` is trimmed
+  from the prefix), where `<hash>` is the first 8 hex digits of `sha256(namespace, NUL, legacy UID)`.
+
+The namespace has no hyphen because `-` separates it from the legacy UID; that keeps two namespaces from ever
+deriving the same UID. The derivation covers the folder UID (including an explicit `-folder`), every
+dashboard UID (and so its file name), every `/d/<uid>` link between generated dashboards, the tags behind the
+"Related dashboards" dropdown (otherwise one install's dropdown lists another's dashboards), the folder and
+rule UIDs in the rules file, and the panel inventory. Vendor deep links from `-integrations` are not generated
+dashboards and are left alone. The folder title gains a `(<namespace>)` suffix because Grafana requires folder
+titles to be unique within their parent.
+
+With a namespace, the inventory and rules files are named `<blueprint>-<namespace>-panel-inventory.json` and
+`<blueprint>-<namespace>-rules.json`, so several namespaces can share one output directory. Every artifact is
+built and checked before the first file is written: a malformed or overlong namespace, an invalid `-folder`, a
+UID that cannot be derived, or an unmapped datasource group exits non-zero and writes nothing. An explicitly empty
+`-namespace=` is refused rather than treated as absent.
+
+The inventory carries the effective dashboard UIDs, so observations for `-verify-inventory` must use them too:
+observations recorded against the legacy UIDs do not match a namespaced inventory. `-namespace` applies to
+generation only and is refused together with `-verify-inventory`.
 
 After collecting one normalized observation per inventory query, classify every panel:
 
