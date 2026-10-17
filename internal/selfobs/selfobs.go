@@ -80,6 +80,11 @@ type Options struct {
 	// MetricInterval is the periodic metric reader flush cadence (SELFOBS_METRIC_INTERVAL). Applies
 	// to self-obs METRICS only — traces/logs use their own batchers. Zero ⇒ defaultMetricFlush.
 	MetricInterval time.Duration
+
+	// LeaseIdentity is this process's Kubernetes Lease election identity (the exact
+	// spec.holderIdentity value it writes when it leads). Only its SHA-256 digest is
+	// exported, as synthkit.ha.session.id; empty exports attribution and ID "unknown".
+	LeaseIdentity string
 }
 
 // CardinalityPoint is one (blueprint, construct) distinct-series reading for the cardinality gauge.

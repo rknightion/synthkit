@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,7 +25,11 @@ var ErrMissing = errors.New("missing pre-created lease")
 var ErrSealed = errors.New("lease renewal sealed")
 
 type Options struct {
-	Namespace, Name, PodUID                                   string
+	Namespace, Name, PodUID string
+	// Identity is this process's election identity, from NewIdentity. The
+	// composition root mints it once so operational telemetry can carry a digest
+	// of the same value the Lease records. Empty mints one here.
+	Identity                                                  string
 	LeaseDuration, RenewDeadline, RetryPeriod, RequestTimeout time.Duration
 	Started                                                   func(context.Context)
 	Stopped                                                   func()
@@ -108,6 +113,22 @@ func NewForClient(ctx context.Context, opts Options, endpoint string, hc *http.C
 	}
 	return newWithClients(ctx, opts, client, release)
 }
+
+// NewIdentity mints one process's election identity: the downward-API Pod UID
+// plus a fresh 128-bit random nonce. A container restart reuses the Pod UID (and
+// can reuse hostname and PID) but never the nonce. A process acquires at most
+// once: loss exits, so every reacquisition is a new process and a new identity.
+func NewIdentity(podUID string) (string, error) {
+	if podUID == "" {
+		return "", errors.New("HA election identity requires a pod UID")
+	}
+	nonce := make([]byte, 16)
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	return podUID + "/" + hex.EncodeToString(nonce), nil
+}
+
 func newWithClient(ctx context.Context, opts Options, client coordination.CoordinationV1Interface) (*Election, error) {
 	return newWithClients(ctx, opts, client, client)
 }
@@ -118,11 +139,15 @@ func newWithClients(ctx context.Context, opts Options, client, release coordinat
 	if opts.LeaseDuration <= opts.RenewDeadline || opts.LeaseDuration%time.Second != 0 || opts.RetryPeriod <= 0 || float64(opts.RenewDeadline) <= 1.2*float64(opts.RetryPeriod) || opts.RequestTimeout <= 0 || opts.RequestTimeout >= opts.RenewDeadline {
 		return nil, errors.New("invalid HA election durations")
 	}
-	nonce := make([]byte, 16)
-	if _, err := rand.Read(nonce); err != nil {
-		return nil, err
+	identity := opts.Identity
+	if identity == "" {
+		var err error
+		if identity, err = NewIdentity(opts.PodUID); err != nil {
+			return nil, err
+		}
+	} else if !strings.HasPrefix(identity, opts.PodUID+"/") || len(identity) == len(opts.PodUID)+1 {
+		return nil, errors.New("HA election identity must extend the pod UID")
 	}
-	identity := opts.PodUID + "/" + hex.EncodeToString(nonce)
 	leases := client.Leases(opts.Namespace)
 	probe, cancel := context.WithTimeout(ctx, opts.RequestTimeout)
 	defer cancel()

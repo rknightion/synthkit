@@ -4,7 +4,9 @@ package selfobs
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"os"
 	"regexp"
 	"strconv"
@@ -46,9 +48,53 @@ func buildResource(opts Options) *resource.Resource {
 		attribute.String("run_mode", runMode),
 	}
 	for k, v := range opts.Tags {
+		if k == AttrSessionID || k == AttrSessionAttribution {
+			continue // session attribution is derived from the election, never configured
+		}
 		attrs = append(attrs, attribute.String(k, v))
 	}
+	attrs = append(attrs, sessionAttributes(opts.LeaseIdentity)...)
 	return resource.NewSchemaless(attrs...)
+}
+
+// Leadership-session attribution. OpenTelemetry semantic conventions define no
+// leader-election or Lease-holder attribute, and service.instance.id here is
+// host-pid, which a container restart can reuse; so these are synthkit-namespaced.
+const (
+	// AttrSessionID is the lowercase hex SHA-256 of the process's Lease election
+	// identity. It joins to the Lease as sha256(spec.holderIdentity) without
+	// exporting the Pod UID or nonce, and changes on every restart.
+	AttrSessionID = "synthkit.ha.session.id"
+	// AttrSessionAttribution is the bounded attribution state: SessionLease or
+	// SessionUnknown. Unknown is never inferred.
+	AttrSessionAttribution = "synthkit.ha.session.attribution"
+
+	SessionLease   = "lease"
+	SessionUnknown = "unknown"
+)
+
+// SessionID returns the exported session ID for a Lease holder identity. An
+// observer applies it to the Lease's spec.holderIdentity to join the two.
+func SessionID(leaseIdentity string) string {
+	sum := sha256.Sum256([]byte(leaseIdentity))
+	return hex.EncodeToString(sum[:])
+}
+
+// sessionAttributes always sets both keys. Every SDK provider merges
+// resource.Environment() underneath this resource, so a key left unset here
+// could be supplied by OTEL_RESOURCE_ATTRIBUTES; the explicit SessionUnknown ID
+// (never a 64-hex digest) keeps unknown attribution unforgeable.
+func sessionAttributes(leaseIdentity string) []attribute.KeyValue {
+	if leaseIdentity == "" {
+		return []attribute.KeyValue{
+			attribute.String(AttrSessionAttribution, SessionUnknown),
+			attribute.String(AttrSessionID, SessionUnknown),
+		}
+	}
+	return []attribute.KeyValue{
+		attribute.String(AttrSessionAttribution, SessionLease),
+		attribute.String(AttrSessionID, SessionID(leaseIdentity)),
+	}
 }
 
 // logBridge turns each std-log line (one Write per log.Printf call) into an OTLP LogRecord. The

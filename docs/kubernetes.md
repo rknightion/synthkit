@@ -214,6 +214,9 @@ require explicit preview/apply approval; the chart never provisions them automat
 HA suppresses SM without artifact I/O; Kubernetes SM can instead
 consume an explicitly provisioned registration through its separate named state/Lease mapping.
 Process telemetry/profiles carry immutable `ha.role` tags, including standby exports.
+Self-observability resources also carry `synthkit.ha.session.id`, a digest that joins an
+export to the Lease's current `spec.holderIdentity`; see
+[leadership-session attribution](self-observability.md#leadership-session-attribution).
 
 ## Declarative git source projection
 

@@ -193,3 +193,53 @@ func TestProcessNonceDiffersWithinSamePod(t *testing.T) {
 		t.Fatal("pod identity reused after restart")
 	}
 }
+
+// The composition root mints the identity before operational export; the Lease
+// must record exactly that value, and a foreign identity must be refused.
+func TestInjectedIdentityIsTheLeaseHolder(t *testing.T) {
+	a, srv, client := newLeaseAPI(t)
+	defer srv.Close()
+	identity, err := NewIdentity("pod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := NewIdentity("pod")
+	if err != nil || other == identity || len(identity) != len("pod/")+32 {
+		t.Fatalf("identity not a fresh pod-scoped nonce: %q %q %v", identity, other, err)
+	}
+	opts := testOptions()
+	opts.Identity = identity
+	acquired := make(chan struct{})
+	opts.Started = func(context.Context) { close(acquired) }
+	e, err := newWithClient(context.Background(), opts, client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Identity() != identity {
+		t.Fatalf("election identity %q, want injected %q", e.Identity(), identity)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	go e.Run(ctx)
+	select {
+	case <-acquired:
+	case <-ctx.Done():
+		t.Fatal("injected identity did not acquire")
+	}
+	a.mu.Lock()
+	holder := a.lease.Spec.HolderIdentity
+	a.mu.Unlock()
+	if holder == nil || *holder != identity {
+		t.Fatalf("Lease holder %v, want injected identity", holder)
+	}
+	for _, bad := range []string{"other-pod/0123", "pod/", "pod"} {
+		opts := testOptions()
+		opts.Identity = bad
+		if _, err := newWithClient(context.Background(), opts, client); err == nil {
+			t.Fatalf("identity %q not bound to the pod UID was accepted", bad)
+		}
+	}
+	if _, err := NewIdentity(""); err == nil {
+		t.Fatal("identity minted without a pod UID")
+	}
+}

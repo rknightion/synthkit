@@ -24,6 +24,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const haTestIdentity = "pod/00112233445566778899aabbccddeeff"
+
 func TestHAOperationalExportsImmutableRoles(t *testing.T) {
 	var mu sync.Mutex
 	observed := map[string]map[string]bool{}
@@ -31,14 +33,23 @@ func TestHAOperationalExportsImmutableRoles(t *testing.T) {
 	originalWriter := log.Writer()
 	t.Cleanup(func() { log.SetOutput(originalWriter) })
 	record := func(path string, attrs []*common.KeyValue) {
-		role := ""
+		role, session, attribution := "", "", ""
 		for _, a := range attrs {
-			if a.Key == "ha.role" {
+			switch a.Key {
+			case "ha.role":
 				role = a.Value.GetStringValue()
+			case selfobs.AttrSessionID:
+				session = a.Value.GetStringValue()
+			case selfobs.AttrSessionAttribution:
+				attribution = a.Value.GetStringValue()
 			}
 		}
 		if role == "" {
 			t.Error("process export missing ha.role")
+		}
+		// Both role providers of one process carry the same election digest.
+		if attribution != selfobs.SessionLease || session != selfobs.SessionID(haTestIdentity) {
+			t.Errorf("%s %s export session attribution=%q id=%q", path, role, attribution, session)
 		}
 		mu.Lock()
 		defer mu.Unlock()
@@ -114,7 +125,7 @@ func TestHAOperationalExportsImmutableRoles(t *testing.T) {
 	var standbyOps haOperational
 	for _, role := range []ha.Role{ha.RoleStandby, ha.RoleLeader} {
 		v := &haView{runner: runner.New(runner.Sinks{}, nil, runner.Options{})}
-		ops, err := startHAOperational(cfg, v, role)
+		ops, err := startHAOperational(cfg, v, role, haTestIdentity)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -164,7 +175,7 @@ func TestHAOperationalDisabledPreservesStandardLogger(t *testing.T) {
 	original := log.Writer()
 	t.Cleanup(func() { log.SetOutput(original) })
 	v := &haView{runner: runner.New(runner.Sinks{}, nil, runner.Options{})}
-	ops, e := startHAOperational(&config.Config{}, v, ha.RoleStandby)
+	ops, e := startHAOperational(&config.Config{}, v, ha.RoleStandby, haTestIdentity)
 	if e != nil {
 		t.Fatal(e)
 	}

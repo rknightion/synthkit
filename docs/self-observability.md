@@ -45,6 +45,55 @@ heartbeat to their current role-scoped OTLP provider. A role transition detaches
 destination before provider shutdown, so new log records are attributed to the current role.
 Standard stderr output remains available; disabled self-observability leaves logging unchanged.
 
+#### Leadership-session attribution
+
+`service.instance.id` is `<hostname>-<pid>`. A container restart can reuse both, and `ha.role`
+only says what a provider was when it started, so neither proves that an export belongs to the
+process that holds the Lease now. Every OTLP self-observability resource therefore carries two
+synthkit-namespaced attributes. OpenTelemetry semantic conventions define no leader-election or
+Lease-holder attribute, so these names are synthkit's own.
+
+| Resource attribute | Values | Meaning |
+|---|---|---|
+| `synthkit.ha.session.attribution` | `lease` or `unknown` | Whether this process has a Lease election identity. |
+| `synthkit.ha.session.id` | 64 lowercase hex characters with `lease`; `unknown` with `unknown` | SHA-256 of the process's election identity. |
+
+In lease mode each process mints one election identity at startup: the downward-API Pod UID, `/`,
+and a fresh 128-bit random nonce. The Lease's `spec.holderIdentity` is exactly that string while
+the process leads. A process acquires at most once, because losing the Lease exits it. A restart
+or any reacquisition is therefore a new process with a new nonce and a new session ID. Standby and
+leader providers in one process carry the same session ID and differ in `ha.role`.
+
+To join an export to the current Lease, hash the holder yourself:
+
+```sh
+holder=$(kubectl -n <namespace> get lease <HA_LEASE_NAME> -o jsonpath='{.spec.holderIdentity}')
+printf %s "$holder" | sha256sum | cut -d' ' -f1      # Linux
+printf %s "$holder" | shasum -a 256 | cut -d' ' -f1  # macOS
+```
+
+A crashed leader's `holderIdentity` stays on the Lease until another replica acquires it, so a
+matching digest alone is not enough. The session is current only while the Lease is also
+unexpired: `spec.renewTime + spec.leaseDurationSeconds` is later than now.
+
+| Export | Classification |
+|---|---|
+| `ha.role=leader`, session ID equals the holder digest, and the Lease is unexpired | Current leadership session |
+| `ha.role=leader` and session ID differs, or the Lease has expired | Stale: an earlier or crashed session's buffered or late export |
+| `ha.role=standby` | Standby, whatever its session ID |
+| `synthkit.ha.session.attribution=unknown` | Unattributed. Never infer a session from hostname, PID or role |
+
+Attribution is `unknown` with HA off and whenever no election identity exists; the session ID is
+then the literal `unknown`, never a digest. Neither `SELFOBS_TAGS` nor `OTEL_RESOURCE_ATTRIBUTES`
+can set or override either attribute. Continuous profiles carry `ha.role` but no session
+attribute; treat profile session attribution as unknown.
+
+The digest is exported instead of the raw identity because the configuration view classifies
+`POD_UID` as secret, and the nonce has no use outside the Lease. The cost is one hashing step for the
+observer. The session ID is a resource attribute and changes on every process start, so a metrics
+backend gets one new resource series per start, even when a restart keeps `service.instance.id`. The ID
+carries no user, credential or hardware identifier.
+
 ### Continuous profiles (Pyroscope)
 
 When `GC_PYROSCOPE_*` credentials are set, the generator's own process is profiled continuously and sent to a Grafana Cloud Profiles (Pyroscope) instance via its own `GC_PYROSCOPE_*` credential triplet — independent of the OTLP self-obs triplet, though both are typically the same staff stack. Profile types: CPU, heap allocation/inuse (objects + bytes), goroutines, and optionally mutex and block profiles. Application name is `synthkit`.

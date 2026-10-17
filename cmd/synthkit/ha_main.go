@@ -591,8 +591,10 @@ type haOperational struct {
 	restoreLog func()
 }
 
-func startHAOperational(cfg *config.Config, v *haView, role ha.Role) (haOperational, error) {
-	so, err := selfobs.Start(selfobs.Options{Enabled: cfg.SelfObsEnabled, Endpoint: cfg.SelfOTLPEndpoint, User: cfg.SelfOTLPUser, Password: cfg.SelfOTLPPassword, Tags: haRoleTags(selfobs.ParseTags(cfg.SelfObsTags), role), Version: version, MetricInterval: cfg.SelfObsMetricInterval, DryRun: cfg.DryRun}, selfobs.Gauges{LedgerSize: v.runner.LedgerSize, VolumeMultiplier: v.runner.VolumeMultiplier, BlueprintCount: v.runner.BlueprintCount, QueueDepth: v.runner.QueueDepths, Cardinality: func() []selfobs.CardinalityPoint {
+// startHAOperational stamps each role provider with the process's election
+// identity digest; leadership is the (session ID, ha.role=leader) resource.
+func startHAOperational(cfg *config.Config, v *haView, role ha.Role, leaseIdentity string) (haOperational, error) {
+	so, err := selfobs.Start(selfobs.Options{Enabled: cfg.SelfObsEnabled, Endpoint: cfg.SelfOTLPEndpoint, User: cfg.SelfOTLPUser, Password: cfg.SelfOTLPPassword, Tags: haRoleTags(selfobs.ParseTags(cfg.SelfObsTags), role), Version: version, MetricInterval: cfg.SelfObsMetricInterval, DryRun: cfg.DryRun, LeaseIdentity: leaseIdentity}, selfobs.Gauges{LedgerSize: v.runner.LedgerSize, VolumeMultiplier: v.runner.VolumeMultiplier, BlueprintCount: v.runner.BlueprintCount, QueueDepth: v.runner.QueueDepths, Cardinality: func() []selfobs.CardinalityPoint {
 		var result []selfobs.CardinalityPoint
 		for _, bp := range v.runner.Inventory().Blueprints {
 			for _, c := range bp.Constructs {
@@ -698,7 +700,17 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 	}
 	standby.readinessFacts = l.readinessFacts
 	l.current.Store(standby)
-	standbyOps, err := startHAOperational(cfg, standby, ha.RoleStandby)
+	// One election identity per process, minted before any operational export so
+	// standby and leader providers carry the digest of the value the Lease records.
+	// Without a Pod UID (rejected by lease-mode config) attribution stays unknown.
+	var identity string
+	if cfg.PodUID != "" {
+		if identity, err = lease.NewIdentity(cfg.PodUID); err != nil {
+			prodCancel()
+			return err
+		}
+	}
+	standbyOps, err := startHAOperational(cfg, standby, ha.RoleStandby, identity)
 	if err != nil {
 		prodCancel()
 		return err
@@ -742,7 +754,7 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 	srv := &http.Server{Handler: router, ConnState: httpDrain.connState, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
 	serverErr := make(chan error, 1)
 	go func() { serverErr <- srv.Serve(listener) }()
-	election, err := deps.Election(context.Background(), lease.Options{Namespace: cfg.HANamespace, Name: cfg.HALeaseName, PodUID: cfg.PodUID, LeaseDuration: cfg.HALeaseDuration, RenewDeadline: cfg.HARenewDeadline, RetryPeriod: cfg.HARetryPeriod, RequestTimeout: cfg.HAKubeRequestTimeout, Stopped: crash, Started: func(leadCtx context.Context) {
+	election, err := deps.Election(context.Background(), lease.Options{Namespace: cfg.HANamespace, Name: cfg.HALeaseName, PodUID: cfg.PodUID, Identity: identity, LeaseDuration: cfg.HALeaseDuration, RenewDeadline: cfg.HARenewDeadline, RetryPeriod: cfg.HARetryPeriod, RequestTimeout: cfg.HAKubeRequestTimeout, Stopped: crash, Started: func(leadCtx context.Context) {
 		context.AfterFunc(leadCtx, prodCancel)
 		l.mu.Lock()
 		l.activating = true
@@ -790,7 +802,7 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 			crash()
 			return
 		}
-		leaderOps, err := startHAOperational(cfg, leader, ha.RoleLeader)
+		leaderOps, err := startHAOperational(cfg, leader, ha.RoleLeader, identity)
 		if err != nil {
 			crash()
 			return
