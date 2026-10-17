@@ -15,7 +15,7 @@ At startup, one aggregate selected-roster controller goroutine owns all FM API s
 
 1. **Register** — each fake collector calls `RegisterCollector` with its deterministic ID, OS type, collector version, and `local_attributes` (including `collector.os` and `collector.version`, which drive the FM UI's "Operating System" and "Alloy version" columns).
 2. **Heartbeat** — every 45 seconds, each collector calls `GetConfig` with `local_attributes` set. FM tracks liveness by heartbeat recency; omitting `local_attributes` causes collectors to go inactive.
-3. **Reconcile** — collectors absent from the complete selected roster are unregistered, including persisted IDs left by a previous leader or removed blueprint. Ordinary shutdown/restart preserves registration; only explicit teardown removes the selected current roster.
+3. **Reconcile** — collectors absent from the complete selected roster are unregistered, including persisted IDs left by a previous leader or removed blueprint. Ordinary shutdown/restart preserves registration; only explicit teardown removes collectors: `-fleet-unregister` unregisters the selected current roster, and `-fleet-unregister-owned` permanently deletes everything the persisted ledger records.
 
 ### Restart, handoff, and teardown
 
@@ -65,6 +65,93 @@ before leadership or before successful unregister completion exits nonzero; a ne
 neither deletes collectors nor releases another process's lease. Ordinary lease handoff does not
 unregister collectors. Teardown and another emitter must not run concurrently
 with HA off, because file state is not a distributed lock.
+
+`-fleet-unregister` calls `UnregisterCollector`, which only marks each collector inactive in Fleet
+Management. The collector record stays visible as inactive, and Fleet Management deletes it
+automatically after 30 days of inactivity. To remove collectors immediately, use
+`-fleet-unregister-owned`.
+
+#### Full teardown from the ownership ledger
+
+`-fleet-unregister` cannot certify a full teardown: historical selections, a scale-down whose
+unregistration failed, or a disabled `fleet_management` kind can leave more owned identities in the
+ledger than the current selection names. To remove all of them, stop the ordinary emitter and run
+`DRY_RUN=false ./synthkit -fleet-unregister-owned`.
+
+!!! warning "Owned teardown deletes collectors permanently"
+    `-fleet-unregister-owned` calls the management `DeleteCollector` API. The collector record and
+    its remote attributes are removed from Fleet Management at once and cannot be restored.
+    `GC_FM_TOKEN` needs Fleet Management write access; the scope requirement follows the Terraform
+    provider's collector resource, and a refused delete is reported as `rejected` with the ID kept
+    in the ledger.
+
+It needs the same `GC_FM_URL` and
+`GC_FM_STACK_ID` the ledger was bound to and does not depend on the blueprint selection.
+
+Deletion authority comes only from the ledger for that exact destination, never from collector
+names, prefixes or the current roster; a collector the ledger does not record is never touched.
+For each recorded ID, in sorted order, the command:
+
+1. Reads it with `GetCollector`. An exact Connect `not_found` answer (HTTP 404 with
+   `{"code":"not_found"}`) is confirmed absence. Any other answer, including a bare 404 from a
+   wrong path or a proxy, is unknown and the ID is not mutated.
+2. Sends `DeleteCollector` if the collector is present, then reads it again. It never relies on
+   `UnregisterCollector`, because an unregistered collector is only marked inactive and still
+   reads as present.
+3. Releases the ledger entry through compare-and-swap only after a confirmed-absence read.
+
+A lost or ambiguous response is resolved only by the following read, so a rerun is always safe.
+Requests are spaced 350 ms apart to stay under the documented default Collector API limit of
+3 requests per second, so each ID costs about one second. The HA-off run shares
+`SEND_DRAIN_DEADLINE` across the whole ledger and a lease-mode run shares `HA_FLUSH_TIMEOUT`, so a
+large ledger may need several runs or a longer budget; each run keeps the progress it confirmed. Because the command reads collectors, the
+token also needs `fleet-management:read`; without it each ID is reported `read_failed` with the
+401 or 403 status and stays in the ledger.
+
+The command prints one secret-free receipt line with a status of `complete`, `remaining` or
+`no_ledger`, and exits zero only when the status is `complete`:
+
+```text
+fleet teardown receipt: {"status":"complete","inventoried":2,"retired":2,"remaining":0,"inventory_verified":true,"collectors":[{"id":"...","outcome":"confirmed_absent","reason":"absent_after_delete","retired":true}]}
+```
+
+Each entry has an `outcome` of `confirmed_absent`, `rejected` (a definite 4xx refusal with the
+collector still present, reported with `http_status`) or `unknown` (a failed read, a collector
+still present after an ambiguous response, an interruption, or an ID not attempted before the
+deadline). The closing ledger re-read reports `remaining`: any ID still held, including one a
+concurrent writer added during the run (`added_during_teardown`). An incomplete teardown has status
+`remaining`, and every unretired ID stays in the ledger for the next run. Every status other than
+`complete`, including `remaining` and `no_ledger`, exits nonzero.
+The receipt carries collector IDs, outcomes, closed-set reasons and HTTP status codes only: no
+token, stack, URL, destination digest, collector attributes or response body.
+
+A ledger that does not exist proves nothing, so it is never an empty owned set. When the file
+ledger beside `CONFIG_SNAPSHOT_PATH` is missing, a ConfigMap slot was never written, or the
+document is an empty unbound version-1 ledger, the command sends no Fleet request, prints a
+receipt with status `no_ledger` and exits nonzero. Point `CONFIG_SNAPSHOT_PATH` or
+`STATE_FLEET_CONFIGMAP` at the ledger the emitter used. Only an emptied version-2 ledger bound to
+the configured destination (one whose IDs were all released) certifies `complete` with nothing to
+remove.
+
+The teardown client never follows a redirect to another scheme or host. The redirect response is
+reported as an `unknown` outcome with its 3xx status, so another server cannot answer a
+confirmed-absence read.
+
+These conditions refuse before any Fleet request, print no receipt and change nothing:
+
+- `DRY_RUN=true`, a missing `GC_FM_URL` or `GC_FM_TOKEN`, or combining the flag with another mode.
+- A ledger bound to a different URL or stack, a nonempty unbound version-1 ledger, or an
+  unreadable or corrupt ledger. Restore the original destination, or recover legacy ownership
+  explicitly, before rerunning.
+- `STATE_BACKEND=kubernetes` with `HA_MODE=off`. The ConfigMap ledger is shared, and only the
+  Lease proves that no emitter holds authority over it. Run the command in lease mode instead.
+
+In lease mode the command runs as the elected leader inside the same lifecycle as
+`-fleet-unregister`, so the blueprint selection must still load and the mandatory credential
+preflight still applies. While another emitter holds the Lease it waits as a standby and sends no
+request; interruption before leadership or before completion exits nonzero with the ledger
+intact, and an interrupted leader prints a `remaining` receipt. With HA off and file state,
+nothing excludes a concurrent emitter, so stop it first.
 
 The emitter reads the controller's roster and pushes Alloy self-metrics to Mimir each tick. Stale-series cleanup ensures that when the roster shrinks (or when collector scaling changes), departed collectors' `up=1` series do not persist after unregistration.
 
@@ -120,7 +207,7 @@ FM registration uses its own credential pair — distinct from the Mimir push cr
 |---|---|
 | `GC_FM_URL` | FM API URL, e.g. `https://fleet-management-prod-0NN.grafana.net` |
 | `GC_FM_STACK_ID` | FM Basic-auth username = Grafana Cloud **stack ID** (not `GC_PROM_USER`) |
-| `GC_FM_TOKEN` | CAP token with `fleet-management:write` scope |
+| `GC_FM_TOKEN` | CAP token with `fleet-management:write` scope (owned teardown also needs `fleet-management:read`) |
 
 Two modes are intentionally distinct:
 
@@ -155,8 +242,9 @@ variable later does not re-enable the kind while the snapshot still lists it. A 
 Disabling `fleet_management` (at startup or at runtime) suspends the controller rather than tearing
 the fleet down: it sends no request of any kind while disabled, collectors that are already
 registered stay registered, and enabling the kind again resumes heartbeats. Disabling the kind never
-unregisters collectors (a roster that shrinks while the kind is enabled still does; full teardown is
-the explicit `synthkit -fleet-unregister` path). The precedence rules are in
+unregisters collectors (a roster that shrinks while the kind is enabled still does; teardown is the
+explicit `synthkit -fleet-unregister` path, and `synthkit -fleet-unregister-owned` also removes
+collectors a paused or deselected kind left in the ledger). The precedence rules are in
 [control-plane.md](control-plane.md#disabling-kinds-at-startup).
 
 ---

@@ -56,7 +56,7 @@ var ErrLedgerUnbound = errors.New("Fleet ledger has unbound cleanup intent; expl
 
 // LifecycleErrorMessage exposes only known safe ledger diagnostics, never upstream errors.
 func LifecycleErrorMessage(err error) string {
-	for _, safe := range []error{ErrLedgerDestinationMismatch, ErrLedgerUnbound} {
+	for _, safe := range []error{ErrLedgerDestinationMismatch, ErrLedgerUnbound, ErrTeardownAuthority, ErrTeardownNoLedger, ErrTeardownLedgerAbsent, ErrTeardownIncomplete} {
 		if errors.Is(err, safe) {
 			return safe.Error()
 		}

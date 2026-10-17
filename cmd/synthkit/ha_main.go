@@ -150,6 +150,29 @@ func (s *fleetStateAdapter) Load(ctx context.Context) ([]string, error) {
 	}
 	return decodeFleetState(snap.Data, s.destination)
 }
+
+// Inventory is Load plus whether a destination-bound version-2 document exists. An absent
+// document (a missing file ledger or a never-written ConfigMap) and an empty legacy document
+// are not bound, so owned teardown cannot certify their empty ID set.
+func (s *fleetStateAdapter) Inventory(ctx context.Context) ([]string, bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	snap, err := s.backend.Load(ctx, control.FleetRegistered)
+	if err != nil {
+		return nil, false, err
+	}
+	ids, err := decodeFleetState(snap.Data, s.destination)
+	if err != nil || len(snap.Data) == 0 {
+		return ids, false, err
+	}
+	var doc struct {
+		Version int `json:"version"`
+	}
+	if err := json.Unmarshal(snap.Data, &doc); err != nil {
+		return nil, false, err
+	}
+	return ids, doc.Version == 2, nil
+}
 func (s *fleetStateAdapter) Set(ctx context.Context, id string, present bool) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
@@ -240,6 +263,9 @@ type haDependencies struct {
 	BeforeHandoff func(string)
 	// WrapHTTPListener is a test-only process-edge scheduling hook.
 	WrapHTTPListener func(net.Listener) net.Listener
+	// FleetTeardown, when set with FleetUnregister, replaces the selected-roster teardown with the
+	// owned-ledger teardown, run by the elected leader with its gated Fleet configuration.
+	FleetTeardown func(context.Context, fleet.Config) error
 }
 
 func productionHADependencies() haDependencies {
@@ -340,6 +366,7 @@ type haView struct {
 	profiles           *pyroscope.Sink
 	sigil              *sigil.Sink
 	smState            smHandoff
+	fleet              fleet.Config
 }
 
 // newHAView is read-only in standby. Acquisition explicitly publishes SM through
@@ -459,7 +486,8 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	if err != nil {
 		return nil, err
 	}
-	v.runner = runner.New(sinks, reg, runner.Options{Gate: gate, Delivery: bound, MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries, TickTimeout: cfg.TickTimeout, Fleet: fleet.Config{Store: fleetStore, FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun, Delivery: delivery, Bounded: bound}, SendShards: cfg.SendShards, SendBatchMax: cfg.SendBatchMax, SendDeadline: cfg.SendDeadline, SendCapacity: cfg.SendCapacity, SendDrainDeadline: cfg.SendDrainDeadline, LiveAdmit: smAdmit.Admit})
+	v.fleet = fleet.Config{Store: fleetStore, FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun, Delivery: delivery, Bounded: bound}
+	v.runner = runner.New(sinks, reg, runner.Options{Gate: gate, Delivery: bound, MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries, TickTimeout: cfg.TickTimeout, Fleet: v.fleet, SendShards: cfg.SendShards, SendBatchMax: cfg.SendBatchMax, SendDeadline: cfg.SendDeadline, SendCapacity: cfg.SendCapacity, SendDrainDeadline: cfg.SendDrainDeadline, LiveAdmit: smAdmit.Admit})
 	for _, bp := range accepted {
 		if err := v.runner.AddBlueprint(bp); err != nil {
 			return nil, err
@@ -655,6 +683,11 @@ func runLeaseMode(cfg *config.Config, once, dump, inventoryJSON bool) error {
 	if dump || inventoryJSON {
 		return errors.New("HA inventory verification requires HA_MODE=off")
 	}
+	return runLeaseModeWith(cfg, once, productionHADependencies())
+}
+
+// runLeaseModeWith is runLeaseMode with explicit dependencies, sharing its signal handling.
+func runLeaseModeWith(cfg *config.Config, once bool, deps haDependencies) error {
 	signals := make(chan os.Signal, 2)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signals)
@@ -666,7 +699,7 @@ func runLeaseMode(cfg *config.Config, once, dump, inventoryJSON bool) error {
 		case <-term:
 		}
 	}()
-	return runHALifecycle(cfg, once, term, productionHADependencies())
+	return runHALifecycle(cfg, once, term, deps)
 }
 
 func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, deps haDependencies) error {
@@ -827,7 +860,9 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 			defer close(l.producerDone)
 			if once {
 				var err error
-				if cfg.FleetUnregister {
+				if cfg.FleetUnregister && deps.FleetTeardown != nil {
+					err = deps.FleetTeardown(prodCtx, leader.fleet)
+				} else if cfg.FleetUnregister {
 					err = leader.runner.UnregisterFleet(prodCtx)
 				} else {
 					err = leader.runner.RunOnce(prodCtx, time.Now())

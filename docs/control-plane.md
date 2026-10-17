@@ -397,7 +397,8 @@ a side effect outside the tick:
   heartbeat and no unregistration. Collectors an earlier run or earlier heartbeats registered stay
   registered (they simply stop heartbeating), and enabling the kind again resumes heartbeats.
   Disabling the kind never unregisters anything (ordinary roster shrinkage while the kind is enabled
-  still does; full teardown is the explicit `-fleet-unregister` path). See
+  still does; teardown is the explicit `-fleet-unregister` path, and `-fleet-unregister-owned`
+  removes everything the ownership ledger records). See
   [fleet-management.md](fleet-management.md#disabling-fleet-management-from-the-first-tick).
 - `synthetic_monitoring`: the lane is removed before the provisioning handoff, as an unregistered lane
   is, so the provisioner's snapshot is removed (an empty lane set invalidates any prior one) and

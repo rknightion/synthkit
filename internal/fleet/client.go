@@ -193,3 +193,118 @@ func (c *Client) GetConfig(ctx context.Context, col Collector) (Receipt, error) 
 func (c *Client) UnregisterCollector(ctx context.Context, id string) error {
 	return c.post(ctx, "UnregisterCollector", map[string]any{"id": id}, nil)
 }
+
+// Presence is the result of an explicit collector read. Only PresenceAbsent can release
+// teardown custody, and only an exact Connect not_found answer produces it.
+type Presence int
+
+const (
+	PresenceUnknown Presence = iota
+	PresencePresent
+	PresenceAbsent
+)
+
+const maxCollectorReadBytes = 1 << 20
+
+// GetCollector reads one collector by its exact ID through the Fleet Management Collector API
+// (https://grafana.com/docs/grafana-cloud/send-data/fleet-management/api-reference/collector-api/,
+// GetCollectorRequest{id} -> Collector). A deleted collector answers with the Connect error code
+// not_found (grafana/terraform-provider-grafana@4ee0b09f
+// internal/resources/fleetmanagement/resource_collector_test.go checks connect.CodeNotFound after
+// destroy), which the Connect protocol carries as HTTP 404 with a JSON {"code":"not_found"} body
+// (https://connectrpc.com/docs/protocol/#error-codes). A bare 404 (a wrong path or a proxy) is not
+// absence. The response body is never retained or logged; only the echoed ID is compared.
+func (c *Client) GetCollector(ctx context.Context, id string) (Presence, int, error) {
+	presence := PresenceUnknown
+	status, err := c.exchange(ctx, "GetCollector", map[string]any{"id": id}, func(resp *http.Response) (int, error) {
+		payload, err := io.ReadAll(io.LimitReader(resp.Body, maxCollectorReadBytes+1))
+		if err != nil || len(payload) > maxCollectorReadBytes {
+			return resp.StatusCode, operationalerr.New(operationalerr.CodeRejected)
+		}
+		switch {
+		case resp.StatusCode >= 200 && resp.StatusCode < 300:
+			var body struct {
+				ID *string `json:"id"`
+			}
+			if !decodeSingleJSON(payload, &body) || body.ID == nil || *body.ID != id {
+				return resp.StatusCode, operationalerr.New(operationalerr.CodeRejected)
+			}
+			presence = PresencePresent
+			return resp.StatusCode, nil
+		case resp.StatusCode == http.StatusNotFound:
+			var body struct {
+				Code string `json:"code"`
+			}
+			if !decodeSingleJSON(payload, &body) || body.Code != "not_found" {
+				return resp.StatusCode, operationalerr.New(operationalerr.CodeRejected)
+			}
+			presence = PresenceAbsent
+			return resp.StatusCode, nil
+		default:
+			code := operationalerr.Classify(resp.StatusCode, nil)
+			if code == operationalerr.CodeNone {
+				code = operationalerr.CodeRejected
+			}
+			return resp.StatusCode, operationalerr.New(code)
+		}
+	})
+	if err != nil {
+		return PresenceUnknown, status, err
+	}
+	return presence, status, nil
+}
+
+// deleteStatus calls the management DeleteCollector (DeleteCollectorRequest{id}, empty
+// DeleteCollectorResponse whose result is the HTTP status;
+// https://grafana.com/docs/grafana-cloud/send-data/fleet-management/api-reference/collector-api/).
+// Unlike UnregisterCollector, which only marks a collector inactive until Fleet Management's
+// 30-day cleanup, it removes the collector record permanently. It reports the received status so
+// owned teardown can tell a definite rejection from an unknown outcome. The body is discarded.
+func (c *Client) deleteStatus(ctx context.Context, id string) (int, error) {
+	return c.exchange(ctx, "DeleteCollector", map[string]any{"id": id}, func(resp *http.Response) (int, error) {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			code := operationalerr.Classify(resp.StatusCode, nil)
+			if code == operationalerr.CodeNone {
+				code = operationalerr.CodeRejected
+			}
+			return resp.StatusCode, operationalerr.New(code)
+		}
+		return resp.StatusCode, nil
+	})
+}
+
+// exchange is post with a caller-owned response consumer and the received status. It shares
+// post's gate, bound, auth and dry-run behaviour; a dry-run client never reports presence.
+func (c *Client) exchange(ctx context.Context, method string, body any, consume func(*http.Response) (int, error)) (int, error) {
+	status := 0
+	err := c.bounded.Run(ctx, ha.Delivery, func(ctx context.Context) error {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return operationalerr.New(operationalerr.CodeInternal)
+		}
+		if c.dryRun {
+			log.Printf("fleet [dry-run]: %s planned", method)
+			return operationalerr.New(operationalerr.CodeRejected)
+		}
+		url := fmt.Sprintf("%s/collector.v1.CollectorService/%s", c.base, method)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
+		if err != nil {
+			return operationalerr.New(operationalerr.CodeInternal)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		req.SetBasicAuth(c.stackID, c.token)
+		var sendErr error
+		status, sendErr = c.delivery.Send(ctx, c.http, req, consume)
+		return httpretry.Preserve(sendErr, operationalerr.New(operationalerr.CodeOf(sendErr)))
+	})
+	return status, err
+}
+
+func decodeSingleJSON(payload []byte, target any) bool {
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	if err := decoder.Decode(target); err != nil {
+		return false
+	}
+	return decoder.Decode(&struct{}{}) == io.EOF
+}

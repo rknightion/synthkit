@@ -13,6 +13,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -87,6 +88,7 @@ func (f queueObserverFan) FlushObserved(ev queue.FlushEvent) {
 
 func main() {
 	fleetUnregister := flag.Bool("fleet-unregister", false, "unregister the selected Fleet Management collector roster and exit")
+	fleetUnregisterOwned := flag.Bool("fleet-unregister-owned", false, "permanently delete (irreversible) every collector the persisted Fleet ownership ledger records for the configured destination, print a receipt and exit")
 	once := flag.Bool("once", false, "run one full cycle and exit")
 	dump := flag.Bool("dump", false, "with -once: print the full series/label inventory (diff vs signals/)")
 	inventoryJSON := flag.Bool("inventory-json", false, "with -once in dry-run mode: write the canonical telemetry inventory as JSON")
@@ -103,12 +105,25 @@ func main() {
 			deadlinePresent = true
 		}
 	})
-	allowedDeadline := (*validateCheck != *preflightCheck) && !*once && !*dump && !*inventoryJSON && !*healthcheck && !*showVersion && !*fleetUnregister
+	allowedDeadline := (*validateCheck != *preflightCheck) && !*once && !*dump && !*inventoryJSON && !*healthcheck && !*showVersion && !*fleetUnregister && !*fleetUnregisterOwned
 	operationCtx, operationCancel, deadlineErr := oneShotContext(*oneShotDeadline, deadlinePresent, allowedDeadline)
 	if deadlineErr != nil {
 		log.Fatalf("synthkit: %v", deadlineErr)
 	}
 	defer operationCancel()
+	if *fleetUnregisterOwned {
+		if *fleetUnregister || *once || *dump || *inventoryJSON || *preflightCheck || *validateCheck || *healthcheck || *showVersion {
+			log.Fatal("synthkit: -fleet-unregister-owned cannot be combined with another mode")
+		}
+		cfg, err := config.Load(*envPath)
+		if err == nil {
+			err = runFleetUnregisterOwned(context.Background(), cfg, os.Stdout)
+		}
+		if err != nil {
+			log.Fatalf("synthkit: Fleet owned teardown failed: %s", fleet.LifecycleErrorMessage(err))
+		}
+		return
+	}
 	if *fleetUnregister {
 		if *once || *dump || *inventoryJSON || *preflightCheck || *validateCheck || *healthcheck || *showVersion {
 			log.Fatal("synthkit: -fleet-unregister cannot be combined with another mode")
@@ -247,6 +262,49 @@ func runFleetUnregister(ctx context.Context, cfg *config.Config) error {
 	ctx, cancel := context.WithTimeout(ctx, cfg.SendDrainDeadline)
 	defer cancel()
 	return r.UnregisterFleet(ctx)
+}
+
+// runFleetUnregisterOwned retires every identity in the persisted Fleet ownership ledger for the
+// configured destination, independently of the current blueprint selection. Lease mode runs it
+// as the elected leader inside the ordinary HA lifecycle; Kubernetes state without a Lease cannot
+// prove that no emitter holds authority over the shared ledger, so it is refused.
+func runFleetUnregisterOwned(ctx context.Context, cfg *config.Config, out io.Writer) error {
+	if cfg.DryRun {
+		return operationalerr.New(operationalerr.CodeRejected)
+	}
+	if cfg.HAMode == "lease" {
+		cfg.FleetUnregister = true
+		deps := productionHADependencies()
+		deps.FleetTeardown = ownedFleetTeardown(out)
+		return runLeaseModeWith(cfg, true, deps)
+	}
+	if cfg.StateBackend == "kubernetes" {
+		return fleet.ErrTeardownAuthority
+	}
+	store, err := configuredFleetStore(cfg, nil, ha.AlwaysLeader{})
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, cfg.SendDrainDeadline)
+	defer cancel()
+	return ownedFleetTeardown(out)(ctx, fleet.Config{Store: store, FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken})
+}
+
+// ownedFleetTeardown runs the ledger teardown and writes its secret-free receipt as one line.
+func ownedFleetTeardown(out io.Writer) func(context.Context, fleet.Config) error {
+	return func(ctx context.Context, cfg fleet.Config) error {
+		receipt, err := fleet.NewController(cfg).TeardownOwned(ctx, fleet.TeardownOptions{MinInterval: fleet.DefaultTeardownInterval})
+		if receipt != nil {
+			data, merr := json.Marshal(receipt)
+			if merr != nil {
+				return errors.Join(err, merr)
+			}
+			if _, werr := fmt.Fprintf(out, "fleet teardown receipt: %s\n", data); werr != nil {
+				return errors.Join(err, werr)
+			}
+		}
+		return err
+	}
 }
 
 func readinessEndpoint(bindAddr string) (string, error) {
