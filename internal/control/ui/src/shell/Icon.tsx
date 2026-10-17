@@ -51,6 +51,11 @@ const icons = {
 
 export type IconName = keyof typeof icons;
 
+// The glyphs are fill="currentColor" SVGs. Loaded through <img> they are an
+// isolated document, so currentColor falls back to black and ignores the theme.
+// Instead the file is a CSS mask (--icon-src, consumed by the .icon rule in
+// theme/tokens.css) over a currentColor background, so the glyph follows the
+// themed text colour of whatever control hosts it.
 export function Icon(props: { name: IconName; class?: string }): JSX.Element {
-  return <img class={`icon ${props.class ?? ""}`} src={icons[props.name]} alt="" aria-hidden="true" />;
+  return <span class={`icon ${props.class ?? ""}`} style={{ "--icon-src": `url("${icons[props.name]}")` }} aria-hidden="true" />;
 }
