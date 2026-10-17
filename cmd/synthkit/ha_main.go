@@ -405,13 +405,18 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 		return nil, err
 	}
 	var smState smHandoff
+	smBound := ha.Bounded{Gate: gate, Timeout: 2 * time.Second, Margin: cfg.HAFenceMargin, Crash: bound.Crash}
+	var smLiveBound func(func(context.Context) error) error
+	if publishSM && cfg.StateBackend == "kubernetes" {
+		smLiveBound = func(fn func(context.Context) error) error { return smBound.Run(context.Background(), ha.Mutation, fn) }
+	}
+	smAdmit := newSMAdmission(cfg, version, smStore, publishSM, !cfg.FleetUnregister && smStartupDisabled(cfg), smLiveBound)
 	smPrepare := func(ctx context.Context) error {
 		var err error
-		smState, err = prepareSMHandoff(ctx, accepted, cfg, version, time.Now(), smStore, publishSM)
+		smState, err = smAdmit.prepareBoot(ctx, accepted, store.Snapshot().LiveBlueprints, reg, blueprint.RuntimeLimits{MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries})
 		return err
 	}
 	if publishSM && cfg.StateBackend == "kubernetes" {
-		smBound := ha.Bounded{Gate: gate, Timeout: 2 * time.Second, Margin: cfg.HAFenceMargin, Crash: bound.Crash}
 		if err := smBound.Run(ctx, ha.Mutation, smPrepare); err != nil {
 			return nil, err
 		}
@@ -454,7 +459,7 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	if err != nil {
 		return nil, err
 	}
-	v.runner = runner.New(sinks, reg, runner.Options{Gate: gate, Delivery: bound, MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries, TickTimeout: cfg.TickTimeout, Fleet: fleet.Config{Store: fleetStore, FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun, Delivery: delivery, Bounded: bound}, SendShards: cfg.SendShards, SendBatchMax: cfg.SendBatchMax, SendDeadline: cfg.SendDeadline, SendCapacity: cfg.SendCapacity, SendDrainDeadline: cfg.SendDrainDeadline})
+	v.runner = runner.New(sinks, reg, runner.Options{Gate: gate, Delivery: bound, MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries, TickTimeout: cfg.TickTimeout, Fleet: fleet.Config{Store: fleetStore, FMURL: cfg.FMURL, StackID: cfg.FMStackID, Token: cfg.FMToken, DryRun: cfg.DryRun, Delivery: delivery, Bounded: bound}, SendShards: cfg.SendShards, SendBatchMax: cfg.SendBatchMax, SendDeadline: cfg.SendDeadline, SendCapacity: cfg.SendCapacity, SendDrainDeadline: cfg.SendDrainDeadline, LiveAdmit: smAdmit.Admit})
 	for _, bp := range accepted {
 		if err := v.runner.AddBlueprint(bp); err != nil {
 			return nil, err

@@ -27,9 +27,11 @@ func (r *Runner) LiveRestoreSkips() []LiveRestoreSkip {
 }
 
 // prepareLive loads lb under its sanitized namespace and validates it against the running set
-// without publishing anything. Errors wrap control.ErrLiveInvalid or control.ErrLiveCollision.
-// Caller holds liveMu, so no other live mutation can change the set it validated against.
-func (r *Runner) prepareLive(lb control.LiveBlueprint) (*bpRuntime, []ShapeWarning, error) {
+// without publishing it. restore marks the boot restore, whose pending names the persisted records
+// it has still to apply. Errors wrap control.ErrLiveInvalid or control.ErrLiveCollision, or a
+// control.ErrLiveSM* state failure from Options.LiveAdmit. Caller holds liveMu, so no other live mutation can change
+// the set it validated against.
+func (r *Runner) prepareLive(lb control.LiveBlueprint, restore bool, pending []string) (*bpRuntime, []ShapeWarning, error) {
 	if lb.Namespace == "" {
 		return nil, nil, fmt.Errorf("%w: blueprint %q has no namespace", control.ErrLiveInvalid, lb.Name)
 	}
@@ -42,12 +44,14 @@ func (r *Runner) prepareLive(lb control.LiveBlueprint) (*bpRuntime, []ShapeWarni
 	if res.Name != lb.Name {
 		return nil, nil, fmt.Errorf("%w: blueprint YAML name resolves to %q, want %q", control.ErrLiveInvalid, res.Name, lb.Name)
 	}
-	// Synthetic Monitoring admission (check registration and probe handoff) happens once at
-	// startup in the composition root and fails closed there; a live apply has no such step, so
-	// it refuses SM outright rather than emit check series no registration matches.
-	for _, ci := range res.Constructs {
-		if ci.Kind == sm.Kind {
-			return nil, nil, fmt.Errorf("%w: blueprint %q declares a %s construct %q; Synthetic Monitoring is admitted only for boot blueprints", control.ErrLiveInvalid, lb.Name, sm.Kind, ci.Name)
+	// Synthetic Monitoring admission (check registration and probe handoff) belongs to the
+	// composition root and fails closed there. Without its LiveAdmit hook there is no such step,
+	// so a live candidate declaring SM is refused rather than emit series no registration matches.
+	if r.opts.LiveAdmit == nil {
+		for _, ci := range res.Constructs {
+			if ci.Kind == sm.Kind {
+				return nil, nil, fmt.Errorf("%w: blueprint %q declares a %s construct %q; Synthetic Monitoring is admitted only for boot blueprints", control.ErrLiveInvalid, lb.Name, sm.Kind, ci.Name)
+			}
 		}
 	}
 	set := r.blueprintSet()
@@ -76,6 +80,16 @@ func (r *Runner) prepareLive(lb control.LiveBlueprint) (*bpRuntime, []ShapeWarni
 	if err := blueprint.ValidateSet(append(running, res)); err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", control.ErrLiveCollision, err)
 	}
+	if r.opts.LiveAdmit != nil {
+		beside := make([]string, 0, len(set)+len(pending))
+		for _, bp := range set {
+			beside = append(beside, bp.name)
+		}
+		beside = append(beside, pending...)
+		if err := r.opts.LiveAdmit(LiveAdmitRequest{Beside: beside, Candidate: res, Restore: restore}); err != nil {
+			return nil, nil, err
+		}
+	}
 	bp, warnings, err := r.buildBlueprint(res)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", control.ErrLiveInvalid, err)
@@ -91,7 +105,7 @@ func (r *Runner) prepareLive(lb control.LiveBlueprint) (*bpRuntime, []ShapeWarni
 func (r *Runner) ApplyLiveBlueprint(lb control.LiveBlueprint, persist func() error) error {
 	r.liveMu.Lock()
 	defer r.liveMu.Unlock()
-	bp, warnings, err := r.prepareLive(lb)
+	bp, warnings, err := r.prepareLive(lb, false, nil)
 	if err != nil {
 		return err
 	}
@@ -188,8 +202,14 @@ func (r *Runner) dropRestoreSkip(name string) {
 // restoreLiveLocked re-applies the persisted live set after the boot set, in persisted order.
 // Caller holds liveMu and applyMu (ApplyControl's first call).
 func (r *Runner) restoreLiveLocked(entries []control.LiveBlueprint) {
-	for _, lb := range entries {
-		bp, warnings, err := r.prepareLive(lb)
+	for i, lb := range entries {
+		// Records still to restore run beside this one, so an admission that covers the whole
+		// persisted set (Synthetic Monitoring's snapshot) sees the same set on every entry.
+		pending := make([]string, 0, len(entries)-i-1)
+		for _, later := range entries[i+1:] {
+			pending = append(pending, later.Name)
+		}
+		bp, warnings, err := r.prepareLive(lb, true, pending)
 		if err == nil {
 			err = r.commitBlueprint(bp, warnings)
 		}

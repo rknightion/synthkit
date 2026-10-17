@@ -4,6 +4,9 @@ package control
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -34,5 +37,27 @@ func TestSetBlueprintAdminChains(t *testing.T) {
 	got := h.SetBlueprintAdmin(nil)
 	if got != h {
 		t.Fatal("SetBlueprintAdmin must return the same *Handler for chaining")
+	}
+}
+
+// Synthetic Monitoring admission state failures carry their own 503 codes, not
+// state_persist_failed, so an operator can tell a pending provisioner from a failed control write.
+func TestLiveErrorMapsSMStateFailures(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		code string
+	}{
+		{fmt.Errorf("%w: blueprint %q: provisioning pending", ErrLiveSMBusy, "ns/x"), "sm_state_busy"},
+		{fmt.Errorf("%w: blueprint %q: load failed", ErrLiveSMUnavailable, "ns/x"), "sm_state_unavailable"},
+	} {
+		rec := httptest.NewRecorder()
+		liveError(rec, tc.err)
+		var body map[string]string
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("%v: body %q: %v", tc.err, rec.Body.String(), err)
+		}
+		if rec.Code != http.StatusServiceUnavailable || body["code"] != tc.code || !strings.Contains(body["reason"], "ns/x") {
+			t.Fatalf("%v: got %d %v, want 503 code %s naming the blueprint", tc.err, rec.Code, body, tc.code)
+		}
 	}
 }

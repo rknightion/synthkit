@@ -704,7 +704,7 @@ func seriesWithPrefix(series []seriesView, prefix string) int {
 	return n
 }
 
-// A live apply cannot carry Synthetic Monitoring: its admission runs only at startup and fails closed.
+// Without the composition root's LiveAdmit hook a live apply cannot carry Synthetic Monitoring.
 func TestLiveApplyRejectsSyntheticMonitoring(t *testing.T) {
 	h := newLiveHarness(t, filepath.Join(t.TempDir(), "state.json"), runner.Options{}, loadBoot(t, bootYAML, ""))
 	before, _ := h.inventory()

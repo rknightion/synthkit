@@ -37,10 +37,31 @@ func Binding(s smstate.Snapshot) SnapshotBinding {
 type Store interface {
 	Load(context.Context) (Document, error)
 	PublishSnapshot(context.Context, *smstate.Snapshot) error
+	// PublishSnapshotIfIdle is the runtime (live-apply) publication: one compare-and-swap that
+	// writes nothing when the published snapshot already has this hash and otherwise refuses with
+	// ErrProvisionBusy while a provisioner mutation is pending, so it never rebinds an in-flight
+	// apply.
+	PublishSnapshotIfIdle(context.Context, smstate.Snapshot) error
 	UpdateProvision(context.Context, SnapshotBinding, func(*ProvisionState) error) error
 }
 
 var ErrBinding = errors.New("SM snapshot binding changed or unavailable")
+
+// ErrProvisionBusy reports a pending provisioner mutation; runtime publication waits for it.
+var ErrProvisionBusy = errors.New("SM state busy: a provisioning mutation is pending")
+
+// errUnchanged ends a runtime publication's CAS without a write.
+var errUnchanged = errors.New("SM snapshot unchanged")
+
+func idlePublication(d Document, snapshot smstate.Snapshot) error {
+	if d.Snapshot != nil && d.Snapshot.SnapshotHash == snapshot.SnapshotHash {
+		return errUnchanged // no write, so no rebinding; a pending journal still fails activation
+	}
+	if d.Provision.Pending != nil {
+		return ErrProvisionBusy
+	}
+	return nil
+}
 
 func checkBinding(d Document, b SnapshotBinding) error {
 	if d.Snapshot == nil || Binding(*d.Snapshot) != b {

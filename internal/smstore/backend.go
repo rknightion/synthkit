@@ -71,6 +71,24 @@ func (s *backendStore) PublishSnapshot(ctx context.Context, snapshot *smstate.Sn
 	snapshot = clone(snapshot)
 	return s.update(ctx, func(d *Document) error { d.Snapshot = clone(snapshot); return nil })
 }
+func (s *backendStore) PublishSnapshotIfIdle(ctx context.Context, snapshot smstate.Snapshot) error {
+	if err := smstate.ValidateSnapshot(snapshot); err != nil {
+		return err
+	}
+	snapshot = clone(snapshot)
+	err := s.update(ctx, func(d *Document) error {
+		if err := idlePublication(*d, snapshot); err != nil {
+			return err
+		}
+		next := clone(snapshot)
+		d.Snapshot = &next
+		return nil
+	})
+	if errors.Is(err, errUnchanged) {
+		return nil
+	}
+	return err
+}
 func (s *backendStore) UpdateProvision(ctx context.Context, b SnapshotBinding, fn func(*ProvisionState) error) error {
 	return s.update(ctx, func(d *Document) error {
 		if err := checkBinding(*d, b); err != nil {

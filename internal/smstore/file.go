@@ -49,6 +49,10 @@ func (s *lockedFileStore) PublishSnapshot(context.Context, *smstate.Snapshot) er
 	return errors.New("SM acquired provisioner file store cannot publish snapshots")
 }
 
+func (s *lockedFileStore) PublishSnapshotIfIdle(context.Context, smstate.Snapshot) error {
+	return errors.New("SM acquired provisioner file store cannot publish snapshots")
+}
+
 func (s *lockedFileStore) Load(ctx context.Context) (Document, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -149,6 +153,33 @@ func (s *fileStore) PublishSnapshot(ctx context.Context, snapshot *smstate.Snaps
 		return smstate.RemoveSnapshot(s.dir)
 	}
 	return smstate.WriteSnapshot(s.dir, *snapshot)
+}
+
+// PublishSnapshotIfIdle holds the provisioning O_EXCL lock (a held lock fails like Load), refuses
+// while a pending journal exists and skips the write when the published hash is unchanged.
+func (s *fileStore) PublishSnapshotIfIdle(ctx context.Context, snapshot smstate.Snapshot) (err error) {
+	if err := smstate.ValidateSnapshot(snapshot); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	release, err := smstate.AcquireLock(s.dir)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, release()) }()
+	d, err := s.loadUnlocked(ctx)
+	if err != nil {
+		return err
+	}
+	switch err := idlePublication(d, snapshot); {
+	case errors.Is(err, errUnchanged):
+		return nil
+	case err != nil:
+		return err
+	}
+	return smstate.WriteSnapshot(s.dir, snapshot)
 }
 
 // UpdateProvision requires the command's complete-operation O_EXCL file lock.

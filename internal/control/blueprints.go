@@ -91,6 +91,10 @@ var (
 	ErrLiveInvalid   = errors.New("invalid live blueprint")        // 400: YAML, name or runtime validation
 	ErrLiveCollision = errors.New("live blueprint collision")      // 409: running-set identity claim
 	ErrLiveNotFound  = errors.New("blueprint is not live-applied") // 404: DELETE of a non-live name
+	// ErrLiveSMBusy (503 sm_state_busy) and ErrLiveSMUnavailable (503 sm_state_unavailable) are
+	// the Synthetic Monitoring admission state's own failures, distinct from control persistence.
+	ErrLiveSMBusy        = errors.New("synthetic monitoring state busy")
+	ErrLiveSMUnavailable = errors.New("synthetic monitoring state unavailable")
 )
 
 // LiveBlueprintRuntime applies and removes one namespaced blueprint on a running process.

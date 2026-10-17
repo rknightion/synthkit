@@ -70,6 +70,15 @@ type Options struct {
 	// tied to Run's ctx/waitgroup for clean shutdown (unregister-on-cancel). Set by main.go.
 	Fleet fleet.Config
 
+	// LiveAdmit, when set by the composition root, admits the composition-root-owned constructs
+	// (Synthetic Monitoring registration) of a live candidate, both for POST
+	// /control/blueprints/live and for the boot restore of the persisted live set. It runs after
+	// the identity, limit and substrate checks and before the candidate is built. It may strip or
+	// configure the candidate's constructs in place. An error rejects the candidate; it wraps one
+	// of the control.ErrLive* sentinels. Nil keeps live blueprints free of Synthetic Monitoring: a
+	// candidate declaring it is rejected. Set by main.go.
+	LiveAdmit func(LiveAdmitRequest) error
+
 	// Delivery-queue tunables (internal/sink/queue): sink delivery is decoupled from the tick
 	// via a bounded in-memory queue drained by batched background senders (I41). Defaults are
 	// applied in defaults() when zero.
@@ -78,6 +87,15 @@ type Options struct {
 	SendDeadline      time.Duration // partial-batch flush deadline (SEND_BATCH_DEADLINE, default 5s)
 	SendCapacity      int           // total buffered items before backpressure (SEND_QUEUE_CAPACITY, default 200000)
 	SendDrainDeadline time.Duration // RunOnce flush / shutdown drain bound (SEND_DRAIN_DEADLINE, default 30s)
+}
+
+// LiveAdmitRequest is one Options.LiveAdmit call. Beside names every blueprint the candidate will
+// run beside: the running set plus, during restore, the persisted records not yet restored.
+// Restore is true for the boot restore of the persisted live set, false for a live apply.
+type LiveAdmitRequest struct {
+	Beside    []string
+	Candidate *blueprint.Resolved
+	Restore   bool
 }
 
 // TickFunc is the runner's stdlib-only self-observability seam (the scheduler counterpart of

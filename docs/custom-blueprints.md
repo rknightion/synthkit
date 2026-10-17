@@ -172,9 +172,38 @@ On success the response is `{"status":"applied","blueprint":"mine/my-blueprint",
 and each of the blueprint's lanes emits within one construct interval. `GET /control/inventory`
 lists it with `"live": true`, its owner and its construct and workload lanes.
 
-A live apply cannot carry Synthetic Monitoring. Check registration and probe handoff are admitted
-once, at startup, so a blueprint declaring a `synthetic_monitoring` construct is rejected with `400`
-naming the kind and construct; declare Synthetic Monitoring in a boot blueprint instead. At most 64
+A live blueprint can carry Synthetic Monitoring. Its checks go through the same fail-closed handoff
+as the boot set ([Synthetic Monitoring](synthetic-monitoring.md)), computed over every running
+blueprint plus this one:
+
+- The apply publishes that snapshot (an HA standby only validates; it never writes). The write is a
+  compare-and-swap: it is skipped when the published snapshot already has that hash, and it is
+  refused with `503` `sm_state_busy`, changing nothing, while an `sm-provision` mutation is pending.
+  On the file state backend `sm-provision` holds the state lock for its whole run, so a live SM
+  apply during that run returns `503` `sm_state_unavailable` instead.
+  Do not live-apply SM while `sm-provision` runs; retry once it completes. The blueprint is
+  admitted, but its SM construct is stripped unless the stored registration matches that exact
+  snapshot. A matching registration is injected and the checks emit.
+- To activate checks the registration does not yet cover, run the usual provisioner preview and
+  apply, then restart. The boot snapshot covers the persisted live set too, so the restart restores
+  the blueprint with its registration.
+- A probe declared with another region or coordinates than a running blueprint's returns `409`
+  naming the probe. An SM construct with no checks, an invalid check, or SM with no SM state
+  configured returns `400`, before any snapshot write. Unreadable SM state returns `503`
+  `sm_state_unavailable`. If a later step fails after the snapshot write (reading the registration,
+  or persisting the live record), the published snapshot covers the rejected blueprint until the next
+  publish.
+- HA lease mode without the `kubernetes` state backend strips SM from live blueprints as it does
+  from boot ones, with no snapshot write.
+- When `STARTUP_DISABLED_KINDS` lists `synthetic_monitoring`, a live or restored blueprint's SM is
+  stripped without a snapshot write.
+
+DELETE does not republish the snapshot: the removed checks stay in it until the next Synthetic
+Monitoring apply or restart publishes the running set again. The registration must match the whole
+set, so after a live SM apply the registration does not cover, or a DELETE of a live SM blueprint,
+the next restart (a pod reschedule or an HA leader failover included) publishes a snapshot the stored registration no longer
+matches, and every blueprint's SM, boot blueprints included, stays stripped until the provisioner
+applies again. Run the provisioner before restarting. At most 64
 blueprints can be live at once (counting persisted records the restore skipped); the next apply
 returns `409` `live blueprint limit reached (64)`. Each record carries its YAML inline in the control
 snapshot, and the Kubernetes state backend stores that snapshot in one ConfigMap document bounded at
@@ -196,8 +225,12 @@ it is removed.
 The live set is stored in the control snapshot (`CONFIG_SNAPSHOT_PATH`) and survives a restart. At
 startup the boot set selected by `BLUEPRINT_NAMES` loads first and takes precedence; each persisted
 live blueprint is then re-validated against it. One that no longer loads, or now collides (for
-example because `BLUEPRINT_NAMES` selects a staged upload with the same identity, or because it
-declares Synthetic Monitoring), is skipped and logged as an error rather than failing startup. Its record stays in the snapshot until
+example because `BLUEPRINT_NAMES` selects a staged upload with the same identity, or because its
+Synthetic Monitoring probe now conflicts with the boot set), is skipped and logged as an error rather
+than failing startup. A restored blueprint's Synthetic Monitoring goes through the same handoff as a
+live apply, except that the restore never writes the snapshot: the startup (or, in HA, the leader
+acquisition) already published one covering the persisted live set, and the restore only validates
+against it. An HA leader failover is a restart for this purpose. Its record stays in the snapshot until
 `DELETE /control/blueprints/live` removes it. `POST /control/reset` does not remove live blueprints.
 
 ## skcapture and skforge

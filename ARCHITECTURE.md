@@ -211,6 +211,16 @@ Explicit instance built in the composition root's catalog wiring file (single ow
 registries, no `init()` self-registration.** The YAML loader validates every construct/addon/
 workload/feature kind and every config field against it — unknown anything is a loud load error.
 
+### Live admission seam
+
+`runner.Options.LiveAdmit` is the composition-root hook for constructs whose admission the runner
+cannot own. The runner calls it for every live apply and every boot restore of the persisted live
+set, after the identity, limit and substrate checks and before the candidate is built. The
+`cmd/synthkit` roots set it to the Synthetic Monitoring handoff (`smAdmission.Admit`), so a live or
+restored SM declaration passes the same fail-closed registration filter as the boot set. That
+filter covers the boot set plus the persisted live set. The restore only validates; a live apply
+publishes by compare-and-swap. A nil hook keeps live blueprints free of SM: the runner rejects one.
+
 ## 3. The blueprint YAML
 
 ```yaml

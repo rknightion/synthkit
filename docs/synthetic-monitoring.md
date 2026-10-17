@@ -39,7 +39,9 @@ SM provisioning uses a dedicated SM API token — separate from `GC_TOKEN` and f
 | `GC_SM_TOKEN` | SM API bearer token (not `GC_TOKEN`) |
 
 The provisioner never scans blueprints. The emitter resolves the exact selected built-in, custom,
-and Git sources and publishes an exact snapshot. File mode uses private files under `/data/runtime`;
+and Git sources, plus the persisted live-applied blueprints it restores, and publishes an exact
+snapshot. A live apply of an SM blueprint republishes it for the running set
+([live apply](custom-blueprints.md#apply-live-without-a-restart)). File mode uses private files under `/data/runtime`;
 Kubernetes mode uses a named aggregate ConfigMap and requires no shared volume. The provisioner reads only
 that snapshot. `SM_PROVISION_APPLY` is its independent write gate; emitter `DRY_RUN` is irrelevant.
 
@@ -49,8 +51,13 @@ See [Credentials](credentials.md) for token-scoping guidance.
 
 ## Phase 1 — provision the offline probe and checks
 
-Start the emitter once with the intended SM blueprint selected. Until a matching registration
-exists, synthkit writes the snapshot but suppresses SM emission. Preview the version-matched
+Start the emitter once with the intended SM blueprint selected, or apply it live. Until a matching
+registration exists, synthkit writes the snapshot but suppresses SM emission. Do not live-apply an
+SM blueprint while `sm-provision` runs: a live apply that changes the snapshot while a provisioning
+mutation is pending is refused with `503` `sm_state_busy` (on the file state backend, where
+`sm-provision` holds the state lock for its whole run, it returns `503` `sm_state_unavailable`), and a
+change published between preview and
+apply makes the apply refuse on its snapshot binding. Preview the version-matched
 Docker provisioner:
 
 ```bash
@@ -138,8 +145,9 @@ pending evidence before any explicit recovery. Lease authority is local admissio
 exit, **not remote SM fencing or exactly-once delivery**. Planned termination joins work while renewal
 continues, then seals and releases; unexpected loss hard-exits without release.
 
-Kubernetes HA standby performs zero writes; acquisition publishes/revalidates the current snapshot
-before building the production runner and its first tick. File Lease HA remains suppressed without
+Kubernetes HA standby performs zero writes; acquisition publishes/revalidates the current snapshot,
+covering the persisted live set, before building the production runner and its first tick. The
+restore of live blueprints then only validates against that snapshot and writes nothing. File Lease HA remains suppressed without
 artifact I/O. There is no automatic file-to-Kubernetes ownership migration or dual writing: moving
 existing ownership needs a separately approved offline procedure. The chart supports a
 [Kubernetes-state SM Job with HA emission](kubernetes.md#diskless-one-shot-job). Enable
@@ -174,7 +182,9 @@ The preview lists each recorded resource and prints a plan hash. It makes no rem
 change. The plan hash covers the target, the snapshot and, for each resource, its ID, revision,
 managed specification hash and planned action. Apply needs `SM_PROVISION_APPLY=true` and that exact
 hash. If anything changed since the preview, apply refuses before any write. Cleanup cannot be
-combined with `SM_PROVISION_ADOPT_LEGACY` or `SM_PROVISION_MIGRATE_TARGET`.
+combined with `SM_PROVISION_ADOPT_LEGACY` or `SM_PROVISION_MIGRATE_TARGET`. A live SM apply, or
+the restart after a DELETE of a live SM blueprint, changes the published snapshot and so the plan
+hash: preview again after either.
 
 Before every delete, cleanup lists the inventory again and checks that the resource's ID, key,
 revision (`modified`) and managed specification still match the ledger. A probe still referenced

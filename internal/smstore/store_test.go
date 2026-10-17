@@ -324,3 +324,82 @@ func TestAcquiredFileStoreCannotPublishSnapshots(t *testing.T) {
 		})
 	}
 }
+
+// Runtime publication never rebinds a pending provisioner mutation: a changed snapshot is refused
+// with ErrProvisionBusy, an unchanged one writes nothing, and the journal and binding survive on
+// both stores; with nothing pending a changed snapshot is written.
+func TestPublishSnapshotIfIdleRefusesPendingAndSkipsUnchanged(t *testing.T) {
+	ctx := context.Background()
+	a := snapshot(t, "a")
+	p := a.Probes[0]
+	c := smstate.CheckSpec{Key: smstate.CheckKey("other", "https://other.test"), Job: "other", Target: "https://other.test", Source: "sample", ProbeKey: p.Key, FrequencyMS: 60000, TimeoutMS: 3000}
+	changed, err := smstate.NewSnapshot(a.Probes, append(append([]smstate.CheckSpec(nil), a.Checks...), c), "https://sm.example", "", "a", time.Unix(100, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(root, "runtime")
+	m := &memoryBackend{rev: "1"}
+	backend, err := NewBackendStore(m, 5, "provision")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, tc := range map[string]struct {
+		store   Store
+		pending func(smstate.Journal) // writes the pending journal as the provisioner would
+	}{
+		"backend": {backend, func(j smstate.Journal) {
+			if err := backend.UpdateProvision(ctx, Binding(a), func(p *ProvisionState) error { p.Pending = &j; return nil }); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		"file": {NewFileStore(dir), func(j smstate.Journal) {
+			owned, release, err := AcquireFileStore(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := release(); err != nil {
+					t.Fatal(err)
+				}
+			}()
+			if err := owned.UpdateProvision(ctx, Binding(a), func(p *ProvisionState) error { p.Pending = &j; return nil }); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := tc.store.PublishSnapshot(ctx, &a); err != nil {
+				t.Fatal(err)
+			}
+			j := journal(a)
+			tc.pending(j)
+			if err := tc.store.PublishSnapshotIfIdle(ctx, changed); !errors.Is(err, ErrProvisionBusy) {
+				t.Fatalf("changed publication while pending = %v, want ErrProvisionBusy", err)
+			}
+			if err := tc.store.PublishSnapshotIfIdle(ctx, a); err != nil {
+				t.Fatalf("unchanged publication while pending = %v, want a no-write", err)
+			}
+			d, err := tc.store.Load(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if d.Snapshot == nil || d.Snapshot.SnapshotHash != a.SnapshotHash || d.Provision.Pending == nil || d.Provision.Pending.ExpectedHash != j.ExpectedHash || d.Provision.Pending.SnapshotHash != j.SnapshotHash || d.Provision.Pending.Key != j.Key {
+				t.Fatalf("pending provision state changed: snapshot=%v pending=%+v", d.Snapshot, d.Provision.Pending)
+			}
+		})
+	}
+	// Idle: the backend writes the changed snapshot.
+	if err := backend.UpdateProvision(ctx, Binding(a), func(p *ProvisionState) error { p.Pending = nil; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.PublishSnapshotIfIdle(ctx, changed); err != nil {
+		t.Fatal(err)
+	}
+	if d, err := backend.Load(ctx); err != nil || d.Snapshot.SnapshotHash != changed.SnapshotHash {
+		t.Fatalf("idle publication did not write: %v", err)
+	}
+}

@@ -1223,6 +1223,14 @@ func liveError(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, ErrLiveNotFound):
 		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, ErrLiveSMBusy), errors.Is(err, ErrLiveSMUnavailable):
+		code := "sm_state_unavailable"
+		if errors.Is(err, ErrLiveSMBusy) {
+			code = "sm_state_busy"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		writeJSON(w, map[string]string{"code": code, "reason": err.Error()})
 	default:
 		mutationError(w, err)
 	}

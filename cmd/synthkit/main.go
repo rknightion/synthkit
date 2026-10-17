@@ -576,7 +576,10 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	if err != nil {
 		return err
 	}
-	smState, err := prepareSMHandoff(context.Background(), accepted, cfg, version, time.Now(), smStore, true)
+	// The same filter admits live-applied and restored blueprints (runner.Options.LiveAdmit); its
+	// snapshot also covers the persisted live set the runner restores beside this boot set.
+	smAdmit := newSMAdmission(cfg, version, smStore, true, smStartupDisabled(cfg), nil)
+	smState, err := smAdmit.prepareBoot(context.Background(), accepted, store.Snapshot().LiveBlueprints, reg, blueprint.RuntimeLimits{MasterTick: cfg.MasterTick, MaxDPMPerSeries: cfg.MaxDPMPerSeries})
 	if err != nil {
 		return err
 	}
@@ -594,6 +597,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		},
 		SendShards: cfg.SendShards, SendBatchMax: cfg.SendBatchMax, SendDeadline: cfg.SendDeadline,
 		SendCapacity: cfg.SendCapacity, SendDrainDeadline: cfg.SendDrainDeadline,
+		LiveAdmit: smAdmit.Admit,
 	})
 	loadedBlueprints := 0
 	for _, res := range accepted {
@@ -622,8 +626,8 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	for _, sw := range r.ShapeWarnings() {
 		diag.Add("warning", sw.Blueprint, "incident", sw.Message)
 	}
-	// A persisted live blueprint the restore skipped (it no longer loads, declares Synthetic
-	// Monitoring, or collides with the BLUEPRINT_NAMES boot set) is reported, never fatal.
+	// A persisted live blueprint the restore skipped (it no longer loads, fails the Synthetic
+	// Monitoring handoff, or collides with the BLUEPRINT_NAMES boot set) is reported, never fatal.
 	for _, skip := range r.LiveRestoreSkips() {
 		diag.Add("error", skip.Blueprint, "live", skip.Reason)
 	}
