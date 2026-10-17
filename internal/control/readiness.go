@@ -4,6 +4,7 @@ package control
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/rknightion/synthkit/internal/pushstatus"
 )
@@ -103,6 +104,62 @@ type ReadinessProbe struct {
 		Writable bool `json:"writable"`
 	} `json:"persisted_state"`
 	ReasonCodes []ReadinessReasonCode `json:"reason_codes"`
+}
+
+// BlueprintLister names the blueprints loaded into the running process. The runner implements it.
+type BlueprintLister interface {
+	Blueprints() []string
+}
+
+// ReadinessProbeBlueprints is the public probe with the opt-in per-blueprint emitting flags
+// (READINESS_BLUEPRINT_FLAGS). It embeds ReadinessProbe unchanged, so every existing field keeps
+// its name, order and value and the new field is appended after them. BlueprintEmitting maps a
+// loaded blueprint's plain name to one boolean; the value type cannot carry a reason, error, path,
+// lane or secret. It is never nil when serialised, so an empty set is {} rather than null.
+type ReadinessProbeBlueprints struct {
+	ReadinessProbe
+	BlueprintEmitting map[string]bool `json:"blueprint_emitting"`
+}
+
+// BlueprintEmittingFlags derives one emitting boolean per loaded blueprint.
+//
+// A blueprint is emitting when all of these hold: it is loaded into the running process (a
+// blueprint skipped at load is not in loaded, so it is absent rather than false); it is not in
+// state.DisabledBlueprints (the same test the runner applies to decide whether a blueprint
+// ticks); the process is in a state that runs ticks:
+// running, serving HTTP, not in setup mode, the HA gate leads (leader is false on a standby), and
+// no HA bootstrap or transition reason is outstanding; and, when a schema source supplies
+// constructs, at least one of the blueprint's constructs is enabled: its kind is not in
+// state.DisabledKinds and its ConstructKey is not in state.DisabledConstructs. A loaded blueprint
+// that declares no schema constructs (for example a workload-only one) cannot be judged at
+// construct level and keeps its blueprint-level state; haveSchema false skips the construct test
+// for every blueprint. Delivery health is deliberately not an input: a failing sink lane leaves a
+// blueprint emitting and is visible as ready, live_ready and reason_codes. Names in
+// state.DisabledBlueprints that are not loaded never appear.
+func BlueprintEmittingFlags(report ReadinessReport, loaded []string, state State, constructs []ConstructInfo, haveSchema, leader bool) map[string]bool {
+	runs := report.Running && report.HTTPReady && !report.SetupRequired && leader
+	for _, code := range report.ReasonCodes {
+		if code == ReadinessHABootstrapIncomplete || code == ReadinessHATransitioning {
+			runs = false
+		}
+	}
+	declared := map[string]int{}
+	enabled := map[string]int{}
+	if haveSchema {
+		for _, c := range constructs {
+			declared[c.Blueprint]++
+			if !slices.Contains(state.DisabledKinds, c.Kind) &&
+				!slices.Contains(state.DisabledConstructs, ConstructKey(c.Blueprint, c.Kind, c.Name)) {
+				enabled[c.Blueprint]++
+			}
+		}
+	}
+	out := make(map[string]bool, len(loaded))
+	for _, name := range loaded {
+		constructsOK := !haveSchema || declared[name] == 0 || enabled[name] > 0
+		out[name] = runs && constructsOK && !slices.Contains(state.DisabledBlueprints, name)
+	}
+	return out
 }
 
 func (r ReadinessReport) Probe() ReadinessProbe {

@@ -593,3 +593,35 @@ func TestSendDefaults(t *testing.T) {
 		t.Fatalf("empty SEND_* did not fall back to defaults: %+v", empty)
 	}
 }
+
+func TestLoadReadinessBlueprintFlags(t *testing.T) {
+	for _, tc := range []struct {
+		name, env string
+		want      bool
+	}{
+		{"unset defaults off", "", false},
+		{"empty defaults off", "READINESS_BLUEPRINT_FLAGS=\n", false},
+		{"false", "READINESS_BLUEPRINT_FLAGS=false\n", false},
+		{"true", "READINESS_BLUEPRINT_FLAGS=true\n", true},
+		{"case-insensitive", "READINESS_BLUEPRINT_FLAGS=TRUE\n", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := Load(writeEnv(t, tc.env))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.ReadinessBlueprintFlags != tc.want {
+				t.Fatalf("ReadinessBlueprintFlags = %v, want %v", cfg.ReadinessBlueprintFlags, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidReadinessBlueprintFlags(t *testing.T) {
+	for _, v := range []string{"1", "yes", "on", "maybe"} {
+		_, err := Load(writeEnv(t, "READINESS_BLUEPRINT_FLAGS="+v+"\n"))
+		if err == nil || !strings.Contains(err.Error(), "READINESS_BLUEPRINT_FLAGS") || !strings.Contains(err.Error(), "expected true or false") {
+			t.Errorf("READINESS_BLUEPRINT_FLAGS=%s: want explanatory error, got %v", v, err)
+		}
+	}
+}

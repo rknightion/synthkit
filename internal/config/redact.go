@@ -69,6 +69,7 @@ func (c *Config) Redacted() RedactedConfig {
 		{Title: "Paths & bind", Fields: []RedactedField{
 			safe("BLUEPRINTS", c.BlueprintsDir), safe("JSON_HTTP_ADDR", c.HTTPAddr), safe("SYNTHKIT_BIND", c.HostBind),
 			safe("CONFIG_SNAPSHOT_PATH", c.SnapshotPath), secret("CONTROL_TOKEN", c.ControlToken), safe("CONTROL_EXPOSURE_ACK", c.ControlExposure),
+			safe("READINESS_BLUEPRINT_FLAGS", boolStr(c.ReadinessBlueprintFlags)),
 		}},
 		{Title: "External blueprint sources", Fields: []RedactedField{
 			safe("BLUEPRINT_DATA_DIR", c.BlueprintDataDir),

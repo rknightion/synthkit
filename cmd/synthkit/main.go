@@ -817,6 +817,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			configureReadinessLanes()
 			so.EmitEvent("config_change", configChangeAttrs(s), configChangeBody(s))
 		})
+	applyReadinessBlueprintFlags(handler, cfg, r)
 	mountControlHandler(mux, cfg.ControlBasePath, handler)
 	mux.Handle("/", jsonHost(r, cfg.ControlToken))
 	newSrv := func(addr string) *http.Server {
@@ -876,6 +877,15 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		return nil
 	}
 	return err
+}
+
+// applyReadinessBlueprintFlags is the single startup gate for READINESS_BLUEPRINT_FLAGS (shared by
+// the plain and HA composition roots): the public readiness probe gains per-blueprint emitting
+// flags only when the operator opted in; otherwise the handler is left untouched.
+func applyReadinessBlueprintFlags(h *control.Handler, cfg *config.Config, blueprints control.BlueprintLister) {
+	if cfg.ReadinessBlueprintFlags {
+		h.SetReadinessBlueprintFlags(blueprints)
+	}
 }
 
 // mountControlHandler supports proxies that preserve or strip the configured

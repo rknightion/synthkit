@@ -126,3 +126,20 @@ func TestRedactedShowsSafeValues(t *testing.T) {
 		}
 	}
 }
+
+func TestRedactedShowsReadinessBlueprintFlags(t *testing.T) {
+	for _, on := range []bool{false, true} {
+		cfg := &Config{ReadinessBlueprintFlags: on}
+		var got *RedactedField
+		for _, g := range cfg.Redacted().Groups {
+			for i, f := range g.Fields {
+				if f.Key == "READINESS_BLUEPRINT_FLAGS" {
+					got = &g.Fields[i]
+				}
+			}
+		}
+		if got == nil || got.Secret || got.Value != boolStr(on) {
+			t.Fatalf("on=%v: READINESS_BLUEPRINT_FLAGS field = %+v", on, got)
+		}
+	}
+}

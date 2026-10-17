@@ -22,7 +22,9 @@ These terms describe different points in the blueprint lifecycle:
 - **Enabled** means a loaded blueprint is not in the control state's disabled list. It can be
   disabled or enabled live; this is not a YAML `enabled:` field.
 - **Emitting** means the running blueprint has produced telemetry observed by the sink-status
-  report. It is a runtime outcome, not a promise made by loading.
+  report. It is a runtime outcome, not a promise made by loading. The opt-in public probe field
+  `blueprint_emitting` (see [Per-blueprint flags on the public probe](#per-blueprint-flags-on-the-public-probe))
+  is a different, state-derived signal: enabled and scheduled to tick, not observed delivery.
 - **Staged** means a custom upload or fetched git blueprint has been written to the staging area
   for a future restart.
 - **Pending** means staged custom/git content differs from the startup manifest, so a restart will
@@ -183,7 +185,7 @@ when the target node has no matching emitted metric or log family.
 | Endpoint | Description |
 |---|---|
 | `GET /control/ui/` | Embedded operator UI (SPA). Redirect from `/control/ui`. |
-| `GET /control/readiness` | Public sanitized readiness probe: process, HTTP, blueprint counts, and state-writable boolean only. |
+| `GET /control/readiness` | Public sanitized readiness probe: process, HTTP, blueprint counts, and state-writable boolean only. With `READINESS_BLUEPRINT_FLAGS=true` it also carries `blueprint_emitting`, one boolean per loaded blueprint name; see [Per-blueprint flags on the public probe](#per-blueprint-flags-on-the-public-probe). |
 | `GET /control/schema` | Blueprint-derived schema: all modes, addressable targets, scenarios, scalable workloads, construct instances, and startup cost projections for explicit high-DPM blueprints. Add `?audience=customer` for a reduced view without operator-internal fields. |
 | `GET /control/state` | Current control snapshot (volume multiplier, active scenarios, failures, scaling, disabled blueprints/constructs/kinds). |
 | `GET /control/status` | Sink readiness strip: `last_success_ms`, failure counts, dry-run flag, per-blueprint emission, Fleet Management health, persist health. |
@@ -234,6 +236,55 @@ changes, use `/control/scenarios/{activate,deactivate}` and
 another operator's change.
 
 ---
+
+### Per-blueprint flags on the public probe
+
+`GET /control/readiness` is public so Docker can call it without credentials, and by default it
+names no blueprint: it carries aggregate `blueprints.loaded`, `skipped` and `active` counts only.
+When `CONTROL_TOKEN` is configured, an operator that does not hold it therefore cannot see per-blueprint
+scheduling state.
+`READINESS_BLUEPRINT_FLAGS=true` (default `false`) adds it to the public probe itself: whether
+each loaded blueprint is enabled and scheduled to tick, not whether telemetry was delivered.
+
+- **Off (default).** The response is byte-identical to the probe without this setting; a golden test
+  pins the exact bytes. The setting is read once at startup.
+- **On.** One field is appended after the existing ones:
+  `"blueprint_emitting":{"alpha":true,"beta":false}`. The key is the blueprint's plain name and the
+  value is a bare boolean, so nothing else can ride along per blueprint: no reason, error, path,
+  lane, source or secret. The object is `{}` when nothing is loaded and keys are sorted. The HTTP
+  status, `ready` and `reason_codes` are unchanged by the flags. `GET /control/status` is unchanged.
+- **What `true` means.** The blueprint is loaded (skipped blueprints are not loaded, so they are
+  absent, not `false`) and is not in the control state's disabled list; at least one of its schema
+  constructs is enabled, meaning its kind is not in the disabled kinds and its `blueprint/kind:name`
+  key is not in the disabled constructs; and the process is in a state that runs ticks: running, serving HTTP, not in setup mode, leading when HA is enabled (a
+  standby reports all `false`), and with no HA bootstrap or transition outstanding. It is a
+  statement about control state, not an observation of delivery. Sink health stays in `ready`,
+  `live_ready` and `reason_codes`, and a blueprint in `DRY_RUN` reads `true` while `live_ready` is
+  `false`. For observed push history use authenticated `GET /control/status`.
+- **Naming decision: plain name.** Options were the plain name, an opaque or hashed id, or not
+  exposing blueprints. A blueprint name is topology and can carry operator meaning, so listing it
+  weakens the sanitized-probe contract on purpose, and only when the operator opts in. An unsalted
+  hash of a short, guessable name hides nothing, while a keyed id needs a new secret and gives the
+  consumer a mapping to maintain, which defeats the purpose of reading the probe without
+  credentials. The operator chose the names and is the one enabling the setting, so the plain name is
+  the honest option: enabling it publishes the names of loaded blueprints to anyone who can reach the
+  port. Expose the port accordingly, for example only on a trusted network or behind a proxy that
+  limits `/control/readiness`. A test pins that keys are plain loaded names and that names in the
+  disabled list but not loaded never appear.
+- **Browser reach.** The control plane's CORS wrapper echoes any request `Origin` on every route,
+  including `/control/readiness`. With the setting on, a web page opened in a browser that can
+  reach the port can therefore read the blueprint names cross-origin, not only a process on that
+  network. A trusted-network exposure must account for that, for example by keeping the port off
+  networks that run untrusted browsers or by limiting `/control/readiness` at a proxy. CORS
+  behaviour is unchanged by this setting.
+- **Limits of the construct test.** It reads the control schema's construct list, which has no
+  workloads: workloads are not enabled or disabled per instance and keep ticking while the
+  blueprint is enabled. A blueprint that declares workloads and whose constructs are all disabled
+  therefore reads `false` although its workloads still run. A loaded blueprint with no schema
+  constructs at all keeps its blueprint-level state, since the construct test cannot judge it. With
+  no schema source configured the construct test is skipped for every blueprint and only the
+  blueprint-level conditions apply. Use authenticated `GET /control/inventory` for what a
+  blueprint actually produces.
 
 ## Common operations
 

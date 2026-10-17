@@ -47,6 +47,7 @@ type Handler struct {
 	serial   chan struct{}
 
 	managedFeatures map[string]string
+	readyBlueprints BlueprintLister // opt-in: per-blueprint emitting flags on the public readiness probe
 }
 
 // ServeHTTP dispatches to the assembled router.
@@ -171,6 +172,14 @@ func (h *Handler) SetConfig(c ConfigView) *Handler { h.cfg = &c; return h }
 // SetInventory attaches the live emission inventory source served at GET /control/inventory.
 // Implemented by the runner (control.InventorySource). Chained; returns h. Absent ⇒ 404.
 func (h *Handler) SetInventory(s InventorySource) *Handler { h.inv = s; return h }
+
+// SetReadinessBlueprintFlags is the opt-in behind READINESS_BLUEPRINT_FLAGS. A non-nil lister adds a
+// per-blueprint emitting boolean (blueprint_emitting) to the public GET /control/readiness probe;
+// nil, the default, leaves the probe byte-identical. Chained; returns h.
+func (h *Handler) SetReadinessBlueprintFlags(l BlueprintLister) *Handler {
+	h.readyBlueprints = l
+	return h
+}
 
 // SetHealth attaches the health payload callback served at GET /control/health. The
 // closure assembles healthstatus.Report + live process metrics at the composition root
@@ -353,7 +362,17 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		if !report.Ready {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
-		_ = json.NewEncoder(w).Encode(report.Probe())
+		if h.readyBlueprints == nil {
+			_ = json.NewEncoder(w).Encode(report.Probe())
+			return
+		}
+		var constructs []ConstructInfo
+		if schemaSrc != nil {
+			constructs = schemaSrc.ControlSchema().Constructs
+		}
+		flags := BlueprintEmittingFlags(report, h.readyBlueprints.Blueprints(), h.store.Snapshot(),
+			constructs, schemaSrc != nil, h.gate.Role() == ha.RoleLeader)
+		_ = json.NewEncoder(w).Encode(ReadinessProbeBlueprints{ReadinessProbe: report.Probe(), BlueprintEmitting: flags})
 	})
 
 	// GET /control/config — redacted runtime config (protected when configured, side-effect-free, I26).

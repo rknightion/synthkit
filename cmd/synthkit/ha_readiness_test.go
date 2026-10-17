@@ -19,6 +19,12 @@ import (
 
 func readinessHAView(t *testing.T, gate *ha.Gate) (*haView, string) {
 	t.Helper()
+	return readinessHAViewWith(t, gate, nil)
+}
+
+// readinessHAViewWith builds the same view, applying mutate to the config before construction.
+func readinessHAViewWith(t *testing.T, gate *ha.Gate, mutate func(*config.Config)) (*haView, string) {
+	t.Helper()
 	root := t.TempDir()
 	baked := filepath.Join(root, "baked")
 	if err := os.Mkdir(baked, 0755); err != nil {
@@ -38,6 +44,9 @@ func readinessHAView(t *testing.T, gate *ha.Gate) (*haView, string) {
 	cfg.SnapshotPath = filepath.Join(root, "unwritten", "state.json")
 	cfg.DryRun, cfg.SelfObsEnabled = false, false
 	cfg.FMURL, cfg.ControlToken, cfg.SigilEndpoint, cfg.FaroCollector, cfg.ProfilesURL = "", "", "", "", ""
+	if mutate != nil {
+		mutate(cfg)
+	}
 	v, err := newHAView(context.Background(), cfg, gate, ha.Bounded{Gate: gate}, false)
 	if err != nil {
 		t.Fatal(err)

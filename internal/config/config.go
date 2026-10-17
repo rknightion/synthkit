@@ -81,6 +81,12 @@ type Config struct {
 	ControlToken         string // CONTROL_TOKEN — HTTP Basic password (user: control) for sensitive reads and mutations (empty = auth disabled)
 	ControlExposure      string // CONTROL_EXPOSURE_ACK — trusted-network | tls-proxy for non-loopback exposure
 
+	// ReadinessBlueprintFlags (READINESS_BLUEPRINT_FLAGS, default false) adds a per-blueprint
+	// emitting boolean, keyed by plain blueprint name, to the PUBLIC GET /control/readiness probe.
+	// Off leaves the probe byte-identical. Enabling it publishes blueprint names without
+	// CONTROL_TOKEN, so it is an explicit operator choice.
+	ReadinessBlueprintFlags bool
+
 	ControlManagedFeatures map[string]string // CONTROL_MANAGED_FEATURES — presentation-only feature reasons
 
 	// External/custom blueprint sources (git + local).
@@ -294,6 +300,15 @@ func Load(envPath string) (*Config, error) {
 		cfg.DryRun = false
 	default:
 		return nil, fmt.Errorf("config: bad DRY_RUN %q: expected true or false", dry)
+	}
+	readinessFlags := get("READINESS_BLUEPRINT_FLAGS", "false")
+	switch {
+	case readinessFlags == "" || strings.EqualFold(readinessFlags, "false"):
+		cfg.ReadinessBlueprintFlags = false
+	case strings.EqualFold(readinessFlags, "true"):
+		cfg.ReadinessBlueprintFlags = true
+	default:
+		return nil, fmt.Errorf("config: bad READINESS_BLUEPRINT_FLAGS %q: expected true or false", readinessFlags)
 	}
 	tick := get("TICK_DEFAULT", "5s")
 	d, derr := time.ParseDuration(tick)

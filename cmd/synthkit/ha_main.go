@@ -568,6 +568,7 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 				so.EmitEvent("config_change", configChangeAttrs(s), configChangeBody(s))
 			}
 		})
+	applyReadinessBlueprintFlags(handler, cfg, v.runner)
 	mux := http.NewServeMux()
 	mountControlHandler(mux, cfg.ControlBasePath, handler)
 	mux.Handle("/", jsonHost(v.runner, cfg.ControlToken))
