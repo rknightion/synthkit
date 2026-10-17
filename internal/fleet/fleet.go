@@ -97,6 +97,10 @@ type Config struct {
 	// ObserveReceipt, when non-nil, receives the bounded configuration-receipt result from each
 	// GetConfig call. It never receives raw configuration or response fields.
 	ObserveReceipt ReceiptObserver
+	// Paused, when non-nil and true, suspends the lifecycle loop: a reconcile makes no request of
+	// any kind (no registration, heartbeat or unregistration) and leaves registered collectors as
+	// they are. Explicit teardown (Unregister, Cleanup) is unaffected. nil ⇒ never paused.
+	Paused func() bool
 }
 
 // RosterProvider returns the desired collector set at call time. A static fleet uses a closure

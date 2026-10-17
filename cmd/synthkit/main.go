@@ -564,6 +564,12 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		diag.Add(d.Severity, d.Source, d.Stage, d.Detail)
 		skippedBlueprints++
 	}
+	// STARTUP_DISABLED_KINDS is validated against the catalog's registered construct kinds before the
+	// SM handoff can strip or publish anything; seeding the control state happens just before the first
+	// snapshot.
+	if err := applyStartupDisabledKinds(reg, accepted, cfg.StartupDisabledKinds); err != nil {
+		return err
+	}
 	// The SM handoff is resolved before runner construction. It always writes the exact current
 	// snapshot for a selected SM lane and removes SM constructs unless registration matches it.
 	smStore, err := configuredSMStore(cfg, backend)
@@ -612,7 +618,10 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		diag.Add("warning", sw.Blueprint, "incident", sw.Message)
 	}
 
-	// Apply the persisted control snapshot before the first tick.
+	// Apply the persisted control snapshot before the first tick, with the startup kinds unioned in.
+	if err := seedStartupDisabledKinds(context.Background(), store, cfg.StartupDisabledKinds); err != nil {
+		return err
+	}
 	r.ApplyControl(store.Snapshot())
 	// Self-observability (OTLP → a SEPARATE self-obs stack). The generator's OWN operability
 	// telemetry, on a separate stack + credential triplet from all synthetic data — a no-op when

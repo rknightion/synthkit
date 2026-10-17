@@ -395,6 +395,11 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	if len(skipped) > 0 {
 		return nil, fmt.Errorf("HA selected blueprint set failed validation")
 	}
+	if !cfg.FleetUnregister {
+		if err := applyStartupDisabledKinds(reg, accepted, cfg.StartupDisabledKinds); err != nil {
+			return nil, err
+		}
+	}
 	smStore, err := configuredSMStore(cfg, backend)
 	if err != nil {
 		return nil, err
@@ -764,7 +769,9 @@ func runHALifecycle(cfg *config.Config, once bool, terminate <-chan struct{}, de
 				if err := leader.manager.CommitResolved(ctx, leader.manifest, leader.loaded, leader.diagnostics); err != nil {
 					return err
 				}
-				leader.runner.ApplyControl(leader.store.Snapshot())
+				if err := applyActivatedControl(ctx, cfg, leader); err != nil {
+					return err
+				}
 				return ctx.Err()
 			}); err != nil {
 				return err

@@ -109,6 +109,7 @@ type Store struct {
 	backend        StateBackend
 	casAttempts    int
 	outcomeUnknown bool
+	startupKinds   []string // kinds named by STARTUP_DISABLED_KINDS: always valid in POST /control/kinds
 }
 
 // NewStore loads the snapshot at path (defaults apply when absent/corrupt — loud log,
@@ -515,6 +516,49 @@ func validateKinds(kinds []string, schema Schema) error {
 	return nil
 }
 
+// ValidateKinds is the validation POST /control/kinds applies, exported for startup seeding: every
+// bare construct kind must exist in the schema's derived kind set, otherwise the error names it.
+func ValidateKinds(kinds []string, schema Schema) error { return validateKinds(kinds, schema) }
+
+// SeedDisabledKinds unions kinds into the stored disabled_kinds and persists the result through the
+// ordinary mutation path (so it is gated, atomic and, for a Kubernetes backend, compare-and-swapped
+// like any POST). Existing entries keep their order and the new ones are appended. An empty or
+// already-contained list performs no write. Startup calls this before the first control snapshot is
+// applied; POST /control/kinds afterwards still replaces the whole list. The kinds also stay valid
+// for POST /control/kinds and appear in the schema's kinds even when the runner no longer carries a
+// construct of that kind (a startup-disabled Synthetic Monitoring lane is removed from the process),
+// so re-posting the list GET /control/state returned is accepted.
+func (s *Store) SeedDisabledKinds(ctx context.Context, kinds []string) (State, error) {
+	if len(kinds) == 0 {
+		return s.Snapshot(), nil
+	}
+	s.mu.Lock()
+	for _, k := range kinds {
+		if !slices.Contains(s.startupKinds, k) {
+			s.startupKinds = append(s.startupKinds, k)
+		}
+	}
+	s.mu.Unlock()
+	missing := false
+	current := s.Snapshot().DisabledKinds
+	for _, k := range kinds {
+		if !slices.Contains(current, k) {
+			missing = true
+			break
+		}
+	}
+	if !missing {
+		return s.Snapshot(), nil
+	}
+	return s.UpdateContext(ctx, func(st *State) {
+		for _, k := range kinds {
+			if !slices.Contains(st.DisabledKinds, k) {
+				st.DisabledKinds = append(st.DisabledKinds, k)
+			}
+		}
+	})
+}
+
 // ModeInfo is one failure mode in the schema.
 type ModeInfo struct {
 	Name string `json:"name"`
@@ -630,4 +674,27 @@ type IncidentInfo struct {
 type IncidentSource interface {
 	ControlIncidents() []IncidentInfo
 	ValidateRuntimeIncident(RuntimeIncident) error
+}
+
+// StartupKinds returns the kinds seeded by SeedDisabledKinds.
+func (s *Store) StartupKinds() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string{}, s.startupKinds...)
+}
+
+// startupKindsSource adds the startup-seeded kinds to the runner-derived schema's kind set.
+type startupKindsSource struct {
+	SchemaSource
+	store *Store
+}
+
+func (s startupKindsSource) ControlSchema() Schema {
+	schema := s.SchemaSource.ControlSchema()
+	for _, k := range s.store.StartupKinds() {
+		if !slices.Contains(schema.Kinds, k) {
+			schema.Kinds = append(schema.Kinds, k)
+		}
+	}
+	return schema
 }

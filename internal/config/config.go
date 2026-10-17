@@ -62,20 +62,24 @@ type Config struct {
 	SigilTenantID string // GC_SIGIL_TENANT_ID
 	SigilToken    string // GC_SIGIL_TOKEN
 
-	DryRun           bool          // DRY_RUN (default true)
-	MasterTick       time.Duration // TICK_DEFAULT (default 5s)
-	MaxDPMPerSeries  int           // MAX_DPM_PER_SERIES (default 6) — ceiling for explicit per-blueprint high_dpm cadence
-	TickTimeout      time.Duration // TICK_TIMEOUT seconds (0/unset = disabled) — optional per-blueprint per-tick backstop
-	SeriesCap        int           // SERIES_CAP global sink backstop (0 = unlimited)
-	BlueprintsDir    string        // BLUEPRINTS (default ./blueprints)
-	BlueprintNames   []string      // BLUEPRINT_NAMES (empty = none; exact comma-separated names; "*" = all)
-	BlueprintDataDir string        // BLUEPRINT_DATA_DIR — persisted staging root for custom/git blueprints (default ./data/blueprints)
-	HTTPAddr         string        // JSON_HTTP_ADDR — control plane + Infinity JSON host over HTTP (default 127.0.0.1:8088)
-	HostBind         string        // SYNTHKIT_BIND — effective host-side Compose publish address
-	SnapshotPath     string        // CONFIG_SNAPSHOT_PATH — control-plane state (default ./control-state.json)
-	ControlBasePath  string        // CONTROL_BASE_PATH — trusted external proxy prefix, empty or canonical absolute path
-	ControlToken     string        // CONTROL_TOKEN — HTTP Basic password (user: control) for sensitive reads and mutations (empty = auth disabled)
-	ControlExposure  string        // CONTROL_EXPOSURE_ACK — trusted-network | tls-proxy for non-loopback exposure
+	DryRun          bool          // DRY_RUN (default true)
+	MasterTick      time.Duration // TICK_DEFAULT (default 5s)
+	MaxDPMPerSeries int           // MAX_DPM_PER_SERIES (default 6) — ceiling for explicit per-blueprint high_dpm cadence
+	TickTimeout     time.Duration // TICK_TIMEOUT seconds (0/unset = disabled) — optional per-blueprint per-tick backstop
+	SeriesCap       int           // SERIES_CAP global sink backstop (0 = unlimited)
+	BlueprintsDir   string        // BLUEPRINTS (default ./blueprints)
+	BlueprintNames  []string      // BLUEPRINT_NAMES (empty = none; exact comma-separated names; "*" = all)
+	// StartupDisabledKinds is the STARTUP_DISABLED_KINDS list (comma-separated bare construct kinds,
+	// default empty): kinds seeded into control disabled_kinds before the first tick. The kinds are
+	// validated against the catalog's registered construct kinds at startup, not here.
+	StartupDisabledKinds []string
+	BlueprintDataDir     string // BLUEPRINT_DATA_DIR — persisted staging root for custom/git blueprints (default ./data/blueprints)
+	HTTPAddr             string // JSON_HTTP_ADDR — control plane + Infinity JSON host over HTTP (default 127.0.0.1:8088)
+	HostBind             string // SYNTHKIT_BIND — effective host-side Compose publish address
+	SnapshotPath         string // CONFIG_SNAPSHOT_PATH — control-plane state (default ./control-state.json)
+	ControlBasePath      string // CONTROL_BASE_PATH — trusted external proxy prefix, empty or canonical absolute path
+	ControlToken         string // CONTROL_TOKEN — HTTP Basic password (user: control) for sensitive reads and mutations (empty = auth disabled)
+	ControlExposure      string // CONTROL_EXPOSURE_ACK — trusted-network | tls-proxy for non-loopback exposure
 
 	ControlManagedFeatures map[string]string // CONTROL_MANAGED_FEATURES — presentation-only feature reasons
 
@@ -184,6 +188,7 @@ func Load(envPath string) (*Config, error) {
 		SigilToken:             get("GC_SIGIL_TOKEN", ""),
 		BlueprintsDir:          get("BLUEPRINTS", "./blueprints"),
 		BlueprintNames:         parseBlueprintNames(get("BLUEPRINT_NAMES", "")),
+		StartupDisabledKinds:   parseKindList(get("STARTUP_DISABLED_KINDS", "")),
 		BlueprintDataDir:       get("BLUEPRINT_DATA_DIR", "./data/blueprints"),
 		HTTPAddr:               get("JSON_HTTP_ADDR", "127.0.0.1:8088"),
 		HostBind:               get("SYNTHKIT_BIND", ""),
@@ -677,6 +682,10 @@ func parseBlueprintNames(raw string) []string {
 	}
 	return names
 }
+
+// parseKindList parses a comma-separated list of construct kinds with the same trimming,
+// empty-entry skipping and first-seen de-duplication as the blueprint-name selector.
+func parseKindList(raw string) []string { return parseBlueprintNames(raw) }
 
 // ValidateLive checks the credentials a live (non-dry-run) push needs.
 func (c *Config) ValidateLive() error {

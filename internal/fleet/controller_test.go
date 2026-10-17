@@ -104,3 +104,65 @@ func TestControllerForwardsBoundedConfigReceiptSeparatelyFromHeartbeat(t *testin
 		t.Fatalf("receipt = %+v, want a bounded received digest", got)
 	}
 }
+
+// TestControllerPausedReconcileIsSilentAndKeepsRegistrations: while Paused reports true a reconcile
+// fires no event (register, heartbeat or unregister), including for an empty want; resuming
+// heartbeats the already-registered collectors without registering them again.
+func TestControllerPausedReconcileIsSilentAndKeepsRegistrations(t *testing.T) {
+	var mu sync.Mutex
+	counts := map[string]int{}
+	obs := func(_ context.Context, ev fleethook.Event) {
+		mu.Lock()
+		counts[ev.Op]++
+		mu.Unlock()
+	}
+	paused := false
+	c := NewController(Config{DryRun: true, FMURL: "http://x", StackID: "s", Token: "t", Observe: obs, Paused: func() bool { return paused }})
+	roster := []Collector{{ID: "c1"}, {ID: "c2"}}
+	if err := c.reconcile(context.Background(), roster); err != nil {
+		t.Fatal(err)
+	}
+	registered, heartbeats := counts[fleethook.OpRegister], counts[fleethook.OpHeartbeat]
+	if registered != 2 || heartbeats != 2 {
+		t.Fatalf("setup counts = %v", counts)
+	}
+	paused = true
+	for _, want := range [][]Collector{roster, nil} {
+		if err := c.reconcile(context.Background(), want); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if counts[fleethook.OpRegister] != registered || counts[fleethook.OpHeartbeat] != heartbeats || counts[fleethook.OpUnregister] != 0 {
+		t.Fatalf("paused reconcile made requests: %v", counts)
+	}
+	paused = false
+	if err := c.reconcile(context.Background(), roster); err != nil {
+		t.Fatal(err)
+	}
+	if counts[fleethook.OpRegister] != registered || counts[fleethook.OpHeartbeat] != heartbeats+2 {
+		t.Fatalf("resume counts = %v", counts)
+	}
+}
+
+// TestControllerPauseMidReconcileStopsRemainingRequests: a pause that lands while a reconcile is
+// already running (the kind disabled by a control POST) stops the requests for later collectors.
+func TestControllerPauseMidReconcileStopsRemainingRequests(t *testing.T) {
+	var mu sync.Mutex
+	registers := 0
+	paused := false
+	obs := func(_ context.Context, ev fleethook.Event) {
+		if ev.Op == fleethook.OpRegister {
+			mu.Lock()
+			registers++
+			paused = true
+			mu.Unlock()
+		}
+	}
+	c := NewController(Config{DryRun: true, FMURL: "http://x", StackID: "s", Token: "t", Observe: obs, Paused: func() bool { mu.Lock(); defer mu.Unlock(); return paused }})
+	if err := c.reconcile(context.Background(), []Collector{{ID: "c1"}, {ID: "c2"}, {ID: "c3"}}); err != nil {
+		t.Fatal(err)
+	}
+	if registers != 1 {
+		t.Fatalf("registered %d collectors after the pause landed, want 1", registers)
+	}
+}

@@ -135,6 +135,30 @@ failure. Partial registration inputs fail closed; they do not silently downgrade
 
 See [Credentials](credentials.md) for token-scoping guidance.
 
+### Disabling Fleet Management from the first tick
+
+Leaving the FM credentials empty does not stop the Fleet `alloy_*` series: fleet metrics emit without them.
+To keep a deployment emission-only, with no Fleet series and no FM API traffic, disable the kind at
+startup:
+
+```bash
+STARTUP_DISABLED_KINDS=fleet_management
+```
+
+The kind is disabled before the first tick, so no Fleet `alloy_*` series is pushed (other constructs, such as the Alloy health addon or a
+Kubernetes monitoring cluster, can still emit their own `alloy_*` series) and the controller
+registers and heartbeats nothing, even when `GC_FM_URL`, `GC_FM_STACK_ID` and `GC_FM_TOKEN` are set.
+The list is unioned with the `disabled_kinds` persisted in the control snapshot, and removing the
+variable later does not re-enable the kind while the snapshot still lists it. A later
+`POST /control/kinds` replaces the whole list, and the next restart adds the startup kinds back.
+
+Disabling `fleet_management` (at startup or at runtime) suspends the controller rather than tearing
+the fleet down: it sends no request of any kind while disabled, collectors that are already
+registered stay registered, and enabling the kind again resumes heartbeats. Disabling the kind never
+unregisters collectors (a roster that shrinks while the kind is enabled still does; full teardown is
+the explicit `synthkit -fleet-unregister` path). The precedence rules are in
+[control-plane.md](control-plane.md#disabling-kinds-at-startup).
+
 ---
 
 ## Enabling Fleet Management

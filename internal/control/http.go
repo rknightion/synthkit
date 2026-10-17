@@ -248,7 +248,7 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	}
 	var schemaSrc SchemaSource
 	if len(src) > 0 {
-		schemaSrc = src[0]
+		schemaSrc = startupKindsSource{SchemaSource: src[0], store: store}
 	}
 	var srcProvider BlueprintSourcer
 	if len(src) > 0 {

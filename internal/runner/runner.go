@@ -990,13 +990,24 @@ func (r *Runner) startFleetControllers(ctx context.Context, wg *sync.WaitGroup) 
 	}
 	// One owner of the persisted set: a blueprint-local diff must never retire a sibling.
 	// Even an empty selected roster reconciles IDs left by removed blueprints.
-	controller := fleet.NewController(r.opts.Fleet)
+	fleetCfg := r.opts.Fleet
+	callerPaused := fleetCfg.Paused
+	fleetCfg.Paused = func() bool { return r.fleetKindDisabled() || (callerPaused != nil && callerPaused()) }
+	controller := fleet.NewController(fleetCfg)
 	r.fleetControllers = append(r.fleetControllers, controller)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		controller.StartDynamic(ctx, r.selectedFleetProvider())
 	}()
+}
+
+// fleetKindDisabled reports whether the fleet_management kind is currently disabled. The Fleet
+// controller is paused (not torn down) while it is: no request of any kind, registered collectors
+// left in place, heartbeats resume when the kind is enabled again. Teardown stays UnregisterFleet.
+func (r *Runner) fleetKindDisabled() bool {
+	st := r.ctl.Load()
+	return st != nil && slices.Contains(st.DisabledKinds, fleetmgmt.Kind)
 }
 
 func (r *Runner) selectedFleetProvider() fleet.RosterProvider {

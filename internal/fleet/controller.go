@@ -139,6 +139,9 @@ func (c *Controller) persist(ctx context.Context, id string, present bool) error
 	return bound.Run(ctx, ha.Mutation, func(ctx context.Context) error { return c.cfg.Store.Set(ctx, id, present) })
 }
 
+// paused reports whether the lifecycle loop is suspended (Config.Paused). Explicit teardown never consults it.
+func (c *Controller) paused() bool { return c.cfg.Paused != nil && c.cfg.Paused() }
+
 // authMissing reports the token-less non-dry-run state where registration never happens, so the
 // unregister paths must be no-ops (mirrors the old unregisterAll guard, controller.go:114-121).
 func (c *Controller) authMissing() bool {
@@ -151,7 +154,7 @@ func (c *Controller) reconcile(ctx context.Context, want []Collector) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	if c.authMissing() {
+	if c.authMissing() || c.paused() {
 		return nil
 	}
 	if err := c.load(ctx); err != nil {
@@ -176,6 +179,9 @@ func (c *Controller) reconcile(ctx context.Context, want []Collector) error {
 	for _, col := range want {
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+		if c.paused() { // a pause that lands mid-reconcile stops the remaining requests too
+			return errors.Join(errs...)
 		}
 		if !c.confirmed[col.ID] {
 			// Record intent BEFORE HTTP: a lost response or crash must not orphan an ID.

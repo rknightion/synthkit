@@ -305,6 +305,57 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
 
 ---
 
+## Disabling kinds at startup
+
+`POST /control/kinds` needs a running process, so the first tick has already gone out by the time it
+is called. To keep a kind dark from the first tick, set `STARTUP_DISABLED_KINDS` to a comma-separated
+list of bare construct kinds (see [configuration.md](configuration.md)):
+
+```bash
+STARTUP_DISABLED_KINDS=synthetic_monitoring,fleet_management
+```
+
+The setting is generic: any construct kind the catalog registers is valid, whether or not a selected
+blueprint declares it, so setup mode and a partial boot set accept the same value. A kind the catalog
+does not register (a typo) fails startup with an error naming it, using the same kind check as
+`POST /control/kinds`.
+
+**Precedence.** The effective `disabled_kinds` at boot is the list persisted in the snapshot at
+`CONFIG_SNAPSHOT_PATH` (or the Kubernetes control document) **unioned** with the startup list. The
+union is written back through the ordinary state mutation path and applied before the first tick, so
+`GET /control/state` reports the effective list from the first request. With HA enabled, only the
+leader writes it, during activation.
+
+- `POST /control/kinds` still **replaces** the whole list and persists the replacement. A replacement
+  that omits a startup kind re-enables it for the rest of the run, except `synthetic_monitoring`: its
+  lane was removed from the process at startup, so omitting it does not restore the lane (see below).
+- On the next restart the startup kinds are added again on top of whatever was persisted, so removing
+  a kind from the live list never outlives a restart while the variable still names it.
+- Removing a kind from `STARTUP_DISABLED_KINDS` does not re-enable it while the snapshot still
+  lists it: replace the list with `POST /control/kinds` first.
+- `POST /control/reset` clears the list along with the rest of the state for the rest of the run; the
+  next restart adds the startup kinds again.
+
+Disabling a kind stops its construct ticks, so no series of that kind is pushed. Two kinds also have
+a side effect outside the tick:
+
+- `fleet_management`: while the kind is disabled, at startup or through `POST /control/kinds`, the
+  Fleet Management controller is suspended. It makes no request of any kind: no registration, no
+  heartbeat and no unregistration. Collectors an earlier run or earlier heartbeats registered stay
+  registered (they simply stop heartbeating), and enabling the kind again resumes heartbeats.
+  Disabling the kind never unregisters anything (ordinary roster shrinkage while the kind is enabled
+  still does; full teardown is the explicit `-fleet-unregister` path). See
+  [fleet-management.md](fleet-management.md#disabling-fleet-management-from-the-first-tick).
+- `synthetic_monitoring`: the lane is removed before the provisioning handoff, as an unregistered lane
+  is, so the provisioner's snapshot is removed (an empty lane set invalidates any prior one) and
+  `sm-provision` refuses to run with "private snapshot is unavailable or invalid"; nothing is registered
+  with the Synthetic Monitoring API. The kind stays valid in `POST /control/kinds` and listed in `/control/schema` kinds,
+  so re-posting the list `GET /control/state` returned works. Because the lane no longer exists in the
+  process, a replacement that omits `synthetic_monitoring` does **not** bring it back: it stays absent
+  until the variable is removed and the process restarts.
+
+---
+
 ## State persistence
 
 Control state (volume multiplier, active scenarios, scaling, disabled blueprints/constructs/kinds) persists across restarts in the snapshot file at `CONFIG_SNAPSHOT_PATH`. The file is written lazily on the first mutation — it is normal for it not to exist on a fresh deploy.
