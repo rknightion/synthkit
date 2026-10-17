@@ -1,9 +1,10 @@
 ---
 id: SKT-0143
 title: Disable construct kinds from the first tick with a startup setting
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-17 15:12'
+updated_date: '2026-10-17 20:02'
 labels:
   - control
 dependencies: []
@@ -27,17 +28,23 @@ The new startup setting follows the env surface rule in AGENTS.md: a literal get
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A startup setting accepts a list of construct kinds and seeds the disabled kinds before the first tick; a runner test with synthetic_monitoring and fleet_management listed shows the first tick pushes no series of those kinds, including no alloy_* series, with no POST /control/kinds call made
-- [ ] #2 With those kinds listed at startup, a test using fake SM and Fleet Management endpoints records zero registration, provisioning or heartbeat requests from the first tick onward
-- [ ] #3 An unknown kind is rejected at startup with an error naming it, using the same validation as POST /control/kinds (validateKinds); a config test covers both a valid and an unknown kind
-- [ ] #4 The precedence between the startup list and a persisted CONFIG_SNAPSHOT_PATH disabled_kinds list is documented and tested across a restart, including that a later POST /control/kinds replacement still works and GET /control/state reports the effective list
-- [ ] #5 TestEnvSurfaceAligned passes with the new variable present in the Go read, .env.example and Compose
+- [x] #1 A startup setting accepts a list of construct kinds and seeds the disabled kinds before the first tick; a runner test with synthetic_monitoring and fleet_management listed shows the first tick pushes no series of those kinds, including no alloy_* series, with no POST /control/kinds call made
+- [x] #2 With those kinds listed at startup, a test using fake SM and Fleet Management endpoints records zero registration, provisioning or heartbeat requests from the first tick onward
+- [x] #3 An unknown kind is rejected at startup with an error naming it, using the same validation as POST /control/kinds (validateKinds); a config test covers both a valid and an unknown kind
+- [x] #4 The precedence between the startup list and a persisted CONFIG_SNAPSHOT_PATH disabled_kinds list is documented and tested across a restart, including that a later POST /control/kinds replacement still works and GET /control/state reports the effective list
+- [x] #5 TestEnvSurfaceAligned passes with the new variable present in the Go read, .env.example and Compose
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
-- [ ] #4 docs/configuration.md, docs/control-plane.md and docs/fleet-management.md reconciled, and just docs-check passes
+- [x] #4 docs/configuration.md, docs/control-plane.md and docs/fleet-management.md reconciled, and just docs-check passes
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed b9a47b2 in loop50 (rc v1.6.0-rc.201). Composed tree 603190b just check and just race green; just gen no drift. DoD #3 just dump not run: no renderer change.
+<!-- SECTION:NOTES:END -->

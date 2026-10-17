@@ -1,9 +1,10 @@
 ---
 id: SKT-0145
 title: Document an emission-only local run against a Grafana Cloud stack
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-17 16:03'
+updated_date: '2026-10-17 20:02'
 labels:
   - docs
   - control
@@ -26,15 +27,21 @@ An operator who wants synthetic data in an existing Grafana Cloud stack, for exa
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A docs page or section gives the emission-only local run on macOS and Linux: DRY_RUN=false, the write token scopes it needs (metrics, logs, traces write), the SKT-0143 startup setting excluding synthetic_monitoring and fleet_management, and an example bundled set of k8s-full-stack, hostfleet, otlp-native, hosts-linux-docker and aws-otlp-native
-- [ ] #2 It states that no backfill exists and how long warm-up takes before rate and histogram panels populate, citing the tick interval and the cumulative state behaviour
-- [ ] #3 It tells the reader how to confirm emission (control UI sink readiness and GET /control/inventory) without starting any Grafana write recipe, and contains no stack name, tenant ID, hostname or credential path
-- [ ] #4 just docs-check passes
+- [x] #1 A docs page or section gives the emission-only local run on macOS and Linux: DRY_RUN=false, the write token scopes it needs (metrics, logs, traces write), the SKT-0143 startup setting excluding synthetic_monitoring and fleet_management, and an example bundled set of k8s-full-stack, hostfleet, otlp-native, hosts-linux-docker and aws-otlp-native
+- [x] #2 It states that no backfill exists and how long warm-up takes before rate and histogram panels populate, citing the tick interval and the cumulative state behaviour
+- [x] #3 It tells the reader how to confirm emission (control UI sink readiness and GET /control/inventory) without starting any Grafana write recipe, and contains no stack name, tenant ID, hostname or credential path
+- [x] #4 just docs-check passes
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed 3af9667 in loop50 (rc v1.6.0-rc.201) as docs/emission-only.md. DoD #3 just dump not applicable (docs only).
+<!-- SECTION:NOTES:END -->

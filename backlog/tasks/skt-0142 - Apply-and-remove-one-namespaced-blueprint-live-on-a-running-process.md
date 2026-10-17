@@ -1,10 +1,10 @@
 ---
 id: SKT-0142
 title: Apply and remove one namespaced blueprint live on a running process
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-17 15:12'
-updated_date: '2026-10-17 16:05'
+updated_date: '2026-10-17 20:02'
 labels:
   - control
   - blueprints
@@ -31,17 +31,23 @@ Out of scope, deliberately. No backfill of history for an applied blueprint. No 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An authenticated control operation applies one namespaced blueprint (identity namespace/name plus an optional opaque owner label string) to a running process without restart; a runner test shows the blueprint emits on the next tick and that GET /control/inventory lists it with its owner label and its construct and workload lanes
-- [ ] #2 A second control operation removes that blueprint; a runner test enumerates its lanes from GET /control/inventory before removal and asserts that after removal none of them (construct, workload, substrate-scoped, cumulative state) appear in inventory or in the next tick pushes, while every other running blueprint is unchanged
-- [ ] #3 Apply is atomic and rejects, with the running set unchanged and no partial lanes, any identity collision against the running set (a substrate identity claim as in blueprint.ValidateSet, or a duplicate namespaced name), invalid YAML, or a name outside the namespace rules; tests cover each rejection and assert the error names the colliding claim
-- [ ] #4 Applied blueprints and their owner labels persist in the CONFIG_SNAPSHOT_PATH snapshot and are restored after a restart, and a removal persists so the blueprint does not return; a restart round-trip test covers apply, remove, and the precedence between this live set and BLUEPRINT_NAMES, with that precedence documented
-- [ ] #5 The operation contains no vendor, product or customer specific logic or names, internal/archtest passes unchanged (TestCatalogImportIsolation), and a `just race` test applies and removes while ticks are running without a data race
+- [x] #1 An authenticated control operation applies one namespaced blueprint (identity namespace/name plus an optional opaque owner label string) to a running process without restart; a runner test shows the blueprint emits on the next tick and that GET /control/inventory lists it with its owner label and its construct and workload lanes
+- [x] #2 A second control operation removes that blueprint; a runner test enumerates its lanes from GET /control/inventory before removal and asserts that after removal none of them (construct, workload, substrate-scoped, cumulative state) appear in inventory or in the next tick pushes, while every other running blueprint is unchanged
+- [x] #3 Apply is atomic and rejects, with the running set unchanged and no partial lanes, any identity collision against the running set (a substrate identity claim as in blueprint.ValidateSet, or a duplicate namespaced name), invalid YAML, or a name outside the namespace rules; tests cover each rejection and assert the error names the colliding claim
+- [x] #4 Applied blueprints and their owner labels persist in the CONFIG_SNAPSHOT_PATH snapshot and are restored after a restart, and a removal persists so the blueprint does not return; a restart round-trip test covers apply, remove, and the precedence between this live set and BLUEPRINT_NAMES, with that precedence documented
+- [x] #5 The operation contains no vendor, product or customer specific logic or names, internal/archtest passes unchanged (TestCatalogImportIsolation), and a `just race` test applies and removes while ticks are running without a data race
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
-- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
-- [ ] #4 docs/custom-blueprints.md (Restart to apply) and docs/control-plane.md reconciled with the new operation, and just docs-check passes
+- [x] #4 docs/custom-blueprints.md (Restart to apply) and docs/control-plane.md reconciled with the new operation, and just docs-check passes
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed 29583af (rc v1.6.0-rc.201) in loop50. just check and just race green on composed tree c167866f; just gen no drift. DoD #3 just dump not run: no renderer change (control plane only).
+<!-- SECTION:NOTES:END -->
