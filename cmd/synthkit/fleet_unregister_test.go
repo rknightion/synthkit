@@ -572,6 +572,11 @@ func TestFleetUnregisterHAInterruptedBeforeLeadership(t *testing.T) {
 				}
 				resp, err := leaseServer.Client().Do(req)
 				if err != nil {
+					// The interruption under test cancels the elector's in-flight Lease reads; a
+					// read the client itself abandoned is expected, not a proxy failure.
+					if r.Context().Err() != nil {
+						return
+					}
 					t.Error(err)
 					w.WriteHeader(500)
 					return
