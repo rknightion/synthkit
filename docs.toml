@@ -34,6 +34,7 @@ Home = "index.md"
     { Installation = "installation.md" },
     { Credentials = "credentials.md" },
     { "Quick Start" = "quickstart.md" },
+    { "Emission-Only Run" = "emission-only.md" },
 ]
 
 [[site.nav]]

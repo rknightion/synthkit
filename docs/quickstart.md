@@ -207,6 +207,7 @@ the deployment verified. Stop the foreground process with Ctrl-C when finished.
 ## Next steps
 
 - [RUNBOOK.md](RUNBOOK.md) — deep verification walkthrough (sink readiness, gcx queries, end-to-end trace correlation check, log correlation, SM/FM verification)
+- [Emission-only local run](emission-only.md) — push to an existing stack with Synthetic Monitoring and Fleet Management kept out, and what warm-up to expect
 - [Deployment](deployment.md) — standing production deploy with docker-compose, the persistent state volume, and the host bind setup
 - [Blueprints overview](blueprints.md) — write your own blueprint
 - [Contributing](contributing.md) — developer and agent workflows

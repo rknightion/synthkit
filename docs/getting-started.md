@@ -5,7 +5,9 @@ description: Mental model and vocabulary for synthkit — blueprints, constructs
 
 # Getting Started
 
-Start with the [Quick Start](quickstart.md) to run one blueprint. This page explains the vocabulary
+Start with the [Quick Start](quickstart.md) to run one blueprint, or the
+[emission-only local run](emission-only.md) to push a bundled set to an existing stack with no
+Synthetic Monitoring or Fleet Management side effects. This page explains the vocabulary
 when you want to understand or customise that example. synthkit models systems and emits their
 telemetry; it does not deploy the systems it models.
 
