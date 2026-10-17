@@ -195,16 +195,16 @@ just dashgen \
 | `-folder <uid>` | no | UID for the generated Folder resource (defaults to `<blueprint>-dashboards`). |
 | `-namespace <name>` | no | Derive every generated identity from `(namespace, legacy UID)` so independent installs of one blueprint do not collide. 1 to 12 characters of `a-z`, `0-9` and `_`, starting with a letter or digit. See [Namespacing dashboard UIDs](#namespacing-dashboard-uids). |
 | `-datasource <group=name>` | yes, repeated | Explicit datasource name for every rendered query group. Generation fails if any group is unmapped. |
+| `-verify-inventory <path>` | no | Generated panel inventory JSON to verify. Replaces generation: supply it with `-observations` and without `-blueprint`, `-out` or `-namespace`. |
+| `-observations <path>` | with `-verify-inventory` | Read-only live query observations JSON, one normalized observation per inventory query. |
 
 `synthkit-dash` emits a Folder resource, a thin index dashboard, a metrics dashboard, and a panel inventory. Additional per-blueprint dashboards are generated when templates are registered for that blueprint. Files are written to the explicit output directory (never stdout). Every inventory row records its dashboard, panel, datasource, ref ID, and rendered query.
 
 For blueprints that define recording/alert rules, `synthkit-dash` also emits a `<blueprint>-rules.json` file.
 
-Push generated dashboards to Grafana with `gcx`:
-
-```bash
-gcx resources push -p dashboards/my-service/
-```
+Push the generated Folder and Dashboard resources with `gcx`. The output directory also holds the rules and
+panel-inventory files, which are not dashboards, so push file by file by resource `kind` as
+`dashboards/examples/README.md` shows, not the whole directory.
 
 ### Namespacing dashboard UIDs
 
@@ -244,12 +244,12 @@ The inventory carries the effective dashboard UIDs, so observations for `-verify
 observations recorded against the legacy UIDs do not match a namespaced inventory. `-namespace` applies to
 generation only and is refused together with `-verify-inventory`.
 
-After collecting one normalized observation per inventory query, classify every panel:
+After collecting one normalized observation per inventory query, classify every panel. Verification mode takes
+both flags together, reads the inventory and observations files, and prints its JSON disposition report to stdout (redirect it to keep it):
 
 ```bash
-just dashgen -verify-inventory dashboards/my-service/panel-inventory.json \
-  -observations observations.json \
-  -verification-out verification.json
+just dashgen -verify-inventory dashboards/my-service/my-service-panel-inventory.json \
+  -observations observations.json > verification.json
 ```
 
 ## synthkit-control-dash — control dashboard generator

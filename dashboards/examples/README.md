@@ -22,15 +22,20 @@ go run ./cmd/synthkit-dash -blueprint blueprints/acme-ai-platform.yaml -out dash
 # Optional thin-index deep-link targets:
 #   -integrations dashboards/examples/integrations.yaml
 
-# 2. Create the generated folder before its dashboards, then validate/push every dashboard JSON.
-# Exclude only *-panel-inventory.json, which is verification input rather than a Grafana resource.
-gcx --context <target-stack> resources validate -p dashboards/examples/acme_ai_platform/acme-ai-platform-dashboards-folder.json
-gcx --context <target-stack> resources push     -p dashboards/examples/acme_ai_platform/acme-ai-platform-dashboards-folder.json
-for dashboard in dashboards/examples/acme_ai_platform/*.json; do
-  case "$dashboard" in *-dashboards-folder.json|*-panel-inventory.json) continue ;; esac
-  gcx --context <target-stack> resources validate -p "$dashboard"
-  gcx --context <target-stack> resources push -p "$dashboard"
-done
+# 2. Validate and push the Folder resource first, then every Dashboard resource. Select by the
+# resource `kind`, not by file name: the generated folder, rules and panel-inventory files are
+# named from the blueprint, `-folder` and `-namespace`, and the rules and inventory files are not
+# Grafana dashboards at all. Needs `jq`.
+push_kind() { # $1 = output dir, $2 = resource kind
+  for f in "$1"/*.json; do
+    [ "$(jq -r '.kind // empty' "$f")" = "$2" ] || continue
+    gcx --context <target-stack> resources validate -p "$f"
+    gcx --context <target-stack> resources push -p "$f"
+  done
+}
+out=dashboards/examples/acme_ai_platform
+push_kind "$out" Folder
+push_kind "$out" Dashboard
 GCX_AGENT_MODE=true gcx dashboards snapshot acme_ai_platform-index --context <target-stack> \
   --output-dir dashboards/examples/acme_ai_platform/snapshots --since 3h --width 1600 --theme dark
 ```
