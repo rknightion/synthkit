@@ -115,7 +115,9 @@ Save catches collisions involving a custom upload against the prospective staged
 
 Custom and git blueprints take effect only on restart and only when selected by exact runtime identity
 or the explicit `*` selector. The runner loads the selected staged snapshot at startup, writes the
-boot manifest, and runs with that fixed set for its lifetime. Restarting does not fetch a newer remote revision. There is no hot-reload.
+boot manifest, and runs with that boot set for its lifetime. Restarting does not fetch a newer remote
+revision. Staged uploads and git snapshots are never hot-reloaded; the one live lever is
+[applying a single blueprint live](#apply-live-without-a-restart), which adds to the boot set.
 
 The control-plane endpoint `GET /control/blueprints/pending` returns the diff between the boot manifest and the current staged state:
 
@@ -142,6 +144,61 @@ kubectl rollout restart deployment/synthkit
 ```
 
 After the process starts, inspect the source row or `GET /control/blueprints/sources`: it records the loaded SHA plus names that loaded and files skipped during that startup. A skipped file is not silently applied; correct it, Fetch now again, and restart.
+
+## Apply live without a restart
+
+`POST /control/blueprints/live` applies one namespaced blueprint to the running process. It takes the
+same `namespace`, `name` and `yaml` as an upload, plus an optional opaque `owner` label (at most 128
+bytes, no control characters) for the caller's own bookkeeping:
+
+```json
+POST /control/blueprints/live
+Content-Type: application/json
+
+{
+  "namespace": "mine",
+  "name": "my-blueprint",
+  "yaml": "name: my-blueprint\n...",
+  "owner": "pipeline-42"
+}
+```
+
+The identity follows the [namespacing](#namespacing) rules (`mine/my-blueprint`). Before anything
+changes, synthkit loads the YAML under that identity and repeats the restart collision check against
+every running blueprint. An invalid document, name or owner returns `400`; a running blueprint with
+the same identity (including a second apply of a live one) or a colliding substrate claim returns
+`409` naming the claim. A rejected apply leaves the running set and the persisted state unchanged.
+On success the response is `{"status":"applied","blueprint":"mine/my-blueprint","owner":"pipeline-42"}`
+and each of the blueprint's lanes emits within one construct interval. `GET /control/inventory`
+lists it with `"live": true`, its owner and its construct and workload lanes.
+
+A live apply cannot carry Synthetic Monitoring. Check registration and probe handoff are admitted
+once, at startup, so a blueprint declaring a `synthetic_monitoring` construct is rejected with `400`
+naming the kind and construct; declare Synthetic Monitoring in a boot blueprint instead. At most 64
+blueprints can be live at once (counting persisted records the restore skipped); the next apply
+returns `409` `live blueprint limit reached (64)`. Each record carries its YAML inline in the control
+snapshot, and the Kubernetes state backend stores that snapshot in one ConfigMap document bounded at
+about 1 MiB, so keep live blueprints small there.
+
+`DELETE /control/blueprints/live?name=mine/my-blueprint` removes it: its constructs, workloads,
+substrate lanes and cumulative counters stop and leave the inventory, and other blueprints are
+unaffected. The same write forgets the control state keyed by that name (its disabled flag, span
+metrics opt-in, active scenarios, construct disables, scaling and runtime incidents), so applying it
+again later starts enabled and from fresh state. Fleet Management collectors it declared leave the
+registered roster and are unregistered on the controller's next reconcile. Rows already recorded in
+`GET /control/status` per-blueprint emission and `GET /control/health` tick health remain until
+restart. DELETE removes any name in the persisted live set, running or not. For a skipped record
+whose name is now a running boot blueprint, DELETE drops only the live record: the boot blueprint
+keeps running and keeps its settings. Boot blueprints themselves are not
+removable this way (`404`). There is no expiry and no history backfill: a live blueprint runs until
+it is removed.
+
+The live set is stored in the control snapshot (`CONFIG_SNAPSHOT_PATH`) and survives a restart. At
+startup the boot set selected by `BLUEPRINT_NAMES` loads first and takes precedence; each persisted
+live blueprint is then re-validated against it. One that no longer loads, or now collides (for
+example because `BLUEPRINT_NAMES` selects a staged upload with the same identity, or because it
+declares Synthetic Monitoring), is skipped and logged as an error rather than failing startup. Its record stays in the snapshot until
+`DELETE /control/blueprints/live` removes it. `POST /control/reset` does not remove live blueprints.
 
 ## skcapture and skforge
 

@@ -93,6 +93,9 @@ func (s *Store) ReconcileDeclaredSources(ctx context.Context, desired []Declared
 func resetOwnedState(st *State) {
 	next := DefaultState()
 	next.DeclaredBlueprintSources = append([]DeclaredSource{}, st.DeclaredBlueprintSources...)
+	// Live-applied blueprints are running topology, not knobs: a knob reset keeps them (and
+	// their persisted record) so state and the running set never diverge. DELETE removes one.
+	next.LiveBlueprints = append([]LiveBlueprint{}, st.LiveBlueprints...)
 	for _, source := range st.BlueprintSources {
 		if source.Declared {
 			next.BlueprintSources = append(next.BlueprintSources, source)

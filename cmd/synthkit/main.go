@@ -596,7 +596,6 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		SendCapacity: cfg.SendCapacity, SendDrainDeadline: cfg.SendDrainDeadline,
 	})
 	loadedBlueprints := 0
-	runtimeResolved := make([]*blueprint.Resolved, 0, len(accepted))
 	for _, res := range accepted {
 		if err := r.AddBlueprint(res); err != nil {
 			log.Printf("ERROR skipping blueprint %q: %v", res.Name, err)
@@ -605,24 +604,29 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			continue
 		}
 		loadedBlueprints++
-		runtimeResolved = append(runtimeResolved, res)
 	}
 	// Degrade has a floor: if every blueprint was skipped (load OR add), there is nothing to run —
 	// fail rather than boot a silent do-nothing instance.
 	if r.BlueprintCount() == 0 && mgr.SelectionRequested() {
 		return fmt.Errorf("no blueprints could be loaded/added from %s (see diagnostics/logs)", cfg.BlueprintsDir)
 	}
-	// Shape-engine incident-schedule warnings collected while wiring blueprints (bad/over-long
-	// incident entries the engine skipped).
-	for _, sw := range r.ShapeWarnings() {
-		diag.Add("warning", sw.Blueprint, "incident", sw.Message)
-	}
-
 	// Apply the persisted control snapshot before the first tick, with the startup kinds unioned in.
+	// Its first call also restores the persisted live-applied blueprints after this boot set
+	// (runner.ApplyControl).
 	if err := seedStartupDisabledKinds(context.Background(), store, cfg.StartupDisabledKinds); err != nil {
 		return err
 	}
 	r.ApplyControl(store.Snapshot())
+	// Shape-engine incident-schedule warnings collected while wiring blueprints, restored live
+	// blueprints included (bad/over-long incident entries the engine skipped).
+	for _, sw := range r.ShapeWarnings() {
+		diag.Add("warning", sw.Blueprint, "incident", sw.Message)
+	}
+	// A persisted live blueprint the restore skipped (it no longer loads, declares Synthetic
+	// Monitoring, or collides with the BLUEPRINT_NAMES boot set) is reported, never fatal.
+	for _, skip := range r.LiveRestoreSkips() {
+		diag.Add("error", skip.Blueprint, "live", skip.Reason)
+	}
 	// Self-observability (OTLP → a SEPARATE self-obs stack). The generator's OWN operability
 	// telemetry, on a separate stack + credential triplet from all synthetic data — a no-op when
 	// disabled/under-configured. Started AFTER the blueprints + control snapshot so its gauges see a
@@ -802,7 +806,8 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			Queues:      func() []pushstatus.QueueStat { return ps.SnapshotQueues(r.QueueDepths()) },
 			ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, Readiness: readiness,
 			Optional: func() []optionallane.Disposition {
-				facts := collectOptionalRuntimeFacts(runtimeResolved, mgr.Sources(), cfg, smState)
+				// The running set, not the boot list: restored and live-applied blueprints count too.
+				facts := collectOptionalRuntimeFacts(r.RunningResolved(), mgr.Sources(), cfg, smState)
 				return optionalRuntimeDispositions(cfg, facts, ps.SnapshotLanes(), fs.Snapshot(), r.FleetRosterCount(), so.Enabled(), prof != nil && perr == nil)
 			},
 			DryRun: cfg.DryRun,

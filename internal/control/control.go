@@ -56,6 +56,18 @@ type State struct {
 	RuntimeIncidents         []RuntimeIncident         `json:"runtime_incidents"`
 	BlueprintSources         []SourceView              `json:"blueprint_sources"`          // instance-owned configuration and lifecycle records
 	DeclaredBlueprintSources []DeclaredSource          `json:"declared_blueprint_sources"` // last accepted desired definitions, independent of lifecycle records
+	LiveBlueprints           []LiveBlueprint           `json:"live_blueprints"`            // blueprints applied live (POST /control/blueprints/live), restored after the boot set
+}
+
+// LiveBlueprint is one blueprint applied to a running process through
+// POST /control/blueprints/live. Name is the sanitized namespaced runtime identity
+// ("<namespace>/<name>"); Namespace is that sanitized prefix; YAML is the submitted document
+// (its bare top-level name); Owner is the caller's optional opaque label. NO omitempty (I24).
+type LiveBlueprint struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	YAML      string `json:"yaml"`
+	Owner     string `json:"owner"`
 }
 
 // SpanMetricsEnabled reports whether synthkit should emit its OWN backend spanmetrics +
@@ -89,6 +101,7 @@ func DefaultState() State {
 		RuntimeIncidents:         []RuntimeIncident{},
 		BlueprintSources:         []SourceView{},
 		DeclaredBlueprintSources: []DeclaredSource{},
+		LiveBlueprints:           []LiveBlueprint{},
 	}
 }
 
@@ -164,6 +177,9 @@ func newStore(path string, gate ha.LeaderGate, strict bool) (*Store, error) {
 			}
 			if s.BlueprintSources == nil {
 				s.BlueprintSources = []SourceView{}
+			}
+			if s.LiveBlueprints == nil {
+				s.LiveBlueprints = []LiveBlueprint{}
 			}
 			if s.VolumeMultiplier <= 0 {
 				s.VolumeMultiplier = 1.0
@@ -363,6 +379,7 @@ func cloneState(s State) State {
 	out.SpanMetricsBlueprints = append([]string{}, s.SpanMetricsBlueprints...)
 	out.RuntimeIncidents = append([]RuntimeIncident{}, s.RuntimeIncidents...)
 	out.DeclaredBlueprintSources = append([]DeclaredSource{}, s.DeclaredBlueprintSources...)
+	out.LiveBlueprints = append([]LiveBlueprint{}, s.LiveBlueprints...)
 	out.BlueprintSources = make([]SourceView, len(s.BlueprintSources))
 	for i, source := range s.BlueprintSources {
 		if source.EffectiveNames != nil {

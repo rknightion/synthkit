@@ -2,6 +2,8 @@
 
 package control
 
+import "errors"
+
 // BlueprintAdmin is the control-plane-facing capability set for the external/custom blueprints
 // feature. Implemented by *bpsource.Manager; control depends ONLY on this interface —
 // never imports bpsource (I24 isolation: control defines its own DTOs, mapped field-for-field
@@ -81,4 +83,40 @@ type SourceView struct {
 	PendingRestart   bool     `json:"pending_restart"`    // fetched snapshot differs from loaded snapshot
 	LoadedNames      []string `json:"loaded_names"`       // effective names successfully loaded at startup
 	Skipped          []string `json:"skipped"`            // restart load failures for this source
+}
+
+// Live-apply error classes. A LiveBlueprintRuntime wraps exactly one of these so the handler maps
+// it to a status without parsing messages; the wrapped message names the offending claim.
+var (
+	ErrLiveInvalid   = errors.New("invalid live blueprint")        // 400: YAML, name or runtime validation
+	ErrLiveCollision = errors.New("live blueprint collision")      // 409: running-set identity claim
+	ErrLiveNotFound  = errors.New("blueprint is not live-applied") // 404: DELETE of a non-live name
+)
+
+// LiveBlueprintRuntime applies and removes one namespaced blueprint on a running process.
+// Implemented by the runner and discovered on the handler's schema source, like IncidentSource.
+// Both calls are atomic: persist runs after validation and before the running set changes, and
+// an error from persist leaves the running set untouched. Remove's persist receives forgetKnobs:
+// false when a boot blueprint with the same identity is still running, so only the live record is
+// dropped and that boot blueprint's per-name control state is kept.
+type LiveBlueprintRuntime interface {
+	ApplyLiveBlueprint(lb LiveBlueprint, persist func() error) error
+	RemoveLiveBlueprint(name string, recorded bool, persist func(forgetKnobs bool) error) error
+}
+
+// MaxLiveBlueprints caps the live-applied set: each record carries its YAML inline in the control
+// document, which a Kubernetes ConfigMap backend bounds at about 1 MiB.
+const MaxLiveBlueprints = 64
+
+// LiveApplyResponse is the body of a successful POST /control/blueprints/live.
+type LiveApplyResponse struct {
+	Status    string `json:"status"`
+	Blueprint string `json:"blueprint"`
+	Owner     string `json:"owner,omitempty"`
+}
+
+// LiveRemoveResponse is the body of a successful DELETE /control/blueprints/live.
+type LiveRemoveResponse struct {
+	Status    string `json:"status"`
+	Blueprint string `json:"blueprint"`
 }

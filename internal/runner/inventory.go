@@ -178,8 +178,9 @@ func (r *Runner) Inventory() control.InventoryReport {
 	rep := control.InventoryReport{}
 	totalSeries := int64(0)
 	totalConstructs := 0
-	for _, bp := range r.bps {
-		bi := control.BlueprintInventory{Blueprint: bp.name}
+	set := r.blueprintSet()
+	for _, bp := range set {
+		bi := control.BlueprintInventory{Blueprint: bp.name, Owner: bp.owner, Live: bp.live}
 		names := map[string]struct{}{}
 		labels := map[string]struct{}{}
 		add := func(ci *constructInv) {
@@ -221,6 +222,6 @@ func (r *Runner) Inventory() control.InventoryReport {
 		rep.Blueprints = append(rep.Blueprints, bi)
 	}
 	sort.Slice(rep.Blueprints, func(i, j int) bool { return rep.Blueprints[i].Blueprint < rep.Blueprints[j].Blueprint })
-	rep.Totals = control.InventoryTotals{DistinctSeries: totalSeries, Constructs: totalConstructs, Blueprints: len(r.bps)}
+	rep.Totals = control.InventoryTotals{DistinctSeries: totalSeries, Constructs: totalConstructs, Blueprints: len(set)}
 	return rep
 }

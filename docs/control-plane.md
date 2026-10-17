@@ -191,7 +191,7 @@ when the target node has no matching emitted metric or log family.
 | `GET /control/status` | Sink readiness strip: `last_success_ms`, failure counts, dry-run flag, per-blueprint emission, Fleet Management health, persist health. |
 | `GET /control/health` | Per-construct tick health and process metrics. |
 | `GET /control/config` | Redacted runtime configuration (secrets replaced with `[redacted]`). |
-| `GET /control/inventory` | Live emission and cardinality inventory per blueprint and construct. Each construct may expose a low-cardinality query identity: its explicit scope plus only the declared selectors needed to query it. Blueprint-scoped output has its `blueprint` selector; substrate output instead names its declared substrate identity and never gains a blueprint selector. |
+| `GET /control/inventory` | Live emission and cardinality inventory per blueprint and construct. Each construct may expose a low-cardinality query identity: its explicit scope plus only the declared selectors needed to query it. Blueprint-scoped output has its `blueprint` selector; substrate output instead names its declared substrate identity and never gains a blueprint selector. A blueprint applied with `POST /control/blueprints/live` also carries `"live": true` and its `owner` label when one was given; other entries omit both fields. |
 | `GET /control/diagnostics` | Load-time problems: skipped blueprints, dropped config entries, warnings. Errors first. |
 | `GET /control/incidents` | Declared and runtime incidents with authoritative `active_now` flags. |
 | `GET /control/blueprint?blueprint=NAME` | Raw YAML of a named blueprint (text/plain). |
@@ -223,11 +223,13 @@ auth when `CONTROL_TOKEN` is set; only `/healthz` remains public.
 | `DELETE /control/incidents/{id}` | — | Remove a runtime incident by ID. |
 | `POST /control/blueprints/custom` | `{"namespace": "...", "name": "...", "yaml": "..."}` | Validate the exact upload against the prospective bundled/custom/git set, reject identity collisions, and stage it for the next restart. The response names its effective namespaced runtime identity. See [custom-blueprints.md](custom-blueprints.md). |
 | `DELETE /control/blueprints/custom?name=ns/name` | — | Remove a staged custom blueprint. |
+| `POST /control/blueprints/live` | `{"namespace": "...", "name": "...", "yaml": "...", "owner": "..."}` | Apply one namespaced blueprint to the running process without a restart. `owner` is optional and opaque (at most 128 bytes, no control characters). The blueprint is validated against the running set and only then persisted and started; `200 {"status":"applied","blueprint":"ns/name","owner":"..."}`, `400` for invalid YAML, name or owner or a blueprint declaring Synthetic Monitoring (boot blueprints only), `409` naming the colliding claim (a running `ns/name`, including a re-apply, or a substrate identity) or `live blueprint limit reached (64)`, `404` when blueprint admin is not configured. Lanes emit within one construct interval. See [custom-blueprints.md](custom-blueprints.md#apply-live-without-a-restart). |
+| `DELETE /control/blueprints/live?name=ns/name` | — | Remove a live-applied blueprint and every lane and cumulative counter it owned, and forget its per-name control state (disable, scaling, runtime incidents and similar) in the same write; its Fleet Management collectors are unregistered on the next reconcile, while status and health rows remain until restart. Any name in the persisted live set is removable. For a skipped record whose name is now a running boot blueprint, DELETE drops only the live record and keeps that boot blueprint running with its settings. `200 {"status":"removed","blueprint":"ns/name"}`, or `404` when the name was not live-applied (boot blueprints are not removable live). |
 | `POST /control/blueprints/sources` | SourceView JSON | Upsert a git blueprint source. Token value never echoed in the response. |
 | `DELETE /control/blueprints/sources?id=<id>` | — | Remove a git blueprint source. |
 | `POST /control/blueprints/sources/fetch?id=<id>` | — | Trigger an immediate git fetch for a source. |
 | `POST /control/blueprints/validate` | `{"yaml": "..."}` | Validate blueprint YAML in isolation for automation compatibility. Cross-blueprint collisions are checked by `POST /control/blueprints/custom` when Save stages the exact content. |
-| `POST /control/reset` | — | Reset all control state to defaults. |
+| `POST /control/reset` | — | Reset all control state to defaults. Live-applied blueprints keep running and stay persisted; remove them with `DELETE /control/blueprints/live`. |
 
 Array-bearing mutation routes are replacements, not additive patches: submitting an array omits every
 existing item not included in that request. For routine one-at-a-time scenario and blueprint
@@ -409,7 +411,7 @@ a side effect outside the tick:
 
 ## State persistence
 
-Control state (volume multiplier, active scenarios, scaling, disabled blueprints/constructs/kinds) persists across restarts in the snapshot file at `CONFIG_SNAPSHOT_PATH`. The file is written lazily on the first mutation — it is normal for it not to exist on a fresh deploy.
+Control state (volume multiplier, active scenarios, scaling, disabled blueprints/constructs/kinds, and the live-applied blueprint set with its owner labels) persists across restarts in the snapshot file at `CONFIG_SNAPSHOT_PATH`. The file is written lazily on the first mutation — it is normal for it not to exist on a fresh deploy.
 
 State is **not** written on a clean shutdown (it is already in the file from the last mutation). It is written only when a mutation succeeds.
 

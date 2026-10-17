@@ -190,6 +190,17 @@ type bpRuntime struct {
 	incidents []string
 	rtEng     atomic.Pointer[shape.Engine]
 	gpuTick   atomic.Pointer[gpuTickSnapshot] // immutable Live inputs for the current master cycle
+
+	// res is the resolved declaration this runtime was built from; a live apply re-runs
+	// blueprint.ValidateSet against every running blueprint's res. live/owner mark a blueprint
+	// applied through the control plane (removable live); boot blueprints keep both zero.
+	res   *blueprint.Resolved
+	live  bool
+	owner string
+	// stop/done are set (under Runner.bpMu) when Run launches this blueprint's loop goroutine:
+	// stop cancels only this loop and done closes once it has returned.
+	stop context.CancelFunc
+	done chan struct{}
 }
 
 type metricProducerSet struct {
@@ -277,7 +288,21 @@ type Runner struct {
 	sinks Sinks
 	reg   *core.Registry
 	opts  Options
-	bps   []*bpRuntime
+	// bps is the running blueprint set. It is replaced copy-on-write under bpMu (never mutated in
+	// place), so a slice read via blueprintSet stays a valid immutable snapshot after unlock.
+	bps  []*bpRuntime
+	bpMu sync.RWMutex
+	// host is the live loop lifetime of an in-progress Run/RunProducers (nil before Run). A
+	// blueprint committed while host is open gets its own loop goroutine immediately.
+	host *loopHost
+
+	// liveMu serialises live apply/remove and the one-shot boot restore; applyMu serialises
+	// ApplyControl against a live commit so a new blueprint never keeps a stale control snapshot.
+	// Lock order: liveMu, then applyMu, then bpMu.
+	liveMu       sync.Mutex
+	applyMu      sync.Mutex
+	restored     bool
+	restoreSkips []LiveRestoreSkip
 
 	// ctl is the latest applied control snapshot (atomic — read by the per-engine
 	// Live hooks on the hot path and by the enabled() gate).
@@ -300,6 +325,7 @@ type Runner struct {
 
 	// shapeWarnings accumulates per-blueprint shape-engine warnings (incident-schedule entries the
 	// engine skipped during AddBlueprint) so the composition root can surface them as diagnostics.
+	shapeMu       sync.Mutex
 	shapeWarnings []ShapeWarning
 
 	suppressionMu sync.Mutex
@@ -313,7 +339,67 @@ type ShapeWarning struct {
 }
 
 // ShapeWarnings returns the incident-schedule warnings collected across all added blueprints.
-func (r *Runner) ShapeWarnings() []ShapeWarning { return r.shapeWarnings }
+func (r *Runner) ShapeWarnings() []ShapeWarning {
+	r.shapeMu.Lock()
+	defer r.shapeMu.Unlock()
+	return append([]ShapeWarning(nil), r.shapeWarnings...)
+}
+
+// blueprintSet returns the current running-set snapshot. The slice is never mutated after
+// publication, so callers may range over it without holding bpMu.
+func (r *Runner) blueprintSet() []*bpRuntime {
+	r.bpMu.RLock()
+	defer r.bpMu.RUnlock()
+	return r.bps
+}
+
+// loopHost is one Run/RunProducers producer lifetime. wg joins every blueprint loop launched
+// into it; closed (under Runner.bpMu) refuses further launches once Run is joining.
+type loopHost struct {
+	ctx    context.Context
+	wg     sync.WaitGroup
+	closed bool
+}
+
+// openHost publishes a producer lifetime and launches the current set in the same critical
+// section, so a concurrent live removal either sees the launched loop (and joins it) or removes
+// the blueprint before it can be launched.
+func (r *Runner) openHost(ctx context.Context) *loopHost {
+	r.bpMu.Lock()
+	defer r.bpMu.Unlock()
+	host := &loopHost{ctx: ctx}
+	r.host = host
+	r.seedPhasesFor(time.Now(), r.bps)
+	for _, bp := range r.bps {
+		r.launchLocked(host, bp)
+	}
+	return host
+}
+
+// launchLocked starts bp's loop goroutine in host. Caller holds bpMu for writing.
+func (r *Runner) launchLocked(host *loopHost, bp *bpRuntime) {
+	if host == nil || host.closed {
+		return
+	}
+	ctx, cancel := context.WithCancel(host.ctx)
+	done := make(chan struct{})
+	bp.stop, bp.done = cancel, done
+	host.wg.Add(1)
+	go func() {
+		defer host.wg.Done()
+		defer close(done)
+		defer cancel()
+		r.blueprintLoop(ctx, bp)
+	}()
+}
+
+// closeHost refuses further launches and joins every blueprint loop launched into host.
+func (r *Runner) closeHost(host *loopHost) {
+	r.bpMu.Lock()
+	host.closed = true
+	r.bpMu.Unlock()
+	host.wg.Wait()
+}
 
 // New builds a runner. The registry is the explicit catalog assembled by the wiring
 // pass (catalog.go).
@@ -327,14 +413,61 @@ func New(sinks Sinks, reg *core.Registry, opts Options) *Runner {
 // AddBlueprint instantiates a resolved blueprint's BoM. Loud on unknown kinds,
 // duplicate names, or Build errors.
 func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		if bp.name == res.Name {
 			return fmt.Errorf("runner: blueprint %q already added", res.Name)
 		}
 	}
-	metricInterval, highDPM, err := r.blueprintMetricInterval(res)
+	bp, warnings, err := r.buildBlueprint(res)
 	if err != nil {
 		return err
+	}
+	r.applyMu.Lock()
+	defer r.applyMu.Unlock()
+	return r.commitBlueprint(bp, warnings)
+}
+
+// commitBlueprint publishes a built blueprint into the running set, applies the current control
+// snapshot to it and, when a Run is in progress, launches its loop. Caller holds applyMu.
+func (r *Runner) commitBlueprint(bp *bpRuntime, warnings []ShapeWarning) error {
+	r.bpMu.Lock()
+	for _, existing := range r.bps {
+		if existing.name == bp.name {
+			r.bpMu.Unlock()
+			return fmt.Errorf("runner: blueprint %q already added", bp.name)
+		}
+	}
+	next := make([]*bpRuntime, len(r.bps), len(r.bps)+1)
+	copy(next, r.bps)
+	r.bps = append(next, bp)
+	if st := r.ctl.Load(); st != nil {
+		r.applyControlTo(bp, *st)
+	}
+	if r.host != nil && !r.host.closed {
+		now := time.Now()
+		for _, bc := range bp.constructs {
+			bc.nextDue = nextPhaseDue(now, bc.name, bc.interval)
+		}
+		for _, bw := range bp.workloads {
+			bw.nextDue = nextPhaseDue(now, bw.workload.Name(), bw.interval)
+		}
+		r.launchLocked(r.host, bp)
+	}
+	r.bpMu.Unlock()
+	if len(warnings) > 0 {
+		r.shapeMu.Lock()
+		r.shapeWarnings = append(r.shapeWarnings, warnings...)
+		r.shapeMu.Unlock()
+	}
+	return nil
+}
+
+// buildBlueprint instantiates a resolved blueprint's BoM without publishing it: nothing it builds
+// is reachable from the running set, the sinks or the fleet roster until commitBlueprint.
+func (r *Runner) buildBlueprint(res *blueprint.Resolved) (*bpRuntime, []ShapeWarning, error) {
+	metricInterval, highDPM, err := r.blueprintMetricInterval(res)
+	if err != nil {
+		return nil, nil, err
 	}
 	var eng *shape.Engine
 	if len(res.Regions) > 0 {
@@ -346,8 +479,9 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 	} else {
 		eng = shape.New(res.Timezone, res.Incidents)
 	}
+	var warnings []ShapeWarning
 	for _, w := range eng.Warnings() {
-		r.shapeWarnings = append(r.shapeWarnings, ShapeWarning{Blueprint: res.Name, Message: w})
+		warnings = append(warnings, ShapeWarning{Blueprint: res.Name, Message: w})
 	}
 	led := ledger.New(eng, 0, 0)
 	led.SetTickSeconds(r.opts.MasterTick.Seconds())
@@ -364,6 +498,7 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		targets:   res.Targets,
 		scale:     scale.New(),
 		incidents: res.Incidents,
+		res:       res,
 	}
 
 	// Control-plane Live seam (assigned AFTER bp exists — the closure captures bp). It unions, for
@@ -384,11 +519,11 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 	for _, ci := range res.Constructs {
 		reg, ok := r.reg.Construct(ci.Kind)
 		if !ok {
-			return fmt.Errorf("runner: blueprint %q construct %q: kind %q not registered", res.Name, ci.Name, ci.Kind)
+			return nil, nil, fmt.Errorf("runner: blueprint %q construct %q: kind %q not registered", res.Name, ci.Name, ci.Kind)
 		}
 		c, err := reg.Build(ci.Config, ci.Fixtures)
 		if err != nil {
-			return fmt.Errorf("runner: blueprint %q construct %q (%s): %w", res.Name, ci.Name, ci.Kind, err)
+			return nil, nil, fmt.Errorf("runner: blueprint %q construct %q (%s): %w", res.Name, ci.Name, ci.Kind, err)
 		}
 		// Fleet Management: derive the FM-registration roster from the same seed/cluster/perOS the
 		// fleetmgmt construct uses (fleetmgmt.Build), so the registered identities are byte-identical
@@ -397,7 +532,7 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		if ci.Kind == fleetmgmt.Kind {
 			fcfg, ok := ci.Config.(*fleetmgmt.Config)
 			if !ok {
-				return fmt.Errorf("runner: blueprint %q construct %q: fleet_management config %T, want *fleetmgmt.Config", res.Name, ci.Name, ci.Config)
+				return nil, nil, fmt.Errorf("runner: blueprint %q construct %q: fleet_management config %T, want *fleetmgmt.Config", res.Name, ci.Name, ci.Config)
 			}
 			seed, cluster := "", ""
 			var cl *fixture.Cluster
@@ -430,11 +565,11 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		identity := queryIdentity(reg.Scope, res.Label, ci.Fixtures)
 		metricIdentities, err := queryMetricIdentities(reg.Scope, identity, reg.MetricQueryLabels)
 		if err != nil {
-			return fmt.Errorf("runner: blueprint %q construct %q: %w", res.Name, ci.Name, err)
+			return nil, nil, fmt.Errorf("runner: blueprint %q construct %q: %w", res.Name, ci.Name, err)
 		}
 		producers, err := resolveMetricProducers(ci.Kind, ci.Config, c.Signals(), reg.MetricProducer, reg.OTLPMetricProducer, reg.MetricAllowListProvenance)
 		if err != nil {
-			return fmt.Errorf("runner: blueprint %q construct %q: %w", res.Name, ci.Name, err)
+			return nil, nil, fmt.Errorf("runner: blueprint %q construct %q: %w", res.Name, ci.Name, err)
 		}
 		world, inv := r.buildWorld(bp, ci.Kind, ci.Name, c.Signals(), label, identity, metricIdentities, nil, producers)
 		bp.constructs = append(bp.constructs, &boundConstruct{
@@ -450,7 +585,7 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 	for _, wi := range res.Workloads {
 		wreg, ok := r.reg.Workload(wi.Kind)
 		if !ok {
-			return fmt.Errorf("runner: blueprint %q workload %q: kind %q not registered", res.Name, wi.Name, wi.Kind)
+			return nil, nil, fmt.Errorf("runner: blueprint %q workload %q: kind %q not registered", res.Name, wi.Name, wi.Kind)
 		}
 		var rum core.RUMSink
 		if wi.RUM {
@@ -475,7 +610,7 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 			RUM:       rum,
 		})
 		if err != nil {
-			return fmt.Errorf("runner: blueprint %q workload %q (%s): %w", res.Name, wi.Name, wi.Kind, err)
+			return nil, nil, fmt.Errorf("runner: blueprint %q workload %q (%s): %w", res.Name, wi.Name, wi.Kind, err)
 		}
 		scaleTargets := map[string]int{wi.Name: wi.Replicas}
 		if sw, ok := w.(interface{ ScaleTargets() map[string]int }); ok {
@@ -491,11 +626,11 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		identity := queryIdentity(wreg.Scope, res.Label, &fixture.Set{Cluster: wi.Cluster})
 		metricIdentities, err := queryMetricIdentities(wreg.Scope, identity, wreg.MetricQueryLabels)
 		if err != nil {
-			return fmt.Errorf("runner: blueprint %q workload %q: %w", res.Name, wi.Name, err)
+			return nil, nil, fmt.Errorf("runner: blueprint %q workload %q: %w", res.Name, wi.Name, err)
 		}
 		producers, err := resolveMetricProducers(wi.Kind, wi.Config, w.Signals(), wreg.MetricProducer, wreg.OTLPMetricProducer, nil)
 		if err != nil {
-			return fmt.Errorf("runner: blueprint %q workload %q: %w", res.Name, wi.Name, err)
+			return nil, nil, fmt.Errorf("runner: blueprint %q workload %q: %w", res.Name, wi.Name, err)
 		}
 		wworld, winv := r.buildWorld(bp, wi.Kind, wi.Name, w.Signals(), wlabel, identity, metricIdentities, led, producers)
 		bp.workloads = append(bp.workloads, &boundWorkload{
@@ -518,8 +653,7 @@ func (r *Runner) AddBlueprint(res *blueprint.Resolved) error {
 		}
 	}
 
-	r.bps = append(r.bps, bp)
-	return nil
+	return bp, warnings, nil
 }
 
 func projectHighDPMCost(bp *bpRuntime, seriesBudget int, interval time.Duration) *control.BlueprintCostProjection {
@@ -780,7 +914,11 @@ func nextPhaseDue(now time.Time, name string, interval time.Duration) time.Time 
 // RunOnce does not consult nextDue (it ticks every instance unconditionally), so
 // the -once -dump inventory is unaffected.
 func (r *Runner) seedPhases(now time.Time) {
-	for _, bp := range r.bps {
+	r.seedPhasesFor(now, r.blueprintSet())
+}
+
+func (r *Runner) seedPhasesFor(now time.Time, set []*bpRuntime) {
+	for _, bp := range set {
 		for _, bc := range bp.constructs {
 			bc.nextDue = nextPhaseDue(now, bc.name, bc.interval)
 		}
@@ -802,7 +940,7 @@ func (r *Runner) MasterTick(ctx context.Context, now time.Time) error {
 	// nothing draining it. Idempotent — the live loop and RunOnce have already started them.
 	r.startQueues()
 	var errs []error
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		if !r.enabled(bp.name) {
 			continue
 		}
@@ -864,7 +1002,7 @@ func (r *Runner) RunOnce(ctx context.Context, now time.Time) error {
 	// old (or absent) master snapshot. Its next cycle will prepare normally.
 	r.startQueues()
 	var eligible []*bpRuntime
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		bp.resetBudgetWindow(now)
 		if r.enabled(bp.name) {
 			eligible = append(eligible, bp)
@@ -917,7 +1055,6 @@ func (r *Runner) Run(ctx context.Context) error {
 	if err := r.admitProduction(ctx); err != nil {
 		return err
 	}
-	r.seedPhases(time.Now())
 
 	var wg sync.WaitGroup
 	// Start the delivery queues FIRST so their senders are draining before any blueprint tick
@@ -927,13 +1064,19 @@ func (r *Runner) Run(ctx context.Context) error {
 		wg.Add(1)
 		go func(q drainable) { defer wg.Done(); q.Run(ctx, r.opts.SendDrainDeadline) }(q)
 	}
-	for _, bp := range r.bps {
-		wg.Add(1)
-		go r.blueprintLoop(ctx, bp, &wg)
-	}
-	r.startFleetControllers(ctx, &wg)
+	r.launchProducers(ctx, &wg)
 	wg.Wait()
 	return ctx.Err()
+}
+
+// launchProducers opens the live loop host, starts one loop per running blueprint (a blueprint
+// applied live afterwards is launched by its commit) plus the fleet controller, and joins them
+// all before returning, so a Run never returns with a blueprint loop still producing.
+func (r *Runner) launchProducers(ctx context.Context, wg *sync.WaitGroup) {
+	host := r.openHost(ctx)
+	r.startFleetControllers(ctx, wg)
+	wg.Wait()
+	r.closeHost(host)
 }
 
 // startFleetControllers launches one aggregate fleet.Controller for the selected
@@ -949,7 +1092,6 @@ func (r *Runner) RunProducers(ctx, deliveryCtx context.Context) error {
 	if err := r.admitProduction(ctx); err != nil {
 		return err
 	}
-	r.seedPhases(time.Now())
 	for _, q := range r.eachQueue() {
 		q.StartContext(deliveryCtx)
 	}
@@ -957,12 +1099,7 @@ func (r *Runner) RunProducers(ctx, deliveryCtx context.Context) error {
 		return err
 	}
 	var wg sync.WaitGroup
-	for _, bp := range r.bps {
-		wg.Add(1)
-		go r.blueprintLoop(ctx, bp, &wg)
-	}
-	r.startFleetControllers(ctx, &wg)
-	wg.Wait()
+	r.launchProducers(ctx, &wg)
 	return ctx.Err()
 }
 func (r *Runner) admitProduction(ctx context.Context) error {
@@ -980,7 +1117,7 @@ func (r *Runner) startFleetControllers(ctx context.Context, wg *sync.WaitGroup) 
 		// Log the metrics-only fallback at most ONCE (not per blueprint) — the message is a
 		// global "you declared fleet but configured no FM endpoint" hint, so the first
 		// roster-bearing blueprint triggers it and we return without starting any controller.
-		for _, bp := range r.bps {
+		for _, bp := range r.blueprintSet() {
 			if bp.fleetProvider() != nil {
 				log.Printf("runner: fleet_management declared but GC_FM_URL unset — collectors emit metrics only (no FM registration)")
 				return
@@ -1010,14 +1147,16 @@ func (r *Runner) fleetKindDisabled() bool {
 	return st != nil && slices.Contains(st.DisabledKinds, fleetmgmt.Kind)
 }
 
+// The provider reads the running set on every call, so a blueprint applied or removed live joins
+// or leaves the registered roster on the controller's next reconcile.
 func (r *Runner) selectedFleetProvider() fleet.RosterProvider {
-	var providers []fleet.RosterProvider
-	for _, bp := range r.bps {
-		if provider := bp.fleetProvider(); provider != nil {
-			providers = append(providers, provider)
-		}
-	}
 	return func() []fleet.Collector {
+		var providers []fleet.RosterProvider
+		for _, bp := range r.blueprintSet() {
+			if provider := bp.fleetProvider(); provider != nil {
+				providers = append(providers, provider)
+			}
+		}
 		var out []fleet.Collector
 		seen := map[string]bool{}
 		for _, provider := range providers {
@@ -1040,9 +1179,9 @@ func (r *Runner) UnregisterFleet(ctx context.Context) error {
 
 // blueprintLoop is the goroutine body for one blueprint. It owns bp exclusively for the lifetime of
 // Run (no other goroutine touches bp's runtime state), so its construct/workload nextDue mutations
-// and per-blueprint budget reset need no locking. It stops when ctx is cancelled.
-func (r *Runner) blueprintLoop(ctx context.Context, bp *bpRuntime, wg *sync.WaitGroup) {
-	defer wg.Done()
+// and per-blueprint budget reset need no locking. It stops when ctx is cancelled (Run ending, or
+// a live removal of this one blueprint).
+func (r *Runner) blueprintLoop(ctx context.Context, bp *bpRuntime) {
 
 	master := time.NewTicker(r.opts.MasterTick)
 	defer master.Stop()
@@ -1137,8 +1276,9 @@ func (r *Runner) tickBlueprintInstances(ctx context.Context, bp *bpRuntime, t ti
 
 // Blueprints lists the added blueprint names (diagnostics).
 func (r *Runner) Blueprints() []string {
-	out := make([]string, 0, len(r.bps))
-	for _, bp := range r.bps {
+	set := r.blueprintSet()
+	out := make([]string, 0, len(set))
+	for _, bp := range set {
 		out = append(out, bp.name)
 	}
 	return out
@@ -1165,7 +1305,7 @@ func (r *Runner) ControlSchema() control.Schema {
 		sc.Modes = append(sc.Modes, control.ModeInfo{Name: m.Name, Axis: string(m.Axis), Help: m.Help})
 	}
 	kindSeen := map[string]bool{}
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		sc.Blueprints = append(sc.Blueprints, bp.name)
 		bmi := control.BlueprintMetaInfo{Name: bp.name, MetaFields: toMetaFields(bp.meta), CostProjection: bp.costProjection}
 		for _, em := range bp.envMeta {
@@ -1235,7 +1375,7 @@ func incidentActiveNow(loc string, spec, mode, scope string, now time.Time) bool
 func (r *Runner) ControlIncidents() []control.IncidentInfo {
 	now := time.Now()
 	var out []control.IncidentInfo
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		for _, spec := range bp.incidents {
 			mode, scope, inten := splitSpec(spec)
 			out = append(out, control.IncidentInfo{
@@ -1246,7 +1386,7 @@ func (r *Runner) ControlIncidents() []control.IncidentInfo {
 		}
 	}
 	if st := r.ctl.Load(); st != nil {
-		for _, bp := range r.bps {
+		for _, bp := range r.blueprintSet() {
 			for _, ri := range st.RuntimeIncidents {
 				if ri.Blueprint != bp.name {
 					continue
@@ -1270,7 +1410,7 @@ func (r *Runner) ControlIncidents() []control.IncidentInfo {
 // engine and inspecting its warnings — shape stays the sole grammar authority).
 func (r *Runner) ValidateRuntimeIncident(ri control.RuntimeIncident) error {
 	var bp *bpRuntime
-	for _, b := range r.bps {
+	for _, b := range r.blueprintSet() {
 		if b.name == ri.Blueprint {
 			bp = b
 			break
@@ -1372,18 +1512,38 @@ func modeOnAxisVocab(vocab []failuremode.Mode, mode string, axis failuremode.Axi
 // every blueprint's shape engine (one knob moves ALL synthetic load coherently); the
 // failure map is read by the engines' Live hooks; disabled blueprints stop ticking.
 // Call once at startup with the persisted snapshot, then from the control handler.
+//
+// The first call also restores the persisted live-applied blueprints (State.LiveBlueprints) after
+// the boot set: each is re-validated against the running set and one that no longer loads or now
+// collides is skipped and reported (LiveRestoreSkips), never fatal. Later calls never re-add.
 func (r *Runner) ApplyControl(s control.State) {
+	r.liveMu.Lock()
+	defer r.liveMu.Unlock()
+	r.applyMu.Lock()
+	defer r.applyMu.Unlock()
 	r.ctl.Store(&s)
-	for _, bp := range r.bps {
+	set := r.blueprintSet()
+	for _, bp := range set {
 		bp.eng.SetVolumeMultiplier(s.VolumeMultiplier)
 	}
-	for _, bp := range r.bps {
+	for _, bp := range set {
 		bp.scale.Set(scalingFor(bp.name, s.Scaling))
 	}
-	for _, bp := range r.bps {
+	for _, bp := range set {
 		specs := runtimeSpecsFor(bp.name, s.RuntimeIncidents)
 		bp.rtEng.Store(shape.New(bp.eng.Loc().String(), specs))
 	}
+	if !r.restored {
+		r.restored = true
+		r.restoreLiveLocked(s.LiveBlueprints)
+	}
+}
+
+// applyControlTo applies one control snapshot's per-blueprint knobs to a newly committed bp.
+func (r *Runner) applyControlTo(bp *bpRuntime, s control.State) {
+	bp.eng.SetVolumeMultiplier(s.VolumeMultiplier)
+	bp.scale.Set(scalingFor(bp.name, s.Scaling))
+	bp.rtEng.Store(shape.New(bp.eng.Loc().String(), runtimeSpecsFor(bp.name, s.RuntimeIncidents)))
 }
 
 // runtimeSpecsFor selects the runtime incidents owned by blueprint bp and formats each as a
@@ -1453,7 +1613,7 @@ func (r *Runner) callCycleObs(ctx context.Context, blueprint string, dur time.Du
 // LedgerSize is a self-obs gauge source: the total request-ledger size summed across all blueprints.
 func (r *Runner) LedgerSize() int64 {
 	var n int64
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		n += int64(bp.ledger.Len())
 	}
 	return n
@@ -1469,13 +1629,13 @@ func (r *Runner) VolumeMultiplier() float64 {
 }
 
 // BlueprintCount is a self-obs gauge source: the number of loaded blueprints.
-func (r *Runner) BlueprintCount() int { return len(r.bps) }
+func (r *Runner) BlueprintCount() int { return len(r.blueprintSet()) }
 
 // FleetRosterCount returns the current declared FM roster size across all loaded blueprints.
 // Dynamic k8s mirror providers are evaluated on each call so status tracks scaling changes.
 func (r *Runner) FleetRosterCount() int {
 	total := 0
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		if provider := bp.fleetProvider(); provider != nil {
 			total += len(provider())
 		}
@@ -1486,7 +1646,7 @@ func (r *Runner) FleetRosterCount() int {
 // ActiveBlueprintCount reports loaded blueprints not disabled by the current control snapshot.
 func (r *Runner) ActiveBlueprintCount() int {
 	n := 0
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		if r.enabled(bp.name) {
 			n++
 		}
@@ -1526,7 +1686,7 @@ func (r *Runner) DeliveryReadinessLanes() []DeliveryReadinessLane {
 			add("sigil", interval)
 		}
 	}
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		if !r.enabled(bp.name) {
 			continue
 		}
@@ -1590,7 +1750,7 @@ func (r *Runner) constructEnabled(blueprint, kind, name string) bool {
 
 // BlueprintSource returns a blueprint's raw YAML source (control.BlueprintSourcer).
 func (r *Runner) BlueprintSource(name string) (string, bool) {
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		if bp.name == name {
 			return bp.source, true
 		}
@@ -1601,7 +1761,7 @@ func (r *Runner) BlueprintSource(name string) (string, bool) {
 // Recent exposes a blueprint's recent ledger requests (the Infinity JSON host's
 // jsondata.Source surface).
 func (r *Runner) Recent(blueprint string, now time.Time, window time.Duration) []*ledger.Request {
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		if bp.name == blueprint {
 			return bp.ledger.Recent(now, window)
 		}
@@ -1612,7 +1772,7 @@ func (r *Runner) Recent(blueprint string, now time.Time, window time.Duration) [
 // WindowStats exposes a blueprint's cap-independent mint aggregates (jsondata.Source surface) —
 // exact counts/distinct-workloads over the window even when the request ring is cap-trimmed.
 func (r *Runner) WindowStats(blueprint string, now time.Time, window time.Duration) ledger.WindowStats {
-	for _, bp := range r.bps {
+	for _, bp := range r.blueprintSet() {
 		if bp.name == blueprint {
 			return bp.ledger.WindowStats(now, window)
 		}

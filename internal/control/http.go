@@ -9,11 +9,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/rknightion/synthkit/internal/ha"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/rknightion/synthkit/internal/config"
 	"time"
@@ -269,6 +272,12 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 	if len(src) > 0 {
 		if is, ok := src[0].(IncidentSource); ok {
 			incidentSrc = is
+		}
+	}
+	var liveRuntime LiveBlueprintRuntime
+	if len(src) > 0 {
+		if lr, ok := src[0].(LiveBlueprintRuntime); ok {
+			liveRuntime = lr
 		}
 	}
 	apply := func(s State) {
@@ -903,6 +912,15 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 		writeJSON(w, map[string]string{"status": "removed"})
 	}))
 
+	// POST /control/blueprints/live — apply one namespaced blueprint to the running process
+	// (guarded). DELETE /control/blueprints/live?name=<ns/name> removes one applied that way.
+	mux.HandleFunc("POST /control/blueprints/live", guard(func(w http.ResponseWriter, r *http.Request) {
+		h.applyLiveBlueprint(w, r, liveRuntime, update, apply)
+	}))
+	mux.HandleFunc("DELETE /control/blueprints/live", guard(func(w http.ResponseWriter, r *http.Request) {
+		h.removeLiveBlueprint(w, r, liveRuntime, update, apply)
+	}))
+
 	// POST /control/blueprints/sources — upsert a git blueprint source (guarded).
 	// Body is a SourceView (decodeStrict). Token NEVER echoed in response (SourceView has none).
 	// Calls UpsertSource; error → 400; success → {"status":"ok"}.
@@ -1151,4 +1169,205 @@ func writeJSON(w http.ResponseWriter, v any) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(buf.Bytes())
+}
+
+// maxLiveOwnerBytes bounds the opaque owner label carried by a live-applied blueprint.
+const maxLiveOwnerBytes = 128
+
+// errLiveResponseWritten marks a persistence failure whose response the update helper already wrote.
+var errLiveResponseWritten = errors.New("control: live blueprint response already written")
+
+type liveUpdateFunc func(http.ResponseWriter, *http.Request, func(*State)) (State, bool)
+
+// liveBlueprintRequest validates the request envelope and derives the sanitized namespaced
+// identity with the same sanitiser uploads use. The form name may be the YAML's bare name or that
+// exact effective identity; the runtime later requires the YAML name to agree.
+func liveBlueprintRequest(identityer BlueprintIdentityer, namespace, name, yamlDoc, owner string) (LiveBlueprint, error) {
+	if len(owner) > maxLiveOwnerBytes {
+		return LiveBlueprint{}, fmt.Errorf("owner exceeds %d bytes", maxLiveOwnerBytes)
+	}
+	if !utf8.ValidString(owner) {
+		return LiveBlueprint{}, errors.New("owner must be valid UTF-8")
+	}
+	for _, c := range owner {
+		if unicode.IsControl(c) {
+			return LiveBlueprint{}, errors.New("owner must not contain control characters")
+		}
+	}
+	if strings.TrimSpace(yamlDoc) == "" {
+		return LiveBlueprint{}, errors.New("missing yaml")
+	}
+	bare := name
+	if prefix, rest, found := strings.Cut(name, "/"); found {
+		if prefix == "" || identityer.EffectiveBlueprintIdentity(namespace, rest) != name {
+			return LiveBlueprint{}, fmt.Errorf("blueprint name %q must be the YAML name or its effective identity %q", name, identityer.EffectiveBlueprintIdentity(namespace, rest))
+		}
+		bare = rest
+	}
+	if bare == "" || strings.Contains(bare, "/") || strings.Contains(bare, "__") {
+		return LiveBlueprint{}, fmt.Errorf("blueprint name %q must be non-empty and must not contain '/' or '__'", bare)
+	}
+	identity := identityer.EffectiveBlueprintIdentity(namespace, bare)
+	prefix, found := strings.CutSuffix(identity, "/"+bare)
+	if !found || prefix == "" || strings.Contains(prefix, "/") {
+		return LiveBlueprint{}, fmt.Errorf("blueprint namespace %q does not produce a namespaced identity", namespace)
+	}
+	return LiveBlueprint{Name: identity, Namespace: prefix, YAML: yamlDoc, Owner: owner}, nil
+}
+
+func liveError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrLiveInvalid):
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	case errors.Is(err, ErrLiveCollision):
+		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, ErrLiveNotFound):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	default:
+		mutationError(w, err)
+	}
+}
+
+func (h *Handler) liveCapabilities(w http.ResponseWriter, live LiveBlueprintRuntime) (BlueprintIdentityer, bool) {
+	if h.bpadmin == nil {
+		http.Error(w, "blueprint admin not configured", http.StatusNotFound)
+		return nil, false
+	}
+	identityer, ok := h.bpadmin.(BlueprintIdentityer)
+	if !ok || live == nil {
+		http.Error(w, "live blueprints not configured", http.StatusNotFound)
+		return nil, false
+	}
+	return identityer, true
+}
+
+// applyLiveBlueprint serves POST /control/blueprints/live.
+func (h *Handler) applyLiveBlueprint(w http.ResponseWriter, r *http.Request, live LiveBlueprintRuntime, update liveUpdateFunc, apply func(State)) {
+	identityer, ok := h.liveCapabilities(w, live)
+	if !ok {
+		return
+	}
+	var body struct {
+		Namespace string `json:"namespace"`
+		Name      string `json:"name"`
+		YAML      string `json:"yaml"`
+		Owner     string `json:"owner"`
+	}
+	if !decodeStrict(w, r, &body) {
+		return
+	}
+	lb, err := liveBlueprintRequest(identityer, body.Namespace, body.Name, body.YAML, body.Owner)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var out State
+	err = live.ApplyLiveBlueprint(lb, func() error {
+		next, ok := update(w, r, func(s *State) {
+			kept := make([]LiveBlueprint, 0, len(s.LiveBlueprints)+1)
+			for _, existing := range s.LiveBlueprints {
+				if existing.Name != lb.Name {
+					kept = append(kept, existing)
+				}
+			}
+			s.LiveBlueprints = append(kept, lb)
+		})
+		if !ok {
+			return errLiveResponseWritten
+		}
+		out = next
+		return nil
+	})
+	if errors.Is(err, errLiveResponseWritten) {
+		return
+	}
+	if err != nil {
+		liveError(w, err)
+		return
+	}
+	apply(out)
+	writeJSON(w, LiveApplyResponse{Status: "applied", Blueprint: lb.Name, Owner: lb.Owner})
+}
+
+// removeLiveBlueprint serves DELETE /control/blueprints/live?name=<ns/name>.
+func (h *Handler) removeLiveBlueprint(w http.ResponseWriter, r *http.Request, live LiveBlueprintRuntime, update liveUpdateFunc, apply func(State)) {
+	if _, ok := h.liveCapabilities(w, live); !ok {
+		return
+	}
+	name := r.URL.Query().Get("name")
+	recorded := false
+	for _, existing := range h.store.Snapshot().LiveBlueprints {
+		if name != "" && existing.Name == name {
+			recorded = true
+		}
+	}
+	var out State
+	err := live.RemoveLiveBlueprint(name, recorded, func(forgetKnobs bool) error {
+		next, ok := update(w, r, func(s *State) {
+			if forgetKnobs {
+				forgetLiveBlueprint(s, name)
+				return
+			}
+			kept := make([]LiveBlueprint, 0, len(s.LiveBlueprints))
+			for _, existing := range s.LiveBlueprints {
+				if existing.Name != name {
+					kept = append(kept, existing)
+				}
+			}
+			s.LiveBlueprints = kept
+		})
+		if !ok {
+			return errLiveResponseWritten
+		}
+		out = next
+		return nil
+	})
+	if errors.Is(err, errLiveResponseWritten) {
+		return
+	}
+	if err != nil {
+		liveError(w, err)
+		return
+	}
+	apply(out)
+	writeJSON(w, LiveRemoveResponse{Status: "removed", Blueprint: name})
+}
+
+// forgetLiveBlueprint drops a removed live blueprint's record and every per-name knob keyed by it
+// (disable, span metrics, active scenarios, construct disables, scaling, runtime incidents), so a
+// later re-apply of the same identity starts from defaults.
+func forgetLiveBlueprint(s *State, name string) {
+	kept := make([]LiveBlueprint, 0, len(s.LiveBlueprints))
+	for _, existing := range s.LiveBlueprints {
+		if existing.Name != name {
+			kept = append(kept, existing)
+		}
+	}
+	s.LiveBlueprints = kept
+	s.DisabledBlueprints = setMember(s.DisabledBlueprints, name, false)
+	s.SpanMetricsBlueprints = setMember(s.SpanMetricsBlueprints, name, false)
+	prefix := name + "/"
+	dropPrefixed := func(values []string) []string {
+		out := make([]string, 0, len(values))
+		for _, v := range values {
+			if !strings.HasPrefix(v, prefix) {
+				out = append(out, v)
+			}
+		}
+		return out
+	}
+	s.ActiveScenarios = dropPrefixed(s.ActiveScenarios)
+	s.DisabledConstructs = dropPrefixed(s.DisabledConstructs)
+	for key := range s.Scaling {
+		if strings.HasPrefix(key, prefix) {
+			delete(s.Scaling, key)
+		}
+	}
+	incidents := make([]RuntimeIncident, 0, len(s.RuntimeIncidents))
+	for _, ri := range s.RuntimeIncidents {
+		if ri.Blueprint != name {
+			incidents = append(incidents, ri)
+		}
+	}
+	s.RuntimeIncidents = incidents
 }

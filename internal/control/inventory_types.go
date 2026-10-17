@@ -14,6 +14,8 @@ type InventoryReport struct {
 // BlueprintInventory rolls up every construct in one blueprint.
 type BlueprintInventory struct {
 	Blueprint      string               `json:"blueprint"`
+	Owner          string               `json:"owner,omitempty"` // opaque owner label of a live-applied blueprint
+	Live           bool                 `json:"live,omitempty"`  // true when applied via POST /control/blueprints/live
 	DistinctSeries int64                `json:"distinct_series"` // summed across constructs (metrics)
 	MetricNames    int                  `json:"metric_names"`    // distinct union
 	LabelKeys      int                  `json:"label_keys"`      // distinct union
