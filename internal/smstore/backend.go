@@ -102,3 +102,19 @@ func (s *backendStore) UpdateProvision(ctx context.Context, b SnapshotBinding, f
 		return nil
 	})
 }
+func (s *backendStore) UpdateCustody(ctx context.Context, b CustodyBinding, fn func(*ProvisionState) error) error {
+	return s.update(ctx, func(d *Document) error {
+		if err := checkCustody(*d, b); err != nil {
+			return err
+		}
+		p := clone(d.Provision)
+		if err := fn(&p); err != nil {
+			return err
+		}
+		if err := validateCustodyWrite(d.Provision, p, b.TargetFingerprint); err != nil {
+			return err
+		}
+		d.Provision = p
+		return nil
+	})
+}

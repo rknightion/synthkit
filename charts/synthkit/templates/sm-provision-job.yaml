@@ -8,7 +8,8 @@ LEAST PRIVILEGE: it receives GC_SM_URL and GC_SM_TOKEN and nothing else. No synt
 self-observability, Fleet, Sigil, git or control credentials reach it.
 
 Preview by default (smProvision.apply=false). Read the Job's log, then set apply=true, bump runId,
-and upgrade. It is NOT a Helm hook: hooks would run it automatically on install, which would
+and upgrade. smProvision.cleanup.enabled runs ownership-bound cleanup instead; its apply also
+carries smProvision.cleanup.confirm, the plan hash the cleanup preview printed. It is NOT a Helm hook: hooks would run it automatically on install, which would
 destroy the preview-then-apply sequence the provisioner is built around.
 */}}
 apiVersion: batch/v1
@@ -63,6 +64,12 @@ spec:
           image: {{ include "synthkit.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/app/sm-provision"]
+          {{- with .Values.smProvision.cleanup }}
+          {{- if .enabled }}
+          # Ownership-bound cleanup: a preview, or the confirmed apply of exactly that plan.
+          args: ["cleanup"{{ if $.Values.smProvision.apply }}, {{ printf "-confirm=%s" .confirm | quote }}{{ end }}]
+          {{- end }}
+          {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           env:

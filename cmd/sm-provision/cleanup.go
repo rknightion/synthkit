@@ -33,6 +33,12 @@ legacy-unbound or incompletely recorded resources are never deleted. Every delet
 pending intent; an unknown outcome retains it, and the next cleanup run confirms absence or retries
 the unchanged identity. A definite 4xx rejection also keeps the intent: fix the token permission and
 rerun cleanup. Each planned run prints a secret-free JSON receipt line; a refused run prints none.
+
+Cleanup also runs while Synthetic Monitoring emission is off (synthetic_monitoring in
+STARTUP_DISABLED_KINDS, or no selected blueprint declares it), when the emitter publishes no
+snapshot. It then binds to the recorded ownership target and the exact stored state instead, and
+stops if a snapshot is published mid-run. Cleanup never writes a registration, so SM emission
+resumes only after a later ordinary apply.
 `
 
 // cleanupRequest selects explicit cleanup. confirm is the plan hash a preview printed.
@@ -106,7 +112,9 @@ type cleaner struct {
 	client    *smClient
 	store     smstore.Store
 	ctx       context.Context
-	snapshot  smstate.Snapshot
+	snapshot  *smstate.Snapshot      // the published snapshot binding, or nil
+	custody   smstore.CustodyBinding // the binding when no snapshot is published
+	bindHash  string                 // the snapshot hash or custody marker a plan and intent bind to
 	target    string
 	ownership smstate.OwnershipLedger
 	pending   *smstate.DeleteIntent
@@ -120,16 +128,16 @@ func executeCleanup(ctx context.Context, cfg config.SMProvisionConfig, store sms
 	if err != nil {
 		return errors.New("cleanup refused: SM state is unavailable or invalid")
 	}
-	if doc.Snapshot == nil {
-		return errors.New("cleanup refused: the current private snapshot is unavailable to bind durable intent")
-	}
-	snapshot := *doc.Snapshot
 	target := smstate.TargetFingerprint(cfg.SMURL, cfg.SMToken)
-	if snapshot.TargetFingerprint != target {
-		return errors.New("cleanup refused: private snapshot target does not match configured target; credentials are never substituted")
-	}
-	if snapshot.SourceVersion != version {
-		return errors.New("cleanup refused: provisioner version does not match private snapshot")
+	// A published snapshot binds every write to itself. With none published (SM startup-disabled
+	// or deselected), writes bind to the recorded ownership target and provision generation.
+	if doc.Snapshot != nil {
+		if doc.Snapshot.TargetFingerprint != target {
+			return errors.New("cleanup refused: private snapshot target does not match configured target; credentials are never substituted")
+		}
+		if doc.Snapshot.SourceVersion != version {
+			return errors.New("cleanup refused: provisioner version does not match private snapshot")
+		}
 	}
 	if doc.Provision.Migration != nil {
 		return errors.New("cleanup refused: target migration is incomplete")
@@ -165,9 +173,45 @@ func executeCleanup(ctx context.Context, cfg config.SMProvisionConfig, store sms
 		pending = &intent
 	}
 	out := io.Writer(os.Stdout)
-	c := &cleaner{client: deps.client, store: store, ctx: ctx, snapshot: snapshot, target: target, ownership: ledger, pending: pending, out: out,
+	c := &cleaner{client: deps.client, store: store, ctx: ctx, target: target, ownership: ledger, pending: pending, out: out,
 		now: deps.Clock}
+	if doc.Snapshot != nil {
+		snapshot := *doc.Snapshot
+		c.snapshot, c.bindHash = &snapshot, snapshot.SnapshotHash
+	} else {
+		c.custody, c.bindHash = smstore.Custody(target, doc.Provision), custodyMarker(target)
+	}
 	return c.run(cfg.Apply, deps.cleanup.confirm)
+}
+
+// custodyMarker stands where a snapshot hash binds a plan or a pending journal when no snapshot
+// is published. It is domain-separated, so it never equals a snapshot hash, and holds no
+// credential beyond the one-way target fingerprint already stored in the ledger.
+func custodyMarker(target string) string {
+	return smstate.SpecHash(struct {
+		Schema            string `json:"schema"`
+		TargetFingerprint string `json:"target_fingerprint"`
+	}{"synthkit-sm-cleanup-custody-v1", target})
+}
+
+// update writes one cleanup state change under the run's binding: the published snapshot, or the
+// custody generation, which advances to the written state after each successful write.
+func (c *cleaner) update(fn func(*smstore.ProvisionState) error) error {
+	if c.snapshot != nil {
+		return c.store.UpdateProvision(c.ctx, smstore.Binding(*c.snapshot), fn)
+	}
+	var next smstore.CustodyBinding
+	err := c.store.UpdateCustody(c.ctx, c.custody, func(s *smstore.ProvisionState) error {
+		if err := fn(s); err != nil {
+			return err
+		}
+		next = smstore.Custody(c.target, *s)
+		return nil
+	})
+	if err == nil {
+		c.custody = next
+	}
+	return err
 }
 
 func (c *cleaner) inventory() ([]smProbe, []smCheck, error) {
@@ -408,11 +452,11 @@ func (c *cleaner) remove(entry cleanupEntry) (string, error) {
 	}
 	intent := smstate.DeleteIntent{SchemaVersion: smstate.SchemaVersion, TargetFingerprint: c.target, Kind: resource.Kind, Key: resource.Key,
 		ID: resource.ID, Modified: smstate.ConfigVersion(resource.Modified), SpecHash: resource.SpecHash}
-	journal, err := smstate.NewDeleteJournal(intent, c.snapshot.SnapshotHash, c.now())
+	journal, err := smstate.NewDeleteJournal(intent, c.bindHash, c.now())
 	if err != nil {
 		return "not_attempted", errors.New("cleanup pending intent is invalid")
 	}
-	if err := c.store.UpdateProvision(c.ctx, smstore.Binding(c.snapshot), func(s *smstore.ProvisionState) error {
+	if err := c.update(func(s *smstore.ProvisionState) error {
 		if s.Pending != nil {
 			current, err := smstate.DeleteIntentFromJournal(*s.Pending)
 			if err != nil || current != intent {
@@ -446,7 +490,7 @@ func (c *cleaner) remove(entry cleanupEntry) (string, error) {
 // release records observed absence: the identity leaves ownership custody and its pending intent is
 // cleared in the same state update. Activation stays removed.
 func (c *cleaner) release(resource smstate.Resource) error {
-	err := c.store.UpdateProvision(c.ctx, smstore.Binding(c.snapshot), func(s *smstore.ProvisionState) error {
+	err := c.update(func(s *smstore.ProvisionState) error {
 		if s.Ownership == nil || s.Ownership.TargetFingerprint != c.target {
 			return errors.New("ownership changed")
 		}
@@ -519,7 +563,7 @@ func (c *cleaner) planHash(entries []cleanupEntry) string {
 		TargetFingerprint string      `json:"target_fingerprint"`
 		SnapshotHash      string      `json:"snapshot_hash"`
 		Entries           []planEntry `json:"entries"`
-	}{"synthkit-sm-cleanup-plan-v1", c.target, c.snapshot.SnapshotHash, projected})
+	}{"synthkit-sm-cleanup-plan-v1", c.target, c.bindHash, projected})
 }
 
 // receipt prints one secret-free JSON line: kinds, API IDs, revisions and outcomes only. It omits

@@ -644,6 +644,36 @@ It is not a Helm hook. Hooks run automatically on install, which would destroy t
 sequence the provisioner is built around. The default `smProvision.stateBackend: file` preserves the
 shared ReadWriteOnce claim, on-node pod affinity and file-mode behavior described above.
 
+### Synthetic Monitoring cleanup Job
+
+`smProvision.cleanup.enabled: true` (default `false`) makes the same Job run the ownership-bound
+[cleanup](synthetic-monitoring.md#remove-provisioned-resources-explicit-cleanup) instead of
+reconciliation, with the same image, principal, environment and state backend. It deletes only
+resources the ledger records as owned. It also works after SM is deselected or startup-disabled, so
+SM emission does not need to be turned back on first. Preview, then apply exactly the previewed plan:
+
+```bash
+# 1. Cleanup preview. No remote or state writes; the log prints the plan hash.
+helm upgrade synthkit ./charts/synthkit --namespace synthkit --reuse-values \
+  --set smProvision.cleanup.enabled=true --set smProvision.apply=false --set smProvision.runId=3
+kubectl -n synthkit logs job/synthkit-sm-provision-3
+
+# 2. Confirmed cleanup of exactly that plan. Bump runId to make it a new Job.
+helm upgrade synthkit ./charts/synthkit --namespace synthkit --reuse-values \
+  --set smProvision.apply=true --set smProvision.cleanup.confirm=<plan> --set smProvision.runId=4
+kubectl -n synthkit logs job/synthkit-sm-provision-4
+
+# 3. Return the Job to an ordinary preview (a Job is immutable, so bump runId again), or disable it.
+helm upgrade synthkit ./charts/synthkit --namespace synthkit --reuse-values \
+  --set smProvision.cleanup.enabled=false --set smProvision.cleanup.confirm= --set smProvision.apply=false \
+  --set smProvision.runId=5
+```
+
+The render refuses `apply: true` without `cleanup.confirm`, a `confirm` that is not the 64-character
+lowercase plan, a `confirm` outside a confirmed cleanup, and cleanup combined with `adoptLegacy` or
+`migrateTarget`. A changed plan (anything changed since the preview) makes the Job fail with no
+deletion; preview again with a new `runId`.
+
 ### Diskless one-shot Job
 
 `smProvision.stateBackend: kubernetes` selects the accepted named-state engine independently of

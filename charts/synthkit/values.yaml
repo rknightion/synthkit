@@ -413,6 +413,13 @@ smProvision:
   apply: false
   adoptLegacy: false
   migrateTarget: false
+  # Ownership-bound cleanup of recorded owned resources instead of reconciliation (off by
+  # default). It also runs while SM emission is off. Preview first (apply: false), read the plan
+  # hash from the Job's log, then set apply: true and confirm to that hash, bump runId and upgrade.
+  cleanup:
+    enabled: false
+    # The 64-character plan a cleanup preview printed; required with apply: true, else empty.
+    confirm: ""
   ttlSecondsAfterFinished: 600
   resources:
     requests:

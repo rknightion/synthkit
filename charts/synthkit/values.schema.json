@@ -506,6 +506,21 @@
         "runId": {
           "type": "string"
         },
+        "cleanup": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Run sm-provision cleanup instead of reconciliation. Preview with apply=false; apply=true requires confirm.",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "confirm": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{64})?$",
+              "description": "The plan hash a cleanup preview printed. Required with apply=true; must be empty otherwise."
+            }
+          }
+        },
         "ttlSecondsAfterFinished": {
           "type": "integer",
           "minimum": 0

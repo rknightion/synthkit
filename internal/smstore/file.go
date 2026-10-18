@@ -71,7 +71,23 @@ func (s *lockedFileStore) UpdateProvision(ctx context.Context, b SnapshotBinding
 	return s.updateUnlocked(ctx, b, fn)
 }
 
+func (s *lockedFileStore) UpdateCustody(ctx context.Context, b CustodyBinding, fn func(*ProvisionState) error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.active {
+		return errors.New("SM file store lock is not owned")
+	}
+	return s.writeUnlocked(ctx, func(d Document) error { return checkCustody(d, b) }, fn,
+		func(before, after ProvisionState) error {
+			return validateCustodyWrite(before, after, b.TargetFingerprint)
+		})
+}
+
 func (s *fileStore) UpdateProvision(context.Context, SnapshotBinding, func(*ProvisionState) error) error {
+	return errors.New("SM provision update requires a positively acquired file store")
+}
+
+func (s *fileStore) UpdateCustody(context.Context, CustodyBinding, func(*ProvisionState) error) error {
 	return errors.New("SM provision update requires a positively acquired file store")
 }
 func optional[T any](read func() (T, error)) (*T, error) {
@@ -186,11 +202,17 @@ func (s *fileStore) PublishSnapshotIfIdle(ctx context.Context, snapshot smstate.
 // Each private artifact retains its atomic rename/fsync codec. Pending is persisted
 // and activation removed before remote admission; clearing pending is always last.
 func (s *fileStore) updateUnlocked(ctx context.Context, b SnapshotBinding, fn func(*ProvisionState) error) error {
+	return s.writeUnlocked(ctx, func(d Document) error { return checkBinding(d, b) }, fn, nil)
+}
+
+// writeUnlocked is the shared file write: bind checks the loaded document and admit, when set,
+// checks the result against the loaded provision state before any artifact is written.
+func (s *fileStore) writeUnlocked(ctx context.Context, bind func(Document) error, fn func(*ProvisionState) error, admit func(before, after ProvisionState) error) error {
 	d, err := s.loadUnlocked(ctx)
 	if err != nil {
 		return err
 	}
-	if err := checkBinding(d, b); err != nil {
+	if err := bind(d); err != nil {
 		return err
 	}
 	before := clone(d.Provision)
@@ -200,6 +222,11 @@ func (s *fileStore) updateUnlocked(ctx context.Context, b SnapshotBinding, fn fu
 	}
 	if err := validateProvision(after); err != nil {
 		return err
+	}
+	if admit != nil {
+		if err := admit(before, after); err != nil {
+			return err
+		}
 	}
 	if err := ctx.Err(); err != nil {
 		return err

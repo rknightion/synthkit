@@ -166,11 +166,20 @@ file-mode Job retains its shared-volume behavior.
 Cleanup is a separate subcommand with its own preview and confirmation. It acts only on resources
 the ownership ledger records as **owned** (created by synthkit) for the configured target, and only
 by recorded API ID. It never searches by name, specification or folder, and never deletes
-tenant-wide. Run it while the emitter still publishes the SM snapshot: the snapshot binds every
-durable cleanup write, and cleanup refuses when it is absent. Deselecting the SM blueprint, or
-starting the emitter with `STARTUP_DISABLED_KINDS=synthetic_monitoring`, removes that snapshot, so
-run cleanup **before** disabling or deselecting SM. The Helm chart's SM Job runs apply only;
-Kubernetes-state cleanup is supported by the binary but is not yet packaged as a chart route.
+tenant-wide.
+
+Cleanup runs whether or not SM emission is on. While the emitter publishes the SM snapshot, that
+snapshot binds every durable cleanup write. Deselecting the SM blueprint, or starting the emitter
+with `STARTUP_DISABLED_KINDS=synthetic_monitoring`, removes the snapshot; cleanup then binds each
+write to the ownership ledger's recorded target (the endpoint and credential fingerprint) and to the
+exact stored SM state it last read, as a compare-and-swap. You do not need to re-enable SM to clean
+up. On the file backend the emitter cannot publish while cleanup holds the state lock: an emitter
+that starts with SM turned back on during the run fails its snapshot publication instead. With
+Kubernetes state the emitter can publish mid-run; cleanup's next write then refuses and no further
+delete is attempted, so preview again. A cleanup write never records a
+registration, so after cleanup SM stays suppressed until a later ordinary apply and restart.
+In Kubernetes, run cleanup through the chart's SM Job: see
+[Kubernetes](kubernetes.md#synthetic-monitoring-cleanup-job).
 
 ```bash
 docker compose --profile sm-provision run --rm sm-provision cleanup
@@ -179,12 +188,14 @@ docker compose restart synthkit
 ```
 
 The preview lists each recorded resource and prints a plan hash. It makes no remote or state
-change. The plan hash covers the target, the snapshot and, for each resource, its ID, revision,
+change. The plan hash covers the target, the snapshot (or, with none published, a custody marker
+for the recorded target) and, for each resource, its ID, revision,
 managed specification hash and planned action. Apply needs `SM_PROVISION_APPLY=true` and that exact
 hash. If anything changed since the preview, apply refuses before any write. Cleanup cannot be
 combined with `SM_PROVISION_ADOPT_LEGACY` or `SM_PROVISION_MIGRATE_TARGET`. A live SM apply, or
 the restart after a DELETE of a live SM blueprint, changes the published snapshot and so the plan
-hash: preview again after either.
+hash: preview again after either. Turning SM off or on between preview and apply changes the plan
+hash too.
 
 Before every delete, cleanup lists the inventory again and checks that the resource's ID, key,
 revision (`modified`) and managed specification still match the ledger. A probe still referenced
@@ -197,8 +208,9 @@ Cleanup refuses the whole operation, with no writes, when custody is foreign, ch
 incomplete:
 
 - an owned resource's revision, specification or key changed remotely
-- the ledger is bound to another target, or the configured credential does not match the snapshot.
-  Credentials are never substituted.
+- the ledger is bound to another target, or the configured credential does not match the snapshot
+  or, with no snapshot published, the ledger's recorded target. Credentials are never substituted.
+- a published snapshot was written by another synthkit version
 - legacy ownership has no recorded specification hash, or only a legacy registration exists. Run
   an ordinary apply first to bind custody.
 - no ledger exists

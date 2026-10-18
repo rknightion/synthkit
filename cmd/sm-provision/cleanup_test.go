@@ -474,11 +474,6 @@ func TestCleanupRefusesForeignChangedLegacyAndIncompleteCustody(t *testing.T) {
 				t.Fatal(err)
 			}
 		}},
-		{name: "no snapshot binding", want: "current private snapshot", mutate: func(t *testing.T, f *fileCleanup) {
-			if err := smstate.RemoveSnapshot(f.stateDir); err != nil {
-				t.Fatal(err)
-			}
-		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := provisionForCleanup(t, "token")

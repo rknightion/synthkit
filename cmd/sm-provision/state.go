@@ -21,6 +21,9 @@ func (s boundedProvisionStore) Load(ctx context.Context) (out smstore.Document, 
 func (s boundedProvisionStore) UpdateProvision(ctx context.Context, b smstore.SnapshotBinding, fn func(*smstore.ProvisionState) error) error {
 	return s.bound.Run(ctx, ha.Mutation, func(ctx context.Context) error { return s.Store.UpdateProvision(ctx, b, fn) })
 }
+func (s boundedProvisionStore) UpdateCustody(ctx context.Context, b smstore.CustodyBinding, fn func(*smstore.ProvisionState) error) error {
+	return s.bound.Run(ctx, ha.Mutation, func(ctx context.Context) error { return s.Store.UpdateCustody(ctx, b, fn) })
+}
 func (p *provisioner) update(fn func(*smstore.ProvisionState) error) error {
 	return p.store.UpdateProvision(p.ctx, smstore.Binding(p.snapshot), fn)
 }

@@ -43,6 +43,11 @@ type Store interface {
 	// apply.
 	PublishSnapshotIfIdle(context.Context, smstate.Snapshot) error
 	UpdateProvision(context.Context, SnapshotBinding, func(*ProvisionState) error) error
+	// UpdateCustody is the cleanup-only write used when no snapshot is published. It is a
+	// compare-and-swap on the recorded ownership target and the observed provision generation,
+	// refuses once any snapshot is published, and admits only a cleanup-shaped result (see
+	// validateCustodyWrite): it can never write a registration.
+	UpdateCustody(context.Context, CustodyBinding, func(*ProvisionState) error) error
 }
 
 var ErrBinding = errors.New("SM snapshot binding changed or unavailable")

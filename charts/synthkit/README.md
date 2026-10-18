@@ -299,6 +299,8 @@ for configuration and handoff limits.
 | `smProvision.enabled` | `false` | Opt-in one-shot Job, not a Helm hook |
 | `smProvision.apply` | `false` | Preview first; review the log, then apply |
 | `smProvision.runId` | `"1"` | Bump to re-run on a later upgrade |
+| `smProvision.cleanup.enabled` | `false` | Run ownership-bound cleanup instead of reconciliation; preview with `apply: false` |
+| `smProvision.cleanup.confirm` | `""` | The plan hash a cleanup preview printed; required with `apply: true` |
 
 ---
 

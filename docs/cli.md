@@ -138,10 +138,12 @@ docker compose --profile sm-provision run --rm sm-provision help
 Cleanup deletes only resources the ledger records as owned for the configured target, by recorded
 ID, after rechecking each one's revision and specification. Every delete first stores a pending
 intent; a delete counts as done only when an inventory read shows the ID gone. Every run that
-reaches a plan prints a secret-free receipt line; a refused run prints none. Cleanup needs the
-emitter's current SM snapshot, so run it before deselecting SM or setting
-`STARTUP_DISABLED_KINDS=synthetic_monitoring`. The Helm chart's SM Job runs apply only; cleanup is
-not packaged there yet. Any other argument is rejected before configuration is read. See
+reaches a plan prints a secret-free receipt line; a refused run prints none. Cleanup also runs
+after SM is deselected or `STARTUP_DISABLED_KINDS=synthetic_monitoring` is set: with no snapshot
+published, it binds to the ledger's recorded target and the stored state instead, and it never
+re-enables SM emission. The Helm chart runs it through `smProvision.cleanup` (see
+[Kubernetes](kubernetes.md#synthetic-monitoring-cleanup-job)). Any other argument is rejected
+before configuration is read. See
 [synthetic-monitoring.md](synthetic-monitoring.md#remove-provisioned-resources-explicit-cleanup).
 
 | Environment variable | Required | Description |

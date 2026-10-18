@@ -437,6 +437,23 @@ misbehaves once it is running.
   {{- if not $creds.sm.existingSecret -}}
     {{- fail "smProvision.enabled is true but credentials.sm.existingSecret is empty. The provisioner needs GC_SM_URL and GC_SM_TOKEN, and it receives no other credential." -}}
   {{- end -}}
+  {{- $cleanup := .Values.smProvision.cleanup | default dict -}}
+  {{- if $cleanup.enabled -}}
+    {{- if or .Values.smProvision.adoptLegacy .Values.smProvision.migrateTarget -}}
+      {{- fail "smProvision.cleanup cannot be combined with adoptLegacy or migrateTarget" -}}
+    {{- end -}}
+    {{- if and .Values.smProvision.apply (not $cleanup.confirm) -}}
+      {{- fail "smProvision.cleanup with apply: true requires smProvision.cleanup.confirm, the plan hash a cleanup preview printed" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if $cleanup.confirm -}}
+    {{- if not (and $cleanup.enabled .Values.smProvision.apply) -}}
+      {{- fail "smProvision.cleanup.confirm is only valid with smProvision.cleanup.enabled and apply: true" -}}
+    {{- end -}}
+    {{- if not (regexMatch "^[0-9a-f]{64}$" $cleanup.confirm) -}}
+      {{- fail "smProvision.cleanup.confirm must be the 64-character plan a cleanup preview printed" -}}
+    {{- end -}}
+  {{- end -}}
   {{- if eq .Values.smProvision.stateBackend "file" -}}
     {{- if not .Values.persistence.enabled -}}
       {{- fail "smProvision.enabled requires persistence.enabled: the ownership ledger it writes must survive a reschedule." -}}

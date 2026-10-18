@@ -59,10 +59,13 @@ State:
   EPHEMERAL emptyDir. Control-plane selections survive a container restart but not a reschedule.
 {{- end }}
 {{ if .Values.smProvision.enabled }}
-Synthetic Monitoring provisioner Job {{ printf "%s-sm-provision-%s" (include "synthkit.fullname" .) .Values.smProvision.runId }} is {{ if .Values.smProvision.apply }}APPLYING{{ else }}in PREVIEW (no remote writes){{ end }}:
+{{- $smCleanup := .Values.smProvision.cleanup | default dict }}
+Synthetic Monitoring provisioner Job {{ printf "%s-sm-provision-%s" (include "synthkit.fullname" .) .Values.smProvision.runId }} is {{ if $smCleanup.enabled }}{{ if .Values.smProvision.apply }}DELETING the confirmed cleanup plan{{ else }}in CLEANUP PREVIEW (no remote writes){{ end }}{{ else if .Values.smProvision.apply }}APPLYING{{ else }}in PREVIEW (no remote writes){{ end }}:
 
     kubectl -n {{ .Release.Namespace }} logs job/{{ printf "%s-sm-provision-%s" (include "synthkit.fullname" .) .Values.smProvision.runId }}
-{{- if .Values.smProvision.apply }}
+{{- if and $smCleanup.enabled (not .Values.smProvision.apply) }}
+  Copy the plan hash from the log into smProvision.cleanup.confirm, set apply: true, bump runId and upgrade.
+{{- else if and .Values.smProvision.apply (not $smCleanup.enabled) }}
   After a successful apply, restart the emitter so the matching registration activates the lane:
 
     kubectl -n {{ .Release.Namespace }} rollout restart deploy/{{ include "synthkit.fullname" . }}
