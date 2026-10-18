@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-17 17:43'
-updated_date: '2026-10-18 02:52'
+updated_date: '2026-10-18 14:03'
 labels:
   - control
 dependencies: []
@@ -38,4 +38,6 @@ POST /control/load accepts volume_multiplier 0 (validateState range 0-100) and E
 
 <!-- SECTION:NOTES:BEGIN -->
 loop50 (2026-10-18): held for an owner decision, not started. Reject 0 with a 400 (root recommendation) or make 0 mean zero volume; see the loop50 closeout.
+
+Owner ruling (2026-10-18): an explicit 0 means zero volume (pause), not a 400. Represent unset separately from 0 so a persisted 0 round-trips as zero; define and document how a 0-volume blueprint reads on readiness and blueprint_emitting.
 <!-- SECTION:NOTES:END -->
