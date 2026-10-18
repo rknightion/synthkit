@@ -131,6 +131,10 @@ func (s *fileStore) loadUnlocked(ctx context.Context) (Document, error) {
 	if err != nil {
 		return d, err
 	}
+	d.Registered, err = optional(func() (smstate.Snapshot, error) { return smstate.ReadRegisteredSnapshot(s.dir) })
+	if err != nil {
+		return d, err
+	}
 	d.Provision.Ownership, err = optional(func() (smstate.OwnershipLedger, error) { return smstate.ReadOwnershipState(s.dir) })
 	if err != nil {
 		return d, err
@@ -154,10 +158,16 @@ func (s *fileStore) PublishSnapshot(ctx context.Context, snapshot *smstate.Snaps
 	// runtime directory on credential-free/no-selection boots. Any actual removal
 	// still takes the same lock as provisioning and never touches v1 evidence.
 	if snapshot == nil {
-		if _, err := os.Lstat(filepath.Join(s.dir, smstate.SnapshotFilename)); errors.Is(err, os.ErrNotExist) {
+		absent := true
+		for _, name := range []string{smstate.SnapshotFilename, smstate.RegisteredFilename} {
+			if _, err := os.Lstat(filepath.Join(s.dir, name)); err == nil {
+				absent = false
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+		}
+		if absent {
 			return nil
-		} else if err != nil {
-			return err
 		}
 	}
 	release, err := smstate.AcquireLock(s.dir)
@@ -166,9 +176,52 @@ func (s *fileStore) PublishSnapshot(ctx context.Context, snapshot *smstate.Snaps
 	}
 	defer func() { err = errors.Join(err, release()) }()
 	if snapshot == nil {
+		if err := smstate.RemoveRegisteredSnapshot(s.dir); err != nil {
+			return err
+		}
 		return smstate.RemoveSnapshot(s.dir)
 	}
-	return smstate.WriteSnapshot(s.dir, *snapshot)
+	if err := smstate.ValidateSnapshot(*snapshot); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return s.publishUnlocked(s.retentionInputs(), *snapshot)
+}
+
+// retentionInputs reads only what boot publication needs to choose a retained registered
+// snapshot. An unreadable or invalid artifact is no retention candidate, never an error: boot
+// publication overwrites the published snapshot (and removes any retained one) exactly as it did
+// before retention existed, and Load still fails closed on whatever remains invalid.
+func (s *fileStore) retentionInputs() Document {
+	var d Document
+	if v, err := smstate.ReadSnapshot(s.dir); err == nil {
+		d.Snapshot = &v
+	}
+	if v, err := smstate.ReadRegisteredSnapshot(s.dir); err == nil {
+		d.Registered = &v
+	}
+	if v, err := smstate.ReadRegistrationEvidence(s.dir); err == nil {
+		d.Provision.Registration = &v
+	}
+	return d
+}
+
+// publishUnlocked writes the retained registered snapshot (or removes a stale one) before the
+// published snapshot, under the provisioning lock. Either crash point is fail-closed: admission
+// only uses a retained snapshot the stored registration validates exactly against.
+func (s *fileStore) publishUnlocked(d Document, snapshot smstate.Snapshot) error {
+	if retained := retainRegistered(d, &snapshot); retained != nil {
+		if d.Registered == nil || d.Registered.SnapshotHash != retained.SnapshotHash {
+			if err := smstate.WriteRegisteredSnapshot(s.dir, *retained); err != nil {
+				return err
+			}
+		}
+	} else if err := smstate.RemoveRegisteredSnapshot(s.dir); err != nil {
+		return err // also removes an unreadable retained file, which is no candidate
+	}
+	return smstate.WriteSnapshot(s.dir, snapshot)
 }
 
 // PublishSnapshotIfIdle holds the provisioning O_EXCL lock (a held lock fails like Load), refuses
@@ -195,7 +248,7 @@ func (s *fileStore) PublishSnapshotIfIdle(ctx context.Context, snapshot smstate.
 	case err != nil:
 		return err
 	}
-	return smstate.WriteSnapshot(s.dir, snapshot)
+	return s.publishUnlocked(d, snapshot)
 }
 
 // UpdateProvision requires the command's complete-operation O_EXCL file lock.
@@ -230,6 +283,11 @@ func (s *fileStore) writeUnlocked(ctx context.Context, bind func(Document) error
 	}
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	if staleRegistered(d.Registered, after) {
+		if err := smstate.RemoveRegisteredSnapshot(s.dir); err != nil {
+			return err
+		}
 	}
 	if after.Pending != nil && !reflect.DeepEqual(before.Pending, after.Pending) {
 		if err := smstate.WriteJournal(s.dir, *after.Pending); err != nil {

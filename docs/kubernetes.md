@@ -709,7 +709,9 @@ nor creates, owns, restores or deletes them. Do not attach Helm release ownershi
 Use a separate provisioning principal for initial creation. A new ConfigMap may start with no
 `binaryData.document`; the version-matched emitter must publish its validated snapshot before
 preview. Never replace a populated document with an empty one. The engine owns the aggregate document
-in `binaryData.document`, including snapshot, ownership, registration and pending-failure evidence.
+in `binaryData.document`, including snapshot, ownership, registration and pending-failure evidence,
+and the retained registered snapshot used for
+[per-blueprint activation](synthetic-monitoring.md#per-blueprint-activation).
 All writers to that slot must use the same immutable provisioning Lease identity.
 
 The Job has a dedicated ServiceAccount, Role and RoleBinding with exactly named `get`/`update` on

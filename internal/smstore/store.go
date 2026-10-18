@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 
 	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/smstate"
@@ -27,6 +28,11 @@ type Document struct {
 	ProvisionLeaseName string            `json:"provision_lease_name"`
 	Snapshot           *smstate.Snapshot `json:"snapshot"`
 	Provision          ProvisionState    `json:"provision"`
+	// Registered is the snapshot the stored registration is complete for, retained by an emitter
+	// publication that replaced it with a different snapshot (see retainRegistered). The emitter
+	// admits each blueprint against it until the provisioner registers the published snapshot.
+	// Only publication writes it; omitted when absent, so documents without one are unchanged.
+	Registered *smstate.Snapshot `json:"registered_snapshot,omitempty"`
 }
 type SnapshotBinding struct{ Hash, TargetFingerprint, SourceVersion string }
 
@@ -68,6 +74,56 @@ func idlePublication(d Document, snapshot smstate.Snapshot) error {
 	return nil
 }
 
+// retainRegistered returns the snapshot to retain as Document.Registered when next replaces the
+// published snapshot: the outgoing published snapshot or the already retained one, whichever the
+// stored registration validates exactly and completely against. It retains nothing when next has
+// that snapshot's hash (the published snapshot is then the registered one), when there is no
+// registration, or when neither validates; next == nil (invalidation) retains nothing. A candidate
+// for another target than next is never retained: admission requires the configured target, so
+// it could never admit anything and would only hold document space through migration writes.
+func retainRegistered(d Document, next *smstate.Snapshot) *smstate.Snapshot {
+	if next == nil || d.Provision.Registration == nil {
+		return nil
+	}
+	for _, candidate := range []*smstate.Snapshot{d.Snapshot, d.Registered} {
+		if candidate != nil && candidate.SnapshotHash != next.SnapshotHash &&
+			candidate.TargetFingerprint == next.TargetFingerprint &&
+			smstate.ValidateRegistration(*candidate, *d.Provision.Registration) == nil {
+			return clone(candidate)
+		}
+	}
+	return nil
+}
+
+// publishInto replaces d's published snapshot with next and maintains the retained registered
+// snapshot. A retained snapshot that would push the document past its byte cap is dropped
+// (reported by dropped, for the caller to log once its write succeeds): SM then fails closed to
+// the whole-set match, never open.
+func publishInto(d *Document, next *smstate.Snapshot) (dropped bool) {
+	d.Registered = retainRegistered(*d, next)
+	d.Snapshot = clone(next)
+	if d.Registered != nil {
+		if data, err := json.Marshal(d); err != nil || len(data) > control.MaxStateDocumentBytes {
+			d.Registered = nil
+			return true
+		}
+	}
+	return false
+}
+
+func logRetentionDropped() {
+	log.Printf("smstore: retained registered SM snapshot dropped: the state document would exceed %d bytes; every blueprint's SM is suppressed until the published snapshot is registered", control.MaxStateDocumentBytes)
+}
+
+// staleRegistered reports whether a retained registered snapshot can no longer be used: the
+// provision state p (as about to be written) has no registration, or one it does not validate
+// against. A provisioner write that replaces or removes the registration (a pending journal, or a
+// resource persisted for the newly published snapshot) therefore drops it in the same write, so
+// the retained snapshot never holds document space after it stops admitting anything.
+func staleRegistered(registered *smstate.Snapshot, p ProvisionState) bool {
+	return registered != nil && (p.Registration == nil || smstate.ValidateRegistration(*registered, *p.Registration) != nil)
+}
+
 func checkBinding(d Document, b SnapshotBinding) error {
 	if d.Snapshot == nil || Binding(*d.Snapshot) != b {
 		return ErrBinding
@@ -106,9 +162,11 @@ func validate(d Document, lease string) error {
 	if d.SchemaVersion != 1 || d.ProvisionLeaseName != lease || lease == "" {
 		return fmt.Errorf("SM state envelope or provisioning Lease mismatch")
 	}
-	if d.Snapshot != nil {
-		if err := smstate.ValidateSnapshot(*d.Snapshot); err != nil {
-			return err
+	for _, snapshot := range []*smstate.Snapshot{d.Snapshot, d.Registered} {
+		if snapshot != nil {
+			if err := smstate.ValidateSnapshot(*snapshot); err != nil {
+				return err
+			}
 		}
 	}
 	return validateProvision(d.Provision)

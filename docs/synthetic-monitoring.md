@@ -79,12 +79,58 @@ remains active at B when every specification field, target and schema is unchang
 must still match the **current snapshot source version**, before inventory and on every state write.
 Adoption/migration approvals retain their strict source-version binding.
 
+### Per-blueprint activation
+
+Activation is decided per blueprint, so one blueprint's change cannot suppress another's checks.
+At every start, HA leader acquisition, standby validation, live apply and live restore, synthkit
+first validates the whole running set. An invalid check or a probe declared with another region
+or coordinates fails startup, skips a restored live record, and rejects a live apply with `400` or
+`409` respectively. A start, leader acquisition or live apply then publishes its
+snapshot as before; standby validation and the live restore publish nothing and only read. It then
+admits blueprint B's SM only when all of these hold:
+
+- no provisioning mutation is pending (a pending journal suppresses every blueprint);
+- the stored registration is complete and exact (schema, hash, target, every resource ID and
+  `modified` binding) for one stored snapshot: the published snapshot, or the **registered
+  snapshot** a later publication retained;
+- that registered snapshot's target fingerprint is the configured SM endpoint and credential;
+- the registered snapshot's checks whose source is B, and the probes they use, equal B's current
+  checks and probes field for field (type, settings, job, target, frequency, timeout, labels, probe
+  name, region and coordinates), and B declares at least one check.
+
+A blueprint that fails the last test is stripped; the others keep their registered checks and
+`config_version`. When a publication replaces the snapshot the registration is complete for, the
+emitter keeps that snapshot beside the published one (`sm-registered-snapshot-v2.json` in file mode,
+`registered_snapshot` in the Kubernetes document). The provisioner reads and binds only the
+published snapshot; the retained one exists only for this check. It is dropped by the
+provisioner's first write that replaces or removes the registration (the start of an apply's first
+mutation, or its first recorded resource for the new snapshot), at the next publication after the
+published snapshot is registered again, when SM is deselected, or when a publication would push
+the state document past its size limit. Only a publication drops it for size, and the emitter logs
+it. After a size drop every blueprint's SM is suppressed, unchanged ones included, until the
+provisioner registers the published snapshot and the emitter restarts. A snapshot registered for
+another SM target is never retained.
+So after a live SM apply the registration does not cover, or a DELETE of a live SM blueprint, a
+restart or failover keeps every unchanged blueprint emitting; only the changed or new blueprint
+waits for the usual preview, apply and restart. An `sm-provision` apply replaces the registration
+as it reconciles, so a restart or failover while it runs suppresses every blueprint; restart after
+it completes.
+
+Rolling the emitter or `sm-provision` back to a release without per-blueprint activation while a
+Kubernetes document holds `registered_snapshot` fails closed: the older release rejects the
+document as invalid SM state. An older emitter with `STATE_SM_CONFIGMAP` set refuses to start,
+because its boot publication (or, with no SM selected, its invalidation) decodes the document and
+rejects the unknown field; an older `sm-provision` refuses every run. Run an ordinary apply and
+restart on the current release first, so the published snapshot is registered again and the
+retained one is dropped.
+
 The first v1-to-v2 format upgrade requires one explicit apply/restart. File activation uses new
 `sm-snapshot-v2.json` and `sm-registration-v2.json` files. Existing v1 ownership, previews, pending
 journal and lock are retained; a legacy registration can import ownership only, never activate v2.
 With intact ownership and unchanged remote specs, that first apply makes no remote changes. Later
-release-only upgrades need no new apply. Changed specs, partial/missing registration or any pending
-journal keep SM suppressed; unreadable/corrupt storage fails closed rather than becoming empty state.
+release-only upgrades need no new apply. A changed spec keeps that blueprint's SM suppressed;
+partial/missing registration or any pending journal keeps all SM suppressed; unreadable/corrupt
+storage fails closed rather than becoming empty state.
 
 The provisioner owns only IDs recorded in its private durable ownership ledger. That ledger is
 independent of one snapshot/source version, so a changed check can update its recorded ID while the

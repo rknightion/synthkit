@@ -25,13 +25,16 @@ const (
 	SchemaVersion           = 1 // durable ownership, previews, pending and lock stay v1
 	ActivationSchemaVersion = 2
 	SnapshotFilename        = "sm-snapshot-v2.json"
-	RegistrationFile        = "sm-registration-v2.json"
-	LegacyRegistrationFile  = "sm-registration-v1.json"
-	OwnershipFile           = "sm-ownership-v1.json"
-	AdoptionFile            = "sm-adoption-preview-v1.json"
-	MigrationFile           = "sm-target-migration-preview-v1.json"
-	JournalFilename         = "sm-pending-v1.json"
-	LockFilename            = "sm-provision-v1.lock"
+	// RegisteredFilename retains the snapshot the stored registration is complete for after a
+	// newer snapshot replaced it, so unchanged blueprints stay admitted (see smstore.Document).
+	RegisteredFilename     = "sm-registered-snapshot-v2.json"
+	RegistrationFile       = "sm-registration-v2.json"
+	LegacyRegistrationFile = "sm-registration-v1.json"
+	OwnershipFile          = "sm-ownership-v1.json"
+	AdoptionFile           = "sm-adoption-preview-v1.json"
+	MigrationFile          = "sm-target-migration-preview-v1.json"
+	JournalFilename        = "sm-pending-v1.json"
+	LockFilename           = "sm-provision-v1.lock"
 )
 
 type Label struct {
@@ -207,6 +210,36 @@ func WriteSnapshot(dir string, snapshot Snapshot) error {
 func ReadSnapshot(dir string) (Snapshot, error) {
 	var snapshot Snapshot
 	if err := readJSON(filepath.Join(dir, SnapshotFilename), &snapshot); err != nil {
+		return Snapshot{}, err
+	}
+	normalizeSnapshot(&snapshot)
+	if err := validateSnapshot(snapshot); err != nil {
+		return Snapshot{}, err
+	}
+	return snapshot, nil
+}
+
+// RemoveRegisteredSnapshot, WriteRegisteredSnapshot and ReadRegisteredSnapshot are the file codec
+// for the retained registered snapshot; it is validated exactly like the published one.
+func RemoveRegisteredSnapshot(dir string) error {
+	err := os.Remove(filepath.Join(dir, RegisteredFilename))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+func WriteRegisteredSnapshot(dir string, snapshot Snapshot) error {
+	normalizeSnapshot(&snapshot)
+	if err := validateSnapshot(snapshot); err != nil {
+		return err
+	}
+	return writeJSON(filepath.Join(dir, RegisteredFilename), snapshot)
+}
+
+func ReadRegisteredSnapshot(dir string) (Snapshot, error) {
+	var snapshot Snapshot
+	if err := readJSON(filepath.Join(dir, RegisteredFilename), &snapshot); err != nil {
 		return Snapshot{}, err
 	}
 	normalizeSnapshot(&snapshot)

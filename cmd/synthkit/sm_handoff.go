@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"reflect"
 	"slices"
 	"sort"
 	"sync"
@@ -109,6 +110,16 @@ type smDeclarationError struct{ err error }
 func (e *smDeclarationError) Error() string { return e.err.Error() }
 func (e *smDeclarationError) Unwrap() error { return e.err }
 
+// hasRegisteredSM reports whether admission kept bp's SM constructs (with registration).
+func hasRegisteredSM(bp *blueprint.Resolved) bool {
+	for _, instance := range bp.Constructs {
+		if smCfg, ok := instance.Config.(*sm.Config); ok && instance.Kind == sm.Kind && smCfg.RequireRegistration {
+			return true
+		}
+	}
+	return false
+}
+
 func stripSM(bp *blueprint.Resolved) {
 	kept := bp.Constructs[:0]
 	for _, instance := range bp.Constructs {
@@ -176,8 +187,11 @@ func buildSMSnapshot(decls []smDeclaration, cfg *config.Config, sourceVersion st
 }
 
 // admitSM is the one fail-closed SM filter. The snapshot covers the declarations of targets plus
-// extra (declarations that run beside targets but are not configured here); targets are stripped
-// of SM unless the stored registration matches that exact snapshot, and are otherwise given it.
+// extra (declarations that run beside targets but are not configured here) and is validated and
+// published whole. Admission is per target: with no pending journal, a stored registration
+// complete and exact for a stored snapshot (the published one or the retained registered one)
+// on the configured target, a target is given that registration only when its checks and their
+// probes equal that snapshot's part for it (sameSourceSpecs); every other target is stripped.
 func admitSM(ctx context.Context, targets []*blueprint.Resolved, extra []smDeclaration, cfg *config.Config, sourceVersion string, now time.Time, store smstore.Store, publication smPublication) (smHandoff, error) {
 	if cfg.HAMode == "lease" && cfg.StateBackend != "kubernetes" {
 		handoff := smHandoff{}
@@ -230,18 +244,24 @@ func admitSM(ctx context.Context, targets []*blueprint.Resolved, extra []smDecla
 	if err != nil {
 		return handoff, errors.New("synthetic monitoring state is unavailable or invalid")
 	}
-	var registration smstate.Registration
-	if doc.Provision.Registration != nil {
-		registration = *doc.Provision.Registration
-	}
-	if doc.Provision.Pending != nil || smstate.ValidateRegistration(snapshot, registration) != nil {
+	registered, registration, ok := registeredSnapshot(doc)
+	if doc.Provision.Pending != nil || !ok || registered.TargetFingerprint != snapshot.TargetFingerprint {
 		// Missing, corrupt, stale, or mismatched state is one fail-closed outcome: no SM emitter.
 		for _, bp := range targets {
 			stripSM(bp)
 		}
 		return handoff, nil
 	}
+	admitted, declaring := 0, 0
 	for _, bp := range targets {
+		if _, ok, _ := declaredSM(bp); !ok {
+			continue
+		}
+		declaring++
+		if !sameSourceSpecs(snapshot, registered, bp.Name) {
+			stripSM(bp) // this blueprint's checks or probes are not the ones registered for it
+			continue
+		}
 		for i := range bp.Constructs {
 			instance := &bp.Constructs[i]
 			if instance.Kind != sm.Kind {
@@ -260,9 +280,73 @@ func admitSM(ctx context.Context, targets []*blueprint.Resolved, extra []smDecla
 				smCfg.Registration[sm.CheckKey(spec.Job, spec.Target)] = resource.ConfigVersion
 			}
 		}
+		admitted++
 	}
-	handoff.Registered = true
+	// Registered reports every declaration the snapshot covers registered: each declaring target
+	// admitted and each extra declaration matching too (its own admission happens elsewhere).
+	handoff.Registered = admitted == declaring
+	for _, decl := range extra {
+		if len(decl.Checks) > 0 && !sameSourceSpecs(snapshot, registered, decl.Blueprint) {
+			handoff.Registered = false
+		}
+	}
 	return handoff, nil
+}
+
+// registeredSnapshot returns the stored snapshot the stored registration is exact and complete
+// for: the published snapshot, or the one a later publication retained (Document.Registered).
+func registeredSnapshot(doc smstore.Document) (smstate.Snapshot, smstate.Registration, bool) {
+	if doc.Provision.Registration == nil {
+		return smstate.Snapshot{}, smstate.Registration{}, false
+	}
+	registration := *doc.Provision.Registration
+	for _, candidate := range []*smstate.Snapshot{doc.Snapshot, doc.Registered} {
+		if candidate != nil && smstate.ValidateRegistration(*candidate, registration) == nil {
+			return *candidate, registration, true
+		}
+	}
+	return smstate.Snapshot{}, smstate.Registration{}, false
+}
+
+// sourceSpecs is the part of a snapshot one blueprint declares: its checks (Source == name) and
+// the probes they reference, each in key order with labels sorted.
+func sourceSpecs(snapshot smstate.Snapshot, name string) ([]smstate.CheckSpec, []smstate.ProbeSpec) {
+	probes := map[string]smstate.ProbeSpec{}
+	for _, probe := range snapshot.Probes {
+		probes[probe.Key] = probe
+	}
+	var checks []smstate.CheckSpec
+	used := map[string]bool{}
+	var usedProbes []smstate.ProbeSpec
+	for _, check := range snapshot.Checks {
+		if check.Source != name {
+			continue
+		}
+		check.Labels = append([]smstate.Label{}, check.Labels...)
+		sort.Slice(check.Labels, func(i, j int) bool {
+			if check.Labels[i].Name == check.Labels[j].Name {
+				return check.Labels[i].Value < check.Labels[j].Value
+			}
+			return check.Labels[i].Name < check.Labels[j].Name
+		})
+		checks = append(checks, check)
+		if probe, ok := probes[check.ProbeKey]; ok && !used[check.ProbeKey] {
+			used[check.ProbeKey] = true
+			usedProbes = append(usedProbes, probe)
+		}
+	}
+	sort.Slice(checks, func(i, j int) bool { return checks[i].Key < checks[j].Key })
+	sort.Slice(usedProbes, func(i, j int) bool { return usedProbes[i].Key < usedProbes[j].Key })
+	return checks, usedProbes
+}
+
+// sameSourceSpecs reports whether blueprint name declares exactly the checks and probes registered
+// for it: the current snapshot's part for name equals the registered snapshot's, field for field,
+// and is not empty.
+func sameSourceSpecs(current, registered smstate.Snapshot, name string) bool {
+	currentChecks, currentProbes := sourceSpecs(current, name)
+	registeredChecks, registeredProbes := sourceSpecs(registered, name)
+	return len(currentChecks) > 0 && reflect.DeepEqual(currentChecks, registeredChecks) && reflect.DeepEqual(currentProbes, registeredProbes)
 }
 
 // smStartupDisabled reports whether STARTUP_DISABLED_KINDS lists synthetic_monitoring.
@@ -351,8 +435,8 @@ func (a *smAdmission) prepareBoot(ctx context.Context, accepted []*blueprint.Res
 // Admit is the runner's Options.LiveAdmit. A startup-disabled SM kind strips the candidate's SM
 // exactly as the boot set's; a candidate without SM changes nothing. Otherwise the boot handoff
 // runs again with the candidate as its only target, over the boot declarations plus the live
-// declarations of every blueprint beside it, and strips SM unless the stored registration matches
-// that exact snapshot. A live apply on a publishing process first publishes the snapshot through
+// declarations of every blueprint beside it, and strips SM unless the stored registration covers
+// the candidate's exact checks and probes (admitSM). A live apply on a publishing process first publishes the snapshot through
 // the runtime CAS (refused while provisioning is pending; no write when unchanged). The restore
 // never publishes: the boot handoff already published the snapshot covering the persisted set, so
 // it only loads and validates, with no leader-fenced mutation. An SM construct without checks, an
@@ -414,7 +498,7 @@ func (a *smAdmission) Admit(req runner.LiveAdmitRequest) error {
 		return fmt.Errorf("%w: blueprint %q: %v", control.ErrLiveSMUnavailable, candidate.Name, err)
 	}
 	a.live[candidate.Name] = decl
-	if handoff.Declared && !handoff.Registered {
+	if handoff.Declared && !hasRegisteredSM(candidate) {
 		log.Printf("runner: live blueprint %q: Synthetic Monitoring suppressed until the provisioner registers the published snapshot", candidate.Name)
 	}
 	return nil

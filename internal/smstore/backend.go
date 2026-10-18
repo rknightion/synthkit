@@ -62,30 +62,40 @@ func (s *backendStore) update(ctx context.Context, fn func(*Document) error) err
 	return control.ErrConflict
 }
 func (s *backendStore) PublishSnapshot(ctx context.Context, snapshot *smstate.Snapshot) error {
-	// Copy once: the replay changes only Snapshot, retaining every provision field.
+	// Copy once: the replay changes only Snapshot and the retained registered snapshot,
+	// retaining every provision field.
 	if snapshot != nil {
 		if err := smstate.ValidateSnapshot(*snapshot); err != nil {
 			return err
 		}
 	}
 	snapshot = clone(snapshot)
-	return s.update(ctx, func(d *Document) error { d.Snapshot = clone(snapshot); return nil })
+	var dropped bool
+	err := s.update(ctx, func(d *Document) error { dropped = publishInto(d, snapshot); return nil })
+	if err == nil && dropped {
+		logRetentionDropped()
+	}
+	return err
 }
 func (s *backendStore) PublishSnapshotIfIdle(ctx context.Context, snapshot smstate.Snapshot) error {
 	if err := smstate.ValidateSnapshot(snapshot); err != nil {
 		return err
 	}
 	snapshot = clone(snapshot)
+	var dropped bool
 	err := s.update(ctx, func(d *Document) error {
+		dropped = false
 		if err := idlePublication(*d, snapshot); err != nil {
 			return err
 		}
-		next := clone(snapshot)
-		d.Snapshot = &next
+		dropped = publishInto(d, &snapshot)
 		return nil
 	})
 	if errors.Is(err, errUnchanged) {
 		return nil
+	}
+	if err == nil && dropped {
+		logRetentionDropped()
 	}
 	return err
 }
@@ -99,6 +109,9 @@ func (s *backendStore) UpdateProvision(ctx context.Context, b SnapshotBinding, f
 			return err
 		}
 		d.Provision = p
+		if staleRegistered(d.Registered, p) {
+			d.Registered = nil
+		}
 		return nil
 	})
 }

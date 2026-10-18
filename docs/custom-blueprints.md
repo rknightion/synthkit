@@ -182,8 +182,10 @@ blueprint plus this one:
   On the file state backend `sm-provision` holds the state lock for its whole run, so a live SM
   apply during that run returns `503` `sm_state_unavailable` instead.
   Do not live-apply SM while `sm-provision` runs; retry once it completes. The blueprint is
-  admitted, but its SM construct is stripped unless the stored registration matches that exact
-  snapshot. A matching registration is injected and the checks emit.
+  admitted, but its SM construct is stripped unless the stored registration covers exactly its
+  current checks and probes
+  ([per-blueprint activation](synthetic-monitoring.md#per-blueprint-activation)). A matching
+  registration is injected and the checks emit. Other running blueprints are unaffected.
 - To activate checks the registration does not yet cover, run the usual provisioner preview and
   apply, then restart. The boot snapshot covers the persisted live set too, so the restart restores
   the blueprint with its registration.
@@ -199,11 +201,11 @@ blueprint plus this one:
   stripped without a snapshot write.
 
 DELETE does not republish the snapshot: the removed checks stay in it until the next Synthetic
-Monitoring apply or restart publishes the running set again. The registration must match the whole
-set, so after a live SM apply the registration does not cover, or a DELETE of a live SM blueprint,
-the next restart (a pod reschedule or an HA leader failover included) publishes a snapshot the stored registration no longer
-matches, and every blueprint's SM, boot blueprints included, stays stripped until the provisioner
-applies again. Run the provisioner before restarting. At most 64
+Monitoring apply or restart publishes the running set again. Activation is per blueprint, so after
+a live SM apply the registration does not cover, or a DELETE of a live SM blueprint, the next
+restart (a pod reschedule or an HA leader failover included) keeps every other blueprint's
+registered SM emitting, boot blueprints included; only the new or changed blueprint stays stripped
+until the provisioner applies again and the emitter restarts. At most 64
 blueprints can be live at once (counting persisted records the restore skipped); the next apply
 returns `409` `live blueprint limit reached (64)`. Each record carries its YAML inline in the control
 snapshot, and the Kubernetes state backend stores that snapshot in one ConfigMap document bounded at
