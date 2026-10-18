@@ -1,9 +1,10 @@
 ---
 id: SKT-0148
 title: Bring the HA composition root to parity for live-restored blueprints
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-17 18:33'
+updated_date: '2026-10-18 02:23'
 labels:
   - control
   - blueprints
@@ -20,13 +21,19 @@ Live-applied blueprints (POST /control/blueprints/live) restored on the first Ap
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 In HA leader mode a restored live blueprint's restore-skip and shape warnings appear in GET /control/diagnostics, with a test
-- [ ] #2 HA optional-lane dispositions include lanes of restored live blueprints, with a test
+- [x] #1 In HA leader mode a restored live blueprint's restore-skip and shape warnings appear in GET /control/diagnostics, with a test
+- [x] #2 HA optional-lane dispositions include lanes of restored live blueprints, with a test
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed 2ff0839 (loop50 BATCH8). Main CI green on 8e7f233.
+<!-- SECTION:NOTES:END -->

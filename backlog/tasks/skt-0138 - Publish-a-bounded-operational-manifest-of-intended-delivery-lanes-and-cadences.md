@@ -1,9 +1,10 @@
 ---
 id: SKT-0138
 title: Publish a bounded operational manifest of intended delivery lanes and cadences
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-16 13:53'
+updated_date: '2026-10-18 02:23'
 labels: []
 dependencies: []
 references:
@@ -22,14 +23,20 @@ Push counters describe lanes that have emitted, not every lane the resolved acti
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A documented bounded secret-free manifest derives intended lane identities and relevant cadence or observation bounds from actual resolved active worlds and enabled sinks, not observed push-series enumeration
-- [ ] #2 Manifest provenance changes with effective configuration and process/session identity; standby, disabled, unsupported and missing evidence cannot silently remove required lanes from a health denominator
-- [ ] #3 Public runtime/export tests cover a missing lane, valid quiet cadence, changed configuration and disabled emission without arbitrary rates or duplicated blueprint-specific logic
+- [x] #1 A documented bounded secret-free manifest derives intended lane identities and relevant cadence or observation bounds from actual resolved active worlds and enabled sinks, not observed push-series enumeration
+- [x] #2 Manifest provenance changes with effective configuration and process/session identity; standby, disabled, unsupported and missing evidence cannot silently remove required lanes from a health denominator
+- [x] #3 Public runtime/export tests cover a missing lane, valid quiet cadence, changed configuration and disabled emission without arbitrary rates or duplicated blueprint-specific logic
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed c5ddebc (loop50 BATCH10). Main CI green on 8e7f233.
+<!-- SECTION:NOTES:END -->
