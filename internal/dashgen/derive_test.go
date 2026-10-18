@@ -74,3 +74,12 @@ func TestDeriveK8sFullStack(t *testing.T) {
 		}
 	}
 }
+
+// TestDeriveWarmNeedsACycle proves an explicit warmup below one cycle is refused before any work.
+func TestDeriveWarmNeedsACycle(t *testing.T) {
+	for _, cycles := range []int{0, -1} {
+		if _, err := DeriveWarm("../../blueprints/k8s-full-stack.yaml", cycles); err == nil {
+			t.Errorf("DeriveWarm with %d cycles returned no error", cycles)
+		}
+	}
+}

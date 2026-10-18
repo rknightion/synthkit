@@ -7,12 +7,28 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/rknightion/synthkit/dashboard"
+	"github.com/rknightion/synthkit/internal/dashgen"
 )
+
+// impactWarmupCycles is the dry-run warmup the shipped-scenario test derives with. The impact
+// choices read only the metric and log-source inventories, and every cycle replays the whole
+// blueprint: the full dashgen.Derive warmup of twelve cycles took over six minutes under -race on
+// the shipped estate, almost all of this package's runtime. TestShortWarmupMatchesFullDerive keeps
+// the shorter warmup proven equivalent to the full one on the fixture, and
+// TestShortWarmupMatchesFullDeriveOnShippedScenarioBlueprints on every shipped scenario blueprint
+// (outside the race build, where the full derive is the cost being avoided). Convergence is
+// blueprint-dependent, so the shortcut is only sound while both hold.
+const impactWarmupCycles = 3
+
+func deriveForImpactTest(path string) (*dashboard.Manifest, error) {
+	return dashgen.DeriveWarm(path, impactWarmupCycles)
+}
 
 func TestGenerateWritesValidV2Dashboard(t *testing.T) {
 	out := t.TempDir()
@@ -142,7 +158,7 @@ func TestShippedScenarioImpactQueriesUseDerivedFamilies(t *testing.T) {
 	if len(scenarios) == 0 {
 		t.Fatal("no shipped scenarios")
 	}
-	surface, err := deriveImpact(scenarios)
+	surface, err := deriveImpactWith(scenarios, deriveForImpactTest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,6 +207,30 @@ func TestShippedScenarioImpactQueriesUseDerivedFamilies(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// TestShortWarmupMatchesFullDerive proves the shortened warmup used above yields the same metric
+// and log-source inventories as the full Derive warmup the generator runs, on the control-plane
+// fixture (which declares both a latency histogram and error log sources).
+func TestShortWarmupMatchesFullDerive(t *testing.T) {
+	path := filepath.Join("testdata", "control-plane.yaml")
+	full, err := dashgen.Derive(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	short, err := deriveForImpactTest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(full.Metrics) == 0 || len(full.LogSources) == 0 {
+		t.Fatalf("fixture derived %d metrics and %d log sources; want both", len(full.Metrics), len(full.LogSources))
+	}
+	if !reflect.DeepEqual(full.Metrics, short.Metrics) {
+		t.Errorf("metric inventory differs between %d and the full warmup (%d vs %d families)", impactWarmupCycles, len(short.Metrics), len(full.Metrics))
+	}
+	if !reflect.DeepEqual(full.LogSources, short.LogSources) {
+		t.Errorf("log-source inventory differs between %d and the full warmup (%d vs %d sources)", impactWarmupCycles, len(short.LogSources), len(full.LogSources))
 	}
 }
 

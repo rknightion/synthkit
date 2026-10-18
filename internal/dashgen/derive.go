@@ -36,6 +36,19 @@ func peakInstant(tz string) time.Time {
 // Derive loads the blueprint at path, runs it once through the runner with dry-run sinks,
 // and assembles the dashboard.Manifest from the resolved topology + the sink inventories.
 func Derive(path string) (*dashboard.Manifest, error) {
+	return DeriveWarm(path, warmupCycles)
+}
+
+// DeriveWarm is Derive with an explicit number of dry warmup cycles (at least one). The default
+// is sized so the trace surface populates. Whether the metric and log-source inventories have
+// converged after fewer cycles depends on the blueprint: some families (for example an error
+// counter fed by a low-rate lane) first appear in a later cycle. A caller that runs fewer cycles
+// must prove its inventories equal Derive's on every blueprint it derives. Each cycle replays the
+// whole blueprint, so the cost is linear in cycles.
+func DeriveWarm(path string, cycles int) (*dashboard.Manifest, error) {
+	if cycles < 1 {
+		return nil, fmt.Errorf("%s: derive needs at least one warmup cycle, got %d", path, cycles)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -66,7 +79,7 @@ func Derive(path string) (*dashboard.Manifest, error) {
 
 	now := peakInstant(res.Timezone)
 	ctx := context.Background()
-	for i := 0; i < warmupCycles; i++ {
+	for i := 0; i < cycles; i++ {
 		if err := r.RunOnce(ctx, now.Add(time.Duration(i)*time.Minute)); err != nil {
 			return nil, fmt.Errorf("dry cycle %d: %w", i, err)
 		}

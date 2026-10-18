@@ -165,13 +165,20 @@ type impactSurface struct {
 // spanmetrics into its inventory even though the live producer defaults them off.
 // A node with no directly emitted, service-scoped latency family gets no panel.
 func deriveImpact(scenarios []scenario) (impactSurface, error) {
+	return deriveImpactWith(scenarios, dashgen.Derive)
+}
+
+// deriveImpactWith is deriveImpact over a caller-chosen manifest derivation. The impact choices read
+// only the metric and log-source inventories, so a test may pass a shorter dry-run warmup than the
+// full dashgen.Derive the generator uses.
+func deriveImpactWith(scenarios []scenario, derive func(path string) (*dashboard.Manifest, error)) (impactSurface, error) {
 	out := impactSurface{queries: map[string]impactQuery{}, manifests: map[string]*dashboard.Manifest{}}
 	paths := map[string]string{}
 	for _, s := range scenarios {
 		paths[s.Blueprint] = s.Path
 	}
 	for bp, path := range paths {
-		m, err := dashgen.Derive(path)
+		m, err := derive(path)
 		if err != nil {
 			return impactSurface{}, fmt.Errorf("derive %s: %w", path, err)
 		}
