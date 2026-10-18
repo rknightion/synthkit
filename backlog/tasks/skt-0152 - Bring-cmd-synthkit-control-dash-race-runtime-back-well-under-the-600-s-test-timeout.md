@@ -3,9 +3,10 @@ id: SKT-0152
 title: >-
   Bring cmd/synthkit-control-dash race runtime back well under the 600 s test
   timeout
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-18 00:58'
+updated_date: '2026-10-18 02:52'
 labels:
   - ci
   - tests
@@ -22,13 +23,19 @@ SKT-0112 brought the package under the timeout, but main CI just race now report
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Main CI just race reports cmd/synthkit-control-dash under 300 s on two consecutive main SHAs, with the unchanged 600 s timeout
-- [ ] #2 No test skipped under race, no assertion removed, no timeout raised; the changed tests are named with before and after times
+- [x] #1 Main CI just race reports cmd/synthkit-control-dash under 300 s on two consecutive main SHAs, with the unchanged 600 s timeout
+- [x] #2 No test skipped under race, no assertion removed, no timeout raised; the changed tests are named with before and after times
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed 8e7f233 (loop50 BATCH11). Main CI control-dash race 189.2s on 8e7f233 and 193.7s on e8c4a8e, under 300s on two consecutive SHAs, timeout unchanged.
+<!-- SECTION:NOTES:END -->

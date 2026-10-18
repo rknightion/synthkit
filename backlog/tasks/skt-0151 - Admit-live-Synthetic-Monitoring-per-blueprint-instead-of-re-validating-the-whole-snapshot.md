@@ -3,9 +3,10 @@ id: SKT-0151
 title: >-
   Admit live Synthetic Monitoring per blueprint instead of re-validating the
   whole snapshot
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-17 21:48'
+updated_date: '2026-10-18 02:52'
 labels:
   - synthetic-monitoring
   - control
@@ -22,14 +23,20 @@ With live SM admission (SKT-0146) the SM private snapshot covers the boot set pl
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A live SM apply or DELETE of one blueprint does not strip SM from other blueprints whose registered checks are unchanged, across restart and failover
-- [ ] #2 Unregistered or mismatched SM for the changed blueprint still never emits; tests cover file and kubernetes backends
-- [ ] #3 docs/synthetic-monitoring.md describes per-blueprint admission
+- [x] #1 A live SM apply or DELETE of one blueprint does not strip SM from other blueprints whose registered checks are unchanged, across restart and failover
+- [x] #2 Unregistered or mismatched SM for the changed blueprint still never emits; tests cover file and kubernetes backends
+- [x] #3 docs/synthetic-monitoring.md describes per-blueprint admission
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Landed e8c4a8e (loop50 BATCH12, rc v1.6.0-rc.205). Main CI green on e8c4a8e.
+<!-- SECTION:NOTES:END -->

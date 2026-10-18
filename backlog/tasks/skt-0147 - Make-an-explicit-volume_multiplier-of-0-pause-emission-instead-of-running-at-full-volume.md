@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-17 17:43'
+updated_date: '2026-10-18 02:52'
 labels:
   - control
 dependencies: []
@@ -32,3 +33,9 @@ POST /control/load accepts volume_multiplier 0 (validateState range 0-100) and E
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop50 (2026-10-18): held for an owner decision, not started. Reject 0 with a 400 (root recommendation) or make 0 mean zero volume; see the loop50 closeout.
+<!-- SECTION:NOTES:END -->
