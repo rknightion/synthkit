@@ -497,6 +497,20 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 		return nil, errors.New("no selected HA blueprints loaded")
 	}
 	v.runner.ApplyControl(store.Snapshot())
+	// The restore ran inside ApplyControl's first call. Only the view built for leadership reports
+	// it: a standby restores the same persisted set into its own read-only runner, and its skips
+	// would describe a process that is not serving the fleet. During gate.Activate's prepare the
+	// gate is not yet active, so in production publishSM decides; the role check covers gates that
+	// always report leader.
+	diag := control.NewDiagnostics()
+	if publishSM || gate.Role() == ha.RoleLeader {
+		for _, sw := range v.runner.ShapeWarnings() {
+			diag.Add("warning", sw.Blueprint, "incident", sw.Message)
+		}
+		for _, skip := range v.runner.LiveRestoreSkips() {
+			diag.Add("error", skip.Blueprint, "live", skip.Reason)
+		}
+	}
 	ps := pushstatus.NewStore()
 	fs := fleetstatus.NewStore()
 	hs := healthstatus.NewStore()
@@ -587,13 +601,16 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 		SetBasePath(cfg.ControlBasePath).
 		SetManagedFeatures(cfg.ControlManagedFeatures).
 		SetStatus(control.StatusSources{Sinks: ps.Snapshot, Queues: func() []pushstatus.QueueStat { return ps.SnapshotQueues(v.runner.QueueDepths()) }, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, DryRun: cfg.DryRun, Readiness: readiness, Optional: func() []optionallane.Disposition {
-			facts := collectOptionalRuntimeFacts(accepted, mgr.Sources(), cfg, v.smState)
+			// The running set, not the boot list: restored and live-applied blueprints count too. A
+			// standby reports its own read-only restore here, which can briefly differ from the
+			// leader's set for a live blueprint whose SM needs the leader's handoff.
+			facts := collectOptionalRuntimeFacts(v.runner.RunningResolved(), mgr.Sources(), cfg, v.smState)
 			if gate.Role() != ha.RoleLeader {
 				facts.smRegistered = false
 			}
 			return optionalRuntimeDispositions(cfg, facts, ps.SnapshotLanes(), fs.Snapshot(), v.runner.FleetRosterCount(), cfg.SelfObsEnabled, cfg.SelfObsEnabled && cfg.PyroscopeURL != "")
 		}}).
-		SetBlueprintAdmin(&haBlueprintAdmin{blueprintAdminAdapter: &blueprintAdminAdapter{mgr: mgr, sc: sc}}).SetInventory(v.runner).SetConfig(toControlConfigView(cfg.RedactedHA())).SetHealth(func() any { return healthReport(hs.Snapshot()) }).
+		SetBlueprintAdmin(&haBlueprintAdmin{blueprintAdminAdapter: &blueprintAdminAdapter{mgr: mgr, sc: sc}}).SetInventory(v.runner).SetDiagnostics(diag).SetConfig(toControlConfigView(cfg.RedactedHA())).SetHealth(func() any { return healthReport(hs.Snapshot()) }).
 		SetChangeObserver(func(s control.State) {
 			configure()
 			<-v.observabilityReady // still accounted by the admitted mutation
