@@ -719,7 +719,8 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			}
 			return out
 		},
-		QueueDepth: r.QueueDepths,
+		QueueDepth:       r.QueueDepths,
+		DeliveryManifest: deliveryManifestSource(r, false, cfg.DryRun),
 	})
 	if serr != nil {
 		log.Printf("selfobs: failed to start: %v", serr)

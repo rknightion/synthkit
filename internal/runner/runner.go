@@ -143,6 +143,7 @@ type boundConstruct struct {
 	interval  time.Duration
 	nextDue   time.Time
 	inv       *constructInv
+	signals   []core.SignalClass // declared classes, kept even when a sink is absent (delivery manifest)
 }
 
 type boundWorkload struct {
@@ -153,6 +154,9 @@ type boundWorkload struct {
 	nextDue  time.Time
 	inv      *constructInv
 	rum      bool
+	signals  []core.SignalClass // declared classes, kept even when a sink is absent (delivery manifest)
+	// rumDeclared is the blueprint's rum declaration; rum is whether a Faro queue was bound.
+	rumDeclared bool
 }
 
 // DeliveryReadinessLane is one sink lane an active blueprint intends to emit. EmissionInterval is
@@ -597,6 +601,7 @@ func (r *Runner) buildBlueprint(res *blueprint.Resolved) (*bpRuntime, []ShapeWar
 			world:     world,
 			inv:       inv,
 			interval:  r.instanceMetricInterval(res.Name, ci.Name, c.Signals(), c.Interval(), metricInterval, highDPM),
+			signals:   slices.Clone(c.Signals()),
 		})
 	}
 
@@ -658,6 +663,9 @@ func (r *Runner) buildBlueprint(res *blueprint.Resolved) (*bpRuntime, []ShapeWar
 			inv:      winv,
 			interval: r.instanceMetricInterval(res.Name, wi.Name, w.Signals(), w.Interval(), metricInterval, highDPM),
 			rum:      rum != nil,
+			signals:  slices.Clone(w.Signals()),
+
+			rumDeclared: wi.RUM,
 		})
 	}
 
@@ -1674,60 +1682,14 @@ func (r *Runner) ActiveBlueprintCount() int {
 
 // DeliveryReadinessLanes derives intended delivery from the writers actually wired to active
 // blueprint instances. This avoids declaring optional sinks that no selected blueprint can emit.
+// It is the expected subset of DeliveryManifest, so readiness and the manifest share one derivation.
 func (r *Runner) DeliveryReadinessLanes() []DeliveryReadinessLane {
-	intervals := map[string]time.Duration{}
-	add := func(name string, interval time.Duration) {
-		if interval > intervals[name] {
-			intervals[name] = interval
+	m := r.DeliveryManifest()
+	out := make([]DeliveryReadinessLane, 0, len(m.Lanes))
+	for _, lane := range m.Lanes {
+		if lane.State == LaneExpected {
+			out = append(out, DeliveryReadinessLane{Name: lane.Sink, EmissionInterval: lane.EmissionInterval})
 		}
-	}
-	addWorld := func(w *core.World, interval time.Duration) {
-		if w.Metrics != nil {
-			add("promrw", interval)
-		}
-		if w.Logs != nil {
-			add("loki", interval)
-		}
-		if w.Traces != nil {
-			add("otlp", interval)
-		}
-		if w.Pyroscope != nil {
-			add("pyroscope", interval)
-		}
-		if w.OTLPMetrics != nil {
-			add("otlpmetrics", interval)
-		}
-		if w.OTLPLogs != nil {
-			add("otlplogs", interval)
-		}
-		if w.Sigil != nil {
-			add("sigil", interval)
-		}
-	}
-	for _, bp := range r.blueprintSet() {
-		if !r.enabled(bp.name) {
-			continue
-		}
-		for _, bc := range bp.constructs {
-			if r.constructEnabled(bp.name, bc.kind, bc.name) {
-				addWorld(bc.world, bc.interval)
-			}
-		}
-		for _, bw := range bp.workloads {
-			addWorld(bw.world, bw.interval)
-			if bw.rum {
-				add("faro", bw.interval)
-			}
-		}
-	}
-	names := make([]string, 0, len(intervals))
-	for name := range intervals {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	out := make([]DeliveryReadinessLane, 0, len(names))
-	for _, name := range names {
-		out = append(out, DeliveryReadinessLane{Name: name, EmissionInterval: intervals[name]})
 	}
 	return out
 }
@@ -1744,19 +1706,22 @@ func (r *Runner) spanMetricsEnabled(blueprint string) bool {
 }
 
 // enabled reports whether a blueprint is currently enabled (control plane).
-func (r *Runner) enabled(name string) bool {
-	st := r.ctl.Load()
-	if st == nil {
-		return true
-	}
-	return !slices.Contains(st.DisabledBlueprints, name)
-}
+func (r *Runner) enabled(name string) bool { return blueprintEnabledIn(r.ctl.Load(), name) }
 
 // constructEnabled reports whether a construct instance is enabled: false if its kind is
 // globally disabled OR its "blueprint/kind:name" key is in the per-instance disable list.
 // Mirrors enabled() (reads the atomic control snapshot; nil => enabled).
 func (r *Runner) constructEnabled(blueprint, kind, name string) bool {
-	st := r.ctl.Load()
+	return constructEnabledIn(r.ctl.Load(), blueprint, kind, name)
+}
+
+// blueprintEnabledIn and constructEnabledIn evaluate one already-loaded control snapshot, so a
+// caller that reads many instances (DeliveryManifest) sees a single consistent revision.
+func blueprintEnabledIn(st *control.State, name string) bool {
+	return st == nil || !slices.Contains(st.DisabledBlueprints, name)
+}
+
+func constructEnabledIn(st *control.State, blueprint, kind, name string) bool {
 	if st == nil {
 		return true
 	}

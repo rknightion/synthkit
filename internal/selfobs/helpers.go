@@ -80,20 +80,26 @@ func SessionID(leaseIdentity string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// exportedSessionID is the synthkit.ha.session.id value sessionAttributes exports.
+func exportedSessionID(leaseIdentity string) string {
+	if leaseIdentity == "" {
+		return SessionUnknown
+	}
+	return SessionID(leaseIdentity)
+}
+
 // sessionAttributes always sets both keys. Every SDK provider merges
 // resource.Environment() underneath this resource, so a key left unset here
 // could be supplied by OTEL_RESOURCE_ATTRIBUTES; the explicit SessionUnknown ID
 // (never a 64-hex digest) keeps unknown attribution unforgeable.
 func sessionAttributes(leaseIdentity string) []attribute.KeyValue {
+	attribution := SessionLease
 	if leaseIdentity == "" {
-		return []attribute.KeyValue{
-			attribute.String(AttrSessionAttribution, SessionUnknown),
-			attribute.String(AttrSessionID, SessionUnknown),
-		}
+		attribution = SessionUnknown
 	}
 	return []attribute.KeyValue{
-		attribute.String(AttrSessionAttribution, SessionLease),
-		attribute.String(AttrSessionID, SessionID(leaseIdentity)),
+		attribute.String(AttrSessionAttribution, attribution),
+		attribute.String(AttrSessionID, exportedSessionID(leaseIdentity)),
 	}
 }
 

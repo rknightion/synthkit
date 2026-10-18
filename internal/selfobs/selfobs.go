@@ -103,6 +103,7 @@ type Gauges struct {
 	BlueprintCount   func() int                // number of loaded blueprints (operability cardinality aid)
 	Cardinality      func() []CardinalityPoint // per-blueprint/construct distinct-series counts
 	QueueDepth       func() map[string]int     // delivery-queue depth by sink (I41); nil = gauge not registered
+	DeliveryManifest func() DeliveryManifest   // intended delivery lanes of the running set; nil = not registered
 }
 
 // SelfObs holds the self-observability providers and instruments. A nil-but-typed disabled handle
@@ -131,6 +132,10 @@ type SelfObs struct {
 
 	queueMu   sync.Mutex
 	queueLoss map[string]*queueLossState
+
+	sessionID  string // exported synthkit.ha.session.id; binds delivery-manifest provenance
+	manifestMu sync.Mutex
+	manifest   manifestState
 
 	stop      chan struct{} // closed by Shutdown to stop the heartbeat goroutine
 	stopOnce  sync.Once
@@ -162,7 +167,7 @@ func Start(opts Options, gauges Gauges) (*SelfObs, error) {
 	headers := map[string]string{"Authorization": "Basic " + basicAuth(opts.User, opts.Password)}
 	res := buildResource(opts)
 
-	so := &SelfObs{enabled: true, queueLoss: map[string]*queueLossState{}}
+	so := &SelfObs{enabled: true, queueLoss: map[string]*queueLossState{}, sessionID: exportedSessionID(opts.LeaseIdentity)}
 
 	// ── Traces ──
 	texp, err := otlptracehttp.New(ctx,
@@ -723,6 +728,11 @@ func (s *SelfObs) initInstruments(mp metric.MeterProvider, g Gauges) error {
 				}
 				return nil
 			})); err != nil {
+			return err
+		}
+	}
+	if g.DeliveryManifest != nil {
+		if err = s.registerManifest(m, g.DeliveryManifest); err != nil {
 			return err
 		}
 	}

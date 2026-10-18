@@ -639,6 +639,10 @@ events retain their original resource, and disabled self-observability leaves st
     name, wall-clock duration, dropped/coalesced-tick count) through an optional stdlib callback
     (`selfobs.ObserveCycle`). nil ⇒ no-op. It surfaces the dropped-tick failure mode — a missed tick
     is a missed `Ledger.Mint`, silently undercounting volume — without the runner linking the SDK.
+- The delivery manifest (`runner.DeliveryManifest`) is derived runner-side from the running
+  set's declared signal classes, control-plane enablement and configured sinks, never from push
+  results. `cmd/synthkit` adapts it into a `selfobs.Gauges` callback, the same plain-callback seam
+  as the other observable gauges; selfobs binds its revision to the session identity.
 - `internal/profiling` ships continuous Pyroscope profiles (CPU/heap/goroutines, + mutex/block when
   their runtime sampling rate is set). `ApplicationName=synthkit`.
 

@@ -20,7 +20,7 @@ All three signal types flow over a single OTLP/HTTP endpoint to the self-obs sta
 
 | Signal | What it covers |
 |---|---|
-| **Metrics** | `synthkit.push` (count/items/bytes/duration per sink/blueprint/outcome), `synthkit.tick` (invocations + duration), `synthkit.cycle.duration`, `synthkit.dropped_ticks`, delivery-queue depth/flush/loss metrics (`synthkit.queue.*`), Fleet Management operations (`synthkit.fleet.*`), and observable gauges: `synthkit.ledger.size`, `synthkit.volume.multiplier`, `synthkit.blueprint.count`, `synthkit.cardinality.series` |
+| **Metrics** | `synthkit.push` (count/items/bytes/duration per sink/blueprint/outcome), `synthkit.tick` (invocations + duration), `synthkit.cycle.duration`, `synthkit.dropped_ticks`, delivery-queue depth/flush/loss metrics (`synthkit.queue.*`), Fleet Management operations (`synthkit.fleet.*`), observable gauges: `synthkit.ledger.size`, `synthkit.volume.multiplier`, `synthkit.blueprint.count`, `synthkit.cardinality.series`, and the delivery manifest (`synthkit.delivery.manifest.*`) |
 | **Traces** | Per-tick spans wrapping each construct invocation; `cycle` spans (backdated to the generation window); `push <sink>` child spans for each live push; `flush <sink>` spans for the decoupled delivery queue; `fleet <op>` spans for FM registration and heartbeat round-trips |
 | **Logs** | Structured OTLP LogRecords for push failures (event=`push_error`), tick errors (event=`tick_error`), FM failures (event=`fleet_error`), config-change events (event=`config_change`), and the operational heartbeat (every 5 minutes) |
 
@@ -93,6 +93,72 @@ The digest is exported instead of the raw identity because the configuration vie
 observer. The session ID is a resource attribute and changes on every process start, so a metrics
 backend gets one new resource series per start, even when a restart keeps `service.instance.id`. The ID
 carries no user, credential or hardware identifier.
+
+#### Delivery manifest
+
+Push metrics only describe lanes that have pushed. The delivery manifest says which lanes the
+running set intends to deliver, so an observer can tell a quiet lane from a missing one, and
+disabled or undeliverable emission from missing telemetry.
+
+The runner derives it from the running set on every metric collection, never from push results.
+For each instance of each running blueprint (boot, restored and live-applied) it reads the
+declared signal classes and the workload `rum` declaration. It then applies one control-plane
+snapshot and the configured sinks. A live apply or removal changes the next collection.
+
+| Metric | Points | Value |
+|---|---|---|
+| `synthkit.delivery.manifest.lane` (s) | At most one per sink: `promrw`, `loki`, `otlp`, `pyroscope`, `faro`, `otlpmetrics`, `otlplogs`, `sigil` | The slowest declared cadence (`Interval`) among the instances that decide the lane's state, plus the delivery-queue batch deadline (`SEND_BATCH_DEADLINE`). Attributes `sink`, `state`, `freshness` and `synthkit.delivery.manifest.revision` |
+| `synthkit.delivery.manifest.adopted_timestamp` (s) | Exactly one | Unix time at which this process first exported the current revision. A Prometheus-compatible backend shows it as `synthkit_delivery_manifest_adopted_timestamp_seconds`. Attribute `synthkit.delivery.manifest.revision` |
+
+`state` is a closed set. Only `expected` lanes are due to deliver. Every other state keeps the
+lane in the denominator with its reason.
+
+| `state` | Meaning |
+|---|---|
+| `expected` | An enabled instance declares the lane and its sink is configured |
+| `disabled` | Every instance declaring the lane is disabled by the control plane (blueprint, kind or instance) |
+| `unsupported` | An enabled instance declares the lane, but this process has no sink for it |
+| `standby` | The lane would be expected, but this process is an HA standby with no producers |
+| `dry_run` | The lane would be expected, but synthetic delivery is in `DRY_RUN` |
+
+`freshness` says whether the lane value is a missing-evidence bound. It follows the core
+two-cadence contract.
+
+| `freshness` | Contributors | What the value means |
+|---|---|---|
+| `scheduled` | At least one deciding contributor pushes from `Tick` on its declared interval: every construct lane, plus workload metric (`promrw`, `otlpmetrics`) and profile (`pyroscope`) lanes | A missing-evidence bound for a contributor that pushes every tick. A construct may legitimately skip an empty batch on some ticks (sparse construct log streams), so when such a construct is the lane's only enabled scheduled contributor, allow for occasional quiet ticks before calling the lane missing |
+| `request_driven` | Every deciding contributor is a workload trace, log, Sigil or RUM lane, which pushes only from `ProjectBatch` when requests were minted (an `ai_agent` returns early on an empty batch) | Only the projection cadence. A gap inside or beyond it is not evidence of a fault: at a real coding-agent rate of 0.5 sessions a minute, more than half of all one-minute windows carry no session start |
+
+A lane that is not in the manifest is not intended by the running set. An empty running set
+exports no lane points and still exports the `adopted_timestamp` point, so "nothing intended"
+stays distinct from "no manifest".
+
+To classify an `expected` `scheduled` lane, compare the age of its last successful
+`synthkit.push` for that `sink` with the value. Inside it, a lane with no recent push is quiet and
+healthy. Past it, the lane is missing. A lane declared at a five-minute cadence has a value of five
+minutes plus the batch deadline, so a three-minute gap is a valid quiet period. For a
+`request_driven` lane, judge health from push outcomes, not from push age.
+
+`synthkit.delivery.manifest.revision` is the first 64 bits of a SHA-256, in hex. Its inputs are:
+
+- 128 random bits drawn once per process and never exported;
+- the exported `synthkit.ha.session.id`;
+- a fingerprint of the effective configuration. It covers each running blueprint's name, source
+  digest and enablement; each instance's identity, enablement, cadence and declared lanes; the
+  configured sink set; and the batch deadline;
+- the exported lanes.
+
+A new process, a new lease session or a different configuration therefore yields a new revision,
+even when a container restart reuses hostname and PID with HA off. No session is inferred from the
+process input. A volume-multiplier change does not change the revision, because it changes no
+intended lane. The revision exports no blueprint name, source or credential.
+
+Cardinality is bounded per collection. There are at most eight lane points, each with one state
+and one freshness value, plus one `adopted_timestamp` point. A lane whose `sink`, `state` or
+`freshness` falls outside the closed sets is not exported, and the process logs the rejection once
+per revision. Each revision adds at most nine new series. A revision changes only on a
+configuration change, a live apply or removal, or a process or session change. Points of a
+superseded revision stop at the next collection.
 
 ### Continuous profiles (Pyroscope)
 

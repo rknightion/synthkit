@@ -644,7 +644,7 @@ type haOperational struct {
 // startHAOperational stamps each role provider with the process's election
 // identity digest; leadership is the (session ID, ha.role=leader) resource.
 func startHAOperational(cfg *config.Config, v *haView, role ha.Role, leaseIdentity string) (haOperational, error) {
-	so, err := selfobs.Start(selfobs.Options{Enabled: cfg.SelfObsEnabled, Endpoint: cfg.SelfOTLPEndpoint, User: cfg.SelfOTLPUser, Password: cfg.SelfOTLPPassword, Tags: haRoleTags(selfobs.ParseTags(cfg.SelfObsTags), role), Version: version, MetricInterval: cfg.SelfObsMetricInterval, DryRun: cfg.DryRun, LeaseIdentity: leaseIdentity}, selfobs.Gauges{LedgerSize: v.runner.LedgerSize, VolumeMultiplier: v.runner.VolumeMultiplier, BlueprintCount: v.runner.BlueprintCount, QueueDepth: v.runner.QueueDepths, Cardinality: func() []selfobs.CardinalityPoint {
+	so, err := selfobs.Start(selfobs.Options{Enabled: cfg.SelfObsEnabled, Endpoint: cfg.SelfOTLPEndpoint, User: cfg.SelfOTLPUser, Password: cfg.SelfOTLPPassword, Tags: haRoleTags(selfobs.ParseTags(cfg.SelfObsTags), role), Version: version, MetricInterval: cfg.SelfObsMetricInterval, DryRun: cfg.DryRun, LeaseIdentity: leaseIdentity}, selfobs.Gauges{LedgerSize: v.runner.LedgerSize, VolumeMultiplier: v.runner.VolumeMultiplier, BlueprintCount: v.runner.BlueprintCount, QueueDepth: v.runner.QueueDepths, DeliveryManifest: deliveryManifestSource(v.runner, role == ha.RoleStandby, cfg.DryRun), Cardinality: func() []selfobs.CardinalityPoint {
 		var result []selfobs.CardinalityPoint
 		for _, bp := range v.runner.Inventory().Blueprints {
 			for _, c := range bp.Constructs {
