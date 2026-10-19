@@ -107,6 +107,31 @@ var appParityGoldens = map[string]appParityGolden{
 		Traces: "f43fc7d250b910aa0cb0ab0c04405afa62fe3bc7b973af5f5c39e80d553bf3dc",
 		Counts: appParityCounts{MetricSeries: 192, LogStreams: 0, LogLines: 0, TraceBlocks: 3, Spans: 5},
 	},
+	// verticals: the browse + transaction journeys of the three demo verticals.
+	"f7a03cc762d8/workload-0": {
+		Traces: "214ffa60a38b35fbdeeaeae9d3b84370712fd990c4172eaba7c83bd92a2ba0ce",
+		Counts: appParityCounts{MetricSeries: 1522, LogStreams: 0, LogLines: 0, TraceBlocks: 4, Spans: 9},
+	},
+	"f7a03cc762d8/workload-1": {
+		Traces: "41ad70998532ee5e7dc2a2a2977bebb562a0b90ce8a8d9f0cad17059168ff27d",
+		Counts: appParityCounts{MetricSeries: 1259, LogStreams: 1, LogLines: 1, TraceBlocks: 4, Spans: 8},
+	},
+	"f7a03cc762d8/workload-3": {
+		Traces: "6f44bd389ee4f1638bcfca73d5fd0102cf456f0e335141395498777be1413eb7",
+		Counts: appParityCounts{MetricSeries: 1533, LogStreams: 0, LogLines: 0, TraceBlocks: 4, Spans: 9},
+	},
+	"f7a03cc762d8/workload-4": {
+		Traces: "59b3888b884a4d570257adfc1876adacdce4af3e64baeec46ede600d3ee408fb",
+		Counts: appParityCounts{MetricSeries: 1236, LogStreams: 1, LogLines: 1, TraceBlocks: 4, Spans: 8},
+	},
+	"f7a03cc762d8/workload-6": {
+		Traces: "6fed777b20d3b6c7498d4caf3daa7d3ba9ba56027a828c6645ebed1cabd051bc",
+		Counts: appParityCounts{MetricSeries: 1451, LogStreams: 0, LogLines: 0, TraceBlocks: 4, Spans: 9},
+	},
+	"f7a03cc762d8/workload-7": {
+		Traces: "70c9ceda8e9e32d4f8d8cd07c713cc642ce5eda848ff0bc1f10d4f2cdc92e52c",
+		Counts: appParityCounts{MetricSeries: 1369, LogStreams: 1, LogLines: 1, TraceBlocks: 4, Spans: 9},
+	},
 	"span-metrics-fixture": {
 		Traces: "3cc2dd80149b25c1e634853d22f85b200e00fc3bfbf3bd6418c262289e92340c",
 		Counts: appParityCounts{MetricSeries: 170, LogStreams: 0, LogLines: 0, TraceBlocks: 2, Spans: 4},
