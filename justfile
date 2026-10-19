@@ -4,7 +4,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 # renovate: datasource=github-releases depName=google/go-licenses
 go_licenses_version := env('GO_LICENSES_VERSION', 'v2.0.1')
 # renovate: datasource=github-releases depName=anchore/syft
-syft_version := env('SYFT_VERSION', 'v1.54.1')
+syft_version := env('SYFT_VERSION', 'v1.55.0')
 # renovate: datasource=github-releases depName=gitleaks/gitleaks
 gitleaks_version := env('GITLEAKS_VERSION', 'v8.30.1')
 gcx_context := env('GCX_CONTEXT', 'default')
