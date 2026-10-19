@@ -107,7 +107,7 @@ var appParityGoldens = map[string]appParityGolden{
 		Traces: "f43fc7d250b910aa0cb0ab0c04405afa62fe3bc7b973af5f5c39e80d553bf3dc",
 		Counts: appParityCounts{MetricSeries: 192, LogStreams: 0, LogLines: 0, TraceBlocks: 3, Spans: 5},
 	},
-	// verticals: the browse + transaction journeys of the three demo verticals.
+	// Browse + transaction journeys of the three demo industry estates.
 	"f7a03cc762d8/workload-0": {
 		Traces: "214ffa60a38b35fbdeeaeae9d3b84370712fd990c4172eaba7c83bd92a2ba0ce",
 		Counts: appParityCounts{MetricSeries: 1522, LogStreams: 0, LogLines: 0, TraceBlocks: 4, Spans: 9},

@@ -126,12 +126,14 @@ workloads:
   # ════════════════════════════════════════════════════════════════════════════════════════
 
   # Browse journey: logins, balances, transaction history. ~25% of customers use digital banking on
-  # a given day (~375k sessions/day, ~9/s at the midday peak); 60% of entry requests are browser
-  # sessions, so peak_rps 14 ≈ 8.5 sessions/s.
+  # a given day (~375k sessions/day, ~9/s at the midday peak). Each browse request is modelled as a
+  # whole browser session (60% of them carry RUM, 1-4 page views each), so this journey is a sampled
+  # slice of that traffic, ~1 in 7 sessions (like Faro session sampling): peak_rps 2 ≈ 1.2
+  # sessions/s ≈ 3 page loads/s. The payments journey below keeps the full volume.
   - type: app
     name: fin-digital-banking
     runs_on: fin-prod-euc2
-    traffic: { shape: diurnal, off_peak_rps: 1.5, peak_rps: 14, request_latency_p95_ms: 420 }
+    traffic: { shape: diurnal, off_peak_rps: 0.2, peak_rps: 2, request_latency_p95_ms: 420 }
     services:
       - name: fin-ebanking-web
         type: frontend
@@ -278,7 +280,7 @@ workloads:
         tags: { team: financial-crime }
         activity: { sessions_per_min: 0.3, turns_p50: 4, turns_p95: 6 }
     evaluators:
-      - { name: fin.triage_grounded, kind: llm_judge, score_key: triage_evidence, value_type: number, threshold: 7, judge_model: claude-haiku-4-5, judge_provider: bedrock }
+      - { name: fin.triage_grounded, kind: llm_judge, score_key: triage_evidence, value_type: number, threshold: 7, judge_model: claude-haiku-4-5, judge_provider: anthropic }
     rules:
       - { name: fin.triage_sampling, selector: all_assistant_generations, sample_rate: 1.0, match_agent: ["fin-phishing-triage"], evaluators: [fin.triage_grounded] }
 
@@ -287,12 +289,14 @@ workloads:
   # ════════════════════════════════════════════════════════════════════════════════════════
 
   # Browse journey: home, categories, product pages, cart. ~300k sessions/day at a ~2% conversion
-  # rate (~6/s at the evening peak); 60% of entry requests are browser sessions, so peak_rps 10 ≈
-  # 6 sessions/s.
+  # rate (~6/s at the evening peak). Each browse request is modelled as a whole browser session
+  # (60% of them carry RUM, 1-4 page views each), so this journey is a sampled slice of that
+  # traffic, ~1 in 5 sessions (like Faro session sampling): peak_rps 2 ≈ 1.2 sessions/s ≈ 3 page
+  # loads/s. The checkout journey below keeps the full order volume.
   - type: app
     name: shop-storefront
     runs_on: shop-prod-euw1
-    traffic: { shape: diurnal, off_peak_rps: 1, peak_rps: 10, request_latency_p95_ms: 380 }
+    traffic: { shape: diurnal, off_peak_rps: 0.2, peak_rps: 2, request_latency_p95_ms: 380 }
     services:
       - name: shop-storefront-web
         type: frontend
@@ -426,14 +430,18 @@ workloads:
         models: [gpt-4.1-mini, gpt-4o-mini]
         streaming: true
         tools: [call_product_agent, call_cart_agent]
-        subagents: [product_agent, cart_agent]
+        # Prefixed peer agents: gen_ai_client_* and agento11y_eval_* carry no service label, so
+        # these identities must not collide with another loaded blueprint's agents.
+        subagents: [shop-product-agent, shop-cart-agent]
         capture_mode: no_tool_content
         activity: { sessions_per_min: 2, turns_p50: 6, turns_p95: 25 }
     evaluators:
-      - { name: shop.helpfulness, kind: llm_judge, score_key: shop_helpfulness_score, value_type: number, threshold: 4, judge_model: claude-haiku-4-5, judge_provider: bedrock }
+      - { name: shop.helpfulness, kind: llm_judge, score_key: shop_helpfulness_score, value_type: number, threshold: 4, judge_model: gpt-4.1-mini, judge_provider: openai }
       - { name: shop.toxicity, kind: heuristic, score_key: toxicity, value_type: bool }
     rules:
-      - { name: shop.assistant_sampling, selector: user_visible_turn, sample_rate: 0.5, match_agent: ["shop-assistant"], evaluators: [shop.helpfulness, shop.toxicity] }
+      # Judge every user-visible turn: at ~3k conversations/day full online-eval coverage is
+      # affordable, and it keeps the judge families present from the first minutes of a run.
+      - { name: shop.assistant_sampling, selector: user_visible_turn, sample_rate: 1.0, match_agent: ["shop-assistant"], evaluators: [shop.helpfulness, shop.toxicity] }
 
   # ════════════════════════════════════════════════════════════════════════════════════════
   # Manufacturing — one vehicle assembly plant, two shifts.
