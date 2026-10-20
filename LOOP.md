@@ -56,6 +56,13 @@ grafana-stack: none
   `:main` image on every push.
 
 ## Mutexes
+- gate: synthkit-check | timeout 3600 gaterun -- just check </dev/null
+- gate: synthkit-race | timeout 3600 gaterun -- just race </dev/null
+- gate: synthkit-check-local | env CI=true timeout 2400 just check </dev/null
+- gate: synthkit-e2e | timeout 2400 just e2e </dev/null
+- `synthkit-check` and `synthkit-race` run on the remote gate runner; `synthkit-check-local` only
+  after gaterun exits 70 or 124 or is missing, with the reason recorded. `synthkit-e2e` needs the
+  local Docker daemon, an exclusive resource.
 - Single-owner files, serialised: `internal/runner/`, `go.mod`, `go.sum`, shared core, fixture, shape,
   state and ledger types, each `blueprints/*.yaml`, `signals/<area>.md`, generated
   `BLUEPRINT-SCHEMA.md` and `fielddocs.json`, `cantfind.md`, `.env`, `.env.example`,
