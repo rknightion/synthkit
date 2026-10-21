@@ -56,6 +56,12 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if cfg == nil {
 		cfg = &Config{}
 	}
+	if err := validateClientTags(cfg.Agents); err != nil {
+		return nil, err
+	}
+	if err := validateEvalRules(cfg.Evaluators, cfg.Rules); err != nil {
+		return nil, err
+	}
 	w := &Workload{cfg: *cfg, b: b, st: state.NewState()}
 	w.resolveIdentity()
 	w.m = newMinter(w.b.Name, w.env, w.cluster, cfg.Agents)

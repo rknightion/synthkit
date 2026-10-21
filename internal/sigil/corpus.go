@@ -15,12 +15,13 @@ import (
 
 // Archetype names — the corpus file keys AND the aiagent Config.Archetype values (frozen seam).
 const (
-	ArchetypeCodingClaudeCode      = "coding_claude_code"
-	ArchetypeCodingCodex           = "coding_codex"
-	ArchetypeGeneralOrchestration  = "general_orchestration"
-	ArchetypeGeneralAutonomousLoop = "general_autonomous_loop"
-	ArchetypeGeneralMultiturn      = "general_multiturn"
-	ArchetypeGeneralSingleShot     = "general_single_shot"
+	ArchetypeCodingClaudeCode           = "coding_claude_code"
+	ArchetypeCodingCodex                = "coding_codex"
+	ArchetypeGeneralOrchestration       = "general_orchestration"
+	ArchetypeGeneralAutonomousLoop      = "general_autonomous_loop"
+	ArchetypeGeneralMultiturn           = "general_multiturn"
+	ArchetypeGeneralSingleShot          = "general_single_shot"
+	ArchetypeRegulatedDocumentAuthoring = "regulated_document_authoring"
 )
 
 // AllArchetypes is every modelled archetype (one corpus file each).
@@ -28,6 +29,7 @@ var AllArchetypes = []string{
 	ArchetypeCodingClaudeCode, ArchetypeCodingCodex,
 	ArchetypeGeneralOrchestration, ArchetypeGeneralAutonomousLoop,
 	ArchetypeGeneralMultiturn, ArchetypeGeneralSingleShot,
+	ArchetypeRegulatedDocumentAuthoring,
 }
 
 // IsCoding reports whether an archetype is a coding agent (sdk-go, fs/shell tools, heavy cache).

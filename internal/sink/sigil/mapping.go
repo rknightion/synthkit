@@ -5,6 +5,7 @@ package sigil
 import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"strings"
 
 	nativesigil "github.com/rknightion/synthkit/internal/sigil"
 	sigilv1 "github.com/rknightion/synthkit/internal/sink/sigil/v1"
@@ -27,10 +28,12 @@ var roleEnum = map[string]sigilv1.MessageRole{
 	"MESSAGE_ROLE_USER":      sigilv1.MessageRole_MESSAGE_ROLE_USER,
 	"MESSAGE_ROLE_ASSISTANT": sigilv1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 	"MESSAGE_ROLE_TOOL":      sigilv1.MessageRole_MESSAGE_ROLE_TOOL,
+	"MESSAGE_ROLE_SYSTEM":    sigilv1.MessageRole_MESSAGE_ROLE_SYSTEM,
 	// short-form aliases used by the mechanic lib
 	"user":      sigilv1.MessageRole_MESSAGE_ROLE_USER,
 	"assistant": sigilv1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 	"tool":      sigilv1.MessageRole_MESSAGE_ROLE_TOOL,
+	"system":    sigilv1.MessageRole_MESSAGE_ROLE_SYSTEM,
 }
 
 // toProtoGenerations maps a slice of native Generation structs to proto Generation messages.
@@ -74,6 +77,7 @@ func toProtoGenerations(gens []nativesigil.Generation) []*sigilv1.Generation {
 			CacheReadInputTokens:  g.Usage.CacheRead,
 			CacheWriteInputTokens: g.Usage.CacheWrite,
 			ReasoningTokens:       g.Usage.Reasoning,
+			InputSemantics:        sigilv1.TokenInputSemantics(sigilv1.TokenInputSemantics_value[g.Usage.InputSemantics]),
 		}
 
 		if !g.StartedAt.IsZero() {
@@ -190,7 +194,7 @@ func toProtoScores(scores []nativesigil.Score) []*sigilv1.ScoreItem {
 	out := make([]*sigilv1.ScoreItem, len(scores))
 	for i, sc := range scores {
 		ps := &sigilv1.ScoreItem{
-			ScoreId:              sc.ScoreID,
+			ScoreId:              strings.TrimSpace(sc.ScoreID),
 			GenerationId:         sc.GenerationID,
 			ConversationId:       sc.ConversationID,
 			TraceId:              sc.TraceID,
@@ -208,6 +212,7 @@ func toProtoScores(scores []nativesigil.Score) []*sigilv1.ScoreItem {
 			GraderConversationId: sc.GraderConversationID,
 			GraderGenerationId:   sc.GraderGenerationID,
 			GraderTraceId:        sc.GraderTraceID,
+			ReportRole:           sc.ReportRole,
 		}
 		if ps.EvaluatorVersion == "" {
 			ps.EvaluatorVersion = defaultEvaluatorVersion
@@ -303,6 +308,8 @@ func toProtoParts(parts []nativesigil.Part) []*sigilv1.Part {
 					IsError:     p.ToolResult.IsError,
 				},
 			}
+		case p.Media != nil:
+			pp.Payload = &sigilv1.Part_Media{Media: &sigilv1.Media{Kind: p.Media.Kind, Url: p.Media.URL, MimeType: p.Media.MIMEType, Name: p.Media.Name}}
 		case p.Thinking != "":
 			pp.Payload = &sigilv1.Part_Thinking{Thinking: p.Thinking}
 		default:
@@ -326,6 +333,7 @@ func toProtoToolDefs(tools []nativesigil.ToolDef) []*sigilv1.ToolDefinition {
 			Description:     t.Description,
 			Type:            t.Type,
 			InputSchemaJson: t.InputSchemaJSON,
+			Deferred:        t.Deferred,
 		}
 	}
 	return out

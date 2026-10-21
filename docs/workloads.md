@@ -13,6 +13,11 @@ Three workload kinds are registered:
 - **`app`** — a blueprint-declared service graph of typed nodes, each with its own custom metrics/logs/spans via the telemetry DSL, and one end-to-end correlated trace across the whole graph. Use when you need multiple backend services each with distinct telemetry, per-service incident targeting, or per-service scaling.
 - **`ai_agent`** — coding-agent sessions with correlated turns, model calls, evaluations and optional Sigil generation ingest. The shipped `grafana-ai-o11y` blueprint demonstrates this workload; its complete field surface is in the [generated schema](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md). Sigil uses `GC_SIGIL_*`, separately from OTLP traces and metrics.
 
+For Agent Observability's current span/metric vocabulary, inclusive token semantics,
+legacy synthetic evaluation rules (`execution_mode`, `filterable_tag_keys`), and the
+strict SDK-versus-backend producer split, use the [canonical signal contract](../signals/sigil.md).
+Do not mix synthetic evaluation emission with real backend rules scoring the same agents.
+
 These kinds may coexist in one blueprint: model the core correlated flow as an `app`, and simpler peripheral services as standalone `web_service` workloads.
 
 ## web_service

@@ -190,15 +190,15 @@ func TestEvalLabelShapeMatchesLiveCapture(t *testing.T) {
 		t.Errorf("agento11y_eval_queue_depth should NOT be emitted (backend-global, would collide), got %v", qd)
 	}
 
-	// score_values_total exists (the bool evaluator) and carries score_value.
-	if sv := labelsOf(sigil.MetricEvalScoreValuesTotal); sv == nil || !has(sv, "score_value") {
-		t.Errorf("score_values_total missing or lacks score_value: %v", sv)
+	// Exported categorical scores are counted by backend ingest, never twice.
+	if sv := labelsOf(sigil.MetricEvalScoreValuesTotal); sv != nil {
+		t.Errorf("backend-owned score_values_total was synthesized: %v", sv)
 	}
 }
 
-// TestEvalMetricsMatchReferenceCapture pins the 2026-09-06 tenant read-back.
-// It exercises the emitter directly, without loading an agent blueprint or sending traffic.
-func TestEvalMetricsMatchReferenceCapture(t *testing.T) {
+// TestEvalMetricsMatchCurrentSource supersedes the historical 2026-09-06
+// eval_ai identity and score_values producer shape with backend bc963fb09.
+func TestEvalMetricsMatchCurrentSource(t *testing.T) {
 	for _, kind := range []string{"heuristic", "llm_judge"} {
 		t.Run(kind, func(t *testing.T) {
 			st := state.NewState()
@@ -211,7 +211,6 @@ func TestEvalMetricsMatchReferenceCapture(t *testing.T) {
 			accumulateEval(st, gen, ev, RuleDecl{Name: "rule"}, true)
 			expected := map[string]bool{
 				"agento11y_eval_scores_total":            false,
-				"agento11y_eval_score_values_total":      false,
 				"agento11y_eval_executions_total":        false,
 				"agento11y_eval_duration_seconds_count":  false,
 				"agento11y_eval_rule_action_fires_total": false,
@@ -222,11 +221,19 @@ func TestEvalMetricsMatchReferenceCapture(t *testing.T) {
 					if series.Name == "agento11y_eval_rule_action_fires_total" {
 						continue
 					}
-					if got := series.Labels["eval_ai_request_model"]; got != gen.Model {
-						t.Errorf("%s eval_ai_request_model=%q, want scored model %q", series.Name, got, gen.Model)
+					if got := series.Labels["eval_ai_request_model"]; got != ev.JudgeModel {
+						t.Errorf("%s eval_ai_request_model=%q, want judge target %q", series.Name, got, ev.JudgeModel)
+					}
+					if got := series.Labels["eval_ai_request_provider"]; got != ev.JudgeProvider {
+						t.Errorf("judge provider = %q, want %q", got, ev.JudgeProvider)
+					}
+					if kind != "llm_judge" {
+						if _, ok := series.Labels["eval_ai_request_model"]; ok {
+							t.Errorf("heuristic must omit judge target")
+						}
 					}
 					_, hasRole := series.Labels["evaluator_role"]
-					wantsRole := series.Name == "agento11y_eval_scores_total" || series.Name == "agento11y_eval_score_values_total"
+					wantsRole := series.Name == "agento11y_eval_scores_total"
 					if hasRole != wantsRole || (hasRole && series.Labels["evaluator_role"] != "outcome") {
 						t.Errorf("%s evaluator_role shape differs from capture: %v", series.Name, series.Labels)
 					}

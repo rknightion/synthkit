@@ -16,12 +16,14 @@ import (
 // for a single generation turn (plus its execute_tool durations). It deliberately holds only the
 // data the metric renderer needs — never high-card ids.
 type metricObs struct {
-	agentName    string
-	agentVersion string
-	operation    string // generateText | streamText
-	provider     string
-	model        string
-	streaming    bool
+	agentName      string
+	agentVersion   string
+	operation      string // generateText | streamText
+	provider       string
+	model          string
+	streaming      bool
+	inputSemantics string
+	tags           map[string]string // configured client/context tags, not generation-only metadata
 
 	inputTokens     int64
 	outputTokens    int64
@@ -198,8 +200,9 @@ func buildGeneration(agent AgentDecl, r *ledger.Request, at sigil.AssembledTurn,
 		Metadata:         baseMetadata(agent),
 	}
 
-	// thinking enabled for coding archetypes (extended-thinking).
-	if sigil.IsCoding(agent.Archetype) {
+	gen.Metadata[sigil.MetadataUserID] = userID(agent, r)
+	// The Claude mapper declares thinking; the pinned Codex mapper does not.
+	if agent.Archetype == sigil.ArchetypeCodingClaudeCode {
 		te := true
 		gen.ThinkingEnabled = &te
 	}
@@ -230,27 +233,45 @@ func tokenLaw(agent AgentDecl, convID string, turnIdx, totalTurns int, at sigil.
 		cacheRead := base + grow
 		output := int64(80 + int(seedUnit(convID, fmt.Sprintf("out-%d", turnIdx))*900))
 		var cacheWrite int64
-		if turnIdx == 0 {
+		if turnIdx == 0 && agent.Archetype == sigil.ArchetypeCodingClaudeCode {
 			cacheWrite = int64(2000 + int(seedUnit(convID, "cw")*6000))
 		}
 		reasoning := int64(0)
 		if at.StopReason == "tool_use" || seedUnit(convID, fmt.Sprintf("reason-%d", turnIdx)) < 0.5 {
 			reasoning = int64(200 + int(seedUnit(convID, fmt.Sprintf("rt-%d", turnIdx))*2000))
 		}
-		total := input + output + cacheRead + cacheWrite + reasoning
+		// Input is inclusive; reasoning is an explanatory output subset, not an
+		// extra billable bucket. The Claude adapter positively marks inclusive;
+		// the pinned Codex mapper leaves the marker unspecified.
+		input += cacheRead + cacheWrite
+		output += reasoning
+		semantics := ""
+		if agent.Archetype == sigil.ArchetypeCodingClaudeCode {
+			semantics = sigil.InputSemanticsInclusive
+		}
+		total := input + output
 		return sigil.Usage{
-			Input:      input,
-			Output:     output,
-			CacheRead:  cacheRead,
-			CacheWrite: cacheWrite,
-			Reasoning:  reasoning,
-			Total:      total,
+			Input:          input,
+			Output:         output,
+			InputSemantics: semantics,
+			CacheRead:      cacheRead,
+			CacheWrite:     cacheWrite,
+			Reasoning:      reasoning,
+			Total:          total,
 		}
 	}
 	// general: modest input/output, minimal cache.
 	input := int64(200 + int(seedUnit(convID, fmt.Sprintf("gin-%d", turnIdx))*1500))
 	output := int64(50 + int(seedUnit(convID, fmt.Sprintf("gout-%d", turnIdx))*800))
-	return sigil.Usage{Input: input, Output: output, Total: input + output}
+	semantics := ""
+	// Pinned Python usage adapters normalize provider payloads to inclusive.
+	if agent.SDK == sigil.SDKPython {
+		switch agent.Provider {
+		case "anthropic", "openai", "bedrock", "gemini":
+			semantics = sigil.InputSemanticsInclusive
+		}
+	}
+	return sigil.Usage{Input: input, Output: output, Total: input + output, InputSemantics: semantics}
 }
 
 // observeForTurn builds the metric observation for one generation turn.
@@ -262,6 +283,8 @@ func observeForTurn(agent AgentDecl, gen sigil.Generation, art turnArtifacts, op
 		provider:        gen.Provider,
 		model:           gen.Model,
 		streaming:       agent.Streaming,
+		inputSemantics:  gen.Usage.InputSemantics,
+		tags:            agent.Tags,
 		inputTokens:     gen.Usage.Input,
 		outputTokens:    gen.Usage.Output,
 		cacheReadTokens: gen.Usage.CacheRead,

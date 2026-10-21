@@ -81,6 +81,38 @@ func populateAIMetrics(t *testing.T, w *Workload) {
 	}
 }
 
+func TestAINativePreservesSafeClientTagIdentity(t *testing.T) {
+	cfg := aiNativeConfig(true)
+	cfg.Agents[0].Tags = map[string]string{"team.name": "alpha", "team": "beta", " site.name ": " gamma "}
+	built, err := Registration().Build(cfg, core.Binding{Name: "ai-fleet"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := built.(*Workload)
+	populateAIMetrics(t, w)
+	capture := &aiNativeMetricCapture{}
+	if err := w.Tick(context.Background(), time.Date(2026, 8, 28, 10, 1, 0, 0, time.UTC), &core.World{OTLPMetrics: capture}); err != nil {
+		t.Fatal(err)
+	}
+	if len(capture.resources) == 0 {
+		t.Fatal("no native metric resource")
+	}
+	for _, resource := range capture.resources {
+		for _, metric := range resource.Metrics {
+			for _, point := range metric.Histograms {
+				for key, value := range map[string]string{"agento11y.tag.team.name": "alpha", "agento11y.tag.team": "beta", "agento11y.tag.site.name": "gamma"} {
+					if point.Attrs[key] != value {
+						t.Errorf("native client tag %s=%v, want %s", key, point.Attrs[key], value)
+					}
+				}
+				if _, ok := point.Attrs["agento11y.tag.team_name"]; ok {
+					t.Errorf("lossy key restored as dotted identity: %v", point.Attrs)
+				}
+			}
+		}
+	}
+}
+
 func TestAINativeSignalsFollowExplicitSwitch(t *testing.T) {
 	off := buildAINative(t, false)
 	if slices.Contains(off.Signals(), core.OTLPMetrics) {
@@ -130,15 +162,20 @@ func TestAINativeCoreFamiliesInvertDocumentedTranslation(t *testing.T) {
 	if token.Kind != otlp.MetricHistogram || token.Unit != "{token}" || token.Temporality != otlp.TemporalityCumulative {
 		t.Fatalf("token metric shape = %+v", token)
 	}
-	if len(token.Histograms) != 2 {
-		t.Fatalf("token datapoints = %d, want input/output only", len(token.Histograms))
+	if len(token.Histograms) != 5 {
+		t.Fatalf("token datapoints = %d, want input/output/cache_read/cache_write/reasoning", len(token.Histograms))
 	}
 	for _, point := range token.Histograms {
 		if point.Start != now || point.Time != now {
 			t.Errorf("token point times = start %s time %s, want %s", point.Start, point.Time, now)
 		}
-		if got := point.Attrs[nativeTokenTypeAttr]; got != "input" && got != "output" {
-			t.Errorf("token type = %v, want input or output", got)
+		switch point.Attrs[nativeTokenTypeAttr] {
+		case "input", "output", "cache_read", "cache_write", "reasoning":
+		default:
+			t.Errorf("unexpected SDK token type: %v", point.Attrs)
+		}
+		if point.Attrs["gen_ai.agent.name"] != "claude-code" {
+			t.Errorf("missing SDK agent identity: %v", point.Attrs)
 		}
 		assertNoAISigilAttrs(t, point.Attrs)
 	}
@@ -173,7 +210,7 @@ func assertNoAISigilAttrs(t *testing.T, attrs map[string]any) {
 	}
 }
 
-func TestAINativeMapsErrorTypeAndOmitsCategory(t *testing.T) {
+func TestAINativeMapsSDKErrorDimensions(t *testing.T) {
 	w := buildAINative(t, true)
 	accumulate(w.st, metricObs{
 		agentName: "claude-code", operation: "chat", provider: "anthropic", model: "claude-sonnet-4-6",

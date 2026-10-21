@@ -1,538 +1,362 @@
-# Grafana Agent Observability (historically sigil) (→ Agent Observability + Tempo + Mimir) - ScopeBlueprint (workload-emitted)
+# Grafana Agent Observability — generation ingest, traces and client metrics
 
-Grafana's current product name is **Agent Observability**; `sigil` remains synthkit's historical
-internal name; current evaluation metrics use the observed `agento11y_eval_*` prefix. The `ai_agent` workload emits **three
-concurrent lanes** - all keyed by a shared `conversation_id` + per-turn `trace_id`/`span_id`: native
-generation ingest (HTTP protojson, Lane A), OTLP traces to Tempo (Lane B), and gen_ai_client_* +
-agento11y_eval_* metrics via promrw (Lane C). No Loki lane. Blueprint-scoped; the `blueprint` label is
-stamped by the scoped writer as usual. Vocabulary constants live in [`internal/sigil`](../internal/sigil); the shared
-`gen_ai.*` keys + `gen_ai_client_*` metric names come from [`internal/genai`](../internal/genai).
-Global rules: [`00-canon.md`](00-canon.md) — `[slug: cardinality]`, `[slug: content-strip]`,
-`[slug: push-topology]`, `[slug: scoping]`.
+`sigil` is synthkit's historical internal package/sink name. The current vendor namespace is
+`agento11y`. The `ai_agent` workload has three correlated lanes: native HTTP protojson generation,
+workflow-step and score ingest (A), OTLP spans (B), and SDK client metrics plus optional **legacy
+synthetic** evaluation metrics (C). IDs join the lanes; IDs never become metric labels. The workload registration is
+substrate-scoped: no synthetic blueprint selector is added to these lanes.
 
-*Provenance: sigil backend (`~/repos/sigil`) + sigil-sdk (`~/repos/sigil-sdk`); live capture from
-the `m7kni` stack (Grafana internal coding-agent traffic, 64,048 generations: `claude-code`,
-`claude-code/<subagent>`, `codex`) + `emea-cloud-demokit-grafana-com` (general / framework agents,
-50 agents across orchestration / autonomous / multi-turn / single-shot archetypes); validated
-2026-06-30. Lane A proto field names: `generation_ingest.proto` + `evaluation_ingest.proto` in
-`~/repos/sigil`. Lane B span attribute names and Lane C metric names: direct live capture
-(Tempo trace inspector + Mimir series query). Historical eval metrics were captured on 2026-06-30. Their current names and common labels
-are superseded by the authenticated reference capture on 2026-09-06 below. Core
-`gen_ai_client_*` metrics: `v: ok` (confirmed in m7kni + emea-cloud-demokit live capture,
-2026-06-30).*
+Global rules: [canonical signal rules](00-canon.md). Vocabulary and native seam types:
+[`internal/sigil`](../internal/sigil); shared gen_ai vocabulary: [`internal/genai`](../internal/genai).
 
----
+## Source and producer contract (2026-10-21)
 
-## Current vendor-contract reconciliation (2026-09-03)
+Authoritative current sources, inspected at immutable revisions:
 
-Current Grafana Agent Observability SDK documentation identifies a generation-first ingest
-surface, with HTTP `POST /api/v1/generations:export` and Basic authentication configured from a
-tenant ID plus token. It separately describes OTLP as the transport for traces and metrics, rather
-than a replacement for generation ingest. Sources checked 2026-09-03:
+- SDK `grafana/agento11y` **75a1c548**: Go `go/agento11y/client.go`, `exporter.go`,
+  `contentcapture/contentcapture.go`; Python `python/agento11y/client.py`, `usage.py`;
+  plugins `plugins/agento11y/internal/agents/{claudecode,codex}` and `internal/otel/otel.go`.
+- Backend `grafana/sigil` **bc963fb09**: `sigil/proto/sigil/v1/{generation,evaluation}_ingest.proto`,
+  `sigil/internal/eval/{worker,ingest}`, `sigil/internal/inference/service.go`,
+  `sigil/internal/eval/review_queue_types.go`.
+- GET-only tenant baseline on 2026-10-21: historical `gen_ai_client_*` duration/token metrics over
+  24 hours carried **`gen_ai_agent_name`**, not `agent_name`; instant query empty. Legacy
+  `agento11y_eval_judge_tokens_total` was empty even over seven days. Backend-derived generation
+  cost existed for real agents; that is not readback proof for synthetic ingest.
 
-- [Agent Observability HTTP generation export and Basic-auth configuration](https://github.com/grafana/agento11y/blob/main/python/README.md)
-- [Agent Observability architecture and ingest model](https://github.com/grafana/agento11y/blob/main/llms.txt)
-- [Agent Observability Go SDK transport model](https://github.com/grafana/agento11y/blob/main/go/README.md)
+The historical June and September 2026 captures established the three-lane topology and core
+metric names. Their older span prefixes, agent labels, eval model interpretation and shared eval
+bucket set are **superseded** by the pinned contract below. Captured source data is not rewritten.
 
-An authorised, low-volume request on 2026-09-03 received HTTP `202 Accepted` for all three
-submitted generations. It corroborates synthkit's existing `POST /api/v1/generations:export`,
-HTTP Basic tenant/token transport, and JSON protojson payload under safe load. It does not prove
-every historical field or the cause of an earlier rejection.
-
-The earlier `code=rejected` response has no preserved rejection body. The most likely, but
-unproven, explanation is rate limiting or an ingest quota under overload. Its only known
-reproducer is the unsafe 600-sessions-per-minute fixture condition; do not reproduce it, including
-for a rejection body. The fixture remains test-only and must never be selected for a live delivery.
-
-Current documentation directly corroborates the generation vocabulary shared by synthkit's owned
-emitter: `conversation_id`, `agent_name`, `agent_version`, model identity, and tool execution
-`tool_name`, `tool_call_id`, and `tool_type`. The richer generation, workflow-step, score,
-`sigil.*`, and evaluation metric vocabulary below remains sourced from the dated live captures and
-vendored contract noted in this catalogue; this current SDK documentation does not independently
-enumerate all of those fields.
-
-**Distinct-surface verdict:** Agent Observability remains a distinct generation-ingest product
-surface. It has not folded into OTLP or Prometheus. Keep Lane A as native Agent Observability
-HTTP protojson ingest; retain Lanes B and C as the separately transported OTLP and Prometheus
-telemetry that joins it.
-
----
-
-## Lane A - native generation ingest (HTTP protojson) [slug: sigil-lane-a]
-
-`sigil.v1.GenerationIngestService.ExportGenerations`, transported by HTTP protojson to
-`POST /api/v1/generations:export`. This lane is the **sole source of Agent Observability conversation data** -
-no other ingest path creates conversation/generation records in sigil.
-It is the **sanctioned content-bearing exception** to `[slug: content-strip]`: prompt/completion
-content rides inside `Generation.input`/`Generation.output` parts (see below). The
-`internal/genai.ContentStripList` guard stays default-on for every other construct/workload; only
-`internal/workload/ai_agent` opts in explicitly via the sigil sink.
-
-### `Generation` proto fields
-
-| Field | Type | Example / notes |
-|---|---|---|
-| `id` | string (UUID) | `"f47ac10b-58cc-4372-a567-0e02b2c3d479"` |
-| `conversation_id` | string (UUID) | shared across all turns in a session |
-| `operation_name` | enum | `generateText` \| `streamText` |
-| `mode` | enum | `SYNC` \| `STREAM` |
-| `trace_id` | string (hex-32) | links to Lane B root span; e.g. `"4bf92f3577b34da6a3ce929d0e0e4736"` |
-| `span_id` | string (hex-16) | links to Lane B root span; e.g. `"00f067aa0ba902b7"` |
-| `response_id` | string | provider-assigned response id (optional) |
-| `response_model` | string | actual model used by provider (may differ from requested) |
-| `model.provider` | string | `anthropic` \| `openai` \| `bedrock` \| `gemini` |
-| `model.name` | string | e.g. `claude-sonnet-4-6`, `gpt-4.1-nano` |
-| `system_prompt` | string | content-bearing; present on most turns |
-| `input[]` | Message[] | user + prior assistant turns (full history for multi-turn) |
-| `output[]` | Message[] | assistant response parts |
-| `tools[]` | ToolDefinition[] | tool name/description/type/`input_schema_json` |
-| `usage.input` | int | fresh prompt tokens |
-| `usage.output` | int | completion tokens |
-| `usage.total` | int | input + output |
-| `usage.cache_read` | int | cache-read tokens (coding agents: dominant — often 10k–200k+) |
-| `usage.cache_write` | int | cache-write tokens |
-| `usage.reasoning` | int | reasoning / thinking tokens (claude-*-thinking, o3) |
-| `stop_reason` | enum | `tool_use` \| `end_turn` \| `tool_calls` \| `stop` \| `completed` |
-| `started_at` | timestamp | turn wall-clock start |
-| `completed_at` | timestamp | turn wall-clock end; `completed_at − started_at` = actual latency |
-| `tags` | map<string,string> | free-form; coding: `cwd`, `git.branch`, `entrypoint`, `codex.*`; general: `region`, `team` |
-| `metadata` | Struct | arbitrary JSON; nonces in general-agent prompts etc. |
-| `agent_name` | string | `claude-code`, `claude-code/<subagent>`, `codex`, or domain name |
-| `agent_version` | string | semver or sha256 hash of the agent binary; absent for codex |
-| `parent_generation_ids[]` | string[] | multi-agent call-tree (general agents; fan-out orchestration) |
-| `effective_version` | string | `sha256:<64hex>` — deterministic hash of the canonical system prompt (canonical_version=3) |
-| `max_tokens` | int | model param |
-| `temperature` | float | model param |
-| `top_p` | float | model param |
-| `tool_choice` | string | e.g. `auto`, `any`, specific tool name |
-| `thinking_enabled` | bool | Claude extended-thinking enabled |
-
-### `Message` and `Part` shapes
-
-A `Message` has `role` (`user` \| `assistant`) and `parts[]`. Part kinds:
-
-| Kind | Fields |
+| Producer | synthkit policy |
 |---|---|
-| `text` | `text: string` |
-| `thinking` | `thinking: string` (extended-thinking blocks) |
-| `tool_call` | `id: string` (`toulu_*` Anthropic, `call_*` OpenAI), `name: string`, `input_json: bytes` |
-| `tool_result` | `tool_call_id: string`, `content: string`, `content_json: bytes`, `is_error: bool` |
+| SDK generations, tools, workflow steps, ratings, experiment writes, OTLP spans, `gen_ai.client.*` | May emit through their actual SDK-side surfaces |
+| Backend generation cost, model prices, exported-score `agento11y_eval_score_values_total`, experiment metrics | **Never synthesize** |
+| Backend hook metrics, guard workflow steps, online-rule scores and eval metrics | Trigger through real provisioned rules/calls; **never forge** |
+| Existing synthetic `scores:export` and other `agento11y_eval_*` | Retained only for blueprints without real rules scoring the same agents; not a second producer alongside real rules |
 
-### Sibling Lane A RPCs
+Exported bool/string scores already increment score-values in backend ingest. Emitting the same
+family locally double-counts them, even if local labels differ. Numeric score values are never
+enumerated as labels. This retirement does not remove the actual Lane-A scores.
 
-- **`WorkflowStepIngestService.ExportWorkflowSteps`** — non-LLM agentic nodes (e.g. tool-routing
-  decisions, orchestrator state transitions). Present on `general_orchestration` and
-  `general_autonomous_loop` archetypes; absent from coding archetypes.
-- **`ScoreIngestService.ExportScores`** — eval results written when a configured rule samples a turn.
-  Each `Score` has `generation_id`, `evaluator_name`, `score_key`, `value` (number/bool/string),
-  `threshold`, `passed: bool`. These feed the `latest_scores` display in the sigil UI and drive the
-  `agento11y_eval_*` metrics (Lane C).
+## Lane A — native HTTP protojson [slug: sigil-lane-a]
 
----
+- `POST /api/v1/generations:export`: `agento11y.v1.ExportGenerationsRequest`.
+- `POST /api/v1/workflow-steps:export`: `agento11y.v1.ExportWorkflowStepsRequest`.
+- `POST /api/v1/scores:export`: `sigil.v1.ExportScoresRequest` (evaluation namespace unchanged).
 
-## Lane B — OTLP traces (Tempo) [slug: sigil-lane-b]
+Generation ingest remains distinct from OTLP tracing. The backend also aliases legacy generation
+gRPC names; synthkit uses HTTP, not gRPC. Vendored message types and hashes are documented in
+[proto provenance](../internal/sink/sigil/v1/PROVENANCE.md). `just sigil-proto` generates messages only.
 
-Hand-encoded `ResourceSpans` via `internal/sink/otlp`. **No span events** (confirmed in both m7kni
-and emea-cloud-demokit captures — the sigil SDK does not emit events). Span name form is `{operation}
-{subject}` per gen_ai semconv (e.g. `generateText claude-sonnet-4-6`, `execute_tool Read`).
+Basic mode sends `Authorization: Basic base64(tenant:token)` **and** `X-Scope-OrgID: <tenant>`.
+The canonical hosted endpoint shape is `https://agento11y-prod-<region>.grafana.net`. Endpoint
+selection is explicit configuration, never a sink-side rewrite of a caller's URL.
 
-### Coding archetype (sdk-go) — 2-level tree
+### Generation vocabulary
 
-Scope name: `sigil.<agent_name>` (e.g. `sigil.claude-code`, `sigil.claude-code/subagent-type`).
-Resource `service.name=sigil`, `job=sigil`.
+| Fields | Shape |
+|---|---|
+| `id`, `conversation_id` | Stable generation and conversation identifiers |
+| `operation_name`, `mode` | `generateText` / `streamText`; `GENERATION_MODE_SYNC` / `GENERATION_MODE_STREAM` |
+| `trace_id`, `span_id` | Matching Lane-B generation root, hex-32 / hex-16 |
+| `model.provider`, `model.name`, `response_model`, `response_id` | Provider/request/response identity; model stays price-resolvable, not an inference-profile alias |
+| `system_prompt`, `input[]`, `output[]`, `tools[]` | Content-bearing native ingest surface |
+| `started_at`, `completed_at`, `stop_reason`, `call_error` | Completed call timing and outcome |
+| `agent_name`, `agent_version` | Declared identity; absent version omitted |
+| `tags`, `metadata` | Generation data, not automatically client metric dimensions |
+| `max_tokens`, `temperature`, `top_p`, `tool_choice`, `thinking_enabled` | Optional request parameters; preserve scalar presence |
+| `parent_generation_ids[]` | Explicit delegation tree |
+| `effective_version` | Optional `sha256:<64 lowercase hex>`; synthkit supplies its existing deterministic prompt digest |
 
-| Level | Span name | SpanKind | Notes |
-|---|---|---|---|
-| Root | `generateText <model>` | CLIENT | gen_ai identity/usage + `sigil.*` + `user.id`; NO messages |
-| Child | `execute_tool <Tool>` | INTERNAL | `gen_ai.tool.*`; under `content_capture_mode=full` ALSO `gen_ai.tool.call.arguments` + `gen_ai.tool.call.result` |
+When effective_version is absent, the current backend derives its catalog key from agent_version
+when present, otherwise the system prompt. That fallback is not the former tools+prompt rule.
 
-### General archetype (sdk-python) — 3-scope nested tree
+Messages support `MESSAGE_ROLE_USER`, `MESSAGE_ROLE_ASSISTANT`, `MESSAGE_ROLE_TOOL`, and additive
+`MESSAGE_ROLE_SYSTEM` (also represents an OpenAI developer role). Part payloads are a oneof:
+`text`, `thinking`, `tool_call{id,name,input_json}`, `tool_result{tool_call_id,name,content,
+content_json,is_error}`, or additive `media{kind,url,mime_type,name}`. Bytes use protojson base64.
+Tool definitions carry `name`, `description`, `type`, `input_schema_json`, `deferred`.
 
-Resource attributes: full k8s set (`service.name=chatservice`, `service.namespace`,
-`deployment.environment.name`, `k8s.cluster.name`, `k8s.namespace.name`, `k8s.pod.name`,
-`k8s.deployment.name`, `cloud.region`).
+### Token usage and dashboard impact
 
-| Level | Span name | Scope | SpanKind | Notes |
-|---|---|---|---|---|
-| Envelope | `agent.<name>.chat` | `agents.base` | INTERNAL | framework orchestrator span; `agent.available_tools`, `agent.peer_agents`, `agent.system`, `agent.user_prompt`, `gen_ai.agent.name` |
-| LLM call | `generateText <model>` or `streamText <model>` | `sigil.<agent>` | CLIENT | `sigil.generation.parent_generation_ids` for fan-out |
-| Tool | `execute_tool <tool>` | `sigil.<agent>` | INTERNAL | `gen_ai.tool.name`, `gen_ai.tool.type`, `gen_ai.tool.call.id` |
-| Provider | `chat <model>` | `opentelemetry.instrumentation.openai_v2` | CLIENT | present for openai provider only; `gen_ai.system`, `server.address=api.openai.com` |
+`usage.input_tokens`, `output_tokens`, `total_tokens`, `cache_read_input_tokens`,
+`cache_write_input_tokens`, `reasoning_tokens`, and additive `input_semantics` are int64/enum fields.
+For `TOKEN_INPUT_SEMANTICS_INCLUSIVE`, input **includes** both cache buckets; output **includes**
+reasoning; derived total is **input + output**. Fresh input is input minus cache-read minus
+cache-write. Do not add reasoning or cache buckets again in dashboards or cost calculations.
 
-For `general_orchestration`, each delegation also emits a sub-agent `generateText <model>` CLIENT span
-under its OWN scope `sigil.<peer>` (e.g. `sigil.product_agent`), in the SAME trace as the orchestrator
-turn, nested under that turn's `agents.base` envelope span, carrying `sigil.generation.parent_generation_ids`
-= the orchestrator generation id. The matching sub-agent generation (Lane A) carries the distinct
-`agent_name` + the same `parent_generation_ids` — this is what renders the multi-agent call tree.
+The Claude plugin mapper positively marks inclusive semantics; the pinned Codex mapper leaves
+its marker unspecified and reports neither a cache-write bucket nor a thinking-enabled flag. The modeled Python provider adapters normalize to inclusive. Synthkit
+mirrors those markers rather than guessing semantics from a provider name. Coding input now
+reports the whole prompt; its fresh portion remains the captured tiny 1–6 token shape. Reasoning
+is an output sub-bucket, not extra tokens. Existing total/input/output and cost dashboards must
+use the semantics marker and avoid summing all five token categories.
 
-### Span attributes — coding root span (`generateText <model>`)
+Metadata uses `agento11y.sdk.name` and canonical `agento11y.user.id`. **The SDK span user key is
+still `user.id`**, not `agento11y.user.id`; metadata and span keys must not be blanket-renamed.
+
+### Workflow steps and scores
+
+Workflow steps carry ID/conversation, step_name/framework, timing, input_state/output_state,
+error, tags/metadata, linked_generation_ids/parent_step_ids, agent identity and trace/span links.
+Synthetic workflow steps describe application/framework work, never backend guard work.
+
+Scores carry score_id, generation_id or trial_id, evaluator_id/evaluator_version, rule_id,
+experiment_id, score_key, typed value, optional passed, explanation, metadata, created_at, source,
+conversation/trace/span links, test_case_id and grader correlation. Additive `report_role` is
+`primary_verdict` or `diagnostic`; it is **not** online `evaluator_role`. HTTP uses presence of
+`passed` directly (including explicit false), not the protobuf's legacy `has_passed` sentinel.
+String scores without a pass condition omit passed. Per-item acknowledgements must confirm every
+score; duplicate acknowledgements count as idempotent delivery.
+
+`score_id` is 1–128 Unicode characters after trimming. Source kind, rule_id, score_id and score_key
+cannot start with reserved `__grafana_`; backend-compatible collation folding also rejects case,
+accent, width and invisible-character lookalikes. The sink rejects these locally before any stage
+is sent. This is not a substitute for the server's complete score validation.
+
+## Lane B — OTLP spans [slug: sigil-lane-b]
+
+Coding plugin scopes are **fixed**, including subagents: `agento11y.claude-code` and
+`agento11y.codex`. They are not `agento11y.<display-agent-name>`. Default plugin resource
+`service.name=agento11y`, `job=agento11y`; explicit blueprint resource identity remains authoritative.
+SDK library scopes deliberately retain `github.com/grafana/sigil-sdk/go/sigil` and
+`github.com/grafana/sigil/sdks/python`. General-agent framework envelope scope `agents.base` and
+optional provider scope `opentelemetry.instrumentation.openai_v2` remain unchanged.
+
+Coding has a generation CLIENT root plus execute_tool INTERNAL children. General agents add
+`agents.base` INTERNAL envelope parents, and OpenAI provider CLIENT children. Delegation spans
+share the parent's trace and carry their own agent identity and generation ID, not a custom scope.
+The historical provider child may use `gen_ai.system`; the **current SDK generation root does not**.
+No synthetic span events are added by this contract refresh.
+
+### Coding generation spans [slug: sigil-spans-coding]
+
+Generation-root attributes (optional fields omitted when absent):
 
 ```yaml signals
 family: sigil_spans_coding
-scope: blueprint
+scope: substrate
 sink: otlp
 span_attributes:
   gen_ai.operation.name: generateText|streamText
-  gen_ai.system: anthropic|openai|bedrock|gemini         # legacy key; current form is gen_ai.provider.name
   gen_ai.provider.name: anthropic|openai|bedrock|gemini
-  gen_ai.request.model: claude-sonnet-4-6|claude-opus-4-8|gpt-5.5
-  gen_ai.response.model: claude-sonnet-4-6               # actual model returned
-  gen_ai.usage.input_tokens: <int>                       # fresh prompt tokens
-  gen_ai.usage.output_tokens: <int>                      # completion tokens
-  gen_ai.usage.cache_read_input_tokens: <int>            # ⚠ UNDERSCORE form — sigil-sdk-go spelling differs from semconv dotted form
-  gen_ai.usage.cache_write_input_tokens: <int>           # ⚠ UNDERSCORE form — sigil-sdk-go spelling differs from semconv dotted form
-  gen_ai.usage.reasoning_tokens: <int>                  # reasoning tokens (thinking models); ⚠ UNDERSCORE form — sigil-sdk spelling, not semconv reasoning.output_tokens
-  gen_ai.conversation.id: <uuid>
-  sigil.generation.id: <uuid>
-  sigil.sdk.name: sdk-go|sdk-python
-  sigil.conversation.title: <string>                     # optional; present when the agent names the session
-  sigil.gen_ai.request.thinking.enabled: true|false
-  sigil.tag.<k>: <v>                                     # one attr per tag key; e.g. sigil.tag.cwd, sigil.tag.git.branch
-  user.id: <email>                                       # real email for coding; synthetic UUID for general
+  gen_ai.request.model: <request model>
+  gen_ai.response.model: <actual response model>
+  gen_ai.response.id: <provider response id>
+  gen_ai.response.finish_reasons: <string array>
+  gen_ai.request.max_tokens: <int>
+  gen_ai.request.temperature: <float>
+  gen_ai.request.top_p: <float>
+  gen_ai.agent.name: <declared agent>
+  gen_ai.agent.version: <optional version>
+  gen_ai.conversation.id: <conversation id>
+  gen_ai.usage.input_tokens: <inclusive when marked>
+  gen_ai.usage.output_tokens: <includes reasoning>
+  gen_ai.usage.cache_read_input_tokens: <input subset>
+  gen_ai.usage.cache_write_input_tokens: <input subset>
+  gen_ai.usage.reasoning_tokens: <output subset>
+  gen_ai.token.semantics: inclusive
+  agento11y.generation.id: <generation id>
+  agento11y.sdk.name: sdk-go|sdk-python
+  agento11y.conversation.title: <optional title>
+  agento11y.gen_ai.request.tool_choice: <optional choice>
+  agento11y.gen_ai.request.thinking.enabled: <bool>
+  agento11y.gen_ai.request.thinking.budget_tokens: <optional int>
+  agento11y.generation.parent_generation_ids: <string array>
+  agento11y.tag.<k>: <configured client/context tag>
+  user.id: <synthetic identity>
+  error.type: provider_call_error                        # provider failure only
+  error.category: server_error|rate_limit|timeout         # modeled cause classification
 resource_attributes:
-  service.name: sigil
-  job: sigil
-  # scope name: sigil.<agent_name>
+  service.name: <declared service or agento11y plugin default>
+  job: <declared job or agento11y plugin default>
 ```
 
-### Span attributes — coding child span (`execute_tool <Tool>`)
+### Execute-tool spans [slug: sigil-spans-coding-tool]
 
-```yaml signals
-family: sigil_spans_coding_tool
-scope: blueprint
-sink: otlp
-span_attributes:
-  gen_ai.tool.name: Read|Edit|Bash|Skill|apply_patch|<tool>
-  gen_ai.tool.type: function
-  gen_ai.tool.call.id: toolu_<hex>|call_<hex>
-  gen_ai.tool.call.arguments: <json-bytes>               # present ONLY when content_capture_mode=full
-  gen_ai.tool.call.result: <json-bytes>                  # present ONLY when content_capture_mode=full
-resource_attributes:
-  service.name: sigil
-  job: sigil
-```
+Execute-tool spans use gen_ai.operation.name=execute_tool, gen_ai.tool.name/type/call.id,
+optional gen_ai.tool.description, gen_ai.agent.name/version, conversation/provider/request-model
+identity, agento11y.sdk.name and configured client tags. `gen_ai.tool.call.arguments` and
+`gen_ai.tool.call.result` require full capture. Generation roots remain metadata-only in the
+existing synthetic trace path; native ingest is the sanctioned content-bearing exception.
 
-### Span attributes — general envelope span (`agent.<name>.chat`)
+### General framework envelopes [slug: sigil-spans-general-envelope]
 
-```yaml signals
-family: sigil_spans_general_envelope
-scope: blueprint
-sink: otlp
-span_attributes:
-  gen_ai.agent.name: product_agent|soc-analyst|db-travel-agent|title_generator
-  agent.available_tools: <comma-sep tool list>
-  agent.peer_agents: <comma-sep agent list>              # multi-agent orchestration only
-  agent.system: <system prompt text>                     # content-bearing (general capture mode)
-  agent.user_prompt: <user prompt text>                  # content-bearing (general capture mode)
-resource_attributes:
-  service.name: chatservice
-  service.namespace: <k8s-namespace>
-  deployment.environment.name: <env>
-  k8s.cluster.name: <cluster>
-  k8s.namespace.name: <namespace>
-  k8s.pod.name: <pod>
-  k8s.deployment.name: <deployment>
-  cloud.region: <region>
-```
+General full-capture envelope attributes remain agent.available_tools, agent.peer_agents,
+agent.system, agent.user_prompt. General resources retain declared service/namespace/environment/
+k8s/cloud identity.
 
-### Span attributes — general LLM call span (`generateText`/`streamText <model>`)
+### General SDK calls [slug: sigil-spans-general-llm]
 
-```yaml signals
-family: sigil_spans_general_llm
-scope: blueprint
-sink: otlp
-span_attributes:
-  gen_ai.operation.name: generateText|streamText
-  gen_ai.provider.name: openai|anthropic|bedrock
-  gen_ai.request.model: gpt-4.1-nano|gpt-4o-mini|global.anthropic.claude-3-5-sonnet|us.anthropic.claude-3-haiku
-  gen_ai.usage.input_tokens: <int>
-  gen_ai.usage.output_tokens: <int>
-  gen_ai.usage.cache_read_input_tokens: <int>            # ⚠ UNDERSCORE form (sdk-python sigil spelling)
-  gen_ai.usage.cache_write_input_tokens: <int>           # ⚠ UNDERSCORE form (sdk-python sigil spelling)
-  gen_ai.conversation.id: <uuid>
-  sigil.generation.id: <uuid>
-  sigil.sdk.name: sdk-python
-  sigil.generation.parent_generation_ids: <uuid>,<uuid>  # comma-sep list; fan-out multi-agent
-```
+General SDK generation spans use the same current identity/usage vocabulary above, with
+agent-specific library scope selection and array-valued parent-generation links. They do not
+receive a fabricated per-agent instrumentation scope.
 
----
+## Lane C — metrics [slug: sigil-lane-c]
 
-## Lane C — metrics (promrw → Mimir) [slug: sigil-lane-c]
+### SDK metrics [slug: sigil-gen-ai-metrics]
 
-Metric label names follow the OTLP→Prom translation (`gen_ai.operation.name` → `gen_ai_operation_name`,
-etc.). Resource-attr labels (`deployment_environment_name`, `service_name`, `k8s_cluster_name`, etc.)
-are promoted by GC onto the `gen_ai_client_*` series — see `[slug: env-label-keys]`. (NOTE: those
-resource labels are ABSENT on the `agento11y_eval_*` series — confirmed live.) `gen_ai_client_*`
-histograms use base-2 second buckets (matching `internal/genai` advisory buckets; `v: assumed` for
-those bucket boundaries). Core `gen_ai_client_*` metric names + label shapes: `v: ok` (live-confirmed
-in m7kni + emea-cloud-demokit captures, 2026-06-30). Current evaluation names, labels and histogram buckets are recorded from the
-2026-09-06 reference capture below; historical-only and source-only evidence is distinguished.
+Prometheus translation replaces dots with underscores. Current agent labels are
+`gen_ai_agent_name` and optional `gen_ai_agent_version`. Shared identity is gen_ai_provider_name,
+gen_ai_request_model. Only configured client/context tags become `agento11y_tag_<translated-key>`
+labels; arbitrary generation-only tags are never promoted. Values must remain bounded.
+Admission rejects client-tag key collisions per declared agent after the SDK's whitespace trim
+and actual Prometheus translation, including `team.name` versus `team_name` and whitespace aliases.
+Safe distinct dotted native keys remain distinct; lossy keys are never allowed to swap values.
 
-### gen_ai client metrics [slug: sigil-gen-ai-metrics]
+| Histogram | Additional dimensions |
+|---|---|
+| `gen_ai_client_token_usage` | gen_ai_operation_name, gen_ai_token_type=input/output/cache_read/cache_write/reasoning; gen_ai_token_semantics=inclusive only when usage is positively marked |
+| `gen_ai_client_operation_duration_seconds` | gen_ai_operation_name; execute_tool adds gen_ai_tool_name; failure adds error_type/error_category |
+| `gen_ai_client_tool_calls_per_operation_count` | Identity + configured tags only; **no operation label** |
+| `gen_ai_client_time_to_first_token_seconds` | Identity + configured tags only; streaming observations only |
 
-These reuse the `internal/genai` metric names; the sigil-specific extension is the expanded
-`gen_ai_token_type` value set (adds `cache_read`, `cache_write`, `reasoning`) and the
-`agent_name`/`agent_version` labels. **R-m3: `gen_ai_token_type` values are the token-category
-names, NOT the proto field suffixes** — value is `cache_read` (not `cache_read_input_tokens`).
+Provider-call failures use SDK `error.type=provider_call_error` and the modeled cause's SDK
+category: `server_error` for 5xx, `rate_limit` for 429, `timeout` for deadline/cancellation.
+These are sourced from SDK 75a1c548 Go generationErrorType/classifyErrorCategory (Python agrees).
+Provider raw JSON names such as overloaded_error or api_error are not SDK error.type values.
+The same classifications reach generation spans, promrw and native OTLP duration metrics.
+
+Duration/TTFT bounds: 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24,
+20.48, 40.96, 81.92. Token bounds are powers of four from 1 to 67,108,864. The retained synthetic
+tool-count bounds (0,1,2,4,8,16,32,64) remain **assumed**, not a source-confirmed SDK view.
+The optional native OTLP lane carries the token and operation-duration instruments with dotted
+names, SDK agent/tag/error dimensions and extended token categories. It uses no OTel SDK.
 
 ```yaml signals
 family: gen_ai_client
-scope: blueprint
+scope: substrate
 sink: promrw
 labels:
+  gen_ai_agent_name: <declared agent>
+  gen_ai_agent_version: <optional version>
   gen_ai_operation_name: generateText|streamText|execute_tool
-  gen_ai_provider_name: anthropic|openai|bedrock|gemini
-  gen_ai_request_model: <model>                          # e.g. claude-sonnet-4-6, gpt-4.1-nano
-  agent_name: claude-code|claude-code/<type>|codex|product_agent|soc-analyst|db-travel-agent|title_generator
-  agent_version: <semver>                                # optional; absent for codex + some general agents
-  gen_ai_token_type: input|output|cache_read|cache_write|reasoning   # token_usage ONLY; R-m3: category name, not field suffix
-  gen_ai_tool_name: <tool>                               # execute_tool spans only
-  error_type: <error.type>                               # operation_duration on failure only
-  error_category: <category>                             # operation_duration on failure only (sigil-extended)
-  # resource-attr labels promoted by GC: deployment_environment_name, service_name, job, k8s_cluster_name, etc.
+  gen_ai_provider_name: <provider>
+  gen_ai_request_model: <model>
+  gen_ai_token_type: input|output|cache_read|cache_write|reasoning
+  gen_ai_token_semantics: inclusive
+  gen_ai_tool_name: <tool>
+  error_type: provider_call_error
+  error_category: server_error|rate_limit|timeout
+  agento11y_tag_<k>: <configured client/context tag>
 metrics:
-  - {root: gen_ai_client_token_usage, type: histogram, unit: token, v: ok, note: "live-confirmed m7kni+emea-cloud-demokit 2026-06-30; agent_name/version + expanded token_type set (incl. cache_read/cache_write/reasoning) are sigil-extensions beyond genai.md; buckets v:assumed"}
-  - {root: gen_ai_client_operation_duration_seconds, type: histogram, unit: seconds, v: ok, note: "live-confirmed 2026-06-30; gen_ai_tool_name+error_type+error_category present on execute_tool / error paths; buckets v:assumed"}
-  - {root: gen_ai_client_tool_calls_per_operation_count, type: histogram, unit: count, v: ok, note: "live-confirmed 2026-06-30; identity labels only (no token_type); buckets v:assumed"}
-  - {root: gen_ai_client_time_to_first_token_seconds, type: histogram, unit: seconds, v: ok, note: "live-confirmed on streaming agents (streamText turns) 2026-06-30; absent for SYNC generateText; buckets v:assumed"}
+  - {root: gen_ai_client_token_usage, type: histogram, unit: token, v: ok}
+  - {root: gen_ai_client_operation_duration_seconds, type: histogram, unit: seconds, v: ok}
+  - {root: gen_ai_client_tool_calls_per_operation_count, type: histogram, unit: count, v: ok}
+  - {root: gen_ai_client_time_to_first_token_seconds, type: histogram, unit: seconds, v: ok}
 ```
 
-### Evaluation metrics [slug: sigil-eval-metrics]
+## Legacy synthetic evaluation metrics [slug: sigil-eval-metrics]
 
-The 2026-09-06 reference capture supersedes the 2026-06-30 names and common-label
-assumptions. Current tenant metrics use `agento11y_eval_*`; queries for the old
-`sigil_eval_*` names returned no series. The score, execution and duration families
-carry `eval_ai_request_model` equal to the **scored generation model**, for heuristic,
-JSON-schema and judge evaluations alike. Score counters additionally carry
-`evaluator_role="outcome"`. Judge request/token/duration metrics retain `model` and
-`provider` for the actual judge. No `agent_version` or resource identity labels appeared.
+Allowed only when real rules do not score the same agents. Source shapes below are tenant push
+shapes; tenant_id is routing, not an emitted synthetic label. Resource identity and agent_version
+are absent from eval families. Empty dimensions are omitted, not sent as empty sentinels.
+
+Define **I** = evaluator, evaluator_kind, rule, gen_ai_agent_name, gen_ai_request_model,
+gen_ai_request_provider. For llm_judge only, **I** also includes eval_ai_request_model and
+**eval_ai_request_provider**, describing the **configured judge target**, never the scored model.
+For non-judge evaluators both eval_ai labels are absent. **T** = explicitly allowlisted
+`filterable_tag_keys`, emitted as `agento11y_eval_tag_<sanitized-key>` on score/execution/duration
+families only. SDK tag prefixes are stripped, punctuation/underscore runs collapse, trailing
+underscores trim; values truncate at 128 Unicode characters. No allowlist means no eval tag labels.
+Absent tags are omitted under synthkit's no-empty-dimension invariant.
+
+| Emitted family | Labels | Kind / bounds |
+|---|---|---|
+| `agento11y_eval_scores_total` | I + T + evaluator_role + score_key + passed | counter; passed=true/false/unknown |
+| `agento11y_eval_executions_total` | I + T + status | counter; execution success differs from score pass |
+| `agento11y_eval_duration_seconds` | I + T | histogram; 0.01 doubling through **327.68** |
+| `agento11y_eval_enqueue_total` | evaluator_kind, rule | counter |
+| `agento11y_eval_rule_action_fires_total` | rule, result | counter; no_actions when unconfigured; upstream empty action_type omitted |
+| `agento11y_eval_judge_duration_seconds` | model, provider | histogram; 0.01 doubling through **81.92** |
+| `agento11y_eval_judge_requests_total` | model, provider, status | counter |
+| `agento11y_eval_judge_errors_total` | model, provider, error_type | counter |
+| `agento11y_eval_judge_cost_usd_total` | evaluator, evaluator_kind, rule, model, provider, gen_ai_agent_name, gen_ai_request_model, gen_ai_request_provider | synthetic legacy estimate only for a known model price |
 
 ```yaml signals
 family: agento11y_eval
-scope: blueprint
+scope: substrate
 sink: promrw
 labels:
-  evaluator: <evaluator>              # name declared in blueprint evaluators: (NOT evaluator_name)
-  evaluator_kind: llm_judge|heuristic|json_schema # all three observed in the 2026-09-06 capture
-  evaluator_role: outcome            # score counters only; not execution/duration
-  score_key: <key>                    # e.g. ecommerce_helpfulness_score, prompt_injection_detected, toxicity, topic
-  rule: <rule>                        # triggering rule name (NOT rule_name)
-  gen_ai_agent_name: <agent>          # the SCORED agent (NOT agent_name); e.g. cart_agent, product_agent
-  gen_ai_request_model: <model>       # the scored generation's model
-  gen_ai_request_provider: <provider> # the scored generation's provider (NOT gen_ai_provider_name)
-  eval_ai_request_model: <scored-model> # same generation model as gen_ai_request_model, including heuristic
-  passed: true|false|unknown          # 3-valued — unknown when no pass condition is configured; categorical pass_match can yield true/false; scores/score_values
-  score_value: <value-as-string>      # score_values_total ONLY; the bool/string value (e.g. "false", "alerting")
-  status: success|failed|queued       # executions/judge_requests (success|failed); queue_depth (queued|failed)
-  result: no_actions                  # rule_action_fires_total ONLY
-  model: <judge-model>                # judge_* metrics; e.g. claude-haiku-4-5-20251001, eu.anthropic.claude-haiku-4-5-...-v1:0
-  provider: <judge-provider>          # judge_* metrics; e.g. bedrock
-  direction: input|output             # judge_tokens_total ONLY
-  error_type: <type>                  # judge_errors_total ONLY; e.g. unknown
-  # NO GC-promoted resource labels on eval series (deployment_environment_name/service_name/etc. confirmed ABSENT live).
+  evaluator: <evaluator id>
+  evaluator_kind: llm_judge|heuristic|json_schema
+  rule: <rule id>
+  gen_ai_agent_name: <scored agent>
+  gen_ai_request_model: <scored model>
+  gen_ai_request_provider: <scored provider>
+  eval_ai_request_model: <judge target, judge only>
+  eval_ai_request_provider: <judge target provider, judge only>
+  evaluator_role: gate|outcome
+  score_key: <score key>
+  passed: true|false|unknown
+  status: success|failed
+  model: <judge response model>
+  provider: <judge response provider>
+  error_type: <judge error>
+  result: no_actions
+  agento11y_eval_tag_<k>: <allowlisted tag>
 metrics:
-  - {root: agento11y_eval_scores_total, type: counter, unit: count, v: ok, note: "total scoring events; {evaluator,evaluator_kind,evaluator_role,score_key,rule,gen_ai_agent_name,gen_ai_request_model,gen_ai_request_provider,eval_ai_request_model,passed}"}
-  - {root: agento11y_eval_score_values_total, type: counter, unit: count, v: ok, note: "bool/string scores ONLY (numeric NOT enumerated — unbounded cardinality); scores_total labels + score_value"}
-  - {root: agento11y_eval_executions_total, type: counter, unit: count, v: ok, note: "eval executions; identity labels + status (success|failed) — NOT passed; agent/model labels drop when status=failed"}
-  - {root: agento11y_eval_rule_action_fires_total, type: counter, unit: count, v: ok, note: "rule outcomes; {rule,result}; result=no_actions when no action rule configured"}
-  - {root: agento11y_eval_duration_seconds, type: histogram, unit: seconds, v: ok, note: "wall-clock eval duration; identity labels; buckets 0.01..81.92 (base-2 from 0.01s)"}
-  - {root: agento11y_eval_judge_duration_seconds, type: histogram, unit: seconds, v: ok, note: "LLM judge call duration; {model,provider}; llm_judge only; buckets 0.01..81.92"}
-  - {root: agento11y_eval_judge_tokens_total, type: counter, unit: tokens, v: ok, note: "judge call tokens; {model,provider,direction}; direction=input|output; llm_judge only"}
-  - {root: agento11y_eval_judge_requests_total, type: counter, unit: count, v: ok, note: "judge LLM API calls; {model,provider,status}; llm_judge only"}
-  - {root: agento11y_eval_judge_errors_total, type: counter, unit: count, v: assumed, note: "judge call errors; {error_type,model,provider}; llm_judge only; current name/keys source-confirmed, no error sample in the 2026-09-06 capture"}
-  - {root: agento11y_eval_queue_depth, type: gauge, unit: count, v: assumed, note: "pending/failed eval work items; {status} (queued|failed); instantaneous gauge. Current name source-confirmed but not observed this time; synthkit does NOT emit it: it is backend-GLOBAL with zero per-backend identity in the live schema, so emitting it from >1 ai_agent fleet in one push would duplicate-series (Mimir rejects). Documented for completeness."}
-  - {root: agento11y_eval_enqueue_total, type: counter, unit: count, v: ok, note: "emitted 2026-09-06; observed 2026-09-06 with {evaluator_kind,rule}; one work item per sampled scoring event"}
-  - {root: agento11y_eval_judge_cost_usd_total, type: counter, unit: USD, v: ok, note: "emitted 2026-09-06; observed 2026-09-06 with {evaluator,evaluator_kind,rule,gen_ai_agent_name,gen_ai_request_model,gen_ai_request_provider,model,provider}; cumulative priced judge spend"}
+  - {root: agento11y_eval_scores_total, type: counter, unit: count, v: ok}
+  - {root: agento11y_eval_executions_total, type: counter, unit: count, v: ok}
+  - {root: agento11y_eval_duration_seconds, type: histogram, unit: seconds, v: ok}
+  - {root: agento11y_eval_enqueue_total, type: counter, unit: count, v: ok}
+  - {root: agento11y_eval_rule_action_fires_total, type: counter, unit: count, v: ok}
+  - {root: agento11y_eval_judge_duration_seconds, type: histogram, unit: seconds, v: ok}
+  - {root: agento11y_eval_judge_requests_total, type: counter, unit: count, v: ok}
+  - {root: agento11y_eval_judge_errors_total, type: counter, unit: count, v: assumed, note: source-confirmed name and keys; no new live error sample}
+  - {root: agento11y_eval_judge_cost_usd_total, type: counter, unit: USD, v: ok}
 ```
 
+`evaluator_role=gate` is **positional**: non-final evaluators of a sequential rule. The terminal
+sequential evaluator and all parallel/ruleless evaluators are `outcome`. Admission rejects a
+missing nonterminal evaluator or a gate without a supported explicit verdict: the legacy model
+supports its numeric-threshold and bool-detection policies, but no string pass_value/pass_match
+condition. Runtime advances only on the emitted score's HasPassed && Passed; absent/false verdicts
+stop subsequent evaluations, and a missing gate is never skipped. Omitted execution_mode preserves
+the existing parallel behavior. Synthetic sampling remains generation/evaluator-based for parallel
+rules and generation/rule-based for sequential rules, not exact backend conversation/rule sampling.
+This is legacy synthetic evaluator scheduling, not backend hook/pipeline implementation.
 
-#### Reference capture, 2026-09-06
+Judge model/provider on request/duration/error rows describes the judge response identity; the
+existing JudgeModel/JudgeProvider declaration supplies both target and response identity. A
+separate profile-to-response resolution is not modeled. Eval cost remains an explicitly synthetic
+estimate from the legacy event's modeled token counts, not an invoice or real judge-token capture.
 
-Provenance: the terraform reference stack, authenticated per-signal Mimir series API,
-window 18:42:00–18:46:11 UTC. No source capture was rewritten. Persisted online scores
-were read back before any metric query: boolean true/pass, boolean false/fail, numeric
-5/pass and categorical string prose/fail. The negative controls deliberately require
-short text or JSON while the real agent produces an explanatory sentence.
+**Not emitted:** `agento11y_eval_score_values_total` (backend score ingest derives it),
+`agento11y_eval_judge_tokens_total` (scrape-only in pinned inference source; absent in W0 tenant
+lookbacks), backend-global queue_depth, generation cost/model price, experiment and hook families.
+No substitute token metric name is invented. `eval_ai_request_*` are judge-identity **labels**, not
+replacement token-count instruments.
 
-```text
-Old-name queries: HTTP 200, status=success, heuristic=0, judge=0, all_eval=0 series.
-Current-name queries: HTTP 200, status=success, heuristic=45, judge=22, all_eval=136 series.
-Heuristic eval_ai_request_model: present; equals gen_ai_request_model (the scored model).
-Heuristic model/provider: absent.
-Score evaluator_role: outcome.
-Histogram bounds: 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56,
-                  5.12, 10.24, 20.48, 40.96, 81.92, +Inf.
-```
+## Archetypes, failures and boundaries [slug: sigil-archetypes]
 
-Exact captured label-key sets (histogram suffixes listed explicitly):
+The admitted archetypes are coding_claude_code, coding_codex, general_orchestration,
+general_autonomous_loop, general_multiturn, general_single_shot and regulated_document_authoring.
+The last key selects the embedded fictional regulated-document corpus; it adds no domain-specific
+catalog behavior. Coding uses large cached prompts; general agents have modest input/output.
+Orchestration/coding subagents retain parent-generation links; general orchestration/autonomous
+loops emit application workflow steps. Tool-result carry-forward is unchanged by the wire refresh.
+Corpus sampling does not preserve ordered attacks; a future executor must explicitly construct
+ordered model-visible tool input rather than infer sequencing from corpus order.
 
-| Family | Keys |
-|---|---|
-| `agento11y_eval_duration_seconds_bucket` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `le`, `rule` |
-| `agento11y_eval_duration_seconds_count` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `rule` |
-| `agento11y_eval_duration_seconds_sum` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `rule` |
-| `agento11y_eval_enqueue_total` | `evaluator_kind`, `rule` |
-| `agento11y_eval_executions_total` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `rule`, `status` |
-| `agento11y_eval_judge_cost_usd_total` | `evaluator`, `evaluator_kind`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `model`, `provider`, `rule` |
-| `agento11y_eval_judge_duration_seconds_bucket` | `le`, `model`, `provider` |
-| `agento11y_eval_judge_duration_seconds_count` | `model`, `provider` |
-| `agento11y_eval_judge_duration_seconds_sum` | `model`, `provider` |
-| `agento11y_eval_judge_requests_total` | `model`, `provider`, `status` |
-| `agento11y_eval_judge_tokens_total` | `direction`, `model`, `provider` |
-| `agento11y_eval_rule_action_fires_total` | `result`, `rule` |
-| `agento11y_eval_score_values_total` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `evaluator_role`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `passed`, `rule`, `score_key`, `score_value` |
-| `agento11y_eval_scores_total` | `eval_ai_request_model`, `evaluator`, `evaluator_kind`, `evaluator_role`, `gen_ai_agent_name`, `gen_ai_request_model`, `gen_ai_request_provider`, `passed`, `rule`, `score_key` |
+### Failure modes [slug: sigil-failure-modes]
 
-The judge family rows above belong to the judge evaluators, not to heuristic evaluations:
-those families have no evaluator label on which to filter. Their presence does not imply
-that a heuristic called a judge. The judge cost row carries the configured profile model,
-whereas request/token/duration rows carry the response model.
-SynthKit currently uses `EvalDecl.JudgeModel` for the request/token/duration labels;
-that declaration must therefore name the response model to reproduce these rows.
-It does not separately model a judge invocation profile and its resolved response model.
+`provider_call_error` makes a deterministic fraction of calls fail across native generation,
+root span status and duration labels; failed generations are not scored. `eval_quality_regression`
+biases synthetic scores downward. Observe scores_total{passed="false"}, not the retired synthetic
+score-values family, for that incident. Real backend rules must own their own outcomes.
 
-`agento11y_eval_enqueue_total` and `agento11y_eval_judge_cost_usd_total` are newly captured
-catalogue additions, not emitted by SynthKit yet. No cost or enqueue value is fabricated
-in this correction. Current `agento11y_eval_judge_errors_total` and
-`agento11y_eval_queue_depth` names are confirmed by the upstream metric definitions
-(`sigil/internal/eval/worker/metrics.go`, inspected 2026-09-06); their live error/queue
-shapes remain unverified in this successful window. The historical old-name capture is
-not treated as current-name runtime proof. Categorical `pass_match` behavior was observed
-on the live judge; the current synthetic evaluator config still models its existing
-string-score policy and does not expose that complete server configuration surface.
+### Cardinality [slug: sigil-cardinality]
 
-#### Retirement snapshot, 2026-09-06
+Conversation/generation/trace/span/tool-call/user identifiers are ingest fields or span attributes,
+never Mimir labels or Loki stream labels. Agent/model/evaluator/rule sets and all tag values must
+be bounded by declarations. No Loki lane is added.
 
-A final read through 19:19:39 UTC returned the same 136 evaluation series and exact
-label-key sets, with no additional families. Eight successful scheduled generations
-carried 26 persisted scores: eight minimum-length passes, eight strict-length failures,
-eight JSON-schema failures, one numeric quality score of 5/pass and one categorical
-prose/fail. This is a small controlled sample, not an estimate of production quality.
+### Stage boundary
 
-The Mimir instant read at 19:20:33 UTC added useful counter evidence:
-
-```text
-agento11y_eval_enqueue_total: 26
-agento11y_eval_executions_total: success=26, failed=0
-agento11y_eval_scores_total: passed=true 9, passed=false 17
-agento11y_eval_score_values_total: 25
-agento11y_eval_judge_requests_total: 2
-agento11y_eval_judge_tokens_total: input=916, output=84
-agento11y_eval_judge_cost_usd_total: 0.001336
-```
-
-These are sums of the returned cumulative series, not rates or billing receipts.
-The 26 scores versus 25 enumerated values corroborate that the one numeric score is
-not a `score_value` label. Failed quality checks still have successful evaluator
-executions: a negative score is not an execution error. The reported judge-cost
-counter is USD telemetry for the observed requests; no actual invoice was inspected.
-The enqueue/cost catalogue-only gaps remain recorded above. No further emitter
-change is justified by this repeat capture.
-
----
-
-## Coding vs general archetype contract [slug: sigil-archetypes]
-
-Purely conventional — no schema field distinguishes coding from general; the difference is in
-`agent_name` patterns, token shapes, tool sets, and span structure. Both emit all three lanes.
-
-| Dimension | Coding | General |
-|---|---|---|
-| SDK | `sdk-go` | `sdk-python` |
-| `agent_name` | `claude-code`, `claude-code/<subagent-type>`, `codex` | Domain names: `product_agent`, `soc-analyst`, `db-travel-agent`, `title_generator` |
-| Provider / model | anthropic `claude-opus-4-8` / `claude-sonnet-4-6`; openai `gpt-5.5` (codex) | openai `gpt-4.1-nano` / `gpt-4o-mini`, anthropic, bedrock (`global.anthropic.*`, `us.anthropic.*`) |
-| Token shape | Huge `cache_read` (often 10k–200k+), tiny fresh `input` (often 2); `stop_reason=tool_use` ~81% | Modest `input`/`output`, minimal `cache_read`; varies per archetype |
-| Tools | FS/shell: `Read`, `Edit`, `Bash`, `Skill`, `apply_patch` | Domain functions: `search_products`, `find_train_connections`, `submit_verdict` |
-| `content_capture_mode` | `full` (tool args + results on spans) | `no_tool_content` or `full` |
-| Lane A tags | `cwd`, `git.branch`, `entrypoint`, `codex.*` (numeric metadata) | `region`, `team`; nonces in prompts |
-| Lane B span structure | 2-level (CLIENT root → INTERNAL tool children); scope `sigil.<agent_name>` | 3-scope nested (`agents.base` envelope → sigil CLIENT → sigil INTERNAL tool → openai CLIENT) |
-| Resource identity | `service.name=sigil`, `job=sigil` | `service.name=chatservice`, full k8s resource attrs |
-| `user.id` span attr | Real email address | Synthetic UUID (= `conversation_id`) |
-| `agent_version` | Semver or sha256 hash of agent binary | Optional; absent for single-shot agents |
-| Multi-agent structure | Open-ended turn loop; subagents as `claude-code/<type>` child conversations | Fan-out via `parent_generation_ids` + `agents.base` envelope spans; autonomous loops; single-shot |
-| Streaming | `streamText` uncommon (possible) | `streamText` common for multi-turn archetypes; emits `time_to_first_token_seconds` |
-| WorkflowSteps (Lane A) | Absent | Present on `general_orchestration` and `general_autonomous_loop` archetypes |
-| Eval / scores (Lane A + C) | Optional (blueprint-configured) | Optional; common on autonomous + multi-turn archetypes |
-
-### Archetype roster
-
-| Archetype key | Lane A archetypes | Turn grammar |
-|---|---|---|
-| `coding_claude_code` | Multi-turn; subagents as child conversations w/ shared content facets | Long sessions; `tool_use` stop ~81%; cache snowball |
-| `coding_codex` | Multi-turn; numeric `codex.*` metadata in tags; no `agent_version` | `gpt-5.5`; openai tool_call ids (`call_*`) |
-| `general_orchestration` | Orchestrator `streamText` turns (NO parent ids — tree roots) + per-delegation sub-agent generations under distinct `agent_name`s parented to the orchestrator gen (true fan-out TREE) | `agents.base` envelope (`agent.peer_agents`); turn-0 dispatches to every declared peer, later turns delegate stochastically |
-| `general_autonomous_loop` | Soc-analyst evidence loop; terminal `submit_verdict` tool w/ enum taxonomy | Loop until terminal tool call |
-| `general_multiturn` | db-travel / sales; full conversation history growth | `SYNC` + `STREAM` variants; TTFT on STREAM |
-| `general_single_shot` | Title-generator / judge; 0 tools; tiny `max_tokens` | Single turn; no tool calls; fast; `end_turn` stop |
-
----
-
-## Failure modes [slug: sigil-failure-modes]
-
-**Emitted.** The `ai_agent` workload registers both modes on **AxisWorkload** (targeted in a blueprint
-by the workload INSTANCE name — e.g. `target: sigil-general-agents`). `ProjectBatch` reads the active
-intensity via `shape.Eval(now, mode, workloadName)` (UNION of scheduled incidents + live control-plane
-state) and applies it deterministically per generation (keyed on the generation id — never wall-clock —
-so two `-dump` runs agree). `grafana-ai-o11y.yaml` declares one-shot daily `incidents:` for both.
-
-| Mode | Effect |
-|---|---|
-| `provider_call_error` | A ~intensity fraction of generations error: `Generation.CallError` set (Lane A), Lane-B root span `status=ERROR`, and the `gen_ai_client_operation_duration_seconds` observation carries `error_type`/`error_category` (a DISTINCT series — absent on success, I13). Failed generations are not scored. error_type/category VALUES are real provider error vocabulary (`overloaded_error`/`rate_limit_error`/`api_error`/`timeout`) — synthetic fault injection; the label NAMES are signals-sourced. |
-| `eval_quality_regression` | Eval scores bias downward (number-rubric centre drops, bool/string flag bar rises) so `agento11y_eval_score_values_total{passed=false}` rate climbs; `agento11y_eval_scores_total`/`executions_total` maintained; `rule_action_fires_total` unaffected (fires per scoring event). |
-
----
-
-## Cardinality notes [slug: sigil-cardinality]
-
-- `generation_id`, `trace_id`, `span_id`, `tool_call_id`, `conversation_id` are Lane A fields and
-  Lane B span attributes ONLY — **never Mimir labels** (`[slug: cardinality]`).
-- `agent_name` is bounded: coding has 3 values + a small set of subagent suffixes; general has ~4–8
-  domain names in the blueprint roster.
-- `gen_ai_request_model` is bounded per blueprint (typically 2–5 model IDs).
-- `score_key` and `evaluator` (the eval-metric label; NOT `evaluator_name`) are bounded by the
-  blueprint `evaluators:` list. `score_value` (on `score_values_total`) is bounded too: bool ⇒
-  true|false, string ⇒ the evaluator's classification taxonomy; numeric scores never enter it.
-- `model`/`provider` (judge metrics) and `eval_ai_request_model` are bedrock-style IDs from the
-  evaluator config; bounded per blueprint.
-- The `sigil.tag.<k>` span attributes are per-key (one attr per tag key, not one attr with a
-  map value) → cardinality of tag keys is bounded by the archetype definition (not open-ended at
-  runtime).
-
----
-
-## Implementation status & next steps [slug: sigil-status]
-
-What the `ai_agent` workload + `grafana-ai-o11y` blueprint emit **today** (v1, live-verified against a
-real sigil stack 2026-06-30), versus what is **PENDING** (the resume list — pick up here).
-
-**Emitted + verified:** Lane A generations (coding + general), Lane B span trees (coding 2-level;
-general `agents.base` → `generateText`/`streamText` → `execute_tool` → openai `chat`), Lane C
-`gen_ai_client_*` metrics, the 6 archetypes, `agento11y_eval_*` + `latest_scores` for the bound
-evaluators/rules, `WorkflowStep` ingest for orchestration, `effective_version`, the full vocabulary.
-**True orchestration fan-out** (`general_orchestration` — sub-agent generations under distinct
-`agent_name`s parented to the orchestrator gen, with their own `sigil.<peer>` spans; see
-`internal/workload/aiagent/orchestration.go`). **Failure modes** (`provider_call_error`,
-`eval_quality_regression` — AxisWorkload, see the Failure modes section + `failures.go`).
-
-**Coding sub-agent fan-out** (`coding_claude_code` — agents declaring `subagents:` fan out
-per-subagent generations under `<agent_name>/<subagent>` (so the showcase blueprint's `claude-code`
-agent yields the captured `claude-code/<subagent>` form), parented to the coding turn that delegates
-to them and nested under that turn's OWN root span, since coding's 2-level tree has no `agents.base`
-envelope; same mechanism as the general fan-out above — `orchestration.go`). **Turn-accurate
-tool-result carry-forward** (a turn's tool results land in the NEXT turn's `AssembledTurn.Input`,
-never the turn that issued the call, because that is when the model actually sees them; turn 0
-inherits nothing and the final turn's results stay on its own `Input` rather than being dropped —
-`internal/sigil/assemble.go`).
-
-Plus the **e2e sigil receiver** (the `just e2e` Docker harness decodes the three sigil ingest
-endpoints + correlates ingest kinds; see `e2e/receiver`) and the **live-captured eval families**
-(current `agento11y_eval_*` names and common labels corrected from the reference capture).
-
-**PENDING — next steps (in rough priority):**
-
-1. **Heuristic metric capture completed, 2026-09-06.** Persisted online scores cleared
-   the original prerequisite. The reference series prove that `eval_ai_request_model`
-   is present and equals the scored model, while `model` and `provider` are absent on
-   heuristic rows. The current names are `agento11y_eval_*`, and score counters carry
-   `evaluator_role="outcome"`. The emitter is corrected to that capture, with a failing-first
-   regression. Exact evidence and remaining coverage limits are recorded above.
+Per-generation stage types live in internal/sigil: BeforeToolResult runs before model-visible
+carry-forward and permits explicit allow/deny/content replacement; AfterGeneration receives the
+completed generation before publication/delegation. These are **types only**, not installed hooks,
+whole-conversation callbacks, or a new pipeline. Callers own cancellation/fail-open policy. Backend
+guard telemetry must come from the actual backend response/work, never these interfaces themselves.

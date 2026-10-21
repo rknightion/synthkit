@@ -246,7 +246,7 @@ func TestGenTraceSpanEqualsRootSpan(t *testing.T) {
 		rootByGen := map[string]span{}
 		for _, res := range resources {
 			for _, sp := range res.Spans {
-				if gid, ok := sp.Attrs["sigil.generation.id"].(string); ok {
+				if gid, ok := sp.Attrs["agento11y.generation.id"].(string); ok {
 					rootByGen[gid] = span{sp.TraceID, sp.SpanID}
 				}
 			}
@@ -265,7 +265,8 @@ func TestGenTraceSpanEqualsRootSpan(t *testing.T) {
 	}
 }
 
-// TestCodingTokenLaw: coding archetype → CacheRead non-decreasing across turns, Input tiny (<=6).
+// TestCodingTokenLaw: inclusive input contains the cache buckets; fresh input
+// stays tiny (<=6), while cache read grows monotonically across turns.
 func TestCodingTokenLaw(t *testing.T) {
 	agent := codingAgent()
 	r := fixedReq("conv-token-1", 200*time.Second)
@@ -278,8 +279,12 @@ func TestCodingTokenLaw(t *testing.T) {
 	}
 	var prev int64 = -1
 	for i, g := range gens {
-		if g.Usage.Input <= 0 || g.Usage.Input > 6 {
-			t.Fatalf("turn %d: coding Input=%d, want 1..6", i, g.Usage.Input)
+		fresh := g.Usage.Input - g.Usage.CacheRead - g.Usage.CacheWrite
+		if fresh <= 0 || fresh > 6 {
+			t.Fatalf("turn %d: fresh coding input=%d, want 1..6", i, fresh)
+		}
+		if g.Usage.Total != g.Usage.Input+g.Usage.Output || g.Usage.Reasoning > g.Usage.Output {
+			t.Fatalf("invalid inclusive usage: %+v", g.Usage)
 		}
 		if g.Usage.CacheRead < prev {
 			t.Fatalf("turn %d: CacheRead=%d < prev=%d (must be non-decreasing)", i, g.Usage.CacheRead, prev)

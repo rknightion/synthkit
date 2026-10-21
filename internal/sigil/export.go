@@ -61,6 +61,12 @@ type Part struct {
 	Thinking     string
 	ToolCall     *ToolCall
 	ToolResult   *ToolResult
+	Media        *Media
+}
+
+// Media mirrors the additive Part.media payload in the current ingest proto.
+type Media struct {
+	Kind, URL, MIMEType, Name string
 }
 
 // ToolCall is a Part payload (assistant requests a tool). InputJSON is raw JSON (proto field is
@@ -86,13 +92,15 @@ type ToolDef struct {
 	Description     string
 	Type            string // e.g. "function"
 	InputSchemaJSON []byte
+	Deferred        bool
 }
 
 // Usage mirrors sigilv1.TokenUsage. CacheWrite maps the proto cache_write_input_tokens.
 type Usage struct {
 	Input, Output, Total  int64
 	CacheRead, CacheWrite int64
-	Reasoning             int64
+	Reasoning             int64  // subset of Output, never additive
+	InputSemantics        string // empty/unspecified or InputSemanticsInclusive
 }
 
 // WorkflowStep mirrors sigilv1.WorkflowStep (non-LLM agentic nodes; general framework agents).
@@ -127,6 +135,7 @@ type Score struct {
 	Source                                                  ScoreSource
 	TrialID, TestCaseID                                     string
 	GraderConversationID, GraderGenerationID, GraderTraceID string
+	ReportRole                                              string // primary_verdict | diagnostic (experiments)
 }
 
 // ScoreSource mirrors sigilv1.ScoreSource (proto field 17).

@@ -11,9 +11,14 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
+	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -30,6 +35,7 @@ import (
 type Sink struct {
 	endpoint string
 	auth     string // "Basic <base64(tenantID:token)>"
+	tenantID string
 	hc       *http.Client
 	delivery httpretry.Delivery
 	policy   httpretry.Policy
@@ -66,6 +72,7 @@ func New(endpoint, tenantID, token string, dryRun bool) (*Sink, error) {
 	return &Sink{
 		endpoint:   endpoint,
 		auth:       auth,
+		tenantID:   tenantID,
 		hc:         &http.Client{Timeout: 15 * time.Second},
 		delivery:   httpretry.DefaultDelivery(),
 		policy:     httpretry.EmitOncePolicy(),
@@ -94,6 +101,9 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) (termina
 	)
 
 	for _, b := range batches {
+		if err := validateScores(b.Scores); err != nil {
+			return err
+		}
 		allGens = append(allGens, toProtoGenerations(b.Generations)...)
 		allSteps = append(allSteps, toProtoWorkflowSteps(b.WorkflowSteps)...)
 		allScores = append(allScores, toProtoScores(b.Scores)...)
@@ -270,6 +280,9 @@ func (s *Sink) postBody(ctx context.Context, path string, body []byte) (int, []b
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", s.auth)
+		if s.tenantID != "" {
+			req.Header.Set("X-Scope-OrgID", s.tenantID)
+		}
 
 		return s.delivery.Send(ctx, s.hc, req, func(resp *http.Response) (int, error) {
 			lastStatus = resp.StatusCode
@@ -289,6 +302,34 @@ func (s *Sink) postBody(ctx context.Context, path string, body []byte) (int, []b
 		})
 	})
 	return lastStatus, lastBody, err
+}
+
+// validateScores rejects the reserved server-owned namespaces before any stage
+// is sent. Folding matches backend eval.IsReserved (bc963fb09), not ASCII-only
+// prefix matching: database collation also ignores accents/width/invisibles.
+func validateScores(scores []nativesigil.Score) error {
+	for _, score := range scores {
+		id := strings.TrimSpace(score.ScoreID)
+		if id == "" || utf8.RuneCountInString(id) > 128 {
+			return fmt.Errorf("sigil: score_id must contain 1..128 characters")
+		}
+		for _, value := range []string{id, score.RuleID, score.ScoreKey, score.Source.Kind} {
+			var folded strings.Builder
+			for _, r := range norm.NFKD.String(value) {
+				if unicode.In(r, unicode.Mn, unicode.Me, unicode.Mc, unicode.Cf, unicode.Cc, unicode.Other_Default_Ignorable_Code_Point, unicode.Variation_Selector) {
+					continue
+				}
+				folded.WriteRune(unicode.ToLower(r))
+			}
+			if strings.HasPrefix(strings.TrimSpace(folded.String()), "__grafana_") {
+				return fmt.Errorf("sigil: score uses a reserved Grafana identifier")
+			}
+		}
+		if score.ReportRole != "" && score.ReportRole != "primary_verdict" && score.ReportRole != "diagnostic" {
+			return fmt.Errorf("sigil: invalid score report_role")
+		}
+	}
+	return nil
 }
 
 // scoresAccepted verifies the documented per-item acknowledgement. A 202 only

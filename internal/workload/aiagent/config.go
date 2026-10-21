@@ -30,7 +30,7 @@ type OTelObs struct {
 func (c *Config) otelMetricsEnabled() bool { return c.OTel != nil && c.OTel.Metrics }
 
 // ResourceID is the OTLP resource identity for this workload's spans + metrics. Coding fleets use
-// the sigil/job form (ServiceName="sigil", Job="sigil"); general fleets use the service+k8s form.
+// the plugin defaults (ServiceName="agento11y", Job="agento11y"); general fleets use service+k8s.
 type ResourceID struct {
 	ServiceName           string `yaml:"service_name,omitempty"`
 	ServiceNamespace      string `yaml:"service_namespace,omitempty"`
@@ -56,7 +56,7 @@ type AgentDecl struct {
 	Version     string            `yaml:"version,omitempty"`      // declared agent version (empty ⇒ omitted, e.g. codex)
 	Streaming   bool              `yaml:"streaming,omitempty"`    // streamText + time_to_first_token
 	Subagents   []string          `yaml:"subagents,omitempty"`    // coding: spawns claude-code/<type> child conversations
-	Tags        map[string]string `yaml:"tags,omitempty"`         // sigil.tag.<k> + generation tags (cwd/git.branch/region/team…)
+	Tags        map[string]string `yaml:"tags,omitempty"`         // configured client tags: generation tags + agento11y.tag.<k> span/metric dimensions
 	Activity    Activity          `yaml:"activity"`
 }
 
@@ -80,9 +80,11 @@ type EvalDecl struct {
 
 // RuleDecl binds evaluators to agents at a sampling rate.
 type RuleDecl struct {
-	Name       string   `yaml:"name"`
-	Selector   string   `yaml:"selector"` // e.g. all_assistant_generations | user_visible_turn
-	SampleRate float64  `yaml:"sample_rate"`
-	MatchAgent []string `yaml:"match_agent"`
-	Evaluators []string `yaml:"evaluators"`
+	Name              string   `yaml:"name"`
+	Selector          string   `yaml:"selector"` // e.g. all_assistant_generations | user_visible_turn
+	SampleRate        float64  `yaml:"sample_rate"`
+	MatchAgent        []string `yaml:"match_agent"`
+	Evaluators        []string `yaml:"evaluators"`
+	ExecutionMode     string   `yaml:"execution_mode,omitempty"`      // parallel (default) | sequential
+	FilterableTagKeys []string `yaml:"filterable_tag_keys,omitempty"` // explicit bounded metric tag projection
 }

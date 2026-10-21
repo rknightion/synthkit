@@ -43,6 +43,7 @@ message ScoreItem {
   string grader_conversation_id = 20;
   string grader_generation_id = 21;
   string grader_trace_id = 22;
+  string report_role = 23;
 }
 
 message ExportScoresRequest {

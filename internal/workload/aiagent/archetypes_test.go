@@ -219,15 +219,19 @@ func TestCodingClaudeCodeSubagentFanout(t *testing.T) {
 		}
 	}
 
-	// The subagent scope must carry the sigil.<agent_name> convention too.
+	// Plugin scope is fixed; subagent identity belongs in attributes, not scope.
 	found := false
 	for _, res := range spans {
-		if res.Scope.Name == "sigil."+agent.Name+"/general-purpose" {
-			found = true
+		if res.Scope.Name == "agento11y.claude-code" {
+			for _, span := range res.Spans {
+				if span.Attrs["gen_ai.agent.name"] == agent.Name+"/general-purpose" {
+					found = true
+				}
+			}
 		}
 	}
 	if !found {
-		t.Fatalf("no Lane B resource scoped sigil.%s/general-purpose found", agent.Name)
+		t.Fatalf("no subagent span with fixed plugin scope found for %s/general-purpose", agent.Name)
 	}
 }
 

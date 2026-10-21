@@ -231,6 +231,21 @@ restored SM declaration passes the same fail-closed registration filter as the b
 filter covers the boot set plus the persisted live set. The restore only validates; a live apply
 publishes by compare-and-swap. A nil hook keeps live blueprints free of SM: the runner rejects one.
 
+### Agent Observability generation-stage vocabulary
+
+The additive native ingest seam mirrors the pinned current generation/evaluation
+protos: Usage.InputSemantics, system/media message parts, deferred tools and score
+ReportRole preserve wire presence without enabling new producers. Inclusive input
+contains cache read/write; reasoning is an output subset. See [the canonical
+signal contract](signals/sigil.md) for source revisions and dashboard impact.
+
+`internal/sigil.GenerationStages` is a type-only per-generation seam:
+BeforeToolResult runs before model-visible carry-forward and returns explicit
+allow/deny or a transformed result; AfterGeneration receives the completed
+record before publication/delegation. IDs come from the existing ledger and
+conversation builder. No pipeline or hook implementation is installed by these
+types, and they never authorize synthetic backend guard/evaluation records.
+
 ## 3. The blueprint YAML
 
 ```yaml
@@ -497,11 +512,12 @@ Declared per construct kind at registration (`Scope`), enforced by the scoped wr
 
 - **ScopeBlueprint** — the writer stamps `blueprint=<label>` on every series/stream/span, cloning
   labels first (Collect() output aliases live cumulative state). Constructs NEVER stamp it.
-  Applies to: workload signals, CloudWatch families, Cloudflare.
+  Applies to: workload signals except substrate-scoped `ai_agent`, CloudWatch families, Cloudflare.
 - **ScopeSubstrate** — NO blueprint label, ever (vendor-app conformance: fanning these per
   blueprint breaks `count by(cluster,…)` panels). Identity labels disambiguate (`cluster`,
   `account_id`, dbo11y instance identity) — all blueprint-declared and collision-checked at load.
-  Applies to: k8s-monitoring substrate, k8s add-ons, dbo11y, CSP Azure/GCP, SM, Fleet/Alloy.
+  Applies to: k8s-monitoring substrate, k8s add-ons, dbo11y, CSP Azure/GCP, SM, Fleet/Alloy,
+  and `ai_agent` (declared service/agent identity; see [the current contract](signals/sigil.md)).
 
 Definition-of-done restated accordingly: two concurrent blueprints separate by the `blueprint`
 label on blueprint-scoped families and by declared identity on substrate families. A test asserts

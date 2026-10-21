@@ -26,7 +26,7 @@ const agentsBaseScope = "agents.base"
 
 // buildTraceResources builds the Lane B span tree per spec §2 into []otlp.Resource. Coding agents
 // emit a 2-level tree (root generateText/streamText CLIENT → execute_tool INTERNAL children) under
-// scope "sigil.<agent>" on a service.name=sigil/job=sigil resource. General agents add an
+// fixed plugin scopes on a default agento11y resource. General agents add an
 // "agents.base" `agent.<name>.chat` INTERNAL envelope parent and (openai provider) an
 // opentelemetry.instrumentation.openai_v2 `chat <model>` CLIENT child, on the full k8s resource.
 //
@@ -39,13 +39,12 @@ func buildTraceResources(res ResourceID, agent AgentDecl, r *ledger.Request, gen
 	}
 	coding := sigil.IsCoding(agent.Archetype)
 
-	// Group spans by (scope-name) within the right resource. Coding uses ONE resource (sigil) with
-	// one scope sigil.<agent>. General uses ONE resource (chatservice/k8s) but THREE scopes:
-	// agents.base, sigil.<agent>, openai_v2 (openai only).
+	// Coding shares one fixed plugin scope across agents/subagents. General
+	// resources retain their framework, SDK-library and provider scope split.
 	resAttrs := resourceAttrs(res, agent, r)
 
 	if coding {
-		scope := otlp.Scope{Name: sigil.ScopeName(agent.Name)}
+		scope := otlp.Scope{Name: sigil.AgentScope(agent.Archetype, agent.SDK)}
 		var spans []otlp.Span
 		for i := range gens {
 			spans = append(spans, codingTurnSpans(agent, r, gens[i], arts[i], assembled[i])...)
@@ -63,7 +62,7 @@ func buildTraceResources(res ResourceID, agent AgentDecl, r *ledger.Request, gen
 	}
 	out := []otlp.Resource{
 		{Attrs: resAttrs, Scope: otlp.Scope{Name: agentsBaseScope}, Spans: envelopeSpans},
-		{Attrs: resAttrs, Scope: otlp.Scope{Name: sigil.ScopeName(agent.Name)}, Spans: llmSpans},
+		{Attrs: resAttrs, Scope: otlp.Scope{Name: sigil.AgentScope(agent.Archetype, agent.SDK)}, Spans: llmSpans},
 	}
 	if len(openaiSpans) > 0 {
 		out = append(out, otlp.Resource{Attrs: resAttrs, Scope: otlp.Scope{Name: openAIScopeName}, Spans: openaiSpans})
@@ -137,9 +136,6 @@ func generalTurnSpans(agent AgentDecl, r *ledger.Request, gen sigil.Generation, 
 		Status:   spanStatus(gen),
 		Attrs:    rootSpanAttrs(agent, r, gen),
 	}
-	if len(gen.ParentGenerationIDs) > 0 {
-		root.Attrs[sigil.AttrParentGenerationIDs] = strings.Join(gen.ParentGenerationIDs, ",")
-	}
 	llm = []otlp.Span{root}
 	llm = append(llm, toolSpans(agent, gen, art)...)
 
@@ -190,9 +186,32 @@ func toolSpans(agent AgentDecl, gen sigil.Generation, art turnArtifacts) []otlp.
 			te = ts.Add(time.Millisecond)
 		}
 		attrs := map[string]any{
-			genai.AttrToolName:   tc.Name,
-			genai.AttrToolType:   "function",
-			genai.AttrToolCallID: tc.ID,
+			genai.AttrOperationName:  sigil.OpExecuteTool,
+			sigil.AttrSDKName:        agent.SDK,
+			genai.AttrAgentName:      gen.AgentName,
+			genai.AttrConversationID: gen.ConversationID,
+			genai.AttrProviderName:   gen.Provider,
+			genai.AttrRequestModel:   gen.Model,
+			genai.AttrToolName:       tc.Name,
+			genai.AttrToolType:       "function",
+			genai.AttrToolCallID:     tc.ID,
+		}
+		if gen.AgentVersion != "" {
+			attrs["gen_ai.agent.version"] = gen.AgentVersion
+		}
+		if title, ok := gen.Metadata[sigil.AttrConversationTitle].(string); ok && title != "" {
+			attrs[sigil.AttrConversationTitle] = title
+		}
+		for _, def := range gen.Tools {
+			if def.Name == tc.Name && def.Description != "" {
+				attrs["gen_ai.tool.description"] = def.Description
+				break
+			}
+		}
+		for k, v := range agent.Tags {
+			if strings.TrimSpace(k) != "" && strings.TrimSpace(v) != "" {
+				attrs[sigil.TagPrefix+strings.TrimSpace(k)] = strings.TrimSpace(v)
+			}
 		}
 		if full {
 			if len(tc.InputJSON) > 0 {
@@ -224,15 +243,53 @@ func rootSpanAttrs(agent AgentDecl, r *ledger.Request, gen sigil.Generation) map
 	a := map[string]any{
 		genai.AttrOperationName:  gen.OperationName,
 		genai.AttrProviderName:   gen.Provider,
-		"gen_ai.system":          gen.Provider, // legacy key (still emitted by sigil sdk)
+		genai.AttrAgentName:      gen.AgentName,
 		genai.AttrRequestModel:   gen.Model,
-		genai.AttrResponseModel:  gen.Model,
+		genai.AttrResponseModel:  gen.ResponseModel,
 		genai.AttrInputTokens:    gen.Usage.Input,
 		genai.AttrOutputTokens:   gen.Usage.Output,
 		genai.AttrConversationID: gen.ConversationID,
 		sigil.AttrGenerationID:   gen.ID,
 		sigil.AttrSDKName:        agent.SDK,
 		sigil.AttrUserID:         userID(agent, r),
+	}
+	if user, ok := gen.Metadata[sigil.MetadataUserID].(string); ok && user != "" {
+		a[sigil.AttrUserID] = user
+	}
+	if gen.AgentVersion != "" {
+		a["gen_ai.agent.version"] = gen.AgentVersion
+	}
+	if gen.ResponseID != "" {
+		a["gen_ai.response.id"] = gen.ResponseID
+	}
+	if gen.StopReason != "" {
+		a["gen_ai.response.finish_reasons"] = []string{gen.StopReason}
+	}
+	if gen.MaxTokens != nil {
+		a["gen_ai.request.max_tokens"] = *gen.MaxTokens
+	}
+	if gen.Temperature != nil {
+		a["gen_ai.request.temperature"] = *gen.Temperature
+	}
+	if gen.TopP != nil {
+		a["gen_ai.request.top_p"] = *gen.TopP
+	}
+	if gen.ToolChoice != nil && *gen.ToolChoice != "" {
+		a[sigil.AttrToolChoice] = *gen.ToolChoice
+	}
+	if title, ok := gen.Metadata[sigil.AttrConversationTitle].(string); ok && title != "" {
+		a[sigil.AttrConversationTitle] = title
+	}
+	if budget, ok := gen.Metadata[sigil.AttrThinkingBudget]; ok {
+		a[sigil.AttrThinkingBudget] = budget
+	}
+	if gen.Usage.InputSemantics == sigil.InputSemanticsInclusive {
+		a[sigil.AttrTokenSemantics] = sigil.TokenSemanticsInclusive
+	}
+	// The proprietary Python SDK emits parents on spans; pinned Go emits
+	// them only in the native record (or experimental OTel generation mode).
+	if agent.SDK == sigil.SDKPython && len(gen.ParentGenerationIDs) > 0 {
+		a[sigil.AttrParentGenerationIDs] = gen.ParentGenerationIDs
 	}
 	if gen.Usage.CacheRead > 0 {
 		a[sigil.AttrCacheReadInputTokens] = gen.Usage.CacheRead
@@ -246,17 +303,30 @@ func rootSpanAttrs(agent AgentDecl, r *ledger.Request, gen sigil.Generation) map
 	if gen.ThinkingEnabled != nil {
 		a[sigil.AttrThinkingEnabled] = *gen.ThinkingEnabled
 	}
-	// sigil.tag.<k> per declared tag.
+	// Client/context tag attributes (not arbitrary generation metadata).
 	for k, v := range agent.Tags {
-		a[sigil.TagPrefix+k] = v
+		if strings.TrimSpace(k) != "" && strings.TrimSpace(v) != "" {
+			a[sigil.TagPrefix+strings.TrimSpace(k)] = strings.TrimSpace(v)
+		}
+	}
+	// SDKs omit absent identity/usage fields rather than publishing sentinels.
+	for k, v := range a {
+		if text, ok := v.(string); ok && text == "" {
+			delete(a, k)
+		}
+	}
+	if gen.Usage.Input == 0 {
+		delete(a, genai.AttrInputTokens)
+	}
+	if gen.Usage.Output == 0 {
+		delete(a, genai.AttrOutputTokens)
 	}
 	return a
 }
 
 // resourceAttrs builds the OTLP resource attribute set from the declared ResourceID. Coding fleets
-// use service.name=sigil/job=sigil; general fleets use the full service+k8s set. An absent dimension
-// is OMITTED (never "" / "NA"; I13). For a coding fleet that declared nothing, fall back to the
-// captured sigil/sigil identity.
+// default to service.name=agento11y/job=agento11y; general fleets use the
+// declared service+k8s set. An absent dimension is omitted (I13).
 func resourceAttrs(res ResourceID, agent AgentDecl, r *ledger.Request) map[string]any {
 	a := map[string]any{}
 	put := func(k, v string) {
@@ -266,7 +336,7 @@ func resourceAttrs(res ResourceID, agent AgentDecl, r *ledger.Request) map[strin
 	}
 	svc := res.ServiceName
 	if svc == "" && sigil.IsCoding(agent.Archetype) {
-		svc = "sigil"
+		svc = "agento11y"
 	}
 	put("service.name", svc)
 	put("service.namespace", res.ServiceNamespace)
@@ -278,7 +348,7 @@ func resourceAttrs(res ResourceID, agent AgentDecl, r *ledger.Request) map[strin
 	put("cloud.region", res.CloudRegion)
 	job := res.Job
 	if job == "" && sigil.IsCoding(agent.Archetype) {
-		job = "sigil"
+		job = "agento11y"
 	}
 	put("job", job)
 	return a

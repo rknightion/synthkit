@@ -4,7 +4,6 @@ package aiagent
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/ledger"
@@ -112,7 +111,7 @@ func makeSubAgent(agent AgentDecl, r *ledger.Request, og sigil.Generation, art t
 
 	input := int64(200 + int(seedUnit(sgID, "gin")*1500))
 	output := int64(50 + int(seedUnit(sgID, "gout")*800))
-	usage := sigil.Usage{Input: input, Output: output, Total: input + output}
+	usage := sigil.Usage{Input: input, Output: output, Total: input + output, InputSemantics: og.Usage.InputSemantics}
 
 	gen := sigil.Generation{
 		ID:             sgID,
@@ -144,13 +143,16 @@ func makeSubAgent(agent AgentDecl, r *ledger.Request, og sigil.Generation, art t
 		Metadata:            baseMetadata(agent),
 	}
 
+	gen.Metadata[sigil.MetadataUserID] = userID(agent, r)
 	obs := metricObs{
-		agentName:    agentName,
-		operation:    sigil.OpGenerateText,
-		provider:     og.Provider,
-		model:        og.Model,
-		inputTokens:  usage.Input,
-		outputTokens: usage.Output,
+		inputSemantics: usage.InputSemantics,
+		tags:           agent.Tags,
+		agentName:      agentName,
+		operation:      sigil.OpGenerateText,
+		provider:       og.Provider,
+		model:          og.Model,
+		inputTokens:    usage.Input,
+		outputTokens:   usage.Output,
 		opDurationSec: func() float64 {
 			s := end.Sub(start).Seconds()
 			if s <= 0 {
@@ -180,7 +182,6 @@ func subAgentResources(res ResourceID, agent AgentDecl, r *ledger.Request, subs 
 	for i := range subs {
 		s := subs[i]
 		attrs := rootSpanAttrs(agent, r, s.gen)
-		attrs[sigil.AttrParentGenerationIDs] = strings.Join(s.gen.ParentGenerationIDs, ",")
 		span := otlp.Span{
 			Name:     spanName(s.gen.OperationName, s.gen.Model),
 			TraceID:  s.gen.TraceID,
@@ -192,7 +193,7 @@ func subAgentResources(res ResourceID, agent AgentDecl, r *ledger.Request, subs 
 			Status:   spanStatus(s.gen),
 			Attrs:    attrs,
 		}
-		scope := sigil.ScopeName(s.gen.AgentName)
+		scope := sigil.AgentScope(agent.Archetype, agent.SDK)
 		if _, ok := byScope[scope]; !ok {
 			order = append(order, scope)
 		}

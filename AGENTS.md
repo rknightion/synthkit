@@ -64,6 +64,9 @@ that declaration, not new top-level kinds.
 
 AI/LLM vocabulary in the catalog is generic and technology-native. Customer-specific identifiers
 (accounts, environments, workspaces, use cases) never enter the catalog and stay blueprint-only.
+The current Agent Observability producer/token/tag contract is [signals/sigil.md](signals/sigil.md).
+Generation-stage types alone install no hooks or executor and never authorize backend-derived
+telemetry; legacy synthetic scoring must not overlap real rules scoring the same agents.
 
 ## Syslog mechanic
 

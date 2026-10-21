@@ -443,7 +443,7 @@ pyroscope-proto:
     protoc --go_out=. --go_opt=module=github.com/rknightion/synthkit --proto_path=internal/pyroscope/pprofpb internal/pyroscope/pprofpb/profile.proto
     protoc --go_out=. --go_opt=module=github.com/rknightion/synthkit --proto_path=internal/sink/pyroscope/pushv1 internal/sink/pyroscope/pushv1/push.proto
 
-# regenerate the vendored sigil.v1 ingest MESSAGE types (message-only, no gRPC)
+# regenerate vendored agento11y.v1 generation and sigil.v1 evaluation messages (no gRPC)
 [group('gen')]
 sigil-proto:
     protoc --go_out=. --go_opt=module=github.com/rknightion/synthkit --proto_path=internal/sink/sigil/v1 internal/sink/sigil/v1/generation_ingest.proto internal/sink/sigil/v1/evaluation_ingest.proto

@@ -50,8 +50,8 @@ workloads:
     name: sigil-coding-agents
     runs_on: appenv-eks-emea-prod-cluster
     resource:
-      service_name: sigil
-      job: sigil
+      service_name: agento11y
+      job: agento11y
     agents:
       - name: claude-code
         archetype: coding_claude_code

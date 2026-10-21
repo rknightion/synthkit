@@ -15,6 +15,20 @@ import (
 	"github.com/rknightion/synthkit/internal/state"
 )
 
+// Pinned Go/Python SDK provider failures use operation-level classifications,
+// not provider JSON error names (SDK 75a1c548 generationErrorType/Category).
+func assertSDKProviderFailure(t *testing.T, typ, category any) {
+	t.Helper()
+	if typ != "provider_call_error" {
+		t.Errorf("SDK error.type=%v, want provider_call_error", typ)
+	}
+	switch category {
+	case "server_error", "rate_limit", "timeout":
+	default:
+		t.Errorf("SDK error.category=%v, want sourced server_error/rate_limit/timeout", category)
+	}
+}
+
 // TestApplyProviderErrors: at full intensity every generation is marked errored — CallError set, the
 // matching root LLM span flips to ERROR, and the observation carries error_type/error_category.
 func TestApplyProviderErrors(t *testing.T) {
@@ -35,9 +49,7 @@ func TestApplyProviderErrors(t *testing.T) {
 		if gens[i].CallError == "" {
 			t.Fatalf("gen %d (%s): CallError empty at intensity 1.0", i, gens[i].AgentName)
 		}
-		if obs[i].errorType == "" || obs[i].errorCategory == "" {
-			t.Fatalf("gen %d: obs error_type/category not stamped (%q/%q)", i, obs[i].errorType, obs[i].errorCategory)
-		}
+		assertSDKProviderFailure(t, obs[i].errorType, obs[i].errorCategory)
 	}
 	// Every root LLM span (the ones carrying sigil.generation.id) must be ERROR.
 	var roots int
@@ -48,6 +60,7 @@ func TestApplyProviderErrors(t *testing.T) {
 				if sp.Status != otlp.StatusError {
 					t.Fatalf("root span %s status=%v, want ERROR", sp.SpanID, sp.Status)
 				}
+				assertSDKProviderFailure(t, sp.Attrs["error.type"], sp.Attrs["error.category"])
 			}
 		}
 	}
@@ -143,7 +156,7 @@ func TestProjectBatchProviderErrorFiresViaEngine(t *testing.T) {
 
 	build := func(active bool) *state.State {
 		w := &Workload{
-			cfg:   Config{Agents: []AgentDecl{agent}},
+			cfg:   Config{Agents: []AgentDecl{agent}, OTel: &OTelObs{Metrics: true}},
 			b:     core.Binding{Name: "ai-fleet-x"},
 			st:    state.NewState(),
 			evals: newEvalEngine(nil, nil),
@@ -168,6 +181,24 @@ func TestProjectBatchProviderErrorFiresViaEngine(t *testing.T) {
 		if err := w.ProjectBatch(context.Background(), time.Now(), world, batch); err != nil {
 			t.Fatalf("ProjectBatch: %v", err)
 		}
+		capture := &aiNativeMetricCapture{}
+		if err := w.Tick(context.Background(), time.Now(), &core.World{OTLPMetrics: capture}); err != nil {
+			t.Fatal(err)
+		}
+		foundNativeFailure := false
+		for _, resource := range capture.resources {
+			for _, metric := range resource.Metrics {
+				for _, point := range metric.Histograms {
+					if typ, ok := point.Attrs["error.type"]; ok {
+						foundNativeFailure = true
+						assertSDKProviderFailure(t, typ, point.Attrs["error.category"])
+					}
+				}
+			}
+		}
+		if foundNativeFailure != active {
+			t.Errorf("active=%v native failure dimensions present=%v", active, foundNativeFailure)
+		}
 		return w.st
 	}
 
@@ -176,7 +207,8 @@ func TestProjectBatchProviderErrorFiresViaEngine(t *testing.T) {
 			if s.Name != metricOpDuration+"_count" && s.Name != metricOpDuration+"_sum" && s.Name != metricOpDuration+"_bucket" {
 				continue
 			}
-			if _, ok := s.Labels[labelErrorType]; ok {
+			if typ, ok := s.Labels[labelErrorType]; ok {
+				assertSDKProviderFailure(t, typ, s.Labels[labelErrorCategory])
 				return true
 			}
 		}

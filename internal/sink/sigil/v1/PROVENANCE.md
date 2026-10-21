@@ -1,4 +1,4 @@
-# Vendored sigil.v1 ingest protos — provenance
+# Vendored Agent Observability ingest protos — provenance
 
 These are the **message-type definitions** for the Grafana Sigil (AI Observability) ingest API,
 vendored so the `internal/sink/sigil` sink can `protojson`-marshal request bodies with the exact
@@ -11,14 +11,16 @@ dependency are introduced — consistent with the RW2/OTLP/Pyroscope hand-encode
 ## Upstream
 
 - Repo: `grafana/sigil` (internal), path `sigil/proto/sigil/v1/`.
-- Commit: `f0a35385` (captured 2026-06-30 from `~/repos/sigil`).
+- Commit: `bc963fb09` (pinned source inspected 2026-10-21).
+- Generation namespace: `agento11y.v1`; evaluation namespace: `sigil.v1`.
+  The backend retains legacy generation gRPC aliases; HTTP routes are unchanged.
 - Files: `generation_ingest.proto` (Generation + WorkflowStep + their Export RPCs),
   `evaluation_ingest.proto` (ScoreItem + ExportScores RPC).
 
 ## Original upstream sha256 (UpstreamOriginalSHA256)
 
-- generation_ingest.proto: `3770a5fd2cd61c285f3ca759b0884bbf473f66764a75a51c7ecbfb4c07c42fc1`
-- evaluation_ingest.proto: `0e1f4481ae73fad6ad015d6453b634a87f3fa327ee008bc51ac643d51b09837c`
+- generation_ingest.proto: `35f3eb3f5943ce0fa89edf063961972b30ff32eb85798ded2d60f5e35ec5b5f4`
+- evaluation_ingest.proto: `ffa86baf11ef3c9dc336396eba6256e5fbc3b787702587e5c435c4706af00837`
 
 ## De-vendor edits (wire-neutral)
 
@@ -28,7 +30,7 @@ dependency are introduced — consistent with the RW2/OTLP/Pyroscope hand-encode
 
 ## Toolchain
 
-- `protoc` (libprotoc) 35.1
+- `protoc` (libprotoc) 36.2
 - `protoc-gen-go` v1.36.11 (matches `google.golang.org/protobuf` in go.mod)
 
 ## Regeneration

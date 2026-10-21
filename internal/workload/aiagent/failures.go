@@ -18,17 +18,21 @@ const (
 	modeEvalQualityRegression = "eval_quality_regression"
 )
 
-// providerCallErrorMsg is the synthetic Generation.CallError stamped on a failed turn (drives Lane-B
-// status=ERROR via spanStatus + the Lane-A call_error). The error_type/error_category metric label
-// VALUES below are real Anthropic/OpenAI provider error vocabulary (synthetic fault injection — the
-// label NAMES error_type/error_category are the signals/sigil.md-sourced keys, never invented).
+// providerCallErrorMsg is the synthetic native call_error content. SDK span
+// attributes and client metric dimensions below use SDK 75a1c548
+// generationErrorType/classifyErrorCategory, not raw provider JSON error names.
 const providerCallErrorMsg = "provider call failed"
 
-var providerErrorClasses = []struct{ typ, cat string }{
-	{"overloaded_error", "server"},
-	{"rate_limit_error", "rate_limit"},
-	{"api_error", "server"},
-	{"timeout", "timeout"},
+type providerErrorClass struct{ typ, cat string }
+
+// Preserve the existing seeded cause mix: two server-failure slots (5xx),
+// one throttling slot (429), and one deadline/cancellation slot. Every cause is
+// a provider call failure at the SDK operation level.
+var providerErrorClasses = []providerErrorClass{
+	{"provider_call_error", "server_error"},
+	{"provider_call_error", "rate_limit"},
+	{"provider_call_error", "server_error"},
+	{"provider_call_error", "timeout"},
 }
 
 // FailureModes are the modes the ai_agent workload responds to, on AxisWorkload (per-instance
@@ -36,7 +40,7 @@ var providerErrorClasses = []struct{ typ, cat string }{
 // Lane-B status plumbing is unconditional; these modes drive WHEN it fires.
 var FailureModes = []failuremode.Mode{
 	{Name: modeProviderCallError, Axis: failuremode.AxisWorkload, Help: "elevated provider/LLM call-error rate on the targeted ai_agent fleet — call_error generations, ERROR spans, error_type/error_category on operation_duration"},
-	{Name: modeEvalQualityRegression, Axis: failuremode.AxisWorkload, Help: "online-eval quality regresses on the targeted ai_agent fleet — agento11y_eval_score_values_total{passed=false} rate rises"},
+	{Name: modeEvalQualityRegression, Axis: failuremode.AxisWorkload, Help: "online-eval quality regresses on the targeted ai_agent fleet — agento11y_eval_scores_total{passed=false} rate rises"},
 }
 
 // failCtx is the per-ProjectBatch resolved failure intensity for each mode (0 ⇒ inactive), read once
@@ -71,7 +75,7 @@ func applyProviderErrors(fc failCtx, gens []sigil.Generation, resources []otlp.R
 	if fc.providerErr <= 0 {
 		return
 	}
-	errored := map[string]bool{}
+	errored := map[string]providerErrorClass{}
 	for i := range gens {
 		if seedUnit(gens[i].ID, "callerr") >= fc.providerErr {
 			continue
@@ -82,7 +86,7 @@ func applyProviderErrors(fc failCtx, gens []sigil.Generation, resources []otlp.R
 			obs[i].errorType = ec.typ
 			obs[i].errorCategory = ec.cat
 		}
-		errored[gens[i].ID] = true
+		errored[gens[i].ID] = ec
 	}
 	if len(errored) == 0 {
 		return
@@ -91,8 +95,12 @@ func applyProviderErrors(fc failCtx, gens []sigil.Generation, resources []otlp.R
 	for ri := range resources {
 		for si := range resources[ri].Spans {
 			sp := &resources[ri].Spans[si]
-			if gid, ok := sp.Attrs[sigil.AttrGenerationID].(string); ok && errored[gid] {
-				sp.Status = otlp.StatusError
+			if gid, ok := sp.Attrs[sigil.AttrGenerationID].(string); ok {
+				if ec, failed := errored[gid]; failed {
+					sp.Status = otlp.StatusError
+					sp.Attrs["error.type"] = ec.typ
+					sp.Attrs["error.category"] = ec.cat
+				}
 			}
 		}
 	}

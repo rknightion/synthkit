@@ -97,6 +97,12 @@ agent and team names do not distinguish profile series. Duplicate declarations a
 Select `sub_signals: [application_profiles]` for profile-only emission. Profile OTLP declarations
 fail closed pending raw metric-stream/enrichment evidence; API statistics do not prove that lane.
 
+For `ai_agent`, follow the current Agent Observability producer and tag/token
+contracts in `signals/sigil.md`. Real backend rules and legacy synthetic scoring
+must not score the same agents; backend-derived families are never blueprint
+metric declarations. Use the generated schema for `execution_mode` and
+`filterable_tag_keys`, not an inferred evaluator-role label.
+
 ## Identity and collision rules
 
 - A cluster name, cloud account ID, database name, and cache name must not collide across enabled

@@ -5,6 +5,7 @@ package aiagent
 import (
 	"math"
 	"path"
+	"strings"
 
 	"github.com/rknightion/synthkit/internal/genai"
 	"github.com/rknightion/synthkit/internal/sigil"
@@ -16,10 +17,9 @@ const (
 	metricEvalJudgeCostUSDTotal = "agento11y_eval_judge_cost_usd_total"
 )
 
-// agento11y_eval_* metric LABEL keys, live-captured from the terraform reference stack 2026-09-06. These are the
-// OTLP→Prom translated convention the stack actually uses — DELIBERATELY different from the
-// gen_ai_client_* labels (e.g. eval uses gen_ai_agent_name + gen_ai_request_provider, where the
-// client metrics use agent_name + gen_ai_provider_name). Never invent — see signals/sigil.md.
+// Tenant-push eval labels from backend bc963fb09. Both SDK and eval families
+// use gen_ai_agent_name; eval alone spells generation provider gen_ai_request_provider.
+// The separate eval_ai_request_* labels identify the configured judge target.
 const (
 	evalLabelEvaluator     = "evaluator"
 	evalLabelEvaluatorKind = "evaluator_kind"
@@ -27,16 +27,15 @@ const (
 	evalLabelGenAIAgent    = "gen_ai_agent_name"
 	evalLabelGenAIModel    = "gen_ai_request_model"
 	evalLabelGenAIProvider = "gen_ai_request_provider"
-	evalLabelEvalModel     = "eval_ai_request_model" // scored generation model on score/exec metrics
+	evalLabelEvalModel     = "eval_ai_request_model" // configured judge target, absent for non-judge
+	evalLabelEvalProvider  = "eval_ai_request_provider"
 	evalLabelScoreKey      = "score_key"
-	evalLabelPassed        = "passed"      // 3-valued: true|false|unknown
-	evalLabelScoreValue    = "score_value" // bool/string scores only
-	evalLabelStatus        = "status"      // executions/judge_requests: success|failed; queue_depth: queued|failed
-	evalLabelResult        = "result"      // rule_action_fires: no_actions
-	evalLabelModel         = "model"       // judge_* metrics
-	evalLabelProvider      = "provider"    // judge_* metrics
-	evalLabelDirection     = "direction"   // judge_tokens: input|output
-	evalLabelErrorType     = "error_type"  // judge_errors
+	evalLabelPassed        = "passed"     // 3-valued: true|false|unknown
+	evalLabelStatus        = "status"     // executions/judge_requests: success|failed; queue_depth: queued|failed
+	evalLabelResult        = "result"     // rule_action_fires: no_actions
+	evalLabelModel         = "model"      // judge_* metrics
+	evalLabelProvider      = "provider"   // judge_* metrics
+	evalLabelErrorType     = "error_type" // judge_errors
 )
 
 // evalEngine holds the resolved evaluator + rule apparatus for a workload (built once at Build).
@@ -69,22 +68,33 @@ func (e *evalEngine) scoreConversation(agent AgentDecl, gens []sigil.Generation,
 		if !ruleMatchesAgent(rule, agent.Name) {
 			continue
 		}
-		for _, evName := range rule.Evaluators {
-			ev, ok := e.evaluators[evName]
-			if !ok {
-				continue
-			}
-			for gi := range gens {
-				gen := gens[gi]
+		for gi := range gens {
+			gen := gens[gi]
+			for _, evName := range rule.Evaluators {
+				ev, ok := e.evaluators[evName]
+				if !ok {
+					if rule.ExecutionMode == "sequential" {
+						break
+					} // never skip an unexecuted gate
+					continue
+				}
 				if gen.CallError != "" {
 					continue // a failed generation produced no completion to evaluate
 				}
-				if !sampled(gen.ID, evName, rule.SampleRate) {
+				sampleKey := evName
+				if rule.ExecutionMode == "sequential" {
+					sampleKey = rule.Name
+				}
+				if !sampled(gen.ID, sampleKey, rule.SampleRate) {
 					continue
 				}
-				score, passed := scoreValue(gen.ID, ev, regress)
-				out = append(out, buildScore(agent, ev, rule, gen, score, passed))
-				accumulateEval(st, gen, ev, rule, passed)
+				value, passed := scoreValue(gen.ID, ev, regress)
+				emitted := buildScore(agent, ev, rule, gen, value, passed)
+				out = append(out, emitted)
+				accumulateEval(st, gen, ev, rule, emitted.Passed)
+				if rule.ExecutionMode == "sequential" && !(emitted.HasPassed && emitted.Passed) {
+					break
+				}
 			}
 		}
 	}
@@ -162,7 +172,7 @@ func buildScore(agent AgentDecl, ev EvalDecl, rule RuleDecl, gen sigil.Generatio
 		EvaluatorID:    ev.Name,
 		RuleID:         rule.Name,
 		ScoreKey:       ev.ScoreKey,
-		HasPassed:      true,
+		HasPassed:      ev.ValueType != "string",
 		Passed:         passed,
 		CreatedAt:      gen.EndedAt,
 		Source:         sigil.ScoreSource{Kind: "online"},
@@ -185,18 +195,9 @@ func buildScore(agent AgentDecl, ev EvalDecl, rule RuleDecl, gen sigil.Generatio
 	return score
 }
 
-// accumulateEval folds the agento11y_eval_* observations for one scoring event into st, with the label
-// shapes captured from the terraform reference stack 2026-09-06 (NOT the backend-code short names — the
-// stack uses the OTLP→Prom translated convention). Key realities encoded here:
-//   - identity labels: evaluator / evaluator_kind / rule / gen_ai_agent_name / gen_ai_request_model /
-//     gen_ai_request_provider, plus eval_ai_request_model (the scored model) for every evaluator kind.
-//   - scores_total carries evaluator_role=outcome + score_key + passed (3-valued: true|false|unknown — unknown for string
-//     scores with no pass_value). NO agent_version (absent live).
-//   - score_values_total is emitted ONLY for bool/string scores (numeric scores are not enumerated as
-//     label values — unbounded cardinality), and adds score_value (the value as a string).
-//   - executions_total carries status (success), NOT passed.
-//   - rule_action_fires_total is {rule, result}; result=no_actions absent action rules.
-//   - queue_depth is {status}; judge_* metrics are {model, provider} (+ status/direction/error_type).
+// accumulateEval models a legacy synthetic eval event using the current push
+// vocabulary. Backend-derived score_values and scrape-only judge_tokens are
+// never synthesized. Real-rule blueprints must not invoke this synthetic path.
 func accumulateEval(st *state.State, gen sigil.Generation, ev EvalDecl, rule RuleDecl, passed bool) {
 	// The enqueue is one work item per sampled evaluator scoring event. Sampling happens in
 	// scoreConversation before this function is called, so the counter equals scores by rule.
@@ -205,7 +206,7 @@ func accumulateEval(st *state.State, gen sigil.Generation, ev EvalDecl, rule Rul
 		evalLabelRule:          rule.Name,
 	}, 1)
 
-	// Shared identity labels (scores_total / score_values_total / executions_total / duration_seconds).
+	// Shared identity labels (scores / executions / duration).
 	ident := map[string]string{
 		evalLabelEvaluator:     ev.Name,
 		evalLabelEvaluatorKind: ev.Kind,
@@ -218,24 +219,28 @@ func accumulateEval(st *state.State, gen sigil.Generation, ev EvalDecl, rule Rul
 	if gen.Provider != "" {
 		ident[evalLabelGenAIProvider] = gen.Provider
 	}
-	if gen.Model != "" {
-		ident[evalLabelEvalModel] = gen.Model // present for heuristic and judge evaluations alike
+	if ev.Kind == "llm_judge" {
+		if ev.JudgeModel != "" {
+			ident[evalLabelEvalModel] = ev.JudgeModel
+		}
+		if ev.JudgeProvider != "" {
+			ident[evalLabelEvalProvider] = ev.JudgeProvider
+		}
+	}
+	for k, v := range evalTagLabels(rule.FilterableTagKeys, gen.Tags) {
+		ident[k] = v
 	}
 
 	passedStr := evalPassedString(ev, passed)
 
 	scoresLabels := cloneLabels(ident)
 	scoresLabels[evalLabelScoreKey] = ev.ScoreKey
-	scoresLabels["evaluator_role"] = "outcome"
+	scoresLabels["evaluator_role"] = evaluatorRole(rule, ev.Name)
 	scoresLabels[evalLabelPassed] = passedStr
 	st.Add(sigil.MetricEvalScoresTotal, scoresLabels, 1)
 
-	// score_values_total: bool/string scores ONLY (numeric values are not enumerated as labels).
-	if sv, ok := evalScoreValue(ev, passed); ok {
-		valueLabels := cloneLabels(scoresLabels)
-		valueLabels[evalLabelScoreValue] = sv
-		st.Add(sigil.MetricEvalScoreValuesTotal, valueLabels, 1)
-	}
+	// score_values_total is emitted by backend scores:export ingest. Never
+	// synthesize it as well: that doubles the categorical score population.
 
 	// executions_total: identity + status (eval-execution outcome), NOT passed.
 	execLabels := cloneLabels(ident)
@@ -263,31 +268,24 @@ func accumulateEval(st *state.State, gen sigil.Generation, ev EvalDecl, rule Rul
 		if ev.JudgeProvider != "" {
 			judge[evalLabelProvider] = ev.JudgeProvider
 		}
-		st.Observe(sigil.MetricEvalJudgeDurationSeconds, cloneLabels(judge), sigil.EvalDurationBuckets, state.LEDotZero, evalDurationSec(ev)*0.8)
+		st.Observe(sigil.MetricEvalJudgeDurationSeconds, cloneLabels(judge), sigil.JudgeDurationBuckets, state.LEDotZero, evalDurationSec(ev)*0.8)
 		// Judge token usage is carried by the sampled generation's ledger-backed Usage. Keep the
 		// input/output token observations and cost calculation on this same source of truth.
 		inputTokens, outputTokens := gen.Usage.Input, gen.Usage.Output
-		for _, token := range []struct {
-			direction string
-			count     int64
-		}{
-			{direction: "input", count: inputTokens},
-			{direction: "output", count: outputTokens},
-		} {
-			if token.count <= 0 {
-				continue
-			}
-			dir := token.direction
-			jt := cloneLabels(judge)
-			jt[evalLabelDirection] = dir
-			st.Add(sigil.MetricEvalJudgeTokensTotal, jt, float64(token.count))
-		}
+		// Legacy judge_tokens is scrape-only upstream, absent from the W0
+		// tenant lookback. Do not push it; usage remains local to cost math.
 		jr := cloneLabels(judge)
 		jr[evalLabelStatus] = "success"
 		st.Add(sigil.MetricEvalJudgeRequestsTotal, jr, 1)
 		if cost := judgeCostUSD(ev.JudgeModel, inputTokens, outputTokens); cost > 0 {
 			costLabels := cloneLabels(ident)
 			delete(costLabels, evalLabelEvalModel)
+			delete(costLabels, evalLabelEvalProvider)
+			for k := range costLabels {
+				if strings.HasPrefix(k, "agento11y_eval_tag_") {
+					delete(costLabels, k)
+				}
+			}
 			if ev.JudgeModel != "" {
 				costLabels[evalLabelModel] = ev.JudgeModel
 			}
@@ -333,26 +331,6 @@ func evalPassedString(ev EvalDecl, passed bool) string {
 		return "true"
 	}
 	return "false"
-}
-
-// evalScoreValue returns the score_value label (the actual value as a string) for score_values_total,
-// emitted ONLY for bool/string scores. For bool detection evals the value is the DETECTION (= !passed,
-// matching buildScore's Bool=!passed). Numeric scores return ok=false (not enumerated as labels).
-func evalScoreValue(ev EvalDecl, passed bool) (string, bool) {
-	switch ev.ValueType {
-	case "bool":
-		if passed {
-			return "false", true // pass ⇒ not detected
-		}
-		return "true", true
-	case "string":
-		if passed {
-			return "pass", true
-		}
-		return "fail", true
-	default:
-		return "", false // number: absent from score_values_total
-	}
 }
 
 // evalDurationSec derives a small deterministic eval wall-clock duration per evaluator.

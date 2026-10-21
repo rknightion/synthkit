@@ -24,6 +24,7 @@ const (
 	RoleUser      = "MESSAGE_ROLE_USER"
 	RoleAssistant = "MESSAGE_ROLE_ASSISTANT"
 	RoleTool      = "MESSAGE_ROLE_TOOL"
+	RoleSystem    = "MESSAGE_ROLE_SYSTEM"
 )
 
 // Token-type metric label VALUES for gen_ai_token_type (R-m3 pin: exactly these five values,
@@ -46,20 +47,26 @@ const (
 	CaptureFullWithMetadataSpans = "full_with_metadata_spans"
 )
 
-// SDK-name VALUES for the sigil.sdk.name span attribute / metadata key.
+// SDK-name VALUES for the agento11y.sdk.name span attribute / metadata key.
 const (
 	SDKGo     = "sdk-go"
 	SDKPython = "sdk-python"
 )
 
-// Span attribute KEYS for sigil.* and agent.* attributes (captured from live m7kni + emea stacks,
-// 2026-06-30). Every key is verbatim from signals/sigil.md — never invent.
+// Span and canonical metadata keys from SDK 75a1c548. See signals/sigil.md
+// for the deliberate user.id span versus agento11y.user.id metadata split.
 const (
-	AttrGenerationID        = "sigil.generation.id"
-	AttrSDKName             = "sigil.sdk.name"
-	AttrConversationTitle   = "sigil.conversation.title"
-	AttrThinkingEnabled     = "sigil.gen_ai.request.thinking.enabled"
-	AttrParentGenerationIDs = "sigil.generation.parent_generation_ids"
+	AttrGenerationID        = "agento11y.generation.id"
+	AttrSDKName             = "agento11y.sdk.name"
+	AttrConversationTitle   = "agento11y.conversation.title"
+	AttrThinkingEnabled     = "agento11y.gen_ai.request.thinking.enabled"
+	AttrThinkingBudget      = "agento11y.gen_ai.request.thinking.budget_tokens"
+	AttrToolChoice          = "agento11y.gen_ai.request.tool_choice"
+	AttrParentGenerationIDs = "agento11y.generation.parent_generation_ids"
+	AttrTokenSemantics      = "gen_ai.token.semantics"
+	TokenSemanticsInclusive = "inclusive"
+	InputSemanticsInclusive = "TOKEN_INPUT_SEMANTICS_INCLUSIVE"
+	MetadataUserID          = "agento11y.user.id"
 	AttrAgentAvailableTools = "agent.available_tools"
 	AttrAgentPeerAgents     = "agent.peer_agents"
 	AttrAgentSystem         = "agent.system"
@@ -67,8 +74,8 @@ const (
 	AttrUserID              = "user.id"
 
 	// TagPrefix is prepended to every entry in Generation.Tags to form a span attribute key,
-	// e.g. TagPrefix+"cwd" → "sigil.tag.cwd".
-	TagPrefix = "sigil.tag."
+	// e.g. TagPrefix+"cwd" → "agento11y.tag.cwd".
+	TagPrefix = "agento11y.tag."
 )
 
 // sigil-LOCAL cache-token span attribute keys (UNDERSCORE form). These are the keys observed on
@@ -81,6 +88,24 @@ const (
 	AttrReasoningTokens       = "gen_ai.usage.reasoning_tokens"         // sigil span attr (underscore)
 )
 
-// ScopeName returns the OTel instrumentation-scope name for a sigil agent span
-// (e.g. ScopeName("claude-code") → "sigil.claude-code").
-func ScopeName(agent string) string { return "sigil." + agent }
+// Plugin scopes are fixed across subagents. Library scopes deliberately retain
+// their pre-rename spelling (SDK 75a1c548 client.go / python client.py).
+const (
+	ScopeClaudeCode = "agento11y.claude-code"
+	ScopeCodex      = "agento11y.codex"
+	ScopeGo         = "github.com/grafana/sigil-sdk/go/sigil"
+	ScopePython     = "github.com/grafana/sigil/sdks/python"
+)
+
+func AgentScope(archetype, sdk string) string {
+	switch archetype {
+	case ArchetypeCodingClaudeCode:
+		return ScopeClaudeCode
+	case ArchetypeCodingCodex:
+		return ScopeCodex
+	}
+	if sdk == SDKPython {
+		return ScopePython
+	}
+	return ScopeGo
+}

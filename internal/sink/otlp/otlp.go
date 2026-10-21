@@ -319,6 +319,12 @@ func anyVal(v any) *commonpb.AnyValue {
 		return &commonpb.AnyValue{Value: &commonpb.AnyValue_DoubleValue{DoubleValue: val}}
 	case bool:
 		return &commonpb.AnyValue{Value: &commonpb.AnyValue_BoolValue{BoolValue: val}}
+	case []string:
+		values := make([]*commonpb.AnyValue, len(val))
+		for i, item := range val {
+			values[i] = &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: item}}
+		}
+		return &commonpb.AnyValue{Value: &commonpb.AnyValue_ArrayValue{ArrayValue: &commonpb.ArrayValue{Values: values}}}
 	case map[string]string:
 		values := make(map[string]any, len(val))
 		for key, item := range val {

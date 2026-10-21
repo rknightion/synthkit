@@ -5,11 +5,13 @@ package aiagent
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/genai"
 	"github.com/rknightion/synthkit/internal/ledger"
+	"github.com/rknightion/synthkit/internal/sigil"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/state"
 )
@@ -19,7 +21,7 @@ const nativeTokenTypeAttr = "gen_ai.token.type"
 // tickOTLPMetrics emits the two core gen_ai client instruments whose OTLP names are documented in
 // signals/genai.md. The established promrw state is intentionally reused here: ProjectBatch is
 // the single observation owner, and the native lane only changes the representation at export.
-// Sigil-only extensions remain promrw-only and are filtered from the OTLP datapoint attributes.
+// SDK agent/tag/token-semantic dimensions survive both representations.
 func (w *Workload) tickOTLPMetrics(ctx context.Context, now time.Time, world *core.World) error {
 	if world == nil || !w.cfg.otelMetricsEnabled() || world.OTLPMetrics == nil {
 		return nil
@@ -33,8 +35,26 @@ func (w *Workload) tickOTLPMetrics(ctx context.Context, now time.Time, world *co
 		w.otlpColdStart = now
 	}
 
+	// Retain original configured tag keys: underscore mangling is not invertible.
+	tagKeys := map[string]map[string]string{}
+	for _, agent := range w.cfg.Agents {
+		keys := map[string]string{}
+		for key := range agent.Tags {
+			if strings.TrimSpace(key) != "" {
+				keys[clientTagLabel(key)] = sigil.TagPrefix + strings.TrimSpace(key)
+			}
+		}
+		tagKeys[agent.Name] = keys
+		for _, sub := range agent.Subagents {
+			name := sub
+			if sigil.IsCoding(agent.Archetype) {
+				name = agent.Name + "/" + sub
+			}
+			tagKeys[name] = keys
+		}
+	}
 	metrics := make([]otlp.Metric, 0, 2)
-	if tokenPoints := nativeAIHistogramPoints(points, metricTokenUsage, true, now, w.otlpColdStart); len(tokenPoints) > 0 {
+	if tokenPoints := nativeAIHistogramPoints(points, metricTokenUsage, true, now, w.otlpColdStart, tagKeys); len(tokenPoints) > 0 {
 		metrics = append(metrics, otlp.Metric{
 			Name:        metricTokenUsageOTLP,
 			Unit:        "{token}",
@@ -43,7 +63,7 @@ func (w *Workload) tickOTLPMetrics(ctx context.Context, now time.Time, world *co
 			Histograms:  tokenPoints,
 		})
 	}
-	if durationPoints := nativeAIHistogramPoints(points, metricOpDuration, false, now, w.otlpColdStart); len(durationPoints) > 0 {
+	if durationPoints := nativeAIHistogramPoints(points, metricOpDuration, false, now, w.otlpColdStart, tagKeys); len(durationPoints) > 0 {
 		metrics = append(metrics, otlp.Metric{
 			Name:        metricOpDurationOTLP,
 			Unit:        "s",
@@ -75,7 +95,7 @@ const (
 	metricOpDurationOTLP = "gen_ai.client.operation.duration"
 )
 
-func nativeAIHistogramPoints(points []state.HistoPoint, name string, token bool, now, start time.Time) []otlp.HistogramPoint {
+func nativeAIHistogramPoints(points []state.HistoPoint, name string, token bool, now, start time.Time, tagKeys map[string]map[string]string) []otlp.HistogramPoint {
 	filtered := make([]state.HistoPoint, 0)
 	for _, p := range points {
 		if p.Name != name {
@@ -91,6 +111,11 @@ func nativeAIHistogramPoints(points []state.HistoPoint, name string, token bool,
 	out := make([]otlp.HistogramPoint, 0, len(filtered))
 	for _, p := range filtered {
 		attrs, _ := nativeAIAttrs(p.Labels, token)
+		for promName, otlpName := range tagKeys[p.Labels[labelAgentName]] {
+			if value := p.Labels[promName]; value != "" {
+				attrs[otlpName] = value
+			}
+		}
 		out = append(out, otlp.HistogramPoint{
 			Attrs:        attrs,
 			Start:        start,
@@ -104,9 +129,9 @@ func nativeAIHistogramPoints(points []state.HistoPoint, name string, token bool,
 	return out
 }
 
-// nativeAIAttrs inverts only the documented gen_ai metric labels. agent_name, agent_version,
-// error_category, gen_ai_tool_name, and the cache/reasoning token categories are sigil extensions
-// and must not cross into the core semconv OTLP instruments.
+// nativeAIAttrs restores dotted SDK dimensions without collapsing different
+// agents into indistinguishable native datapoints. Configured tag keys are
+// restored separately because their Prometheus translation is not invertible.
 func nativeAIAttrs(labels map[string]string, token bool) (map[string]any, bool) {
 	attrs := make(map[string]any, 5)
 	copyLabel := func(promName, otlpName string) {
@@ -117,15 +142,22 @@ func nativeAIAttrs(labels map[string]string, token bool) (map[string]any, bool) 
 	copyLabel(labelOperationName, genai.AttrOperationName)
 	copyLabel(labelProviderName, genai.AttrProviderName)
 	copyLabel(labelRequestModel, genai.AttrRequestModel)
+	copyLabel(labelAgentName, genai.AttrAgentName)
+	copyLabel(labelAgentVersion, "gen_ai.agent.version")
+	copyLabel(labelErrorCategory, "error.category")
+	copyLabel(labelGenAIToolName, genai.AttrToolName)
 	copyLabel("server_address", "server.address")
 	copyLabel("server_port", "server.port")
 
 	if token {
 		tokenType := labels[labelTokenType]
-		if tokenType != genai.TokenTypeInput && tokenType != genai.TokenTypeOutput {
+		switch tokenType {
+		case sigil.TokenInput, sigil.TokenOutput, sigil.TokenCacheRead, sigil.TokenCacheWrite, sigil.TokenReasoning:
+		default:
 			return nil, false
 		}
 		attrs[nativeTokenTypeAttr] = tokenType
+		copyLabel("gen_ai_token_semantics", sigil.AttrTokenSemantics)
 	} else {
 		copyLabel(labelErrorType, genai.AttrErrorType)
 	}
