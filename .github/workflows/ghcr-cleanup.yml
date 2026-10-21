@@ -21,8 +21,11 @@ jobs:
     permissions:
       contents: read
       packages: write # delete package versions
-    uses: rknightion/.github/.github/workflows/ghcr-cleanup.yml@c36bf7ded21407b0a5169ecb2502d6a3a385be30 # v1.25.5
+    uses: rknightion/.github/.github/workflows/ghcr-cleanup.yml@2c2a3771006d75783f612a61a2bd406449a3410f # v1.25.11
     with:
       packages: "synthkit,synthkit-skcapture"
+      # The chart pins this verified image by digest; retain its tag beyond the edge window.
+      # Preserve the reusable's stable/latest/main protections when updating this chart pin.
+      protected-tags: '^(latest|main|v?[0-9.]+|main-27455d6)$'
       # Scheduled runs prune for real; a manual dispatch defaults to dry-run.
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
