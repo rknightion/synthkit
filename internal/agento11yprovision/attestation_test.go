@@ -3,6 +3,7 @@
 package agento11yprovision
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -166,6 +167,271 @@ func TestFoundationStructuredApproval(t *testing.T) {
 	}
 	if _, e = DecodeApproval(append(raw, []byte(` {}`)...)); e == nil {
 		t.Fatal("trailing approval accepted")
+	}
+}
+
+// Frozen pre-optimization oracle: retain the two final canonical tree marshals.
+// On scanner-produced trees these marshals cannot fail. Outside that domain this
+// is not an oracle for the comparator's fail-closed unsupported-type behavior.
+func proofOldTreeEqual(a, b any) bool {
+	x, _ := json.Marshal(a)
+	y, _ := json.Marshal(b)
+	return bytes.Equal(x, y)
+}
+
+func proofOldCustodyDecode(raw []byte, out any, max int) error {
+	original, e := custodyJSON(raw, max, 64, true)
+	if e != nil {
+		return e
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return ErrCorrupt
+	}
+	encoded, e := json.Marshal(out)
+	if e != nil {
+		return ErrCorrupt
+	}
+	round, e := custodyJSON(encoded, max, 64, true)
+	if e != nil {
+		return e
+	}
+	if !proofOldTreeEqual(original, round) {
+		return ErrCorrupt
+	}
+	return nil
+}
+
+func TestCustodyTreeComparisonOracle(t *testing.T) {
+	// All pairings exercise symmetry, exact types, lexical numbers, order and
+	// absent-vs-null keys. Equivalent escapes/order must remain equal too.
+	raw := []string{`null`, `true`, `false`, `"true"`, `""`, `"a"`, `"\u0061"`,
+		`"<>&"`, `"\u003c\u003e\u0026"`, `"\ud800\udc00"`, `"𐀀"`,
+		`0`, `-0`, `1`, `1.0`, `1e0`, `1E+0`, `9007199254740992`, `9007199254740993`,
+		`[]`, `{}`, `[null]`, `[1,2]`, `[2,1]`, `{"x":null}`, `{"y":null}`,
+		`{"x":0}`, `{"x":false}`, `{"x":[]}`, `{"x":{}}`,
+		`{"a":[1,{"b":true}],"z":null}`, `{"z":null,"\u0061":[1,{"b":true}]}`}
+	for _, left := range raw {
+		a, err := custodyJSON([]byte(left), 4096, 64, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, right := range raw {
+			b, err := custodyJSON([]byte(right), 4096, 64, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, want := custodyTreeEqual(a, b), proofOldTreeEqual(a, b); got != want {
+				t.Errorf("tree equality %s / %s: got %v want %v", left, right, got, want)
+			}
+		}
+	}
+	type alias string
+	for _, unsupported := range []any{1, float64(1), alias("a"), json.RawMessage(`1`), struct{}{}, make(chan int)} {
+		if custodyTreeEqual(unsupported, unsupported) || custodyTreeEqual([]any{unsupported}, []any{unsupported}) ||
+			custodyTreeEqual(map[string]any{"x": unsupported}, map[string]any{"x": unsupported}) {
+			t.Errorf("unsupported type %T accepted", unsupported)
+		}
+	}
+}
+
+// Compare the real decoder with the frozen old algorithm using actual wire
+// records, not a reflection-based stand-in. Post-decode validation is unchanged;
+// identical typed bytes also pin its input and checksum preimages.
+func TestCustodyDecodeComparisonOracle(t *testing.T) {
+	s := proofStore(t, proofDirectory(t), false)
+	snap, p := proofApply(t, s)
+	document, err := custodyDocumentBytes(*snap.Document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pv, err := NewPreview(p, ModeApply, Base{Pristine: true}, proofDigest('1'))
+	if err != nil {
+		t.Fatal(err)
+	}
+	approval := proofApprovalJSON(t, pv, "comparison", "", time.Unix(100, 0), time.Unix(160, 0), nil)
+	ew := enrollmentWire{Schema: 1, Binding: bindingToWire(proofBinding())}
+	pre, _ := json.Marshal(ew)
+	ew.Checksum = custodyHash("enrollment", pre)
+	enrollment, _ := json.Marshal(ew)
+	fixtures := []struct {
+		name    string
+		raw     []byte
+		newWire func() any
+	}{
+		{"document", document, func() any { return new(documentWire) }},
+		{"enrollment", enrollment, func() any { return new(enrollmentWire) }},
+		{"approval", approval, func() any { return new(approvalWire) }},
+	}
+	for _, f := range fixtures {
+		t.Run(f.name, func(t *testing.T) {
+			compare := func(t *testing.T, raw []byte, max int, want error) {
+				t.Helper()
+				old, actual := f.newWire(), f.newWire()
+				oe := proofOldCustodyDecode(raw, old, max)
+				ne := custodyDecode(raw, actual, max)
+				if oe != ne || oe != want {
+					t.Fatalf("decoder errors old=%v actual=%v want=%v", oe, ne, want)
+				}
+				ob, _ := json.Marshal(old)
+				nb, _ := json.Marshal(actual)
+				if !bytes.Equal(ob, nb) {
+					t.Fatal("typed output differs, including on rejected input")
+				}
+				if ne == nil {
+					if f.name == "document" {
+						d, e := custodyDocumentDecode(raw)
+						if e != nil {
+							t.Fatal(e)
+						}
+						round, e := custodyDocumentBytes(d)
+						if e != nil || !bytes.Equal(round, ob) {
+							t.Fatal("state checksum/wire changed", e)
+						}
+					}
+					if f.name == "enrollment" {
+						w := *actual.(*enrollmentWire)
+						hash := w.Checksum
+						w.Checksum = ""
+						pre, e := json.Marshal(w)
+						if e != nil || custodyHash("enrollment", pre) != hash {
+							t.Fatal("enrollment checksum changed", e)
+						}
+					}
+					if f.name == "approval" {
+						a, e := DecodeApproval(raw)
+						if e != nil || a.hash != custodyHash("approval", ob) {
+							t.Fatal("approval digest changed", e)
+						}
+					}
+				}
+			}
+			compare(t, f.raw, len(f.raw), nil)
+			compare(t, f.raw, len(f.raw)-1, ErrCapacity)
+			compare(t, f.raw, len(f.raw)+1, nil)
+			for _, tc := range []struct {
+				name, from, to string
+				want           error
+			}{
+				{"duplicate", `"schema":1`, `"schema":1,"schema":1`, ErrInvalid},
+				{"escaped-duplicate", `"schema":1`, `"schema":1,"\u0073chema":1`, ErrInvalid},
+				{"unknown", `"schema":1`, `"schema":1,"unknown":0`, ErrCorrupt},
+				{"alias", `"schema":1`, `"SCHEMA":1`, ErrCorrupt},
+				{"missing", `"schema":1`, ``, ErrCorrupt},
+				{"float-integer", `"schema":1`, `"schema":1.0`, ErrCorrupt},
+				{"exponent-integer", `"schema":1`, `"schema":1e0`, ErrCorrupt},
+				{"null-record", `"schema":1`, `"schema":null`, ErrInvalid},
+				{"surrogate", `"schema":1`, `"schema":"\ud800"`, ErrInvalid},
+				{"low-surrogate", `"schema":1`, `"schema":"\udc00"`, ErrInvalid},
+				{"utf8", `"schema":1`, "\"schema\":\"\xff\"", ErrInvalid},
+				{"escaped-key", `"schema":1`, `"\u0073chema":1`, nil},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					raw := bytes.Replace(f.raw, []byte(tc.from), []byte(tc.to), 1)
+					if tc.name == "missing" {
+						raw = bytes.ReplaceAll(raw, []byte(`{,`), []byte(`{`))
+						raw = bytes.ReplaceAll(raw, []byte(`,}`), []byte(`}`))
+						raw = bytes.ReplaceAll(raw, []byte(`,,`), []byte(`,`))
+					}
+					if bytes.Equal(raw, f.raw) {
+						t.Fatal("control not applied")
+					}
+					compare(t, raw, custodyStateV2Bytes, tc.want)
+				})
+			}
+			t.Run("trailing", func(t *testing.T) {
+				compare(t, append(bytes.Clone(f.raw), []byte(` {}`)...), custodyStateV2Bytes, ErrInvalid)
+			})
+			// Reverse top-level key order without altering any raw field lexemes.
+			var fields map[string]json.RawMessage
+			if e := json.Unmarshal(f.raw, &fields); e != nil {
+				t.Fatal(e)
+			}
+			canonical, _ := json.Marshal(fields)
+			parts := []string{}
+			dec := json.NewDecoder(bytes.NewReader(canonical))
+			dec.Token()
+			for dec.More() {
+				key, _ := dec.Token()
+				var value json.RawMessage
+				if e := dec.Decode(&value); e != nil {
+					t.Fatal(e)
+				}
+				k, _ := json.Marshal(key)
+				parts = append([]string{string(k) + ":" + string(value)}, parts...)
+			}
+			compare(t, []byte("{"+strings.Join(parts, ",")+"}"), custodyStateV2Bytes, nil)
+			// Binding/revision values pass the codec unchanged; later validation
+			// still owns their meaning. Compare them without asserting admission.
+			for _, replacement := range []string{`"contract-other"`, `""`, `"` + custodyStateV2Revision + `"`} {
+				raw := bytes.Replace(f.raw, []byte(`"contract-1"`), []byte(replacement), -1)
+				old, actual := f.newWire(), f.newWire()
+				if proofOldCustodyDecode(raw, old, custodyStateV2Bytes) != custodyDecode(raw, actual, custodyStateV2Bytes) {
+					t.Fatal("revision decode changed")
+				}
+				ob, _ := json.Marshal(old)
+				nb, _ := json.Marshal(actual)
+				if !bytes.Equal(ob, nb) {
+					t.Fatal("binding/revision wire changed")
+				}
+			}
+		})
+	}
+	// Open authored values retain number lexemes, ordered arrays and all three
+	// null/empty-container distinctions; required zero fields may not disappear.
+	type record struct {
+		Zero int             `json:"zero"`
+		Spec json.RawMessage `json:"spec"`
+	}
+	for _, tc := range []struct {
+		raw  string
+		want error
+	}{
+		{`{"spec":{}}`, ErrCorrupt},
+		{`{"zero":-0,"spec":{}}`, ErrCorrupt},
+		{`{"zero":0,"spec":null}`, nil},
+		{`{"zero":0,"spec":[]}`, nil},
+		{`{"zero":0,"spec":{}}`, nil},
+		{`{"zero":0,"spec":{"n":[1,1.0,1e0,-0,9007199254740993],"a":[],"o":{},"v":null}}`, nil},
+		{`{"zero":0,"spec":` + strings.Repeat("[", 63) + `0` + strings.Repeat("]", 63) + `}`, nil},
+		{`{"zero":0,"spec":` + strings.Repeat("[", 64) + `0` + strings.Repeat("]", 64) + `}`, ErrCapacity},
+	} {
+		var old, actual record
+		oe := proofOldCustodyDecode([]byte(tc.raw), &old, 4096)
+		ne := custodyDecode([]byte(tc.raw), &actual, 4096)
+		if oe != ne || oe != tc.want || old.Zero != actual.Zero || !bytes.Equal(old.Spec, actual.Spec) {
+			t.Fatalf("open/depth control differs: %s old=%v actual=%v want=%v", tc.raw, oe, ne, tc.want)
+		}
+	}
+	// The typed re-encoding, not just input bytes, remains independently bounded.
+	raw := []byte(`{"spec":{}}`)
+	var old, actual record
+	if proofOldCustodyDecode(raw, &old, len(raw)) != ErrCapacity || custodyDecode(raw, &actual, len(raw)) != ErrCapacity {
+		t.Fatal("second scan byte bound lost")
+	}
+}
+
+func TestCustodyDecodeAllocationReduction(t *testing.T) {
+	// Bounded, fixed representative wire (no filesystem or time inside the
+	// allocation sample). The actual decoder must do strictly less work than
+	// the frozen original, not merely beat an arbitrary generous ceiling.
+	w := enrollmentWire{Schema: 1, Binding: bindingToWire(proofBinding())}
+	pre, _ := json.Marshal(w)
+	w.Checksum = custodyHash("enrollment", pre)
+	raw, _ := json.Marshal(w)
+	measure := func(decode func([]byte, any, int) error) float64 {
+		return testing.AllocsPerRun(20, func() {
+			var out enrollmentWire
+			if e := decode(raw, &out, custodySpecBytes); e != nil || out != w {
+				t.Fatal("allocation fixture not decoded exactly", e)
+			}
+		})
+	}
+	old, actual := measure(proofOldCustodyDecode), measure(custodyDecode)
+	t.Logf("allocations/decode old=%.0f actual=%.0f saved=%.0f", old, actual, old-actual)
+	if actual >= old {
+		t.Fatalf("strict allocation reduction absent: old=%.0f actual=%.0f", old, actual)
 	}
 }
 
