@@ -219,6 +219,8 @@ evidence. Provenance never reaches the wire; captured reality and the sole exemp
 - Chart checks require `helm` on PATH, as in CI's unpinned preinstalled toolchain; locally verified versions are 3.19.0, 3.20.0 and 4.3.0. The operator-owned-state proof uses combined server dry-run/validate flags for the verified Helm 3 versions and server dry-run alone for 4.3.0, preserving discovery/precreation assertions; other versions remain unverified.
 - Secret scanning covers Git history. A forward prose edit does not clear a historical finding;
   preserve credential canaries and history scope rather than adding a blanket file exception.
+  The forbidden-words guard also decompresses gzip assets before applying its selected public
+  and CI/local patterns, and rejects malformed gzip; a binary-only scan is not corpus clearance.
 
 - Renderer changes are checked by inventory diff, not by unit test: `just dump` prints the full
   series/label inventory for offline comparison against `signals/`.

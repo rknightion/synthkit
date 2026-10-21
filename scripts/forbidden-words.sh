@@ -44,7 +44,18 @@ while IFS= read -r f; do
   is_private "$f" && continue          # never scan private-only paths (they legitimately hold infra)
   [ -f "$f" ] || continue              # skip deletions / non-files
   scanned=$((scanned + 1))
-  if m=$(grep -nIiE -e "$PATTERN" "$f" 2>/dev/null); then  # -e: pattern may start with '-' (private-key header)
+  # Binary gzip assets must be checked as plaintext under the same CI/local pattern.
+  if [[ "$f" == *.gz ]]; then
+    if ! gzip -t -- "$f" 2>/dev/null; then
+      echo "FAIL: cannot decompress public asset: $f" >&2
+      exit 1
+    fi
+    if m=$(gzip -cd -- "$f" | grep -naiE -e "$PATTERN"); then
+      hits="${hits}--- ${f} (decompressed)
+${m}
+"
+    fi
+  elif m=$(grep -nIiE -e "$PATTERN" "$f" 2>/dev/null); then  # -e: pattern may start with '-' (private-key header)
     hits="${hits}--- ${f}
 ${m}
 "
