@@ -21,10 +21,10 @@ image:
   # Empty tag falls back to Chart.appVersion. Image tags are bare X.Y.Z; Git release tags carry
   # the leading v.
   tag: ""
-  # Published 1.6.0-rc.160, source 708afee1ab5b04af9483fc113be26fb9b3b9d2c5:
-  # verified linux/amd64 + linux/arm64 index with Lease HA and Kubernetes state.
+  # Published main-27455d6, source 27455d63e60d1d644ae1104ca26d2d29eba3c3ff:
+  # verified linux/amd64 + linux/arm64 index with Lease HA, Kubernetes state and patched CA roots.
   # Wins over tag; clear digest explicitly to select a different tagged image.
-  digest: "sha256:3bc29a33b7f17aeadf025b39493c082d2dee90e94475b72c4b3bfec3087118e6"
+  digest: "sha256:e20d0a7c4730ef86f653026fc2d7a4c23693cec2ac6a5301ab0cea28dc02e154"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 

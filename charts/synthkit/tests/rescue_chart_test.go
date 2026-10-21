@@ -15,7 +15,7 @@ import (
 
 // These identities come from the public multi-platform index and both platform
 // configs, not from the source checkout used to run these tests.
-const publishedHAImage = "ghcr.io/rknightion/synthkit@sha256:3bc29a33b7f17aeadf025b39493c082d2dee90e94475b72c4b3bfec3087118e6"
+const publishedHAImage = "ghcr.io/rknightion/synthkit@sha256:e20d0a7c4730ef86f653026fc2d7a4c23693cec2ac6a5301ab0cea28dc02e154"
 
 func TestPublishedHAImageSelection(t *testing.T) {
 	for _, tc := range []struct {
