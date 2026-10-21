@@ -142,6 +142,14 @@ live stacks are exclusive resources.
 
 The working tree is habitually dirty with unrelated in-flight work.
 
+## Container trust stores
+
+Distroless can lag Debian security updates. The runtime and e2e receiver copy the patched Debian
+trust store into fresh directories and set both `SSL_CERT_FILE` and `SSL_CERT_DIR`; preserve those
+overrides so base-image certificate files cannot reintroduce distrusted roots. Node's build stage
+also installs both patched Alpine certificate packages before fetching UI dependencies; upgrading only
+the bundle can leave the active trust directory stale.
+
 ## Secrets and environment surface
 
 Secrets live only in the ignored `.env`, never in committed YAML, a blueprint or a doc. Service
