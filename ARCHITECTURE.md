@@ -310,6 +310,21 @@ binaries may read small v2 states but fail closed on oversized states without re
 operators must pin compatible readers/writers and must not downgrade a v2 authority. This
 library capacity contract does not establish typed lifecycle, CLI or runtime admission.
 
+### Internal typed Agent Observability lifecycle (not runtime-enabled)
+
+The private engine in `internal/agento11yprovision` requires both that exact ContractRevision
+and SourceRevision `sigil-bc963fb09-engine-inventory404-v1` before network or authority. It
+preserves authored approval bytes, journals intent before one typed mutation, and requires whole
+observed configuration/checkpoint closure for an apply receipt. Typed exact-ID 404 plus healthy,
+complete authenticated scoped inventory can establish current absence only, under the approved
+destination/exclusivity assumptions; selective proxy 404 remains indistinguishable. This is not
+noncommit, pending-clearance, drain, fencing or adoption evidence. Recovery needs independent
+exact-attempt attribution and fresh approval, preserves the original mode and never replays an
+attempted mutation. Cleanup checks the whole historical owned-consumer closure before deletion;
+unsupported resources and unknown-use dependencies remain retained with an incomplete teardown.
+There is no CLI, YAML, environment or runner wiring, runtime admission or live-backend conformance
+claim. Existing workload guidance and blueprint-authoring restrictions remain unchanged.
+
 ## 3. The blueprint YAML
 
 ```yaml
