@@ -622,16 +622,9 @@ func (r *Runner) buildBlueprint(res *blueprint.Resolved) (*bpRuntime, []ShapeWar
 				log.Printf("runner: blueprint %q workload %q declares rum but no Faro credentials are configured — RUM disabled", res.Name, wi.Name)
 			}
 		}
-		w, err := wreg.Build(wi.Config, core.Binding{
-			Name:      wi.Name,
-			Seed:      res.Name + ":" + wi.Name,
-			Replicas:  wi.Replicas,
-			Env:       wi.Env,
-			Cluster:   wi.Cluster,
-			Calls:     wi.Calls,
-			Databases: wi.Databases,
-			RUM:       rum,
-		})
+		binding := structuralWorkloadBinding(res, wi)
+		binding.RUM = rum
+		w, err := wreg.Build(wi.Config, binding)
 		if err != nil {
 			return nil, nil, fmt.Errorf("runner: blueprint %q workload %q (%s): %w", res.Name, wi.Name, wi.Kind, err)
 		}

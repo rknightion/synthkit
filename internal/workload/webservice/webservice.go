@@ -251,10 +251,18 @@ func NewConfig() any {
 // the composition root's catalog wiring file; no init() self-registration.
 func Registration() core.WorkloadReg {
 	return core.WorkloadReg{
-		Kind:         kind,
-		Doc:          "web_service — browser→backend→DB request-correlation workload (APM span-metrics, traces, app logs, optional Faro/RUM)",
-		NewConfig:    NewConfig,
-		Build:        build,
+		Kind:      kind,
+		Doc:       "web_service — browser→backend→DB request-correlation workload (APM span-metrics, traces, app logs, optional Faro/RUM)",
+		NewConfig: NewConfig,
+		Build:     build,
+		// This workload has no native agent producer; explicit empty coverage
+		// distinguishes it from an unwired registration during pure discovery.
+		AgentDeclarations: func(cfg any, _ core.Binding) ([]core.AgentDeclaration, error) {
+			if c, ok := cfg.(*Config); !ok || c == nil {
+				return nil, fmt.Errorf("web_service: invalid declaration config")
+			}
+			return nil, nil
+		},
 		FailureModes: FailureModes,
 	}
 }

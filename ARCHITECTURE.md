@@ -85,6 +85,13 @@ ignore runtime collaborators and never build, mint, sample, perform I/O or mutat
 These claims contain no destination, credentials, receipts or wire YAML schema; discovery and
 runtime admission/injection remain separate composition-root work.
 
+The composition root's `registrationAgentDeclarations` collects these canonical callbacks over
+the full selected post-fanout set, without activity, producer-mode or sink filtering. Inactive legacy
+agents retain their effective native child names; workloads without agents provide explicit empty
+coverage. Discovery and Build share `structuralWorkloadBinding`; Build adds runtime collaborators
+separately. Collection preserves declaration origins and child structure, copies returned slices
+and returns no usable partial result on error. It establishes neither runtime custody nor admission.
+
 `core.Binding.GenerationStages` consumes the frozen `sigil.GenerationStages` interface;
 `core.Binding.Ratings` consumes `sigil.ConversationRatingWriter`. The latter accepts a
 conversation ID separately from the SDK-shaped `ConversationRatingInput` body (good/bad enum,

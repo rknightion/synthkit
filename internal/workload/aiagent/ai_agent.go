@@ -37,10 +37,11 @@ type Workload struct {
 // root's catalog wiring file; no init() self-registration.
 func Registration() core.WorkloadReg {
 	return core.WorkloadReg{
-		Kind:      kind,
-		Doc:       "ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sigil generation/workflow-step/score ingest + gen_ai OTLP spans + gen_ai_client_*/agento11y_eval_* metrics",
-		NewConfig: func() any { return &Config{} },
-		Build:     build,
+		Kind:              kind,
+		Doc:               "ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sigil generation/workflow-step/score ingest + gen_ai OTLP spans + gen_ai_client_*/agento11y_eval_* metrics",
+		NewConfig:         func() any { return &Config{} },
+		Build:             build,
+		AgentDeclarations: agentDeclarations,
 		// Substrate-scoped: sigil data carries no blueprint selector label (real sigil data has
 		// none; the ingest proto has no field for it). Disambiguation is by service.name/agent_name/
 		// conversation_id — like other substrate constructs. The runner stamps no blueprint label.

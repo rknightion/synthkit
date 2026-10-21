@@ -67,6 +67,10 @@ AI/LLM vocabulary in the catalog is generic and technology-native. Customer-spec
 The current Agent Observability producer/token/tag contract is [signals/sigil.md](signals/sigil.md).
 Generation-stage types alone install no hooks or executor and never authorize backend-derived
 telemetry; legacy synthetic scoring must not overlap real rules scoring the same agents.
+Pure declaration discovery uses canonical registration callbacks over the full selected post-fanout
+set, including inactive legacy agents and their effective native child names, with explicit no-agent
+coverage. It shares Build's structural Binding, not runtime collaborators; claims establish neither
+runtime custody nor admission.
 
 ## Syslog mechanic
 
