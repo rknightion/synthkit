@@ -17,6 +17,9 @@ import (
 // per node (the INC1 metric lane). spanmetrics/service-graph stay DERIVED unless the per-blueprint
 // EmitSpanMetrics opt-in is set (F4b).
 func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) error {
+	if w.pipeline != nil && (world == nil || world.EmitSpanMetrics) {
+		return pipelineError("local synthkit spanmetrics unsupported for agent_pipeline")
+	}
 	nativeEnabled := w.cfg.otelMetricsEnabled() && world.OTLPMetrics != nil
 	if world.Metrics == nil && !nativeEnabled {
 		w.tickProfiles(ctx, now, world)

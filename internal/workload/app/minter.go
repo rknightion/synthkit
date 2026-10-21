@@ -17,20 +17,21 @@ import (
 // narrative sample at the ENTRY node and walks the declared graph to build ONE request's hop tree
 // (one trace across all reachable nodes). Volume + cadence-invariance mirror web_service's minter.
 type minter struct {
-	workloadName string   // the app INSTANCE name — the ledger dispatch key (byWorkload)
-	entry        string   // entry-node name
-	pathNodes    []string // every node reachable from the entry (incl entry) — the per-request incident scopes
-	env          string
-	cluster      string
-	weight       float64
-	nonProd      bool
-	rumEnabled   bool // true when the entry node carries rum_faro + binding.RUM is set
-	traffic      Traffic
-	models       []ModelChoice // valid (model,provider) routings; one drawn per request → r.Model/r.Provider
-	routes       []string      // entry-node request routes; one drawn per request → r.Route
-	graph        *graph
-	automation   *AutomationFlow // optional coherent app-local sequence; no graph calls
-	tick         uint64
+	workloadName  string   // the app INSTANCE name — the ledger dispatch key (byWorkload)
+	entry         string   // entry-node name
+	pathNodes     []string // every node reachable from the entry (incl entry) — the per-request incident scopes
+	env           string
+	cluster       string
+	weight        float64
+	nonProd       bool
+	rumEnabled    bool // true when the entry node carries rum_faro + binding.RUM is set
+	traffic       Traffic
+	models        []ModelChoice // valid (model,provider) routings; one drawn per request → r.Model/r.Provider
+	routes        []string      // entry-node request routes; one drawn per request → r.Route
+	graph         *graph
+	automation    *AutomationFlow // optional coherent app-local sequence; no graph calls
+	agentPipeline *AgentPipeline
+	tick          uint64
 }
 
 func newMinter(name, env, cluster string, weight float64, nonProd bool, traffic Traffic, models []ModelChoice, g *graph) *minter {
@@ -182,6 +183,16 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 		BrowserOrigin: m.rumEnabled && eng.Float64() < 0.6,
 	}
 
+	if m.agentPipeline != nil {
+		// Only metadata is minted. Actual attempts and safe content are executed
+		// incrementally; ordinary spanning-tree DFS cannot represent revisions.
+		r.Duration = time.Duration(drawDuration(m.traffic.RequestLatencyP95Ms, eng) * float64(time.Millisecond))
+		if r.Duration < time.Second {
+			r.Duration = time.Second
+		}
+		r.StatusCode = 200
+		return r
+	}
 	if m.automation != nil {
 		p := planAutomation(m.automation, r)
 		r.Duration = p.duration

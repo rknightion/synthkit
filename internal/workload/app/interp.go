@@ -49,7 +49,7 @@ func (w *Workload) identity(n *node) nodeIdentity {
 	}
 	if w.b.Cluster != nil {
 		for _, placed := range w.b.Cluster.Workloads {
-			if placed.Name != n.decl.Name {
+			if placed.Name != n.decl.Name || n.decl.AgentObservability != nil && placed.Namespace != ns {
 				continue
 			}
 			if len(placed.PodNames) > 0 {

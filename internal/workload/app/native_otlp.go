@@ -58,6 +58,9 @@ func (w *Workload) tickOTLPMetrics(ctx context.Context, now time.Time, world *co
 			Metrics: metrics,
 		})
 	}
+	if w.pipeline != nil {
+		resources = append(resources, w.pipelineMetrics(now)...)
+	}
 	if len(resources) == 0 {
 		return nil
 	}

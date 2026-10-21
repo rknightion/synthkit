@@ -20,6 +20,9 @@ import (
 // it emits ONE trace across the service graph + each node's correlated logs + (when rumEnabled)
 // Faro/RUM beacons for browser-origin requests. Empty batch → no-op.
 func (w *Workload) ProjectBatch(ctx context.Context, now time.Time, world *core.World, batch []*ledger.Request) error {
+	if w.pipeline != nil {
+		return w.projectPipeline(ctx, world, batch)
+	}
 	if len(batch) == 0 {
 		return nil
 	}

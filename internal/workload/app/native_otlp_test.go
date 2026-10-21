@@ -3,21 +3,570 @@
 package app
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"slices"
 	"sort"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/core/coretest"
+	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/shape"
+	"github.com/rknightion/synthkit/internal/sigil"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
+	sigilsink "github.com/rknightion/synthkit/internal/sink/sigil"
+	v1 "github.com/rknightion/synthkit/internal/sink/sigil/v1"
 	"github.com/rknightion/synthkit/internal/state"
 	"github.com/rknightion/synthkit/internal/telemetryspec"
+	collectormetrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
+	collectortrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
+
+// TestAgentPipelineTLSWire crosses the real native generation/trace/metrics
+// encoders. The injected stages/ratings are process edges, not runtime admission
+// or a claim that the production hook/rating HTTP adapters have been installed.
+func TestAgentPipelineTLSWire(t *testing.T) {
+	var mu sync.Mutex
+	var gens []*v1.Generation
+	var steps []*v1.WorkflowStep
+	var traceRequests []*collectortrace.ExportTraceServiceRequest
+	var metricRequests []*collectormetrics.ExportMetricsServiceRequest
+	var ratingInputs []sigil.ConversationRatingInput
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		body, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+		if err != nil {
+			t.Error(err)
+			w.WriteHeader(500)
+			return
+		}
+		if r.Header.Get("Content-Encoding") == "gzip" {
+			z, err := gzip.NewReader(bytes.NewReader(body))
+			if err != nil {
+				t.Error(err)
+				w.WriteHeader(500)
+				return
+			}
+			body, err = io.ReadAll(z)
+			z.Close()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+		}
+		if r.Method != "POST" {
+			t.Error("not POST")
+		}
+		switch r.URL.Path {
+		case "/api/v1/generations:export":
+			var req v1.ExportGenerationsRequest
+			if err := protojson.Unmarshal(body, &req); err != nil {
+				t.Error(err)
+			}
+			gens = append(gens, req.Generations...)
+			w.WriteHeader(202)
+		case "/api/v1/workflow-steps:export":
+			var req v1.ExportWorkflowStepsRequest
+			if err := protojson.Unmarshal(body, &req); err != nil {
+				t.Error(err)
+			}
+			steps = append(steps, req.WorkflowSteps...)
+			w.WriteHeader(202)
+		case "/v1/traces":
+			var req collectortrace.ExportTraceServiceRequest
+			if err := proto.Unmarshal(body, &req); err != nil {
+				t.Error(err)
+			}
+			traceRequests = append(traceRequests, &req)
+		case "/v1/metrics":
+			var req collectormetrics.ExportMetricsServiceRequest
+			if err := proto.Unmarshal(body, &req); err != nil {
+				t.Error(err)
+			}
+			metricRequests = append(metricRequests, &req)
+		case "/rating":
+			var req sigil.ConversationRatingInput
+			if err := json.Unmarshal(body, &req); err != nil {
+				t.Error(err)
+			}
+			ratingInputs = append(ratingInputs, req)
+		default:
+			t.Errorf("unexpected route %s", r.URL.Path)
+			w.WriteHeader(404)
+		}
+	}))
+	defer server.Close()
+	// Existing sinks intentionally use the standard transport. Replace it only in
+	// this serial test with the local server's trusted TLS client, never insecure TLS.
+	old := http.DefaultTransport
+	http.DefaultTransport = server.Client().Transport
+	defer func() { http.DefaultTransport = old }()
+	c := pipelineConfig(t)
+	c.AgentPipeline.RequestKinds = []PipelineKind{{Name: "long", Weight: 1}, {Name: "short", Weight: 0}}
+	c.AgentPipeline.Outcomes = []PipelineOutcome{{Name: "ready", Weight: 1, ReviewPassed: true}, {Name: "manual", Revisions: 2}}
+	c.AgentPipeline.Ratings.SampleRate = 1
+	native, err := sigilsink.New(server.URL, "test", "test", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rating := &wireRatingWriter{client: server.Client(), url: server.URL + "/rating"}
+	raw, err := Registration().Build(c, pipelineBinding(c, &pipelineStages{}, rating))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := raw.(*Workload)
+	mc := &coretest.MetricCapture{}
+	world := &core.World{Sigil: native, Traces: otlp.New(server.URL, "test", "test", false), OTLPMetrics: otlp.NewMetrics(server.URL, "test", "test", false), Metrics: mc, Shape: shape.New("", nil)}
+	r := pipelineRequest(42)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err = w.ProjectBatch(ctx, r.Start, world, []*ledger.Request{r}); err != nil {
+		t.Fatal(err)
+	}
+	if err = w.Tick(ctx, r.Start, world); err != nil {
+		t.Fatal(err)
+	}
+	if err = w.Tick(ctx, r.Start.Add(time.Minute), world); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(gens) != 4 || len(ratingInputs) != 1 || len(metricRequests) != 2 {
+		t.Fatalf("wire counts gens=%d ratings=%d metrics=%d", len(gens), len(ratingInputs), len(metricRequests))
+	}
+	spans := map[string]string{}
+	parents := map[string]string{}
+	services := map[string]bool{}
+	arraySeen := false
+	for _, req := range traceRequests {
+		for _, res := range req.ResourceSpans {
+			attrs := wireAttrs(res.Resource.Attributes)
+			svc := attrs["service.name"].GetStringValue()
+			services[svc] = true
+			if got := attrs["k8s.pod.name"].GetStringValue(); got != svc+"-actual-hash" {
+				t.Errorf("unplaced wire pod %s", got)
+			}
+			for _, scope := range res.ScopeSpans {
+				for _, s := range scope.Spans {
+					id := hex.EncodeToString(s.SpanId)
+					if _, dup := spans[id]; dup {
+						t.Error("duplicate span ID")
+					}
+					spans[id] = svc
+					parents[id] = hex.EncodeToString(s.ParentSpanId)
+					if hex.EncodeToString(s.TraceId) != r.TraceID {
+						t.Error("split trace")
+					}
+					a := wireAttrs(s.Attributes)
+					if value := a[sigil.AttrParentGenerationIDs]; value != nil {
+						arraySeen = true
+						if value.GetArrayValue() == nil {
+							t.Error("stringified parent array")
+						}
+					}
+				}
+			}
+		}
+	}
+	if len(services) != 5 || !arraySeen {
+		t.Fatalf("services=%v python-array=%v", services, arraySeen)
+	}
+	for id, parent := range parents {
+		if parent != "" && spans[parent] == "" {
+			t.Errorf("orphan %s -> %s", id, parent)
+		}
+	}
+	for _, g := range gens {
+		if spans[g.SpanId] == "" || g.TraceId != r.TraceID || g.ConversationId != r.SessionID || g.AgentName == "retriever" {
+			t.Errorf("unjoined generation %+v", g)
+		}
+		b, _ := protojson.Marshal(g)
+		if strings.Contains(string(b), "UNTRUSTED") {
+			t.Error("unsafe carry reached actual encoder")
+		}
+	}
+	hasSource := false
+	for _, s := range steps {
+		if s.AgentName == "retriever" {
+			hasSource = true
+			if len(s.LinkedGenerationIds) != 0 {
+				t.Error("source fake generation")
+			}
+		}
+	}
+	if !hasSource {
+		t.Error("missing actual source workflow step")
+	}
+	counts := func(req *collectormetrics.ExportMetricsServiceRequest) map[string]uint64 {
+		out := map[string]uint64{}
+		for _, res := range req.ResourceMetrics {
+			svc := wireAttrs(res.Resource.Attributes)["service.name"].GetStringValue()
+			if svc == "source" {
+				t.Error("source SDK model metrics")
+			}
+			for _, scope := range res.ScopeMetrics {
+				if scope.Scope.Name != sigil.ScopeGo && scope.Scope.Name != sigil.ScopePython {
+					continue
+				}
+				for _, m := range scope.Metrics {
+					if m.Name != pipelineDurationMetric && m.Name != pipelineTokenMetric {
+						t.Error("invented SDK instrument")
+					}
+					for _, point := range m.GetHistogram().DataPoints {
+						attrs := wireAttrs(point.Attributes)
+						if attrs["gen_ai.agent.name"] == nil {
+							t.Error("SDK identity missing")
+						}
+						out[svc+"/"+m.Name+"/"+attrs["gen_ai.token.type"].GetStringValue()] = point.Count
+					}
+				}
+			}
+		}
+		return out
+	}
+	first, last := counts(metricRequests[0]), counts(metricRequests[1])
+	if len(first) != 12 {
+		t.Fatalf("native model series %d, want four model services with duration and two token types", len(first))
+	}
+	for key, count := range first {
+		if count != 1 {
+			t.Errorf("wire execution count %s=%d, want 1", key, count)
+		}
+	}
+	if !reflect.DeepEqual(first, last) {
+		t.Fatal("Tick fabricated additional observations")
+	}
+	for _, s := range mc.All() {
+		if strings.HasPrefix(s.Name, "gen_ai_client_") || strings.HasPrefix(s.Name, "agento11y_") {
+			t.Error("duplicate SDK/backend metric push")
+		}
+	}
+	if ratingInputs[0].RatingID == "" || ratingInputs[0].GenerationID != gens[len(gens)-1].Id {
+		t.Fatal("rating not conversation-correlated")
+	}
+}
+
+// The acceptance contract is the pinned SDK native-export path, not merely
+// absence of the injection sentinel. Accepted nonempty text AND JSON must remain
+// in native generations for default/no_tool_content/full_with_metadata_spans,
+// while shared tool spans contain them only for explicit full (no per-tool opt-in
+// exists on this component). Metadata-only preserves native message/tool shape.
+func TestAgentPipelineCaptureWire(t *testing.T) {
+	for _, sdk := range []string{sigil.SDKGo, sigil.SDKPython} {
+		for _, mode := range []string{"", "default", sigil.CaptureNoToolContent, sigil.CaptureFull, sigil.CaptureFullWithMetadataSpans, sigil.CaptureMetadataOnly} {
+			name := mode
+			if name == "" {
+				name = "default"
+			}
+			t.Run(sdk+"/"+name, func(t *testing.T) {
+				var mu sync.Mutex
+				var gens []*v1.Generation
+				var traces []*collectortrace.ExportTraceServiceRequest
+				server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					mu.Lock()
+					defer mu.Unlock()
+					body, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+					if err != nil {
+						t.Error(err)
+						w.WriteHeader(500)
+						return
+					}
+					if r.Header.Get("Content-Encoding") == "gzip" {
+						zr, e := gzip.NewReader(bytes.NewReader(body))
+						if e != nil {
+							t.Error(e)
+							w.WriteHeader(500)
+							return
+						}
+						body, err = io.ReadAll(zr)
+						zr.Close()
+						if err != nil {
+							t.Error(err)
+							return
+						}
+					}
+					switch r.URL.Path {
+					case "/api/v1/generations:export":
+						var req v1.ExportGenerationsRequest
+						if e := protojson.Unmarshal(body, &req); e != nil {
+							t.Error(e)
+						}
+						gens = append(gens, req.Generations...)
+						w.WriteHeader(202)
+					case "/api/v1/workflow-steps:export":
+						w.WriteHeader(202)
+					case "/v1/traces":
+						var req collectortrace.ExportTraceServiceRequest
+						if e := proto.Unmarshal(body, &req); e != nil {
+							t.Error(e)
+						}
+						traces = append(traces, &req)
+					default:
+						t.Error("unexpected route", r.URL.Path)
+						w.WriteHeader(404)
+					}
+				}))
+				defer server.Close()
+				old := http.DefaultTransport
+				http.DefaultTransport = server.Client().Transport
+				defer func() { http.DefaultTransport = old }()
+				c := pipelineConfig(t)
+				c.AgentPipeline.Ratings.SampleRate = 0
+				c.AgentPipeline.Outcomes = []PipelineOutcome{{Name: "ready", Weight: 1, ReviewPassed: true}, {Name: "manual", Revisions: 2}}
+				for i := range c.Services {
+					a := c.Services[i].AgentObservability
+					a.SDK = sdk
+					a.CaptureMode = mode
+					c.Services[i].Runtime = "python"
+					if sdk == sigil.SDKGo {
+						c.Services[i].Runtime = "go"
+					}
+					a.Metadata = map[string]any{sigil.AttrConversationTitle: "private-title", "sigil.conversation.title": "legacy-private-title", "call_error": "raw-mirrored-error", "safe-metadata": "retained"}
+					a.GenerationTags = map[string]string{"safe-tag": "retained"}
+				}
+				jsonOnly := false
+				stage := &decisionStages{before: func(_ context.Context, _ sigil.GenerationStage, r sigil.ToolResult) (sigil.ToolResultDecision, error) {
+					r.Content = "accepted-native-text"
+					r.ContentJSON = []byte(`{"accepted":"native-json"}`)
+					if jsonOnly {
+						r.Content = ""
+					}
+					return sigil.ToolResultDecision{Allowed: true, Transformed: &r}, nil
+				}}
+				sink, e := sigilsink.New(server.URL, "test", "test", false)
+				if e != nil {
+					t.Fatal(e)
+				}
+				raw, e := Registration().Build(c, pipelineBinding(c, stage, nil))
+				if e != nil {
+					t.Fatal(e)
+				}
+				world := &core.World{Sigil: sink, Traces: otlp.New(server.URL, "test", "test", false)}
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				for i := range 2 {
+					jsonOnly = i == 1
+					r := pipelineRequest(100 + i)
+					if e = raw.ProjectBatch(ctx, r.Start, world, []*ledger.Request{r}); e != nil {
+						t.Fatal(e)
+					}
+				}
+				mu.Lock()
+				defer mu.Unlock()
+				foundCall, foundResult := false, false
+				foundTextResult, foundJSONResult := false, false
+				for _, g := range gens {
+					if len(g.Input) == 0 || len(g.Output) == 0 || g.Usage == nil || g.Usage.TotalTokens == 0 {
+						t.Error("capture lost native message/usage structure")
+					}
+					metadata := g.GetMetadata().AsMap()
+					effective := mode
+					if effective == "" || effective == "default" {
+						effective = sigil.CaptureNoToolContent
+					}
+					if metadata["agento11y.sdk.content_capture_mode"] != effective {
+						t.Error("missing SDK capture marker", metadata)
+					}
+					if metadata["safe-metadata"] != "retained" || g.Tags["safe-tag"] != "retained" {
+						t.Error("arbitrary authored metadata/tags were scrubbed")
+					}
+					if mode == sigil.CaptureMetadataOnly {
+						if g.SystemPrompt != "" || metadata[sigil.AttrConversationTitle] != nil || metadata["call_error"] != nil {
+							t.Error("metadata-only retained SDK content mirror")
+						}
+						if sdk == sigil.SDKGo && metadata["sigil.conversation.title"] != nil {
+							t.Error("Go legacy title retained")
+						}
+						if sdk == sigil.SDKPython && metadata["sigil.conversation.title"] != "legacy-private-title" {
+							t.Error("Python authored legacy metadata changed without source")
+						}
+					} else if g.SystemPrompt == "" {
+						t.Error("non-metadata mode stripped generation system prompt")
+					}
+					for _, tool := range g.Tools {
+						if tool.Name == "" || tool.Type != "function" {
+							t.Error("capture lost tool definition identity")
+						}
+					}
+					for _, messages := range [][]*v1.Message{g.Input, g.Output} {
+						for _, m := range messages {
+							if m.Role == v1.MessageRole_MESSAGE_ROLE_UNSPECIFIED {
+								t.Error("lost role")
+							}
+							for _, part := range m.Parts {
+								switch payload := part.Payload.(type) {
+								case *v1.Part_Text:
+									if mode == sigil.CaptureMetadataOnly && payload.Text != "" {
+										t.Error("text not stripped")
+									}
+								case *v1.Part_ToolCall:
+									foundCall = true
+									if payload.ToolCall.Id == "" || payload.ToolCall.Name != "retrieve_source_note" {
+										t.Error("lost tool-call identity")
+									}
+									if mode == sigil.CaptureMetadataOnly {
+										if len(payload.ToolCall.InputJson) > 0 {
+											t.Error("tool arguments retained")
+										}
+									} else if string(payload.ToolCall.InputJson) != "{}" {
+										t.Error("generation tool arguments stripped outside metadata_only")
+									}
+								case *v1.Part_ToolResult:
+									foundResult = true
+									result := payload.ToolResult
+									if result.ToolCallId == "" || result.Name != "retrieve_source_note" {
+										t.Error("lost result identity")
+									}
+									if mode == sigil.CaptureMetadataOnly {
+										if result.Content != "" || len(result.ContentJson) > 0 {
+											t.Error("result content not stripped")
+										}
+									} else {
+										if string(result.ContentJson) != `{"accepted":"native-json"}` {
+											t.Error("generation JSON result stripped")
+										}
+										foundJSONResult = true
+										if result.Content == "accepted-native-text" {
+											foundTextResult = true
+										}
+									}
+								default:
+									t.Errorf("part structural payload lost: %T", payload)
+								}
+							}
+						}
+					}
+				}
+				if !foundCall || !foundResult {
+					t.Error("tool message structure absent")
+				}
+				if mode != sigil.CaptureMetadataOnly && (!foundTextResult || !foundJSONResult) {
+					t.Error("accepted nonempty native content never observed")
+				}
+				textSpan, jsonSpan := false, false
+				toolSpans := 0
+				for _, req := range traces {
+					for _, res := range req.ResourceSpans {
+						for _, scope := range res.ScopeSpans {
+							for _, span := range scope.Spans {
+								attrs := wireAttrs(span.Attributes)
+								if attrs["gen_ai.operation.name"].GetStringValue() != sigil.OpExecuteTool {
+									continue
+								}
+								toolSpans++
+								if attrs["gen_ai.tool.call.id"].GetStringValue() == "" {
+									t.Error("span lost tool identity")
+								}
+								value := attrs["gen_ai.tool.call.result"]
+								if mode != sigil.CaptureFull {
+									if value != nil || attrs["gen_ai.tool.call.arguments"] != nil || attrs["gen_ai.tool.description"] != nil {
+										t.Error("tool content leaked to reduced/default trace channel")
+									}
+								} else {
+									if attrs["gen_ai.tool.call.arguments"].GetStringValue() != "{}" {
+										t.Error("explicit full omitted actual tool-call arguments")
+									}
+									if value.GetStringValue() == "accepted-native-text" {
+										textSpan = true
+									}
+									if value.GetStringValue() == `{"accepted":"native-json"}` {
+										jsonSpan = true
+									}
+								}
+							}
+						}
+					}
+				}
+				if toolSpans != 2 {
+					t.Errorf("tool span count %d", toolSpans)
+				}
+				if mode == sigil.CaptureFull && (!textSpan || !jsonSpan) {
+					t.Error("explicit full did not carry both actual text and JSON span cases")
+				}
+			})
+		}
+	}
+}
+
+func TestAgentPipelineMetadataOnlyShape(t *testing.T) {
+	// SDK 75a1c548 contentcapture.Strip: reduce content without removing
+	// roles, parts, call/result identity, usage, timing or authored metadata.
+	g := sigil.Generation{SystemPrompt: "private", CallError: "raw error", Metadata: map[string]any{sigil.AttrSDKName: sigil.SDKGo, "call_error": "raw mirror", sigil.AttrConversationTitle: "title", "sigil.conversation.title": "old title", "error.category": "timeout", "authored": "kept"}, Tags: map[string]string{"authored": "kept"}, Usage: sigil.Usage{Input: 10, Output: 5, Total: 15}, Tools: []sigil.ToolDef{{Name: "tool", Type: "function", Description: "private", InputSchemaJSON: []byte(`{"type":"object"}`), Deferred: true}}, Input: []sigil.Message{{Role: sigil.RoleUser, Parts: []sigil.Part{{Text: "private", ProviderType: "text"}, {ToolResult: &sigil.ToolResult{ToolCallID: "call-id", Name: "tool", Content: "private", ContentJSON: []byte(`{"private":true}`)}}}}}, Output: []sigil.Message{{Role: sigil.RoleAssistant, Parts: []sigil.Part{{ToolCall: &sigil.ToolCall{ID: "call-id", Name: "tool", InputJSON: []byte(`{"private":true}`)}}, {Media: &sigil.Media{Kind: "image", URL: "data:private", MIMEType: "image/png", Name: "reference"}}}}}}
+	out, err := pipelineCaptureGeneration(g, sigil.CaptureMetadataOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Input) != 1 || len(out.Input[0].Parts) != 2 || len(out.Output) != 1 || len(out.Output[0].Parts) != 2 || out.Input[0].Role != sigil.RoleUser || out.Output[0].Role != sigil.RoleAssistant || !reflect.DeepEqual(out.Usage, g.Usage) {
+		t.Fatal("structural evidence was dropped")
+	}
+	tool := out.Tools[0]
+	if tool.Name != "tool" || tool.Type != "function" || !tool.Deferred || tool.Description != "" || len(tool.InputSchemaJSON) != 0 {
+		t.Fatal("tool definition capture differs")
+	}
+	call := out.Output[0].Parts[0].ToolCall
+	result := out.Input[0].Parts[1].ToolResult
+	media := out.Output[0].Parts[1].Media
+	if call.ID != "call-id" || call.Name != "tool" || len(call.InputJSON) != 0 || result.ToolCallID != "call-id" || result.Name != "tool" || result.Content != "" || len(result.ContentJSON) != 0 || out.Input[0].Parts[0].Text != "" || media.URL != "" || media.Kind != "image" || media.MIMEType != "image/png" || media.Name != "reference" {
+		t.Fatal("content/identity split differs from SDK")
+	}
+	if out.SystemPrompt != "" || out.CallError != "timeout" || out.Metadata["call_error"] != nil || out.Metadata[sigil.AttrConversationTitle] != nil || out.Metadata["sigil.conversation.title"] != nil || out.Metadata["authored"] != "kept" || out.Tags["authored"] != "kept" {
+		t.Fatal("metadata/content capture differs")
+	}
+	if g.SystemPrompt != "private" || g.Input[0].Parts[1].ToolResult.Content != "private" {
+		t.Fatal("capture mutated model-visible completed record")
+	}
+	// The frozen native Part seam cannot distinguish empty thinking from empty
+	// text. Do not advertise faithful metadata-only thinking while its encoder
+	// lacks an explicit discriminator; fail this concrete shape closed.
+	g.Output[0].Parts = []sigil.Part{{Thinking: "private thinking", ProviderType: "thinking"}}
+	if _, err := pipelineCaptureGeneration(g, sigil.CaptureMetadataOnly); err == nil || !strings.Contains(err.Error(), "thinking") {
+		t.Fatal("unsupported empty-thinking wire kind silently relabeled")
+	}
+}
+
+func wireAttrs(kvs []*commonpb.KeyValue) map[string]*commonpb.AnyValue {
+	m := map[string]*commonpb.AnyValue{}
+	for _, kv := range kvs {
+		m[kv.Key] = kv.Value
+	}
+	return m
+}
+
+type wireRatingWriter struct {
+	client *http.Client
+	url    string
+}
+
+func (w *wireRatingWriter) WriteConversationRating(ctx context.Context, _ string, in sigil.ConversationRatingInput) error {
+	body, _ := json.Marshal(in)
+	req, err := http.NewRequestWithContext(ctx, "POST", w.url, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	res, err := w.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	_, err = io.Copy(io.Discard, res.Body)
+	return err
+}
 
 type appNativeMetricCapture struct {
 	resources []otlp.MetricResource

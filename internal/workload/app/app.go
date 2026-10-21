@@ -48,6 +48,7 @@ func versionOr(v string) string {
 // Config is the YAML config for the app workload: a service graph + an entry traffic envelope.
 // Unknown fields are rejected by strict yaml.v3 decoding at blueprint load.
 type Config struct {
+	AgentPipeline *AgentPipeline `yaml:"agent_pipeline"`
 	// Automation optionally emits a bounded sequential approval/task/HTTP-attempt recipe.
 	Automation *AutomationFlow `yaml:"automation"`
 	// Services are the graph's nodes (typed services + their call edges).
@@ -131,10 +132,11 @@ type PageDecl struct {
 // edges. Node names are UNIQUE within the graph — the node identity is auto-stamped on every
 // emitted series/stream/span (so two nodes sharing a profile never collide; B3).
 type ServiceNode struct {
-	Name    string `yaml:"name"`    // unique graph identity (service / service_name label)
-	Type    string `yaml:"type"`    // span semantics + profile fit (registry + default fallback)
-	Runtime string `yaml:"runtime"` // go|jvm|node|python (informational; selects runtime profile)
-	Entry   bool   `yaml:"entry"`   // the request entry point (mints invocations)
+	AgentObservability *AgentBinding `yaml:"agent_observability"`
+	Name               string        `yaml:"name"`    // unique graph identity (service / service_name label)
+	Type               string        `yaml:"type"`    // span semantics + profile fit (registry + default fallback)
+	Runtime            string        `yaml:"runtime"` // go|jvm|node|python (informational; selects runtime profile)
+	Entry              bool          `yaml:"entry"`   // the request entry point (mints invocations)
 	// Namespace is the k8s namespace for this service. Default (empty) = node name (one namespace per
 	// service, the historic default). When set, the namespace propagates to BOTH the k8s substrate
 	// placement (fixture.Workload.Namespace → kube_pod_* kube_deployment_* namespace label) AND the
@@ -248,18 +250,20 @@ var FailureModes = []failuremode.Mode{
 // root's catalog wiring file; no init() self-registration.
 func Registration() core.WorkloadReg {
 	return core.WorkloadReg{
-		Kind:         kind,
-		Doc:          "app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/logs/spans, one correlated trace across the graph",
-		NewConfig:    NewConfig,
-		Build:        build,
-		FailureModes: FailureModes,
+		Kind:              kind,
+		Doc:               "app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/logs/spans, one correlated trace across the graph",
+		NewConfig:         NewConfig,
+		Build:             build,
+		AgentDeclarations: agentDeclarations,
+		FailureModes:      FailureModes,
 	}
 }
 
 // Workload is one app instance: a resolved service graph bound to a cluster/env.
 type Workload struct {
-	cfg Config
-	b   core.Binding
+	cfg      Config
+	b        core.Binding
+	pipeline *pipelineRuntime
 
 	// resolved identity, frozen at Build from the binding.
 	cluster string
@@ -290,6 +294,14 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if cfg.Traffic.OffPeakRPS < 0 {
 		cfg.Traffic.OffPeakRPS = 0
 	}
+	if err := validatePipeline(cfg); err != nil {
+		return nil, err
+	}
+	if cfg.AgentPipeline != nil {
+		// Freeze caller-owned maps/slices before retaining them or invoking adapters.
+		copy := pipelineClone(*cfg)
+		cfg = &copy
+	}
 	if err := validateAutomation(cfg); err != nil {
 		return nil, err
 	}
@@ -305,6 +317,9 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 		otlpStates: make(map[string]*state.State),
 	}
 	w.resolveIdentity()
+	if err := w.buildPipeline(); err != nil {
+		return nil, err
+	}
 	// Wire each db/cache leaf that declared db_instance to its env's RDS/cache fixture (the resolver
 	// owns the per-env identity; the workload only reads it from the binding — no minting).
 	if err := g.resolveDBIdentities(w.env, b.Databases); err != nil {
@@ -312,6 +327,7 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	}
 	w.m = newMinter(w.b.Name, w.env, w.cluster, w.weight, w.nonProd, cfg.Traffic, cfg.Models, g)
 	w.m.automation = cfg.Automation
+	w.m.agentPipeline = cfg.AgentPipeline
 	// Wire BrowserOrigin minting: the minter sets r.BrowserOrigin only when RUM is active
 	// (entry has rum_faro + binding carries a Faro sink). Mirror webservice minter's cfg.RUM flag.
 	w.m.rumEnabled = w.rumEnabled()
@@ -381,6 +397,10 @@ func (w *Workload) Signals() []core.SignalClass {
 			sigs = append(sigs, core.PyroscopeProfiles)
 			break
 		}
+	}
+	if w.pipeline != nil {
+		sigs = append(sigs, core.Sigil)
+		hasNativeMetrics = true
 	}
 	if w.cfg.otelMetricsEnabled() && hasNativeMetrics {
 		sigs = append(sigs, core.OTLPMetrics)

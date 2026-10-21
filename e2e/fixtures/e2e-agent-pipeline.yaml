@@ -1,0 +1,79 @@
+# Test-only forced entry volume; never ship these rates in blueprints/.
+name: e2e-agent-pipeline
+shape: business_hours_plateau
+environments:
+  - name: prod
+    cloud: {provider: aws, account_id: "111122223333", region: eu-west-1, vpc_id: vpc-pipeline-test}
+    cluster:
+      type: eks
+      name: pipeline-test-cluster
+      node_groups: [{name: general, instance_type: m6i.large, desired: 2}]
+workloads:
+  - type: app
+    name: pipeline-test
+    runs_on: pipeline-test-cluster
+    traffic: {peak_rps: 1, off_peak_rps: 1, request_latency_p95_ms: 60000}
+    otel: {metrics: true}
+    services:
+      - name: coordinator
+        namespace: test
+        type: agent
+        runtime: go
+        entry: true
+        calls: [source, producer, checker, finisher]
+        agent_observability:
+          name: planner
+          sdk: sdk-go
+          provider: openai
+          models: [gpt-4.1-mini]
+          corpus: regulated_document_authoring
+          content_facets: [protocol]
+          tools: [{name: retrieve_source_note, kind: tool_result, facets: [redaction, source_note_injection]}]
+          hooks: {enabled: true, phases: [preflight], timeout_ms: 100}
+      - name: source
+        namespace: test
+        type: retrieval
+        runtime: python
+        agent_observability:
+          name: retriever
+          sdk: sdk-python
+          corpus: regulated_document_authoring
+          tools: [{name: retrieve_source_note, kind: tool_result, facets: [redaction, source_note_injection]}]
+      - name: producer
+        namespace: test
+        type: agent
+        runtime: python
+        controller: statefulset
+        agent_observability: &model
+          name: writer
+          sdk: sdk-python
+          provider: openai
+          models: [gpt-4.1-mini]
+          corpus: regulated_document_authoring
+          content_facets: [protocol]
+      - name: checker
+        namespace: test
+        type: agent
+        runtime: python
+        agent_observability: {<<: *model, name: reviewer}
+      - name: finisher
+        namespace: test
+        type: agent
+        runtime: python
+        agent_observability: {<<: *model, name: finalizer}
+    agent_pipeline:
+      name: test-flow
+      evaluation_mode: real
+      request_kinds: [{name: include-final, weight: 1}]
+      stages:
+        - {name: plan, service: coordinator, operation: generation}
+        - {name: fetch, service: source, operation: retrieval, caller_stage: plan}
+        - {name: draft, service: producer, operation: generation}
+        - {name: review, service: checker, operation: generation}
+        - {name: finish, service: finisher, operation: generation, request_kinds: [include-final]}
+      review: {stage: review, revise_stage: draft, max_revisions: 2}
+      outcomes:
+        - {name: ready, weight: 1, review_passed: true}
+        - {name: manual, weight: 0, revisions: 2, review_passed: false}
+      escalated_outcome: manual
+      ratings: {sample_rate: 1}
