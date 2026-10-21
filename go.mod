@@ -1,6 +1,6 @@
 module github.com/rknightion/synthkit
 
-go 1.27.0
+go 1.27.3
 
 // Dependencies are added by the build. Expected direct deps:
 //   google.golang.org/protobuf + github.com/golang/snappy — metrics remote_write v2 (vendored proto in internal/sink/promrw/writev2)
