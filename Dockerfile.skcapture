@@ -60,7 +60,8 @@ RUN case "$TARGETARCH" in amd64|arm64) ;; *) echo "unsupported architecture: $TA
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
 # Upgrade base packages so the pinned base cannot retain a fixed vulnerability.
-RUN apk upgrade --no-cache && apk add --no-cache ca-certificates
+# Explicit CA versions invalidate older cached upgrade layers and regenerate the active store.
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates=20261020-r0 ca-certificates-bundle=20261020-r0
 COPY --from=kubectl-builder /kubectl /usr/local/bin/kubectl
 
 # Copy the skcapture binary from the builder stage.
