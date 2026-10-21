@@ -356,11 +356,14 @@ var (
 )
 
 const (
-	custodyMaxBytes     = 768 << 10
-	custodySpecBytes    = 64 << 10
-	custodyMaxResources = 256
-	custodyMaxClaims    = 256
-	custodyMaxSteps     = 512
+	// Plan/Preview and every legacy state retain the original ceiling.
+	custodyMaxBytes        = 768 << 10
+	custodyStateV2Bytes    = 3264 << 10
+	custodyStateV2Revision = "agento11yprovision-state-3264k-v2"
+	custodySpecBytes       = 64 << 10
+	custodyMaxResources    = 256
+	custodyMaxClaims       = 256
+	custodyMaxSteps        = 512
 )
 
 type AuthoredSpec struct {

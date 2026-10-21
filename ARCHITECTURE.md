@@ -298,6 +298,18 @@ Ordinary CLI boot/live/persisted restore cannot inject the collaborator and rema
 public fixture/KSM/component encoder proofs are not whole-CLI readiness. The app's existing
 blueprint scope is unchanged, distinct from substrate-scoped `ai_agent`.
 
+### Agent Observability custody state capacity
+
+`internal/agento11yprovision` selects a 3,342,336-byte state-only ceiling for the exact
+`Binding.ContractRevision` value `agento11yprovision-state-3264k-v2`. Other valid revisions
+retain 786,432 bytes; invalid bindings refuse. Expected and embedded bindings both constrain
+state access. Plan/Preview remain bounded at 786,432 bytes and authored specs/approvals at
+65,536 bytes; counts, evidence, history and dispatch/result reservations are unchanged.
+There is no schema change, migration, relabeling, pruning or new user configuration. Older
+binaries may read small v2 states but fail closed on oversized states without resetting them:
+operators must pin compatible readers/writers and must not downgrade a v2 authority. This
+library capacity contract does not establish typed lifecycle, CLI or runtime admission.
+
 ## 3. The blueprint YAML
 
 ```yaml

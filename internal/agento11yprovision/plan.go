@@ -1151,7 +1151,25 @@ func documentFromWire(w documentWire) (Document, error) {
 	}
 	return d, nil
 }
+
+// Only this exact existing binding revision opts into the larger STATE bound.
+// Invalid bindings never acquire a byte allowance. This is not a migration:
+// older binaries may read small v2 states, so operators must pin a compatible
+// reader/writer and must not downgrade a v2 authority to an older writer.
+func custodyStateLimit(b Binding) int {
+	if !custodyBinding(b) {
+		return 0
+	}
+	if b.ContractRevision == custodyStateV2Revision {
+		return custodyStateV2Bytes
+	}
+	return custodyMaxBytes
+}
 func custodyDocumentBytes(d Document) ([]byte, error) {
+	limit := custodyStateLimit(d.Binding)
+	if limit == 0 {
+		return nil, ErrInvalid
+	}
 	w := documentToWire(d)
 	w.Checksum = ""
 	raw, e := json.Marshal(w)
@@ -1163,15 +1181,25 @@ func custodyDocumentBytes(d Document) ([]byte, error) {
 	if e != nil {
 		return nil, ErrCorrupt
 	}
-	if len(raw) > custodyMaxBytes {
+	if len(raw) > limit {
 		return nil, ErrCapacity
 	}
 	return raw, nil
 }
 func custodyDocumentDecode(raw []byte) (Document, error) {
 	var w documentWire
-	if e := custodyDecode(raw, &w, custodyMaxBytes); e != nil {
+	// The file reader has already bounded I/O by its EXPECTED binding. The
+	// codec also enforces the embedded binding's limit before returning data,
+	// including internal encode/decode copies with no file-reader boundary.
+	if e := custodyDecode(raw, &w, custodyStateV2Bytes); e != nil {
 		return Document{}, e
+	}
+	limit := custodyStateLimit(bindingFromWire(w.Binding))
+	if limit == 0 {
+		return Document{}, ErrCorrupt
+	}
+	if len(raw) > limit {
+		return Document{}, ErrCapacity
 	}
 	hash := w.Checksum
 	w.Checksum = ""

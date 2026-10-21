@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -1533,4 +1534,833 @@ func TestFoundationPoisonCannotJoinGrant(t *testing.T) {
 	if e = s.Close(); e != nil {
 		t.Fatal(e)
 	}
+}
+
+// D62 is a state-only resource contract, not vendor/HTTP acceptance. These
+// fixtures use only published B methods and real files, never C test helpers.
+const proofStateV2Revision = "agento11yprovision-state-3264k-v2"
+const proofStateV2Bytes = 3342336
+
+func proofStateStore(t *testing.T, dir string, binding Binding) *LockedState {
+	t.Helper()
+	s, e := AcquireState(context.Background(), Location{Directory: dir}, binding)
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Cleanup(func() {
+		if e := s.Close(); e != nil {
+			t.Error(e)
+		}
+	})
+	return s
+}
+func proofStateAuthorize(t *testing.T, s *LockedState, p Plan, mode Mode, base Base, id, construction string) (*Authorization, Preview) {
+	t.Helper()
+	pv, e := NewPreview(p, mode, base, proofDigest('1'))
+	if e != nil {
+		t.Fatal(e)
+	}
+	raw := proofApprovalJSON(t, pv, id, construction, time.Now().Add(-time.Second), time.Now().Add(10*time.Minute), nil)
+	var doc, view map[string]json.RawMessage
+	if json.Unmarshal(raw, &doc) != nil || json.Unmarshal(pv.JSON(), &view) != nil {
+		t.Fatal("approval fixture")
+	}
+	doc["binding"] = view["binding"]
+	raw, e = json.Marshal(doc)
+	if e != nil {
+		t.Fatal(e)
+	}
+	approval, e := DecodeApproval(raw)
+	if e != nil {
+		t.Fatal(e)
+	}
+	a, e := s.Authorize(context.Background(), approval, pv, proofDigest('1'))
+	if e != nil {
+		t.Fatal(e)
+	}
+	return a, pv
+}
+func proofStateEvidence() []Evidence {
+	es := make([]Evidence, 16)
+	for i := range es {
+		id := strings.Repeat("<", 252)
+		for bit := 0; bit < 4; bit++ {
+			if i&(1<<bit) == 0 {
+				id += "<"
+			} else {
+				id += ">"
+			}
+		}
+		es[i] = Evidence{id, proofDigest('e')}
+	}
+	return es
+}
+func proofStatePlan(t *testing.T, all bool) Plan {
+	t.Helper()
+	in := proofInput(t)
+	in.Binding.ContractRevision = proofStateV2Revision
+	o := in.Targets[0]
+	spec := func(raw string) AuthoredSpec {
+		s, e := NewAuthoredSpec([]byte(raw))
+		if e != nil {
+			t.Fatal(e)
+		}
+		return s
+	}
+	in.Resources = []PlannedResource{
+		{Key: "e", Origin: o, Coordinate: Coordinate{Kind: KindEvaluator, ID: "e-1", Version: "1"}, Spec: spec(`{"evaluator_id":"e-1","version":"1","kind":"regex","config":{"pattern":"fiction"},"output_keys":[{"key":"p","type":"bool"}]}`), Namespaces: []string{"planner"}},
+		{Key: "s", Origin: o, Coordinate: Coordinate{Kind: KindSuite, ID: "s-1"}, Spec: spec(`{"suite_id":"s-1","name":"fiction"}`), Namespaces: []string{"planner"}},
+		{Key: "d", Origin: o, Coordinate: Coordinate{Kind: KindDraft, ParentID: "s-1", Unassigned: true}, Spec: spec(`{}`), Dependencies: []string{"s"}, Namespaces: []string{"planner"}},
+		{Key: "k", Origin: o, Coordinate: Coordinate{Kind: KindCase, ID: "case-1", ParentID: "s-1"}, VersionFrom: "d", Spec: spec(`{"test_case_id":"case-1","input":{"text":"fiction"}}`), Dependencies: []string{"s", "d"}, Namespaces: []string{"planner"}},
+		{Key: "b", Origin: o, Coordinate: Coordinate{Kind: KindBindings, ParentID: "s-1"}, VersionFrom: "d", Spec: spec(`{"bindings":[{"binding_id":"b","evaluator_id":"e","evaluator_version":"1","input_mappings":{"response":"test_case.input.text"}}]}`), Dependencies: []string{"s", "d", "e"}, Namespaces: []string{"planner"}},
+		{Key: "p", Origin: o, Coordinate: Coordinate{Kind: KindPublication, ParentID: "s-1"}, VersionFrom: "d", Spec: spec(`{"cases":[{"test_case_id":"case-1","input":{"text":"fiction"}}],"bindings":[{"binding_id":"b","evaluator_id":"e","evaluator_version":"1","input_mappings":{"response":"test_case.input.text"}}]}`), Dependencies: []string{"s", "d", "e", "k", "b"}, Namespaces: []string{"planner"}},
+	}
+	if all {
+		in.Resources = append(in.Resources,
+			PlannedResource{Key: "c", Origin: o, Coordinate: Coordinate{Kind: KindCollection, Unassigned: true}, Spec: spec(`{"name":"fiction"}`), Namespaces: []string{"planner"}},
+			PlannedResource{Key: "r", Origin: o, Coordinate: Coordinate{Kind: KindRule, ID: "r-1"}, Spec: spec(`{"rule_id":"r-1","enabled":true,"selector":"user_visible_turn","match":{"agent_name":"Planner"},"evaluator_ids":["e"]}`), Dependencies: []string{"e"}, Namespaces: []string{"planner"}},
+			PlannedResource{Key: "h", Origin: o, Coordinate: Coordinate{Kind: KindHook, ID: "h-1"}, Spec: spec(`{"rule_id":"h-1","enabled":true,"phase":"preflight","match":{"agent_name":"Planner"},"evaluator_ids":["e"]}`), Dependencies: []string{"e"}, Namespaces: []string{"planner"}},
+			PlannedResource{Key: "a", Origin: o, Coordinate: Coordinate{Kind: KindAction, ParentID: "r-1", Unassigned: true}, Spec: spec(`{"condition":{"kind":"all_evaluators_pass"},"action_config":{"kind":"add_to_collection","collection_ids":["c"]},"enabled":true}`), Dependencies: []string{"r", "c"}, Namespaces: []string{"planner"}},
+		)
+	}
+	in.Steps = nil
+	for i, r := range in.Resources {
+		op := OpCreate
+		if r.Coordinate.Kind == KindBindings {
+			op = OpInitialBindings
+		}
+		if r.Coordinate.Kind == KindPublication {
+			op = OpPublish
+		}
+		in.Steps = append(in.Steps, PlannedStep{uint32(i + 1), r.Key, op})
+	}
+	return mustPlan(t, in)
+}
+
+func proofStateStep(t *testing.T, s *LockedState, snap Snapshot, a *Authorization, step uint32) Snapshot {
+	t.Helper()
+	ctx := context.Background()
+	c := snap.Document.Constructions[len(snap.Document.Constructions)-1]
+	ps := c.Plan.Steps[step-1]
+	pr := planResource(c.Plan, ps.ResourceKey)
+	deps := []Coordinate{}
+	for _, key := range pr.Dependencies {
+		deps = append(deps, findResource(snap.Document, key).Coordinate)
+	}
+	// Foundation accepts opaque bounded Desired. Faithful typed substitution is
+	// C's separate responsibility; this is the maximum B result-slot contract.
+	desired, e := NewAuthoredSpec([]byte(`{"x":"` + strings.Repeat("a", 65536-8) + `"}`))
+	if e != nil {
+		t.Fatal(e)
+	}
+	attempt := strings.Repeat("<", 248) + fmt.Sprintf("%08d", snap.Base.Head.Generation)
+	snap = proofCommit(t, s, snap, a, Change{Kind: ChangeIntent, ExpectedInventory: proofDigest('1'), ConstructionID: c.ID, AttemptID: attempt, Step: step, Intent: &IntentEvidence{desired, proofDigest('2'), deps}})
+	pending := snap.Document.Pending
+	if len(pending.Desired.JSON()) != 65536 {
+		t.Fatal("maximum Desired lost")
+	}
+	g, e := s.ClaimDispatch(ctx, *snap.Base.Head, a, attempt)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.ClaimDispatch(ctx, *snap.Base.Head, a, attempt); e == nil {
+		t.Fatal("grant reused")
+	}
+	if e = s.Close(); !errors.Is(e, ErrBusy) {
+		t.Fatal("outstanding sender not held", e)
+	}
+	joined := make(chan struct{})
+	go func() { defer close(joined); _ = g.Context().Err() }()
+	<-joined
+	coordinate := pending.Coordinate
+	if coordinate.Unassigned {
+		coordinate.Unassigned = false
+		coordinate.ID = strings.Repeat("<", 256)
+		if coordinate.Kind == KindDraft {
+			coordinate.Version = coordinate.ID
+		}
+	}
+	snap = proofCommit(t, s, snap, a, Change{Kind: ChangeResponse, ExpectedInventory: proofDigest('1'), ConstructionID: c.ID, AttemptID: attempt, Step: step, Response: &ResponseEvidence{Coordinate: coordinate, Evidence: proofStateEvidence()}})
+	if e = s.ReleaseDispatch(g); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.ClaimDispatch(ctx, *snap.Base.Head, a, attempt); e == nil {
+		t.Fatal("released grant replay")
+	}
+	obs := Observation{coordinate, PresencePresent, proofDigest('a'), proofDigest('2'), proofDigest('1'), strings.Repeat("<", 256), proofStateEvidence()}
+	if ps.Operation == OpDisable {
+		obs.ManagedHash = proofDigest('b')
+	}
+	if ps.Operation == OpDelete {
+		obs.Presence = PresenceAbsent
+		obs.ManagedHash = ""
+		obs.ServerRevision = ""
+	}
+	return proofCommit(t, s, snap, a, Change{Kind: ChangeObserve, ExpectedInventory: proofDigest('1'), ConstructionID: c.ID, AttemptID: attempt, Step: step, Observation: &obs})
+}
+func proofStateFinish(t *testing.T, s *LockedState, snap Snapshot, a *Authorization, p Plan, pv Preview, id string, outcomes map[string]MemberOutcome, result ReceiptResult) Snapshot {
+	t.Helper()
+	members := []ReceiptMember{}
+	for _, pr := range p.input.Resources {
+		r := findResource(snap.Document, pr.Key)
+		o := Observation{r.Coordinate, PresencePresent, r.ManagedHash, proofDigest('2'), proofDigest('1'), r.ServerRevision, proofStateEvidence()}
+		if outcomes[r.Key] == OutcomeRemoved {
+			o.Presence = PresenceAbsent
+			o.ManagedHash = ""
+			o.ServerRevision = ""
+		}
+		members = append(members, ReceiptMember{r.Key, r.Coordinate, outcomes[r.Key], &o, proofStateEvidence()})
+	}
+	c := snap.Document.Constructions[len(snap.Document.Constructions)-1]
+	receipt := Receipt{ID: id, ConstructionID: c.ID, Mode: p.input.Mode, Result: result, BindingDigest: custodyBindingHash(p.input.Binding), Input: p.Digest(), Preview: pv.Digest(), Inventory: proofDigest('1'), Namespaces: []string{"planner", "source"}, Members: members, OperatorApproval: a.approval.hash, ObservedMS: time.Now().UnixMilli()}
+	return proofCommit(t, s, snap, a, Change{Kind: ChangeFinish, ExpectedInventory: proofDigest('1'), ConstructionID: c.ID, Receipt: &receipt})
+}
+func TestFoundationStateV2Footprints(t *testing.T) {
+	for _, all := range []bool{false, true} {
+		t.Run(fmt.Sprintf("all-ten=%t", all), func(t *testing.T) {
+			p := proofStatePlan(t, all)
+			dir := proofDirectory(t)
+			s := proofStateStore(t, dir, p.input.Binding)
+			a, pv := proofStateAuthorize(t, s, p, ModeApply, Base{Pristine: true}, "v2-apply", "")
+			snap, e := s.Bootstrap(context.Background(), a)
+			if e != nil {
+				t.Fatalf("v2 public Bootstrap resources=%d: %v", len(p.input.Resources), e)
+			}
+			for i := range p.input.Steps {
+				snap = proofStateStep(t, s, snap, a, uint32(i+1))
+			}
+			outcomes := map[string]MemberOutcome{}
+			for _, r := range snap.Document.Resources {
+				outcomes[r.Key] = OutcomePresent
+			}
+			snap = proofStateFinish(t, s, snap, a, p, pv, "apply-receipt", outcomes, ReceiptApplyObserved)
+			raw, e := os.ReadFile(filepath.Join(dir, "state.json"))
+			if e != nil {
+				t.Fatal(e)
+			}
+			if len(raw) <= 786432 {
+				t.Fatal("v2 positive did not cross legacy boundary")
+			}
+			t.Logf("actual completed apply resources=%d bytes=%d", len(snap.Document.Resources), len(raw))
+			if all {
+				steps := []PlannedStep{{1, "r", OpDisable}, {2, "h", OpDisable}, {3, "a", OpDisable}, {4, "a", OpDelete}, {5, "h", OpDelete}, {6, "r", OpDelete}, {7, "c", OpDelete}, {8, "e", OpDelete}}
+				cp := proofCleanupPlan(t, snap, ModeTeardown, steps)
+				ca, cv := proofStateAuthorize(t, s, cp, ModeTeardown, snap.Base, "v2-cleanup-approval", "")
+				snap = proofCommit(t, s, snap, ca, Change{Kind: ChangeStart, ConstructionID: "v2-cleanup", ExpectedInventory: proofDigest('1')})
+				for i := uint32(1); i <= 6; i++ {
+					snap = proofStateStep(t, s, snap, ca, i)
+				}
+				for _, pr := range cp.input.Resources {
+					r := findResource(snap.Document, pr.Key)
+					if r.Status == ResourceRemoved {
+						outcomes[r.Key] = OutcomeRemoved
+						continue
+					}
+					reason := CleanupRetainedUnsupported
+					outcomes[r.Key] = OutcomeRetainedUnsupported
+					if r.Key == "e" || r.Key == "c" {
+						reason = CleanupRetainedDependency
+						outcomes[r.Key] = OutcomeRetainedDependency
+					}
+					o := Observation{r.Coordinate, PresencePresent, r.ManagedHash, proofDigest('2'), proofDigest('1'), r.ServerRevision, proofStateEvidence()}
+					cl := CleanupClassification{r.Key, r.Coordinate, *snap.Base.Head, reason, &o, proofDigest('1'), proofStateEvidence()}
+					var err error
+					snap, err = s.Commit(context.Background(), *snap.Base.Head, ca, Change{Kind: ChangeClassify, ConstructionID: "v2-cleanup", ExpectedInventory: proofDigest('1'), Classification: &cl})
+					if err != nil {
+						t.Fatalf("v2 classify %s with retained maximum history: %v", r.Key, err)
+					}
+				}
+				snap = proofStateFinish(t, s, snap, ca, cp, cv, "cleanup-receipt", outcomes, ReceiptIncomplete)
+				if len(snap.Document.Receipts) != 2 || snap.Document.Receipts[0].InvalidatedBy == "" || len(snap.Document.Reservations) != 2 || len(snap.Document.Resources) != 10 {
+					t.Fatal("history omitted or receipt revived")
+				}
+			}
+			if e = s.Close(); e != nil {
+				t.Fatal(e)
+			}
+			reopened := proofStateStore(t, dir, p.input.Binding)
+			loaded, e := reopened.Load(context.Background())
+			if e != nil {
+				t.Fatal(e)
+			}
+			if *loaded.Base.Head != *snap.Base.Head {
+				t.Fatal("v2 persisted head changed")
+			}
+			for _, r := range loaded.Document.Resources {
+				if len(r.Acquisition) != 16 || len(r.Observations) == 0 || len(r.ServerRevision) != 256 {
+					t.Fatal("maximum evidence/history lost")
+				}
+			}
+			if all {
+				raw, err := os.ReadFile(filepath.Join(dir, "state.json"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Logf("actual retained cleanup bytes=%d classifications=%d observations=%d", len(raw), len(loaded.Document.Constructions[1].Classifications), len(loaded.Document.Resources[0].Observations))
+			}
+		})
+	}
+}
+
+// Boundary fixtures retain the real public prefix, then append deliberately
+// constructed, fully validated historical observations. They test untrusted
+// on-disk input/admission, not a claim that a backend produced those observations.
+func proofStateHistory(t *testing.T, kind ResourceKind, classification string, revision ...string) (Document, Plan) {
+	t.Helper()
+	in := proofInput(t)
+	in.Binding.ContractRevision = proofStateV2Revision
+	if len(revision) > 0 {
+		in.Binding.ContractRevision = revision[0]
+	}
+	in.Resources = in.Resources[:1]
+	in.Resources[0].Key = "member"
+	in.Resources[0].Coordinate = Coordinate{Kind: kind, ID: "member"}
+	if kind == KindCollection {
+		in.Resources[0].Coordinate = Coordinate{Kind: kind, Unassigned: true}
+	}
+	in.Steps = []PlannedStep{{1, "member", OpCreate}}
+	p := mustPlan(t, in)
+	s := proofStateStore(t, proofDirectory(t), in.Binding)
+	a, pv := proofStateAuthorize(t, s, p, ModeApply, Base{Pristine: true}, "seed-apply", "")
+	snap, e := s.Bootstrap(context.Background(), a)
+	if e != nil {
+		t.Fatal(e)
+	}
+	snap = proofStateStep(t, s, snap, a, 1)
+	snap = proofStateFinish(t, s, snap, a, p, pv, "seed-receipt", map[string]MemberOutcome{"member": OutcomePresent}, ReceiptApplyObserved)
+	steps := []PlannedStep{}
+	if kind == KindCollection {
+		steps = append(steps, PlannedStep{1, "member", OpDelete})
+	}
+	cp := proofCleanupPlan(t, snap, ModeTeardown, steps)
+	ca, _ := proofStateAuthorize(t, s, cp, ModeTeardown, snap.Base, "seed-cleanup", "")
+	snap = proofCommit(t, s, snap, ca, Change{Kind: ChangeStart, ConstructionID: "cleanup", ExpectedInventory: proofDigest('1')})
+	settle := func(unresolved bool) {
+		r := snap.Document.Resources[0]
+		o := &Observation{r.Coordinate, PresencePresent, r.ManagedHash, proofDigest('2'), proofDigest('1'), r.ServerRevision, proofStateEvidence()}
+		reason := CleanupRetainedDependency
+		if unresolved {
+			reason = CleanupUnresolved
+			o = nil
+		}
+		cl := CleanupClassification{r.Key, r.Coordinate, *snap.Base.Head, reason, o, proofDigest('1'), proofStateEvidence()}
+		snap = proofCommit(t, s, snap, ca, Change{Kind: ChangeClassify, ConstructionID: "cleanup", ExpectedInventory: proofDigest('1'), Classification: &cl})
+	}
+	if classification != "none" {
+		settle(false)
+	}
+	if classification == "unresolved" || classification == "resettled" {
+		settle(true)
+	}
+	if classification == "resettled" {
+		settle(false)
+	}
+	if e = s.Close(); e != nil {
+		t.Fatal(e)
+	}
+	d := *snap.Document
+	d.Generation = 100 // comfortably after the retained prefix; fixed-width boundary fixture
+	return d, cp
+}
+func proofStateRaw(t *testing.T, d Document) []byte {
+	t.Helper()
+	w := documentToWire(d)
+	w.Checksum = ""
+	pre, e := json.Marshal(w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	w.Checksum = custodyHash("state", pre)
+	raw, e := json.Marshal(w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return raw
+}
+func proofStatePad(t *testing.T, d Document, size int) Document {
+	t.Helper()
+	copy, e := documentFromWire(documentToWire(d))
+	if e != nil {
+		t.Fatal(e)
+	}
+	d = copy
+	gap := size - len(proofStateRaw(t, d))
+	r := &d.Resources[0]
+	o := r.Observations[len(r.Observations)-1]
+	o.Evidence = make([]Evidence, 16)
+	for i := range o.Evidence {
+		o.Evidence[i] = Evidence{fmt.Sprintf("p%02d", i), proofDigest('e')}
+	}
+	b, _ := json.Marshal(observationToWire(o))
+	base := len(b) + 1
+	count := (gap + base + 16000 - 1) / (base + 16000)
+	if count <= 0 || gap < count*base {
+		t.Fatal("padding target cannot hold legal historical records", gap)
+	}
+	payload := gap - count*base
+	for range count {
+		next := o
+		next.Evidence = append([]Evidence{}, o.Evidence...)
+		for i := range next.Evidence {
+			n := min(payload, 1000)
+			payload -= n
+			// Each suffix has <=171 UTF-8 bytes, with exactly n encoded bytes.
+			next.Evidence[i].ID += strings.Repeat("<", n/6) + strings.Repeat("a", n%6)
+		}
+		r.Observations = append(r.Observations, next)
+	}
+	if payload != 0 || len(proofStateRaw(t, d)) != size {
+		t.Fatal("boundary padding not exact")
+	}
+	if err := validateCustodyDocument(d); err != nil {
+		t.Fatal("invalid history fixture", err)
+	}
+	return d
+}
+func proofStateInstall(t *testing.T, dir string, d Document) {
+	t.Helper()
+	// A bound marker is installed through the public Bootstrap first. Only the
+	// checksummed state fixture is substituted, like the existing corruption tests.
+	in := d.Constructions[0].Plan
+	in.Resources = in.Resources[:1]
+	in.Steps = []PlannedStep{{1, in.Resources[0].Key, OpCreate}}
+	p := mustPlan(t, in)
+	s := proofStateStore(t, dir, d.Binding)
+	a, _ := proofStateAuthorize(t, s, p, ModeApply, Base{Pristine: true}, "marker-seed", "")
+	if _, e := s.Bootstrap(context.Background(), a); e != nil {
+		t.Fatal(e)
+	}
+	if e := s.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.WriteFile(filepath.Join(dir, "state.json"), proofStateRaw(t, d), 0600); e != nil {
+		t.Fatal(e)
+	}
+}
+
+// Independent frozen-wire maximum for the one-member, no-pending fixtures:
+// one next recovery Start, any still-required local classification, then receipt.
+// This does not invoke custodyBudget or alter its cap to find a green boundary.
+func proofStateRemainingBytes(t *testing.T, d Document, futureClass bool) int {
+	t.Helper()
+	w := documentToWire(d)
+	c := &w.Constructions[len(w.Constructions)-1]
+	h := proofDigest('f')
+	text := strings.Repeat("<", 256)
+	w.Consumed = append(w.Consumed, consumedWire{"boundary", h, c.ID, baseWire{Head: &headWire{d.Generation, h}}})
+	w.Generation = math.MaxUint64
+	r := &w.Resources[0]
+	o := observationWire{r.Coordinate, PresencePresent, h, h, h, text, evidenceToWire(proofStateEvidence())}
+	if futureClass {
+		c.Classifications = append(c.Classifications, classificationWire{r.Key, r.Coordinate, headWire{math.MaxUint64, h}, CleanupRetainedUnsupported, &o, h, evidenceToWire(proofStateEvidence())})
+		r.Observations = append(r.Observations, o)
+	}
+	member := memberWire{r.Key, r.Coordinate, OutcomeRetainedUnsupported, &o, evidenceToWire(proofStateEvidence())}
+	w.Receipts = append(w.Receipts, receiptWire{text, c.ID, c.Mode, ReceiptApplyObserved, h, c.Input, h, h, c.Namespaces, []memberWire{member}, h, math.MaxInt64, text})
+	raw, e := json.Marshal(w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return len(raw)
+}
+func TestFoundationStateV2ForecastBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		kind           ResourceKind
+		classification string
+		future         bool
+		delta          int
+	}{
+		{"settled-below", KindSuite, "settled", false, -1},
+		{"settled-at", KindSuite, "settled", false, 0},
+		{"settled-above", KindSuite, "settled", false, 1},
+		{"unresolved-at", KindSuite, "unresolved", true, 0},
+		{"unresolved-above", KindSuite, "unresolved", true, 1},
+		{"unresolved-unpersistable", KindSuite, "unresolved", true, 4096},
+		{"never-classified-above", KindSuite, "none", true, 1},
+		{"latest-resettled", KindSuite, "resettled", false, 0},
+		{"classified-delete", KindCollection, "settled", false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d, p := proofStateHistory(t, tc.kind, tc.classification)
+			want := len(proofStateRaw(t, d)) + proofStateV2Bytes + tc.delta - proofStateRemainingBytes(t, d, tc.future)
+			d = proofStatePad(t, d, want)
+			if proofStateRemainingBytes(t, d, tc.future) != proofStateV2Bytes+tc.delta {
+				t.Fatal("incorrect independently sized forecast")
+			}
+			dir := proofDirectory(t)
+			proofStateInstall(t, dir, d)
+			s := proofStateStore(t, dir, d.Binding)
+			before, e := s.Load(context.Background())
+			if e != nil {
+				t.Fatal(e)
+			}
+			priorBytes := proofStateRaw(t, *before.Document)
+			a, pv := proofStateAuthorize(t, s, p, ModeRecover, before.Base, "boundary", "cleanup")
+			snap, e := s.Commit(context.Background(), *before.Base.Head, a, Change{Kind: ChangeStart, ConstructionID: "cleanup", ExpectedInventory: proofDigest('1')})
+			if tc.delta > 0 {
+				if e == nil && tc.delta == 4096 {
+					// Unsafe blanket-skipping mutant: Start may fit, but its bounded
+					// still-required local result cannot finish. Show the real refusal.
+					r := snap.Document.Resources[0]
+					o := Observation{r.Coordinate, PresencePresent, r.ManagedHash, proofDigest('2'), proofDigest('1'), r.ServerRevision, proofStateEvidence()}
+					cl := CleanupClassification{r.Key, r.Coordinate, *snap.Base.Head, CleanupRetainedDependency, &o, proofDigest('1'), proofStateEvidence()}
+					_, resultErr := s.Commit(context.Background(), *snap.Base.Head, a, Change{Kind: ChangeClassify, ConstructionID: "cleanup", ExpectedInventory: proofDigest('1'), Classification: &cl})
+					t.Fatalf("over-bound continuation admitted; bounded local result: %v", resultErr)
+				}
+				if !errors.Is(e, ErrCapacity) {
+					t.Fatalf("over-bound remaining completion admitted: %v", e)
+				}
+				after, err := s.Load(context.Background())
+				if err != nil || *after.Base.Head != *before.Base.Head || len(after.Document.Consumed) != len(before.Document.Consumed) {
+					t.Fatal("refusal consumed authority/history", err)
+				}
+				raw, _ := os.ReadFile(filepath.Join(dir, "state.json"))
+				if !bytes.Equal(raw, priorBytes) {
+					t.Fatal("refusal wrote state")
+				}
+				return
+			}
+			if e != nil {
+				t.Fatal("within-bound continuation refused", e)
+			}
+			if tc.name == "settled-at" {
+				r := snap.Document.Resources[0]
+				o := Observation{r.Coordinate, PresencePresent, r.ManagedHash, proofDigest('2'), proofDigest('1'), r.ServerRevision, proofStateEvidence()}
+				cl := CleanupClassification{r.Key, r.Coordinate, *snap.Base.Head, CleanupRetainedDependency, &o, proofDigest('1'), proofStateEvidence()}
+				if _, err := s.Commit(context.Background(), *snap.Base.Head, a, Change{Kind: ChangeClassify, ConstructionID: "cleanup", ExpectedInventory: proofDigest('1'), Classification: &cl}); !errors.Is(err, ErrCapacity) {
+					t.Fatal("repeat classification bypassed new admission", err)
+				}
+				after, err := s.Load(context.Background())
+				if err != nil || *after.Base.Head != *snap.Base.Head || len(after.Document.Constructions[1].Classifications) != len(snap.Document.Constructions[1].Classifications) {
+					t.Fatal("repeat refusal changed history", err)
+				}
+			}
+			if tc.future {
+				r := snap.Document.Resources[0]
+				o := Observation{r.Coordinate, PresencePresent, r.ManagedHash, proofDigest('2'), proofDigest('1'), r.ServerRevision, proofStateEvidence()}
+				cl := CleanupClassification{r.Key, r.Coordinate, *snap.Base.Head, CleanupRetainedDependency, &o, proofDigest('1'), proofStateEvidence()}
+				snap = proofCommit(t, s, snap, a, Change{Kind: ChangeClassify, ConstructionID: "cleanup", ExpectedInventory: proofDigest('1'), Classification: &cl})
+			}
+			snap = proofStateFinish(t, s, snap, a, p, pv, strings.Repeat("<", 256), map[string]MemberOutcome{"member": OutcomeRetainedDependency}, ReceiptIncomplete)
+			if len(snap.Document.Receipts) != 2 || len(snap.Document.Resources[0].Observations) < len(d.Resources[0].Observations) {
+				t.Fatal("completion pruned retained history")
+			}
+			raw, _ := os.ReadFile(filepath.Join(dir, "state.json"))
+			t.Logf("actual admitted forecast=%d final=%d observations=%d", proofStateV2Bytes+tc.delta, len(raw), len(snap.Document.Resources[0].Observations))
+		})
+	}
+}
+
+func TestFoundationStateV2ReadBoundariesAndBindings(t *testing.T) {
+	var smallV2, smallOld []byte
+	var v2 Binding
+	for _, revision := range []string{proofStateV2Revision, "contract-1", proofStateV2Revision + "-unknown"} {
+		t.Run(revision, func(t *testing.T) {
+			d, _ := proofStateHistory(t, KindSuite, "settled", revision)
+			limit := 786432
+			if revision == proofStateV2Revision {
+				limit = proofStateV2Bytes
+				v2 = d.Binding
+				smallV2 = proofStateRaw(t, d)
+			}
+			if revision == "contract-1" {
+				smallOld = proofStateRaw(t, d)
+			}
+			for _, delta := range []int{-1, 0, 1} {
+				t.Run(fmt.Sprint(delta), func(t *testing.T) {
+					padded := proofStatePad(t, d, limit+delta)
+					raw := proofStateRaw(t, padded)
+					encoded, encErr := custodyDocumentBytes(padded)
+					_, decErr := custodyDocumentDecode(raw)
+					if delta > 0 {
+						if !errors.Is(encErr, ErrCapacity) || !errors.Is(decErr, ErrCapacity) {
+							t.Fatalf("embedded revision cap not enforced encode=%v decode=%v", encErr, decErr)
+						}
+					} else if encErr != nil || decErr != nil || !bytes.Equal(encoded, raw) {
+						t.Fatalf("within-state boundary codec failed encode=%v decode=%v", encErr, decErr)
+					}
+					dir := proofDirectory(t)
+					proofStateInstall(t, dir, padded)
+					s := proofStateStore(t, dir, d.Binding)
+					got, e := s.Load(context.Background())
+					if delta > 0 {
+						if !errors.Is(e, ErrCapacity) || got.Base.Pristine || got.Document != nil {
+							t.Fatalf("oversize read usable/pristine: %v", e)
+						}
+					} else if e != nil || got.Base.Pristine || got.Document.Binding != d.Binding {
+						t.Fatal("bounded state did not load", e)
+					}
+					after, e := os.ReadFile(filepath.Join(dir, "state.json"))
+					if e != nil || !bytes.Equal(raw, after) {
+						t.Fatal("read rejection rewrote history", e)
+					}
+				})
+			}
+		})
+	}
+	for _, revision := range []string{"", proofStateV2Revision + " "} {
+		binding := v2
+		binding.ContractRevision = revision
+		if s, e := AcquireState(context.Background(), Location{Directory: proofDirectory(t)}, binding); e == nil {
+			s.Close()
+			t.Fatal("invalid binding acquired state")
+		}
+	}
+	// Expected binding bounds OS reads even when the embedded revision is v2;
+	// matching enrollment never substitutes for the embedded document binding.
+	d, _ := proofStateHistory(t, KindSuite, "settled")
+	dir := proofDirectory(t)
+	proofStateInstall(t, dir, d)
+	for _, tc := range []struct {
+		name    string
+		binding Binding
+		raw     []byte
+		want    error
+	}{
+		{"small-expected-mismatch", proofBinding(), smallV2, ErrBinding},
+		{"large-expected-legacy", proofBinding(), proofStateRaw(t, proofStatePad(t, d, 786433)), ErrCapacity},
+		{"embedded-mismatch", v2, smallOld, ErrBinding},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if e := os.WriteFile(filepath.Join(dir, "state.json"), tc.raw, 0600); e != nil {
+				t.Fatal(e)
+			}
+			s := proofStateStore(t, dir, tc.binding)
+			got, e := s.Load(context.Background())
+			if !errors.Is(e, tc.want) || got.Base.Pristine || got.Document != nil {
+				t.Fatal("binding mismatch became authority", e)
+			}
+			after, _ := os.ReadFile(filepath.Join(dir, "state.json"))
+			if !bytes.Equal(after, tc.raw) {
+				t.Fatal("mismatch relabelled history")
+			}
+			if e = s.Close(); e != nil {
+				t.Fatal(e)
+			}
+		})
+	}
+}
+func TestFoundationStateV2DoesNotEnlargeOtherInputs(t *testing.T) {
+	spec, e := NewAuthoredSpec([]byte(`{"x":"` + strings.Repeat("a", 65536-8) + `"}`))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = NewAuthoredSpec([]byte(`{"x":"` + strings.Repeat("a", 65536-7) + `"}`)); !errors.Is(e, ErrCapacity) {
+		t.Fatal("authored ceiling changed", e)
+	}
+	for _, revision := range []string{"contract-1", proofStateV2Revision} {
+		in := proofInput(t)
+		in.Binding.ContractRevision = revision
+		in.Resources = nil
+		in.Steps = nil
+		for i := range 13 {
+			key := fmt.Sprintf("r-%d", i)
+			in.Resources = append(in.Resources, PlannedResource{Key: key, Origin: in.Targets[0], Coordinate: Coordinate{Kind: KindRule, ID: key}, Spec: spec, Namespaces: []string{"planner"}})
+			in.Steps = append(in.Steps, PlannedStep{uint32(i + 1), key, OpCreate})
+		}
+		if _, e = NewPlan(in); !errors.Is(e, ErrCapacity) {
+			t.Fatal("state revision enlarged plan ceiling", revision, e)
+		}
+	}
+	p := proofStatePlan(t, false)
+	pv, e := NewPreview(p, ModeApply, Base{Pristine: true}, proofDigest('1'))
+	if e != nil {
+		t.Fatal(e)
+	}
+	raw := proofApprovalJSON(t, pv, "bounded-approval", "", time.Now().Add(-time.Second), time.Now().Add(time.Minute), nil)
+	if _, e = DecodeApproval(append(raw, bytes.Repeat([]byte(" "), 65536-len(raw))...)); e != nil {
+		t.Fatal("at-bound approval refused", e)
+	}
+	if _, e = DecodeApproval(append(raw, bytes.Repeat([]byte(" "), 65537-len(raw))...)); !errors.Is(e, ErrApproval) {
+		t.Fatal("state revision enlarged approval ceiling", e)
+	}
+}
+
+func proofStateMaxInput(t *testing.T, maximumMode ...Mode) PlanInput {
+	t.Helper()
+	in := proofInput(t)
+	in.Binding.ContractRevision = proofStateV2Revision
+	in.Resources = nil
+	in.Steps = nil
+	template := in.Declarations[0]
+	in.Declarations = nil
+	in.Targets = nil
+	spec, e := NewAuthoredSpec([]byte(`{"x":"` + strings.Repeat("a", 512-8) + `"}`))
+	if e != nil {
+		t.Fatal(e)
+	}
+	for i := range 256 {
+		key := fmt.Sprintf("rule-%03d", i)
+		declaration := template
+		declaration.Origin = Origin{"blueprint", key, uint32(i)}
+		declaration.Declaration.Name = fmt.Sprintf("Agent%03d", i)
+		declaration.Declaration.Service.Name = fmt.Sprintf("agent%03d", i)
+		in.Declarations = append(in.Declarations, declaration)
+		in.Targets = append(in.Targets, declaration.Origin)
+		in.Resources = append(in.Resources, PlannedResource{Key: key, Origin: declaration.Origin, Coordinate: Coordinate{Kind: KindRule, ID: key}, Spec: spec, Namespaces: []string{fmt.Sprintf("agent%03d", i)}})
+		in.Steps = append(in.Steps, PlannedStep{uint32(i + 1), key, OpCreate})
+	}
+	measure := in
+	if len(maximumMode) == 0 || maximumMode[0] == ModeTeardown {
+		measure.Mode = ModeTeardown
+		measure.Steps = nil
+		for _, op := range []Operation{OpDisable, OpDelete} {
+			for _, r := range in.Resources {
+				measure.Steps = append(measure.Steps, PlannedStep{uint32(len(measure.Steps) + 1), r.Key, op})
+			}
+		}
+	}
+	raw, e := json.Marshal(planToWire(measure))
+	if e != nil {
+		t.Fatal(e)
+	}
+	extra := 786432 - len(raw)
+	if extra < 0 {
+		t.Fatal("max-input scaffold already exceeds plan cap")
+	}
+	for i := range in.Resources {
+		size := 512 + extra/256
+		if i < extra%256 {
+			size++
+		}
+		in.Resources[i].Spec, e = NewAuthoredSpec([]byte(`{"x":"` + strings.Repeat("a", size-8) + `"}`))
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	return in
+}
+
+// An independently checksummed load fixture saturates resource/cleanup-step
+// counts without pretending this historical apply was admitted by one grant.
+func proofStateMaxHistory(t *testing.T) (Document, Plan) {
+	t.Helper()
+	p := mustPlan(t, proofStateMaxInput(t))
+	d := emptyCustody(p.input.Binding)
+	d.Generation = 1000
+	d.Checksum = proofDigest('f')
+	h := proofDigest('a')
+	es := []Evidence{{"read", proofDigest('e')}}
+	c := Construction{ID: "history", Input: p.Digest(), Preview: h, Approval: h, Mode: ModeApply, Base: Base{Pristine: true}, Namespaces: p.names, Plan: p.input, Steps: []StepRecord{}, Classifications: []CleanupClassification{}, Complete: true}
+	members := []ReceiptMember{}
+	for i, pr := range p.input.Resources {
+		attempt := fmt.Sprintf("history-%03d", i)
+		o := Observation{pr.Coordinate, PresencePresent, h, h, proofDigest('1'), "", es}
+		d.Resources = append(d.Resources, ResourceRecord{pr.Key, pr.Origin, pr.Coordinate, attempt, pr.Spec, pr.Dependencies, pr.Namespaces, h, "", es, []Observation{o}, ResourceOwned})
+		c.Steps = append(c.Steps, StepRecord{uint32(i + 1), attempt, StepVerified, pr.Coordinate, es})
+		members = append(members, ReceiptMember{pr.Key, pr.Coordinate, OutcomePresent, &o, es})
+	}
+	for _, cl := range p.claims {
+		cl.FirstConstruction = c.ID
+		cl.Approval = h
+		d.Reservations = append(d.Reservations, cl)
+	}
+	d.Constructions = append(d.Constructions, c)
+	d.Consumed = append(d.Consumed, ConsumedApproval{"history", h, c.ID, Base{Pristine: true}})
+	d.Receipts = append(d.Receipts, Receipt{"history-receipt", c.ID, ModeApply, ReceiptApplyObserved, custodyBindingHash(d.Binding), p.Digest(), h, proofDigest('1'), p.names, members, h, 1, ""})
+	if e := validateCustodyDocument(d); e != nil {
+		t.Fatal("maximum-history fixture invalid", e)
+	}
+	steps := []PlannedStep{}
+	for _, op := range []Operation{OpDisable, OpDelete} {
+		for _, pr := range p.input.Resources {
+			steps = append(steps, PlannedStep{uint32(len(steps) + 1), pr.Key, op})
+		}
+	}
+	return d, proofCleanupPlan(t, snapshotOf(d), ModeTeardown, steps)
+}
+
+// Invoked explicitly in a fresh plain test binary with external <=5s and Go
+// <=4s bounds. Ordinary suites do not treat this helper's idle return as a
+// resource measurement. GOMEMLIMIT is a soft GC target, not a hard RSS ceiling.
+func TestFoundationStateV2ResourceProbe(t *testing.T) {
+	mode := os.Getenv("SYNTHKIT_STATEV2_RESOURCE_PROBE")
+	if mode == "" {
+		return
+	}
+	var run func()
+	switch mode {
+	case "near-full":
+		d, p := proofStateHistory(t, KindSuite, "settled")
+		d = proofStatePad(t, d, len(proofStateRaw(t, d))+proofStateV2Bytes-proofStateRemainingBytes(t, d, false))
+		dir := proofDirectory(t)
+		proofStateInstall(t, dir, d)
+		s := proofStateStore(t, dir, d.Binding)
+		run = func() {
+			before, e := s.Load(context.Background())
+			if e != nil {
+				t.Fatal(e)
+			}
+			a, pv := proofStateAuthorize(t, s, p, ModeRecover, before.Base, "boundary", "cleanup")
+			snap := proofCommit(t, s, before, a, Change{Kind: ChangeStart, ConstructionID: "cleanup", ExpectedInventory: proofDigest('1')})
+			snap = proofStateFinish(t, s, snap, a, p, pv, strings.Repeat("<", 256), map[string]MemberOutcome{"member": OutcomeRetainedDependency}, ReceiptIncomplete)
+			raw, _ := os.ReadFile(filepath.Join(dir, "state.json"))
+			if len(raw) < proofStateV2Bytes-2048 || snap.Document.Pending != nil {
+				t.Fatal("not an admitted near-full completion")
+			}
+			t.Logf("near-full stored_bytes=%d observations=%d", len(raw), len(snap.Document.Resources[0].Observations))
+		}
+	case "max-apply-rejected":
+		in := proofStateMaxInput(t, ModeApply)
+		s := proofStateStore(t, proofDirectory(t), in.Binding)
+		run = func() {
+			p := mustPlan(t, in)
+			a, _ := proofStateAuthorize(t, s, p, ModeApply, Base{Pristine: true}, "max-input", "")
+			if _, e := s.Bootstrap(context.Background(), a); !errors.Is(e, ErrCapacity) {
+				t.Fatal("max apply did not reject projected result capacity", e)
+			}
+			after, e := s.Load(context.Background())
+			if e != nil || !after.Base.Pristine {
+				t.Fatal("rejected max apply enrolled", e)
+			}
+			raw, _ := json.Marshal(planToWire(p.input))
+			t.Logf("max-apply resources=%d steps=%d claims=%d plan_bytes=%d", len(in.Resources), len(in.Steps), len(p.claims), len(raw))
+		}
+	case "max-cleanup-rejected":
+		d, p := proofStateMaxHistory(t)
+		dir := proofDirectory(t)
+		proofStateInstall(t, dir, d)
+		s := proofStateStore(t, dir, d.Binding)
+		run = func() {
+			before, e := s.Load(context.Background())
+			if e != nil {
+				t.Fatal(e)
+			}
+			a, _ := proofStateAuthorize(t, s, p, ModeTeardown, before.Base, "max-cleanup-approval", "")
+			if _, e = s.Commit(context.Background(), *before.Base.Head, a, Change{Kind: ChangeStart, ConstructionID: "max-cleanup", ExpectedInventory: proofDigest('1')}); !errors.Is(e, ErrCapacity) {
+				t.Fatal("max cleanup did not reject", e)
+			}
+			after, e := s.Load(context.Background())
+			if e != nil || *after.Base.Head != *before.Base.Head || len(after.Document.Consumed) != len(before.Document.Consumed) {
+				t.Fatal("rejected max cleanup consumed authority", e)
+			}
+			raw, _ := json.Marshal(planToWire(p.input))
+			t.Logf("max-cleanup resources=%d steps=%d claims=%d plan_bytes=%d old_state_bytes=%d", len(p.input.Resources), len(p.input.Steps), len(p.claims), len(raw), len(proofStateRaw(t, *before.Document)))
+		}
+	default:
+		t.Fatal("unknown resource probe")
+	}
+	runtime.GC()
+	var before, after runtime.MemStats
+	var u0, u1 unix.Rusage
+	runtime.ReadMemStats(&before)
+	if e := unix.Getrusage(unix.RUSAGE_SELF, &u0); e != nil {
+		t.Fatal(e)
+	}
+	start := time.Now()
+	run()
+	elapsed := time.Since(start)
+	runtime.ReadMemStats(&after)
+	if e := unix.Getrusage(unix.RUSAGE_SELF, &u1); e != nil {
+		t.Fatal(e)
+	}
+	cpu := func(u unix.Rusage) int64 {
+		return int64(u.Utime.Sec+u.Stime.Sec)*1000000 + int64(u.Utime.Usec+u.Stime.Usec)
+	}
+	rss := int64(u1.Maxrss)
+	if runtime.GOOS == "linux" {
+		rss *= 1024
+	}
+	t.Logf("RESOURCE mode=%s wall_us=%d cpu_us=%d alloc_bytes=%d heap_inuse_bytes=%d process_highwater_rss_bytes=%d", mode, elapsed.Microseconds(), cpu(u1)-cpu(u0), after.TotalAlloc-before.TotalAlloc, after.HeapInuse, rss)
 }

@@ -287,7 +287,7 @@ func (s *LockedState) load() (Snapshot, error) {
 		return Snapshot{}, e
 	}
 	eraw, ee := s.read("enrollment.json", custodySpecBytes)
-	raw, e := s.read("state.json", custodyMaxBytes)
+	raw, e := s.read("state.json", custodyStateLimit(s.binding))
 	emissing := errors.Is(ee, os.ErrNotExist)
 	missing := errors.Is(e, os.ErrNotExist)
 	if ee != nil && !emissing {
@@ -354,6 +354,13 @@ func (s *LockedState) syncFD(fd int, stage string) error {
 	return unix.Fsync(fd)
 }
 func (s *LockedState) publish(ctx context.Context, name string, raw []byte) error {
+	limit := custodySpecBytes // enrollment never inherits the state ceiling
+	if name == "state.json" {
+		limit = custodyStateLimit(s.binding)
+	}
+	if len(raw) > limit {
+		return ErrCapacity
+	}
 	if e := ctx.Err(); e != nil {
 		return e
 	}
@@ -415,7 +422,7 @@ func (s *LockedState) publish(ctx context.Context, name string, raw []byte) erro
 	if s.after(name+"-dir-sync") != nil {
 		return unknown()
 	}
-	check, e := s.read(name, custodyMaxBytes)
+	check, e := s.read(name, limit)
 	if e != nil || !bytes.Equal(raw, check) || s.identity() != nil || ctx.Err() != nil || s.ctx.Err() != nil {
 		return unknown()
 	}
@@ -748,6 +755,10 @@ func startCustody(d *Document, a *Authorization, id string) error {
 // the serializer itself for strings, repeated coordinates, lists and objects.
 // Materialized stages replace their reservation rather than adding it again.
 func custodyBudget(d Document, construction string) error {
+	limit := custodyStateLimit(d.Binding)
+	if limit == 0 {
+		return ErrInvalid
+	}
 	if len(d.Resources) > custodyMaxResources || len(d.Reservations) > custodyMaxClaims {
 		return ErrCapacity
 	}
@@ -802,7 +813,7 @@ func custodyBudget(d Document, construction string) error {
 		if err != nil {
 			return ErrCorrupt
 		}
-		if len(raw)-alternativeCredit > custodyMaxBytes {
+		if len(raw)-alternativeCredit > limit {
 			return ErrCapacity
 		}
 		return nil
@@ -832,6 +843,10 @@ func custodyBudget(d Document, construction string) error {
 	// slots with the mutation path. Repeated local passes require new admission.
 	classAlternatives := map[string]int{}
 	if c.Mode != ModeApply {
+		latestClass := map[string]CleanupReason{}
+		for _, cl := range original.Classifications {
+			latestClass[cl.ResourceKey] = cl.Reason
+		}
 		for _, pr := range c.Plan.Resources {
 			eligible, remaining := true, 0
 			for i, step := range c.Steps {
@@ -846,6 +861,14 @@ func custodyBudget(d Document, construction string) error {
 				}
 			}
 			if !eligible {
+				continue
+			}
+			// Only the latest settled classification consumes this future slot.
+			// All steps for it must already be classified (or it has no steps).
+			// Unresolved still needs settlement; planned mutations still need
+			// their alternative. A repeat local classification is admitted anew
+			// by Commit before publication, not promised by an earlier grant.
+			if reason := latestClass[pr.Key]; remaining == 0 && reason != "" && reason != CleanupUnresolved {
 				continue
 			}
 			r := resources[pr.Key]

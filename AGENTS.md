@@ -72,6 +72,11 @@ set, including inactive legacy agents and their effective native child names, wi
 coverage. It shares Build's structural Binding, not runtime collaborators; claims establish neither
 runtime custody nor admission.
 
+Agent Observability custody state uses an exact binding-revision gate for its larger state-only
+ceiling; input limits stay unchanged. Preserve legacy fail-closed evidence, compatible-binary
+pinning and no-migration/no-downgrade semantics. See ARCHITECTURE's custody state capacity contract;
+this foundation does not establish typed lifecycle or runtime admission.
+
 ## Syslog mechanic
 
 `internal/syslog` renders decoded synthetic RFC5424/RFC3164 facts; it is not a raw parser or network
