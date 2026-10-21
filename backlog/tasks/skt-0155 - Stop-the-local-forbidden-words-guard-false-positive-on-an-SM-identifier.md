@@ -1,9 +1,11 @@
 ---
 id: SKT-0155
 title: Stop the local forbidden-words guard false-positive on an SM identifier
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop51'
 created_date: '2026-10-20T22:20:00Z'
+updated_date: '2026-10-21T00:34:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -28,3 +30,9 @@ scripts/forbidden-words.sh with the local list fails on cmd/synthkit/sm_handoff.
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Reproduce full local guard false positive, rename identifier only, prove guard and focused SM checks.
+<!-- SECTION:PLAN:END -->

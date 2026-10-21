@@ -3,9 +3,11 @@ id: SKT-0154
 title: >-
   Add a generic app custom-metrics mechanism for blueprint-declared business
   metrics
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop51'
 created_date: '2026-10-20T22:20:00Z'
+updated_date: '2026-10-21T00:34:00Z'
 labels: []
 dependencies: []
 priority: low
@@ -31,3 +33,9 @@ Blueprints cannot declare app-defined business metrics (counters, histograms) wi
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Extend existing app metric DSL minimally with source admission and public-boundary counter/histogram proofs.
+<!-- SECTION:PLAN:END -->
