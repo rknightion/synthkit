@@ -75,7 +75,11 @@ runtime custody nor admission.
 Agent Observability custody state uses an exact binding-revision gate for its larger state-only
 ceiling; input limits stay unchanged. Preserve legacy fail-closed evidence, compatible-binary
 pinning and no-migration/no-downgrade semantics. See ARCHITECTURE's custody state capacity contract;
-this foundation does not establish typed lifecycle or runtime admission.
+this foundation does not establish typed lifecycle or runtime admission. The private typed engine
+additionally requires the exact source revision documented in ARCHITECTURE. Inventory-backed current
+absence never establishes noncommit or recovery attribution; recovery never replays an attempted
+mutation, and cleanup retains unsupported/unknown-use dependencies honestly. The engine adds no
+CLI, blueprint wiring or runtime admission.
 
 ## Syslog mechanic
 
