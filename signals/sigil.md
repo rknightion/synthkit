@@ -48,6 +48,10 @@ Ordinary CLI boot/live/persisted restore cannot install its required `Generation
 collaborator and fail closed, including hooks disabled/ratings zero. A nonnil collaborator
 is a construction dependency only, never destination/current/historical custody admission.
 No production hook/rating adapter or backend readback is established by component tests.
+Every pipeline graph service must be bound and used by the stage plan. Inline logs,
+log-producing catalog profiles, pages and rum_faro declarations are unsupported and reject
+at Build; this component does not project ordinary graph log/RUM or unbound-node outputs.
+The existing ordinary app behavior is unchanged.
 
 The component emits completed model generations and application workflow steps through
 native HTTP; retrieval-only services emit workflow/tool telemetry, **no** model generation

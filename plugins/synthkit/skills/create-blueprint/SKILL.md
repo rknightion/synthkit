@@ -120,6 +120,9 @@ user/assistant candidates must exist without fallback. Retrieval requires explic
 `kind: tool_result` and exact facets shared by caller/source; planner owns preflight policy,
 not retrieval-only hooks or a fabricated backend tool-name predicate. Preserve the documented
 16-stage/3-revision/32-attempt/1-MiB limits and native duration/token-only metric subset.
+Every pipeline graph service must be bound and used in its stage plan. Do not declare
+inline logs, log-producing catalog profiles, pages or rum_faro: Build rejects these
+unsupported outputs rather than silently dropping them. Ordinary app graphs are unchanged.
 `metadata_only` thinking is explicitly unsupported/fail-closed because the current native
 encoder cannot preserve the empty thinking kind. The corpus path produces no media and
 reduced Python media is refused. Default/no_tool_content/full_with_metadata_spans keep native

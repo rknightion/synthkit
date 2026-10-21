@@ -395,6 +395,71 @@ func TestAgentPipelineUnconditionalStagesDependency(t *testing.T) {
 	// never a receipt or proof of current/historical root custody admission.
 }
 
+// Unsupported output declarations must reject at Build with actual stage edges
+// supplied, not accidentally at the missing-collaborator construction fence.
+func TestAgentPipelineSupportedOutputBoundary(t *testing.T) {
+	var inline ServiceNode
+	if err := yaml.Unmarshal([]byte("logs: [{source: app, body: {message: {const_str: fixture}}}]"), &inline); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name   string
+		mutate func(*Config)
+		want   string
+	}{
+		{"supported", func(*Config) {}, ""},
+		{"unbound graph node", func(c *Config) {
+			c.Services = append(c.Services, ServiceNode{Name: "store", Type: "db"})
+			c.Services[0].Calls = append(c.Services[0].Calls, "store")
+		}, "every service must be bound"},
+		{"unused bound service", func(c *Config) {
+			s := pipelineClone(c.Services[1])
+			s.Name = "spare"
+			s.AgentObservability.Name = "spare"
+			c.Services = append(c.Services, s)
+			c.Services[0].Calls = append(c.Services[0].Calls, "spare")
+		}, "unused agent binding"},
+		{"inline logs", func(c *Config) { c.Services[1].Logs = inline.Logs }, "log output unsupported"},
+		{"profile logs", func(c *Config) { c.Services[1].Profiles = []string{"gateway_export_log"} }, "log output unsupported"},
+		{"pages", func(c *Config) { c.Services[0].Pages = []PageDecl{{Path: "/"}} }, "RUM output unsupported"},
+		{"rum profile", func(c *Config) {
+			c.Services[0].Profiles = []string{"rum_faro"}
+		}, "RUM output unsupported"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := pipelineConfig(t)
+			tc.mutate(c)
+			edge, sink := &pipelineStages{}, &pipelineCapture{}
+			w, err := Registration().Build(c, pipelineBinding(c, edge, sink))
+			if tc.want != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.want) {
+					t.Errorf("unsupported output must fail at named admission: want %q, got %v", tc.want, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatal(err)
+				}
+				r := pipelineRequest(26)
+				if err := w.ProjectBatch(context.Background(), r.Start, &core.World{Sigil: sink, Traces: &coretest.TraceCapture{}}, []*ledger.Request{r}); err != nil {
+					t.Fatal(err)
+				}
+				if edge.after == 0 || edge.after != len(pipelineGenerations(sink)) {
+					t.Fatal("valid baseline did not execute through explicit stage edge")
+				}
+			}
+			// The same ordinary app declarations retain their existing admission.
+			c.AgentPipeline = nil
+			for i := range c.Services {
+				c.Services[i].AgentObservability = nil
+			}
+			if _, err := Registration().Build(c, pipelineBinding(c, nil, nil)); err != nil {
+				t.Errorf("ordinary app behavior changed: %v", err)
+			}
+		})
+	}
+}
+
 func TestAgentPipelineAfterFailureAndNilCollaborators(t *testing.T) {
 	c := pipelineConfig(t)
 	if _, err := Registration().Build(c, pipelineBinding(c, nil, &pipelineCapture{})); err == nil {

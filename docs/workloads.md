@@ -118,6 +118,12 @@ rather than silently retyping it as text; adding that shape requires a separatel
 reviewed shared encoder change. The app corpus path also does not produce media parts;
 reduced Python media is refused rather than claimed as supported.
 
+Every service in a pipeline graph must have an Agent Observability binding and be used
+by its stage plan; unbound graph leaves/hops are unsupported. Inline `logs`, log-producing
+catalog profiles, `pages` and `rum_faro` reject at Build rather than being silently ignored.
+The executor does not add ordinary app log/RUM projection. These restrictions apply only
+to `agent_pipeline`; ordinary app graphs retain their existing behavior.
+
 Limits are 16 stages, 3 revisions, 32 expanded attempts and 1 MiB total modeled content.
 The native SDK metric subset is cumulative duration/token usage only, partitioned by
 actual service/SDK. Tools-only source emits workflow/tool telemetry, never a model

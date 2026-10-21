@@ -289,6 +289,19 @@ func validatePipeline(c *Config) error {
 		}
 		return nil
 	}
+	// This executor projects only its bound stage plan, not ordinary graph
+	// logs/RUM/unbound hops. Reject declarations rather than silently drop them.
+	for _, s := range c.Services {
+		if s.AgentObservability == nil {
+			return pipelineError("every service must be bound to agent_pipeline")
+		}
+		if len(s.Logs) > 0 {
+			return pipelineError("log output unsupported for agent_pipeline")
+		}
+		if len(s.Pages) > 0 || slices.Contains(s.Profiles, "rum_faro") {
+			return pipelineError("RUM output unsupported for agent_pipeline")
+		}
+	}
 	if c.Automation != nil || !pipelineName(p.Name) || p.EvaluationMode != "real" || len(p.Stages) < 1 || len(p.Stages) > 16 {
 		return pipelineError("require named real-only pipeline with 1-16 stages and no automation")
 	}
@@ -507,6 +520,13 @@ func (w *Workload) buildPipeline() error {
 		return nil
 	}
 	p := w.cfg.AgentPipeline
+	// Profiles expand into effective log specs during graph compilation. Check
+	// the normalized graph too, so a profile cannot bypass the inline-log fence.
+	for _, n := range w.graph.nodes {
+		if len(n.logs) > 0 {
+			return pipelineError("log output unsupported for agent_pipeline (including profiles)")
+		}
+	}
 	// Always require the canonical construction dependency, even when optional
 	// hooks and ratings are off. Ordinary unwired boot/live/restore must stay
 	// closed. Nonnil is NOT custody/admission proof: root installs this only
