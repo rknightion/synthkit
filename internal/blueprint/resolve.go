@@ -608,6 +608,10 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		}
 	}
 
+	if err := validateBedrockProfileClaims(d); err != nil {
+		return nil, err
+	}
+
 	// Pass 3 — emit construct instances. A cluster's explicit emission gate
 	// affects only its derived constructs; earlier topology/workload binding stays.
 	for _, ec := range envs {

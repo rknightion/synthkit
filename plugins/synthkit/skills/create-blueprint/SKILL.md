@@ -77,6 +77,14 @@ for supported profiles, explicit workload assumptions and conditional Kubernetes
 The stress fixture is under `e2e/fixtures/`; do not copy its fault inputs into a shipped
 blueprint to force emission. Other compute collection adapters remain separately gated.
 
+For per-agent Bedrock application inference profiles, follow the profile subsection in
+`docs/blueprints.md` and the capture boundary in `signals/bedrock.md`. Use fictional opaque IDs,
+explicit traffic/value assumptions and a separate foundation model identity for generation pricing.
+Keep (account_id, region, profile ID) unique across environments within a blueprint; environment,
+agent and team names do not distinguish profile series. Duplicate declarations are rejected.
+Select `sub_signals: [application_profiles]` for profile-only emission. Profile OTLP declarations
+fail closed pending raw metric-stream/enrichment evidence; API statistics do not prove that lane.
+
 ## Identity and collision rules
 
 - A cluster name, cloud account ID, database name, and cache name must not collide across enabled

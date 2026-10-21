@@ -68,6 +68,61 @@ Within an environment:
 - `databases` — one entry per RDS/DocumentDB/Neptune instance: engine, version, name, instance class, and the `observability` block that gates the CloudWatch lane and/or the Database Observability lane.
 - `caches` — ElastiCache clusters with engine, version, name, and CloudWatch gate.
 
+### Per-agent Bedrock application inference profiles
+
+`environments[].cloud.bedrock.application_profiles` optionally models one synthetic application
+inference profile per agent/model association. It does not provision AWS resources. Profile IDs are
+fictional opaque alphanumeric strings. The same `(account_id, region, profile ID)` must not be
+declared in multiple environments within a blueprint: those environments would produce identical
+series, so loading rejects the collision rather than coalescing them. `agent`, `provider` and `model`
+remain configuration associations, never added CloudWatch dimensions.
+
+```yaml
+cloud:
+  provider: aws
+  account_id: "000000000000" # Fictional account.
+  region: eu-west-1
+  vpc_id: vpc-example
+  cloudwatch_export: remote_write # Profile OTLP is not admitted yet.
+  bedrock:
+    sub_signals: [application_profiles] # Do not inherit generic model/Agents/guardrail/log families.
+    application_profiles:
+      - id: synsource01
+        agent: source
+        provider: bedrock
+        model: anthropic.claude-haiku-4-5-20251001-v1:0
+        # Synthetic sizing: 30 writers × 12 sections per 8-hour day / 480 minutes,
+        # with one source-model call per section. Constant rate, not capture-derived.
+        requests_per_min: 0.75
+        input_tokens_per_request: 1200 # Operator assumption: a short source-note bundle.
+        output_tokens_per_request: 250 # Operator assumption: a short structured summary.
+        latency_ms_per_request: 900 # Synthetic constant latency, not a vendor benchmark.
+        estimated_tpm_quota_usage_per_request: 1700 # Explicit synthetic quota estimate, not a token/pricing formula.
+```
+
+All traffic/value fields above are required and positive; there are no production-volume defaults.
+`provider` must be `bedrock`; `model` must retain a catalogued Bedrock foundation model identity.
+Declare the same provider/model separately on the generation workload for Agent Observability
+pricing: **never replace its generation model with the profile ID**. No automatic binding or
+cross-construct rewrite is performed. Additional profiles may reference the same foundation model
+without merging their independent `ModelId` dimensions.
+
+Only the five captured `AWS/Bedrock` bases are modelled: `Invocations`, `InputTokenCount`,
+`OutputTokenCount`, `InvocationLatency` and `EstimatedTPMQuotaUsage`. `dimension_ModelId` carries
+the profile ID. Whole requests are scheduled in UTC minute windows, so a low fractional rate has
+idle windows rather than being raised to one request every tick. Per-request values are constant:
+Sum is value × requests, Average/Minimum/Maximum are the configured value, and SampleCount is the
+request count. Invocations use value 1. Every statistic is a per-period gauge, not a counter.
+
+Omitting profiles preserves legacy Bedrock output. Omitting `sub_signals` includes both configured
+profiles and the legacy families on their separate identities. No agent/team tag labels, profile
+logs, TTFT, cache, errors/throttles, Bedrock Agents or guardrail telemetry is inferred for profiles.
+Profile declarations with `cloudwatch_export: otlp` fail closed (even if excluded by `sub_signals`):
+raw profile metric-stream parity and collector enrichment remain **PENDING**. Remote-write output
+is an offline projection using `name=global`, not proof of live metric-stream ingestion. See the
+[signal contract](https://github.com/rknightion/synthkit/blob/main/signals/bedrock.md)
+for the API capture boundary and the unsupported lanes.
+
 ### Workloads
 
 `workloads` is a list of application workloads that emit request traffic (metrics, traces, logs, optional RUM). Each entry has a `type` (workload kind), a `name`, a `runs_on` reference that binds it to a cluster, and kind-specific config. The built-in kinds are `web_service` (a single service), `app` (a declared multi-service graph with a custom-telemetry DSL), and `ai_agent` (correlated agent sessions and model calls).

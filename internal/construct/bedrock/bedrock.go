@@ -7,7 +7,7 @@
 // Scope:    core.ScopeBlueprint
 // Signals:  []core.SignalClass{core.Metrics}
 // Interval: 60s
-// Config:   Models []string; SubSignals []string (models/agents/guardrails/invocation_logs)
+// Config:   Models []string; SubSignals []string; ApplicationProfiles []ApplicationProfile
 //
 // Build requires:
 //   - fx.Cloud non-nil (account_id, region)
@@ -52,10 +52,11 @@ var defaultModels = []string{
 
 // validSubSignals is the canonical set of sub_signal values.
 var validSubSignals = map[string]bool{
-	"models":          true,
-	"agents":          true,
-	"guardrails":      true,
-	"invocation_logs": true,
+	"models":               true,
+	"agents":               true,
+	"guardrails":           true,
+	"invocation_logs":      true,
+	"application_profiles": true,
 }
 
 // Config carries YAML knobs for the Bedrock construct.
@@ -64,9 +65,12 @@ type Config struct {
 	// Defaults to defaultModels when empty.
 	Models []string `yaml:"models"`
 	// SubSignals selects which metric families to emit.
-	// Valid values: "models", "agents", "guardrails", "invocation_logs".
-	// Empty (or omitted) means all four families are emitted.
+	// Valid values: models, agents, guardrails, invocation_logs, application_profiles.
+	// Empty (or omitted) means all configured families are emitted.
 	SubSignals []string `yaml:"sub_signals"`
+	// ApplicationProfiles optionally associates each agent with a synthetic application
+	// inference profile and a separate pricing model. No declarations means no profile output.
+	ApplicationProfiles []ApplicationProfile `yaml:"application_profiles"`
 }
 
 func (c *Config) emits(name string) bool {
@@ -99,6 +103,9 @@ func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
 	cfg, ok := cfgAny.(*Config)
 	if !ok || cfg == nil {
 		cfg = &Config{}
+	}
+	if err := validateProfiles(cfg, fx.Cloud); err != nil {
+		return nil, err
 	}
 	// Apply model defaults.
 	if len(cfg.Models) == 0 {
@@ -240,6 +247,12 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	}
 
 	batch := c.st.Collect(now)
+	if c.cfg.emits("application_profiles") && len(c.cfg.ApplicationProfiles) > 0 {
+		// A fresh period store prevents stale profile observations during idle minutes.
+		profiles := state.NewState()
+		c.emitProfiles(now, profiles)
+		batch = append(batch, profiles.Collect(now)...)
+	}
 	if c.cloud.CloudWatchExportMode() == "otlp" {
 		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, c.cloud, batch)
 		return err

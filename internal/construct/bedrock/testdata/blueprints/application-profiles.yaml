@@ -1,0 +1,34 @@
+# Public offline fixture: two observations per profile per minute exercise five-stat arithmetic.
+# These constant per-request values model the tiny shape capture, not production traffic policy.
+name: bedrock-profile-fixture
+timezone: UTC
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "000000000000" # Fictional identity, never a captured account.
+      region: eu-west-1
+      vpc_id: vpc-fixture
+      cloudwatch_export: remote_write
+      cloudwatch: {albs: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, s3_buckets: 0, firehose: false, private_link: false}
+      bedrock:
+        sub_signals: [application_profiles]
+        application_profiles:
+          - id: synsource01 # Fictional opaque profile ID, not a model or ARN.
+            agent: source
+            provider: bedrock
+            model: anthropic.claude-haiku-4-5-20251001-v1:0
+            requests_per_min: 2 # Fixture-only: two observations pin Sum versus Average/SampleCount.
+            input_tokens_per_request: 22
+            output_tokens_per_request: 4
+            latency_ms_per_request: 578
+            estimated_tpm_quota_usage_per_request: 42
+          - id: syndrafter01
+            agent: drafter
+            provider: bedrock
+            model: anthropic.claude-sonnet-4-6
+            requests_per_min: 2 # Same controlled observation count; independent request values.
+            input_tokens_per_request: 22
+            output_tokens_per_request: 5
+            latency_ms_per_request: 675
+            estimated_tpm_quota_usage_per_request: 47

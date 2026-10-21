@@ -6,9 +6,11 @@ RDS/ElastiCache). CW naming + five-stat expansion delegate to [`internal/cw`](..
 construct supplies only the `signals/`-sourced bases + value policy. Global rules + the cw-naming
 LAW: [`00-canon.md`](00-canon.md), [`cw.md`](cw.md) `[slug: cw-naming]`.
 
-*Provenance: AWS docs + the CW mangling convention confirmed empirically via `internal/cw`; the
-AWS/Bedrock metric set itself is AWS-docs-sourced with no synthkit live capture → `v: assumed`,
-SK-36. Mar-2026 metrics + ServiceTier/ContextWindow dims especially unverified.*
+*Provenance: legacy generic model/Agents/Guardrails families are AWS-docs-sourced and remain
+`v: assumed`, SK-36; Mar-2026 metrics + ServiceTier/ContextWindow dims especially unverified.
+The application-profile subset below has a separate, bounded 2026-10-21 CloudWatch API capture.
+That capture does not verify raw metric-stream OTLP or collector enrichment. CW mangling/five-stat
+mechanics retain their existing independent contract in `internal/cw`.*
 
 **Per-model magnitude weighting:** Bedrock construct emission is weighted per model by
 `genai.VolumeWeight(modelId)` (request-volume multiplier) and cost metrics by
@@ -67,6 +69,76 @@ metrics:
   - {root: model_invocation_logs_s3_delivery_failure, type: gauge, unit: count, v: assumed}
   - {root: model_invocation_large_data_s3_delivery_success, type: gauge, unit: count, v: assumed}
   - {root: model_invocation_large_data_s3_delivery_failure, type: gauge, unit: count, v: assumed}
+```
+
+## Application inference profiles — restricted `aws_bedrock_*` subset [slug: bedrock-application-profiles]
+
+Optional `cloud.bedrock.application_profiles` associates each profile with an agent and a separate
+`provider: bedrock` plus catalogued foundation `model`. **Those associations are configuration,
+not additional CloudWatch dimensions or resource-tag readback.** Generation workloads must declare
+the same provider/foundation model independently for Agent Observability pricing; never substitute
+the profile ID as the generation model. No generation, backend-derived cost or team metric is emitted
+by this construct. No profile declarations preserves the legacy output above unchanged. Select
+`sub_signals: [application_profiles]` for profile-only output; omitting `sub_signals` still includes
+the legacy families, on their own model/guardrail identities, never on profile IDs. Duplicate
+`(account_id, region, profile ID)` declarations across environments within one blueprint are rejected,
+even when profile emission is excluded; environment names do not disambiguate the wire identity.
+
+**Observed source (2026-10-21, eu-west-1):** two temporary APPLICATION inference profiles copied
+from EU Haiku 4.5 and EU Sonnet 4.6, two successful bounded Converse calls each, then deletion
+verified by ResourceNotFound. ListMetrics showed namespace `AWS/Bedrock` and exactly one dimension:
+`ModelId=<opaque application profile ID>` — not `InferenceProfileId`, a model name or an ARN.
+GetMetricStatistics with period 60 returned the five bases below. `Invocations` had Sum 2,
+Average/Minimum/Maximum 1 and SampleCount 2. Input tokens had Sum 44 and mean/min/max 22;
+output tokens had sums 8/10 and means 4/5. Latency (milliseconds) had sums 1156/1350,
+means 578/675, minima 555/672 and maxima 601/678. EstimatedTPMQuotaUsage had sums 84/94 and
+means/minima/maxima 42/47. Every base had SampleCount 2. These tiny observations establish
+shape, **not production rates, a quota formula, a latency distribution or model/region support**.
+
+Resource API provenance: CreateInferenceProfile returned ARN/status ACTIVE; GetInferenceProfile
+returned name, description, timestamps, ARN, model ARN list, opaque ID, status and type APPLICATION.
+Agent/team tags were submitted at creation but persistence was not read back. The renderer does not
+emit that resource inventory or infer any tag label. Public API references:
+[inference profiles](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles.md) and
+[creation/model source](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-create.md).
+No captured identifiers are retained in public examples.
+
+**Synthetic value policy:** each profile requires an explicit positive `requests_per_min` with a
+real-world basis beside the blueprint value, plus constant per-request input/output token counts,
+latency milliseconds and estimated TPM quota usage. No generic model volume weight, traffic floor,
+TTFT, cache, error/throttle, Agents, guardrail or logging family is inherited. UTC minute windows
+schedule whole observations at fractional rates; idle windows emit no profile point, including after
+an active window. For N observations of configured value V: Sum=N×V, Average=Minimum=Maximum=V,
+SampleCount=N. For invocations, V=1. The constant-request model intentionally does not reproduce the
+capture's latency spread. All five stats are independent per-period **gauges**, never cumulative
+counters, and no histogram is emitted.
+
+**Evidence boundary / PENDING:** no profile-containing raw metric-stream payload or invocation log
+was retrieved. The remote-write shape below uses the existing CW naming convention and `name=global`
+(no inferred profile ARN or tag enrichment); it is an offline projection of the captured API shape,
+not live collector parity. Any profile declaration with `cloudwatch_export: otlp` fails closed,
+even when its sub-signal is excluded. Raw profile OTLP, collector enrichment, profile logs and
+unsupported families stay disabled pending sourced evidence. Generic Bedrock OTLP behavior without
+profiles is unchanged.
+
+```yaml signals
+family: aws_bedrock
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels:
+  account_id: <account>
+  region: <aws-region>
+  namespace: AWS/Bedrock
+  job: cloud/aws/bedrock
+  name: global
+  dimension_ModelId: <fictional-application-profile-id>
+metrics:
+  - {root: invocations, type: gauge, unit: count, v: assumed, note: "API verified; profile collector projection not live-proven"}
+  - {root: input_token_count, type: gauge, unit: count, v: assumed, note: "API verified; profile collector projection not live-proven"}
+  - {root: output_token_count, type: gauge, unit: count, v: assumed, note: "API verified; profile collector projection not live-proven"}
+  - {root: invocation_latency, type: gauge, unit: milliseconds, v: assumed, note: "API verified; profile collector projection not live-proven"}
+  - {root: estimated_tpmquota_usage, type: gauge, unit: count, v: assumed, note: "API verified; profile collector projection not live-proven"}
 ```
 
 ## AWS/Bedrock/Agents — `aws_bedrock_agents_*` [slug: bedrock-agents]
