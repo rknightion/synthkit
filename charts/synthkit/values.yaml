@@ -20,7 +20,7 @@ image:
   repository: ghcr.io/rknightion/synthkit
   # Empty tag falls back to Chart.appVersion. Image tags are bare X.Y.Z; Git release tags carry
   # the leading v.
-  tag: ""
+  tag: "@sha256:5f0ee7b33e8542afc432703b5f4477c6a54abbabc8cce20c798a2798b6128bff"
   # Published 1.6.0-rc.160, source 708afee1ab5b04af9483fc113be26fb9b3b9d2c5:
   # verified linux/amd64 + linux/arm64 index with Lease HA and Kubernetes state.
   # Wins over tag; clear digest explicitly to select a different tagged image.
