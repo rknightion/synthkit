@@ -121,6 +121,10 @@ class CleanRunner:
 
     def __init__(self, temp_root: Path) -> None:
         inherited_path = os.environ.get("PATH", "/usr/bin:/bin")
+        # Reuse the selected toolchain, including an already-downloaded Go patch.
+        # GOTOOLCHAIN=local below still prevents toolchain downloads inside fixtures.
+        selected_goroot = subprocess.check_output(["go", "env", "GOROOT"], text=True, cwd=ROOT).strip()
+        inherited_path = str(Path(selected_goroot) / "bin") + os.pathsep + inherited_path
         clean_home = temp_root / "home"
         clean_gopath = temp_root / "go"
         clean_home.mkdir()
