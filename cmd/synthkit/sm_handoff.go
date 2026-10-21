@@ -62,8 +62,8 @@ func bootPublication(publish bool) smPublication {
 	return smValidateOnly
 }
 
-// smZeroCheckInstance reports an SM construct with no checks, which the runner cannot build.
-func smZeroCheckInstance(bp *blueprint.Resolved) bool {
+// smInstanceWithoutChecks reports an SM construct with no checks, which the runner cannot build.
+func smInstanceWithoutChecks(bp *blueprint.Resolved) bool {
 	for _, instance := range bp.Constructs {
 		if smCfg, ok := instance.Config.(*sm.Config); ok && instance.Kind == sm.Kind && len(smCfg.Checks) == 0 {
 			return true
@@ -411,7 +411,7 @@ func (a *smAdmission) prepareBoot(ctx context.Context, accepted []*blueprint.Res
 				continue // the restore skips it too (it no longer loads, or now collides)
 			}
 			decl, ok, err := declaredSM(res)
-			if err != nil || smZeroCheckInstance(res) {
+			if err != nil || smInstanceWithoutChecks(res) {
 				continue // Admit rejects it, so the restore skips it
 			}
 			if !ok {
@@ -459,7 +459,7 @@ func (a *smAdmission) Admit(req runner.LiveAdmitRequest) error {
 		log.Printf("runner: live blueprint %q: synthetic_monitoring is a startup-disabled kind; its constructs are not run", candidate.Name)
 		return nil
 	}
-	if smZeroCheckInstance(candidate) {
+	if smInstanceWithoutChecks(candidate) {
 		return fmt.Errorf("%w: blueprint %q: a %s construct declares no checks", control.ErrLiveInvalid, candidate.Name, sm.Kind)
 	}
 	extra := append([]smDeclaration(nil), a.boot...)

@@ -426,7 +426,7 @@ features:
 
 // An SM construct with no checks cannot be built, so its live apply is a 400 that publishes
 // nothing: the snapshot covering the running set survives.
-func TestLiveSMZeroCheckApplyRejectedBeforePublish(t *testing.T) {
+func TestLiveSMWithoutChecksApplyRejectedBeforePublish(t *testing.T) {
 	cfg, statePath := smLiveConfig(t)
 	b := bootSMLive(t, cfg, statePath, smBlueprint(t))
 	snapshotPath := filepath.Join(smstate.RuntimeDir(cfg.SnapshotPath), smstate.SnapshotFilename)
