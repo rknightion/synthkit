@@ -504,8 +504,7 @@ func (c *Client) GetBindings(ctx context.Context, suiteID, version string) ([]Su
 // Its caller still needs exclusive authority over a fresh suite and checkpoint.
 // A contradictory receipt can follow a committed write; error never permits retry.
 func (c *Client) PutInitialBindings(ctx context.Context, suiteID, version string, bindings []SuiteBinding) ([]SuiteBinding, error) {
-	path, err := suiteVersionPath(suiteID, version)
-	if err != nil {
+	if _, err := suiteVersionPath(suiteID, version); err != nil {
 		return nil, err
 	}
 	if bindings == nil || !validBindings(bindings) {
@@ -534,6 +533,22 @@ func (c *Client) PutInitialBindings(ctx context.Context, suiteID, version string
 		return nil, err
 	}
 	if len(current) > 0 {
+		return nil, resourceError()
+	}
+	return c.putInitialBindingsOnce(ctx, suiteID, version, bindings)
+}
+
+// putInitialBindingsOnce makes exactly one typed PUT, with no preflight reads or
+// retries. Callers must first verify the exact fresh, empty, unpublished draft;
+// lifecycle callers must also satisfy their preflight and durable-intent protocol.
+// This is not freshness, ownership, admission or server conditional-write proof.
+// A contradictory receipt may follow a committed write and never permits retry.
+func (c *Client) putInitialBindingsOnce(ctx context.Context, suiteID, version string, bindings []SuiteBinding) ([]SuiteBinding, error) {
+	path, err := suiteVersionPath(suiteID, version)
+	if err != nil {
+		return nil, err
+	}
+	if bindings == nil || !validBindings(bindings) {
 		return nil, resourceError()
 	}
 	data, err := c.request(ctx, http.MethodPut, path+"/bindings", struct {

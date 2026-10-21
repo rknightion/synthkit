@@ -486,6 +486,83 @@ func TestResourceSuiteCheckpointTLS(t *testing.T) {
 	}
 }
 
+// The public convenience method keeps its read/read/write boundary. The private
+// mutation seam must issue just one PUT after its caller has done those reads.
+// These are request/receipt observations, not lifecycle freshness/custody proof.
+func TestResourceInitialBindingsSingleMutationTLS(t *testing.T) {
+	for _, entry := range []string{"public", "single mutation"} {
+		for _, contradictory := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/contradictory=%t", entry, contradictory), func(t *testing.T) {
+				var mu sync.Mutex
+				var calls []string
+				committed := false
+				client := resourceTLS(t, func(w http.ResponseWriter, r *http.Request) {
+					mu.Lock()
+					defer mu.Unlock()
+					key := r.Method + " " + resourcePath(r)
+					calls = append(calls, key)
+					if r.URL.RawQuery != "" {
+						t.Error("unexpected binding query")
+					}
+					switch key {
+					case "GET /test-suites/suite-one":
+						suite := suiteWire("suite-one")
+						suite["versions"] = []any{versionWire(false)}
+						resourceReply(w, suite)
+					case "GET /test-suites/suite-one/versions/v1/bindings":
+						resourceReply(w, map[string]any{"items": []any{}})
+					case "PUT /test-suites/suite-one/versions/v1/bindings":
+						resourceBody(t, r, `{"bindings":[{"binding_id":" binding-two ","evaluator_id":" evaluator-one ","evaluator_version":" 2026-01-01 ","input_mappings":{" context ":" test_case.input.text "},"report_role":" diagnostic "},{"binding_id":"binding-one","evaluator_id":"evaluator-one","evaluator_version":"2026-01-01","input_mappings":{"response":"test_case.input.text"}}]}`)
+						if committed {
+							t.Error("mutation automatically retried")
+						}
+						// The modeled write has committed before the success receipt,
+						// including when that receipt lies about the same binding ID.
+						committed = true
+						one := bindingWire()
+						if contradictory {
+							one["input_mappings"] = map[string]string{"response": "test_case.expected.text"}
+						}
+						two := map[string]any{"binding_id": "binding-two", "evaluator_id": "evaluator-one", "evaluator_version": "2026-01-01", "input_mappings": map[string]string{"context": "test_case.input.text"}, "report_role": "diagnostic"}
+						resourceReply(w, map[string]any{"items": []any{one, two}})
+					default:
+						t.Errorf("unexpected initial binding request %s", key)
+						http.NotFound(w, r)
+					}
+				})
+				bindings := []SuiteBinding{
+					{BindingID: " binding-two ", EvaluatorID: " evaluator-one ", EvaluatorVersion: " 2026-01-01 ", InputMappings: map[string]string{" context ": " test_case.input.text "}, ReportRole: " diagnostic "},
+					{BindingID: "binding-one", EvaluatorID: "evaluator-one", EvaluatorVersion: "2026-01-01", InputMappings: map[string]string{"response": "test_case.input.text"}},
+				}
+				put := client.PutInitialBindings
+				if entry == "single mutation" {
+					put = client.putInitialBindingsOnce
+				}
+				observed, err := put(context.Background(), "suite-one", "v1", bindings)
+				if contradictory {
+					if err == nil || observed != nil {
+						t.Error("contradictory committed binding receipt accepted")
+					}
+				} else if err != nil || len(observed) != 2 || observed[0].BindingID != "binding-one" {
+					t.Errorf("normalized complete receipt lost: %v", err)
+				}
+				if bindings[0].BindingID != " binding-two " || bindings[0].InputMappings[" context "] != " test_case.input.text " {
+					t.Error("normalization mutated authored bindings")
+				}
+				want := []string{"PUT /test-suites/suite-one/versions/v1/bindings"}
+				if entry == "public" {
+					want = append([]string{"GET /test-suites/suite-one", "GET /test-suites/suite-one/versions/v1/bindings"}, want...)
+				}
+				mu.Lock()
+				defer mu.Unlock()
+				if !committed || !reflect.DeepEqual(calls, want) {
+					t.Fatalf("request boundary: committed=%t calls=%v; want %v", committed, calls, want)
+				}
+			})
+		}
+	}
+}
+
 // Observe each family's real TLS response with contradictions and missing fields.
 // These are not transport-helper tests: they pin the new scoped typed decoders.
 func TestResourceContradictoryObservationsTLS(t *testing.T) {
@@ -572,7 +649,7 @@ func TestResourceReceiptIntegrityTLS(t *testing.T) {
 		{"mappings", func(b map[string]any) { b["input_mappings"] = map[string]string{"response": "test_case.expected.text"} }},
 		{"report role", func(b map[string]any) { b["report_role"] = "diagnostic" }},
 	}
-	for _, operation := range []string{"initial", "publish"} {
+	for _, operation := range []string{"initial", "single", "publish"} {
 		names := []string{"evaluator", "version", "mappings", "report role"}
 		if operation == "publish" {
 			names = append(names, "count", "missing bindings")
@@ -593,7 +670,7 @@ func TestResourceReceiptIntegrityTLS(t *testing.T) {
 					case "GET /test-suites/suite-one/versions/v1/bindings":
 						resourceReply(w, map[string]any{"items": []any{}})
 					case "PUT /test-suites/suite-one/versions/v1/bindings":
-						if operation != "initial" || committed {
+						if operation == "publish" || committed {
 							t.Error("unexpected/repeated initial write")
 						}
 						resourceBody(t, r, `{"bindings":[{"binding_id":"binding-one","evaluator_id":"evaluator-one","evaluator_version":"2026-01-01","input_mappings":{"response":"test_case.input.text"}}]}`)
@@ -642,6 +719,8 @@ func TestResourceReceiptIntegrityTLS(t *testing.T) {
 				var err error
 				if operation == "initial" {
 					_, err = client.PutInitialBindings(context.Background(), "suite-one", "v1", []SuiteBinding{binding})
+				} else if operation == "single" {
+					_, err = client.putInitialBindingsOnce(context.Background(), "suite-one", "v1", []SuiteBinding{binding})
 				} else {
 					_, err = client.Publish(context.Background(), "suite-one", "v1", PublicationReview{Cases: []CaseSnapshot{{TestCaseID: "case-one", Input: map[string]any{"text": "A fictional answer."}}}, Bindings: []SuiteBinding{binding}})
 				}
@@ -883,6 +962,19 @@ func TestResourceNoUnreviewedMutationTLS(t *testing.T) {
 		},
 		func() error { _, err := client.Publish(ctx, "suite-one", "v1", PublicationReview{}); return err },
 		func() error { _, err := client.PutInitialBindings(ctx, "suite-one", "v1", nil); return err },
+		func() error { _, err := client.putInitialBindingsOnce(ctx, "suite-one", "v1", nil); return err },
+		func() error {
+			_, err := client.putInitialBindingsOnce(ctx, "../suite", "v1", []SuiteBinding{})
+			return err
+		},
+		func() error {
+			_, err := client.putInitialBindingsOnce(ctx, "suite-one", "v01", []SuiteBinding{})
+			return err
+		},
+		func() error {
+			_, err := client.putInitialBindingsOnce(ctx, "suite-one", "v1", []SuiteBinding{{BindingID: "binding-one", EvaluatorID: "evaluator-one", EvaluatorVersion: "2026-01-01", InputMappings: map[string]string{"response": "test_case.input.text", " response ": "test_case.expected.text"}}})
+			return err
+		},
 		func() error {
 			_, err := client.CreateRuleAction(ctx, "rule-one", RuleActionSpec{Condition: RuleActionCondition{Kind: "score_value"}})
 			return err
