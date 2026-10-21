@@ -59,7 +59,7 @@ func TestCISchemaFixtureFloors(t *testing.T) {
 		}
 		job := mapping(raw)
 		inputs := mapping(job["with"])
-		equal(t, "pinned reusable", job["uses"], "rknightion/.github/.github/workflows/helm-validate.yml@c36bf7ded21407b0a5169ecb2502d6a3a385be30")
+		equal(t, "pinned reusable", job["uses"], "rknightion/.github/.github/workflows/helm-validate.yml@2c2a3771006d75783f612a61a2bd406449a3410f")
 		found := false
 		for _, n := range needs {
 			if n == name {
