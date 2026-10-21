@@ -244,6 +244,10 @@ type Binding struct {
 	// owns the per-env db identity; the workload only reads it. Empty when the env declares none.
 	Databases []*fixture.DB
 	RUM       RUMSink // nil unless declared AND credentialed
+	// Runtime collaborators are injected only after admission; structural discovery
+	// must ignore them. Neither field establishes receipt-backed admission.
+	GenerationStages sigil.GenerationStages
+	Ratings          sigil.ConversationRatingWriter
 }
 
 // Group classifies HOW a construct is declared in a blueprint (orthogonal to Scope,
@@ -301,6 +305,13 @@ type WorkloadReg struct {
 	Doc       string
 	NewConfig func() any
 	Build     func(cfg any, b Binding) (Workload, error)
+	// AgentDeclarations purely inspects the same decoded/defaulted config and
+	// resolved binding as Build, after fanout. It must ignore runtime collaborators,
+	// never build/mint/sample, perform I/O or mutate state, and return fresh slices
+	// in deterministic order with errors for unsupported/ambiguous declarations.
+	// Return one entry per actual top-level declaration, with effective emitted
+	// child names only in ProjectedChildNames, never duplicated as flattened entries.
+	AgentDeclarations func(cfg any, b Binding) ([]AgentDeclaration, error)
 	// See ConstructReg. These callbacks belong to registry wiring, not workload
 	// implementations, so producer identity stays explicit at the composition root.
 	MetricProducer     func(cfg any) string

@@ -15,7 +15,7 @@ Three workload kinds are registered:
 
 For Agent Observability's current span/metric vocabulary, inclusive token semantics,
 legacy synthetic evaluation rules (`execution_mode`, `filterable_tag_keys`), and the
-strict SDK-versus-backend producer split, use the [canonical signal contract](../signals/sigil.md).
+strict SDK-versus-backend producer split, use the [canonical signal contract](https://github.com/rknightion/synthkit/blob/main/signals/sigil.md).
 Do not mix synthetic evaluation emission with real backend rules scoring the same agents.
 
 These kinds may coexist in one blueprint: model the core correlated flow as an `app`, and simpler peripheral services as standalone `web_service` workloads.

@@ -1152,7 +1152,7 @@ ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sig
 | `agents[].version` | string |  | declared agent version (empty ⇒ omitted, e.g. codex) |
 | `agents[].streaming` | bool |  | streamText + time_to_first_token |
 | `agents[].subagents[]` | string |  | coding: spawns claude-code/<type> child conversations |
-| `agents[].tags` | map[string]string |  | sigil.tag.<k> + generation tags (cwd/git.branch/region/team…) |
+| `agents[].tags` | map[string]string |  | configured client tags: generation tags + agento11y.tag.<k> span/metric dimensions |
 | `agents[].activity` | object |  |  |
 | `agents[].activity.sessions_per_min` | float |  |  |
 | `agents[].activity.turns_p50` | int |  |  |
@@ -1171,6 +1171,8 @@ ai_agent — agent CONVERSATIONS (coding + general archetypes); emits native sig
 | `rules[].sample_rate` | float |  |  |
 | `rules[].match_agent[]` | string |  |  |
 | `rules[].evaluators[]` | string |  |  |
+| `rules[].execution_mode` | string |  | parallel (default) \| sequential |
+| `rules[].filterable_tag_keys[]` | string |  | explicit bounded metric tag projection |
 | `otel` | object | yes | OTel enables the native OTLP metrics lane for the documented gen_ai client instruments. Absent (nil) or Metrics=false leaves the established promrw lane unchanged. |
 | `otel.metrics` | bool |  |  |
 
@@ -1378,7 +1380,7 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `error_burst` | axis: workload |  | elevated 5xx error rate |
 | `error_spike` | axis: service |  | elevated 5xx error rate on the targeted service node |
 | `eval_quality_degraded` | axis: cloud |  | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb |
-| `eval_quality_regression` | axis: workload |  | online-eval quality regresses on the targeted ai_agent fleet — agento11y_eval_score_values_total{passed=false} rate rises |
+| `eval_quality_regression` | axis: workload |  | online-eval quality regresses on the targeted ai_agent fleet — agento11y_eval_scores_total{passed=false} rate rises |
 | `fallback_storm` | axis: service |  | elevated gateway fallback rate on the targeted service node |
 | `gateway_cloud_credential_expired` | axis: cluster |  | Cloud send attempts fail (generic authentication failure, no expiry-specific series) |
 | `gateway_config_reload_failure` | axis: cluster |  | Configured member remote configuration load fails |

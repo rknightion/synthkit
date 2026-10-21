@@ -75,6 +75,24 @@ type WorkloadReg struct {
 }
 ```
 
+### Agent declaration and rating vocabulary
+
+`core.WorkloadReg.AgentDeclarations(cfg, Binding)` is a pure structural callback over
+fully decoded/defaulted config and resolved per-instance wiring after fanout. It returns
+fresh, deterministic `core.AgentDeclaration` claims: actual service identity, producer mode,
+producer-owned hook policy, request-model pairs and effective projected child names. It must
+ignore runtime collaborators and never build, mint, sample, perform I/O or mutate state.
+These claims contain no destination, credentials, receipts or wire YAML schema; discovery and
+runtime admission/injection remain separate composition-root work.
+
+`core.Binding.GenerationStages` consumes the frozen `sigil.GenerationStages` interface;
+`core.Binding.Ratings` consumes `sigil.ConversationRatingWriter`. The latter accepts a
+conversation ID separately from the SDK-shaped `ConversationRatingInput` body (good/bad enum,
+rating ID, optional comment, metadata, generation ID, rater ID and source). Concrete adapters
+own validation, bounded authenticated transport and acceptance checks. These declarations
+install no callbacks, transport, lifecycle or executor, and rating acceptance proves neither
+generation delivery/readback nor durable custody.
+
 **Workload kinds — when to use which:**
 - **`web_service`** — a SINGLE service: a browser→backend→DB hop tree with the gen_ai / RUM / Beyla
   lanes. The simple, common case.
