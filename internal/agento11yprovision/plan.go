@@ -226,15 +226,58 @@ func custodyDecode(raw []byte, out any, max int) error {
 	if e != nil {
 		return e
 	}
-	a, _ := json.Marshal(original)
-	b, _ := json.Marshal(round)
 	// Required zero-valued fields cannot silently disappear; integer spellings and
 	// nullable pointers are also checked by this complete typed wire comparison.
-	if !bytes.Equal(a, b) {
+	if !custodyTreeEqual(original, round) {
 		return ErrCorrupt
 	}
 	return nil
 }
+
+// custodyTreeEqual compares only bounded, acyclic custodyJSON trees. Number
+// lexemes, container kinds and key presence are significant; map order is not.
+// It retains nothing and must not be used as a general Go-value comparator.
+func custodyTreeEqual(a, b any) bool {
+	switch a := a.(type) {
+	case nil:
+		return b == nil
+	case bool:
+		v, ok := b.(bool)
+		return ok && a == v
+	case string:
+		v, ok := b.(string)
+		return ok && a == v
+	case json.Number:
+		v, ok := b.(json.Number)
+		return ok && a == v
+	case []any:
+		v, ok := b.([]any)
+		if !ok || (a == nil) != (v == nil) || len(a) != len(v) {
+			return false
+		}
+		for i := range a {
+			if !custodyTreeEqual(a[i], v[i]) {
+				return false
+			}
+		}
+		return true
+	case map[string]any:
+		v, ok := b.(map[string]any)
+		if !ok || (a == nil) != (v == nil) || len(a) != len(v) {
+			return false
+		}
+		for k, value := range a {
+			other, present := v[k]
+			if !present || !custodyTreeEqual(value, other) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
 func NewAuthoredSpec(raw []byte) (AuthoredSpec, error) {
 	v, e := custodyJSON(raw, custodySpecBytes, 16, false)
 	if e != nil {

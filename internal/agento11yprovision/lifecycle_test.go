@@ -55,6 +55,7 @@ type engineTLSFixture struct {
 	queuedWork      bool
 	wantSampleRate  float64 // Default zero retains the original fixture assertion.
 	pause           *engineCommitPause
+	disablePause    *engineCommitPause
 	observer        *os.File
 	observedRaw     []byte
 	observedDoc     *Document
@@ -129,7 +130,13 @@ func newEngineTLS(t *testing.T, suite bool) *engineTLSFixture {
 			t.Error(e)
 		}
 	})
-	f.server = httptest.NewTLSServer(http.HandlerFunc(f.serve))
+	f.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.serve(w, r)
+		// Acknowledge only after the real handler returned and released its mutex.
+		if r.Method == http.MethodPatch && strings.HasSuffix(r.URL.Path, "/rules/rule-fresh") && f.disablePause != nil {
+			f.disablePause.late <- nil
+		}
+	}))
 	t.Cleanup(f.server.Close)
 	var e error
 	f.client, e = NewClient(ClientOptions{BaseURL: f.server.URL + "/sub", Token: "fixture-token", ExpectedTenantID: "tenant", HTTPClient: f.server.Client(), Timeout: time.Second})
@@ -639,6 +646,18 @@ func (f *engineTLSFixture) serve(w http.ResponseWriter, r *http.Request) {
 			}
 			f.rules[v.RuleID] = v
 			f.committed[originalIntent.AttemptID] = originalIntent.Coordinate
+		}
+		if pause := f.disablePause; pause != nil {
+			// Durable Pending was decoded above; commit and independent attempt
+			// association precede this response-only barrier. DELETE stays armed.
+			close(pause.entered)
+			f.mu.Unlock()
+			select {
+			case <-pause.release:
+			case <-time.After(5 * time.Second):
+				f.t.Error("disable response barrier exceeded external bound")
+			}
+			f.mu.Lock()
 		}
 		if f.fault == "drop-disable" && !f.dropped {
 			f.dropped = true
@@ -1391,12 +1410,117 @@ func TestEngineIndependentNoncommitOnlyNeverAttemptedSuffixTLS(t *testing.T) {
 		t.Fatal("incomplete original construction silently completed/reset")
 	}
 }
+
+// A teardown construction is not an action-DELETE attempt. An earlier rule
+// DISABLE can commit while its response expires, with the action still owned.
+func TestEngineTeardownExpiryBeforeFirstDeleteTLS(t *testing.T) {
+	f := newEngineTLS(t, false)
+	p := f.plan()
+	if _, e := f.apply(p); e != nil {
+		t.Fatal(e)
+	}
+	initial := engineSnapshot(t, f)
+	action := engineRecord(initial, "a")
+	if action == nil || action.Status != ResourceOwned || action.ManagedHash == "" || len(action.Acquisition) == 0 {
+		t.Fatal("initial acquired action missing")
+	}
+	original := cleanupPlan(t, p, initial)
+	f.fault = "drop-delete"
+	pause := &engineCommitPause{entered: make(chan struct{}), release: make(chan struct{}), late: make(chan error, 1)}
+	f.disablePause = pause
+	var once sync.Once
+	release := func() { once.Do(func() { close(pause.release) }) }
+	defer release()
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	bound := time.NewTimer(5 * time.Second)
+	defer bound.Stop()
+	pv, e := previewEngine(ctx, f.client, f.store, original, ModeTeardown)
+	if e != nil {
+		t.Fatal(e)
+	}
+	approval := engineApproval(t, pv, "", nil)
+	done := make(chan error, 1)
+	go func() {
+		_, err := cleanupEngine(ctx, f.client, f.store, original, pv, approval)
+		done <- err
+	}()
+	select {
+	case <-pause.entered:
+	case <-bound.C:
+		t.Fatal("real committed rule handler did not enter barrier within 5s")
+	}
+	select {
+	case e = <-done:
+	case <-bound.C:
+		t.Fatal("local sender did not return within 5s")
+	}
+	callerErr := ctx.Err()
+	release()
+	select {
+	case <-pause.late:
+	case <-bound.C:
+		t.Fatal("rule handler did not actually return within 5s")
+	}
+	if !errors.Is(e, context.DeadlineExceeded) || callerErr != nil {
+		t.Fatalf("want existing HTTP 1s expiry, not caller 4s expiry: error=%v caller=%v", e, callerErr)
+	}
+	s := engineSnapshot(t, f)
+	pending := s.Document.Pending
+	if pending == nil || pending.Operation != OpDisable || pending.ResourceKey != "r" || pending.Coordinate != engineRecord(initial, "r").Coordinate || pending.Phase != StepIntent || pending.AttemptID == "" {
+		t.Fatalf("earlier rule intent not retained: %+v", pending)
+	}
+	f.mu.Lock()
+	co, associated := f.committed[pending.AttemptID]
+	backendAction, actionPresent := f.actions[action.Coordinate.ID]
+	ruleDisabled := !f.rules[pending.Coordinate.ID].Enabled
+	dropped := f.dropped
+	writes := append([]string(nil), f.writes...)
+	f.mu.Unlock()
+	if !associated || co != pending.Coordinate || !ruleDisabled || dropped || !actionPresent || !backendAction.Enabled {
+		t.Fatalf("not the independent earlier-DISABLE counterexample: associated=%t coordinate=%+v disabled=%t dropped=%t action=%t enabled=%t", associated, co, ruleDisabled, dropped, actionPresent, backendAction.Enabled)
+	}
+	for _, w := range writes {
+		if strings.HasPrefix(w, "DELETE ") {
+			t.Fatalf("DELETE occurred before counterexample recovery: %s", w)
+		}
+	}
+	deadline, _ := ctx.Deadline()
+	t.Logf("HTTP=1s caller=4s callerErr=%v remaining=%s originalError=%v pendingOperation=%s key=%s coordinate=%+v phase=%s attempt=%s head=%+v actionStatus=%s hash=%s acquisition=%v", callerErr, time.Until(deadline), e, pending.Operation, pending.ResourceKey, pending.Coordinate, pending.Phase, pending.AttemptID, *s.Base.Head, engineRecord(s, "a").Status, action.ManagedHash, action.Acquisition)
+	cons := engineConstruction(s, pending.ConstructionID)
+	if cons == nil || cons.Mode != ModeTeardown || cons.Input != original.plan.Digest() {
+		t.Fatal("original teardown construction lost")
+	}
+	pv, rec := engineRecoveryInput(t, f, original)
+	recoveryCtx, recoveryCancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer recoveryCancel()
+	_, recoveryErr := recoverEngine(recoveryCtx, f.client, f.store, original, pv, engineApproval(t, pv, cons.ID, rec))
+	after := engineSnapshot(t, f)
+	settled := engineConstruction(after, cons.ID)
+	if !errors.Is(recoveryErr, ErrConflict) || after.Document.Pending != nil || engineRecord(after, "r").Status != ResourceDisabled || settled == nil || settled.ID != cons.ID || settled.Input != cons.Input || settled.Mode != cons.Mode {
+		t.Fatalf("exact rule recovery did not settle original attempt: %v pending=%+v", recoveryErr, after.Document.Pending)
+	}
+	if !reflect.DeepEqual(engineRecord(s, "a"), action) || !reflect.DeepEqual(engineRecord(after, "a"), action) {
+		t.Fatal("earlier rule recovery changed action custody/hash/acquisition")
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !reflect.DeepEqual(f.writes, writes) || f.dropped || !reflect.DeepEqual(f.actions[action.Coordinate.ID], backendAction) || f.attempts[pending.AttemptID] != 1 {
+		t.Fatal("recovery replayed or deleted action")
+	}
+	t.Logf("recovered operation=%s key=%s attempt=%s head=%+v actionStatus=%s hash=%s acquisition=%v writes=%v", pending.Operation, pending.ResourceKey, pending.AttemptID, *after.Base.Head, engineRecord(after, "a").Status, engineRecord(after, "a").ManagedHash, engineRecord(after, "a").Acquisition, f.writes)
+	// Only the exact rule DISABLE was settled. Construction mode must never
+	// substitute for the pending operation when asserting an action tombstone.
+}
+
 func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) {
 	for _, mode := range []Mode{ModeApply, ModeDeactivate, ModeTeardown} {
 		t.Run(string(mode), func(t *testing.T) {
 			f := newEngineTLS(t, false)
 			p := f.plan()
 			original := p
+			var originalError error
+			var acquiredAction *ResourceRecord
 			if mode == ModeApply {
 				f.fault = "drop-collection"
 				if _, e := f.apply(p); e == nil {
@@ -1410,7 +1534,12 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 					original = engineConsumerCleanupPlan(t, p, engineSnapshot(t, f), mode)
 					f.fault = "drop-disable"
 				} else {
-					original = cleanupPlan(t, p, engineSnapshot(t, f))
+					acquired := engineSnapshot(t, f)
+					acquiredAction = engineRecord(acquired, "a")
+					if acquiredAction == nil || acquiredAction.Status != ResourceOwned || acquiredAction.ManagedHash == "" || len(acquiredAction.Acquisition) == 0 {
+						t.Fatal("initial acquired action missing")
+					}
+					original = cleanupPlan(t, p, acquired)
 					f.fault = "drop-delete"
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
@@ -1420,6 +1549,7 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 					t.Fatal(e)
 				}
 				_, e = cleanupEngine(ctx, f.client, f.store, original, pv, engineApproval(t, pv, "", nil))
+				originalError = e
 				cancel()
 				if e == nil {
 					t.Fatal("lost cleanup response accepted")
@@ -1429,6 +1559,17 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			pending := s.Document.Pending
 			if pending == nil {
 				t.Fatal("lost response cleared pending")
+			}
+			if mode == ModeTeardown {
+				f.mu.Lock()
+				fired := f.dropped
+				co, associated := f.committed[pending.AttemptID]
+				_, present := f.actions[acquiredAction.Coordinate.ID]
+				f.mu.Unlock()
+				if !fired || pending.Operation != OpDelete || pending.Method != http.MethodDelete || pending.Phase != StepIntent || pending.ResourceKey != "a" || pending.Coordinate != acquiredAction.Coordinate || !associated || co != acquiredAction.Coordinate || present {
+					t.Fatalf("lost action DELETE precondition not reached: error=%v fired=%t pending=%+v acquired=%+v associated=%t backendCoordinate=%+v present=%t", originalError, fired, *pending, acquiredAction.Coordinate, associated, co, present)
+				}
+				t.Logf("lost DELETE established: error=%v operation=%s key=%s coordinate=%+v phase=%s attempt=%s head=%+v status=%s hash=%s acquisition=%v backendAbsent=%t", originalError, pending.Operation, pending.ResourceKey, pending.Coordinate, pending.Phase, pending.AttemptID, *s.Base.Head, engineRecord(s, "a").Status, engineRecord(s, "a").ManagedHash, engineRecord(s, "a").Acquisition, !present)
 			}
 			cons := engineConstruction(s, pending.ConstructionID)
 			if cons == nil || cons.Mode != mode || cons.Input != original.plan.Digest() {
@@ -1508,7 +1649,11 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			case ModeTeardown:
 				r := engineRecord(after, "a")
 				if r.Status != ResourceRemoved || r.ManagedHash == "" || len(r.Acquisition) == 0 {
-					t.Fatal("delete tombstone/last-present acquisition lost")
+					t.Fatalf("delete tombstone/last-present acquisition lost: operation=%s key=%s status=%s hash=%s acquisition=%v", pending.Operation, pending.ResourceKey, r.Status, r.ManagedHash, r.Acquisition)
+				}
+				prior := engineRecord(s, "a")
+				if r.ManagedHash != prior.ManagedHash || !reflect.DeepEqual(r.Acquisition, acquiredAction.Acquisition) || r.Coordinate != acquiredAction.Coordinate {
+					t.Fatal("delete recovery changed last-present hash/original acquisition/coordinate")
 				}
 			}
 			// A NEW exact recovery preview/approval can continue only never-dispatched
