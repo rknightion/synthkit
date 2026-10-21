@@ -1,10 +1,11 @@
 ---
 id: SKT-0153
 title: Model pharma regulatory document authoring on current Agent Observability
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop51'
 created_date: '2026-10-20T22:20:00Z'
-updated_date: '2026-10-21T01:11:00Z'
+updated_date: '2026-10-21T01:46:00Z'
 labels: []
 dependencies: []
 references:
@@ -35,3 +36,9 @@ Ship a fictional pharma regulatory-authoring blueprint (AWS, EKS with k8s-monito
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Deliver current wire contract and independently gated provisioning and pipeline components, then real hooks, experiments, shipped blueprint and bounded live read-back. Completed foundations do not close the parent estate acceptance.
+<!-- SECTION:PLAN:END -->
