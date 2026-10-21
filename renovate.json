@@ -39,6 +39,12 @@
   },
   "packageRules": [
     {
+      "description": "The chart uses an empty tag plus a separately verified HA-capable digest; never pin that empty tag to an older latest-tag image.",
+      "matchManagers": ["helm-values"],
+      "matchPackageNames": ["ghcr.io/rknightion/synthkit"],
+      "enabled": false
+    },
+    {
       "description": "Batch all non-major Go module bumps into one PR — most are transitive churn not worth a PR each.",
       "matchManagers": ["gomod"],
       "matchUpdateTypes": ["minor", "patch", "digest"],
