@@ -113,13 +113,23 @@ SampleCount=N. For invocations, V=1. The constant-request model intentionally do
 capture's latency spread. All five stats are independent per-period **gauges**, never cumulative
 counters, and no histogram is emitted.
 
-**Evidence boundary / PENDING:** no profile-containing raw metric-stream payload or invocation log
-was retrieved. The remote-write shape below uses the existing CW naming convention and `name=global`
-(no inferred profile ARN or tag enrichment); it is an offline projection of the captured API shape,
-not live collector parity. Any profile declaration with `cloudwatch_export: otlp` fails closed,
-even when its sub-signal is excluded. Raw profile OTLP, collector enrichment, profile logs and
-unsupported families stay disabled pending sourced evidence. Generic Bedrock OTLP behavior without
-profiles is unchanged.
+**Native stream source evidence (2026-10-21):** read-only inspection of an existing delivery-error
+backup recovered four length-delimited OTLP `ExportMetricsServiceRequest` frames containing both
+approved profiles. Their ten Summary datapoints cover the five bases above for each profile;
+count, sum and minimum/maximum quantiles exactly match the captured CloudWatch API statistics.
+Metric names are `amazonaws.com/AWS/Bedrock/<MetricName>`; units are `{Count}` or `ms` for latency.
+Datapoint attributes are exactly `Namespace`, `MetricName` and `Dimensions`, with `ModelId` the sole
+dimension. Scope name/version are empty. Resource keys include `cloud.provider`, `cloud.account.id`,
+`cloud.region` and `aws.exporter.arn`. Captured values and identifiers are not public fixtures.
+This is source-payload evidence from a failed delivery backup, not successful collector/backend
+acceptance, resource-tag persistence or invocation-log evidence.
+
+**Evidence boundary / PENDING:** the remote-write shape below uses the existing CW naming convention
+and `name=global` (no inferred profile ARN or tag enrichment); it remains an offline projection,
+not live collector parity. Any profile declaration with `cloudwatch_export: otlp` still fails closed,
+even when its sub-signal is excluded. Native profile emission remains disabled until its complete
+resource/enrichment contract is verified; profile logs, unconfirmed tags and unsupported families
+remain gated. Generic Bedrock OTLP behavior without profiles is unchanged.
 
 ```yaml signals
 family: aws_bedrock
