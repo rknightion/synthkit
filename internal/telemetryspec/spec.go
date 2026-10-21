@@ -3,9 +3,13 @@
 package telemetryspec
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/rknightion/synthkit/internal/highcard"
+	"gopkg.in/yaml.v3"
 )
 
 // Instrument kinds (the `instrument` key on a metric).
@@ -50,6 +54,7 @@ const (
 // `_bucket`, I4). Labels are series dimensions (capability matrix: const/const_str/enum only).
 type MetricSpec struct {
 	Name       string                `yaml:"name"`
+	Source     string                `yaml:"source"` // config-only citation; required by ValidateCustom
 	Instrument string                `yaml:"instrument"`
 	Unit       string                `yaml:"unit"`
 	Scope      string                `yaml:"scope"`
@@ -57,6 +62,45 @@ type MetricSpec struct {
 	Value      ValueModel            `yaml:"value"`
 	Buckets    []float64             `yaml:"buckets"`
 	LEStyle    string                `yaml:"le_style"`
+}
+
+// CustomMetrics is the sourced, blueprint-owned variant of inline metric declarations.
+// Decode-time validation lets the public blueprint loader reject missing provenance without
+// depending on any workload. Build-time callers must also validate programmatic declarations.
+type CustomMetrics []MetricSpec
+
+func (m *CustomMetrics) UnmarshalYAML(node *yaml.Node) error {
+	data, err := yaml.Marshal(node)
+	if err != nil {
+		return err
+	}
+	var specs []MetricSpec
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&specs); err != nil {
+		return err
+	}
+	for _, spec := range specs {
+		if err := spec.ValidateCustom(); err != nil {
+			return err
+		}
+	}
+	*m = specs
+	return nil
+}
+
+// ValidateCustom validates a blueprint-owned metric. Catalog/legacy specs retain Validate's
+// existing contract; custom declarations require provenance without putting it on the wire.
+func (m MetricSpec) ValidateCustom() error {
+	if strings.TrimSpace(m.Source) == "" {
+		return fmt.Errorf("metric %q: custom metric requires source citation", m.Name)
+	}
+	for _, k := range sortedKeys(m.Labels) {
+		if highcard.Contains(k) {
+			return fmt.Errorf("metric %q: high-card label key %q is forbidden", m.Name, k)
+		}
+	}
+	return m.Validate()
 }
 
 // Validate enforces the metric's structure + the capability matrix on its labels + value.

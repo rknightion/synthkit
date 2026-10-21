@@ -156,11 +156,14 @@ type ServiceNode struct {
 	Replicas int      `yaml:"replicas"` // pods for the node cascade (default 2); per-node scaling §6.6
 	Profiles []string `yaml:"profiles"` // catalog profile-template names (resolved at load)
 	// Signals controls this service's own telemetry; omitted block/keys leave all three enabled.
-	Signals *NodeSignals               `yaml:"signals"`
-	Metrics []telemetryspec.MetricSpec `yaml:"metrics"` // inline custom metrics (the DSL escape hatch)
-	Logs    []telemetryspec.LogSpec    `yaml:"logs"`    // inline custom log streams
-	Spans   []telemetryspec.SpanSpec   `yaml:"spans"`   // inline custom spans (extra attrs on this node's span)
-	Calls   []string                   `yaml:"calls"`   // downstream node names (the graph edges / propagation)
+	Signals *NodeSignals `yaml:"signals"`
+	// CustomMetrics are blueprint-owned metric names with mandatory config-only source citations.
+	// They reuse the inline metric interpreter, state and optional native OTLP lane.
+	CustomMetrics telemetryspec.CustomMetrics `yaml:"custom_metrics"`
+	Metrics       []telemetryspec.MetricSpec  `yaml:"metrics"` // legacy inline metrics (the DSL escape hatch)
+	Logs          []telemetryspec.LogSpec     `yaml:"logs"`    // inline custom log streams
+	Spans         []telemetryspec.SpanSpec    `yaml:"spans"`   // inline custom spans (extra attrs on this node's span)
+	Calls         []string                    `yaml:"calls"`   // downstream node names (the graph edges / propagation)
 	// DBInstance (db/cache leaf nodes only) names the BASE blueprint database this node represents
 	// (e.g. "orders-pg"); the workload resolves it per-env against the binding's Databases to the
 	// concrete RDS instance "<db_instance>-<lower(env)>" (case-insensitive env suffix; exact name

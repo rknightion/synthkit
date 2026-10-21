@@ -211,6 +211,60 @@ Example inline metric:
         shape: { base: 1.0, mode: throughput_drop }
 ```
 
+### Blueprint-owned custom metrics
+
+Use a service node's `custom_metrics` for blueprint-owned names, reusing the metric DSL above.
+Every declaration requires a nonblank `source` citation identifying the instrumentation contract
+or documentation for its metric name, unit and label dimensions. The loader checks that a citation
+is present, not that its contents are authoritative or its URL is reachable. Citation text stays in
+configuration: it is never a metric label, datapoint attribute or OTLP resource attribute. These
+names are owned by the blueprint, not additions to the built-in signal catalog.
+
+```yaml
+services:
+  - name: api
+    type: web
+    custom_metrics:
+      - name: http_requests_total
+        source: https://prometheus.io/docs/practices/naming/
+        instrument: counter
+        labels:
+          method: {const_str: GET}
+        value: {const: 2} # illustrative fixture: two requests per metric tick, per label combination
+      - name: http_request_duration_seconds
+        source: https://prometheus.io/docs/practices/histograms/
+        instrument: histogram
+        unit: s
+        labels:
+          method: {const_str: GET}
+        buckets: [0.5, 1]
+        value: {const: 0.75} # illustrative fixture: one 750ms observation per metric tick
+```
+
+A counter value is a **per-metric-tick increment**, accumulated across ticks. A histogram value is
+one observation per metric tick, accumulated into classic Prometheus `_bucket`, `_sum` and `_count`
+series; explicit strictly ascending `buckets` are required. Each label combination receives its own
+increment or observation: enum weights do not divide traffic among metric series. Values are not
+request-ledger-derived business outcomes; choose tick frequency and value models from the cited
+instrumentation and realistic workload volume, rather than treating these fixture values as
+production traffic defaults.
+
+Custom metrics always use the existing Prometheus lane. Workload-level `otel.metrics: true` also
+mirrors these observations as native cumulative OTLP sums/histograms with stable start times;
+node identity becomes resource attributes while declared labels remain datapoint attributes.
+With `otel.metrics` omitted or false, no native metrics are emitted. Catalog profiles remain on
+the Prometheus lane. Gauges and the rest of the metric DSL are also supported.
+
+Only bounded `const` / `const_str` / `enum` label domains are admitted; high-cardinality keys such
+as `trace_id` and high-cardinality `ref` values are rejected even if a key has a constant value.
+Node identity keys remain reserved. Put correlation identifiers in log bodies or span attributes,
+not metric labels. At workload build, each custom declaration must own a distinct instrument name
+and its entire Prometheus family within the service node: a histogram also reserves `_bucket`,
+`_sum` and `_count`. Collisions with profiles, legacy `metrics` or other custom declarations are
+rejected even when labels are disjoint or units/bounds differ; declarations are never merged.
+Existing `metrics` declarations and catalog profiles retain their previous
+validation and emission behavior; `custom_metrics` is the additive, citation-required surface.
+
 ### Catalog profiles
 
 The catalog ships reusable profile templates that any node can apply by name in `profiles:`:

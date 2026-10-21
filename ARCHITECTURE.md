@@ -91,7 +91,7 @@ type WorkloadReg struct {
 The `app` service-node + the custom-telemetry DSL are mechanic-lib seams (`internal/telemetryspec`,
 a peer of `internal/cw`/`internal/genai`; NO OTel SDK — metrics via promrw final names, spans via
 the hand-encoded OTLP seam):
-- `ServiceNode{Name, Type, Runtime, Entry, Replicas, Profiles, Metrics, Logs, Spans, Calls}` — a
+- `ServiceNode{Name, Type, Runtime, Entry, Replicas, Profiles, CustomMetrics, Metrics, Logs, Spans, Calls}` — a
   typed graph node. `Type` selects span semantics from a registry with a DEFAULT FALLBACK
   (frontend/web/grpc/worker/job/stream/gateway/db/cache/llm/agent/tool/workflow/retrieval). Node
   names are UNIQUE within a graph; the node identity is AUTO-STAMPED on every series/stream/span
@@ -106,6 +106,16 @@ the hand-encoded OTLP seam):
   they agree by construction.
 - `Profile` — a named bundle of specs; the catalog ships generic, real-named templates
   (`internal/telemetryspec/profiles`), composed onto a node by name and/or extended inline.
+- `app` service-node `custom_metrics` is the narrow sourced, blueprint-owned metric-name surface,
+  distinct from catalog profiles and legacy inline `metrics`. Each declaration requires a nonblank
+  configuration-only `source` citation for its name, unit and label dimensions; presence validation
+  does not authenticate that citation. Source text never reaches the wire. Labels remain bounded
+  and low-cardinality, with high-cardinality keys and node-identity overrides rejected. At workload
+  Build, each custom declaration must own its instrument name and full Prometheus family per node
+  (a histogram also reserves `_bucket`, `_sum`, `_count`); conflicts with profiles, legacy metrics or
+  other custom declarations reject even with different labels, units or bounds. Legacy-only
+  admission is unchanged. See [the canonical custom-metric guide](docs/workloads.md#blueprint-owned-custom-metrics)
+  for value models, cumulative semantics and additive native OTLP mirroring.
 - spanmetrics/service-graph stay metrics-generator-DERIVED; `app` honors the per-blueprint
   `EmitSpanMetrics` opt-in IDENTICALLY to `web_service` (synthesizing them from its own graph only
   when a tenant's metrics-generator is off).
@@ -318,9 +328,11 @@ declaration models a dev/test/prod estate with per-env scale + within-env trace 
 
 ### 3.1 Construct boundaries (read before adding constructs)
 
-The catalog grows by adding constructs/workloads, never by inventing metrics in YAML (fidelity is the
-product). Draw a construct boundary at the **smallest unit that is independently declarable in a
-blueprint AND carries a distinct shared identity / cross-construct join** — *not* at the delivery
+The catalog grows by adding constructs/workloads with sourced signal contracts, never by inventing
+catalog metrics in YAML (fidelity is the product). The narrow exception is sourced blueprint-owned
+`app` service-node `custom_metrics` (§2), which does not add names to the catalog. Draw a construct
+boundary at the **smallest unit that is independently declarable in a blueprint AND carries a
+distinct shared identity / cross-construct join** — *not* at the delivery
 pipeline. "It all arrives via the CloudWatch metric stream" is a transport fact, not a boundary:
 
 - **Distinct fixture + distinct declaration + distinct join → separate construct**, sharing a mechanic

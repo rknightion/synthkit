@@ -140,6 +140,40 @@ func (g *graph) entryHasRumFaro() bool {
 	return false
 }
 
+// checkCustomMetricNames reserves the native instrument name and every Prometheus family
+// name per node. Labels, units and bounds cannot make repeated names safe: native collection
+// selects by name/kind, and histogram companions share the scalar output namespace.
+// Existing profile/legacy overlaps are intentionally not newly rejected; only a custom
+// declaration claiming an already-owned name introduces an admission error.
+func checkCustomMetricNames(existing []telemetryspec.MetricSpec, custom telemetryspec.CustomMetrics) error {
+	if len(custom) == 0 {
+		return nil
+	}
+	names := func(m telemetryspec.MetricSpec) []string {
+		if m.Instrument == telemetryspec.InstrumentHistogram {
+			return []string{m.Name, m.Name + "_bucket", m.Name + "_sum", m.Name + "_count"}
+		}
+		return []string{m.Name}
+	}
+	owners := make(map[string]string)
+	for _, m := range existing {
+		for _, name := range names(m) {
+			owners[name] = m.Name
+		}
+	}
+	for _, m := range custom {
+		for _, name := range names(m) {
+			if owner, ok := owners[name]; ok {
+				return fmt.Errorf("custom metric %q collides with metric %q at family name %q", m.Name, owner, name)
+			}
+		}
+		for _, name := range names(m) {
+			owners[name] = m.Name
+		}
+	}
+	return nil
+}
+
 // buildGraph resolves + validates the declared services into a graph: unique names, one entry,
 // edges reference declared nodes, leaves make no calls, every effective spec passes the DSL
 // capability matrix. Loud load errors (like the rest of the loader).
@@ -170,6 +204,15 @@ func buildGraph(services []ServiceNode) (*graph, error) {
 		}
 		n.nativeMetricStart = len(n.metrics)
 		n.metrics = append(n.metrics, s.Metrics...)
+		for _, m := range s.CustomMetrics {
+			if err := m.ValidateCustom(); err != nil {
+				return nil, fmt.Errorf("app service %q: %w", s.Name, err)
+			}
+		}
+		if err := checkCustomMetricNames(n.metrics, s.CustomMetrics); err != nil {
+			return nil, fmt.Errorf("app service %q: %w", s.Name, err)
+		}
+		n.metrics = append(n.metrics, s.CustomMetrics...)
 		n.logs = append(n.logs, s.Logs...)
 		n.spans = append(n.spans, s.Spans...)
 		// When this node runs an agentic flow, the agent-flow emitter owns the chat <model> span (as

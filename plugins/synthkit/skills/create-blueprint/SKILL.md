@@ -5,8 +5,10 @@ description: "Create or change a synthkit blueprint in a verified checkout; not 
 
 # Author a synthkit blueprint
 
-Blueprints own scenario-specific configuration and explicit wiring. They do not add a construct,
-workload, metric, label, log field, or trace attribute: those contracts already live in the catalog.
+Blueprints own scenario-specific configuration and explicit wiring. They do not add constructs,
+workloads or invent catalog signal names: those contracts already live in the catalog. The narrow
+exception is sourced, blueprint-owned `app` service-node `custom_metrics`, governed by the
+[canonical workload guide](https://github.com/rknightion/synthkit/blob/main/docs/workloads.md#blueprint-owned-custom-metrics).
 
 ## Locate the synthkit checkout
 
@@ -28,9 +30,19 @@ Read `ARCHITECTURE.md`, `SIGNALS.md` and the relevant `signals/<area>.md`, then
 `blueprints/acme-ai-platform.yaml` for a correlated multi-service example. Keep the copied file's
 comments only when they still describe the new scenario.
 
-Use fields only where the schema lists them. For a field's signal effect, use its matching signal
-catalogue; a plausible-looking name is not evidence. If the desired signal is absent, stop and
-return the missing contract rather than adding a guessed field or name.
+Use fields only where the schema lists them. For a catalog field's signal effect, use its matching
+signal catalogue; a plausible-looking name is not evidence. If the desired catalog signal is absent,
+stop and return the missing contract rather than adding a guessed field or name.
+
+For `app` service-node `custom_metrics`, cite the instrumentation contract for every name, unit and
+label dimension in the required nonblank `source`. This is configuration-only provenance, never
+wire data; the loader checks presence, not authenticity. Keep labels bounded and low-cardinality;
+high-cardinality keys, high-cardinality refs and node-identity overrides are forbidden. Each custom
+declaration must own its instrument name and complete Prometheus family per node, including a
+histogram's `_bucket`, `_sum` and `_count`: collisions with profiles, legacy `metrics` or other
+custom declarations reject regardless of labels, units or bounds. Follow the workload guide above
+for cumulative value semantics, transport behavior and realistic volume assumptions; do not copy
+its illustrative fixture values as production defaults.
 
 ## Procedure
 

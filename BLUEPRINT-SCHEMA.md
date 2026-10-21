@@ -617,7 +617,17 @@ aws_bedrock_* CloudWatch metrics for Bedrock model invocations, agents, and guar
 | key | type | optional | description |
 |---|---|---|---|
 | `models[]` | string |  | Models is the list of model IDs to emit per-model series for. Defaults to defaultModels when empty. |
-| `sub_signals[]` | string |  | SubSignals selects which metric families to emit. Valid values: "models", "agents", "guardrails", "invocation_logs". Empty (or omitted) means all four families are emitted. |
+| `sub_signals[]` | string |  | SubSignals selects which metric families to emit. Valid values: models, agents, guardrails, invocation_logs, application_profiles. Empty (or omitted) means all configured families are emitted. |
+| `application_profiles[]` | object |  | ApplicationProfiles optionally associates each agent with a synthetic application inference profile and a separate pricing model. No declarations means no profile output. |
+| `application_profiles[].id` | string |  | ID is a fictional opaque alphanumeric profile ID, not an ARN or foundation model ID. |
+| `application_profiles[].agent` | string |  | Agent names the owning agent in the blueprint. It is not a wire label or a tag readback. |
+| `application_profiles[].provider` | string |  | Provider is bedrock, matching the generation provider used for pricing. |
+| `application_profiles[].model` | string |  | Model retains the foundation model identity separately from the profile ID. |
+| `application_profiles[].requests_per_min` | float |  | RequestsPerMin is explicit constant traffic, with a real-world basis beside its YAML value. Fractional rates produce whole observations in UTC minute windows, including idle minutes. |
+| `application_profiles[].input_tokens_per_request` | int |  | InputTokensPerRequest is a synthetic constant request size, not a captured production mean. |
+| `application_profiles[].output_tokens_per_request` | int |  | OutputTokensPerRequest is a synthetic constant response size. |
+| `application_profiles[].latency_ms_per_request` | float |  | LatencyMSPerRequest is synthetic constant per-request latency in milliseconds. |
+| `application_profiles[].estimated_tpm_quota_usage_per_request` | int |  | EstimatedTPMQuotaUsagePerRequest is an explicit synthetic quota estimate; no formula relating it to token usage, maxTokens or pricing is inferred from the tiny capture. |
 
 ## beyla_agent config
 
@@ -1203,8 +1213,40 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].signals.traces` | bool | yes | This service's spans; nil = enabled. |
 | `services[].signals.logs` | bool | yes | This service's log streams; nil = enabled. |
 | `services[].signals.metrics` | bool | yes | This service's app metrics; nil = enabled. |
-| `services[].metrics[]` | object |  | inline custom metrics (the DSL escape hatch) |
+| `services[].custom_metrics[]` | object |  | CustomMetrics are blueprint-owned metric names with mandatory config-only source citations. They reuse the inline metric interpreter, state and optional native OTLP lane. |
+| `services[].custom_metrics[].name` | string |  |  |
+| `services[].custom_metrics[].source` | string |  |  |
+| `services[].custom_metrics[].instrument` | string |  |  |
+| `services[].custom_metrics[].unit` | string |  |  |
+| `services[].custom_metrics[].scope` | string |  |  |
+| `services[].custom_metrics[].labels` | map[string]ValueModel |  |  |
+| `services[].custom_metrics[].value` | object |  |  |
+| `services[].custom_metrics[].value.const` | float | yes |  |
+| `services[].custom_metrics[].value.const_str` | string | yes |  |
+| `services[].custom_metrics[].value.enum[]` | object |  |  |
+| `services[].custom_metrics[].value.enum[].value` | string |  |  |
+| `services[].custom_metrics[].value.enum[].weight` | float |  |  |
+| `services[].custom_metrics[].value.int_range` | object | yes |  |
+| `services[].custom_metrics[].value.int_range.min` | int |  |  |
+| `services[].custom_metrics[].value.int_range.max` | int |  |  |
+| `services[].custom_metrics[].value.int_range.p_zero` | float |  |  |
+| `services[].custom_metrics[].value.float_range` | object | yes |  |
+| `services[].custom_metrics[].value.float_range.min` | float |  |  |
+| `services[].custom_metrics[].value.float_range.max` | float |  |  |
+| `services[].custom_metrics[].value.normal` | object | yes |  |
+| `services[].custom_metrics[].value.normal.mean` | float |  |  |
+| `services[].custom_metrics[].value.normal.stddev` | float |  |  |
+| `services[].custom_metrics[].value.bool` | object | yes |  |
+| `services[].custom_metrics[].value.bool.p_true` | float |  |  |
+| `services[].custom_metrics[].value.shape` | object | yes |  |
+| `services[].custom_metrics[].value.shape.base` | float |  |  |
+| `services[].custom_metrics[].value.shape.mode` | string |  |  |
+| `services[].custom_metrics[].value.ref` | string |  |  |
+| `services[].custom_metrics[].buckets[]` | float |  |  |
+| `services[].custom_metrics[].le_style` | string |  |  |
+| `services[].metrics[]` | object |  | legacy inline metrics (the DSL escape hatch) |
 | `services[].metrics[].name` | string |  |  |
+| `services[].metrics[].source` | string |  |  |
 | `services[].metrics[].instrument` | string |  |  |
 | `services[].metrics[].unit` | string |  |  |
 | `services[].metrics[].scope` | string |  |  |
