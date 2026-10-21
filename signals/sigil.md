@@ -39,6 +39,100 @@ Exported bool/string scores already increment score-values in backend ingest. Em
 family locally double-counts them, even if local labels differ. Numeric score values are never
 enumerated as labels. This retirement does not remove the actual Lane-A scores.
 
+## Bound-app executor subset [slug: sigil-app-pipeline]
+
+`app.agent_pipeline` is a separate, bounded consumer of the vocabulary below, not an
+expansion of the generic `ai_agent` emitter. Its initial component requires explicit
+`services[].agent_observability`, placed Kubernetes identities and `otel.metrics: true`.
+Ordinary CLI boot/live/persisted restore cannot install its required `GenerationStages`
+collaborator and fail closed, including hooks disabled/ratings zero. A nonnil collaborator
+is a construction dependency only, never destination/current/historical custody admission.
+No production hook/rating adapter or backend readback is established by component tests.
+
+The component emits completed model generations and application workflow steps through
+native HTTP; retrieval-only services emit workflow/tool telemetry, **no** model generation
+or model metric. Planner identity owns retrieval preflight; rules match that producer,
+not a fabricated tool-name predicate. Declared caller/source tool intersection selects
+actual invocations. Disabled hooks or explicit hook-local fail-open may retain original
+content; denial/redaction must prevent original content reaching dependent exports.
+AfterGeneration runs once before publication/delegation; this does not install postflight HTTP.
+Ratings use the separate conversation writer, carry no arbitrary comment/metadata in this
+component, and do not certify generation delivery. Backend score/guard/cost/experiment
+families remain forbidden synthetic producers.
+
+### Capture provenance and admitted shapes
+
+SDK **75a1c548** Go `content_capture.go`, `contentcapture/contentcapture.go` and
+`client.go` tool recorder, plus Python `client.py` `_strip_content`,
+`_strip_message_content` and tool recorder define the native-export/span split:
+
+| Binding capture mode | Native generations | Shared tool spans |
+|---|---|---|
+| Omitted / `default` / `no_tool_content` | Full modeled content | No arguments/results; no per-tool IncludeContent opt-in exists here |
+| `full` | Full modeled content | Actual completed call arguments and accepted text or JSON result |
+| `full_with_metadata_spans` | Full modeled content | No arguments/results |
+| `metadata_only` | Strip system/text/tool content and descriptions/schemas, retain roles, part structure, tool names/IDs, usage/timing | No arguments/results |
+
+Native metadata stamps `agento11y.sdk.content_capture_mode` with the resolved mode.
+Metadata-only removes `call_error` and `agento11y.conversation.title`; Go also removes
+`sigil.conversation.title`, while the pinned Python policy retains an authored legacy-title
+key. A nonempty call error becomes its category or `sdk_error`. Arbitrary authored metadata
+and tags are **not** scrubbed. Keep them free of private content in every mode.
+Generation spans carry identity/usage, not prompts/messages or arbitrary metadata.
+Native message `name` and part `metadata.provider_type` retain their pinned proto fields
+(`generation_ingest.proto` at backend bc963fb09); neither is an extra metric dimension.
+
+The app span subset is generation CLIENT and execute_tool INTERNAL spans in SDK library
+scopes, alongside ordinary app SERVER/CLIENT transport spans in scope `synthkit`.
+Generation attributes are `gen_ai.operation.name`, provider/request/response model,
+`gen_ai.response.id`, array-valued `gen_ai.response.finish_reasons`, agent name/optional
+version, conversation ID, input/output token usage, `agento11y.generation.id`,
+`agento11y.sdk.name`, configured client/context tags and positively marked token semantics.
+Python adds array-valued `agento11y.generation.parent_generation_ids` when present.
+Tool spans carry `gen_ai.operation.name`, `gen_ai.tool.name`, `gen_ai.tool.call.id`,
+`gen_ai.agent.name` (source identity), `gen_ai.conversation.id` and `agento11y.sdk.name`,
+plus arguments/result only under explicit full. They do not invent source model identity.
+Ordinary app spans retain `app.correlation_id`, `request_id` and `session_id` attributes
+under the existing trace contract; none becomes a metric label.
+
+Metadata-only thinking is **unsupported/fail-closed**: the current native Part encoder
+retypes intentionally empty thinking to text. Selected thinking rejects at Build and
+carried thinking rejects at capture; neither placeholders nor private reasoning retention
+are a workaround. The corpus materializer emits no media; reduced Python media is refused,
+not claimed SDK parity. Supported text/tool shapes are tested through actual native and
+OTLP encoders; this is not complete SDK/media parity or whole-CLI admission proof.
+
+### Native metric subset and identity
+
+Only `gen_ai.client.operation.duration` (histogram, unit `s`) and
+`gen_ai.client.token.usage` (histogram, unit `{token}`) are emitted, using the duration/token
+bounds below and cumulative temporality. Observations count actual completed model executions,
+including work whose subsequent callback/publication fails; metric-only ticks add no work.
+Tool-count, TTFT, execute-tool duration and error instruments are not part of this initial
+subset. Synthetic byte-based token modeling is not a vendor tokenizer measurement; Python
+marks inclusive input, Go leaves it unspecified.
+
+Point attributes are `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`,
+`gen_ai.agent.name`, optional `gen_ai.agent.version` and configured `agento11y.tag.<k>`.
+Token points add `gen_ai.token.type` and positively marked `gen_ai.token.semantics`.
+Go client/context tags merge with context winning; Python accepts client tags only.
+Generation-only tags override native-generation tags, never span/metric dimensions.
+No duplicate SDK promrw instrument is emitted.
+
+Resources retain actual `service.name`, `service.namespace`, `service.version`,
+`deployment.environment.name`, `telemetry.sdk.name`, `telemetry.sdk.language`,
+`k8s.cluster.name`, `k8s.namespace.name`, `k8s.pod.name` and the matching
+`k8s.deployment.name` or `k8s.statefulset.name`; optional declared context/use-case/team
+resource attributes follow the existing app identity contract. Scopes are the pinned Go/Python
+library names below. App workload scoping remains blueprint-scoped (unlike `ai_agent`),
+with selector stamping owned only by the root scoped writer. Direct component encoder
+proof bypasses that writer and cannot certify composed scope or backend promotion.
+
+Local synthkit-derived spanmetrics are explicitly unsupported; root must refresh the flag
+before projection for a composed live-toggle fence. Backend graph/spanmetrics derived from
+actual traces require separate observed evidence. See the [workload guide](../docs/workloads.md#bound-agent-observability-executor-component-boundary)
+for exact selectors, bounds and authoring limitations.
+
 ## Lane A — native HTTP protojson [slug: sigil-lane-a]
 
 - `POST /api/v1/generations:export`: `agento11y.v1.ExportGenerationsRequest`.
@@ -337,8 +431,9 @@ The last key selects the embedded fictional regulated-document corpus; it adds n
 catalog behavior. Coding uses large cached prompts; general agents have modest input/output.
 Orchestration/coding subagents retain parent-generation links; general orchestration/autonomous
 loops emit application workflow steps. Tool-result carry-forward is unchanged by the wire refresh.
-Corpus sampling does not preserve ordered attacks; a future executor must explicitly construct
-ordered model-visible tool input rather than infer sequencing from corpus order.
+Generic `ai_agent` corpus sampling does not preserve ordered attacks. The separate bound-app
+executor explicitly constructs model-visible tool input at its execution barrier; neither path
+infers trusted sequencing from corpus order.
 
 ### Failure modes [slug: sigil-failure-modes]
 
@@ -357,6 +452,7 @@ be bounded by declarations. No Loki lane is added.
 
 Per-generation stage types live in internal/sigil: BeforeToolResult runs before model-visible
 carry-forward and permits explicit allow/deny/content replacement; AfterGeneration receives the
-completed generation before publication/delegation. These are **types only**, not installed hooks,
-whole-conversation callbacks, or a new pipeline. Callers own cancellation/fail-open policy. Backend
+completed generation before publication/delegation. The interfaces alone are **types only**, not installed hooks,
+whole-conversation callbacks, or a new pipeline. The separately configured bound-app consumer
+above requires injected collaborators; ordinary CLI construction remains closed. Callers own cancellation/fail-open policy. Backend
 guard telemetry must come from the actual backend response/work, never these interfaces themselves.

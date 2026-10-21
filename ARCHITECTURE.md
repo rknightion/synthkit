@@ -264,6 +264,33 @@ record before publication/delegation. IDs come from the existing ledger and
 conversation builder. No pipeline or hook implementation is installed by these
 types, and they never authorize synthetic backend guard/evaluation records.
 
+The optional bound-app executor consumes the canonical collaborators without importing
+transports or sibling workloads. GenerationStages is an unconditional construction
+dependency, including disabled-hooks/zero-rating declarations; a nonnil pointer is not
+admission/custody proof. Root must install it only after actual boot/live/restore
+admission. AfterGeneration runs once before publication/delegation, with no initial
+postflight HTTP. Producing-planner preflight decisions precede carried/exported tool
+results; disabled hooks or explicit local fail-open may preserve original content.
+
+Native generation export and shared tool spans have distinct SDK capture policies:
+default/no_tool_content and full_with_metadata_spans retain native generation content
+but omit tool-span content; only explicit full emits accepted tool content in spans.
+Metadata-only preserves roles/part structure, tool identities, usage and timing while
+removing SDK-defined content. Authored tags/metadata are not generally scrubbed.
+Metadata-only thinking payloads reject because the current native Part seam lacks a
+kind discriminator for empty thinking; no placeholder content or silent retyping is
+permitted. See the workload guide and canonical signal contract for pinned policy.
+This is a bound-app native-content exception, not blanket permission for generic
+custom span content or synthetic backend guard/evaluation producers.
+
+The bounded executor uses exact corpus facets and 16-stage/3-revision/32-attempt/1-MiB
+limits. It emits two native SDK instruments from completed model executions and refuses
+local synthkit-derived spanmetrics. Backend graph derivation, actual runtime adapters,
+persistent real-only admission and backend readback remain separate root-owned proofs.
+Ordinary CLI boot/live/persisted restore cannot inject the collaborator and remain closed;
+public fixture/KSM/component encoder proofs are not whole-CLI readiness. The app's existing
+blueprint scope is unchanged, distinct from substrate-scoped `ai_agent`.
+
 ## 3. The blueprint YAML
 
 ```yaml
@@ -764,7 +791,8 @@ Conformance & content
   version, helm/agent build_info, cluster+job labels on logs, OpenCost/Kepler). Constructs own
   version canonicalization.
 - **I23** The generic gen_ai path strips content-bearing fields. The `ai_agent` Sigil/profile
-  exception is defined in `signals/sigil.md`, including capture-mode-controlled trace content.
+  exception and the distinct bounded-app subset are defined in `signals/sigil.md`, including
+  their capture-mode-controlled native/trace content and supported-shape restrictions.
   The Alloy health content counters and zero-valued leak gauge are synthetic modeled signals,
   not independent evidence that arbitrary payloads have been inspected or stripped.
 

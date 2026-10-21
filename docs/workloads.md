@@ -69,6 +69,64 @@ When a blueprint wires an AI infrastructure construct (AgentCore, Bedrock) to th
 
 `app` declares a **multi-service graph** where each node is a first-class service with its own telemetry. One request minted at the entry node propagates a single correlated trace across the whole graph: every node adds its own SERVER span (and optional CLIENT spans to its downstream calls), so the resulting trace shows the full request journey across all services.
 
+### Bound Agent Observability executor (component boundary)
+
+The `agent_pipeline` app component binds `services[].agent_observability` to placed
+service identities and executes one correlated request incrementally. Every pipeline
+Build requires the canonical `GenerationStages` collaborator, even with hooks disabled
+and ratings at zero. This is a construction dependency, not a receipt or admission
+attestation. The composition root must install it only after actual selected-set,
+destination and retained real-only custody admission. A positive rating sample rate
+additionally requires `Ratings`; neither collaborator provisions backend rules.
+
+**Not an operational CLI feature yet:** ordinary boot, live apply and persisted restore
+cannot inject these collaborators and reject/record a restore skip, even with hooks off
+and ratings zero. The controlled test fixture under `e2e/fixtures/` exercises public
+loading/KSM placement plus explicit component injection, not runtime admission. Do not
+copy its forced rates into a shipped blueprint or install a no-op collaborator to bypass
+the fence. Production adapters, retained custody and backend graph/readback remain separate.
+The [canonical bound-app signal subset](https://github.com/rknightion/synthkit/blob/main/signals/sigil.md#bound-app-executor-subset-slug-sigil-app-pipeline)
+is sourced to SDK 75a1c548 and must not be generalized to unrelated `ai_agent` behavior.
+
+The generation binding's `content_facets` selects the exact unordered corpus facet set;
+omission selects facetless turns only. Textual user and assistant candidates are both
+required, without fallback or implicit corpus-tool execution. Retrieval tools use
+explicit `name`, `kind: tool_result` and exact `facets`; only tools selected by both
+producing caller and source binding execute. The producer owns preflight policy;
+retrieval-only enabled hooks reject. Backend rules match planner identity, never an
+invented tool-name predicate. Explicit deny stops dependent execution. Hook-local
+fail-open and explicitly disabled hooks may carry original content; they do not certify
+redaction. When a hook replaces or denies a result, original content is confined to the
+intended evaluator input and must not reach downstream generation/tool content.
+
+Capture follows the pinned SDK native-generation versus tool-span split:
+
+| Mode | Native generation export | Tool span arguments/results |
+|---|---|---|
+| Omitted / `default` / `no_tool_content` | Full content | Omitted (this component has no per-tool IncludeContent opt-in) |
+| `full` | Full content | Accepted content included |
+| `full_with_metadata_spans` | Full content | Omitted |
+| `metadata_only` | Content stripped; roles, parts, tool names/IDs, usage and timing retained | Omitted |
+
+Metadata-only removes SDK content mirrors, not arbitrary authored metadata/tags. The
+pinned Go policy removes current and legacy title mirrors plus call_error; the pinned
+Python policy removes current title and call_error, not an authored legacy-title key.
+Keep authored metadata/tags free of private content. Metadata-only thinking parts are
+explicitly unsupported: the current frozen native Part encoder cannot preserve the
+kind of an empty thinking payload. Such selected content rejects before execution,
+rather than silently retyping it as text; adding that shape requires a separately
+reviewed shared encoder change. The app corpus path also does not produce media parts;
+reduced Python media is refused rather than claimed as supported.
+
+Limits are 16 stages, 3 revisions, 32 expanded attempts and 1 MiB total modeled content.
+The native SDK metric subset is cumulative duration/token usage only, partitioned by
+actual service/SDK. Tools-only source emits workflow/tool telemetry, never a model
+Generation or model metric. Local synthkit-derived spanmetrics reject when enabled;
+root must refresh that flag before projection to enforce a composed live-toggle fence.
+Backend graph derivation from actual traces is separate evidence. Minimal component
+ratings omit arbitrary comments/metadata; do not infer blanket metadata scrubbing or
+backend conversation delivery from rating acceptance.
+
 ### Service nodes
 
 Each node in `services:` is a `ServiceNode`:
@@ -85,6 +143,7 @@ Each node in `services:` is a `ServiceNode`:
 | `profiles` | Catalog profile template names applied to this node. |
 | `metrics` / `logs` / `spans` | Inline custom telemetry via the DSL (the escape hatch). |
 | `external` | `true` = remote/managed service: appears as a trace hop but is not deployed as a k8s pod on the caller's cluster. |
+| `agent_observability` | Bound-app SDK identity/content selection; requires `agent_pipeline` and injected collaborators, not yet ordinary CLI activation. |
 | `agentic_flow` | In-process LangGraph orchestration — emits `invoke_workflow` → `invoke_agent` → `execute_tool*` → `chat` span subtree inside this node's SERVER span. |
 | `pages` | RUM navigation inventory (frontend entry nodes only). Page-views are RUM-only: they model session navigation around the traced action and emit no backend trace. |
 

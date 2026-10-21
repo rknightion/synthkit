@@ -1184,6 +1184,30 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 
 | key | type | optional | description |
 |---|---|---|---|
+| `agent_pipeline` | object | yes |  |
+| `agent_pipeline.name` | string |  |  |
+| `agent_pipeline.evaluation_mode` | string |  |  |
+| `agent_pipeline.request_kinds[]` | object |  |  |
+| `agent_pipeline.request_kinds[].name` | string |  |  |
+| `agent_pipeline.request_kinds[].weight` | float |  |  |
+| `agent_pipeline.stages[]` | object |  |  |
+| `agent_pipeline.stages[].name` | string |  |  |
+| `agent_pipeline.stages[].service` | string |  |  |
+| `agent_pipeline.stages[].operation` | string |  |  |
+| `agent_pipeline.stages[].request_kinds[]` | string |  |  |
+| `agent_pipeline.stages[].caller_stage` | string |  |  |
+| `agent_pipeline.review` | object |  |  |
+| `agent_pipeline.review.stage` | string |  |  |
+| `agent_pipeline.review.revise_stage` | string |  |  |
+| `agent_pipeline.review.max_revisions` | int |  |  |
+| `agent_pipeline.outcomes[]` | object |  |  |
+| `agent_pipeline.outcomes[].name` | string |  |  |
+| `agent_pipeline.outcomes[].weight` | float |  |  |
+| `agent_pipeline.outcomes[].revisions` | int |  |  |
+| `agent_pipeline.outcomes[].review_passed` | bool |  |  |
+| `agent_pipeline.escalated_outcome` | string |  |  |
+| `agent_pipeline.ratings` | object |  |  |
+| `agent_pipeline.ratings.sample_rate` | float |  |  |
 | `automation` | object | yes | Automation optionally emits a bounded sequential approval/task/HTTP-attempt recipe. |
 | `automation.name` | string |  |  |
 | `automation.steps[]` | object |  |  |
@@ -1199,6 +1223,28 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `automation.steps[].http.failure_probability` | float |  |  |
 | `automation.steps[].http.retry_success_probability` | float |  |  |
 | `services[]` | object |  | Services are the graph's nodes (typed services + their call edges). |
+| `services[].agent_observability` | object | yes |  |
+| `services[].agent_observability.name` | string |  |  |
+| `services[].agent_observability.version` | string |  |  |
+| `services[].agent_observability.sdk` | string |  |  |
+| `services[].agent_observability.provider` | string |  |  |
+| `services[].agent_observability.models[]` | string |  |  |
+| `services[].agent_observability.corpus` | string |  |  |
+| `services[].agent_observability.content_facets[]` | string |  |  |
+| `services[].agent_observability.tools[]` | object |  |  |
+| `services[].agent_observability.tools[].name` | string |  |  |
+| `services[].agent_observability.tools[].kind` | string |  |  |
+| `services[].agent_observability.tools[].facets[]` | string |  |  |
+| `services[].agent_observability.client_tags` | map[string]string |  |  |
+| `services[].agent_observability.context_tags` | map[string]string |  |  |
+| `services[].agent_observability.generation_tags` | map[string]string |  |  |
+| `services[].agent_observability.metadata` | map[string]interface |  |  |
+| `services[].agent_observability.capture_mode` | string |  |  |
+| `services[].agent_observability.hooks` | object |  |  |
+| `services[].agent_observability.hooks.enabled` | bool |  |  |
+| `services[].agent_observability.hooks.phases[]` | string |  |  |
+| `services[].agent_observability.hooks.fail_open` | bool |  |  |
+| `services[].agent_observability.hooks.timeout_ms` | int |  |  |
 | `services[].name` | string |  | unique graph identity (service / service_name label) |
 | `services[].type` | string |  | span semantics + profile fit (registry + default fallback) |
 | `services[].runtime` | string |  | go\|jvm\|node\|python (informational; selects runtime profile) |

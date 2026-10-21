@@ -95,13 +95,37 @@ explicit traffic/value assumptions and a separate foundation model identity for 
 Keep (account_id, region, profile ID) unique across environments within a blueprint; environment,
 agent and team names do not distinguish profile series. Duplicate declarations are rejected.
 Select `sub_signals: [application_profiles]` for profile-only emission. Profile OTLP declarations
-fail closed pending raw metric-stream/enrichment evidence; API statistics do not prove that lane.
+still fail closed pending complete resource/enrichment verification. Native Summary source
+payloads from a failed-delivery backup are confirmed, not successful collector/backend parity,
+invocation-log evidence or tag persistence.
 
 For `ai_agent`, follow the current Agent Observability producer and tag/token
 contracts in `signals/sigil.md`. Real backend rules and legacy synthetic scoring
 must not score the same agents; backend-derived families are never blueprint
 metric declarations. Use the generated schema for `execution_mode` and
 `filterable_tag_keys`, not an inferred evaluator-role label.
+
+For the bounded `app.agent_pipeline` component, read the
+[workload guide](https://github.com/rknightion/synthkit/blob/main/docs/workloads.md#bound-agent-observability-executor-component-boundary)
+and [app-specific signal subset](https://github.com/rknightion/synthkit/blob/main/signals/sigil.md#bound-app-executor-subset-slug-sigil-app-pipeline).
+This is not yet an ordinary CLI-authorable runtime feature: boot/live/persisted restore
+cannot inject the unconditional `GenerationStages` construction dependency and fail closed,
+even with hooks disabled/ratings zero. A no-op object is not admission proof. Do not install
+one to force a dump. Actual selected-set/destination/current/historical custody and runtime
+adapters remain separate requirements. Use generated fields only for controlled component
+fixtures until those requirements are met; forced rates belong only in `e2e/fixtures/`.
+
+Model `content_facets` are an exact unordered set, omitted means facetless, and both textual
+user/assistant candidates must exist without fallback. Retrieval requires explicit tool name,
+`kind: tool_result` and exact facets shared by caller/source; planner owns preflight policy,
+not retrieval-only hooks or a fabricated backend tool-name predicate. Preserve the documented
+16-stage/3-revision/32-attempt/1-MiB limits and native duration/token-only metric subset.
+`metadata_only` thinking is explicitly unsupported/fail-closed because the current native
+encoder cannot preserve the empty thinking kind. The corpus path produces no media and
+reduced Python media is refused. Default/no_tool_content/full_with_metadata_spans keep native
+generation content but omit shared tool-span content; only full includes accepted tool content
+in spans. Authored metadata/tags are not scrubbed. Follow the canonical SDK-specific exceptions,
+not a blanket privacy claim. Do not generalize this subset to the separate `ai_agent` workload.
 
 ## Identity and collision rules
 
