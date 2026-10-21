@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
-          just-version: '1.58.0'
+          just-version: '1.59.0'
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
@@ -59,7 +59,7 @@ jobs:
           persist-credentials: false
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
-          just-version: '1.58.0'
+          just-version: '1.59.0'
       - run: just hygiene
         env:
           FORBIDDEN_WORDS_PATTERN: ${{ secrets.FORBIDDEN_WORDS_PATTERN }}
@@ -75,7 +75,7 @@ jobs:
           persist-credentials: false
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
-          just-version: '1.58.0'
+          just-version: '1.59.0'
       - run: just secret-scan
       - run: just secret-scan-config
 
@@ -87,7 +87,7 @@ jobs:
           persist-credentials: false
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
-          just-version: '1.58.0'
+          just-version: '1.59.0'
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24.22.1
@@ -103,7 +103,7 @@ jobs:
           persist-credentials: false
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
-          just-version: '1.58.0'
+          just-version: '1.59.0'
       - run: just image
       - run: just compose-check
 
@@ -116,7 +116,7 @@ jobs:
           persist-credentials: false
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
-          just-version: '1.58.0'
+          just-version: '1.59.0'
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
@@ -138,7 +138,7 @@ jobs:
           persist-credentials: false
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
-          just-version: '1.58.0'
+          just-version: '1.59.0'
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
@@ -155,7 +155,7 @@ jobs:
           persist-credentials: false
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
-          just-version: '1.58.0'
+          just-version: '1.59.0'
       # `e2e/lab/validate.sh` requires rg; it is not preinstalled on the hosted runner.
       - name: Install lab-check tool
         run: |
@@ -184,7 +184,7 @@ jobs:
   helm-validate:
     permissions:
       contents: read
-    uses: rknightion/.github/.github/workflows/helm-validate.yml@c36bf7ded21407b0a5169ecb2502d6a3a385be30 # v1.25.5
+    uses: rknightion/.github/.github/workflows/helm-validate.yml@2c2a3771006d75783f612a61a2bd406449a3410f # v1.25.11
     with:
       chart-path: charts/synthkit
       release-name: synthkit
@@ -199,7 +199,7 @@ jobs:
     needs: [helm-validate]
     permissions:
       contents: read
-    uses: rknightion/.github/.github/workflows/helm-validate.yml@c36bf7ded21407b0a5169ecb2502d6a3a385be30 # v1.25.5
+    uses: rknightion/.github/.github/workflows/helm-validate.yml@2c2a3771006d75783f612a61a2bd406449a3410f # v1.25.11
     with:
       chart-path: charts/synthkit
       release-name: synthkit
