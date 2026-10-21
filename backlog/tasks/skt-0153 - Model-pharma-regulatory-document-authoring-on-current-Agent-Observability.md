@@ -4,6 +4,7 @@ title: Model pharma regulatory document authoring on current Agent Observability
 status: To Do
 assignee: []
 created_date: '2026-10-20T22:20:00Z'
+updated_date: '2026-10-21T01:11:00Z'
 labels: []
 dependencies: []
 references:
@@ -23,7 +24,7 @@ Ship a fictional pharma regulatory-authoring blueprint (AWS, EKS with k8s-monito
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The pharma-regulatory-authoring blueprint loads under BLUEPRINT_NAMES=* and a live rkaidev push shows conversations, guard steps, online scores, ratings and experiment runs produced by the real backend
+- [ ] #1 The pharma-regulatory-authoring blueprint loads under BLUEPRINT_NAMES=* and a live customer-stack push shows conversations, guard steps, online scores, ratings and experiment runs produced by the real backend
 - [ ] #2 synthkit emits no backend-derived or backend-only family (doc-0004 producer table), proven by read-back
 - [ ] #3 No forbidden-word hit anywhere, including decompressed corpus files
 <!-- AC:END -->

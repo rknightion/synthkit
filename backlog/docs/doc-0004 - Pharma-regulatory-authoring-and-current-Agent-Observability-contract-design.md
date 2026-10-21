@@ -3,7 +3,7 @@ id: doc-0004
 title: Pharma regulatory authoring and current Agent Observability contract design
 type: specification
 created_date: '2026-10-20T22:20:00Z'
-updated_date: '2026-10-20T22:20:00Z'
+updated_date: '2026-10-21T01:11:00Z'
 ---
 Status: approved direction, reviewed (adversarial review FAIL on v1, corrections folded in here).
 Owner decisions are in "Decisions". Engineering choices inside that scope are in "Shape".
@@ -31,7 +31,7 @@ Coding agents, sports-news, comms overlay and any EC2 coding host are out of sco
 - Experiments are in scope now, through the real experiment-run endpoints.
 - The blueprint uses standard Agent Observability surfaces for outcomes (workflow steps, scores,
   tags, ratings). A generic app custom-metrics mechanism is a separate task, not a dependency.
-- Live verification targets the rkaidev stack (1802885). Conversations, ratings, guard steps and
+- Live verification targets the customer stack. Conversations, ratings, guard steps and
   experiment runs are permanent records there; a live volume budget is set before the first push.
 
 ## Sources (pinned)
@@ -55,7 +55,7 @@ same agents. Its score_values double count is fixed.
 
 ## Work packages (serial where marked)
 
-### W0. Live baselines on rkaidev (read-only, main thread)
+### W0. Live baselines on the customer stack (read-only, main thread)
 Query: agent label on `gen_ai_client_*` (`agent_name` vs `gen_ai_agent_name`); whether
 `agento11y_generation_cost_usd_total` already exists for synthkit agents; whether
 `agento11y_eval_judge_tokens_total` is still pushed; credential scope for the agento11y management
@@ -146,7 +146,7 @@ each incident changes `-dump`.
 `.env`/`.env.example` + `TestEnvSurfaceAligned` for new knobs; selfobs push observers for new
 endpoints; e2e routes for hooks, ratings and experiments; forced-emission duplicate-series test;
 CodeRabbit once per wave; `just race` and `gaterun -- just check` on the final candidate; live push
-to rkaidev inside the volume budget with read-back of conversations, guard steps, scores, hook
+to the customer stack inside the volume budget with read-back of conversations, guard steps, scores, hook
 metrics and experiments.
 
 ## Stopping conditions
@@ -155,7 +155,7 @@ metrics and experiments.
 - No source for a Bedrock profile shape: keep it gated, file PENDING.
 - Any forbidden-word hit, including inside decompressed corpus files.
 - Mimir duplicate-series rejections.
-- Missing credential or scope on rkaidev.
+- Missing credential or scope on the customer stack.
 
 ## Standing constraints
 
