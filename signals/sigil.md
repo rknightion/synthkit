@@ -47,7 +47,8 @@ expansion of the generic `ai_agent` emitter. Its initial component requires expl
 Ordinary CLI boot/live/persisted restore cannot install its required `GenerationStages`
 collaborator and fail closed, including hooks disabled/ratings zero. A nonnil collaborator
 is a construction dependency only, never destination/current/historical custody admission.
-No production hook/rating adapter or backend readback is established by component tests.
+The concrete hook and rating transports exist (see Hook and rating transports) but nothing installs
+them: no CLI, runner or blueprint wiring, and no backend readback is established by component tests.
 Every pipeline graph service must be bound and used by the stage plan. Inline logs,
 log-producing catalog profiles, pages and rum_faro declarations are unsupported and reject
 at Build; this component does not project ordinary graph log/RUM or unbound-node outputs.
@@ -465,3 +466,48 @@ completed generation before publication/delegation. The interfaces alone are **t
 whole-conversation callbacks, or a new pipeline. The separately configured bound-app consumer
 above requires injected collaborators; ordinary CLI construction remains closed. Callers own cancellation/fail-open policy. Backend
 guard telemetry must come from the actual backend response/work, never these interfaces themselves.
+
+### Hook and rating transports [slug: sigil-hooks-ratings]
+
+`internal/sink/sigil` holds two request/response clients, neither installed by the CLI or runner yet.
+Both authenticate like the ingest sink (HTTP Basic plus `X-Scope-OrgID`), never follow a redirect, and
+route through the HA delivery gate.
+
+`Hooks` implements `GenerationStages` over `POST /api/v1/hooks:evaluate`: preflight only, one call per
+produced tool result, attributed to the planner. The body is `phase: "preflight"`, `context`
+(`agent_name`, `agent_version`, `model{provider,name}`, `conversation_id`, `trace_id`, `span_id`, all
+from the stage) and `input.messages` holding one `role: "tool"` message with a `tool_result` part. The
+stage carries no tags, tool definitions or system prompt, so none are sent. Request tool payloads
+(`tool_call.input_json`, `tool_result.content_json`) are embedded JSON and an unparsable payload travels
+as a JSON string; response payloads are base64; `tools[].input_schema_json` is base64 in both. The
+shape is byte-checked against SDK 75a1c548 `conformance/hooks/request-preflight.json` and
+`responses.json`, vendored under `internal/sink/sigil/testdata/hooks/` with provenance. The postflight
+fixture is not vendored: `AfterGeneration` is a no-op and no postflight call exists.
+
+| Server answer | Result |
+|---|---|
+| `allow`, no `transformed_input` | allowed |
+| `allow` with a `transformed_input` holding exactly one `tool_result` whose call id and name match | allowed, content replaced |
+| `deny`; an empty or unknown action; a transform with no single matching tool result | zero decision, no error: fail closed, `fail_open` cannot reopen it |
+| transport error, any status but 200, undecodable or over-4 MiB body, context expiry | error: the caller's hook-local `fail_open` applies |
+
+An empty action is `allow` in the SDK and a zero decision here, because loop51 D19 requires zero
+decisions to fail closed. `X-Agento11y-Hook-Timeout-Ms` carries the caller's remaining budget (default
+15000, clamped to the server's 1..119999). A verdict is never retried. Original content appears only in
+the request body; errors and observer events carry no content.
+
+`Ratings` implements `ConversationRatingWriter` over `POST /api/v1/conversations/{id}/ratings`
+(idempotent on `rating_id`: the same payload replays as 200, a different one is 409) and reads back with
+`GET` on the same path (`limit`, `cursor`; `{items, next_cursor}`, newest first), per backend bc963fb09.
+Validation limits match SDK `rating.go` at 75a1c548. The SDK ships no rating fixture. A 200 is a rating
+acceptance receipt, not generation delivery or readback.
+
+Both clients expose a `pushhook.Observer` (`Sink` names `sigil_hooks` and `sigil_ratings`): status,
+duration and a closed error code only, with no acknowledgement and no content. synthkit never emits
+`agento11y_hook_*`, guard workflow steps or online-rule scores; the backend emits them from the real
+call, and tests assert the clients touch only these routes.
+
+The e2e receiver serves the same routes deterministically (decision from content alone: a deny marker
+wins, a subject-id pattern is redacted and echoed as `transformed_input`). For hooks it records
+identities and decisions, never request content; its rating routes store and return the posted
+comment and metadata so ratings can be read back. It emits no telemetry.

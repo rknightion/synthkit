@@ -1,0 +1,23 @@
+Wire fixtures for POST /api/v1/hooks:evaluate.
+
+Source:   conformance/hooks/ in the agento11y SDK repository
+Pin:      SDK commit 75a1c548553066364cdfe24fe5b1f98a57378b2c (2026-10-20), the contract pin in signals/sigil.md
+Method:   `git show 75a1c548:conformance/hooks/<file>`; both files are byte-identical to the SDK
+          default-branch head at vendoring time (`git diff 75a1c548 HEAD -- conformance/hooks` is empty).
+Rule:     Do not edit a fixture to make a test pass. The SDK README says the same: the shape was
+          established against the server's hook decoder, so a changed fixture needs that check repeated.
+
+Files vendored (only the ones the preflight-only hook client uses; D19 admits no postflight call):
+
+  request-preflight.json  54bf35f1a475bb0b5025b6402a0b100ea4e342e7be939efc9061407a870c9369
+  responses.json          12880fe2e189aea721fb233fe5db3a97f003dea1f63cde687fe96009bac6df22
+
+Not vendored: request-postflight-guard.json. No postflight request is built, so a copy would assert nothing.
+
+Comparison rule (from the SDK README): parsed JSON structures, not raw bytes. Key order and the
+whitespace inside embedded JSON are not part of the contract. hooks_test.go compares the
+canonical re-marshal (sorted keys, compact) so equality is byte equality of that form.
+
+No conversation-rating fixture exists in the SDK at this pin. The rating transport is checked
+against the SDK's own go/agento11y/rating_test.go expectations and the backend routes at
+bc963fb09; see ratings_test.go.
