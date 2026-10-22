@@ -134,9 +134,9 @@ func (c *Construct) storageFixtureResources(now time.Time, w *core.World) []otlp
 		c.sumResource("system.disk.write_time", ioAttrs, ioPointAttrs, model.writeTime, now),
 	)
 
-	// file-nr has no direct nodeexp emitter. Only allocated/max have a source
-	// backed counterpart here; allocated_unused, used and in_use depend on the
-	// unavailable file-nr unused field and remain unimplemented.
+	// file-nr has no direct nodeexp emitter. Only allocated/max have a direct
+	// nodeexp counterpart here; allocated_unused, used and in_use are emitted by
+	// fileHandleFixtureResources from the kernel-documented zero unused field.
 	for _, metric := range []struct {
 		name  string
 		value float64

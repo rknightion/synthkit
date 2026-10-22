@@ -1,6 +1,6 @@
 {
   "version": "synthkit.telemetry.producer-coverage/v1alpha1",
-  "expected_count": 225,
+  "expected_count": 228,
   "claims": [
     {
       "signal": "azure_microsoft_servicebus_namespaces_servererrors_total_count",
@@ -998,9 +998,24 @@
       "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.file_handles.allocated from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.file_handles.allocated envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
     },
     {
+      "signal": "system.fs.file_handles.allocated_unused",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.file_handles.allocated_unused from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.file_handles.allocated_unused envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.fs.file_handles.in_use",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.file_handles.in_use from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.file_handles.in_use envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
       "signal": "system.fs.file_handles.max",
       "producer": "datadog-receiver-host",
       "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.file_handles.max from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.file_handles.max envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
+    },
+    {
+      "signal": "system.fs.file_handles.used",
+      "producer": "datadog-receiver-host",
+      "reason": "The Kubernetes Agent-to-Alloy 1.19.2 corpus document records system.fs.file_handles.used from datadog-receiver, not datadog-receiver-host. Its standalone-host-not-established limitation prevents using that Kubernetes producer as comparable evidence for this standalone-host emission. The independent standalone-host native verdict establishes the system.fs.file_handles.used envelope, but does not make the Kubernetes document a host capture. Retain this source-scoped coverage gap until comparison uses an independently attributed host document for this pair; do not relabel the Kubernetes capture."
     },
     {
       "signal": "system.fs.inodes.free",

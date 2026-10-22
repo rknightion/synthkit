@@ -163,6 +163,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		resources[0].Attrs["deployment.environment.name"] = c.deploymentEnvironment
 		resources = append(resources, c.memoryBreadthFixtureResources(now, w)...)
 		resources = append(resources, c.storageFixtureResources(now, w)...)
+		resources = append(resources, c.fileHandleFixtureResources(now, w)...)
 	} else {
 		resources = append(resources, c.cpuFixtureResources(now, w)...)
 		resources = append(resources, c.memoryLoadFixtureResources(now, w)...)

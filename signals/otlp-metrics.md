@@ -638,10 +638,12 @@ absent-filesystem-size default, with the existing standalone Linux device names.
 This is a representative fixture, not selected host hardware. Disk capacity retains
 the Agent KiB convention; disk cumulative time converts seconds to milliseconds and
 uses elapsed time from the receiver start with a stable initial rate. It does not
-integrate changing disk rates. The five families system.io.rrqm_s, system.io.wrqm_s,
-system.fs.file_handles.allocated_unused, system.fs.file_handles.in_use and
-system.fs.file_handles.used remain unimplemented because merged-operation counters
-and the file-nr unused breakdown have no admissible value source. Host CPU and memory
+integrate changing disk rates. Host mode also emits system.fs.file_handles.allocated_unused,
+system.fs.file_handles.used and system.fs.file_handles.in_use. Linux 2.6 and later always reports 0
+free file handles (Documentation/admin-guide/sysctl/fs.rst), so allocated_unused is 0 and used
+equals the nodeexp-backed allocated value. in_use is used divided by max, as file_handles.go
+computes it. The two families system.io.rrqm_s and system.io.wrqm_s remain unimplemented
+because no merged-operation counter has an admissible value source. Host CPU and memory
 remain blocked on selected capacity; the Kubernetes lane is unchanged. The seven
 `system.swap.*` verdict families emit zero-valued gauges for the explicitly permitted
 disabled-swap fixture, including a degenerate zero `pct_free` with zero total capacity.
