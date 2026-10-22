@@ -7,7 +7,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-11 19:04'
-updated_date: '2026-10-22T04:25:00Z'
+updated_date: '2026-10-22T04:35:00Z'
 labels: []
 dependencies: []
 ordinal: 173000
@@ -47,6 +47,8 @@ Implemented 36/80:29 storage and7 disabled-swap gauge envelopes, all checked aga
 Resume: commission a host hardware declaration transported through the existing Build/runner boundary, grounded kernel memory accounting, and merged-operation/file-nr-unused mechanics. Keep the80-family acceptance set; do not relabel36 as complete.
 
 Owner rulings 2026-10-22 (loop52 Q03/Q04): option A approved (datadog_receiver cpus + memory_gb, required in host mode, 2 vCPU / 8 GiB basis in codex design); acceptance set reduced from 80 to 78, system.io.rrqm_s/wrqm_s split to SKT-0165.
+
+loop52 BATCH4: file-handle slice landed d949c75 (allocated_unused, used, in_use; kernel file-nr unused=0 basis); 39/78. Capacity families (option A) in progress in lane l077.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

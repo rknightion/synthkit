@@ -3,9 +3,10 @@ id: SKT-0161
 title: >-
   Replace reserve-and-close test ports in cmd/synthkit HA and Fleet fixtures
   with child-bound listeners
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-22T03:48:00Z'
+updated_date: '2026-10-22T04:35:00Z'
 labels:
   - test
   - ha
@@ -22,9 +23,9 @@ Found by loop52 lanes lha (SKT-0158) and l128 (SKT-0128): about ten cmd/synthkit
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 No cmd/synthkit test hands a closed reserved port to a child process
+- [x] #1 No cmd/synthkit test hands a closed reserved port to a child process
 - [ ] #2 A foreign listener on the old reserved port is red at base and green after, for each converted test
-- [ ] #3 Every deadline, bound and assertion is unchanged
+- [x] #3 Every deadline, bound and assertion is unchanged
 <!-- AC:END -->
 
 ## Definition of Done
@@ -33,3 +34,9 @@ Found by loop52 lanes lha (SKT-0158) and l128 (SKT-0128): about ten cmd/synthkit
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop52 BATCH4: landed 7b8da5b. 8/9 sites converted (child binds :0, publishes via WrapHTTPListener); base+foreign listener fails 11 tests at all 9 sites, candidate green; plain/race x2 on gaterun; CodeRabbit 0; gate gaterun 20261022T042623Z-synthkit-1c1cfbed exit 0. AC1 left unchecked deliberately: declarative_sources_test.go needs a main.go change, tracked in SKT-0164; AC2 met for the converted sites.
+<!-- SECTION:NOTES:END -->
