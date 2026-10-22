@@ -1,11 +1,12 @@
 # Independently captured standalone Agent -> Alloy receiver example.
-# Host support emits only the declaration-backed example metric. The complete
-# observed system/Agent inventory remains evidence, not claimed implementation.
+# Host mode emits the declaration-backed example metric plus the sourced system
+# families for the declared hardware below. Agent-internal and network families stay
+# evidence, not claimed implementation.
 name: datadog-receiver-host
 label: datadog-receiver-host
 shape: business_hours_plateau
 metadata:
-  description: "Standalone Datadog Agent to Alloy receiver: native example metric."
+  description: "Standalone Datadog Agent to Alloy receiver: example metric and bounded system families as native OTLP."
   category: reference
   links:
     signals: ./signals/otlp-metrics.md
@@ -22,3 +23,9 @@ integrations:
     # The independently captured host application's loop increments once and
     # sleeps ten seconds: six increments per minute for a periodic worker.
     increments_per_minute: 6
+    # The capture elides the host's CPU and memory values. 2 vCPU / 8 GiB is the AWS
+    # general-purpose .large shape (m5/m6i/m7i/t3.large in the fixture EC2 catalogue),
+    # the same m6i.large size as the Kubernetes receiver example's node, and the hosts:
+    # default. One periodic worker plus the Agent needs no larger machine.
+    cpus: 2
+    memory_gb: 8

@@ -52,6 +52,7 @@ func TestStorageFixtureMechanicsUseVerdictEnvelopes(t *testing.T) {
 	constructed, err := Build(&Config{
 		Mode: "host", DeploymentEnvironment: "production", HostName: "agent-node",
 		ServiceName: "example-service", Source: "agent", IncrementsPerMinute: 0.5,
+		CPUs: 2, MemoryGB: 8,
 	}, nil)
 	if err != nil {
 		t.Fatal(err)

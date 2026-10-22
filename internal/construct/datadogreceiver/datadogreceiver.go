@@ -40,6 +40,9 @@ const (
 // capture deliberately elides sample values and therefore cannot justify one.
 // A blueprint selecting this construct must document its real-world basis beside
 // the declared rate.
+// CPUs and MemoryGB declare host-mode hardware with the same names and units as a
+// top-level hosts: entry. The host capture elides those values, so neither has a
+// default, and the blueprint must state the real-world basis for its choice.
 type Config struct {
 	Mode                  string  `yaml:"mode"`                   // kubernetes (default) or host
 	DeploymentEnvironment string  `yaml:"deployment_environment"` // required only for the observed host example
@@ -47,6 +50,8 @@ type Config struct {
 	ServiceName           string  `yaml:"service_name"`
 	Source                string  `yaml:"source"`
 	IncrementsPerMinute   float64 `yaml:"increments_per_minute"`
+	CPUs                  int     `yaml:"cpus"`      // host mode only, required: logical CPUs
+	MemoryGB              int     `yaml:"memory_gb"` // host mode only, required: total RAM in GiB
 }
 
 // Construct renders the currently source-backed subset of the native receiver
@@ -87,12 +92,18 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		if c.DeploymentEnvironment != "" {
 			return nil, fmt.Errorf("datadog_receiver: deployment_environment is only observed on the host example")
 		}
+		if c.CPUs != 0 || c.MemoryGB != 0 {
+			return nil, fmt.Errorf("datadog_receiver: cpus and memory_gb are host-mode declarations; Kubernetes capacity comes from the selected node")
+		}
 	case "host":
 		if fx != nil && fx.Cluster != nil {
 			return nil, fmt.Errorf("datadog_receiver: host mode must not carry a Kubernetes fixture")
 		}
 		if c.DeploymentEnvironment == "" {
 			return nil, fmt.Errorf("datadog_receiver: host deployment_environment is required")
+		}
+		if c.CPUs <= 0 || c.MemoryGB <= 0 {
+			return nil, fmt.Errorf("datadog_receiver: host mode requires positive cpus and memory_gb (declared host hardware)")
 		}
 	default:
 		return nil, fmt.Errorf("datadog_receiver: mode must be host or kubernetes")
@@ -104,7 +115,9 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		return nil, fmt.Errorf("datadog_receiver: increments_per_minute must be finite, positive, and declaration-backed")
 	}
 	var capacity capacity
-	if !hostMode {
+	if hostMode {
+		capacity = hostCapacity(c)
+	} else {
 		capacity = fixtureCapacity(fx.Cluster)
 	}
 	return &Construct{
@@ -164,6 +177,11 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		resources = append(resources, c.memoryBreadthFixtureResources(now, w)...)
 		resources = append(resources, c.storageFixtureResources(now, w)...)
 		resources = append(resources, c.fileHandleFixtureResources(now, w)...)
+		// The CPU, load, uptime and core memory helpers are shared unchanged with the
+		// Kubernetes path; host mode feeds them the declared host capacity instead.
+		resources = append(resources, c.cpuFixtureResources(now, w)...)
+		resources = append(resources, c.memoryLoadFixtureResources(now, w)...)
+		resources = append(resources, c.memoryKernelFixtureResources(now, w)...)
 	} else {
 		resources = append(resources, c.cpuFixtureResources(now, w)...)
 		resources = append(resources, c.memoryLoadFixtureResources(now, w)...)
@@ -186,4 +204,10 @@ func fixtureCapacity(cluster *fixture.Cluster) capacity {
 	}
 	spec := fixture.LookupInstanceSpec(instanceType)
 	return capacity{cpuCount: spec.VCPU, memoryBytes: spec.MemBytes}
+}
+
+// hostCapacity converts the declared host hardware with the same GiB-to-bytes rule
+// the hosts: declaration uses (memory_gb << 30).
+func hostCapacity(c *Config) capacity {
+	return capacity{cpuCount: c.CPUs, memoryBytes: float64(int64(c.MemoryGB) << 30)}
 }

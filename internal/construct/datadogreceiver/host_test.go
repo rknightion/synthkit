@@ -19,7 +19,7 @@ import (
 func hostConfig(t *testing.T) *Config {
 	t.Helper()
 	var cfg Config
-	if err := yaml.Unmarshal([]byte("mode: host\nhost_name: example-host\nservice_name: example-worker\nsource: example-agent\ndeployment_environment: example\nincrements_per_minute: 6\n"), &cfg); err != nil {
+	if err := yaml.Unmarshal([]byte("mode: host\nhost_name: example-host\nservice_name: example-worker\nsource: example-agent\ndeployment_environment: example\nincrements_per_minute: 6\ncpus: 2\nmemory_gb: 8\n"), &cfg); err != nil {
 		t.Fatal(err)
 	}
 	return &cfg

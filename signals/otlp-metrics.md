@@ -643,15 +643,27 @@ system.fs.file_handles.used and system.fs.file_handles.in_use. Linux 2.6 and lat
 free file handles (Documentation/admin-guide/sysctl/fs.rst), so allocated_unused is 0 and used
 equals the nodeexp-backed allocated value. in_use is used divided by max, as file_handles.go
 computes it. The two families system.io.rrqm_s and system.io.wrqm_s remain unimplemented
-because no merged-operation counter has an admissible value source. Host CPU and memory
-remain blocked on selected capacity; the Kubernetes lane is unchanged. The seven
+because no merged-operation counter has an admissible value source. SKT-0165 tracks them.
+Host mode emits the 31 CPU, load, uptime and core memory families through the same helpers
+as the Kubernetes lane. They use the declared host hardware, the integration's required
+`cpus` and `memory_gb`. The shipped host blueprint declares 2 vCPU and 8 GiB as a
+representative EC2 `.large` size because the capture elides the real values.
+Host mode also emits eight Linux memory families from memory_nix.go: system.mem.buffered,
+cached, shared, slab, slab_reclaimable, page_tables, commit_limit and committed_as. Their
+values come from the nodeexp meminfo partitions. With used = total - usable:
+Buffers is 256 MiB, Shmem is used * 0.05, Slab is used * 0.06, SReclaimable is used * 0.04,
+PageTables is used * 0.01, CommitLimit is total * 0.5 and Committed_AS is used * 1.2.
+cached is (usable - free) + slab_reclaimable, because gopsutil adds SReclaimable to Cached.
+The Kubernetes lane is unchanged. The seven
 `system.swap.*` verdict families emit zero-valued gauges for the explicitly permitted
 disabled-swap fixture, including a degenerate zero `pct_free` with zero total capacity.
 No paging rate or enabled-swap capacity is inferred. The historical
 classification remains immutable evidence, rather than a current implementation status.
 Agent conversion sources: pkg/collector/corechecks/system/disk/disk/disk_nix.go,
 pkg/collector/corechecks/system/disk/io/iostats_nix.go and
-pkg/collector/corechecks/system/filehandles/file_handles.go (read 2026-09-11).
+pkg/collector/corechecks/system/filehandles/file_handles.go (read 2026-09-11), and
+pkg/collector/corechecks/system/memory/memory_nix.go with gopsutil mem/mem_linux.go
+(read 2026-10-22).
 
 ```yaml signals
 family: datadog_receiver_system
@@ -693,16 +705,20 @@ metrics:
 The standalone declaration in `blueprints/datadog-receiver-host.yaml` selects
 `integrations.datadog_receiver` with `mode: host`. Empty mode keeps Kubernetes
 behavior. Host mode requires no cluster and an explicit `deployment_environment`;
-it emits only `example_metric.increment`, with resource keys `host.name`,
-`service.name`, `source`, and `deployment.environment.name`, and no datapoint keys.
-The scope, empty unit, and non-monotonic cumulative Sum match the independent
-host artifact directly. Its producer is `datadog-receiver-host`, distinct from
+it also requires `cpus` and `memory_gb`, which size the host's CPU, load and memory
+families. It emits `example_metric.increment`, with resource keys `host.name`,
+`service.name`, `source`, and `deployment.environment.name`, and no datapoint keys;
+its scope, empty unit, and non-monotonic cumulative Sum match the independent
+host artifact directly. It also emits 78 of the verdict's 80 non-network
+fixture-mechanics system families with their verdict envelopes; only
+`system.io.rrqm_s` and `system.io.wrqm_s` stay unemitted for lack of a
+merged-request source. Its producer is `datadog-receiver-host`, distinct from
 the Kubernetes producer, so the two observed attribute placements remain separate.
 The capture records 281 names, 300 metric envelopes, 4080 datapoints, 14 spans and
 three trace envelopes across 39 requests. Agent 7.83.0 and Alloy 1.19.2 ran on an
 isolated standalone host. The named gateway read-back retains
 `deployment_environment_name`, `job`, and `service_name`; host/source are absent.
 Gateway version and trace ingestion remain unknown; timestamp-zero internal
-samples were rejected. Host system families and synthetic traces are not emitted.
+samples were rejected. Synthetic traces are not emitted in host mode.
 The host corpus projection below covers only the supported example envelope;
 the full native artifact retains every observed but unimplemented family.

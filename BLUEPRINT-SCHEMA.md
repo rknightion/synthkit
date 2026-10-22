@@ -753,6 +753,8 @@ Host or Kubernetes Datadog Agent to Alloy Datadog receiver native metric egress
 | `service_name` | string |  |  |
 | `source` | string |  |  |
 | `increments_per_minute` | float |  |  |
+| `cpus` | int |  | host mode only, required: logical CPUs |
+| `memory_gb` | int |  | host mode only, required: total RAM in GiB |
 
 ## dbo11y_mysql config
 
