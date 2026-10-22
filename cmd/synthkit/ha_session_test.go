@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -262,12 +261,7 @@ func TestHALeadershipSessionAcrossRestart(t *testing.T) {
 		collector.mu.Lock()
 		collector.process = process
 		collector.mu.Unlock()
-		listen, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatal(err)
-		}
-		cfg.HTTPAddr = listen.Addr().String()
-		_ = listen.Close()
+		cfg.HTTPAddr = childHTTPAddr
 		path := filepath.Join(root, process+".json")
 		writeHAJSON(t, path, cfg)
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

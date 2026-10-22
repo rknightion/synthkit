@@ -209,12 +209,8 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 	cfg.FaroCollector = ""
 	cfg.ProfilesURL = ""
 	cfg.GitPollInterval = 0
-	listen, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.HTTPAddr = listen.Addr().String()
-	listen.Close()
+	cfg.HTTPAddr = childHTTPAddr
+	addrFile := filepath.Join(root, "http-addr")
 	cfgPath := filepath.Join(root, "config.json")
 	writeHAJSON(t, cfgPath, cfg)
 	exe, err := os.Executable()
@@ -224,7 +220,7 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, exe, "-test.run=^TestHAGenericLeaseFileHelper$")
-	cmd.Env = append(os.Environ(), "SYNTHKIT_HA_CONFIG="+cfgPath, "SYNTHKIT_HA_API="+srv.URL, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
+	cmd.Env = append(os.Environ(), "SYNTHKIT_HA_CONFIG="+cfgPath, "SYNTHKIT_HA_API="+srv.URL, childHTTPAddrFileEnv+"="+addrFile, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
 	var headerRead <-chan error
 	if incompleteHeaders {
 		reader, writer, err := os.Pipe()
@@ -262,8 +258,8 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 	}
 	wait := make(chan error, 1)
 	go func() { wait <- cmd.Wait() }()
-	endpoint := "http://" + cfg.HTTPAddr
-	awaitHA(t, func() bool { code, _ := haGet(t, endpoint+"/control/state"); return code == 200 })
+	boundAddr := awaitChildControl(t, addrFile)
+	endpoint := "http://" + boundAddr
 	before, err := os.ReadFile(statePath)
 	if err != nil {
 		t.Fatal(err)
@@ -311,7 +307,7 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 		t.Fatalf("acquisition retained stale topology: %d %s", code, body)
 	}
 	if incompleteHeaders {
-		conn, err := net.DialTimeout("tcp", cfg.HTTPAddr, time.Second)
+		conn, err := net.DialTimeout("tcp", boundAddr, time.Second)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -559,6 +555,7 @@ func TestHAGenericLeaseFileHelper(t *testing.T) {
 			os.Exit(code)
 		}
 	}
+	recordBoundHTTPAddr(&deps)
 	deps.Election = func(ctx context.Context, o lease.Options) (leaseElection, error) {
 		e, err := lease.NewForClient(ctx, o, os.Getenv("SYNTHKIT_HA_API"), &http.Client{Timeout: o.RequestTimeout})
 		return diagnosticElection{leaseElection: e}, err

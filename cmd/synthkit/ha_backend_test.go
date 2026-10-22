@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -153,12 +152,8 @@ func TestHAKubernetesStateReloadBeforeRealFirstTick(t *testing.T) {
 	cfg.GitPollInterval = 0
 	cfg.StateCASMaxAttempts = 5
 	cfg.StateGitSourceMaxBytes = 786432
-	listen, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.HTTPAddr = listen.Addr().String()
-	listen.Close()
+	cfg.HTTPAddr = childHTTPAddr
+	addrFile := filepath.Join(root, "http-addr")
 	state := control.DefaultState()
 	source := control.SourceView{ID: "source", Name: "source", Namespace: "cached", URL: "https://example.invalid/repository", Ref: "main"}
 	state.BlueprintSources = []control.SourceView{source}
@@ -220,7 +215,7 @@ func TestHAKubernetesStateReloadBeforeRealFirstTick(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, executable, "-test.run=^TestHAKubernetesStateHelper$")
-	cmd.Env = append(os.Environ(), "SYNTHKIT_STATE_HELPER_CONFIG="+cfgPath, "SYNTHKIT_STATE_HELPER_API="+stateServer.URL, "SYNTHKIT_STATE_HELPER_LEASE="+leaseServer.URL, "SYNTHKIT_STATE_HELPER_PROOF="+proof, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
+	cmd.Env = append(os.Environ(), "SYNTHKIT_STATE_HELPER_CONFIG="+cfgPath, "SYNTHKIT_STATE_HELPER_API="+stateServer.URL, "SYNTHKIT_STATE_HELPER_LEASE="+leaseServer.URL, "SYNTHKIT_STATE_HELPER_PROOF="+proof, childHTTPAddrFileEnv+"="+addrFile, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
 	var output bytes.Buffer
 	cmd.Stdout = &output
 	cmd.Stderr = &output
@@ -229,8 +224,7 @@ func TestHAKubernetesStateReloadBeforeRealFirstTick(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
-	endpoint := "http://" + cfg.HTTPAddr
-	awaitHA(t, func() bool { status, _ := haGet(t, endpoint+"/control/state"); return status == 200 })
+	awaitChildControl(t, addrFile)
 	mu.Lock()
 	if writes != 0 {
 		t.Fatal("standby state writes", writes)
@@ -342,12 +336,8 @@ func TestHAKubernetesSMRegistrationReloadBeforeRealFirstTick(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfg.BlueprintsDir, "sm.yaml"), fixture, 0600); err != nil {
 		t.Fatal(err)
 	}
-	listen, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.HTTPAddr = listen.Addr().String()
-	listen.Close()
+	cfg.HTTPAddr = childHTTPAddr
+	addrFile := filepath.Join(root, "http-addr")
 	path := filepath.Join(root, "config.json")
 	writeHAJSON(t, path, cfg)
 	proof := filepath.Join(root, "tick.json")
@@ -358,7 +348,7 @@ func TestHAKubernetesSMRegistrationReloadBeforeRealFirstTick(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, exe, "-test.run=^TestHAKubernetesSMHelper$")
-	cmd.Env = append(os.Environ(), "SYNTHKIT_STATE_HELPER_CONFIG="+path, "SYNTHKIT_STATE_HELPER_API="+a.Server.URL, "SYNTHKIT_STATE_HELPER_PROOF="+proof, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
+	cmd.Env = append(os.Environ(), "SYNTHKIT_STATE_HELPER_CONFIG="+path, "SYNTHKIT_STATE_HELPER_API="+a.Server.URL, "SYNTHKIT_STATE_HELPER_PROOF="+proof, childHTTPAddrFileEnv+"="+addrFile, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
 	var output bytes.Buffer
 	cmd.Stdout = &output
 	cmd.Stderr = &output
@@ -371,8 +361,16 @@ func TestHAKubernetesSMRegistrationReloadBeforeRealFirstTick(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	var standby optionallane.Disposition
+	var boundAddr string
 	awaitHA(t, func() bool {
-		req, _ := http.NewRequest("GET", "http://"+cfg.HTTPAddr+"/control/status", nil)
+		if boundAddr == "" {
+			addr, ok := publishedHTTPAddr(addrFile)
+			if !ok {
+				return false
+			}
+			boundAddr = addr
+		}
+		req, _ := http.NewRequest("GET", "http://"+boundAddr+"/control/status", nil)
 		req.SetBasicAuth("control", cfg.ControlToken)
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -617,6 +615,7 @@ func TestHAKubernetesSMHelper(t *testing.T) {
 	}
 	endpoint := os.Getenv("SYNTHKIT_STATE_HELPER_API")
 	deps := productionHADependencies()
+	recordBoundHTTPAddr(&deps)
 	deps.StateBackend = func(g ha.LeaderGate) control.StateBackend {
 		b, err := control.NewKubernetesBackendForClient(control.KubernetesBackendOptions{Gate: g, Namespace: "test", Objects: map[control.Key]string{control.Control: "control", control.BootManifest: "boot", control.SMState: "sm"}, RequestTimeout: 2 * time.Second, MaxDocumentBytes: control.MaxStateDocumentBytes}, endpoint, &http.Client{})
 		if err != nil {
@@ -644,7 +643,7 @@ func TestHAKubernetesSMHelper(t *testing.T) {
 			if len(metrics) == 0 {
 				t.Fatal("no actual SM metrics after real first tick/flush")
 			}
-			req, _ := http.NewRequestWithContext(ctx, "GET", "http://"+cfg.HTTPAddr+"/control/status", nil)
+			req, _ := http.NewRequestWithContext(ctx, "GET", "http://"+boundHTTPAddr()+"/control/status", nil)
 			req.SetBasicAuth("control", cfg.ControlToken)
 			res, err := http.DefaultClient.Do(req)
 			if err != nil {
@@ -692,6 +691,7 @@ func TestHAKubernetesStateHelper(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps := productionHADependencies()
+	recordBoundHTTPAddr(&deps)
 	deps.StateBackend = func(gate ha.LeaderGate) control.StateBackend {
 		return processStateBackend{url: os.Getenv("SYNTHKIT_STATE_HELPER_API"), gate: gate, client: &http.Client{Timeout: time.Second}}
 	}

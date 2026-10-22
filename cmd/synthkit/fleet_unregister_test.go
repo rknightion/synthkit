@@ -11,7 +11,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -146,12 +145,7 @@ func TestFleetHAGracefulRestartKeepsIDsAndExplicitTeardown(t *testing.T) {
 			cfg.PromRWURL = remote.URL
 			cfg.OTLPEndpoint = remote.URL
 			cfg.LokiURL = remote.URL
-			listen, err := net.Listen("tcp", "127.0.0.1:0")
-			if err != nil {
-				t.Fatal(err)
-			}
-			cfg.HTTPAddr = listen.Addr().String()
-			listen.Close()
+			cfg.HTTPAddr = childHTTPAddr
 			col := fleetmgmt.Roster("selected:fleet_management", "", map[string]int{"linux": 1})[0]
 			store, err := configuredFleetStore(cfg, nil, ha.AlwaysLeader{})
 			if err != nil {
