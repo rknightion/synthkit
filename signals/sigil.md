@@ -99,12 +99,14 @@ plus arguments/result only under explicit full. They do not invent source model 
 Ordinary app spans retain `app.correlation_id`, `request_id` and `session_id` attributes
 under the existing trace contract; none becomes a metric label.
 
-Metadata-only thinking is **unsupported/fail-closed**: the current native Part encoder
-retypes intentionally empty thinking to text. Selected thinking rejects at Build and
-carried thinking rejects at capture; neither placeholders nor private reasoning retention
-are a workaround. The corpus materializer emits no media; reduced Python media is refused,
-not claimed SDK parity. Supported text/tool shapes are tested through actual native and
-OTLP encoders; this is not complete SDK/media parity or whole-CLI admission proof.
+Metadata-only thinking: the native Part carries an explicit `Kind` (`PartKindThinking`),
+and the encoder emits `Part_Thinking` with empty content for it instead of retyping to
+text; the provider-type string never selects a payload. The app pipeline still rejects
+selected thinking at Build and carried thinking at capture until it sets that kind;
+neither placeholders nor private reasoning retention are a workaround. The corpus
+materializer emits no media; reduced Python media is refused, not claimed SDK parity.
+Supported text/tool shapes are tested through actual native and OTLP encoders; this is not
+complete SDK/media parity or whole-CLI admission proof.
 
 ### Native metric subset and identity
 

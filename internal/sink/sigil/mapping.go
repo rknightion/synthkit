@@ -310,7 +310,7 @@ func toProtoParts(parts []nativesigil.Part) []*sigilv1.Part {
 			}
 		case p.Media != nil:
 			pp.Payload = &sigilv1.Part_Media{Media: &sigilv1.Media{Kind: p.Media.Kind, Url: p.Media.URL, MimeType: p.Media.MIMEType, Name: p.Media.Name}}
-		case p.Thinking != "":
+		case p.Thinking != "" || p.Kind == nativesigil.PartKindThinking:
 			pp.Payload = &sigilv1.Part_Thinking{Thinking: p.Thinking}
 		default:
 			pp.Payload = &sigilv1.Part_Text{Text: p.Text}
