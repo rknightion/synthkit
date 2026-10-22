@@ -110,6 +110,7 @@ Reference = [
     { "CLI & Commands" = "cli.md" },
     { "Constructs & Workloads" = "constructs.md" },
     { "Capture & Tooling" = "tools.md" },
+    { "Agent Observability Provisioning" = "agent-observability-provisioning.md" },
 ]
 
 [[site.nav]]

@@ -178,22 +178,23 @@ type ResolvedEnvMeta struct {
 }
 
 type Resolved struct {
-	gpuDeviceClaims []gpuIdentityClaim // canonical rack-device identity claims, including unselected racks
-	GPU             *fixture.GPUTopology
-	Name            string
-	Label           string
-	Metadata        Metadata          // blueprint-level human-facing annotation (UI only)
-	Environments    []ResolvedEnvMeta // per-env metadata for the UI (decl order)
-	Shape           string
-	Timezone        string
-	Regions         []RegionDecl // follow-the-sun multi-tz composite; mutually exclusive with Timezone
-	SeriesBudget    int
-	HighDPM         *ResolvedHighDPM
-	Constructs      []ConstructInstance
-	Workloads       []WorkloadInstance
-	Incidents       []string // shape-engine schedule entries: kind@at/for[#intensity][@target]
-	Targets         []Target
-	Scenarios       []ResolvedScenario
+	AgentObservability *AgentObservabilityDecl
+	gpuDeviceClaims    []gpuIdentityClaim // canonical rack-device identity claims, including unselected racks
+	GPU                *fixture.GPUTopology
+	Name               string
+	Label              string
+	Metadata           Metadata          // blueprint-level human-facing annotation (UI only)
+	Environments       []ResolvedEnvMeta // per-env metadata for the UI (decl order)
+	Shape              string
+	Timezone           string
+	Regions            []RegionDecl // follow-the-sun multi-tz composite; mutually exclusive with Timezone
+	SeriesBudget       int
+	HighDPM            *ResolvedHighDPM
+	Constructs         []ConstructInstance
+	Workloads          []WorkloadInstance
+	Incidents          []string // shape-engine schedule entries: kind@at/for[#intensity][@target]
+	Targets            []Target
+	Scenarios          []ResolvedScenario
 	// Warnings are non-fatal resolve-time notes (e.g. a database/cache declaration that produced
 	// zero emitting constructs) surfaced to operators via the control-plane diagnostics panel.
 	Warnings []string

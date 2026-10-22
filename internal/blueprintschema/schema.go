@@ -204,6 +204,31 @@ func walkStruct(t reflect.Type, docs docLookup, seen map[string]bool) []Field {
 		describe(&f, sf.Type, docs, seen)
 		out = append(out, f)
 	}
+	// Only these management request DTOs have compatibility aliases. Keep the
+	// override local: unrelated YAML schemas must never fall back to JSON tags.
+	switch typeKey {
+	case "github.com/rknightion/synthkit/internal/agento11yprovision.EvaluatorSpec":
+		for i := range out {
+			if out[i].Key == "config" {
+				out[i].Type = "object or JSON-object string"
+				out[i].Doc = "Regex or heuristic initial subset only; native object or bounded provider JSON-object string alias, translated once. No judge/schema/human/template/fork."
+			}
+		}
+	case "github.com/rknightion/synthkit/internal/agento11yprovision.HookRuleSpec", "github.com/rknightion/synthkit/internal/agento11yprovision.RuleSpec":
+		for i := range out {
+			if out[i].Key == "match" {
+				out[i].Type = "object or JSON-object string"
+				out[i].Doc = "Required own literal agent_name subset; native object or bounded provider JSON-object string alias. No tool_name selector."
+			}
+			if out[i].Key == "redact" {
+				out[i].Type = "object or ordered pattern list"
+				out[i].Doc = "Canonical {patterns:[{id,regex}]} or provider repeated-block alias [{id,regex}]. Backend-owned replacement; no mixed forms."
+			}
+		}
+		if strings.HasSuffix(typeKey, ".HookRuleSpec") {
+			out = append(out, Field{Key: "blocked_tools", Type: "string", Repeated: true, Optional: true, Doc: "Provider alias for tool_filter.blocked_names (DENY effect, not positive selection). Conflicts with tool_filter even if equal or empty."})
+		}
+	}
 	return out
 }
 

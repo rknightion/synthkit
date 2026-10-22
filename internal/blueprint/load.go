@@ -54,6 +54,9 @@ func LoadNamespaced(data []byte, nsPrefix string, reg *core.Registry, runtimeLim
 
 // loadDecl is the shared tail of Load and LoadNamespaced: validate, resolve, stamp Source.
 func loadDecl(d *Decl, data []byte, reg *core.Registry, limits RuntimeLimits) (*Resolved, error) {
+	if err := validateAgentDocument(data, d); err != nil {
+		return nil, fmt.Errorf("agent_observability: %w", err)
+	}
 	if err := validateDecl(d); err != nil {
 		return nil, err
 	}
@@ -62,6 +65,10 @@ func loadDecl(d *Decl, data []byte, reg *core.Registry, limits RuntimeLimits) (*
 		return nil, err
 	}
 	if err := ValidateRuntime(res, limits); err != nil {
+		return nil, err
+	}
+	res.AgentObservability, err = cloneAgentObservability(d.AgentObservability)
+	if err != nil {
 		return nil, err
 	}
 	res.Source = string(data)

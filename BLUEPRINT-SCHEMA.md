@@ -12,6 +12,138 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 
 | key | type | optional | description |
 |---|---|---|---|
+| `agent_observability` | object | yes | manual management authoring; never runtime admission |
+| `agent_observability.closures[]` | object |  |  |
+| `agent_observability.closures[].key` | string |  |  |
+| `agent_observability.closures[].agent` | object |  |  |
+| `agent_observability.closures[].agent.instance` | string |  |  |
+| `agent_observability.closures[].agent.agent_name` | string |  |  |
+| `agent_observability.closures[].evaluators[]` | object |  |  |
+| `agent_observability.closures[].evaluators[].key` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec` | object |  |  |
+| `agent_observability.closures[].evaluators[].spec.evaluator_id` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.version` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.kind` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.description` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.config` | object or JSON-object string |  | Regex or heuristic initial subset only; native object or bounded provider JSON-object string alias, translated once. No judge/schema/human/template/fork. |
+| `agent_observability.closures[].evaluators[].spec.output_keys[]` | object |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].key` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].type` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].description` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].unit` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].pass_threshold` | float | yes |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].enum[]` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].min` | float | yes |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].max` | float | yes |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].pass_match[]` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].pass_value` | bool | yes |  |
+| `agent_observability.closures[].hooks[]` | object |  |  |
+| `agent_observability.closures[].hooks[].key` | string |  |  |
+| `agent_observability.closures[].hooks[].spec` | object |  |  |
+| `agent_observability.closures[].hooks[].spec.rule_id` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.enabled` | bool | yes |  |
+| `agent_observability.closures[].hooks[].spec.phase` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.priority` | int | yes |  |
+| `agent_observability.closures[].hooks[].spec.selector` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.match` | object or JSON-object string |  | Required own literal agent_name subset; native object or bounded provider JSON-object string alias. No tool_name selector. |
+| `agent_observability.closures[].hooks[].spec.evaluator_ids[]` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.action_on_fail` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.short_circuit` | bool | yes |  |
+| `agent_observability.closures[].hooks[].spec.tool_filter` | object | yes |  |
+| `agent_observability.closures[].hooks[].spec.tool_filter.blocked_names[]` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.redact` | object or ordered pattern list | yes | Canonical {patterns:[{id,regex}]} or provider repeated-block alias [{id,regex}]. Backend-owned replacement; no mixed forms. |
+| `agent_observability.closures[].hooks[].spec.redact.patterns[]` | object |  |  |
+| `agent_observability.closures[].hooks[].spec.redact.patterns[].id` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.redact.patterns[].regex` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.blocked_tools[]` | string | yes | Provider alias for tool_filter.blocked_names (DENY effect, not positive selection). Conflicts with tool_filter even if equal or empty. |
+| `agent_observability.closures[].rules[]` | object |  |  |
+| `agent_observability.closures[].rules[].key` | string |  |  |
+| `agent_observability.closures[].rules[].spec` | object |  |  |
+| `agent_observability.closures[].rules[].spec.rule_id` | string |  |  |
+| `agent_observability.closures[].rules[].spec.enabled` | bool | yes |  |
+| `agent_observability.closures[].rules[].spec.selector` | string |  |  |
+| `agent_observability.closures[].rules[].spec.match` | object or JSON-object string | yes | Required own literal agent_name subset; native object or bounded provider JSON-object string alias. No tool_name selector. |
+| `agent_observability.closures[].rules[].spec.sample_rate` | float | yes |  |
+| `agent_observability.closures[].rules[].spec.evaluator_ids[]` | string |  |  |
+| `agent_observability.closures[].rules[].spec.execution_mode` | string |  |  |
+| `agent_observability.closures[].rules[].spec.alert_rule_uids[]` | string | yes |  |
+| `agent_observability.closures[].rules[].spec.filterable_tag_keys[]` | string | yes |  |
+| `agent_observability.closures[].rules[].spec.min_idle_seconds` | int | yes |  |
+| `agent_observability.closures[].collections[]` | object |  |  |
+| `agent_observability.closures[].collections[].key` | string |  |  |
+| `agent_observability.closures[].collections[].spec` | object |  |  |
+| `agent_observability.closures[].collections[].spec.name` | string |  |  |
+| `agent_observability.closures[].collections[].spec.description` | string | yes |  |
+| `agent_observability.closures[].actions[]` | object |  |  |
+| `agent_observability.closures[].actions[].key` | string |  |  |
+| `agent_observability.closures[].actions[].parent_rule` | string |  |  |
+| `agent_observability.closures[].actions[].spec` | object |  |  |
+| `agent_observability.closures[].actions[].spec.condition` | object |  |  |
+| `agent_observability.closures[].actions[].spec.condition.kind` | string |  |  |
+| `agent_observability.closures[].actions[].spec.action_config` | object |  |  |
+| `agent_observability.closures[].actions[].spec.action_config.kind` | string |  |  |
+| `agent_observability.closures[].actions[].spec.action_config.collection_ids[]` | string |  |  |
+| `agent_observability.closures[].actions[].spec.enabled` | bool | yes |  |
+| `agent_observability.closures[].suites[]` | object |  |  |
+| `agent_observability.closures[].suites[].key` | string |  |  |
+| `agent_observability.closures[].suites[].spec` | object |  |  |
+| `agent_observability.closures[].suites[].spec.suite_id` | string |  |  |
+| `agent_observability.closures[].suites[].spec.name` | string |  |  |
+| `agent_observability.closures[].suites[].spec.description` | string | yes |  |
+| `agent_observability.closures[].suites[].spec.tags[]` | string | yes |  |
+| `agent_observability.closures[].suites[].draft` | object |  |  |
+| `agent_observability.closures[].suites[].draft.key` | string |  |  |
+| `agent_observability.closures[].suites[].draft.spec` | object |  |  |
+| `agent_observability.closures[].suites[].draft.spec.changelog` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].key` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec` | object |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.test_case_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.name` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.description` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.tags[]` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.category` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.input` | map[string]interface |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.expected` | map[string]interface | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.metadata` | map[string]interface | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.artifact_refs[]` | object | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.artifact_refs[].artifact_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.artifact_refs[].name` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.artifact_refs[].kind` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.sanitization_reviewed` | bool | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.sanitization_content_digest` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.bindings` | object |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.key` | string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].binding_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].evaluator_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].evaluator_version` | string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].input_mappings` | map[string]string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].report_role` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.key` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].test_case_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].suite_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].suite_version` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].name` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].description` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].tags[]` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].category` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].input` | map[string]interface |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].expected` | map[string]interface |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].metadata` | map[string]interface |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[].artifact_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[].name` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[].kind` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].binding_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].evaluator_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].evaluator_version` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].input_mappings` | map[string]string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].report_role` | string |  |  |
 | `gpu_compute` | object | yes |  |
 | `gpu_compute.racks[]` | object |  |  |
 | `gpu_compute.racks[].name` | string |  |  |

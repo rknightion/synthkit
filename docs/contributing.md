@@ -37,7 +37,11 @@ just setup </dev/null
 just build </dev/null
 ```
 
-`setup` installs module/UI dependencies. The `lint` recipe runs `go vet`; no unused linter
+`setup` installs module/UI dependencies. `just build` compile-checks the module and installs no
+binary; build a single command with `just build-packages ./cmd/<name>`, as
+[agent-observability provisioning](agent-observability-provisioning.md) does. That command's
+`TestPublic*` proofs need Linux, where `SSL_CERT_FILE` is honoured; on macOS they fail the TLS
+handshake. The `lint` recipe runs `go vet`; no unused linter
 installation is required. Run `just ui` before building a binary whose operator UI you will use. You do not need to configure
 a live `.env` to contribute. Preserve any existing `.env` and never commit credentials.
 

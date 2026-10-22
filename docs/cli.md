@@ -169,6 +169,14 @@ The [Kubernetes-state Helm Job](kubernetes.md#diskless-one-shot-job) supports HA
 separate named state and Lease authority. Use matching emitter/tool images at least 1.6.0-rc.176;
 preview, explicit apply and emitter restart/reacquisition remain required. File mode is still available.
 
+## agento11y-provision - manual Agent Observability provisioning
+
+Source-built, same-user local command that creates, disables and tears down the Agent Observability
+resources declared in a blueprint's `agent_observability:` block. It is not in the published image
+or Compose and installs no runtime admission. Build it with
+`just build-packages ./cmd/agento11y-provision </dev/null`; flags, private inputs, lifecycle and exit
+codes are in [agent-observability-provisioning.md](agent-observability-provisioning.md).
+
 ## blueprint-schema — schema artifact generator
 
 Regenerates the blueprint schema artifacts from the live Go types: `BLUEPRINT-SCHEMA.md` (the human reference) and `internal/blueprintschema/fielddocs.json` (the embedded field-description index used by the control-plane UI). Run this whenever a blueprint field or construct/workload config changes.

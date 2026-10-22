@@ -1,4 +1,5 @@
 {
+  "github.com/rknightion/synthkit/internal/agento11yprovision.stateEdges.flock": "Private, per-handle process edges, never production options/global hooks.",
   "github.com/rknightion/synthkit/internal/blueprint.AddonRef.Config": "mapping of the remaining keys; strict-decoded against the registry",
   "github.com/rknightion/synthkit/internal/blueprint.CacheDecl.Engine": "\"redis\"",
   "github.com/rknightion/synthkit/internal/blueprint.CacheDecl.InstanceClass": "e.g. \"cache.r6g.large\"; empty → resolver default",
@@ -27,6 +28,7 @@
   "github.com/rknightion/synthkit/internal/blueprint.DatabaseDecl.Engine": "\"postgres\" | \"mysql\"",
   "github.com/rknightion/synthkit/internal/blueprint.DatabaseDecl.InstanceClass": "e.g. \"db.t3.medium\"; empty → resolver default",
   "github.com/rknightion/synthkit/internal/blueprint.DatabaseDecl.Observability": "nil = CloudWatch only (the defaults)",
+  "github.com/rknightion/synthkit/internal/blueprint.Decl.AgentObservability": "manual management authoring; never runtime admission",
   "github.com/rknightion/synthkit/internal/blueprint.Decl.Features": "Grafana Cloud products (sm, fleet); `enabled` reserved (default true)",
   "github.com/rknightion/synthkit/internal/blueprint.Decl.HighDPM": "explicit opt-in to a per-blueprint metric cadence below the default floor",
   "github.com/rknightion/synthkit/internal/blueprint.Decl.Hosts": "traditional non-k8s machines (node/windows/macos exporter + optional docker)",

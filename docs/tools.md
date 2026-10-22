@@ -7,6 +7,12 @@ description: skcapture, skforge, dashboard generators, and LLM-assisted skills f
 
 synthkit ships several supporting tools for capturing real environments, generating blueprint drafts, generating Grafana dashboards, and LLM-assisted workflow skills.
 
+## agento11y-provision - manual Agent Observability provisioning
+
+A source-built local command for the evaluation resources a blueprint declares under
+`agent_observability:`. It does not ship in the image and does not enable emission. See
+[agent-observability-provisioning.md](agent-observability-provisioning.md).
+
 ## skcapture — environment snapshot
 
 `skcapture` inspects a live Kubernetes environment via `kubectl` and writes a versioned, optionally age-encrypted inventory file. It has zero synthkit imports — no blueprint, construct, or runner code. This trust boundary is enforced by `internal/capture.TestCaptureTrustBoundary`.

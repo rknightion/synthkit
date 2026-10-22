@@ -17,6 +17,24 @@ import (
 	appworkload "github.com/rknightion/synthkit/internal/workload/app"
 )
 
+// TestAgentObservabilityAuthoringBoundary exercises the existing public loader,
+// without building a workload or depending on a new command's existence.
+func TestAgentObservabilityAuthoringBoundary(t *testing.T) {
+	for name, body := range map[string]string{
+		"empty": "agent_observability: {closures: []}\n",
+		"strict-closure": "agent_observability:\n closures:\n - key: closure\n   agent: {instance: worker, agent_name: Planner}\n" +
+			"   evaluators:\n   - key: eval\n     spec: {evaluator_id: e, version: \"1\", kind: regex, config: '{\"pattern\":\"fiction\",\"reject\":false}', output_keys: [{key: passes, type: bool, pass_value: false}]}\n" +
+			"   hooks:\n   - key: hook\n     spec: {rule_id: h, priority: 0, enabled: false, short_circuit: false, match: '{\"agent_name\":\"Planner\"}', evaluator_ids: [eval], blocked_tools: [], redact: []}\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := Load([]byte("name: fictional\nenvironments: [{name: test}]\n"+body), testRegistry(t))
+			if err != nil {
+				t.Fatalf("manual declaration must load without runtime activation: %v", err)
+			}
+		})
+	}
+}
+
 // testWsCfg is the package-level config type for the "web_service" workload registered
 // in testRegistry. Declared at package level so tests can cast to *testWsCfg without
 // a type mismatch (inline type declarations in different functions are distinct types).

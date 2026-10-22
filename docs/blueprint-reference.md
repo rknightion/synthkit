@@ -38,6 +38,34 @@ This reference is generated from the live Go types via `just gen` and reflects t
 | `incidents[]` | object | no | Scheduled or interval-recurring failure activations. |
 | `scenarios[]` | object | no | Named, reusable failure bundles composed of effects. |
 | `hosts[]` | object | no | Traditional non-Kubernetes machines. |
+| `agent_observability` | object | no | Manual Agent Observability management declarations for `agento11y-provision`. Never enables runtime emission. See [agent_observability](#agent_observability). |
+
+
+---
+
+## agent_observability
+
+Optional top-level block read only by the source-built
+[agent-observability provisioning command](agent-observability-provisioning.md). The emitter ignores
+it: loading a blueprint with this block does not install runtime admission or change emission.
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `closures[]` | object | yes | One closure per real agent owner. |
+| `closures[].key` | string | yes | Blueprint-unique local key. |
+| `closures[].agent.instance` | string | yes | Post-fanout workload instance that declares the agent. |
+| `closures[].agent.agent_name` | string | yes | Declared agent name; it must have a real producer. |
+| `closures[].evaluators[]`, `hooks[]`, `rules[]`, `collections[]`, `suites[]` | object | no | `{key, spec}` entries; `spec` uses the exact management API request fields. |
+| `closures[].actions[]` | object | no | `{key, parent_rule, spec}`; `parent_rule` is a rule key in the same closure. |
+| `closures[].suites[].draft` | object | yes, per suite | `{key, spec, cases[], bindings: {key, bindings[]}, publication: {key, spec}}`. |
+
+Decoding is stricter than the rest of the blueprint: anchors, aliases, merge keys, duplicate or
+case-variant keys, lossy numbers and trailing documents refuse. Scalars must resolve to plain
+string, integer, float, boolean or null (explicit `!!str`/`!!int`/`!!float`/`!!bool`/`!!null` tags
+are accepted but must match the field type), and `null` is kept only inside open case maps. Evaluator
+`config` and hook/rule `match` also accept a JSON-object string; a hook's `blocked_tools` and list
+form of `redact` are aliases for `tool_filter.blocked_names` and `redact.patterns`. The full field
+list is in [BLUEPRINT-SCHEMA.md](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md).
 
 ---
 

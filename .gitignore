@@ -91,3 +91,6 @@ runtime/
 
 # loop-pi (pi-subagents writes .pi/subagents/)
 .pi/
+
+# agento11y-provision binary from just build-packages ./cmd/agento11y-provision
+/agento11y-provision

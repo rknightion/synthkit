@@ -128,6 +128,13 @@ func TestCustomDecodeKeysPresent(t *testing.T) {
 		"workloads[].type", "workloads[].name", "workloads[].runs_on",
 		"workloads[].replicas", "workloads[].calls[].db", "workloads[].calls[].cache",
 		"environments[].cluster.addons[].name",
+		"agent_observability.closures[].agent.agent_name",
+		"agent_observability.closures[].evaluators[].spec.evaluator_id",
+		"agent_observability.closures[].hooks[].spec.blocked_tools[]",
+		"agent_observability.closures[].hooks[].spec.redact.patterns[].regex",
+		"agent_observability.closures[].actions[].parent_rule",
+		"agent_observability.closures[].suites[].draft.bindings.bindings[].evaluator_version",
+		"agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[].artifact_id",
 	} {
 		if !keys[want] {
 			t.Errorf("schema missing custom-decode key %q (customDecodeFields override dropped?)", want)
