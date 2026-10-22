@@ -1,9 +1,10 @@
 ---
 id: SKT-0156
 title: Diagnose bounded HA helper HTTP readiness failure under the full race gate
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-21T03:00:00Z'
+updated_date: '2026-10-22T03:51:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -29,3 +30,9 @@ A documentation-only candidate failed TestHACoordinatorRenewalLossSuppressesClea
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop52 BATCH2: landed e2cea58 (pushed 45ff131). Cause 1 (reserve-and-close port race) fixed in ha_loss_test.go; failures now report helper exit/output or a SIGQUIT dump. Cause 2 unfixed: under gate CPU starvation the helper misses its 100ms startup Lease lookup or the 300ms renew deadline (65/130 under 256-hog load on gate-1); removing it needs a bound or production change. Parked pending owner ruling Q05 (park / isolated race tier / bound change). Evidence: codex/loop52/lha/return.md (machine-local). Sibling port pattern: SKT-0161.
+<!-- SECTION:NOTES:END -->

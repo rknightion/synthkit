@@ -7,7 +7,7 @@ status: Parked
 assignee:
   - '@loop-root'
 created_date: '2026-10-11 22:10'
-updated_date: '2026-10-11 22:11'
+updated_date: '2026-10-22T03:51:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -45,4 +45,6 @@ Read exact red/green logs and unchanged fixture source; one bounded focused race
 
 <!-- SECTION:NOTES:BEGIN -->
 loop16: implementation attempts0, one bounded read-only race diagnostic3repetitions passed2.674s; exact red/green fixture and production dependency bytes unchanged. Original initial named Lease GET100ms timeout cause remains unknown; no source-proven test-only repair, original request/scheduling evidence absent. This is not the completed planned-release HTTP shutdown defect and isolated green does not clear the composed failure. No probe, timeout, assertion, fixture, runtime or test changed; no unchanged full-gate rerun. Park dependency: resume with actual request/scheduling evidence establishing a bounded fixture repair or separate owner-authorized diagnostic scope. Later distinct candidates require their own full exact gates and CI; prior red remains disclosed.
+
+loop52 l128: classified on gaterun gate-1 under 256 CPU hogs: base 0810d95 4/1600 lookup timeouts (exact original signature); cause is a >=100ms scheduling stall in the child (83% in cold connection setup). Warm-connection variant 1/1600, rejected. No test-only fix keeps a single 100ms attempt with no retry. Stays Parked pending owner ruling Q05. Port race: SKT-0161.
 <!-- SECTION:NOTES:END -->
