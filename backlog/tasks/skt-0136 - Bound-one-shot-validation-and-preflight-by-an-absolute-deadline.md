@@ -1,11 +1,11 @@
 ---
 id: SKT-0136
 title: Bound one-shot validation and preflight by an absolute deadline
-status: In Progress
+status: Done
 assignee:
   - codex
 created_date: '2026-10-15 13:33'
-updated_date: '2026-10-15 13:55'
+updated_date: '2026-10-22T03:03:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -44,4 +44,6 @@ Add an optional one-shot-deadline RFC3339 flag to validate/preflight only. Parse
 Real built CLI failed on unimplemented future-deadline validate before sourcechange, so old unknown-flag refusal is not counted as expiryproof. Implemented explicit-deadline flag parsed beforeconfig with fixed non-input-echoing diagnostics; omittedbehavior unchanged. Context passed through actualmain to realpreflight; context-aware offlinevalidation refuseslate-success. FocusedrealCLI/race green. Separate subprocess test executesactualmain/flags/config/probes with onlytest-edge TLSroot injection: healthycontrol3receiverrequests; blockedrequest canceledatabsolutedeadline, onecallonly and fixednonzero diagnostic. Removing actualmain contextwiring causedthat test tofail after8s/kill as expected, thenrestored. No production test hook or insecureTLS flag. Docs/skill/nestedcomposition contractupdated andjustgen0. FinalwholeNode24check andCodeRabbit active; no publicpush until prior logfix exactCIterminal, no liveimagechange.
 
 Final whole contributor justcheck0 with Node24.18.0 at13:54:47Z and all seven final file hashes unchanged; all portable gates including full plain/race, helpers/UI/Helm/Compose/corpus/troubleshooting passed. Complete CodeRabbit7files0. Explicit otlp-native justdump matches prior clean inventory byte-for-byte156988bytes. Actualmain HTTP positivecontrol3calls and absolute deadline1call/canceled/nonsuccess; background-context negativecontrol fails as intended. Source landing/exactCI next, no live image change.
+
+loop52: confirmed on main: eb096f7 ci run 38746979960 success, flag present at origin/main 0810d95. Finalized Done.
 <!-- SECTION:NOTES:END -->
