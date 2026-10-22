@@ -382,8 +382,7 @@ never read as unset (full volume) and never rejected with a `400`:
   by its own `sessions_per_min` and no non-zero value scales it; at `0` it mints no conversations, so
   no sessions, generations, workflow steps, scores or spans are written and its `gen_ai` metrics
   hold their last cumulative value on both the Prometheus and native OTLP lanes. The
-  `k8s_profiling` construct does not yet pause: at `0` it still pushes cluster eBPF, Go and JVM
-  profiles at full nominal weight. Constructs
+  `k8s_profiling` construct pushes no cluster profiles at `0`. Constructs
   whose series are not scaled by volume, such as inventory gauges, keep emitting. It is a volume
   pause, not a process or blueprint stop.
 - **Unset is different from 0.** A control snapshot that has no `volume_multiplier` key means `1.0`,
