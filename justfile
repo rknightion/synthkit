@@ -94,11 +94,20 @@ test-packages *packages:
 vet-packages *packages:
     go vet {{ packages }}
 
-# race detector over the module; internal/integration is excluded (OOMs a 16 GB runner)
+# Tests listed in scripts/race-isolated.txt are skipped by the parallel race sweep and run
+# once afterwards, one package per invocation (SKT-0162). internal/integration stays excluded.
+
+# race detector over the module, timing-sensitive tests isolated; internal/integration is excluded (OOMs a 16 GB runner)
 [group('check')]
 [no-exit-message]
 race:
-    go test -race $(go list ./... | grep -v '/internal/integration$')
+    python3 scripts/race_split.py run --exclude '/internal/integration$'
+
+# prove the race split runs every test exactly once, and that CI reaches it through `just race`
+[group('check')]
+[no-exit-message]
+race-split-check:
+    python3 scripts/race_split.py check
 
 # initial-setup skill helper tests
 [group('check')]
@@ -344,7 +353,7 @@ proto-drift-check:
 
 # pre-commit gate: every CI validation that runs without a Docker daemon or service container
 [group('check')]
-check: _ui-embed fmt-check lint gen-check env-check docs-check test race hygiene ui-check compose-check helm-test lab-check signal-fidelity troubleshooting-check
+check: _ui-embed fmt-check lint gen-check env-check docs-check test race race-split-check hygiene ui-check compose-check helm-test lab-check signal-fidelity troubleshooting-check
 
 # local Docker validation superset; hosted CI also owns schema validation via shared workflows
 [group('check')]

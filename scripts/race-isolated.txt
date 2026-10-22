@@ -1,0 +1,33 @@
+# Tests that run in their own `go test -race` invocation after the parallel race sweep.
+#
+# One entry per line: <package directory relative to the module root> <TestName> [# bound].
+# `just race` skips every listed name in the sweep and runs each package's names once,
+# afterwards, in a separate invocation (scripts/race_split.py). `just race-split-check`
+# proves no listed test runs twice or zero times. To isolate another package, add its lines
+# here; nothing else changes.
+#
+# Admission rule: a test that starts a child process and holds a sub-second timing bound
+# which a CPU-starved gate runner can miss. Every bound stays exactly as the test holds it.
+# These all spawn the test binary as a child (ha, lease and Fleet helpers).
+#
+# Considered and left in the sweep: TestHATerminalExitWindows and TestHATerminalAdmissionOrder
+# (bound 1 s, not sub-second); TestFleetRenderedHAStartupAndHandoff,
+# TestFleetRenderedHAMissingStateFailsClosed and TestSMChartRenderedHAProvisionAndDelivery
+# (config defaults of seconds); the Fleet CLI and one-shot deadline tests (no HA lease bound).
+
+# Fleet HA graceful restart: retry 50 ms, renew deadline 300 ms, Lease request 100 ms.
+cmd/synthkit TestFleetHAGracefulRestartKeepsIDsAndExplicitTeardown   # 50ms / 300ms / 100ms
+cmd/synthkit TestFleetUnregisterHAInterruptedBeforeLeadership        # 50ms / 300ms / 100ms
+cmd/synthkit TestFleetUnregisterOwnedHAAuthorityInterruptionAndRecovery  # 250ms / 1s / 400ms request, 750ms standby wait
+
+# HA startup and lifecycle on the file and Kubernetes state backends.
+cmd/synthkit TestHAKubernetesStateReloadBeforeRealFirstTick          # 50ms / 300ms / 100ms
+cmd/synthkit TestHAGenericLeaseFileReloadAndPlannedRelease           # 50ms / 300ms / 100ms
+cmd/synthkit TestHAPlannedReleaseWithIncompleteHTTPHeaders           # 50ms / 300ms / 100ms
+cmd/synthkit TestHAExpiredGlobalDrainDoesNotRelease                  # 50ms / 300ms / 100ms
+cmd/synthkit TestHALeadershipSessionAcrossRestart                    # 50ms / 300ms / 100ms, 100ms selfobs interval
+cmd/synthkit TestHAActivationAppliesStartupDisabledKinds             # 50ms / 300ms / 100ms
+
+# HA renewal and delivery loss in a real child process.
+cmd/synthkit TestHACoordinatorRenewalLossSuppressesCleanup           # 300ms renew, 50ms retry, 100ms request and fence margin, 10ms master tick
+cmd/synthkit TestHALossSubprocessRealHTTP                            # 50ms bound, 20ms margin, 100ms deadline, 700ms exit hold

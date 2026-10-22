@@ -98,7 +98,12 @@ just ci </dev/null
 `just check` is the pre-commit gate. Its dependencies in the `justfile` are authoritative; do not
 maintain a copied checklist of every recipe. It includes the full plain Go suite and a slow race
 suite. The race recipe deliberately excludes `internal/integration` for runner memory limits;
-that package is still covered by the plain suite. Run focused checks while iterating and the full
+that package is still covered by the plain suite. The race recipe also splits out the
+timing-sensitive HA subprocess tests listed in `scripts/race-isolated.txt`: the parallel sweep
+skips them and they run once afterwards in their own `go test -race` invocation, because their
+sub-second lease and renewal bounds can miss under contention from the sweep. To isolate another
+package's tests, add lines to that file; `just race-split-check` (part of `just check`) proves each
+listed test runs exactly once. Run focused checks while iterating and the full
 gate on the final candidate. Read the repository agent instructions for change-specific slow tiers,
 such as the disposable collector capture lab.
 
