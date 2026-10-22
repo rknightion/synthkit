@@ -74,8 +74,9 @@ type Engine struct {
 	// volMult is the live master volume knob (control plane): it scales Factor and
 	// BusinessFactor, so request-shaped metric volume AND the ledger's correlated
 	// narrative (whose minters draw from Factor) rise and fall coherently — one knob
-	// moves ALL synthetic load. Stored as math.Float64bits for lock-free reads on the
-	// hot path. Zero (unset) means 1.0.
+	// moves ALL synthetic load. Stored as math.Float64bits XOR volUnsetBits for lock-free
+	// reads on the hot path, so the zero value (never set) reads 1.0 while an explicit
+	// 0 is a real zero: 0 pauses request-shaped volume, it never falls back to 1.0.
 	volMult atomic.Uint64
 
 	// Live, when non-nil, returns the live failure settings for a mode (control-plane
@@ -101,25 +102,31 @@ func (e *Engine) warn(format string, args ...any) {
 // schedule parsed cleanly).
 func (e *Engine) Warnings() []string { return e.warnings }
 
-// SetVolumeMultiplier sets the live master volume knob (clamped to [0, 100]).
+// volUnsetBits is the bit pattern the stored volume is XORed with, chosen so an Engine whose
+// knob was never set (stored 0) decodes to 1.0 and no sentinel value is stolen from the range.
+var volUnsetBits = math.Float64bits(1.0)
+
+// SetVolumeMultiplier sets the live master volume knob (clamped to [0, 100]). An explicit 0 is
+// honoured as zero volume (pause); only a never-set knob reads as 1.0.
 func (e *Engine) SetVolumeMultiplier(v float64) {
-	if v < 0 {
+	if v <= 0 { // also folds negative zero onto +0, whose bit pattern would otherwise decode to -1
 		v = 0
 	}
 	if v > 100 {
 		v = 100
 	}
-	e.volMult.Store(math.Float64bits(v))
+	e.volMult.Store(math.Float64bits(v) ^ volUnsetBits)
 }
 
-// VolumeMultiplier returns the live master volume knob (1.0 when unset).
+// VolumeMultiplier returns the live master volume knob: 1.0 when never set, otherwise the
+// last value set, including an explicit 0.
 func (e *Engine) VolumeMultiplier() float64 {
-	bits := e.volMult.Load()
-	if bits == 0 {
-		return 1.0
-	}
-	return math.Float64frombits(bits)
+	return math.Float64frombits(e.volMult.Load() ^ volUnsetBits)
 }
+
+// Paused reports whether the master volume knob is exactly 0 (an explicit pause). Workloads that
+// floor their request rate above zero (off_peak_rps) use it to emit nothing instead.
+func (e *Engine) Paused() bool { return e.VolumeMultiplier() == 0 }
 
 // New creates an Engine in the given IANA timezone (the business-hours anchor; "" →
 // "Europe/Zurich", matching the proven plateau shape) and parses the incident schedule.

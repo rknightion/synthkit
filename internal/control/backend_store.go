@@ -66,6 +66,10 @@ func decodeControl(data []byte) (controlDocument, error) {
 			}
 		}
 	}
+	if d.State.VolumeMultiplier < 0 {
+		// Same rule as the file store: below the validated range is corrupt, not a pause.
+		d.State.VolumeMultiplier = 1.0
+	}
 	if d.State.Failures == nil {
 		d.State.Failures = map[string]FailureSetting{}
 	}

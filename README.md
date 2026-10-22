@@ -178,7 +178,7 @@ fi
 | `/control/scenarios` | POST | Replace the active scenario list using qualified `blueprint/scenario` IDs. Prefer the item routes for ordinary activation/deactivation. |
 | `/control/scaling` | POST | Set live workload pod counts using qualified `blueprint/workload` IDs, within blueprint-declared bounds. Node count cascades automatically. |
 | `/control/failures` | POST | Ad-hoc `{mode → {enabled, intensity, scope}}` override (escape hatch; unknown modes warned, not rejected). |
-| `/control/load` | POST | Master volume multiplier — scales all synthetic volume coherently. |
+| `/control/load` | POST | Master volume multiplier: scales the shape-driven synthetic volume; `0` pauses `web_service` and `app` traffic (see `docs/control-plane.md`). |
 
 **Example — activate a scenario:**
 

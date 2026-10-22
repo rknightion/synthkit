@@ -219,6 +219,37 @@ func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity,
 	}
 }
 
+// observePausedMetricStates is observeMetricStates for a paused workload (explicit master volume
+// 0). Counters and histograms are request-shaped event streams, so they observe nothing and stay
+// flat. A gauge whose value is shape-scaled reads 0 (Base x a load factor of 0) rather than the
+// evaluator's zero-means-1.0 fallback. Any other gauge describes the process itself (const,
+// normal, float or int range) and keeps its usual evaluation.
+func (w *Workload) observePausedMetricStates(st, native *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx) {
+	if spec.Instrument != telemetryspec.InstrumentGauge {
+		return
+	}
+	base := id.metricBaseLabels()
+	for _, combo := range labelCombos(spec.Labels) {
+		labels := make(map[string]string, len(base)+len(combo))
+		for k, v := range base {
+			labels[k] = v
+		}
+		for k, v := range combo {
+			labels[k] = v
+		}
+		var val float64
+		if spec.Value.Kind() != telemetryspec.KindShape {
+			val, _ = spec.Value.Eval(ctx)
+		}
+		if st != nil {
+			st.Set(spec.Name, labels, val)
+		}
+		if native != nil {
+			native.Set(spec.Name, combo, val)
+		}
+	}
+}
+
 // labelCombos returns every label-value-map combination for a metric's labels: const/const_str → a
 // single value, enum → its full ordered domain. The cross-product guarantees the -dump inventory
 // is run-stable (every series appears every tick). Capability matrix guarantees only

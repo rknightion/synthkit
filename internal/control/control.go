@@ -144,7 +144,10 @@ func newStore(path string, gate ha.LeaderGate, strict bool) (*Store, error) {
 		return nil, err
 	}
 	if err == nil {
-		var s State
+		// Decode over the defaults so a snapshot that omits volume_multiplier means 1.0
+		// while an explicit persisted 0 stays 0 (pause). Slices and maps are replaced by
+		// the document; the nil fix-ups below still apply.
+		s := DefaultState()
 		if jerr := json.Unmarshal(data, &s); jerr != nil {
 			if strict {
 				return nil, fmt.Errorf("control: corrupt snapshot: %w", jerr)
@@ -181,7 +184,9 @@ func newStore(path string, gate ha.LeaderGate, strict bool) (*Store, error) {
 			if s.LiveBlueprints == nil {
 				s.LiveBlueprints = []LiveBlueprint{}
 			}
-			if s.VolumeMultiplier <= 0 {
+			if s.VolumeMultiplier < 0 {
+				// Below the validated range: corrupt, not an operator choice. An explicit 0 is
+				// a valid pause and is kept.
 				s.VolumeMultiplier = 1.0
 			}
 			st.state = s

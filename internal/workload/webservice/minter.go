@@ -96,6 +96,9 @@ func (m *minter) Workload() string { return m.name }
 // overshoots the configured envelope. The factor can exceed 1.0 (env weight); clamp the
 // interpolation parameter to [0,1].
 func (m *minter) rpsAt(now time.Time, eng *shape.Engine) float64 {
+	if eng.Paused() { // explicit volume 0: no requests, not the off_peak_rps floor
+		return 0
+	}
 	f := eng.Factor(now, m.weight, m.nonProd)
 	if f < 0 {
 		f = 0

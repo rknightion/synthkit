@@ -90,7 +90,7 @@ The UI provides:
 - **Scenarios** — activate and deactivate named incident scenarios defined in blueprints.
 - **Scaling** — set live workload pod counts within blueprint-declared bounds.
 - **Failures** — ad-hoc failure injection (any mode, any target, any intensity).
-- **Load** — master volume multiplier (scales all synthetic volume coherently across blueprints).
+- **Load** — master volume multiplier (scales the shape-driven synthetic volume across blueprints; the `ai_agent` workload is not scaled by it, see [Pausing volume with 0](#pausing-volume-with-0)).
 - **Blueprints** — enable/disable blueprints; manage custom and git-sourced blueprints.
 - **Constructs / Kinds** — toggle individual construct instances or all constructs of a kind.
 - **Diagnostics** — load-time problems (skipped blueprints, dropped config entries).
@@ -207,7 +207,7 @@ auth when `CONTROL_TOKEN` is set; only `/healthz` remains public.
 
 | Endpoint | Body | Description |
 |---|---|---|
-| `POST /control/load` | `{"volume_multiplier": 1.5}` | Set the master volume multiplier. Scales all synthetic volume coherently. |
+| `POST /control/load` | `{"volume_multiplier": 1.5}` | Set the master volume multiplier (0 to 100). Scales the shape-driven synthetic volume of every workload except `ai_agent`, which runs on its own `sessions_per_min`. An explicit `0` pauses request-shaped volume; see [Pausing volume with 0](#pausing-volume-with-0). |
 | `POST /control/scenarios` | `{"active_scenarios": ["bp/name", ...]}` | Full replacement of the active scenario list. Kept for backward compatibility; use the item operations for ordinary UI/client toggles. Each id must match a `blueprint/scenario-name` pair in the derived schema. |
 | `POST /control/scenarios/activate` | `{"scenario": "bp/name"}` | Add one active scenario. Idempotent; validates the scenario against the derived schema. |
 | `POST /control/scenarios/deactivate` | `{"scenario": "bp/name"}` | Remove one active scenario. Idempotent; validates the scenario against the derived schema. |
@@ -355,6 +355,48 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
   -H "Content-Type: application/json" \
   -d '{"volume_multiplier": 3.0}'
 ```
+
+### Pausing volume with 0
+
+`volume_multiplier` accepts 0 to 100. An explicit `0` is applied as a multiplier of zero: it is
+never read as unset (full volume) and never rejected with a `400`:
+
+- **Scaling.** The multiplier multiplies the shape factor (diurnal, weekly and environment
+  weight) that volume-shaped series draw on, so at `0` that factor is exactly `0`, below the
+  deepest overnight trough, and series computed as a multiple of it read zero. The `web_service`
+  and `app` workloads treat exactly `0` as a pause instead of settling at their `off_peak_rps`
+  floor or the one-call keep-alive of a prod trough:
+    - no requests are minted, so no correlated traces, logs or RUM events are produced, and the
+      derived span, RED and service-graph call counts, including the Beyla lane's, add nothing;
+    - no Pyroscope profile samples are pushed;
+    - an `app` node's spec metrics (inline or from a profile) change as follows. Counters and
+      histograms observe nothing and stay flat at their last value. A gauge whose value is a
+      shape value reads `0`. A gauge with any other value (const, normal or a range) describes
+      the process itself and keeps emitting, which today means `go_goroutines`,
+      `node_process_resident_memory_bytes`, `node_eventloop_lag_seconds` and
+      `nodejs_eventloop_lag_seconds` from the catalog profiles plus any such gauge a blueprint
+      declares. Constant `target_info` identity series also keep emitting.
+
+  Any non-zero value, such as `0.01`, scales exactly as before. The `ai_agent` workload is driven
+  by its own `sessions_per_min` and is not scaled by this knob at any value. The
+  `k8s_profiling` construct does not yet pause: at `0` it still pushes cluster eBPF, Go and JVM
+  profiles at full nominal weight. Constructs
+  whose series are not scaled by volume, such as inventory gauges, keep emitting. It is a volume
+  pause, not a process or blueprint stop.
+- **Unset is different from 0.** A control snapshot that has no `volume_multiplier` key means `1.0`,
+  as does a fresh store. A persisted `0` reloads as `0` after a restart; a negative persisted value
+  is treated as corrupt and falls back to `1.0`. `POST /control/reset` returns to `1.0`.
+- **Upgrade note.** Before this behaviour, a persisted `0` (in the file store or an HA state
+  backend) was read back as the unset default and ran at full volume. After upgrading, such a
+  persisted `0` pauses volume on the next start. Check `volume_multiplier` in
+  `GET /control/state` if an old snapshot may hold a `0` you did not mean as a pause, and post
+  `{"volume_multiplier": 1}` to restore it.
+- **Readiness.** `GET /control/readiness` is unchanged at `0`: volume is not an input to `ready`,
+  `live_ready` or `reason_codes`. `blueprint_emitting` is also unchanged: it reports scheduling
+  state (see [Per-blueprint flags on the public probe](#per-blueprint-flags-on-the-public-probe)),
+  so a loaded, enabled blueprint stays `true` at `0` because it still ticks. Read the live
+  multiplier from `GET /control/state` (`volume_multiplier`) or the `synthkit_volume_multiplier`
+  self-observability gauge, and restore volume with `{"volume_multiplier": 1}`.
 
 ---
 

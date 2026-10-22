@@ -358,6 +358,9 @@ func spanMetricStatus(status otlp.StatusCode) string {
 // spanMetricVolume is the per-tick call count derived from the entry traffic envelope × the diurnal
 // shape (the aggregate metric VOLUME, separate from the correlated narrative sample).
 func (w *Workload) spanMetricVolume(now time.Time, world *core.World) int {
+	if world.Shape.Paused() { // explicit volume 0: no calls, not the off_peak_rps floor
+		return 0
+	}
 	rps := w.cfg.Traffic.OffPeakRPS + (w.cfg.Traffic.PeakRPS-w.cfg.Traffic.OffPeakRPS)*clampF(world.Shape.BusinessFactor(now), 0, 1)
 	calls := int(rps * interval.Seconds())
 	if calls > 5000 {

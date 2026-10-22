@@ -125,6 +125,9 @@ func reachableNodes(g *graph) []string {
 func (m *minter) Workload() string { return m.workloadName }
 
 func (m *minter) rpsAt(now time.Time, eng *shape.Engine) float64 {
+	if eng.Paused() { // explicit volume 0: no requests, not the off_peak_rps floor
+		return 0
+	}
 	f := eng.Factor(now, m.weight, m.nonProd)
 	f = clampF(f, 0, 1)
 	return m.traffic.OffPeakRPS + (m.traffic.PeakRPS-m.traffic.OffPeakRPS)*f

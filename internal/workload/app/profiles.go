@@ -52,6 +52,11 @@ func (w *Workload) tickProfiles(ctx context.Context, now time.Time, world *core.
 	if world.Pyroscope == nil {
 		return
 	}
+	// An explicit master volume of 0 is a pause: no profile samples (the flame builder would
+	// otherwise treat a zero load factor as full load).
+	if world.Shape.Paused() {
+		return
+	}
 
 	entryName := ""
 	if w.graph.entry != nil {

@@ -30,6 +30,11 @@ func (w *Workload) tickProfiles(ctx context.Context, now time.Time, world *core.
 	if w.cfg.Pyroscope == nil || !w.cfg.Pyroscope.Enabled {
 		return
 	}
+	// An explicit master volume of 0 is a pause: no profile samples (the flame builder would
+	// otherwise treat a zero load factor as full load).
+	if world.Shape.Paused() {
+		return
+	}
 
 	cfg := w.cfg.Pyroscope
 

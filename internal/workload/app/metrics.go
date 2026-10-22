@@ -25,6 +25,11 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 		w.tickProfiles(ctx, now, world)
 		return nil
 	}
+	// An explicit master volume of 0 is a pause (SKT-0147): spec metrics follow
+	// observePausedMetricStates instead of evaluating shape values, whose evaluator treats a zero
+	// load factor as full load.
+	paused := world.Shape.Paused()
+	pausedCtx := telemetryspec.EvalCtx{Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64}
 	for _, n := range w.graph.nodes {
 		id := w.identity(n)
 		if !n.decl.metricsEnabled() {
@@ -36,11 +41,15 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 			continue
 		}
 		for i, spec := range n.metrics {
-			metricCtx := w.metricCtx(now, world, id, spec)
 			var native *state.State
 			if w.cfg.otelMetricsEnabled() && world.OTLPMetrics != nil && i >= n.nativeMetricStart {
 				native = w.nativeState(n)
 			}
+			if paused {
+				w.observePausedMetricStates(w.st, native, id, spec, pausedCtx)
+				continue
+			}
+			metricCtx := w.metricCtx(now, world, id, spec)
 			w.observeMetricStates(w.st, native, id, spec, metricCtx)
 		}
 	}
