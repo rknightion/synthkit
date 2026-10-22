@@ -3,10 +3,10 @@ id: SKT-0147
 title: >-
   Make an explicit volume_multiplier of 0 pause emission instead of running at
   full volume
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-17 17:43'
-updated_date: '2026-10-18 14:03'
+updated_date: '2026-10-22T05:36:00Z'
 labels:
   - control
 dependencies: []
@@ -22,14 +22,14 @@ POST /control/load accepts volume_multiplier 0 (validateState range 0-100) and E
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 volume_multiplier 0 either is rejected with a 400 naming the valid range or produces zero-scaled volume, never 1.0x
-- [ ] #2 A persisted value round-trips across restart with the same meaning
-- [ ] #3 docs/control-plane.md states the meaning of 0
+- [x] #1 volume_multiplier 0 either is rejected with a 400 naming the valid range or produces zero-scaled volume, never 1.0x
+- [x] #2 A persisted value round-trips across restart with the same meaning
+- [x] #3 docs/control-plane.md states the meaning of 0
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
@@ -40,4 +40,6 @@ POST /control/load accepts volume_multiplier 0 (validateState range 0-100) and E
 loop50 (2026-10-18): held for an owner decision, not started. Reject 0 with a 400 (root recommendation) or make 0 mean zero volume; see the loop50 closeout.
 
 Owner ruling (2026-10-18): an explicit 0 means zero volume (pause), not a 400. Represent unset separately from 0 so a persisted 0 round-trips as zero; define and document how a 0-volume blueprint reads on readiness and blueprint_emitting.
+
+loop52 BATCH8: landed 94ed16b. Owner rulings: true pause; readiness/blueprint_emitting unchanged. Two guarded reviews (rv147 FAIL M1/M2 fixed; rv147b FAIL on k8s_profiling) then split at the convergence tripwire: k8s_profiling pause and test trim -> SKT-0167; ai_agent -> SKT-0163. Shape-valued spec gauges read 0 while paused (for owner ratification). Nonzero output byte-identical (wire hashes). CodeRabbit 20 files 0; gate gaterun 20261022T051836Z-synthkit-e43e1ae1 exit 0 on 5d7d4fb.
 <!-- SECTION:NOTES:END -->
