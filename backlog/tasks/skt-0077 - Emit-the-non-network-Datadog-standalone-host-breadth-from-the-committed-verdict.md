@@ -7,7 +7,7 @@ status: Parked
 assignee:
   - '@codex'
 created_date: '2026-09-11 19:04'
-updated_date: '2026-09-11 20:23'
+updated_date: '2026-10-22T04:25:00Z'
 labels: []
 dependencies: []
 ordinal: 173000
@@ -45,6 +45,8 @@ Execute the frozen campaign lane contract; root integrates and measures before a
 Root integration: storage 296d83a91c267c9004ffa79e4cd41825a0b0d4e4 CI 34639635537 success; swap c6e9f9ff9926f7171b76952395dd5aacb2909f71 CI 34641719112 success; profile c500ec61618b13d83218d9b1a4292225e46aeac1 CI34642964976 success. Ordered gen-check, SPDX 736 and full just check passed. just gen regenerated the profile field and earlier storage doc index. Dump comparison proves 36 added host pairs; sample-time Kubernetes termination and topology-conflict changes are separately identified. No cloud, capture, cluster, lab run, second nightly dispatch, release retry or PR mutation occurred.
 Implemented 36/80:29 storage and7 disabled-swap gauge envelopes, all checked against the immutable host verdict. The verdict and fixture_cpu.go/fixture_memory_load.go are byte-unchanged. CPU26 cannot receive selected capacity through the frozen host Build/runner seam; memory13 requires selected capacity and eight kernel partitions absent from the permitted mechanics. Storage5 remain missing:system.io.rrqm_s,system.io.wrqm_s,system.fs.file_handles.allocated_unused,system.fs.file_handles.in_use,system.fs.file_handles.used. No absent-source zero was invented for them. Storage uses explicit existing representative100GiB/device defaults, not selected hardware; cumulative time is elapsed-start at a stable initial rate, not changing-rate integration. The blanket swap park was WRONG; goal5.5 permits independently admissible zero output, so seven literal zero helper calls were added after that correction. This supplemental wiring has no branching/state/arithmetic and used the CodeRabbit wiring exception; the storage/profile review completed.
 Resume: commission a host hardware declaration transported through the existing Build/runner boundary, grounded kernel memory accounting, and merged-operation/file-nr-unused mechanics. Keep the80-family acceptance set; do not relabel36 as complete.
+
+Owner rulings 2026-10-22 (loop52 Q03/Q04): option A approved (datadog_receiver cpus + memory_gb, required in host mode, 2 vCPU / 8 GiB basis in codex design); acceptance set reduced from 80 to 78, system.io.rrqm_s/wrqm_s split to SKT-0165.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

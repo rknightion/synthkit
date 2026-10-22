@@ -4,7 +4,7 @@ title: Diagnose intermittent HA renewal-loss observation timeout under loaded ga
 status: Parked
 assignee: []
 created_date: '2026-10-21T15:25:00Z'
-updated_date: '2026-10-22T03:51:00Z'
+updated_date: '2026-10-22T04:25:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -35,4 +35,6 @@ The Go 1.27.3 dependency/security candidate hit TestHACoordinatorRenewalLossSupp
 
 <!-- SECTION:NOTES:BEGIN -->
 loop52 BATCH2: landed e2cea58 (pushed 45ff131). Cause 1 (reserve-and-close port race) fixed in ha_loss_test.go; failures now report helper exit/output or a SIGQUIT dump. Cause 2 unfixed: under gate CPU starvation the helper misses its 100ms startup Lease lookup or the 300ms renew deadline (65/130 under 256-hog load on gate-1); removing it needs a bound or production change. Parked pending owner ruling Q05 (park / isolated race tier / bound change). Evidence: codex/loop52/lha/return.md (machine-local). Sibling port pattern: SKT-0161.
+
+Owner ruling 2026-10-22 (loop52 Q05): isolated race invocation with bounds unchanged; tracked in SKT-0162.
 <!-- SECTION:NOTES:END -->
