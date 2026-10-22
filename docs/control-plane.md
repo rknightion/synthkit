@@ -90,7 +90,7 @@ The UI provides:
 - **Scenarios** — activate and deactivate named incident scenarios defined in blueprints.
 - **Scaling** — set live workload pod counts within blueprint-declared bounds.
 - **Failures** — ad-hoc failure injection (any mode, any target, any intensity).
-- **Load** — master volume multiplier (scales the shape-driven synthetic volume across blueprints; the `ai_agent` workload is not scaled by it, see [Pausing volume with 0](#pausing-volume-with-0)).
+- **Load** — master volume multiplier (scales the shape-driven synthetic volume across blueprints; the `ai_agent` workload is paused by `0` but not scaled by other values, see [Pausing volume with 0](#pausing-volume-with-0)).
 - **Blueprints** — enable/disable blueprints; manage custom and git-sourced blueprints.
 - **Constructs / Kinds** — toggle individual construct instances or all constructs of a kind.
 - **Diagnostics** — load-time problems (skipped blueprints, dropped config entries).
@@ -207,7 +207,7 @@ auth when `CONTROL_TOKEN` is set; only `/healthz` remains public.
 
 | Endpoint | Body | Description |
 |---|---|---|
-| `POST /control/load` | `{"volume_multiplier": 1.5}` | Set the master volume multiplier (0 to 100). Scales the shape-driven synthetic volume of every workload except `ai_agent`, which runs on its own `sessions_per_min`. An explicit `0` pauses request-shaped volume; see [Pausing volume with 0](#pausing-volume-with-0). |
+| `POST /control/load` | `{"volume_multiplier": 1.5}` | Set the master volume multiplier (0 to 100). Scales the shape-driven synthetic volume of every workload except `ai_agent`, which runs on its own `sessions_per_min` and only honours `0`. An explicit `0` pauses request-shaped volume, including `ai_agent` sessions; see [Pausing volume with 0](#pausing-volume-with-0). |
 | `POST /control/scenarios` | `{"active_scenarios": ["bp/name", ...]}` | Full replacement of the active scenario list. Kept for backward compatibility; use the item operations for ordinary UI/client toggles. Each id must match a `blueprint/scenario-name` pair in the derived schema. |
 | `POST /control/scenarios/activate` | `{"scenario": "bp/name"}` | Add one active scenario. Idempotent; validates the scenario against the derived schema. |
 | `POST /control/scenarios/deactivate` | `{"scenario": "bp/name"}` | Remove one active scenario. Idempotent; validates the scenario against the derived schema. |
@@ -365,7 +365,8 @@ never read as unset (full volume) and never rejected with a `400`:
   weight) that volume-shaped series draw on, so at `0` that factor is exactly `0`, below the
   deepest overnight trough, and series computed as a multiple of it read zero. The `web_service`
   and `app` workloads treat exactly `0` as a pause instead of settling at their `off_peak_rps`
-  floor or the one-call keep-alive of a prod trough:
+  floor or the one-call keep-alive of a prod trough, and the `ai_agent` workload mints no
+  conversations at `0` (see below):
     - no requests are minted, so no correlated traces, logs or RUM events are produced, and the
       derived span, RED and service-graph call counts, including the Beyla lane's, add nothing;
     - no Pyroscope profile samples are pushed;
@@ -378,7 +379,9 @@ never read as unset (full volume) and never rejected with a `400`:
       declares. Constant `target_info` identity series also keep emitting.
 
   Any non-zero value, such as `0.01`, scales exactly as before. The `ai_agent` workload is driven
-  by its own `sessions_per_min` and is not scaled by this knob at any value. The
+  by its own `sessions_per_min` and no non-zero value scales it; at `0` it mints no conversations, so
+  no sessions, generations, workflow steps, scores or spans are written and its `gen_ai` metrics
+  hold their last cumulative value on both the Prometheus and native OTLP lanes. The
   `k8s_profiling` construct does not yet pause: at `0` it still pushes cluster eBPF, Go and JVM
   profiles at full nominal weight. Constructs
   whose series are not scaled by volume, such as inventory gauges, keep emitting. It is a volume

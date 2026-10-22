@@ -55,7 +55,15 @@ func (m *minter) expectedVolume(a AgentDecl, tickSec float64) float64 {
 // Mint fabricates this tick's conversation arrivals across every agent. For each agent it mints
 // StochasticRound(expectedVolume) Requests, each carrying a fresh conversation correlation and a
 // realistic multi-turn session duration.
+//
+// An explicit master volume of 0 is a pause: no conversation is minted, so no generation, step,
+// score, span or metric observation follows and the cumulative totals stay flat. Only exactly 0
+// changes anything here: the fleet is driven by its own sessions_per_min and any other volume
+// leaves it unscaled.
 func (m *minter) Mint(now time.Time, tickSec float64, eng *shape.Engine) []*ledger.Request {
+	if eng.Paused() {
+		return nil
+	}
 	tick := atomic.AddUint64(&m.tick, 1) - 1
 	var out []*ledger.Request
 	for i := range m.agents {
