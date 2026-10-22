@@ -3,10 +3,10 @@ id: SKT-0160
 title: >-
   Let the app pipeline emit metadata-only thinking parts through the explicit
   part kind
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-22T03:08:00Z'
-updated_date: '2026-10-22T03:15:00Z'
+updated_date: '2026-10-22T04:52:00Z'
 labels:
   - sigil
 dependencies: []
@@ -22,8 +22,8 @@ SKT-0157 (loop52) added sigil.PartKindThinking so the native encoder emits Part_
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Metadata-only capture of a thinking part encodes as Part_Thinking with empty content through the real app pipeline and sink
-- [ ] #2 Non-metadata-only payloads stay byte-identical; no placeholder content
+- [x] #1 Metadata-only capture of a thinking part encodes as Part_Thinking with empty content through the real app pipeline and sink
+- [x] #2 Non-metadata-only payloads stay byte-identical; no placeholder content
 <!-- AC:END -->
 
 ## Definition of Done
@@ -37,4 +37,6 @@ SKT-0157 (loop52) added sigil.PartKindThinking so the native encoder emits Part_
 
 <!-- SECTION:NOTES:BEGIN -->
 From SKT-0157 review (loop52 rv157): also reject a part with Kind=thinking and nonempty Text (mapping.go:313 silently drops text) and unknown Kind values; refresh the stale comment at internal/workload/app/agent_pipeline.go:469-471.
+
+loop52 BATCH5: landed 5f7ad73. l160 candidate 7c465d6d; rv160 guarded PASS (22/24 probe cells byte-identical, privacy holds); root reconciled ARCHITECTURE.md; CodeRabbit 11 files 1 minor (thinking kind + tool/media payload not rejected: unreachable, left); gate gaterun 20261022T044228Z-synthkit-62e2359c exit 0 on 97a3679.
 <!-- SECTION:NOTES:END -->
