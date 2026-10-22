@@ -4,10 +4,8 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,12 +17,7 @@ import (
 // Exercise the shipped process, not a proxy for runtime config and watch wiring.
 func TestDeclarativeSourcesProcessBoundary(t *testing.T) {
 	root := t.TempDir()
-	binary := filepath.Join(root, "synthkit")
-	buildCtx, buildCancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer buildCancel()
-	if out, err := exec.CommandContext(buildCtx, "go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
-	}
+	binary := buildSynthkit(t, root)
 	desired := filepath.Join(root, "sources.json")
 	write := func(data string) {
 		t.Helper()
@@ -37,29 +30,11 @@ func TestDeclarativeSourcesProcessBoundary(t *testing.T) {
 		}
 	}
 	write(`[{"id":"declared","name":"First","namespace":"declared","url":"https://example.invalid/repo","ref":"refs/heads/main"}]`)
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr := listener.Addr().String()
-	listener.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, binary, "-env", filepath.Join(root, "absent.env"))
-	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "DRY_RUN=true", "JSON_HTTP_ADDR=" + addr,
-		// Inside a container (a containerised CI runner or gate host) the exposure check requires the
-		// host bind; the listener is loopback, so declare a loopback bind and the test runs anywhere.
-		"SYNTHKIT_BIND=127.0.0.1", "BLUEPRINTS=" + root, "BLUEPRINT_NAMES=", "BLUEPRINT_DATA_DIR=" + filepath.Join(root, "blueprints"), "CONFIG_SNAPSHOT_PATH=" + filepath.Join(root, "state.json"), "GIT_SOURCES_FILE=" + desired}
-	logFile, err := os.Create(filepath.Join(root, "process.log"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer logFile.Close()
-	cmd.Stdout, cmd.Stderr = logFile, logFile
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { cancel(); _ = cmd.Wait() }()
+	// The process binds its own ephemeral control port and logs it; the test reserves none.
+	logPath := startNonHA(t, ctx, binary, root, "GIT_SOURCES_FILE="+desired)
+	addr := awaitLoggedControlAddr(t, logPath)
 	client := &http.Client{Timeout: time.Second}
 	sources := func() ([]control.SourceView, error) {
 		resp, e := client.Get("http://" + addr + "/control/blueprints/sources")

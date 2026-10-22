@@ -899,12 +899,19 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 		}
 	}
 	srv := newSrv(cfg.HTTPAddr)
-	go func() {
-		log.Printf("control + Infinity JSON host (HTTP) on %s (/control/ui for the operator UI)", cfg.HTTPAddr)
-		if herr := srv.ListenAndServe(); herr != nil && herr != http.ErrServerClosed {
-			log.Printf("http host: %v", herr)
-		}
-	}()
+	// Bind before logging so the line reports the address actually held: a :0 configured
+	// address is observable, and the port cannot be taken between the log and the bind.
+	// A bind failure is logged and the process carries on without the HTTP host, as before.
+	if listener, lerr := net.Listen("tcp", srv.Addr); lerr != nil {
+		log.Printf("http host: %v", lerr)
+	} else {
+		log.Printf("control + Infinity JSON host (HTTP) on %s (/control/ui for the operator UI)", listener.Addr())
+		go func() {
+			if herr := srv.Serve(listener); herr != nil && herr != http.ErrServerClosed {
+				log.Printf("http host: %v", herr)
+			}
+		}()
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
