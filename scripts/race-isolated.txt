@@ -6,7 +6,7 @@
 # proves no listed test runs twice or zero times. To isolate another package, add its lines
 # here; nothing else changes.
 #
-# Admission rule: a test that starts a child process and holds a sub-second timing bound
+# Admission rule for the HA tests: a test that starts a child process and holds a sub-second timing bound
 # which a CPU-starved gate runner can miss. Every bound stays exactly as the test holds it.
 # These all spawn the test binary as a child (ha, lease and Fleet helpers).
 #
@@ -31,3 +31,26 @@ cmd/synthkit TestHAActivationAppliesStartupDisabledKinds             # 50ms / 30
 # HA renewal and delivery loss in a real child process.
 cmd/synthkit TestHACoordinatorRenewalLossSuppressesCleanup           # 300ms renew, 50ms retry, 100ms request and fence margin, 10ms master tick
 cmd/synthkit TestHALossSubprocessRealHTTP                            # 50ms bound, 20ms margin, 100ms deadline, 700ms exit hold
+
+# Typed Agent Observability lifecycle engine: real TLS fixture, 4 s caller budgets (20 s for the
+# all-family closures), HTTP 1 s request bound. Admission rule here: the test's smallest
+# deadline-margin (time left at its last engine return / (deadline - first engine entry)) fell
+# below 0.35 in any race-sweep model measured for it (loop52 rev3 S2, S4, S4c; lc1 M4 and M2, each
+# with the engine package in the sweep). 0.35 keeps a 0.15 margin at 1.3x the S2 cost, the slowest
+# hosted runners measured: 1.3 * (1 - 0.35) = 0.85. These tests log their margins (test-side
+# probe), and race-split-check requires every test whose own body calls the probe to be here.
+# Considered and left in the sweep (smallest margin over those models): FreshRoundtrip 0.376,
+# OwnedEvaluatorListConfigMustMatchExact 0.391, DispatchRetirement 0.565,
+# NoncommitOnlyNeverAttemptedSuffix 0.651, PostCommitAmbiguity 0.656, SuiteContent 0.789 (20 s),
+# and the rest at 0.98 or more.
+internal/agento11yprovision TestEngineCleanupWholeClosureAndRetentionTLS             # 4s caller; S2 -0.004
+internal/agento11yprovision TestEngineCleanupContradictionNeverReadsAroundOrDeletesTLS  # 4s caller; M2 -0.032
+internal/agento11yprovision TestEngineWrongCaseVersionRefusesBeforeWrites            # 4s caller; M2 -0.003
+internal/agento11yprovision TestEngineCleanupConsumerBarrierTLS                      # 4s caller; M2 -0.010
+internal/agento11yprovision TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS  # 4s caller; S4c -0.053
+internal/agento11yprovision TestEngineTeardownExpiryBeforeFirstDeleteTLS             # 4s caller, 1s HTTP, 5s barrier; S4 -0.000
+internal/agento11yprovision TestEngineAllFamiliesApplyNoopCleanupTLS                 # 20s caller; M2 0.053
+internal/agento11yprovision TestEngineHistoricalConsumerBarrierReadsEveryKindTLS     # 4s caller; M2 0.157
+internal/agento11yprovision TestEngineStaleAndWrongScopeRefuseTLS                    # 4s caller; S2 0.222
+internal/agento11yprovision TestEngineOwnedEvaluatorInventoryCannotHideOtherVersionTLS  # 4s caller; S4 0.294
+internal/agento11yprovision TestEngineSourceNormalizationAdmissionTLS                # 4s/20s fixture applies; M2 0.344

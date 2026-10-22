@@ -752,11 +752,51 @@ func (f *engineTLSFixture) apply(p enginePlan) (Receipt, error) {
 func (f *engineTLSFixture) applyWithin(p enginePlan, budget time.Duration) (Receipt, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
+	margin := deadlineMargin(f.t, ctx)
 	pv, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+	margin.returned()
 	if e != nil {
 		return Receipt{}, e
 	}
-	return applyEngine(ctx, f.client, f.store, p, pv, engineApproval(f.t, pv, "", nil))
+	receipt, e := applyEngine(ctx, f.client, f.store, p, pv, engineApproval(f.t, pv, "", nil))
+	margin.returned()
+	return receipt, e
+}
+
+// marginProbe is test-side diagnostics only: it changes no deadline, call or
+// assertion. Created immediately before the first engine call on a caller
+// context, it logs after each engine return on that context
+//
+//	deadline-margin test=<name> budget=<deadline - first entry> left=<deadline - this return> margin=<left/budget> returns=<n>
+//
+// so the last line for a context is the margin at its last engine return. A
+// test whose own body calls deadlineMargin is listed in scripts/race-isolated.txt,
+// whose invocation runs with -v and puts its margins in the hosted log
+// (race_split.py check). The shared fixture apply (applyWithin) also logs, for
+// whichever test calls it; a sweep test's lines show only when it fails.
+type marginProbe struct {
+	t        *testing.T
+	deadline time.Time
+	budget   time.Duration
+	mu       sync.Mutex
+	returns  int
+}
+
+func deadlineMargin(t *testing.T, ctx context.Context) *marginProbe {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		t.Fatal("deadline-margin probe needs a caller deadline")
+	}
+	return &marginProbe{t: t, deadline: deadline, budget: time.Until(deadline)}
+}
+
+func (m *marginProbe) returned() {
+	left := time.Until(m.deadline)
+	m.mu.Lock()
+	m.returns++
+	n := m.returns
+	m.mu.Unlock()
+	m.t.Logf("deadline-margin test=%s budget=%s left=%s margin=%.3f returns=%d", m.t.Name(), m.budget.Round(time.Millisecond), left.Round(time.Millisecond), float64(left)/float64(m.budget), n)
 }
 func engineSnapshot(t *testing.T, f *engineTLSFixture) Snapshot {
 	t.Helper()
@@ -812,23 +852,29 @@ func TestEngineAllFamiliesApplyNoopCleanupTLS(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			pv, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
 			before := len(f.writes)
 			noop, e := applyEngine(ctx, f.client, f.store, p, pv, engineApproval(t, pv, s.Document.Constructions[0].ID, nil))
+			margin.returned()
 			if e != nil || noop.Result != ReceiptApplyObserved || len(f.writes) != before {
 				t.Fatalf("ten-family noop failed/mutated: %v", e)
 			}
 			cp := cleanupPlan(t, p, engineSnapshot(t, f))
 			ctx2, cancel2 := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel2()
+			margin2 := deadlineMargin(t, ctx2)
 			pv, e = previewEngine(ctx2, f.client, f.store, cp, ModeTeardown)
+			margin2.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
 			result, e := cleanupEngine(ctx2, f.client, f.store, cp, pv, engineApproval(t, pv, "", nil))
+			margin2.returned()
 			if e == nil || result.Result != ReceiptIncomplete || len(result.Members) != 10 {
 				t.Fatalf("full retained teardown not honest: %v %+v", e, result)
 			}
@@ -1268,6 +1314,7 @@ func TestEngineOwnedEvaluatorInventoryCannotHideOtherVersionTLS(t *testing.T) {
 	before := len(f.writes)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
+	defer deadlineMargin(t, ctx).returned() // the last engine call is the function's last statement
 	if _, e := previewEngine(ctx, f.client, f.store, p, ModeApply); e == nil || len(f.writes) != before {
 		t.Fatal("extra version under owned identity hidden behind unchanged GET-latest")
 	}
@@ -1435,7 +1482,9 @@ func TestEngineTeardownExpiryBeforeFirstDeleteTLS(t *testing.T) {
 	defer cancel()
 	bound := time.NewTimer(5 * time.Second)
 	defer bound.Stop()
+	margin := deadlineMargin(t, ctx)
 	pv, e := previewEngine(ctx, f.client, f.store, original, ModeTeardown)
+	margin.returned()
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -1455,6 +1504,7 @@ func TestEngineTeardownExpiryBeforeFirstDeleteTLS(t *testing.T) {
 	case <-bound.C:
 		t.Fatal("local sender did not return within 5s")
 	}
+	margin.returned() // on the test goroutine: the sender goroutine may outlive a failed test
 	callerErr := ctx.Err()
 	release()
 	select {
@@ -1494,7 +1544,9 @@ func TestEngineTeardownExpiryBeforeFirstDeleteTLS(t *testing.T) {
 	pv, rec := engineRecoveryInput(t, f, original)
 	recoveryCtx, recoveryCancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer recoveryCancel()
+	recoveryMargin := deadlineMargin(t, recoveryCtx)
 	_, recoveryErr := recoverEngine(recoveryCtx, f.client, f.store, original, pv, engineApproval(t, pv, cons.ID, rec))
+	recoveryMargin.returned()
 	after := engineSnapshot(t, f)
 	settled := engineConstruction(after, cons.ID)
 	if !errors.Is(recoveryErr, ErrConflict) || after.Document.Pending != nil || engineRecord(after, "r").Status != ResourceDisabled || settled == nil || settled.ID != cons.ID || settled.Input != cons.Input || settled.Mode != cons.Mode {
@@ -1520,6 +1572,7 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			p := f.plan()
 			original := p
 			var originalError error
+			var originalCtxErr error
 			var acquiredAction *ResourceRecord
 			if mode == ModeApply {
 				f.fault = "drop-collection"
@@ -1543,13 +1596,17 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 					f.fault = "drop-delete"
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+				margin := deadlineMargin(t, ctx)
 				pv, e := previewEngine(ctx, f.client, f.store, original, mode)
+				margin.returned()
 				if e != nil {
 					cancel()
 					t.Fatal(e)
 				}
 				_, e = cleanupEngine(ctx, f.client, f.store, original, pv, engineApproval(t, pv, "", nil))
+				margin.returned()
 				originalError = e
+				originalCtxErr = ctx.Err() // diagnostics for the cleared-pending fatal, read before cancel
 				cancel()
 				if e == nil {
 					t.Fatal("lost cleanup response accepted")
@@ -1558,7 +1615,10 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			s := engineSnapshot(t, f)
 			pending := s.Document.Pending
 			if pending == nil {
-				t.Fatal("lost response cleared pending")
+				f.mu.Lock()
+				dropped := f.dropped
+				f.mu.Unlock()
+				t.Fatalf("lost response cleared pending: originalError=%v dropped=%t ctxErr=%v", originalError, dropped, originalCtxErr)
 			}
 			if mode == ModeTeardown {
 				f.mu.Lock()
@@ -1582,13 +1642,16 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			// Ordinary entry points cannot recast or replay an incomplete construction.
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			pv, _ := NewPreview(original.plan, mode, s.Base, proofDigest('9'))
+			replayMargin := deadlineMargin(t, ctx)
 			if mode == ModeApply {
 				_, e := applyEngine(ctx, f.client, f.store, original, pv, engineApproval(t, pv, "", nil))
+				replayMargin.returned()
 				if e == nil {
 					t.Fatal("normal apply replayed pending")
 				}
 			} else {
 				_, e := cleanupEngine(ctx, f.client, f.store, original, pv, engineApproval(t, pv, "", nil))
+				replayMargin.returned()
 				if e == nil {
 					t.Fatal("new cleanup recast pending")
 				}
@@ -1619,7 +1682,9 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 				a, e := DecodeApproval(engineApprovalRaw(t, pv, construction, changed))
 				if e == nil {
 					ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+					badMargin := deadlineMargin(t, ctx)
 					_, e = recoverEngine(ctx, f.client, f.store, original, pv, a)
+					badMargin.returned()
 					cancel()
 				}
 				if e == nil || engineSnapshot(t, f).Document.Pending == nil || len(f.writes) != before {
@@ -1627,7 +1692,9 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 				}
 			}
 			ctx, cancel = context.WithTimeout(context.Background(), 4*time.Second)
+			recoverMargin := deadlineMargin(t, ctx)
 			_, e := recoverEngine(ctx, f.client, f.store, original, pv, engineApproval(t, pv, id, rec))
+			recoverMargin.returned()
 			cancel()
 			after := engineSnapshot(t, f)
 			if e == nil || after.Document.Pending != nil || len(f.writes) != before {
@@ -1659,12 +1726,15 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			// A NEW exact recovery preview/approval can continue only never-dispatched
 			// suffix steps of that SAME original construction, never the settled step.
 			ctx, cancel = context.WithTimeout(context.Background(), 4*time.Second)
+			suffixMargin := deadlineMargin(t, ctx)
 			pv2, e := previewEngine(ctx, f.client, f.store, original, ModeRecover)
+			suffixMargin.returned()
 			if e != nil {
 				cancel()
 				t.Fatal(e)
 			}
 			receipt, e := recoverEngine(ctx, f.client, f.store, original, pv2, engineApproval(t, pv2, id, nil))
+			suffixMargin.returned()
 			cancel()
 			want := ReceiptApplyObserved
 			if mode == ModeDeactivate {
@@ -1766,13 +1836,16 @@ func TestEngineCleanupContradictionNeverReadsAroundOrDeletesTLS(t *testing.T) {
 			f.fault = fault
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			pv, e := previewEngine(ctx, f.client, f.store, cp, ModeTeardown)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
 			start := len(f.calls)
 			before := len(f.writes)
 			_, e = cleanupEngine(ctx, f.client, f.store, cp, pv, engineApproval(t, pv, "", nil))
+			margin.returned()
 			if e == nil {
 				t.Fatal("contradictory/refused disable accepted")
 			}
@@ -1845,7 +1918,9 @@ func TestEngineCleanupConsumerBarrierTLS(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			pv, e := previewEngine(ctx, f.client, f.store, cp, mode)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -1854,6 +1929,7 @@ func TestEngineCleanupConsumerBarrierTLS(t *testing.T) {
 			writeStart := len(f.writes)
 			f.mu.Unlock()
 			receipt, e := cleanupEngine(ctx, f.client, f.store, cp, pv, engineApproval(t, pv, "", nil))
+			margin.returned()
 			f.mu.Lock()
 			trace := append([]string{}, f.calls[requestStart:]...)
 			mutations := append([]string{}, f.writes[writeStart:]...)
@@ -1937,7 +2013,9 @@ func TestEngineHistoricalConsumerBarrierReadsEveryKindTLS(t *testing.T) {
 			f.mu.Unlock()
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			inv, e := engineInventoryRead(ctx, f.client, p, s)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -1945,6 +2023,7 @@ func TestEngineHistoricalConsumerBarrierReadsEveryKindTLS(t *testing.T) {
 			start := len(f.calls)
 			f.mu.Unlock()
 			e = engineConsumerBarrier(ctx, f.client, p, s, inv)
+			margin.returned()
 			if enabled == "none" {
 				if e != nil {
 					t.Fatal(e)
@@ -1986,13 +2065,16 @@ func TestEngineCleanupWholeClosureAndRetentionTLS(t *testing.T) {
 			cp := cleanupPlan(t, p, s)
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			pv, e := previewEngine(ctx, f.client, f.store, cp, ModeTeardown)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
 			start := len(f.writes)
 			requestStart := len(f.calls)
 			receipt, e := cleanupEngine(ctx, f.client, f.store, cp, pv, engineApproval(t, pv, "", nil))
+			margin.returned()
 			if e == nil {
 				t.Fatal("full teardown incorrectly successful")
 			}
@@ -2044,7 +2126,10 @@ func TestEngineStaleAndWrongScopeRefuseTLS(t *testing.T) {
 	p := f.plan()
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
+	margin := deadlineMargin(t, ctx)
+	defer margin.returned() // the last engine call on ctx is the function's last statement
 	pv, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+	margin.returned()
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -2132,6 +2217,7 @@ func TestEngineWrongCaseVersionRefusesBeforeWrites(t *testing.T) {
 	before := len(f.writes)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
+	defer deadlineMargin(t, ctx).returned() // the last engine call is the function's last statement
 	if _, e := previewEngine(ctx, f.client, f.store, p, ModeApply); e == nil || len(f.writes) != before {
 		t.Fatal("wrong case version admitted")
 	}

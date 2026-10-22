@@ -4,7 +4,8 @@
 
 The names in race-isolated.txt are skipped by the parallel race sweep and run once,
 afterwards, one package per `go test -race` invocation. `check` proves that split
-selects every test exactly once. Modes:
+selects every test exactly once, and that every test whose own body calls the
+deadline-margin probe is isolated. Modes:
 
   run --exclude RE   sweep every package not matching RE, then the isolated invocations (with -v)
   show --exclude RE  print those commands without running them
@@ -21,6 +22,12 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG = Path(__file__).with_name("race-isolated.txt")
 TEST_NAME = re.compile(r"^Test[A-Za-z0-9_]+$")
 TEST_DEF = re.compile(r"^func (Test[A-Za-z0-9_]+)\(", re.M)
+FUNC_START = re.compile(r"^func ", re.M)
+# A test whose own body calls this probes its caller budgets (internal/agento11yprovision/
+# lifecycle_test.go). Only the isolated -v invocation puts those margins in the hosted log, so
+# such a test must be isolated. Helpers that call it (the fixture apply) are not tests and
+# also log for sweep tests that call them, visible only when one fails; that is deliberate.
+MARGIN_PROBE = re.compile(r"\bdeadlineMargin\(")
 PRUNE = {".git", "node_modules", "codex", "vendor", "dist"}
 
 
@@ -115,6 +122,23 @@ def definitions(names):
     return found
 
 
+def margin_tests():
+    """(directory, Test name) for every top-level test whose own body calls the margin probe."""
+    found = []
+    for directory, subdirs, files in os.walk(ROOT):
+        subdirs[:] = [d for d in subdirs if d not in PRUNE]
+        for file in sorted(files):
+            if not file.endswith("_test.go"):
+                continue
+            text = (Path(directory) / file).read_text(errors="replace")
+            starts = [m.start() for m in FUNC_START.finditer(text)] + [len(text)]
+            for begin, end in zip(starts, starts[1:]):
+                name = TEST_DEF.match(text, begin)
+                if name and MARGIN_PROBE.search(text, begin, end):
+                    found.append((os.path.relpath(directory, ROOT), name.group(1)))
+    return found
+
+
 def check(_args):
     config = load_config()
     problems = []
@@ -161,6 +185,10 @@ def check(_args):
         owners = {p for p, ns in config.items() if name in ns}
         if directories - owners:
             problems.append(f"{name} is also defined in {sorted(directories - owners)}; the sweep skip would hide it there")
+
+    for package, name in margin_tests():
+        if name not in config.get(package, []):
+            problems.append(f"{package}: {name} calls the deadline-margin probe but is not isolated: the quiet sweep hides its margins and contends its caller budget")
 
     for problem in problems:
         print("race-split: " + problem, file=sys.stderr)

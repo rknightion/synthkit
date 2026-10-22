@@ -99,12 +99,16 @@ just ci </dev/null
 maintain a copied checklist of every recipe. It includes the full plain Go suite and a slow race
 suite. The race recipe deliberately excludes `internal/integration` for runner memory limits;
 that package is still covered by the plain suite. The race recipe also splits out the
-timing-sensitive HA subprocess tests listed in `scripts/race-isolated.txt`: the parallel sweep
-skips them and they run once afterwards in their own `go test -race` invocation, because their
-sub-second lease and renewal bounds can miss under contention from the sweep. To isolate another
-package's tests, add lines to that file; `just race-split-check` (part of `just check`) proves each
-listed test runs exactly once. Run focused checks while iterating and the full
-gate on the final candidate. Read the repository agent instructions for change-specific slow tiers,
+timing-sensitive tests listed in `scripts/race-isolated.txt`: the parallel sweep skips them and
+they run once afterwards in their own `go test -race -v` invocation, because their bounds can miss
+under contention from the sweep. They are the HA subprocess tests, with sub-second lease and
+renewal bounds, and the Agent Observability lifecycle engine tests, with 4 s and 20 s caller
+budgets, which probe those budgets and log a `deadline-margin` line after each engine return.
+To isolate another package's tests, add lines to that file; `just race-split-check` (part of
+`just check`) proves each listed test runs exactly once and that every test whose own body
+calls the deadline-margin probe is listed (a test reaching the probe only through a helper is
+not detected, so list it by hand). Run focused checks while iterating and the full gate on the
+final candidate. Read the repository agent instructions for change-specific slow tiers,
 such as the disposable collector capture lab.
 
 `just ci` adds Docker-backed checks and a full-history secret scan, so it requires a full-depth
