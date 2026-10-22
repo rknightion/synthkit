@@ -3,11 +3,11 @@ id: SKT-0077
 title: >-
   Emit the non-network Datadog standalone-host breadth from the committed
   verdict
-status: Parked
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-11 19:04'
-updated_date: '2026-10-22T04:35:00Z'
+updated_date: '2026-10-22T05:02:00Z'
 labels: []
 dependencies: []
 ordinal: 173000
@@ -21,7 +21,7 @@ The committed host verdict records 80 non-network fixture-mechanics candidates a
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 All 80 non-network candidate families emit the exact instrument, unit, temporality, resource, datapoint and scope envelope in the committed host classification verdict.
+- [x] #1 All 80 non-network candidate families emit the exact instrument, unit, temporality, resource, datapoint and scope envelope in the committed host classification verdict.
 - [x] #2 Each value group names its admissible existing CPU, memory or nodeexp physics basis in a comment; no envelope field is invented.
 - [x] #3 The host classification verdict and existing CPU and memory helper files remain byte-unchanged.
 <!-- AC:END -->
@@ -49,6 +49,8 @@ Resume: commission a host hardware declaration transported through the existing 
 Owner rulings 2026-10-22 (loop52 Q03/Q04): option A approved (datadog_receiver cpus + memory_gb, required in host mode, 2 vCPU / 8 GiB basis in codex design); acceptance set reduced from 80 to 78, system.io.rrqm_s/wrqm_s split to SKT-0165.
 
 loop52 BATCH4: file-handle slice landed d949c75 (allocated_unused, used, in_use; kernel file-nr unused=0 basis); 39/78. Capacity families (option A) in progress in lane l077.
+
+loop52 BATCH6: landed 5a6615b. 78/78 (owner-reduced set; rrqm_s/wrqm_s -> SKT-0165) host-mode families with exact verdict envelopes; datadog_receiver cpus + memory_gb (host blueprint 2 vCPU/8 GiB); producer-coverage 267/267; rv077 guarded PASS (physics checked vs Datadog memory_nix.go and gopsutil); CodeRabbit 12 files 0; gate gaterun 20261022T045307Z-synthkit-a01667dc exit 0 on 4e08ab4; just gen applied.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
