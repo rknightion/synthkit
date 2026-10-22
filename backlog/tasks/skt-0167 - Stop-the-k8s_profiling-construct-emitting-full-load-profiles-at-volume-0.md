@@ -1,9 +1,10 @@
 ---
 id: SKT-0167
 title: Stop the k8s_profiling construct emitting full-load profiles at volume 0
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-22T05:17:00Z'
+updated_date: '2026-10-22T06:05:00Z'
 labels:
   - control
   - profiling
@@ -20,9 +21,9 @@ Split from SKT-0147 at the loop52 convergence tripwire (rv147b major). internal/
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 At volume 0 k8s_profiling emits no profiles; red at base, green after
-- [ ] #2 Nonzero output byte-identical (compare proto.Marshal Deterministic, never Profile.String())
-- [ ] #3 docs/control-plane.md drops the k8s_profiling carve-out
+- [x] #1 At volume 0 k8s_profiling emits no profiles; red at base, green after
+- [x] #2 Nonzero output byte-identical (compare proto.Marshal Deterministic, never Profile.String())
+- [x] #3 docs/control-plane.md drops the k8s_profiling carve-out
 <!-- AC:END -->
 
 ## Definition of Done
@@ -31,3 +32,9 @@ Split from SKT-0147 at the loop52 convergence tripwire (rv147b major). internal/
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop52 BATCH10: landed da3176e. Red at base (30 profile series at 0), green; nonzero byte-identical (proto.Marshal Deterministic); app package race 332s -> 213s; CodeRabbit 4 files 0; gate gaterun 20261022T055554Z-synthkit-78082632 exit 0 on b92db0a.
+<!-- SECTION:NOTES:END -->
