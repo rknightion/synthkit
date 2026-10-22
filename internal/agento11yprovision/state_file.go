@@ -808,12 +808,14 @@ func custodyBudget(d Document, construction string) error {
 		resources[w.Resources[i].Key] = &w.Resources[i]
 	}
 	alternativeCredit := 0
+	// size is always exactly len(json.Marshal(w)). The whole envelope is
+	// encoded once; afterwards only the touched components (this step, its
+	// resource without observations, pending, appended array elements) are
+	// re-encoded and the length difference is applied. Each component is
+	// encoded by json.Marshal itself, never sized from len(raw) of its parts.
+	size := 0
 	check := func() error {
-		raw, err := json.Marshal(w)
-		if err != nil {
-			return ErrCorrupt
-		}
-		if len(raw)-alternativeCredit > limit {
+		if size-alternativeCredit > limit {
 			return ErrCapacity
 		}
 		return nil
@@ -882,9 +884,22 @@ func custodyBudget(d Document, construction string) error {
 			}
 		}
 	}
+	full, err := json.Marshal(w)
+	if err != nil {
+		return ErrCorrupt
+	}
+	size = len(full)
 	if err := check(); err != nil {
 		return err
 	}
+	// Every value below was part of the encoded envelope or is built from
+	// fixed bounded values, so its own encoding cannot fail; ErrCorrupt is
+	// kept only as the conservative answer the whole-document encode gave.
+	pendingLen, err := custodyPendingLen(w.Pending)
+	if err != nil {
+		return ErrCorrupt
+	}
+	consumedLen := -1 // the same bounded record every time; memoised per call
 	for i := range c.Steps {
 		step := &c.Steps[i]
 		if step.Status != StepPlanned && step.Status != StepIntent && step.Status != StepResponse {
@@ -896,10 +911,35 @@ func custodyBudget(d Document, construction string) error {
 		if pr == nil || r == nil {
 			return ErrCorrupt
 		}
+		stepLen, err1 := custodyWireLen(*step)
+		resourceLen, err2 := custodyResourceLen(r)
+		if err1 != nil || err2 != nil {
+			return ErrCorrupt
+		}
+		// remeasure applies the encoded-length change of everything this step
+		// may have touched since the last checkpoint.
+		remeasure := func() error {
+			s, err1 := custodyWireLen(*step)
+			rl, err2 := custodyResourceLen(r)
+			pl, err3 := custodyPendingLen(w.Pending)
+			if err1 != nil || err2 != nil || err3 != nil {
+				return ErrCorrupt
+			}
+			size += s - stepLen + rl - resourceLen + pl - pendingLen
+			stepLen, resourceLen, pendingLen = s, rl, pl
+			return nil
+		}
 		// Allow independent recovery attribution plus a fresh suffix approval.
 		// Their documents are not stored, only these bounded consumed records.
 		for range 2 {
-			w.Consumed = append(w.Consumed, consumedWire{text, hash, c.ID, baseWire{Head: &maxHead}})
+			record := consumedWire{text, hash, c.ID, baseWire{Head: &maxHead}}
+			if consumedLen < 0 {
+				if consumedLen, err = custodyWireLen(record); err != nil {
+					return ErrCorrupt
+				}
+			}
+			size += custodyAppendLen(w.Consumed, consumedLen)
+			w.Consumed = append(w.Consumed, record)
 		}
 		if step.Status == StepPlanned {
 			coordinate := coordinateWire(pr.Coordinate)
@@ -911,6 +951,9 @@ func custodyBudget(d Document, construction string) error {
 				r.FirstAttempt = text
 			}
 			w.Pending = &pendingWire{step.AttemptID, c.ID, pr.Key, hash, c.Input, hash, hash, maxHead, c.Namespaces, coordinate, ps.Operation, custodyMethod(coordinate.Kind, ps.Operation), desired, hash, hash, StepIntent, nil}
+			if err := remeasure(); err != nil {
+				return err
+			}
 			if err := check(); err != nil {
 				return err
 			}
@@ -925,6 +968,9 @@ func custodyBudget(d Document, construction string) error {
 			p.Phase, step.Status, step.Coordinate = StepResponse, StepResponse, coordinate
 			if p.Coordinate.Unassigned {
 				r.Coordinate = coordinate
+			}
+			if err := remeasure(); err != nil {
+				return err
 			}
 			if err := check(); err != nil {
 				return err
@@ -941,9 +987,17 @@ func custodyBudget(d Document, construction string) error {
 		}
 		r.Coordinate = o.Coordinate
 		r.Status = ResourceNotApplied // longest status, including recovery outcome
+		observationLen, err := custodyWireLen(o)
+		if err != nil {
+			return ErrCorrupt
+		}
+		size += custodyAppendLen(r.Observations, observationLen)
 		r.Observations = append(r.Observations, o)
 		step.Status, step.Coordinate, step.Evidence = StepNotApplied, o.Coordinate, es
 		w.Pending = nil
+		if err := remeasure(); err != nil {
+			return err
+		}
 		if err := check(); err != nil {
 			return err
 		}
@@ -971,8 +1025,53 @@ func custodyBudget(d Document, construction string) error {
 		o := observation(r.Coordinate)
 		members = append(members, memberWire{r.Key, r.Coordinate, OutcomeRetainedUnsupported, &o, es})
 	}
-	w.Receipts = append(w.Receipts, receiptWire{text, c.ID, c.Mode, ReceiptApplyObserved, hash, c.Input, hash, hash, c.Namespaces, members, hash, math.MaxInt64, text})
+	receipt := receiptWire{text, c.ID, c.Mode, ReceiptApplyObserved, hash, c.Input, hash, hash, c.Namespaces, members, hash, math.MaxInt64, text}
+	receiptLen, err := custodyWireLen(receipt)
+	if err != nil {
+		return ErrCorrupt
+	}
+	size += custodyAppendLen(w.Receipts, receiptLen)
+	w.Receipts = append(w.Receipts, receipt)
 	return check()
+}
+
+// custodyWireLen is the exact encoded length json.Marshal gives v, which is
+// also its length as a field or array element of the document: the encoder
+// is context-free (compact, HTML-escaped RawMessage included).
+func custodyWireLen(v any) (int, error) {
+	raw, err := json.Marshal(v)
+	return len(raw), err
+}
+
+// custodyAppendLen is the growth of an encoded array when one element of
+// encoded length n is appended: null becomes [x], [] becomes [x], and a
+// non-empty array gains a comma.
+func custodyAppendLen[T any](s []T, n int) int {
+	switch {
+	case s == nil:
+		return n + 2 - len("null")
+	case len(s) == 0:
+		return n
+	}
+	return n + 1
+}
+
+// custodyPendingLen encodes the pending slot, null when empty.
+func custodyPendingLen(p *pendingWire) (int, error) {
+	if p == nil {
+		return len("null"), nil
+	}
+	return custodyWireLen(*p)
+}
+
+// custodyResourceLen encodes a resource without its observation list, which
+// only grows by appends that are sized separately. Swapping the list for
+// null changes the encoded length by a constant for that list, so the
+// differences between two measurements are exact.
+func custodyResourceLen(r *resourceWire) (int, error) {
+	v := *r
+	v.Observations = nil
+	return custodyWireLen(v)
 }
 
 func custodyChangeShape(x Change) bool {
