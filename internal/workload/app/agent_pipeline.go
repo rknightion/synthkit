@@ -448,9 +448,13 @@ func validatePipeline(c *Config) error {
 }
 func validWeight(w float64) bool { return !math.IsNaN(w) && !math.IsInf(w, 0) && w >= 0 }
 
+// loadPipelineCorpus is the corpus source for selection. Tests substitute it to
+// reach corpus shapes (thinking parts) that no embedded archetype carries.
+var loadPipelineCorpus = sigil.LoadCorpus
+
 func selectPipelineContent(a *AgentBinding, generation bool) (pipelineContent, error) {
 	out := pipelineContent{tools: map[string][]*sigil.CorpusToolResult{}}
-	records, err := sigil.LoadCorpus(a.Corpus)
+	records, err := loadPipelineCorpus(a.Corpus)
 	if err != nil {
 		return out, err
 	}
@@ -466,12 +470,10 @@ func selectPipelineContent(a *AgentBinding, generation bool) (pipelineContent, e
 		if generation && r.Kind == "turn" && rk == key {
 			text := false
 			for _, p := range r.Parts {
-				// The frozen native Part has no explicit empty-thinking kind;
-				// its current encoder would turn stripped thinking into text.
-				// Refuse that concrete shape instead of silently losing it.
-				if a.CaptureMode == sigil.CaptureMetadataOnly && p.Thinking != "" {
-					return out, pipelineError("metadata_only thinking parts unsupported by current native part encoder")
-				}
+				// Thinking is admitted under every capture mode: metadata_only
+				// capture strips its content and marks the part with the explicit
+				// thinking kind (pipelineCaptureGeneration), so it still encodes
+				// as an empty thinking payload rather than text.
 				if p.ToolCall != nil || p.ToolResult != nil {
 					return out, pipelineError("selected model turns contain implicit tools")
 				}

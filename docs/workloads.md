@@ -111,11 +111,10 @@ Capture follows the pinned SDK native-generation versus tool-span split:
 Metadata-only removes SDK content mirrors, not arbitrary authored metadata/tags. The
 pinned Go policy removes current and legacy title mirrors plus call_error; the pinned
 Python policy removes current title and call_error, not an authored legacy-title key.
-Keep authored metadata/tags free of private content. Metadata-only thinking parts are
-explicitly unsupported: the current frozen native Part encoder cannot preserve the
-kind of an empty thinking payload. Such selected content rejects before execution,
-rather than silently retyping it as text; adding that shape requires a separately
-reviewed shared encoder change. The app corpus path also does not produce media parts;
+Keep authored metadata/tags free of private content. Metadata-only capture of a
+thinking part clears its content and keeps the part a thinking part through the explicit
+part kind, so it encodes as an empty thinking payload rather than text; no placeholder
+content is emitted. The app corpus path does not produce media parts;
 reduced Python media is refused rather than claimed as supported.
 
 Every service in a pipeline graph must have an Agent Observability binding and be used

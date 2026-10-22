@@ -531,12 +531,19 @@ func TestAgentPipelineMetadataOnlyShape(t *testing.T) {
 	if g.SystemPrompt != "private" || g.Input[0].Parts[1].ToolResult.Content != "private" {
 		t.Fatal("capture mutated model-visible completed record")
 	}
-	// The frozen native Part seam cannot distinguish empty thinking from empty
-	// text. Do not advertise faithful metadata-only thinking while its encoder
-	// lacks an explicit discriminator; fail this concrete shape closed.
+	// Metadata-only removes thinking content but keeps the part a thinking part:
+	// the explicit kind survives the empty content, ProviderType stays advisory
+	// metadata, and the model-visible original is untouched.
 	g.Output[0].Parts = []sigil.Part{{Thinking: "private thinking", ProviderType: "thinking"}}
-	if _, err := pipelineCaptureGeneration(g, sigil.CaptureMetadataOnly); err == nil || !strings.Contains(err.Error(), "thinking") {
-		t.Fatal("unsupported empty-thinking wire kind silently relabeled")
+	out, err = pipelineCaptureGeneration(g, sigil.CaptureMetadataOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (sigil.Part{Kind: sigil.PartKindThinking, ProviderType: "thinking"}); !reflect.DeepEqual(out.Output[0].Parts, []sigil.Part{want}) {
+		t.Fatalf("thinking part not stripped to the explicit kind: %+v", out.Output[0].Parts)
+	}
+	if g.Output[0].Parts[0].Thinking != "private thinking" || g.Output[0].Parts[0].Kind != "" {
+		t.Fatal("capture mutated model-visible thinking part")
 	}
 }
 

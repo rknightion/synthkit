@@ -284,9 +284,9 @@ default/no_tool_content and full_with_metadata_spans retain native generation co
 but omit tool-span content; only explicit full emits accepted tool content in spans.
 Metadata-only preserves roles/part structure, tool identities, usage and timing while
 removing SDK-defined content. Authored tags/metadata are not generally scrubbed.
-Metadata-only thinking payloads reject because the current native Part seam lacks a
-kind discriminator for empty thinking; no placeholder content or silent retyping is
-permitted. See the workload guide and canonical signal contract for pinned policy.
+Metadata-only thinking keeps its part kind through the native Part's explicit Kind and
+encodes as an empty thinking payload; no placeholder content or silent retyping is
+permitted, and the sink rejects a thinking kind carrying text or an unknown kind. See the workload guide and canonical signal contract for pinned policy.
 This is a bound-app native-content exception, not blanket permission for generic
 custom span content or synthetic backend guard/evaluation producers.
 

@@ -101,9 +101,12 @@ under the existing trace contract; none becomes a metric label.
 
 Metadata-only thinking: the native Part carries an explicit `Kind` (`PartKindThinking`),
 and the encoder emits `Part_Thinking` with empty content for it instead of retyping to
-text; the provider-type string never selects a payload. The app pipeline still rejects
-selected thinking at Build and carried thinking at capture until it sets that kind;
-neither placeholders nor private reasoning retention are a workaround. The corpus
+text; the provider-type string never selects a payload. The app pipeline admits
+selected thinking under every capture mode: metadata-only capture clears the content and
+sets that kind, so the part encodes as an empty `thinking` payload with its provider-type
+metadata retained, and other modes and JSON-derived usage are unchanged. The encoder
+refuses a thinking kind carrying text and any unknown kind. No placeholder content and no
+private reasoning retention are involved. The corpus
 materializer emits no media; reduced Python media is refused, not claimed SDK parity.
 Supported text/tool shapes are tested through actual native and OTLP encoders; this is not
 complete SDK/media parity or whole-CLI admission proof.

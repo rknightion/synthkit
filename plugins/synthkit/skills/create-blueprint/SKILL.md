@@ -123,8 +123,8 @@ not retrieval-only hooks or a fabricated backend tool-name predicate. Preserve t
 Every pipeline graph service must be bound and used in its stage plan. Do not declare
 inline logs, log-producing catalog profiles, pages or rum_faro: Build rejects these
 unsupported outputs rather than silently dropping them. Ordinary app graphs are unchanged.
-`metadata_only` thinking is explicitly unsupported/fail-closed because the current native
-encoder cannot preserve the empty thinking kind. The corpus path produces no media and
+`metadata_only` capture keeps a thinking part as an empty thinking payload through the
+explicit part kind, with no placeholder content. The corpus path produces no media and
 reduced Python media is refused. Default/no_tool_content/full_with_metadata_spans keep native
 generation content but omit shared tool-span content; only full includes accepted tool content
 in spans. Authored metadata/tags are not scrubbed. Follow the canonical SDK-specific exceptions,

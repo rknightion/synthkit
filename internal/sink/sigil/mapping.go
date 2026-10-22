@@ -3,6 +3,7 @@
 package sigil
 
 import (
+	"fmt"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
@@ -275,6 +276,30 @@ func toProtoMessages(msgs []nativesigil.Message) []*sigilv1.Message {
 		out[i] = pm
 	}
 	return out
+}
+
+// validatePartKinds rejects a Part whose explicit Kind the encoder would otherwise drop or ignore
+// silently: a thinking kind carrying text content, or a Kind other than the zero value and
+// PartKindThinking. Admission precedes conversion so a malformed part never reaches the wire.
+func validatePartKinds(gens []nativesigil.Generation) error {
+	for _, g := range gens {
+		for _, msgs := range [][]nativesigil.Message{g.Input, g.Output} {
+			for _, m := range msgs {
+				for i, p := range m.Parts {
+					switch p.Kind {
+					case "":
+					case nativesigil.PartKindThinking:
+						if p.Text != "" {
+							return fmt.Errorf("sigil: generation %q part %d: thinking kind with text content", g.ID, i)
+						}
+					default:
+						return fmt.Errorf("sigil: generation %q part %d: unknown part kind %q", g.ID, i, p.Kind)
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // toProtoParts maps a slice of native Parts to proto Parts.
