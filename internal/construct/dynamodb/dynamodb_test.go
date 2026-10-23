@@ -108,6 +108,8 @@ func TestSparseWindowsAndProfiles(t *testing.T) {
 	if w.calls != calls {
 		t.Fatal("repeated/backward window emitted")
 	}
+	// Retain the earned 0.2 request fraction and add only the current capped
+	// 0.6 requests, not 24 hours of arrivals: 0.8 remains below one request.
 	tick(t, c, now.Add(24*time.Hour), w)
 	absent(t, w, "aws_dynamodb_successful_request_latency_sum")
 	tick(t, c, now.Add(24*time.Hour+time.Minute), w)

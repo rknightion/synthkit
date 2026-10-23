@@ -188,8 +188,11 @@ Scan and SELECT ExecuteStatement. Declared Streams GetRecords uses StreamLabel+O
 it is never union-filled into table-operation observations. Write Source is omitted, Customer or
 GlobalTable; GlobalTable replication is independently declared applied writes, not PutItem calls.
 Quotas, provisioned capacity, per-request capacity/latency and fixed whole returned items/records/
-bytes are explicit assumptions. Fractional rates/read units are valid; floating-point floor can
-delay a request at a decimal exact boundary. No overload, on-demand or cross-service join is claimed.
+bytes are explicit assumptions. Already-earned operation, conditional-failure, Streams-poll and
+replication fractions survive cadence jitter and long observation gaps; new accrual is capped at
+60 seconds per observation without replaying the gap. Fractional rates/read units are valid;
+floating-point floor can delay a request at a decimal exact boundary. No overload, on-demand or
+cross-service join is claimed.
 
 ```yaml signals
 family: aws_dynamodb

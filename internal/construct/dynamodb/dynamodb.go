@@ -231,8 +231,8 @@ func (c *construct) labels(name string) map[string]string {
 	return map[string]string{"account_id": c.cloud.AccountID, "region": c.cloud.Region, "namespace": "AWS/DynamoDB", "job": "cloud/aws/dynamodb", "name": name}
 }
 
-// take keeps fractional arrivals, not idle service capacity. Carries are local
-// to contiguous windows; a scheduler gap is not permission to invent a backfill.
+// take keeps arrivals already earned during observed active windows, not idle
+// service capacity. Gaps cap new accrual without discarding prior fractions.
 func take(rate, seconds float64, carry *float64) float64 {
 	v := rate*seconds + *carry
 	n := math.Floor(v)
@@ -266,14 +266,10 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	if !c.last.IsZero() {
 		seconds = now.Sub(c.last).Seconds()
 		if seconds > 60 {
+			// Observe only the current capped window, never replay the gap.
+			// Already-earned fractions remain valid even across cadence jitter
+			// or a long gap; losing them would starve legitimate sparse traffic.
 			seconds = 60
-			for i := range c.tables {
-				ts := &c.tables[i]
-				clear(ts.carry)
-				ts.failures = 0
-				ts.polls = 0
-				ts.replicas = 0
-			}
 		}
 	}
 	// A new state per reporting window withholds sparse families rather than
