@@ -1,9 +1,11 @@
 ---
 id: SKT-0166
 title: Investigate TestEnvSurfaceAligned failing in gate sweeps of a fresh clone
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop53'
 created_date: '2026-10-22T05:16:00Z'
+updated_date: '2026-10-23T07:32:00Z'
 labels:
   - test
   - config
@@ -30,3 +32,9 @@ Seen by loop52 replan3 lane in gaterun sweeps run from a fresh clone (codex/loop
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Classified without code change: an uncommitted diagnostic non-test source read REPLAN_MARGIN, correctly triggering the environment-surface guard. Controlled remote reproduction fails with that injected read both with and without example-only project environment, and passes after removing the read in both cases. Pristine config build/vet/package test passes on 8545834. No production surface change or test weakening is needed; inherited diagnostics preserved.
+<!-- SECTION:NOTES:END -->

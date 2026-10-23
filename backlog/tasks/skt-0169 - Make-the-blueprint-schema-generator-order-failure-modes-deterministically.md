@@ -1,9 +1,11 @@
 ---
 id: SKT-0169
 title: Make the blueprint schema generator order failure modes deterministically
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop53'
 created_date: '2026-10-22T15:23:00Z'
+updated_date: '2026-10-23T07:32:00Z'
 labels:
   - gen
   - schema
@@ -30,3 +32,9 @@ Found by loop52 lane l1683: just gen reorders about 15 unrelated failure-mode ro
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Compose the accepted total-order comparator candidate, review once, run integrated gate, land exact green tree.
+<!-- SECTION:PLAN:END -->
