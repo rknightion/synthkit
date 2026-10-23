@@ -1,0 +1,50 @@
+# solace-brokers - A TEST FIXTURE, NOT A SHIPPED BLUEPRINT. Deliberately outside blueprints/.
+#
+# Declares two generic event brokers so the solace construct's per-queue and per-VPN series can be
+# dumped and diffed against signals/solace.md:
+#
+#   BLUEPRINTS=e2e/fixtures DUMP_BLUEPRINTS=solace-brokers just dump
+#
+# (needs the solace registration in internal/runner/catalog.go, which is wired separately)
+#
+# Names are neutral placeholders. The rates are the construct's own defaults, stated in its Config
+# docs (a master-data change feed is a low-volume stream), except queue-3 on broker-b, which
+# deliberately stalls its consumers so the backlog and spool-quota series move.
+name: solace-brokers
+label: solace-brokers
+metadata:
+  description: "TEST FIXTURE ONLY. Two generic event brokers for dumping the solace construct's inventory against signals/solace.md."
+  owner: platform-observability
+  category: reference
+  tags: [test-fixture, solace]
+  links:
+    signals: ./signals/solace.md
+environments:
+  - name: fixture
+integrations:
+  solace:
+    enabled: true
+    # QueueRates is deprecated upstream, so it is opt-in; the fixture selects every target so the
+    # dump covers the whole contract.
+    targets: [Vpn, VpnStats, VpnSpool, QueueDetails, QueueStats, QueueRates, GlobalStats, GlobalSystemInfo, Spool]
+    brokers:
+      - name: broker-a
+        cpu_cores: 4
+        memory_gib: 16
+        max_connections: 1000
+        vpns:
+          - name: vpn-1
+            publishers: 2
+            max_connections: 100
+            queues:
+              - name: queue-1
+                consumers: 2
+              - name: queue-2
+                publish_msgs_per_sec: 1
+      - name: broker-b
+        vpns:
+          - name: vpn-2
+            queues:
+              - name: queue-3
+                consume_msgs_per_sec: 0
+                spool_quota_mb: 100

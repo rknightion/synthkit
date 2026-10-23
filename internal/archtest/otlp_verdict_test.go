@@ -79,6 +79,7 @@ var otlpScrapeOnlyForbidden = map[string]bool{
 	"synthetic_monitoring":     true,
 	"cloudflare":               true,
 	"snowflake":                true,
+	"solace":                   true,
 	"langsmith_platform":       true,
 	"langsmith_eval":           true,
 	"portkey_poller":           true,
@@ -229,10 +230,10 @@ func TestOTLPVerdictCoverageIsComplete(t *testing.T) {
 	checkStale("otlpScrapeOnlyForbidden", otlpScrapeOnlyForbidden)
 	checkStale("otlpUnresolved", otlpUnresolved)
 
-	const wantTotal = 47
+	const wantTotal = 48
 	if got := len(allKinds); got != wantTotal {
 		t.Errorf("runner.Catalog() registers %d kinds, want %d (signals/otlp-native-verdicts.md "+
-			"includes the Datadog receiver and 2026-10-15 DCGM exporter additions to the 45-package baseline — if the catalog has genuinely "+
+			"includes the Datadog receiver, DCGM exporter and Solace exporter additions to the 45-package baseline — if the catalog has genuinely "+
 			"grown or shrunk, re-run the SKT-0007.01 study and update both files)", got, wantTotal)
 	}
 }

@@ -415,6 +415,16 @@ func ValidateSet(set []*Resolved) error {
 					return err
 				}
 			}
+			// A construct whose Config declares its own substrate identity (no blueprint label,
+			// identity carried in declared config) claims it here. Duck-typed so this package
+			// never imports a construct.
+			if ic, ok := ci.Config.(identityClaimer); ok {
+				for _, c := range ic.IdentityClaims() {
+					if err := claimOnce(c[0], c[1]); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		for _, w := range r.Workloads {
 			if err := claimOnce("workload", w.Name); err != nil {
@@ -423,6 +433,13 @@ func ValidateSet(set []*Resolved) error {
 		}
 	}
 	return nil
+}
+
+// identityClaimer is implemented by a construct Config that declares substrate identity of its
+// own (the scrape job and instance of an exporter, say). ValidateSet reads it so two blueprints
+// cannot emit the same unlabelled series.
+type identityClaimer interface {
+	IdentityClaims() [][2]string
 }
 
 // DescribeKinds renders a short human list of registered kinds (CLI help / errors).

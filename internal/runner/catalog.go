@@ -45,6 +45,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/rds"
 	"github.com/rknightion/synthkit/internal/construct/sm"
 	"github.com/rknightion/synthkit/internal/construct/snowflake"
+	"github.com/rknightion/synthkit/internal/construct/solace"
 	"github.com/rknightion/synthkit/internal/construct/vpccni"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/workload/aiagent"
@@ -175,6 +176,7 @@ func Catalog() *core.Registry {
 	reg.RegisterConstruct(withMetricProducer(langsmithplatform.Registration(), producerPromRW))
 	reg.RegisterConstruct(withMetricProducer(langsmitheval.Registration(), producerPromRW))
 	reg.RegisterConstruct(withMetricProducer(snowflake.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(solace.Registration(), producerPromRW))
 	reg.RegisterConstruct(withMetricProducer(qualificationpipeline.Registration(), producerPromRW))
 	reg.RegisterConstruct(withMetricProducers(beylaagent.Registration(), producerPromRW, producerOTLPNative))
 	reg.RegisterConstruct(withMetricProducer(nettopo.Registration(), producerPromRW))
