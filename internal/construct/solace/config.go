@@ -118,13 +118,15 @@ const (
 
 // resolved holds validated, defaulted declarations.
 type resolvedQueue struct {
-	name          string
-	publishRate   float64
-	consumeRate   float64
-	msgBytes      float64
-	consumers     int
-	subscriptions int
-	quotaBytes    float64
+	name             string
+	publishRate      float64
+	consumeRate      float64
+	msgBytes         float64
+	consumers        int
+	subscriptions    int
+	quotaBytes       float64
+	publishRemainder float64
+	consumeRemainder float64
 	// runtime state
 	depth  float64 // messages currently spooled
 	avgRx  float64 // smoothed msgs/s, for the *_avg rate gauges

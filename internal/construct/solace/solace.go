@@ -185,16 +185,28 @@ func (c *Construct) stepQueue(w *core.World, now time.Time, bf, secs float64, b 
 	key := b.name + "|" + v.name + "|" + q.name
 	load := bf * seriesVar(w, now, "queue|"+key)
 
-	// Arrivals, bounded by the queue's remaining spool quota.
-	arrivals := math.Round(q.publishRate * load * secs)
+	// Integrate fractional arrivals before applying the quota. Only sub-message work
+	// carries forward: rejected whole messages are discarded, not retried next tick.
+	publishWork := q.publishRemainder + q.publishRate*load*secs
+	arrivals := math.Floor(publishWork)
+	q.publishRemainder = publishWork - arrivals
 	headroom := math.Floor(math.Max(q.quotaBytes-q.depth*q.msgBytes, 0) / q.msgBytes)
 	rx := math.Min(arrivals, headroom)
 	exceeded := arrivals - rx
 
-	// Delivery, bounded by consumer capacity over the window.
+	// Delivery carries fractional service only while there is queued work. Once
+	// empty, unused capacity (including fractions) expires rather than banking an
+	// idle-time catch-up burst. Consumption is not business/volume shaped: existing
+	// backlog continues draining when publishers pause.
 	avail := q.depth + rx
-	tx := math.Min(avail, math.Round(q.consumeRate*secs))
+	consumeWork := q.consumeRemainder + q.consumeRate*secs
+	capacity := math.Floor(consumeWork)
+	tx := math.Min(avail, capacity)
 	q.depth = avail - tx
+	q.consumeRemainder = 0
+	if q.depth > 0 {
+		q.consumeRemainder = consumeWork - capacity
+	}
 
 	r := qres{
 		rx: rx, tx: tx, exceeded: exceeded,
