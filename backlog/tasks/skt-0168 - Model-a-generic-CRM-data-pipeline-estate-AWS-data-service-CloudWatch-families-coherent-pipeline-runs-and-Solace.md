@@ -3,10 +3,11 @@ id: SKT-0168
 title: >-
   Model a generic CRM data-pipeline estate: AWS data-service CloudWatch
   families, coherent pipeline runs and Solace
-status: Parked
-assignee: []
+status: In Progress
+assignee:
+  - '@loop54'
 created_date: '2026-10-22T05:34:00Z'
-updated_date: '2026-10-23T11:53:00Z'
+updated_date: '2026-10-23T19:15:00Z'
 labels:
   - feature
   - cw
@@ -34,6 +35,12 @@ Owner-approved 2026-10-22. Backs a one-off demo: a CRM -> MDM -> integration -> 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Loop54: independent confidential Argo manifest and demo object preparation; root live activation only after exact reviewed artifacts, compatible image, destination and credential preconditions. Layer D waits captured public constructs.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 

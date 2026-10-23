@@ -1,9 +1,11 @@
 ---
 id: SKT-0173
 title: Retain HTTP-client interruption causes inside engineReadExact
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop54'
 created_date: '2026-10-23T09:29:00Z'
+updated_date: '2026-10-23T19:15:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -30,3 +32,9 @@ Five exact-read callers now preserve errors returned by engineReadExact, but eng
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Loop54: real HTTP-client-only interruption red proof with active outer context; preserve exact-read conflict and safe absence predicates, sanitized causes, remote focused proof and guarded review.
+<!-- SECTION:PLAN:END -->

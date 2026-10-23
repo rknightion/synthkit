@@ -1,9 +1,11 @@
 ---
 id: SKT-0171
 title: Preserve explicit zero intensity in scheduled blueprint incidents
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop54'
 created_date: '2026-10-23T08:01:00Z'
+updated_date: '2026-10-23T19:15:00Z'
 labels:
   - blueprint
   - incidents
@@ -31,3 +33,9 @@ The scheduled-incident encoder omits an intensity suffix when the decoded value 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Loop54: isolate scheduled intensity presence seam; public-loader red reproduction, fix zero/omission/fractional consistency in both scheduling forms, update canonical guidance, remote focused proof and guarded review.
+<!-- SECTION:PLAN:END -->
