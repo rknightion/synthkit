@@ -16,6 +16,7 @@ import (
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/genai"
+	"github.com/rknightion/synthkit/internal/pipelinerun"
 )
 
 // Topology construct kinds the resolver emits from typed declarations. Their configs
@@ -213,6 +214,38 @@ func vocabulary(reg *core.Registry) []failuremode.Mode {
 	return reg.AllFailureModes()
 }
 
+// validatePipelines checks declarations and consumer blocks across the entire blueprint.
+// StageScope is <pipeline>.<stage>, not environment-qualified: environment names have no
+// delimiter-safe grammar. Reject repeated pipeline identities rather than silently addressing
+// multiple environments with one incident (even when their stage sets currently differ).
+func validatePipelines(d *Decl) error {
+	owners := map[string]string{}
+	for _, e := range d.Environments {
+		c := e.Cloud
+		if c == nil || len(c.Pipelines) == 0 {
+			continue
+		}
+		if err := pipelinerun.Validate(c.Pipelines); err != nil {
+			return fmt.Errorf("blueprint %q: env %q: pipelines: %w", d.Name, e.Name, err)
+		}
+		for _, p := range c.Pipelines {
+			if previous, exists := owners[p.Name]; exists {
+				return fmt.Errorf("blueprint %q: pipeline identity collision: pipeline %q declared by environments %q and %q; pipeline names must be unique across the blueprint", d.Name, p.Name, previous, e.Name)
+			}
+			owners[p.Name] = e.Name
+			if p.Environment != "" && c.MWAA.Kind == 0 {
+				return fmt.Errorf("blueprint %q: env %q: pipeline %q: environment %q needs a cloud.mwaa block", d.Name, e.Name, p.Name, p.Environment)
+			}
+			for _, s := range p.Stages {
+				if s.Service == pipelinerun.ServiceGlue && c.Glue.Kind == 0 {
+					return fmt.Errorf("blueprint %q: env %q: pipeline %q stage %q: glue stage needs a cloud.glue block", d.Name, e.Name, p.Name, s.Name)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // envCtx pairs an environment's resolved fixtures (env identity + cloud) with its raw decl.
 // It is carried through the resolver passes and into per-env integration/workload fan-out.
 type envCtx struct {
@@ -267,6 +300,9 @@ func expandWorkloads(d *Decl, clusterByEnv map[string]string, allEnvNames []stri
 // resolve turns a validated Decl into fixtures + instances. reg supplies config types
 // and validates kinds.
 func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
+	if err := validatePipelines(d); err != nil {
+		return nil, err
+	}
 	if d.Timezone != "" && len(d.Regions) > 0 {
 		return nil, fmt.Errorf("blueprint %q: set either timezone or regions, not both", d.Name)
 	}
@@ -770,6 +806,10 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				cscfg := csreg.NewConfig()
 				if err := strictDecode(cs.node, cscfg, fmt.Sprintf("blueprint %q: env %q %s config", d.Name, e.Name, cs.kind)); err != nil {
 					return nil, err
+				}
+				// One pipelines declaration fans into every consuming construct.
+				if pc, ok := cscfg.(pipelinerun.Consumer); ok && len(e.Cloud.Pipelines) > 0 {
+					pc.UsePipelines(e.Cloud.Pipelines)
 				}
 				r.Constructs = append(r.Constructs, ConstructInstance{Kind: cs.kind, Name: e.Name, Config: cscfg, Fixtures: set})
 			}

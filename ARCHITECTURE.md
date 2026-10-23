@@ -460,7 +460,13 @@ responds to — a `[]failuremode.Mode{Name, Axis, Help}` list (e.g. k8s_cluster 
 `pod_crashloop`, `node_not_ready` on `AxisCluster`; dbo11y_postgres declares `connection_saturation`,
 `replication_lag`, `lock_contention`, `slow_query_storm` on `AxisDatabase`). The construct itself
 owns the physics: on each tick it calls `shape.Eval(mode, ownIdentity)` for the modes it implements.
-Axes: `workload | cluster | database | cache | cloud | service`.
+Axes include `workload | cluster | database | cache | cloud | service | pipeline_stage`.
+The shared `internal/pipelinerun` mechanic owns deterministic run-window facts, not signal names;
+Glue and MWAA consume the same environment-scoped seed and declaration without importing each
+other. Pipeline names are blueprint-wide unique and stage targets are `<pipeline>.<stage>`;
+`pipeline_stage:*` covers every environment's stages. See [declared pipelines](docs/constructs.md#declared-pipelines)
+and the [canonical stage incident contract](docs/incidents.md#pipeline_stage-axis) for grammar,
+activation and the limited emitting-adapter scope. This seam adds no log contract.
 
 The **`service` axis** (`AxisService`) targets an individual NODE of an `app` service graph.
 The `app` workload declares its modes (`error_spike`/`latency_storm`/`throughput_drop`/`fallback_storm`/
@@ -921,6 +927,7 @@ synthkit/
     ├── shape/               diurnal plateau + weekly + noise + schedulable incidents
     ├── state/               sink-correctness layer (cumulative counters, histogram expansion, le styles)
     ├── cw/                  shared CloudWatch stat-expansion mechanic (StatSet/EmitStats; peer of state)
+    ├── pipelinerun/         shared deterministic declared-pipeline timeline; no telemetry names
     ├── failuremode/         failure-mode vocabulary types (Mode/Axis/MultiAxis); leaf — no synthkit-tier imports
     ├── scale/               live scaling overrides (atomic snapshot; lock-free tick hot path); leaf
     ├── sink/{promrw,otlp,loki,faro}   each carries an optional pushhook.Observe field (self-obs seam; nil = unchanged)

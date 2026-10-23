@@ -1,0 +1,49 @@
+# e2e-pipelines — A TEST FIXTURE, NOT A SHIPPED BLUEPRINT. Deliberately outside blueprints/.
+#
+# It declares one batch pipeline orchestrated by an MWAA environment, with two Glue stages and one
+# Airflow-native stage, plus a recurring stage_stall and run_failure, so loader and runner tests can
+# see a declared pipeline drive aws_glue_* and aws_mwaa_* from one shared run timeline
+# (internal/pipelinerun) within minutes.
+#
+# The 5m cadence is TEST-SHAPED: real batch pipelines run hourly or daily (an `every: 24h` daily
+# ETL is the usual case). Do not copy it into a blueprint.
+name: e2e-pipelines
+label: e2e-pipelines
+shape: business_hours_plateau
+timezone: UTC
+metadata:
+  description: "E2E TEST FIXTURE ONLY. One declared pipeline driving Glue and MWAA on a test-shaped 5m cadence, with recurring stage_stall and run_failure. Never deploy this."
+  owner: platform-observability
+  category: reference
+  tags: [test-fixture, pipelines, glue, mwaa, e2e]
+  links:
+    signals-cw: ./signals/cw.md
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: us-east-1
+      vpc_id: vpc-pipelines01
+      mwaa:
+        environments: [pipelines-airflow]
+      glue:
+        jobs: []
+      pipelines:
+        - name: orders_batch
+          environment: pipelines-airflow
+          every: 5m     # test-shaped; see header
+          offset: 1m
+          stages:
+            - { name: extract,   service: glue,    resource: orders-extract,   duration: 1m }
+            - { name: transform, service: glue,    resource: orders-transform, duration: 2m }
+            - { name: publish,   service: airflow,                             duration: 30s }
+
+incidents:
+  # The transform stage stalls for 15 of every 60 minutes: extract keeps running, transform's
+  # backlog queues and ages in MWAA, publish completes nothing until it clears.
+  - { kind: stage_stall, target: orders_batch.transform, every: 60m, for: 15m }
+  # Extract fails half its runs for 10 of every 70 minutes (a different period from the stall, so the two windows drift apart and mostly do not coincide).
+  - { kind: run_failure, target: orders_batch.extract, every: 70m, for: 10m, intensity: 0.5 }

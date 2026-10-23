@@ -214,6 +214,7 @@ func TestCatalogImportIsolation(t *testing.T) {
 		"github.com/rknightion/synthkit/internal/sink/",
 		"github.com/rknightion/synthkit/internal/highcard",       // canonical high-card label set (leaf); sinks + the DSL capability matrix share it
 		"github.com/rknightion/synthkit/internal/telemetryspec/", // custom-telemetry DSL mechanic (peer lib, like cw/genai); the app workload + its profiles subpkg build telemetry from it
+		"github.com/rknightion/synthkit/internal/pipelinerun/",   // shared declared-pipeline run mechanic (peer lib, like cw); AWS data-service constructs read stage windows from it
 	}
 	root := repoRoot(t)
 	fset := token.NewFileSet()

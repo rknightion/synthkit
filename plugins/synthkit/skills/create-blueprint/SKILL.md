@@ -57,6 +57,15 @@ DSL section for intensity/default caveats (in particular scheduled `intensity: 0
 default full intensity, not recovery) and verify baseline → scoped onset → recovery through a
 loaded fixture before using the value in a composition.
 
+Declare batch pipelines once in an environment's `cloud.pipelines`; follow
+[the canonical pipeline guide](https://github.com/rknightion/synthkit/blob/main/docs/constructs.md#declared-pipelines)
+and [stage incident contract](https://github.com/rknightion/synthkit/blob/main/docs/incidents.md#pipeline_stage-axis).
+Pipeline names must be unique blueprint-wide, including disjoint stages in different environments.
+Use canonical `<pipeline>.<stage>` targets for local scope; `pipeline_stage:*` intentionally spans
+all environments. Glue and MWAA are the emitting consumers of the shared timeline; accepted
+Lambda/SQS/Redshift stages do not install emitting adapters or a log contract. Do not claim full
+pipeline/demo coverage or raise shipped rates to force a run; use a selected test fixture.
+
 ## Procedure
 
 1. Give the blueprint a unique, stable `name` and `label`. `name` is the deterministic seed;

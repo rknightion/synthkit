@@ -9,6 +9,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/pipelinerun"
 
 	yaml "gopkg.in/yaml.v3"
 )
@@ -65,6 +66,11 @@ func buildTargets(d *Decl) []Target {
 		}
 		if e.Cloud != nil {
 			out = append(out, Target{Name: e.Name, Axis: failuremode.AxisCloud})
+			for _, p := range e.Cloud.Pipelines {
+				for _, st := range p.Stages {
+					out = append(out, Target{Name: pipelinerun.StageScope(p.Name, st.Name), Axis: pipelinerun.AxisStage})
+				}
+			}
 		}
 	}
 	return out
@@ -87,7 +93,7 @@ func targetIndex(targets []Target) (map[string]failuremode.Axis, error) {
 var knownAxes = map[failuremode.Axis]bool{
 	failuremode.AxisWorkload: true, failuremode.AxisCluster: true,
 	failuremode.AxisDatabase: true, failuremode.AxisCache: true, failuremode.AxisCloud: true,
-	failuremode.AxisService: true, failuremode.AxisNetwork: true,
+	failuremode.AxisService: true, failuremode.AxisNetwork: true, pipelinerun.AxisStage: true,
 	fixture.AxisGPU: true, fixture.AxisGPUNode: true, fixture.AxisGPURack: true, fixture.AxisGPUTray: true,
 	fixture.AxisNVLinkDomain: true, fixture.AxisNVLinkPartition: true, fixture.AxisNVLinkSwitch: true, fixture.AxisNVLinkPort: true,
 	fixture.AxisGPUFabric: true, fixture.AxisGPUSwitch: true, fixture.AxisGPUPort: true, fixture.AxisGPUDevice: true,

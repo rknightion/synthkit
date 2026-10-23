@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/pipelinerun"
 	"gopkg.in/yaml.v3"
 )
 
@@ -140,6 +141,12 @@ type CloudDecl struct {
 	Glue             yaml.Node `yaml:"glue"`       // AWS Glue ETL (jobs:); absent ⇒ not emitted
 	Bedrock          yaml.Node `yaml:"bedrock"`    // AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted
 	AgentCore        yaml.Node `yaml:"agentcore"`  // AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted
+	// Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver
+	// hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a
+	// pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across
+	// all blueprint environments. A glue stage needs a glue block; an orchestrating environment
+	// needs an mwaa block that lists it.
+	Pipelines []pipelinerun.Pipeline `yaml:"pipelines"`
 }
 
 // ClusterDecl declares one Kubernetes cluster.

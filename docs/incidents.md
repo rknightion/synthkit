@@ -45,6 +45,8 @@ The `target` field on an effect resolves to a specific declared instance:
 | `service:*` | All app service nodes across all app workloads |
 | `cloud:*` | All cloud-scoped constructs (Bedrock, AgentCore, Portkey, etc.) |
 | `network:*` | All network-topology instances |
+| `orders_daily.transform` | One declared pipeline stage, named `<pipeline>.<stage>` (see [pipeline_stage axis](#pipeline_stage-axis)) |
+| `pipeline_stage:*` | Every declared pipeline stage |
 | omitted | Valid only for single-axis modes — the mode's axis is inferred and all instances of that axis are targeted |
 
 The resolver validates every effect target against the blueprint's actual instance inventory at load time. An unknown name or an axis mismatch is a loud load error.
@@ -154,6 +156,30 @@ An `incidents:` block schedules when a scenario or single-mode effect fires:
 | `nettopo_walker_degraded` | Walker outcome errors climb; edge count under-reports (partial topology visibility). |
 | `nettopo_auth_failures` | SNMP credential trials fail (credential_trials_total error rate rises). |
 | `nettopo_spoke_down` | A federation spoke goes offline (`network_topology_federation_spoke_up` drops to 0, hub/spoke session metrics degrade). |
+
+### pipeline_stage axis
+
+Every stage of a pipeline declared under an environment's `cloud.pipelines:` is a target named
+`<pipeline>.<stage>`. The modes act on the shared run timeline (`internal/pipelinerun`) that the
+`glue` and `mwaa` constructs both read, so one incident shows up consistently in both.
+Pipeline names must be unique across **all environments in the blueprint**: repeated names are
+rejected at load, even with disjoint stages. Pipeline and stage names match `[a-z0-9_-]+`;
+there is no environment-qualified target alias. Use distinct pipeline names (for example,
+`orders_prod.transform` and `orders_dev.transform`) for environment-local incidents;
+`pipeline_stage:*` deliberately spans every environment's stages.
+
+| Mode | Effect |
+|---|---|
+| `stage_stall` | The stage starts nothing while active. Work already executing finishes; runs arriving from upstream wait and age from their arrival. Upstream stages keep running, later stages complete nothing. MWAA `aws_mwaa_approximate_age_of_oldest_task` and `queued_tasks` climb; the stage's and later Glue jobs report zero completed tasks. When it clears, the backlog starts at once, oldest first. `intensity` is ignored. |
+| `run_failure` | Runs completing the stage fail, with `intensity` as the fraction (default 1.0, every run). A failed run ends with a FAILED terminal outcome and never reaches later stages. A Glue stage reports `aws_glue_driver_aggregate_num_failed_tasks` of 4 per failed run (Spark's default `spark.task.maxFailures`). |
+
+Name a stage or use `pipeline_stage:*`. The empty-target shorthand is rejected for these modes,
+because both `glue` and `mwaa` register them.
+
+Incidents are evaluated once per 60 s tick. A stall at the first stage makes each triggered run
+wait; a stall at a later stage only builds a backlog once a run reaches it, so on an hourly or daily
+pipeline a short stall may never meet a run. MWAA run-outcome metrics (DAG run duration success and
+failure, task-instance failures) are not yet sourced, so a failed run is visible through Glue only.
 
 ## Optional gateway pool failures
 

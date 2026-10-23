@@ -11,7 +11,7 @@ Three tiers, mandatory:
 
 - **Constructs** (`internal/construct/<kind>/`) and **workloads** (`internal/workload/<kind>/`) are
   isolated. They may import core/fixture/shape/state/ledger/sink-types and the shared mechanic
-  libraries (`internal/cw`, `internal/genai`, `internal/syslog`) only: never each other, the blueprint package, or a
+  libraries (`internal/cw`, `internal/genai`, `internal/syslog`, `internal/pipelinerun`) only: never each other, the blueprint package, or a
   blueprint name. `internal/archtest.TestCatalogImportIsolation` enforces this.
 - **Blueprints** (`blueprints/*.yaml`) own blueprint-specific configuration and explicit wiring,
   including workload-to-cluster binding and shared identity. One declaration may fan into several
@@ -80,6 +80,14 @@ additionally requires the exact source revision documented in ARCHITECTURE. Inve
 absence never establishes noncommit or recovery attribution; recovery never replays an attempted
 mutation, and cleanup retains unsupported/unknown-use dependencies honestly. The engine adds no
 CLI, blueprint wiring or runtime admission.
+
+## Declared pipeline mechanic
+
+`internal/pipelinerun` is the sanctioned shared deterministic run-window seam for Glue/MWAA,
+not a telemetry-name or log contract. Pipeline names are unique blueprint-wide; stage targets
+are `<pipeline>.<stage>` and `pipeline_stage:*` spans all environments. See
+[declared pipelines](docs/constructs.md#declared-pipelines) and
+[stage incidents](docs/incidents.md#pipeline_stage-axis) for the canonical scope and adapter limits.
 
 ## Syslog mechanic
 

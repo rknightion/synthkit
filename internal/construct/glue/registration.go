@@ -2,7 +2,10 @@
 
 package glue
 
-import "github.com/rknightion/synthkit/internal/core"
+import (
+	"github.com/rknightion/synthkit/internal/core"
+	"github.com/rknightion/synthkit/internal/pipelinerun"
+)
 
 // Registration wires this construct into the composition root's catalog
 // (single-owner wiring shim — added by the wiring pass).
@@ -13,5 +16,7 @@ func Registration() core.ConstructReg {
 		Scope:     core.ScopeBlueprint,
 		NewConfig: func() any { return &Config{} },
 		Build:     Build,
+		// Declared pipeline stages executed by a Glue job (internal/pipelinerun).
+		FailureModes: pipelinerun.FailureModes,
 	}
 }

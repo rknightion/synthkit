@@ -77,6 +77,51 @@ These constructs are **blueprint-scoped** (they carry the `blueprint` selector l
 | `glue` | AWS Glue job and crawler CloudWatch metrics. | [cw](signal-areas.md) |
 | `mwaa` | Amazon Managed Workflows for Apache Airflow CloudWatch metrics. | [cw](signal-areas.md) |
 
+#### Declared pipelines
+
+A batch pipeline is declared once, under the environment's `cloud.pipelines:`, and drives every
+construct that executes or orchestrates one of its stages from one deterministic run timeline (the
+shared `internal/pipelinerun` mechanic). It adds no metric names of its own: each construct maps the
+timeline onto its existing CloudWatch families.
+
+```yaml
+cloud:
+  mwaa: { environments: [etl-airflow] }
+  glue: { jobs: [] }
+  pipelines:
+    - name: orders_daily
+      environment: etl-airflow    # the MWAA environment orchestrating it; omit if none
+      every: 24h                  # cadence, 1m to 168h
+      offset: 2h                  # trigger phase inside every; omit for a seed-derived phase
+      stages:
+        - { name: extract,   service: glue,    resource: orders-extract,   duration: 12m }
+        - { name: transform, service: glue,    resource: orders-transform, duration: 20m }
+        - { name: publish,   service: airflow,                             duration: 2m }
+```
+
+- Pipeline names are **unique across the whole blueprint**, including different environments
+  and pipelines with disjoint stage names. The loader rejects repeats with both owning environment
+  names; rename the pipeline declaration, not its CloudWatch dimensions. Pipeline and stage names
+  match `[a-z0-9_-]+`; the canonical incident target remains `<pipeline>.<stage>`. Environment names
+  are not delimiter-restricted, so they are not concatenated into stage targets.
+- Run `k` triggers at `k × every + offset`, anchored on the Unix epoch. Each stage takes its
+  `duration` with a ±15% per-run jitter. The resolver supplies the same environment-scoped seed
+  (`<blueprint>:<environment>`) to Glue and MWAA; phase, duration and failure draws additionally
+  include the pipeline name. Named identity, not declaration order, determines the timeline.
+  Existing single-environment targets and nonpipeline output are unchanged.
+- `glue`: every glue-stage `resource` is emitted as a job (added to `jobs`). Its run-time
+  aggregates and executor gauges follow the stage's execution time in each window and read zero
+  between runs. Jobs that are not stages keep their usual values.
+- `mwaa`: for the environment named by `environment`, `queued_tasks` and `running_tasks` (both
+  namespaces) count the pipeline's waiting and executing stages, and
+  `aws_mwaa_approximate_age_of_oldest_task` is the oldest wait. The environment must be listed in
+  `mwaa.environments`.
+- A glue stage needs a `cloud.glue` block and an `environment` needs a `cloud.mwaa` block; the
+  loader rejects either missing.
+- `lambda`, `sqs` and `redshift` stages are accepted and take part in the timeline, but nothing
+  emits for them yet: their CloudWatch families are not sourced in `signals/cw.md`.
+- Stages are failure targets: see [Incidents](incidents.md#pipeline_stage-axis).
+
 ## Database Observability (dbo11y)
 
 Substrate-scoped. Shares `fixture.DB` identity with the corresponding CloudWatch construct.

@@ -562,6 +562,16 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cloud.glue` | raw yaml (see per-kind config sections) |  | AWS Glue ETL (jobs:); absent ⇒ not emitted |
 | `environments[].cloud.bedrock` | raw yaml (see per-kind config sections) |  | AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted |
 | `environments[].cloud.agentcore` | raw yaml (see per-kind config sections) |  | AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted |
+| `environments[].cloud.pipelines[]` | object |  | Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across all blueprint environments. A glue stage needs a glue block; an orchestrating environment needs an mwaa block that lists it. |
+| `environments[].cloud.pipelines[].name` | string |  |  |
+| `environments[].cloud.pipelines[].environment` | string |  |  |
+| `environments[].cloud.pipelines[].every` | string |  |  |
+| `environments[].cloud.pipelines[].offset` | string |  |  |
+| `environments[].cloud.pipelines[].stages[]` | object |  |  |
+| `environments[].cloud.pipelines[].stages[].name` | string |  |  |
+| `environments[].cloud.pipelines[].stages[].service` | string |  |  |
+| `environments[].cloud.pipelines[].stages[].resource` | string |  |  |
+| `environments[].cloud.pipelines[].stages[].duration` | string |  |  |
 | `environments[].cluster` | object | yes |  |
 | `environments[].cluster.emit` | bool | yes | Emit gates all cluster-derived constructs (Kubernetes, EC2, profiling, addons and Fleet Management), not the declaration or workload bindings. Omitted defaults to true. False retains topology without collecting it. |
 | `environments[].cluster.nodes[]` | object |  |  |
@@ -1225,6 +1235,36 @@ Snowflake account telemetry (prometheus.exporter.snowflake → 27 gauges from AC
 | `warehouses[]` | string |  | Warehouses is the list of virtual warehouse names to emit per-warehouse metrics for. Default: ["wh_compute","wh_etl"]. |
 | `databases[]` | string |  | Databases is the list of database names to emit per-database metrics for. Default: ["analytics","raw"]. |
 
+## solace config
+
+**Location:** `integrations.solace`  ·  **group:** integration
+
+Solace event-broker telemetry (solace_prometheus_exporter v1.21.0: per-queue and per-VPN spool, flow, rate, discard and connection series)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `job` | string |  | Job is the scrape job label stamped on every series. Default "solace-prometheus-exporter" (the exporter's own name; the job value is an operator choice, not set by the exporter). |
+| `targets[]` | string |  | Targets lists the exporter scrape targets to emulate, by the exporter's own case-sensitive target names: Vpn, VpnStats, VpnSpool, QueueDetails, QueueStats, QueueRates, GlobalStats, GlobalSystemInfo, Spool. Default: all except deprecated QueueRates. GlobalStats emits traffic and connected clients; GlobalSystemInfo emits uptime and declared capacities. |
+| `brokers[]` | object |  | Brokers is the declared event brokers; at least one is required. |
+| `brokers[].name` | string |  | Name identifies the broker; it must be unique and is the default instance host. |
+| `brokers[].instance` | string |  | Instance overrides the scrape instance label. Default "<name>:9628" (9628 is the exporter's default listen port). |
+| `brokers[].cpu_cores` | int |  | CPUCores is the broker's available cores (solace_system_cpu_cores). Omitted when 0. |
+| `brokers[].memory_gib` | float |  | MemoryGiB is the broker's available RAM in GiB (solace_system_memory_bytes). Omitted when 0. |
+| `brokers[].max_connections` | int |  | MaxConnections is the broker-wide client connection limit (solace_system_total_clients_quota). Omitted when 0. |
+| `brokers[].vpns[]` | object |  | VPNs is the message VPNs on this broker; at least one is required. |
+| `brokers[].vpns[].name` | string |  | Name is the message VPN name (the vpn_name label); unique within the broker. |
+| `brokers[].vpns[].publishers` | int | yes | Publishers is the number of publishing client connections, one guaranteed ingress flow each. Default 1. |
+| `brokers[].vpns[].max_connections` | int |  | MaxConnections is the VPN connection limit (solace_vpn_quota_connections). Omitted when 0. |
+| `brokers[].vpns[].spool_quota_mb` | float |  | SpoolQuotaMB is the VPN message-spool quota in MB. Default: the sum of the queue quotas. |
+| `brokers[].vpns[].queues[]` | object |  | Queues is the queues in this VPN; at least one is required. |
+| `brokers[].vpns[].queues[].name` | string |  | Name is the queue name (the queue_name label); unique within the VPN. |
+| `brokers[].vpns[].queues[].publish_msgs_per_sec` | float | yes | PublishMsgsPerSec is the business-hours publish rate into the queue, scaled by the shape engine's business factor. Default 2: a master-data change feed is a low-volume stream (about 170k messages a day at this peak), not bulk transfer. 0 declares an idle queue. |
+| `brokers[].vpns[].queues[].consume_msgs_per_sec` | float | yes | ConsumeMsgsPerSec is the consumers' maximum drain rate. Default 3x PublishMsgsPerSec so a healthy queue keeps no backlog, or 0 when Consumers is 0; set it below the publish rate (0 stalls the consumers) to model a growing backlog. |
+| `brokers[].vpns[].queues[].avg_msg_bytes` | int |  | AvgMsgBytes is the average message size. Default 2048 (a JSON master-data change record). |
+| `brokers[].vpns[].queues[].consumers` | int | yes | Consumers is the number of bound consumer flows (solace_queue_binds). Default 1. A queue with 0 consumers drains nothing unless ConsumeMsgsPerSec is declared. |
+| `brokers[].vpns[].queues[].subscriptions` | int | yes | Subscriptions is the queue's topic subscription count (solace_queue_subscriptions). Default 1. |
+| `brokers[].vpns[].queues[].spool_quota_mb` | float |  | SpoolQuotaMB is the queue's maximum spool usage in MB. Default 5000, the Solace default for a queue's max spool usage. Messages arriving once it is full are discarded and counted in solace_queue_msg_spool_usage_exceeded. |
+
 ## synthetic_monitoring config
 
 **Location:** `features.synthetic_monitoring`  ·  **group:** feature
@@ -1423,6 +1463,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.shape` | object | yes |  |
 | `services[].custom_metrics[].value.shape.base` | float |  |  |
 | `services[].custom_metrics[].value.shape.mode` | string |  |  |
+| `services[].custom_metrics[].value.shape.incident_value` | float | yes |  |
 | `services[].custom_metrics[].value.ref` | string |  |  |
 | `services[].custom_metrics[].buckets[]` | float |  |  |
 | `services[].custom_metrics[].le_style` | string |  |  |
@@ -1454,6 +1495,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.shape` | object | yes |  |
 | `services[].metrics[].value.shape.base` | float |  |  |
 | `services[].metrics[].value.shape.mode` | string |  |  |
+| `services[].metrics[].value.shape.incident_value` | float | yes |  |
 | `services[].metrics[].value.ref` | string |  |  |
 | `services[].metrics[].buckets[]` | float |  |  |
 | `services[].metrics[].le_style` | string |  |  |
@@ -1620,7 +1662,9 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `provider_call_error` | axis: workload |  | elevated provider/LLM call-error rate on the targeted ai_agent fleet — call_error generations, ERROR spans, error_type/error_category on operation_duration |
 | `replication_lag` | axis: database |  | replica falls behind primary |
 | `retry_storm` | axis: service |  | elevated gateway retry rate on the targeted service node |
+| `run_failure` | axis: pipeline_stage |  | runs completing the stage fail (fraction = intensity) and end with a FAILED outcome |
 | `slow_query_storm` | axis: database |  | query latency right-tail spikes |
+| `stage_stall` | axis: pipeline_stage |  | stage starts nothing: arriving runs wait and age, later stages complete nothing until cleared |
 | `throughput_drop` | axis: service |  | reduced throughput on the targeted service node |
 | `web_vitals_degraded` | axis: service |  | browser web-vitals degrade on the targeted frontend node — LCP/INP/TTFB/FCP and CLS spike |
 
