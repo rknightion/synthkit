@@ -2399,7 +2399,7 @@ func engineReadExact(ctx context.Context, c *Client, p enginePlan, inv engineInv
 	if err != nil {
 		var status *HTTPError
 		if !errors.As(err, &status) || status.StatusCode != 404 || !engineMissing(inv, co) {
-			return Observation{}, spec, ErrConflict
+			return Observation{}, spec, fmt.Errorf("%w: exact read: %w", ErrConflict, err)
 		}
 		presence = PresenceAbsent
 	} else {
