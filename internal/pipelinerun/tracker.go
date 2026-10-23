@@ -46,6 +46,10 @@ type PipelineWindow struct {
 	// fields sum their trigger-to-terminal durations.
 	Succeeded, Failed             int
 	SucceededDurSec, FailedDurSec float64
+	// Duration extrema are trigger-to-terminal seconds for the matching outcome in this window.
+	// They are zero when its Succeeded or Failed count is zero; the count establishes presence.
+	SucceededDurMinSec, SucceededDurMaxSec float64
+	FailedDurMinSec, FailedDurMaxSec       float64
 	// InFlight counts runs not yet terminal at To.
 	InFlight int
 	Stages   []StageWindow
@@ -362,7 +366,14 @@ func (t *Tracker) complete(pi, si, idx int, flag func(int, int) stageFlags,
 		if pw != nil {
 			pw[pi].Stages[si].Failed++
 			pw[pi].Failed++
-			pw[pi].FailedDurSec += at.Sub(it.trig).Seconds()
+			dur := at.Sub(it.trig).Seconds()
+			pw[pi].FailedDurSec += dur
+			if pw[pi].Failed == 1 || dur < pw[pi].FailedDurMinSec {
+				pw[pi].FailedDurMinSec = dur
+			}
+			if pw[pi].Failed == 1 || dur > pw[pi].FailedDurMaxSec {
+				pw[pi].FailedDurMaxSec = dur
+			}
 		}
 		return
 	}
@@ -374,7 +385,14 @@ func (t *Tracker) complete(pi, si, idx int, flag func(int, int) stageFlags,
 		p.inflight--
 		if pw != nil {
 			pw[pi].Succeeded++
-			pw[pi].SucceededDurSec += at.Sub(it.trig).Seconds()
+			dur := at.Sub(it.trig).Seconds()
+			pw[pi].SucceededDurSec += dur
+			if pw[pi].Succeeded == 1 || dur < pw[pi].SucceededDurMinSec {
+				pw[pi].SucceededDurMinSec = dur
+			}
+			if pw[pi].Succeeded == 1 || dur > pw[pi].SucceededDurMaxSec {
+				pw[pi].SucceededDurMaxSec = dur
+			}
 		}
 		return
 	}

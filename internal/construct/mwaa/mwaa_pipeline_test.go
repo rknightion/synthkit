@@ -140,8 +140,8 @@ func TestMWAAEnvironmentWithoutPipelineKeepsLegacyValues(t *testing.T) {
 	if got, want := dump(b.All(), "airflow-plain"), dump(a.All(), "airflow-plain"); got != want {
 		t.Fatalf("environment with no pipeline changed:\n%s\nwant\n%s", got, want)
 	}
-	if inventory(a.All()) != inventory(b.All()) {
-		t.Fatal("pipelines changed the series inventory")
+	if legacyInventory(a.All()) != legacyInventory(b.All()) {
+		t.Fatal("pipelines changed the legacy series inventory")
 	}
 }
 
@@ -151,7 +151,7 @@ func TestMWAAPipelineDumpIsDeterministic(t *testing.T) {
 		if err := buildPipeline(t, "seed-a").Tick(context.Background(), at, coretest.World(mc, nil, nil)); err != nil {
 			t.Fatal(err)
 		}
-		return dump(mc.All(), ""), inventory(mc.All())
+		return dump(mc.All(), ""), legacyInventory(mc.All())
 	}
 	d1, i1 := render(p0)
 	d2, _ := render(p0)
@@ -185,9 +185,14 @@ func dump(ss []promrw.Series, env string) string {
 	return strings.Join(lines, "\n")
 }
 
-func inventory(ss []promrw.Series) string {
+// Outcome observations are intentionally sparse; only legacy inventory is time-invariant.
+// TestMWAAOutcomesActualOutput checks their presence and absence against real windows.
+func legacyInventory(ss []promrw.Series) string {
 	var lines []string
 	for _, s := range ss {
+		if isOutcome(s.Name) {
+			continue
+		}
 		lines = append(lines, key(s))
 	}
 	sort.Strings(lines)

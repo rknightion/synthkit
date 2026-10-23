@@ -63,8 +63,10 @@ and [stage incident contract](https://github.com/rknightion/synthkit/blob/main/d
 Pipeline names must be unique blueprint-wide, including disjoint stages in different environments.
 Use canonical `<pipeline>.<stage>` targets for local scope; `pipeline_stage:*` intentionally spans
 all environments. Glue and MWAA are the emitting consumers of the shared timeline; accepted
-Lambda/SQS/Redshift stages do not install emitting adapters or a log contract. Do not claim full
-pipeline/demo coverage or raise shipped rates to force a run; use a selected test fixture.
+Lambda/SQS/Redshift stages do not install emitting adapters or a log contract. For MWAA terminal
+outcomes, follow the [canonical CloudWatch outcome contract](https://github.com/rknightion/synthkit/blob/main/signals/cw.md):
+observations are sparse, so an empty completion window is not a zero-duration sample. Do not claim
+full pipeline/demo coverage or raise shipped rates to force a run; use a selected test fixture.
 
 ## Procedure
 

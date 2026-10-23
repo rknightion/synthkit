@@ -657,6 +657,36 @@ note: "✅-emitted 24-set above is a subset of the ~55 live-captured Redis/Valke
 - `AWS/MWAA` → prefix `aws_mwaa_*`: infra (Aurora-metadata-DB + worker/scheduler host metrics). `active_connection_count, approximate_age_of_oldest_task, queued_tasks, running_tasks` (env-level); `cpuutilization, memory_utilization` (`dimension_Cluster` ∈ {`AdditionalWorker`,`BaseWorker`,`Scheduler`,`WebServer`}); `database_connections, disk_queue_depth, freeable_memory, read_iops, write_iops, read_latency, write_latency, read_throughput, write_throughput, network_receive_throughput, network_transmit_throughput` (`dimension_DatabaseRole` ∈ {`READER`,`WRITER`}). All carry `dimension_Environment`.
 - `AmazonMWAA` → prefix `aws_amazonmwaa_*`: Airflow StatsD operational metrics. `scheduler_heartbeat, scheduler_loop_duration, dag_bag_size, total_parse_time, dagfile_processing_last_{duration,num_of_db_queries,run_seconds_ago}, file_path_queue_{size,update_count}, import_errors, processes, queued_tasks, running_tasks, tasks_executable, tasks_starving, orphaned, orphaned_tasks_{adopted,cleared}, open_slots, job_end, triggers_running, triggerer_heartbeat, celery_worker_heartbeat, critical_section_{busy,duration,query_duration}, pool_{open,running,queued,scheduled,deferred}_slots`.
 
+**Declared-pipeline outcomes (vendor-doc sourced, not live-captured).** Current
+[AWS MWAA Airflow metrics](https://docs.aws.amazon.com/mwaa/latest/userguide/access-metrics-cw.html#available-metrics-cw)
+retrieved through Firecrawl on 2026-10-23 confirm namespace `AmazonMWAA` and:
+
+| Raw CloudWatch name | Canonical synthkit base | Unit | Dimensions (besides Environment) |
+|---|---|---|---|
+| `DAGDurationSuccess` | `aws_amazonmwaa_dagduration_success` | Milliseconds | `DAG=<pipeline-name>` |
+| `DAGDurationFailed` | `aws_amazonmwaa_dagduration_failed` | Milliseconds | `DAG=<pipeline-name>` |
+| `TaskInstanceFailures` | `aws_amazonmwaa_task_instance_failures` | Count | `DAG=All`, `Task=All` |
+
+The bases follow the naming law above (`[slug: cw-naming]`):
+consecutive capitals in `DAGDuration` stay joined (`dagduration`, **not** `dag_duration`).
+This mapping is derived from the established naming law, not a new captured inventory.
+The AWS timer rows name Airflow `dagrun.duration.success.{dag_id}` and
+`dagrun.duration.failed.{dag_id}`; the counter row names `ti_failures` with literal `All`
+dimensions, not task identity. No Function, State, Job, Operator or Task dimension is
+added to the DAG timers. Environment comes from the documented environment grouping.
+
+Only environments with declared pipelines emit these additive families. Actual shared
+run-window terminal observations drive trigger-to-terminal timers (including waiting),
+not nominal stage durations. Sum/min/max and mean are converted from seconds to ms;
+sample count is the matching terminal count. Failed stage executions across the declared
+pipelines in an environment supply Count=1 observations to `TaskInstanceFailures`:
+sum and sample count equal failures; average/minimum/maximum equal 1. These are synthetic
+observation mechanics, not a claim about a particular deployed StatsD aggregation cadence.
+No completion/failure means no corresponding observation: all five suffixes are absent,
+including after a prior nonempty window. No cumulative or stale values and no fabricated
+zero-duration samples. Both remote-write and native OTLP preserve this contract. Legacy
+families and environments without declared pipelines remain unchanged.
+
 ⚠ `_p90/_p95/_p99` suffixes seen on `aws_mwaa_*` series are OPERATOR-ADDED metric-stream statistics — NOT default (default is the five-stat set); do not bake percentiles into a synthkit MWAA family.
 
 ```yaml signals
@@ -710,8 +740,13 @@ labels:
   dimension_DAG_Filename: <dag-filename>
   dimension_Job: <job-name>
   dimension_HostName: <hostname>
+  dimension_DAG: <pipeline-name>|All
+  dimension_Task: All
   tag_*: <resource-tags>
 metrics:
+  - {root: dagduration_success, type: gauge, unit: milliseconds, v: ok}
+  - {root: dagduration_failed, type: gauge, unit: milliseconds, v: ok}
+  - {root: task_instance_failures, type: gauge, unit: count, v: ok}
   - {root: scheduler_heartbeat, type: gauge, unit: count, v: ok}
   - {root: scheduler_loop_duration, type: gauge, unit: seconds, v: ok}
   - {root: dag_bag_size, type: gauge, unit: count, v: ok}
@@ -1122,7 +1157,7 @@ Provenance: AWS CloudWatch OpenTelemetry 1.0.0 format and translation documentat
 
 ### Verified mappings and current skipped inventory
 
-The lookup now contains **284** exact AWS Metric Streams pairs. The original gateway
+The lookup now contains **287** exact AWS Metric Streams pairs. The original gateway
 read-back verified `aws_ec2_cpuutilization` and `aws_rds_database_connections`; the
 remaining pairs below are verified from the current AWS metric reference and the AWS
 Metric Streams OpenTelemetry unit-translation table. Their exact namespace, metric-name,
@@ -1138,11 +1173,11 @@ UCUM unit, and construct-specific dimensions are recorded in the owning
 | `neptune` | 13 | 0 | — |
 | `elasticache` | 22 | 2 | `Number` and `Boolean` are not in the permitted OTLP translation table |
 | `aoss` | 0 | 16 | the current page supplies names/dimensions but no units |
-| `mwaa` | 39 | 9 | six AWS/MWAA and three AmazonMWAA rows remain ambiguous or undocumented |
+| `mwaa` | 42 | 9 | six AWS/MWAA and three AmazonMWAA rows remain ambiguous or undocumented |
 | `glue` | 20 | 0 | — |
 | `bedrock` | 32 | 6 | model-invocation logging rows have no unit/dimension contract |
 | `agentcore` | 0 | 12 | current runtime pages do not establish the required unit/dimension pairs |
-| **total** | **284** | **52** | **336** five-stat bases in the catalogue |
+| **total** | **287** | **52** | **339** five-stat bases in the catalogue |
 
 Every base below is emitted by its construct on the remote-write path but is withheld from
 the Metric Streams path because `Lookup` has no verified AWS metric-name and UCUM-unit pair.
@@ -1260,7 +1295,7 @@ aws_bedrock_agentcore_user_errors
 ```
 
 The `dimension_` label suffix is **not** a generic CloudWatch Dimension converter. For each
-of the 284 emitted entries, the table carries the exact AWS spellings for the construct's
+of the 287 emitted entries, the table carries the exact AWS spellings for the construct's
 documented form: for example, EC2 uses `AutoScalingGroupName` and `InstanceId`, RDS uses
 `DBInstanceIdentifier`, ElastiCache uses `CacheClusterId` and `CacheNodeId`, and the
 service-specific tables carry their documented dimension pairs. The existing Prometheus

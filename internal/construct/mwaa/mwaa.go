@@ -29,8 +29,9 @@
 // environment drive that environment's task-queue series from the shared run simulation: every
 // stage is an Airflow task, so queued_tasks (both namespaces) counts stage executions waiting to
 // start, running_tasks counts executing ones, and aws_mwaa_approximate_age_of_oldest_task is the
-// oldest wait. A stage_stall therefore raises the age and the queue. Every other series, and every
-// environment orchestrating no declared pipeline, keeps the legacy formulas.
+// oldest wait. A stage_stall therefore raises the age and the queue. Terminal pipeline outcomes
+// additionally supply sparse DAG duration and environment-wide task failure observations in
+// AmazonMWAA. All other series, and environments without declarations, keep the legacy formulas.
 package mwaa
 
 import (
@@ -160,6 +161,15 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	}
 
 	batch := c.st.Collect(now)
+	// Outcome observations are per-window and sparse. A fresh state avoids retaining an earlier
+	// duration/failure in an empty window; legacy state and its series remain untouched.
+	outcomes := state.NewState()
+	for _, envName := range c.environments {
+		if c.orchestrates[envName] {
+			c.emitOutcomes(outcomes, envName, win.ForEnvironment(envName))
+		}
+	}
+	batch = append(batch, outcomes.Collect(now)...)
 	if c.exportMode == "otlp" {
 		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, c.cloud, batch)
 		return err
@@ -291,6 +301,42 @@ func (c *Construct) emitAmazonMWAA(bf float64, envName string, q *taskQueue) {
 
 	// Info series.
 	st.Set("aws_amazonmwaa_info", c.amazonMWAALabels(envName, nil), 1)
+}
+
+// emitOutcomes consumes terminal facts from the shared tracker, never a second timeline.
+// AWS names/units/dimensions: signals/cw.md [slug: cw-mwaa]. Each duration is a timer
+// observation in milliseconds; each failed stage contributes one Count=1 observation.
+func (c *Construct) emitOutcomes(st *state.State, env string, ps []pipelinerun.PipelineWindow) {
+	failures := 0
+	for _, p := range ps {
+		labels := c.amazonMWAALabels(env, map[string]string{"dimension_DAG": p.Name})
+		for _, o := range []struct {
+			base          string
+			count         int
+			sum, min, max float64
+		}{
+			{"aws_amazonmwaa_dagduration_success", p.Succeeded, p.SucceededDurSec, p.SucceededDurMinSec, p.SucceededDurMaxSec},
+			{"aws_amazonmwaa_dagduration_failed", p.Failed, p.FailedDurSec, p.FailedDurMinSec, p.FailedDurMaxSec},
+		} {
+			if o.count == 0 {
+				continue // storage zeros are not timer observations
+			}
+			sum := o.sum * 1000
+			cw.EmitStats(st, o.base, labels, cw.StatSet{
+				Sum: sum, Average: sum / float64(o.count), Minimum: o.min * 1000,
+				Maximum: o.max * 1000, SampleCount: float64(o.count),
+			})
+		}
+		for _, s := range p.Stages {
+			failures += s.Failed
+		}
+	}
+	if failures > 0 {
+		labels := c.amazonMWAALabels(env, map[string]string{"dimension_DAG": "All", "dimension_Task": "All"})
+		cw.EmitStats(st, "aws_amazonmwaa_task_instance_failures", labels, cw.StatSet{
+			Sum: float64(failures), Average: 1, Minimum: 1, Maximum: 1, SampleCount: float64(failures),
+		})
+	}
 }
 
 // mwaaLabels builds labels for the AWS/MWAA namespace.

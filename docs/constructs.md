@@ -115,7 +115,17 @@ cloud:
 - `mwaa`: for the environment named by `environment`, `queued_tasks` and `running_tasks` (both
   namespaces) count the pipeline's waiting and executing stages, and
   `aws_mwaa_approximate_age_of_oldest_task` is the oldest wait. The environment must be listed in
-  `mwaa.environments`.
+  `mwaa.environments`. Declared pipelines also supply sparse `AmazonMWAA` DAG outcome
+  timers: `aws_amazonmwaa_dagduration_success_*` and `aws_amazonmwaa_dagduration_failed_*`
+  carry `dimension_DAG=<pipeline-name>`. Their five statistics describe actual
+  trigger-to-terminal durations in **milliseconds**, including waits, with sample count
+  equal to matching completions. `aws_amazonmwaa_task_instance_failures_*` aggregates
+  failed stages across the environment with literal `dimension_DAG=All` and
+  `dimension_Task=All`; it does not invent per-task failure dimensions. No matching
+  outcome means no observation (all five series absent), even after an earlier nonempty
+  window. Remote-write and native OTLP share this behavior. Environments without a
+  pipeline retain their old output. See the MWAA contract in the
+  [CloudWatch signal catalogue](https://github.com/rknightion/synthkit/blob/main/signals/cw.md).
 - A glue stage needs a `cloud.glue` block and an `environment` needs a `cloud.mwaa` block; the
   loader rejects either missing.
 - `lambda`, `sqs` and `redshift` stages are accepted and take part in the timeline, but nothing

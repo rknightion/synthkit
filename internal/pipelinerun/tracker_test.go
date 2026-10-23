@@ -229,6 +229,91 @@ func TestRunFailureIntensityIsAFraction(t *testing.T) {
 	}
 }
 
+func TestCompletionDurationExtremaMatchTerminalObservations(t *testing.T) {
+	p := testPipeline()
+	coarse, fine := mustTracker(t, "s", p), mustTracker(t, "s", p)
+	coarse.Advance(t0, nil)
+	fine.Advance(t0, nil)
+	stall := window(ModeStageStall, StageScope(p.Name, "transform"), t0, t0.Add(time.Hour), 1)
+	fail := window(ModeRunFailure, StageScope(p.Name, "transform"), t0, t0.Add(2*time.Hour), 0.5)
+
+	// First accumulate a backlog, then drain it with mixed terminal outcomes. The fine tracker
+	// exposes individual terminal durations through the existing sums, independently of extrema.
+	from := t0
+	for phase, eval := range []EvalFunc{stall, fail} {
+		to := from.Add(30 * time.Minute)
+		got := coarse.Advance(to, eval).Pipelines[0]
+		var successes, failures []float64
+		for at := from.Add(time.Second); !at.After(to); at = at.Add(time.Second) {
+			pw := fine.Advance(at, eval).Pipelines[0]
+			if pw.Succeeded > 1 || pw.Failed > 1 {
+				t.Fatalf("fine window must isolate terminal observations: %+v", pw)
+			}
+			if pw.Succeeded == 1 {
+				successes = append(successes, pw.SucceededDurSec)
+			}
+			if pw.Failed == 1 {
+				failures = append(failures, pw.FailedDurSec)
+			}
+		}
+		for _, outcome := range []struct {
+			name          string
+			observations  []float64
+			count         int
+			sum, min, max float64
+		}{
+			{"success", successes, got.Succeeded, got.SucceededDurSec, got.SucceededDurMinSec, got.SucceededDurMaxSec},
+			{"failure", failures, got.Failed, got.FailedDurSec, got.FailedDurMinSec, got.FailedDurMaxSec},
+		} {
+			if phase == 1 && len(outcome.observations) < 2 {
+				t.Fatalf("need multiple %s observations, got %v", outcome.name, outcome.observations)
+			}
+			var sum, min, max float64
+			for i, dur := range outcome.observations {
+				sum += dur
+				if i == 0 || dur < min {
+					min = dur
+				}
+				if dur > max {
+					max = dur
+				}
+			}
+			if outcome.count != len(outcome.observations) || outcome.sum != sum || outcome.min != min || outcome.max != max {
+				t.Errorf("phase %d %s: got count/sum/min/max %d/%g/%g/%g, want %d/%g/%g/%g from terminal observations %v",
+					phase, outcome.name, outcome.count, outcome.sum, outcome.min, outcome.max,
+					len(outcome.observations), sum, min, max, outcome.observations)
+			}
+			if phase == 1 && (min == max || max <= 10*60) {
+				t.Fatalf("%s observations must have distinct extrema and include backlog wait: %v", outcome.name, outcome.observations)
+			}
+		}
+		from = to
+	}
+
+	// A repeated timestamp records no new completions; previous extrema must not leak forward.
+	empty := coarse.Advance(from, fail).Pipelines[0]
+	if empty.Succeeded != 0 || empty.Failed != 0 || empty.SucceededDurSec != 0 || empty.FailedDurSec != 0 ||
+		empty.SucceededDurMinSec != 0 || empty.SucceededDurMaxSec != 0 || empty.FailedDurMinSec != 0 || empty.FailedDurMaxSec != 0 {
+		t.Fatalf("empty window retained terminal observations: %+v", empty)
+	}
+}
+
+func TestCompletionDurationExtremaIgnoreDeclarationOrder(t *testing.T) {
+	p, q := testPipeline(), testPipeline()
+	q.Name = "other"
+	a, b := mustTracker(t, "s", p, q), mustTracker(t, "s", q, p)
+	eval := func(_ time.Time, mode, _ string) (bool, float64) {
+		return mode == ModeRunFailure, 0.5
+	}
+	for i := 0; i < 3; i++ {
+		at := t0.Add(time.Duration(i) * time.Hour)
+		aw, bw := a.Advance(at, eval), b.Advance(at, eval)
+		if !reflect.DeepEqual(aw.Pipelines[0], bw.Pipelines[1]) || !reflect.DeepEqual(aw.Pipelines[1], bw.Pipelines[0]) {
+			t.Fatalf("declaration order changed pipeline observations at %v: %+v vs %+v", at, aw, bw)
+		}
+	}
+}
+
 func TestStagesForAndForEnvironment(t *testing.T) {
 	w := mustTracker(t, "s", testPipeline()).Advance(t0, nil)
 	if got := w.StagesFor(ServiceGlue, "orders-transform"); len(got) != 1 || got[0].Name != "transform" {

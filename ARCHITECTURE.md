@@ -473,7 +473,10 @@ owns the physics: on each tick it calls `shape.Eval(mode, ownIdentity)` for the 
 Axes include `workload | cluster | database | cache | cloud | service | pipeline_stage`.
 The shared `internal/pipelinerun` mechanic owns deterministic run-window facts, not signal names;
 Glue and MWAA consume the same environment-scoped seed and declaration without importing each
-other. Pipeline names are blueprint-wide unique and stage targets are `<pipeline>.<stage>`;
+other. Terminal windows expose matching outcome counts, duration sums and extrema; count establishes
+presence, and MWAA consumes these facts without retaining observations in empty windows. The
+[MWAA outcome contract](signals/cw.md) owns sourced signal names, units, dimensions and
+sparse export semantics for both transports. Pipeline names are blueprint-wide unique and stage targets are `<pipeline>.<stage>`;
 `pipeline_stage:*` covers every environment's stages. See [declared pipelines](docs/constructs.md#declared-pipelines)
 and the [canonical stage incident contract](docs/incidents.md#pipeline_stage-axis) for grammar,
 activation and the limited emitting-adapter scope. This seam adds no log contract.
