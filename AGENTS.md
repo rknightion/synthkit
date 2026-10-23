@@ -165,6 +165,8 @@ the bundle can leave the active trust directory stale.
 The chart's immutable image digest may reference a verified main publication. Keep its matching
 main-SHA tag in the cleanup workflow's `protected-tags` alongside the default stable protections;
 ordinary edge images expire after seven days. Update the protection with the chart image pin.
+See [Container image](docs/deployment.md#container-image) for the classic Docker config-ID and
+containerd index/descriptor identity paths and the separate release/main verification limits.
 
 ## Secrets and environment surface
 

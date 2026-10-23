@@ -283,9 +283,21 @@ preferred reference fails: Compose and the deployment helper never fall back sil
 An image has several related identities. The **registry index digest** names the multi-platform
 artifact; the **platform manifest digest** selects one OS/architecture from that index; the **OCI
 config digest** identifies the selected image configuration; and Docker's **running image ID** is a
-distinct runtime observation. An accepted synthkit Compose deployment requires the OCI config
-digest and the running image ID to be byte-equal. Neither is a substitute for the binary's reported
-release version and complete source revision.
+distinct runtime observation. `inspect-running` accepts two closed identity paths:
+
+- **Classic Docker config ID** (`runtime_identity: oci_config_digest`): the running image ID equals
+  the selected platform manifest's OCI config digest.
+- **Containerd index ID** (`runtime_identity: index_with_platform_descriptor`): the running image ID
+  equals the configured immutable index digest, and the container's `ImageManifestDescriptor.digest`
+  equals the exact child manifest selected from that index for the runtime OS/architecture. The
+  helper still resolves that child manifest's OCI config digest; it does not require the index ID
+  to equal the config digest.
+
+Both paths require the exact configured digest reference in `ghcr.io/rknightion/synthkit`, a matching
+runtime repository index digest, one matching platform manifest, and the running binary's expected
+version and complete source revision. Missing, malformed or mismatched descriptor evidence cannot
+close the containerd path. `inspect-running` binds runtime identity only: it does **not** verify a
+signature or provenance, and neither path replaces the artifact verification below.
 
 Verify a release before changing a deployment:
 
@@ -307,6 +319,22 @@ pinned: verification accepts any revision of
 continued control of that repository and workflow. The source repository, source revision and ref,
 OCI version/revision labels, selected platform identity, and binary-reported identity remain exact
 requirements. Its output contains closed statuses and non-secret identities.
+
+The `verify-image` command above is release-only: its `--expected-oci-version` validation does not
+accept `main`. Do not substitute a made-up release version for a main build or treat a successful
+`inspect-running` report as cryptographic verification. For a main artifact, retain separate public
+signature and provenance verification bound to the exact index, source repository
+`rknightion/synthkit`, full source revision and `refs/heads/main`, the same reusable signer workflow
+and GitHub Actions OIDC issuer above. Also check the selected platform manifest/config, actual OCI
+version/revision labels and binary-reported version/revision. The helper's release verification
+interface does not automate that main-build verification.
+
+For example, the public [publish run 40035246758](https://github.com/rknightion/synthkit/actions/runs/40035246758)
+identifies `main-7573924`, source `7573924c31d51b1868dc4dfba1211f42aafd2b44`, and immutable index
+`ghcr.io/rknightion/synthkit@sha256:73995cff362e1da8429a8ff9562014730f6e511b83baeee31226b1d48ce2cb80`.
+These public identities locate the artifact; they are not a substitute for the verification
+requirements above. The cleanup workflow protects `main-7573924` alongside the current chart image
+and stable tags; ordinary unprotected main-SHA edge images retain their seven-day expiry.
 
 **Building from source (opt-in).** If you need to test local changes, override the compose file:
 
