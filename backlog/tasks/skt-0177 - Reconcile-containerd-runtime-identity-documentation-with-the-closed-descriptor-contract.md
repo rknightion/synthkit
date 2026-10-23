@@ -3,9 +3,11 @@ id: SKT-0177
 title: >-
   Reconcile containerd runtime identity documentation with the closed descriptor
   contract
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@pin64'
 created_date: '2026-10-23T23:06:00Z'
+updated_date: '2026-10-23T23:34:00Z'
 labels: []
 dependencies: []
 priority: low
@@ -25,3 +27,9 @@ ordinal: 333000
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Small public documentation correction to match the already-implemented closed runtime identity alternatives and maintainer pointer; no verifier or trust predicate change.
+<!-- SECTION:PLAN:END -->
