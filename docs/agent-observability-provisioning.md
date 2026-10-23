@@ -185,6 +185,29 @@ resolution durably and exits 4, because custody changed; it is not a completion.
 `preview --mode recover` for the same construction, approve it afresh (without a `recovery`
 section), and `recover` again to finish the construction's remaining steps.
 
+## Capacity refusal
+
+An offline `plan` and its resource count do not establish that custody can admit an apply. Before
+any management request, `preview` forecasts the worst-case custody needed to finish an apply
+(including a no-op re-apply), deactivation or suffix recovery and then start one canonical full
+teardown. If that forecast exceeds capacity, preview refuses with exit 2, sends no management
+request and creates no preview output. Bootstrap and each construction Start repeat the admission
+check before publishing the new authority; an earlier preview is not a capacity reservation.
+
+The forecast includes maximum encoded backend/approval values, retained history and generation
+space. There is no universal resource-count ceiling: the actual declaration and existing custody
+history must fit. A no-op re-apply or deactivation may itself be refused to preserve teardown room;
+refusal leaves the custody head unchanged. Do not reset, prune or move custody, raise limits, or
+retry unchanged input to bypass it. Review a refused fresh declaration before provisioning; for an
+existing construction, follow the cleanup and recovery lifecycle above. A pending operation still
+requires attributed recovery, not replay.
+
+This is a bounded reservation for one canonical full teardown with one recovery per unsettled
+step, not permission for arbitrary split cleanup plans or unlimited no-progress suffix Starts.
+Teardown can still honestly retain unsupported resources and dependencies and report incomplete.
+The [canonical lifecycle contract](https://github.com/rknightion/synthkit/blob/main/ARCHITECTURE.md#internal-typed-agent-observability-lifecycle-not-runtime-enabled)
+owns these limits; no runtime admission is enabled.
+
 ## Output and exit codes
 
 Standard output carries only digests, counts, the result and `"runtime_admission": false`.

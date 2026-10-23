@@ -566,6 +566,9 @@ func (s *LockedState) Bootstrap(ctx context.Context, a *Authorization) (Snapshot
 	if e = custodyBudget(next, id); e != nil {
 		return Snapshot{}, e
 	}
+	if e = custodyTeardownForecast(next, id); e != nil {
+		return Snapshot{}, e
+	}
 	ew := enrollmentWire{Schema: 1, Binding: bindingToWire(s.binding)}
 	pre, _ := json.Marshal(ew)
 	ew.Checksum = custodyHash("enrollment", pre)
@@ -1074,6 +1077,563 @@ func custodyResourceLen(r *resourceWire) (int, error) {
 	return custodyWireLen(v)
 }
 
+// custodyTeardownForecast refuses an apply, no-op apply or deactivate
+// construction (and a suffix recovery of one) whose worst-case end document
+// would leave the canonical full teardown refused by custodyBudget. Under
+// create-only provisioning that would strand permanent objects. It runs once
+// per Start, on the post-Start document, after custodyBudget admitted the
+// construction itself; custodyBudget is reused unchanged as the teardown judge.
+//
+// The end document is a size-only upper envelope, never saved or decoded as
+// evidence. Every value the backend or a later approval supplies is at its
+// encoded maximum: custodyText 256 bytes of '<' (six escaped bytes each),
+// 16 evidence entries, 64-hex digests, the longest status/outcome/result.
+// Authored specs, plans and settled history are the real persisted values.
+//
+// Recovery reserve: each unsettled step reserves one recovery, the resolve
+// approval plus the fresh suffix Start approval (two consumed records, as
+// custodyBudget reserves per remaining step). A construction is the only
+// incomplete one at its Start (Authorize, single-incomplete-construction
+// rule), so only it needs simulating. ChangeResolve, which settles pending,
+// is never checked here; a suffix recovery Start is, which bounds repeated
+// no-progress recovery Starts by the slack the actual history leaves.
+//
+// A planned no-op re-apply is itself a construction Start and is checked
+// against its own end document (its receipt included), so no no-op count is
+// assumed: the last admitted no-op still leaves the teardown admitted.
+func custodyTeardownForecast(d Document, construction string) error {
+	c := findConstruction(&d, construction)
+	if c == nil {
+		return ErrCorrupt
+	}
+	if c.Mode != ModeApply && c.Mode != ModeDeactivate {
+		return nil // a teardown Start is custodyBudget's own admission
+	}
+	if d.Binding.ContractRevision != custodyStateV2Revision {
+		// Only the engine contract can dispatch a mutation (prepareEngine,
+		// engineClient, DecodeBinding all require it); a legacy-bound state
+		// keeps its original admission unchanged, like its original ceiling.
+		return nil
+	}
+	// Exact decision either way: the bound dominates every custodyBudget
+	// checkpoint, so a bound inside the limit is an admission custodyBudget
+	// would also give. Anything else is decided by custodyBudget itself.
+	if bound, e := custodyForecastBound(d, construction); e == nil && bound <= custodyStateLimit(d.Binding) {
+		return nil
+	}
+	t, id, e := custodyForecastDocument(d, construction, custodyForecastValues(false))
+	if e != nil {
+		return e
+	}
+	if e := custodyBudget(t, id); e != nil {
+		if errors.Is(e, ErrCapacity) {
+			return e
+		}
+		return errors.Join(ErrCapacity, e)
+	}
+	return nil
+}
+
+// custodyForecastMax holds the size-only maximum values every forecast uses.
+// Free text (T) and evidence lists (E) are placed through methods so that a
+// counting envelope can place one-byte stand-ins and add each placement's
+// exact encoded difference afterwards (the encoder is context-free). The
+// identifier text (id) used for coordinates and construction identities is
+// always placed in full.
+type custodyForecastMax struct {
+	text, id     string
+	hash         Digest
+	base         Base
+	es           []Evidence
+	texts, lists *int
+}
+
+func custodyForecastValues(counting bool) custodyForecastMax {
+	m := custodyForecastMax{text: strings.Repeat("<", 256), id: strings.Repeat("<", 255) + ">", hash: Digest(strings.Repeat("f", 64))}
+	m.base = Base{Head: &Head{math.MaxUint64, m.hash}}
+	m.es = custodyForecastEvidence(m.text, m.hash)
+	if counting {
+		m.text, m.es, m.texts, m.lists = "x", []Evidence{{}}, new(int), new(int)
+	}
+	return m
+}
+func custodyForecastEvidence(text string, hash Digest) []Evidence {
+	es := make([]Evidence, 16)
+	for i := range es {
+		es[i] = Evidence{text, hash}
+	}
+	return es
+}
+func (m custodyForecastMax) T() string {
+	if m.texts != nil {
+		*m.texts++
+	}
+	return m.text
+}
+func (m custodyForecastMax) E() []Evidence {
+	if m.lists != nil {
+		*m.lists++
+	}
+	return m.es
+}
+
+// placed is the encoded growth of the counted placements over their stand-ins.
+func (m custodyForecastMax) placed(texts, lists int) (int, error) {
+	if m.texts == nil {
+		return 0, nil
+	}
+	full := custodyForecastValues(false)
+	a, e1 := custodyWireLen(full.text)
+	b, e2 := custodyWireLen(m.text)
+	x, e3 := custodyWireLen(evidenceToWire(full.es))
+	y, e4 := custodyWireLen(evidenceToWire(m.es))
+	if e1 != nil || e2 != nil || e3 != nil || e4 != nil {
+		return 0, ErrCorrupt
+	}
+	return texts*(a-b) + lists*(x-y), nil
+}
+func (m custodyForecastMax) observation(co Coordinate) Observation {
+	return Observation{co, PresencePresent, m.hash, m.hash, m.hash, m.T(), m.E()}
+}
+
+// custodyForecastSettle takes construction c of d to its worst-case end: every
+// unsettled step at its longest settled form with one reserved recovery (two
+// consumed records), a classification per member for a cleanup mode, every
+// unmarked receipt invalidated, and its receipt. It never aliases the caller's
+// lists: every list it changes is copied first. A real end document (mirror
+// false) gives every cleanup member a classification observation too; mirror
+// true follows custodyBudget's envelope, which shares that observation slot
+// with a member's mutation steps and appends it only to a step-less member.
+// It returns the counted placements inside the receipt it appends.
+func custodyForecastSettle(d *Document, construction string, m custodyForecastMax, mirror bool) (int, int, error) {
+	d.Resources = slices.Clone(d.Resources)
+	d.Constructions = slices.Clone(d.Constructions)
+	d.Receipts = slices.Clone(d.Receipts)
+	d.Consumed = slices.Clip(d.Consumed)
+	d.Pending = nil
+	c := findConstruction(d, construction)
+	if c == nil {
+		return 0, 0, ErrCorrupt
+	}
+	c.Steps = slices.Clone(c.Steps)
+	c.Classifications = slices.Clip(c.Classifications)
+	stepped := map[string]bool{}
+	for i, step := range c.Steps {
+		if step.Status == StepPlanned && i < len(c.Plan.Steps) {
+			stepped[c.Plan.Steps[i].ResourceKey] = true
+		}
+	}
+	worst := func(r *ResourceRecord, pr *PlannedResource) Coordinate {
+		co := r.Coordinate
+		if co.Unassigned {
+			co.Unassigned, co.ID = false, m.id
+			if co.Kind == KindDraft {
+				co.Version = m.id
+			}
+		}
+		if pr != nil && pr.VersionFrom != "" {
+			co.Version = m.id
+		}
+		return co
+	}
+	for i := range c.Steps {
+		step := &c.Steps[i]
+		if step.Status != StepPlanned && step.Status != StepIntent && step.Status != StepResponse {
+			continue
+		}
+		if i >= len(c.Plan.Steps) {
+			return 0, 0, ErrCorrupt
+		}
+		ps := c.Plan.Steps[i]
+		r := findResource(d, ps.ResourceKey)
+		if r == nil {
+			return 0, 0, ErrCorrupt
+		}
+		// One recovery per unsettled step: its resolve and its fresh suffix Start.
+		d.Consumed = append(d.Consumed, ConsumedApproval{m.T(), m.hash, c.ID, m.base}, ConsumedApproval{m.T(), m.hash, c.ID, m.base})
+		co := worst(r, planResource(c.Plan, ps.ResourceKey))
+		if r.FirstAttempt == "" {
+			r.FirstAttempt = m.T()
+		}
+		if len(r.Acquisition) == 0 {
+			r.Acquisition = m.E()
+		}
+		r.Coordinate, r.ManagedHash, r.ServerRevision, r.Status = co, m.hash, m.T(), ResourceNotApplied
+		r.Observations = append(slices.Clip(r.Observations), m.observation(co))
+		step.AttemptID, step.Status, step.Coordinate, step.Evidence = m.T(), StepNotApplied, co, m.E()
+	}
+	if c.Mode != ModeApply {
+		for _, pr := range c.Plan.Resources {
+			r := findResource(d, pr.Key)
+			if r == nil {
+				return 0, 0, ErrCorrupt
+			}
+			// A cleanup may classify each member instead of mutating it.
+			o := m.observation(r.Coordinate)
+			c.Classifications = append(c.Classifications, CleanupClassification{pr.Key, r.Coordinate, *m.base.Head, CleanupRetainedUnsupported, &o, m.hash, m.E()})
+			if !mirror || !stepped[pr.Key] {
+				r.Observations = append(slices.Clip(r.Observations), m.observation(r.Coordinate))
+			}
+		}
+	}
+	for i := range d.Receipts {
+		if d.Receipts[i].InvalidatedBy == "" {
+			d.Receipts[i].InvalidatedBy = m.T()
+		}
+	}
+	texts, lists := 0, 0
+	if m.texts != nil {
+		texts, lists = *m.texts, *m.lists
+	}
+	members := []ReceiptMember{}
+	for _, pr := range c.Plan.Resources {
+		r := findResource(d, pr.Key)
+		if r == nil {
+			return 0, 0, ErrCorrupt
+		}
+		o := m.observation(r.Coordinate)
+		members = append(members, ReceiptMember{pr.Key, r.Coordinate, OutcomeRetainedUnsupported, &o, m.E()})
+	}
+	d.Receipts = append(d.Receipts, Receipt{m.T(), c.ID, c.Mode, ReceiptApplyObserved, m.hash, c.Input, m.hash, m.hash, c.Namespaces, members, m.hash, math.MaxInt64, m.T()})
+	if m.texts != nil {
+		texts, lists = *m.texts-texts, *m.lists-lists
+	}
+	return texts, lists, nil
+}
+
+// custodyForecastDocument is d after construction's worst-case end with the
+// canonical full teardown Started on it: every acquired resource, consumers
+// disabled then every deletable kind deleted; a removed resource stays a
+// step-less member (the historical consumer closure must name it).
+func custodyForecastDocument(d Document, construction string, m custodyForecastMax) (Document, string, error) {
+	c := findConstruction(&d, construction)
+	if c == nil {
+		return Document{}, "", ErrCorrupt
+	}
+	// Carry custodyBudget's remaining-generation reserve forward before
+	// reserving the teardown itself. The input is already post-Start; its
+	// Finish, per-step recovery/suffix reserve and cleanup classifications
+	// still cost commits, as does the future teardown Start.
+	commits := uint64(2) // current Finish + future teardown Start
+	for _, step := range c.Steps {
+		switch step.Status {
+		case StepPlanned:
+			commits += 4
+		case StepIntent:
+			commits += 3
+		case StepResponse:
+			commits += 2
+		}
+	}
+	if c.Mode != ModeApply {
+		commits += uint64(len(c.Plan.Resources))
+	}
+	if d.Generation > math.MaxUint64-commits {
+		return Document{}, "", ErrCapacity
+	}
+	d.Generation += commits
+	if _, _, e := custodyForecastSettle(&d, construction, m, false); e != nil {
+		return Document{}, "", e
+	}
+	declared := map[Origin]int{}
+	tp := PlanInput{Binding: d.Binding, Mode: ModeTeardown, Declarations: []DeclarationInput{}, Targets: []Origin{}, Resources: []PlannedResource{}, Steps: []PlannedStep{}}
+	names := []string{}
+	for _, old := range d.Constructions {
+		for _, n := range old.Namespaces {
+			if !slices.Contains(names, n) {
+				names = append(names, n)
+			}
+		}
+		if old.Mode != ModeApply {
+			continue
+		}
+		for _, o := range old.Plan.Targets {
+			if !slices.Contains(tp.Targets, o) {
+				tp.Targets = append(tp.Targets, o)
+			}
+		}
+		for _, x := range old.Plan.Declarations {
+			i, ok := declared[x.Origin]
+			if !ok {
+				declared[x.Origin] = len(tp.Declarations)
+				tp.Declarations = append(tp.Declarations, x)
+				continue
+			}
+			a, e1 := json.Marshal(planToWire(PlanInput{Declarations: []DeclarationInput{tp.Declarations[i]}}))
+			b, e2 := json.Marshal(planToWire(PlanInput{Declarations: []DeclarationInput{x}}))
+			if e1 != nil || e2 != nil {
+				return Document{}, "", ErrCorrupt
+			}
+			if len(b) > len(a) {
+				tp.Declarations[i] = x
+			}
+		}
+	}
+	disables, deletes := []string{}, []string{}
+	for _, r := range d.Resources {
+		if len(r.Acquisition) == 0 {
+			continue
+		}
+		tp.Resources = append(tp.Resources, PlannedResource{Key: r.Key, Origin: r.Origin, Coordinate: r.Coordinate, Spec: r.Authored, Dependencies: r.Dependencies, Namespaces: r.Namespaces})
+		for _, n := range r.Namespaces {
+			if !slices.Contains(names, n) {
+				names = append(names, n)
+			}
+		}
+		if r.Status == ResourceRemoved {
+			continue
+		}
+		if isConsumer(r.Coordinate.Kind) {
+			disables = append(disables, r.Key)
+		}
+		if custodyMethod(r.Coordinate.Kind, OpDelete) != "" {
+			deletes = append(deletes, r.Key)
+		}
+	}
+	slices.Sort(names)
+	for _, key := range disables {
+		tp.Steps = append(tp.Steps, PlannedStep{uint32(len(tp.Steps) + 1), key, OpDisable})
+	}
+	for _, key := range deletes {
+		tp.Steps = append(tp.Steps, PlannedStep{uint32(len(tp.Steps) + 1), key, OpDelete})
+	}
+	if len(tp.Steps) > custodyMaxSteps || len(tp.Resources) > custodyMaxResources {
+		return Document{}, "", ErrCapacity
+	}
+	// The teardown's identifiers are also at the custodyText maximum, and
+	// distinct from every recorded construction and approval identifier.
+	id := custodyForecastID(&d, m.id)
+	if id == "" {
+		return Document{}, "", ErrCapacity
+	}
+	t := Construction{ID: id, Input: m.hash, Preview: m.hash, Approval: m.hash, Mode: ModeTeardown, Base: m.base, Namespaces: names, Plan: tp, Steps: []StepRecord{}, Classifications: []CleanupClassification{}}
+	for _, step := range tp.Steps {
+		r := planResource(tp, step.ResourceKey)
+		t.Steps = append(t.Steps, StepRecord{Number: step.Number, Status: StepPlanned, Coordinate: r.Coordinate, Evidence: []Evidence{}})
+	}
+	d.Constructions = append(d.Constructions, t)
+	d.Consumed = append(d.Consumed, ConsumedApproval{id, m.hash, id, m.base})
+	return d, id, nil
+}
+
+// custodyForecastBound is an upper bound on every size custodyBudget compares
+// for the forecast teardown of d (custodyForecastDocument), from one encode
+// of a counting envelope instead of custodyBudget's per-step re-encodes: the
+// teardown settled by custodyForecastSettle (mirror) dominates every
+// checkpoint field by field (each settled step, resource, consumed reserve,
+// classification, observation and the receipt is at least the envelope
+// custodyBudget builds), plus the largest pending slot any step can hold, less
+// custodyBudget's own final credit. The encoder is context-free: a stand-in
+// changes a length by exactly its encoded difference.
+func custodyForecastBound(d Document, construction string) (int, error) {
+	m := custodyForecastValues(true)
+	d, id, e := custodyForecastDocument(d, construction, m)
+	if e != nil {
+		return 0, e
+	}
+	full := custodyForecastValues(false)
+	c := findConstruction(&d, id)
+	if c == nil || len(c.Steps) > custodyMaxSteps || len(d.Resources) > custodyMaxResources || len(d.Reservations) > custodyMaxClaims {
+		return 0, ErrCorrupt
+	}
+	if commits := uint64(1+4*len(c.Steps)) + uint64(len(c.Plan.Resources)); d.Generation > math.MaxUint64-commits {
+		return 0, ErrCapacity
+	}
+	desired, err := json.Marshal(json.RawMessage(`{"x":"` + strings.Repeat("a", custodySpecBytes-8) + `"}`))
+	if err != nil {
+		return 0, ErrCorrupt
+	}
+	// The largest pending: each varying field (key, coordinate, operation) at
+	// its longest over the steps, the method at the longest any step has.
+	key, op, keyLen, coLen, opLen := "", Operation(""), -1, -1, -1
+	var co coordinateWire
+	for i := range c.Steps {
+		ps := c.Plan.Steps[i]
+		pr := planResource(c.Plan, ps.ResourceKey)
+		if pr == nil {
+			return 0, ErrCorrupt
+		}
+		x := coordinateWire(pr.Coordinate)
+		if x.Unassigned {
+			x.Unassigned, x.ID = false, full.id
+		}
+		x.Version = full.id // never shorter than any resolved version
+		a, e1 := custodyWireLen(pr.Key)
+		b, e2 := custodyWireLen(x)
+		o, e3 := custodyWireLen(ps.Operation)
+		if e1 != nil || e2 != nil || e3 != nil {
+			return 0, ErrCorrupt
+		}
+		if a > keyLen {
+			key, keyLen = pr.Key, a
+		}
+		if b > coLen {
+			co, coLen = x, b
+		}
+		if o > opLen {
+			op, opLen = ps.Operation, o
+		}
+	}
+	pending := 0
+	if len(c.Steps) > 0 {
+		maxHead := headWire{math.MaxUint64, full.hash}
+		cw := documentToWire(Document{Constructions: []Construction{{Namespaces: c.Namespaces}}}).Constructions[0]
+		p := pendingWire{full.text, c.ID, key, full.hash, c.Input, full.hash, full.hash, maxHead, cw.Namespaces, co, op, "DELETE", json.RawMessage(`{}`), full.hash, full.hash, StepResponse, &responseWire{co, evidenceToWire(full.es), &full.hash}}
+		n, err := custodyWireLen(p)
+		if err != nil {
+			return 0, ErrCorrupt
+		}
+		pending = n - len(`{}`) + len(desired)
+	}
+	// custodyBudget's only discount: at its final comparison, each member with
+	// exactly a disable and a delete step credits the smaller of the two
+	// observations it appended (sized here from the unresolved plan coordinate,
+	// never larger than custodyBudget's own).
+	credit := 0
+	for _, pr := range c.Plan.Resources {
+		n := 0
+		for i, step := range c.Steps {
+			if c.Plan.Steps[i].ResourceKey == pr.Key && step.Status == StepPlanned {
+				n++
+			}
+		}
+		if n != 2 {
+			continue
+		}
+		present := observationToWire(Observation{pr.Coordinate, PresencePresent, full.hash, full.hash, full.hash, full.text, full.es})
+		absent := present
+		absent.Presence, absent.ManagedHash, absent.ServerRevision = PresenceAbsent, "", ""
+		one, err1 := custodyWireLen(present)
+		two, err2 := custodyWireLen(absent)
+		if err1 != nil || err2 != nil {
+			return 0, ErrCorrupt
+		}
+		credit += min(one, two) + 1
+	}
+	before := slices.Clone(d.Receipts)
+	rt, rl, e := custodyForecastSettle(&d, id, m, true)
+	if e != nil {
+		return 0, e
+	}
+	d.Generation = math.MaxUint64
+	short, err := custodyWireLen(documentToWire(d))
+	shortReceipt, err2 := custodyWireLen(documentToWire(Document{Receipts: d.Receipts[len(d.Receipts)-1:]}).Receipts[0])
+	if err != nil || err2 != nil {
+		return 0, ErrCorrupt
+	}
+	growth, e1 := m.placed(*m.texts, *m.lists)
+	receiptGrowth, e2 := m.placed(rt, rl)
+	if e1 != nil || e2 != nil {
+		return 0, ErrCorrupt
+	}
+	total := short + growth
+	receipt := shortReceipt + receiptGrowth
+	// Every comparison before the receipt holds at most the settled envelope
+	// without it plus one pending slot (encoded null when empty); the final one
+	// holds the whole settled envelope less the credit.
+	withoutReceipt := total - custodyAppendLen(before, receipt)
+	return max(withoutReceipt-len("null")+pending, total-credit), nil
+}
+
+// custodyForecastID is an unused maximum-encoded-size custodyText identifier.
+// Both '<' and '>' occupy six JSON bytes. Enumerating more distinct binary
+// suffixes than recorded identities guarantees an unused one without trading
+// away encoded bytes on collision (or imposing a fixed candidate ceiling).
+func custodyForecastID(d *Document, text string) string {
+	taken := make(map[string]bool, len(d.Constructions)+len(d.Consumed))
+	for _, c := range d.Constructions {
+		taken[c.ID] = true
+	}
+	for _, a := range d.Consumed {
+		taken[a.ID] = true
+	}
+	if !taken[text] {
+		return text
+	}
+	for n := 0; n <= len(taken); n++ {
+		id := []byte(strings.Repeat("<", 256))
+		for bits, i := n, len(id)-1; bits > 0; bits, i = bits>>1, i-1 {
+			if bits&1 != 0 {
+				id[i] = '>'
+			}
+		}
+		if !taken[string(id)] {
+			return string(id)
+		}
+	}
+	return "" // fail closed if no candidate was found
+}
+
+// custodyPreviewForecast runs the teardown forecast on the locally loaded
+// state before any request, simulating the Start the approval would commit.
+// Values the approval chooses (its ID, a fresh construction ID) are at their
+// custodyText maximum. A Start that would itself be refused is left to the
+// authoritative Start check; only the capacity forecast is reported here.
+func custodyPreviewForecast(snap Snapshot, binding Binding, p Plan, mode Mode) error {
+	if mode != ModeApply && mode != ModeDeactivate && mode != ModeRecover {
+		return nil
+	}
+	text := strings.Repeat("<", 256)
+	hash := Digest(strings.Repeat("f", 64))
+	var d Document
+	if snap.Document == nil {
+		if mode != ModeApply || !snap.Base.Pristine {
+			return nil
+		}
+		d = emptyCustody(binding)
+	} else {
+		d = *snap.Document
+		d.Reservations = slices.Clone(d.Reservations)
+		d.Resources = slices.Clone(d.Resources)
+		d.Constructions = slices.Clone(d.Constructions)
+		d.Receipts = slices.Clone(d.Receipts)
+		d.Consumed = slices.Clone(d.Consumed)
+	}
+	a := &Authorization{approval: Approval{document: ApprovalDocument{Base: snap.Base}, hash: hash}, preview: Preview{plan: p, mode: mode, hash: hash}, chain: snap.Base}
+	a.approval.document.ApprovalID = custodyForecastID(&d, text)
+	id := ""
+	switch mode {
+	case ModeApply:
+		for _, c := range d.Constructions {
+			if c.Mode == ModeApply && c.Input == p.hash {
+				id = c.ID
+			}
+		}
+	case ModeRecover:
+		if d.Pending != nil {
+			return nil // ChangeResolve settles pending; it is never refused here
+		}
+		for _, c := range d.Constructions {
+			if !c.Complete && c.Input == p.hash {
+				id = c.ID
+			}
+		}
+		if id == "" {
+			return nil
+		}
+	}
+	a.construction = id
+	if id == "" {
+		id = a.approval.document.ApprovalID
+	}
+	if id == "" || startCustody(&d, a, id) != nil {
+		return nil
+	}
+	// Bootstrap publishes generation 1; Commit increments after Start.
+	// Match that post-Start input before reserving the combined future.
+	if d.Generation == math.MaxUint64 {
+		return ErrCapacity
+	}
+	d.Generation++
+	// Bootstrap/Commit forecast their encoded-and-decoded Start, which has a
+	// 64-byte checksum. A pristine synthetic Start has none: omitempty would
+	// omit the entire field from both sizing paths. Reserve the same encoded
+	// material here without canonicalizing or publishing this size-only state.
+	// The value is not an integrity claim; authoritative codec checks stay put.
+	d.Checksum = hash
+	return custodyTeardownForecast(d, id)
+}
+
 func custodyChangeShape(x Change) bool {
 	if !custodyDigest(x.ExpectedInventory) || !custodyText(x.ConstructionID, false) {
 		return false
@@ -1179,6 +1739,11 @@ func (s *LockedState) Commit(ctx context.Context, expected Head, a *Authorizatio
 	if x.Kind == ChangeStart || x.Kind == ChangeIntent || x.Kind == ChangeClassify {
 		if e = custodyBudget(next, x.ConstructionID); e != nil {
 			return Snapshot{}, e
+		}
+		if x.Kind == ChangeStart {
+			if e = custodyTeardownForecast(next, x.ConstructionID); e != nil {
+				return Snapshot{}, e
+			}
 		}
 	}
 	if e = s.publish(ctx, "state.json", raw); e != nil {

@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -579,10 +580,14 @@ func (f *commandFixture) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func suiteAuthoring() string {
+// suiteAuthoring authors one suite closure (five resources) per id. The
+// management closure plus one suite is the ten-family, ten-resource maximum
+// the custody teardown forecast admits (SKT-0153.03.04.02); two suites make
+// fifteen resources, whose apply is refused before any request.
+func suiteAuthoring(ids ...string) string {
 	var out strings.Builder
 	out.WriteString("   suites:\n")
-	for _, id := range []string{"one", "two"} {
+	for _, id := range ids {
 		fmt.Fprintf(&out, `   - key: s-%[1]s
      spec: {suite_id: suite-%[1]s, name: "Fictional %[1]s", description: "", tags: []}
      draft:
@@ -768,7 +773,7 @@ func (f *commandFixture) suiteWrite(key string, r *http.Request, decode func(any
 
 func TestPublicCommandTLSWholeClosure(t *testing.T) {
 	f := newCommandFixture(t)
-	privateFile(t, f.bp, []byte(strings.ReplaceAll(applicationBlueprint, "\n ", "\n")+managementYAML+suiteAuthoring()))
+	privateFile(t, f.bp, []byte(strings.ReplaceAll(applicationBlueprint, "\n ", "\n")+managementYAML+suiteAuthoring("one")))
 	data, _ := os.ReadFile(f.bp)
 	res, err := blueprint.Load(data, runner.Catalog())
 	if err != nil {
@@ -789,6 +794,16 @@ func TestPublicCommandTLSWholeClosure(t *testing.T) {
 	if e != nil || len(entries) != 0 {
 		t.Fatal("offline path wrote custody")
 	}
+	// Fifteen resources (two suites): the forecast teardown of the resulting
+	// state would be refused, so the apply preview refuses before any request.
+	privateFile(t, f.bp, []byte(strings.ReplaceAll(applicationBlueprint, "\n ", "\n")+managementYAML+suiteAuthoring("one", "two")))
+	over := filepath.Join(f.dir, "over-capacity-preview")
+	pr := f.start(append(append([]string{"preview"}, f.base()...), append(f.authored(), "--out", over)...)...)
+	f.finish(pr, 2)
+	if _, e := os.Stat(over); strings.TrimSpace(pr.err.String()) != `{"reason":"refused"}` || f.count(func() int { return len(f.calls) }) != 0 || !errors.Is(e, os.ErrNotExist) {
+		t.Fatalf("fifteen-resource apply not refused before requests: stderr=%s", &pr.err)
+	}
+	privateFile(t, f.bp, []byte(strings.ReplaceAll(applicationBlueprint, "\n ", "\n")+managementYAML+suiteAuthoring("one")))
 	pv := f.preview("apply", "")
 	entries, e = os.ReadDir(f.state)
 	if e != nil || len(entries) != 1 || entries[0].Name() != "lock" {
@@ -803,14 +818,14 @@ func TestPublicCommandTLSWholeClosure(t *testing.T) {
 		t.Fatal("unapproved mutation")
 	}
 	f.mutate("apply", "", pv, f.approved(pv, "", nil), 0)
-	want := []string{"POST /evaluators", "POST /collections", "POST /test-suites", "POST /test-suites", "POST /test-suites/suite-one/versions", "POST /test-suites/suite-two/versions", "POST /test-suites/suite-one/versions/v1/test-cases", "POST /test-suites/suite-two/versions/v1/test-cases", "PUT /test-suites/suite-one/versions/v1/bindings", "PUT /test-suites/suite-two/versions/v1/bindings", "POST /test-suites/suite-one/versions/v1:publish", "POST /test-suites/suite-two/versions/v1:publish", "POST /rules", "POST /hook-rules", "POST /rules/rule-fresh/actions"}
+	want := []string{"POST /evaluators", "POST /collections", "POST /test-suites", "POST /test-suites/suite-one/versions", "POST /test-suites/suite-one/versions/v1/test-cases", "PUT /test-suites/suite-one/versions/v1/bindings", "POST /test-suites/suite-one/versions/v1:publish", "POST /rules", "POST /hook-rules", "POST /rules/rule-fresh/actions"}
 	var writes []string
 	f.locked(func() { writes = append(writes, f.writes...) })
 	if !reflect.DeepEqual(writes, want) {
 		t.Fatalf("global full-set phases differ: %v", writes)
 	}
 	snap := f.snapshot()
-	if snap.Document.Pending != nil || len(snap.Document.Receipts) != 1 || snap.Document.Receipts[0].Result != p.ReceiptApplyObserved || len(snap.Document.Receipts[0].Members) != 15 {
+	if snap.Document.Pending != nil || len(snap.Document.Receipts) != 1 || snap.Document.Receipts[0].Result != p.ReceiptApplyObserved || len(snap.Document.Receipts[0].Members) != 10 {
 		t.Fatal("full observed receipt missing")
 	}
 	id := snap.Document.Constructions[0].ID
@@ -820,9 +835,9 @@ func TestPublicCommandTLSWholeClosure(t *testing.T) {
 	last := after.Document.Receipts[len(after.Document.Receipts)-1]
 	retained := false
 	f.locked(func() {
-		retained = len(f.suites) == 2 && len(f.evals) == 1 && len(f.collections) == 1 && len(f.rules) == 0 && len(f.actions) == 0 && len(f.hooks) == 0
+		retained = len(f.suites) == 1 && len(f.evals) == 1 && len(f.collections) == 1 && len(f.rules) == 0 && len(f.actions) == 0 && len(f.hooks) == 0
 	})
-	if last.Result != p.ReceiptIncomplete || len(last.Members) != 15 || !retained {
+	if last.Result != p.ReceiptIncomplete || len(last.Members) != 10 || !retained {
 		t.Fatal("cleanup dropped retained dependencies/checkpoints or claimed complete")
 	}
 	if !f.attemptsOnce() {
@@ -891,7 +906,7 @@ func (f *commandFixture) recoveryReview(pv string, snap p.Snapshot) map[string]a
 }
 func TestPublicRefusalsNoMutation(t *testing.T) {
 	f := newCommandFixture(t)
-	full := strings.ReplaceAll(applicationBlueprint, "\n ", "\n") + managementYAML + suiteAuthoring()
+	full := strings.ReplaceAll(applicationBlueprint, "\n ", "\n") + managementYAML + suiteAuthoring("one")
 	privateFile(t, f.bp, []byte(full))
 	f.run(0, append([]string{"plan", "--binding-file", f.binding}, f.authored()...)...)
 	for name, source := range map[string]string{

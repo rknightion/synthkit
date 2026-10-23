@@ -324,8 +324,18 @@ noncommit, pending-clearance, drain, fencing or adoption evidence. Recovery need
 exact-attempt attribution and fresh approval, preserves the original mode and never replays an
 attempted mutation. Cleanup checks the whole historical owned-consumer closure before deletion;
 unsupported resources and unknown-use dependencies remain retained with an incomplete teardown.
-There is no CLI, YAML, environment or runner wiring, runtime admission or live-backend conformance
-claim. Existing workload guidance and blueprint-authoring restrictions remain unchanged.
+
+Apply (including no-op re-apply), deactivate and their suffix-recovery Starts also reserve capacity
+for one canonical full teardown of the resulting custody history. Preview forecasts this before
+management requests; Bootstrap and Start enforce it again before publishing authority. The forecast
+uses maximum encoded backend/approval values, the canonical Start's checksum material and a combined
+generation reserve, without changing the codec or custody limits. It reserves one recovery per
+unsettled step, not arbitrary split teardowns or unlimited no-progress suffix Starts. Resource counts
+alone do not prove admission; the actual declaration and accumulated history must fit. See the
+[manual provisioning guide](docs/agent-observability-provisioning.md#capacity-refusal) for operator
+handling. The source-built manual command does not enable runtime admission, runner wiring or
+live-backend conformance. Existing workload guidance and blueprint-authoring restrictions remain
+unchanged.
 
 ## 3. The blueprint YAML
 

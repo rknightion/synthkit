@@ -1916,6 +1916,10 @@ func previewEngine(ctx context.Context, c *Client, locked *LockedState, p engine
 	if e != nil {
 		return Preview{}, e
 	}
+	// Refuse before the first request when the resulting teardown would be.
+	if e = custodyPreviewForecast(s, locked.binding, p.plan, mode); e != nil {
+		return Preview{}, e
+	}
 	inv, e := engineInventoryRead(ctx, c, p, s)
 	if e != nil {
 		return Preview{}, e
