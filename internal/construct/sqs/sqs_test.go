@@ -234,41 +234,79 @@ func TestMasterPauseFreezesTrafficAndRetainsResidual(t *testing.T) {
 	sparse.ArrivalsPerSecond = 0.007
 	sparse.ReceivesPerSecond = 0.003
 	sparse.DelaySeconds = 0
-	for _, q := range []Queue{queue(), sparse} {
-		c, control := build(t, q), build(t, q)
-		tick(t, c, now)
-		tick(t, control, now)
-		eng := shape.New("UTC", nil)
-		eng.SetVolumeMultiplier(0)
-		for i := 1; i <= 10; i++ {
-			w := &capture{}
-			if err := c.Tick(context.Background(), now.Add(time.Duration(i)*time.Minute), &core.World{Metrics: w, Shape: eng}); err != nil {
-				t.Fatal(err)
-			}
-			if len(w.batch) != 0 {
-				t.Fatal("real master pause emitted metrics/traffic")
-			}
-		}
-		eng.SetVolumeMultiplier(1)
-		for i := 1; i <= 3; i++ {
-			w := &capture{}
-			if err := c.Tick(context.Background(), now.Add(time.Duration(10+i)*time.Minute), &core.World{Metrics: w, Shape: eng}); err != nil {
-				t.Fatal(err)
-			}
-			want := tick(t, control, now.Add(time.Duration(i)*time.Minute))
-			got := map[string]float64{}
-			for _, s := range w.batch {
-				got[s.Name] = s.Value
-			}
-			if len(got) != len(want) {
-				t.Fatalf("pause lost residual/observations: got %v want %v", got, want)
-			}
-			for k, v := range want {
-				if got[k] != v {
-					t.Fatalf("pause caught up or changed active model: %s got %v want %v", k, got[k], v)
+	for name, q := range map[string]Queue{"existing_stock": queue(), "sparse_carry": sparse} {
+		t.Run(name, func(t *testing.T) {
+			c, control := build(t, q), build(t, q)
+			tick(t, c, now)
+			tick(t, control, now)
+			eng := shape.New("UTC", nil)
+			eng.SetVolumeMultiplier(0)
+			for i := 1; i <= 10; i++ {
+				w := &capture{}
+				if err := c.Tick(context.Background(), now.Add(time.Duration(i)*time.Minute), &core.World{Metrics: w, Shape: eng}); err != nil {
+					t.Fatal(err)
+				}
+				if len(w.batch) != 0 {
+					t.Fatal("real master pause emitted metrics/traffic")
 				}
 			}
-		}
+			eng.SetVolumeMultiplier(1)
+			// The first positive observation is only a resume boundary, not proof
+			// that any of the unknown pause-to-resume interval was active.
+			resume := now.Add(24 * time.Hour)
+			boundary := &capture{}
+			if err := c.Tick(context.Background(), resume, &core.World{Metrics: boundary, Shape: eng}); err != nil {
+				t.Fatal(err)
+			}
+			if len(boundary.batch) != 0 {
+				t.Fatal("resume boundary fabricated unobserved active traffic")
+			}
+			for i := 1; i <= 3; i++ {
+				w := &capture{}
+				if err := c.Tick(context.Background(), resume.Add(time.Duration(i)*time.Minute), &core.World{Metrics: w, Shape: eng}); err != nil {
+					t.Fatal(err)
+				}
+				want := tick(t, control, now.Add(time.Duration(i)*time.Minute))
+				got := map[string]float64{}
+				for _, s := range w.batch {
+					got[s.Name] = s.Value
+				}
+				if len(got) != len(want) {
+					t.Fatalf("pause lost residual/observations: got %v want %v", got, want)
+				}
+				for k, v := range want {
+					if got[k] != v {
+						t.Fatalf("pause caught up or changed active model: %s got %v want %v", k, got[k], v)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestInitiallyPausedLongGapResumeBoundary(t *testing.T) {
+	c := build(t, queue())
+	now := time.Unix(1800000000, 0)
+	eng := shape.New("UTC", nil)
+	eng.SetVolumeMultiplier(0)
+	w := &capture{}
+	if err := c.Tick(context.Background(), now, &core.World{Metrics: w, Shape: eng}); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.batch) != 0 {
+		t.Fatal("initial pause emitted")
+	}
+	eng.SetVolumeMultiplier(1)
+	resume := now.Add(24 * time.Hour)
+	if err := c.Tick(context.Background(), resume, &core.World{Metrics: w, Shape: eng}); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.batch) != 0 {
+		t.Fatal("initially paused long-gap resume emitted unobserved traffic")
+	}
+	m := tick(t, c, resume.Add(time.Second))
+	if m["aws_sqs_number_of_messages_sent_sum"] != 1 || m["aws_sqs_number_of_messages_received_sum"] != 0 || m["aws_sqs_approximate_number_of_messages_delayed_average"] != 1 || m["aws_sqs_approximate_age_of_oldest_message_maximum"] != 0 {
+		t.Fatalf("resume did not start with exactly one active second: %v", m)
 	}
 }
 

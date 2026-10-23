@@ -75,6 +75,7 @@ type Construct struct {
 	queues    []queueState
 	last      time.Time
 	started   bool
+	paused    bool          // an observed pause requires a fresh positive boundary before accrual
 	pausedFor time.Duration // active-time model excludes master-paused intervals
 }
 
@@ -134,7 +135,9 @@ func (*Construct) Interval() time.Duration     { return time.Minute }
 
 // Tick observes at most one cadence window. It never replays missed windows;
 // duplicate/backward timestamps do not advance the model or re-emit old periods.
-// First observation models the preceding minute, as an explicit startup assumption.
+// First observation models the preceding minute, as an explicit startup assumption,
+// unless a pause was observed. The first positive observation after a pause only
+// establishes a resume boundary; no part of that unknown interval accrues activity.
 // Master pause freezes all queue mechanics (including cohort age/deadlines), keeps
 // fractional active residuals, and advances only the wall-clock observation fence.
 func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
@@ -147,6 +150,15 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		}
 		c.last = now
 		c.started = true
+		c.paused = true
+		return nil
+	}
+	if c.paused {
+		// The transition happened at an unknown point since the last paused
+		// observation. Freeze that entire interval too, including cohort clocks.
+		c.pausedFor += now.Sub(c.last)
+		c.last = now
+		c.paused = false
 		return nil
 	}
 	if w == nil || w.Metrics == nil {
