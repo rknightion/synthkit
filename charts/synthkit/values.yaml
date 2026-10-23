@@ -375,6 +375,9 @@ serviceAccount:
 # right readiness signal and the WRONG liveness signal — wiring it to liveness turns a Grafana
 # Cloud outage into a crash-loop. livenessProbe is therefore off by default.
 probes:
+  # Preserve old pinned-image compatibility. Opt in to -startupcheck only after
+  # verifying the exact image supports it; startup success is not live readiness.
+  startupCommand: "-healthcheck"
   startup:
     enabled: true
     periodSeconds: 10

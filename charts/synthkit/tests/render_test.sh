@@ -144,6 +144,52 @@ assert_absent "default" "$OUT" \
   'unhealthyPodEvictionPolicy'
 
 echo
+echo "== startup command: compatibility default, bounded opt-in, no readiness change =="
+OLD_STARTUP=$'startupProbe:\n            exec:\n              command: ["/app/synthkit", "-healthcheck"]'
+NEW_STARTUP=$'startupProbe:\n            exec:\n              command: ["/app/synthkit", "-startupcheck"]'
+# grep treats newline-separated patterns as alternatives; use a literal substring for blocks.
+assert_probe_block() {
+  local label="$1" out="$2" block="$3"
+  if [[ "$out" == *"$block"* ]]; then ok "$label"; else bad "$label"; fi
+}
+assert_probe_block "default startup" "$OUT" "$OLD_STARTUP"
+assert_probe_block "default readiness" "$OUT" $'readinessProbe:\n            exec:\n              command: ["/app/synthkit", "-healthcheck"]'
+# Compare whole manifests, changing ONLY the startup command. Retain all existing HA/non-HA,
+# state and exposure fixtures, including their image selections and probe timing/defaults.
+for f in "$CI_DIR"/*-values.yaml "$HA_CI_DIR"/*-values.yaml; do
+  BASE=$(render -f "$f")
+  if OPT=$(render -f "$f" --set probes.startupCommand=-startupcheck) &&
+     [ "$OPT" = "${BASE/"$OLD_STARTUP"/"$NEW_STARTUP"}" ]; then
+    ok "startup-only delta $(basename "$f")"
+  else
+    bad "startup-only delta $(basename "$f")"
+  fi
+done
+# An explicit image is render input, NOT evidence that its binary supports the flag.
+IMAGE_ARGS=(--set image.repository=example.invalid/synthkit --set image.tag=startup-fixture --set image.digest=)
+BASE=$(render "${IMAGE_ARGS[@]}" --set probes.liveness.enabled=true \
+  --set 'extraEnv[0].name=CONTROL_BASE_PATH' --set 'extraEnv[0].value=/synthkit')
+if OPT=$(render "${IMAGE_ARGS[@]}" --set probes.liveness.enabled=true \
+    --set 'extraEnv[0].name=CONTROL_BASE_PATH' --set 'extraEnv[0].value=/synthkit' \
+    --set probes.startupCommand=-startupcheck) &&
+   [ "$OPT" = "${BASE/"$OLD_STARTUP"/"$NEW_STARTUP"}" ]; then
+  ok "explicit image, base path and liveness: startup-only delta"
+else
+  bad "explicit image, base path and liveness: startup-only delta"
+fi
+assert_contains "explicit image" "$OPT" 'example.invalid/synthkit:startup-fixture'
+assert_probe_block "liveness unchanged" "$OPT" $'livenessProbe:\n            exec:\n              command: ["/app/synthkit", "-healthcheck"]'
+if EXPLICIT=$(render --set probes.startupCommand=-healthcheck) && [ "$EXPLICIT" = "$OUT" ]; then
+  ok "explicit compatibility command equals default"
+else
+  bad "explicit compatibility command equals default"
+fi
+assert_render_failure_contains "startup command injection" \
+  "startupCommand" --set-string 'probes.startupCommand=-startupcheck;echo injected'
+assert_render_failure_contains "startup arbitrary command" \
+  "startupCommand" --set-string probes.startupCommand=/bin/sh
+
+echo
 echo "== credential separation: self-obs never shares the data path =="
 OUT=$(render -f "$CI_DIR/03-live-selfobs-separate-stack-values.yaml")
 assert_secret_key "selfobs" "$OUT" GC_TOKEN                synthkit-data

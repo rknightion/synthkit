@@ -85,6 +85,25 @@ from outside the process.
 
 ---
 
+## Helm startup command opt-in
+
+The chart defaults `probes.startupCommand` to `-healthcheck` for compatibility with older
+images. The only other accepted value is `-startupcheck`; it changes **only** the startup probe.
+Before opting in, verify the exact selected image digest and its binary's full source revision
+using [image verification](#container-image), and verify that this exact binary implements
+`-startupcheck`. Helm rendering cannot attest flag support or image compatibility. Do not assume
+the chart's current default image supports the new flag. Select a verified compatible image
+explicitly with `image.repository` and `image.digest` (or clear `image.digest` when deliberately
+using `image.tag`) alongside `probes.startupCommand: "-startupcheck"`.
+
+On a compatible binary, startup success proves boot only, not live delivery. Readiness continues
+to run `-healthcheck`: selecting `DRY_RUN` or a sparse lane without a current successful sink
+acknowledgement must not become Kubernetes Ready or Argo Healthy merely because startup passed.
+Keep readiness and startup probes enabled and retain their timing and failure thresholds; do not
+raise emission rates to force readiness. Liveness remains **off by default** and, if explicitly
+enabled, still uses the delivery-aware `-healthcheck`, which can crash-loop during a backend
+outage. This opt-in neither changes readiness/liveness commands nor certifies backend readback.
+
 ## The `/data` volume contract
 
 !!! warning "Must be a DIRECTORY — not a single-file bind mount"

@@ -122,7 +122,7 @@ spec:
           {{- if .Values.probes.startup.enabled }}
           startupProbe:
             exec:
-              command: ["/app/synthkit", "-healthcheck"]
+              command: ["/app/synthkit", {{ .Values.probes.startupCommand | default "-healthcheck" | quote }}]
             periodSeconds: {{ .Values.probes.startup.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
             failureThreshold: {{ .Values.probes.startup.failureThreshold }}

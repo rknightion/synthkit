@@ -471,6 +471,12 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "startupCommand": {
+          "type": "string",
+          "enum": ["-healthcheck", "-startupcheck"],
+          "default": "-healthcheck",
+          "description": "Startup probe command. Keep -healthcheck for older images; -startupcheck requires a verified compatible image and proves boot only, not live readiness."
+        },
         "startup": {
           "$ref": "#/$defs/probe"
         },
